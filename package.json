@@ -9,7 +9,7 @@
     "db:init": "node db/init.js"
   },
   "dependencies": {
-    "@fastify/compress": "^8.3.1",
+    "@fastify/compress": "^7.0.3",
     "@fastify/cookie": "^9.3.0",
     "@fastify/formbody": "^7.4.0",
     "@fastify/multipart": "^8.3.0",
