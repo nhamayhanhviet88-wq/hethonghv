@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản Lý Nhân Viên - PostgreSQL Test</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 30px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #444;
+      transition: background 0.3s;
+    }
+
+    .status-dot.connected { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .status-dot.error { background: #f87171; box-shadow: 0 0 8px #f87171; }
+
+    .status-text { font-size: 0.85rem; color: #aaa; }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button:active { transform: scale(0.96); }
+
+    .btn-seed {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-seed:hover { box-shadow: 0 4px 20px rgba(102,126,234,0.4); }
+
+    .btn-refresh {
+      background: rgba(255,255,255,0.08);
+      color: #ccc;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,0.12); }
+
+    .btn-reset {
+      background: rgba(239,68,68,0.15);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.2);
+    }
+    .btn-reset:hover { background: rgba(239,68,68,0.25); }
+
+    .table-wrapper {
+      width: 100%;
+      max-width: 700px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .table-header {
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .table-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ccc;
+    }
+
+    .total-badge {
+      background: rgba(102,126,234,0.2);
+      color: #667eea;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 12px 24px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    tbody tr {
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover {
+      background: rgba(255,255,255,0.04);
+    }
+
+    tbody td {
+      padding: 14px 24px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .nvid {
+      color: #667eea;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .role-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+
+    .role-giamdoc    { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .role-truongphong { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .role-quanly     { background: rgba(52,211,153,0.15); color: #34d399; }
+    .role-nhanvien   { background: rgba(156,163,175,0.15); color: #9ca3af; }
+    .role-ketoan     { background: rgba(244,114,182,0.15); color: #f472b6; }
+    .role-default    { background: rgba(156,163,175,0.15); color: #9ca3af; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      background: rgba(52,211,153,0.15);
+      border: 1px solid rgba(52,211,153,0.3);
+      color: #34d399;
+    }
+
+    .toast.error {
+      background: rgba(248,113,113,0.15);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: #f87171;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    tbody tr {
+      animation: fadeInUp 0.3s ease forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📋 Quản Lý Nhân Viên</h1>
+  <p class="subtitle">PostgreSQL Test App &mdash; hvdb@localhost:5432</p>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Đang kết nối...</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn-seed" onclick="seedData()">🌱 Seed 10 Nhân Viên</button>
+    <button class="btn-refresh" onclick="loadData()">🔄 Làm Mới</button>
+    <button class="btn-reset" onclick="resetData()">🗑️ Xóa Tất Cả</button>
+  </div>
+
+  <div class="table-wrapper">
+    <div class="table-header">
+      <h2>Danh Sách Nhân Viên</h2>
+      <span class="total-badge" id="totalBadge">0 nhân viên</span>
+    </div>
+    <div id="tableBody"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const tableBody = document.getElementById('tableBody');
+    const totalBadge = document.getElementById('totalBadge');
+    const toast = document.getElementById('toast');
+
+    function getRoleClass(role) {
+      const map = {
+        'Giám Đốc': 'role-giamdoc',
+        'Trưởng Phòng': 'role-truongphong',
+        'Quản Lý': 'role-quanly',
+        'Nhân Viên': 'role-nhanvien',
+        'Kế Toán': 'role-ketoan',
+      };
+      return map[role] || 'role-default';
+    }
+
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/nhanvien');
+        const json = await res.json();
+
+        if (!json.success) throw new Error(json.error);
+
+        statusDot.className = 'status-dot connected';
+        statusText.textContent = 'Kết nối PostgreSQL thành công';
+        totalBadge.textContent = `${json.total} nhân viên`;
+
+        if (json.data.length === 0) {
+          tableBody.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">📭</div>
+              <p>Chưa có dữ liệu. Nhấn <strong>"Seed 10 Nhân Viên"</strong> để thêm.</p>
+            </div>`;
+          return;
+        }
+
+        let html = `<table>
+          <thead><tr>
+            <th>ID</th>
+            <th>Họ Tên</th>
+            <th>Chức Vụ</th>
+          </tr></thead><tbody>`;
+
+        json.data.forEach((nv, i) => {
+          html += `<tr style="animation-delay: ${i * 0.05}s">
+            <td class="nvid">#${nv.nvid}</td>
+            <td>${nv.ten}</td>
+            <td><span class="role-badge ${getRoleClass(nv.role)}">${nv.role}</span></td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        tableBody.innerHTML = html;
+
+      } catch (err) {
+        statusDot.className = 'status-dot error';
+        statusText.textContent = 'Lỗi: ' + err.message;
+        tableBody.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p>Không thể kết nối database. Kiểm tra Docker container.</p>
+          </div>`;
+      }
+    }
+
+    async function seedData() {
+      try {
+        const res = await fetch('/api/seed', { method: 'POST' });
+        const json = await res.json();
+        if (!json.success) {
+          showToast(json.message || json.error, 'error');
+          return;
+        }
+        showToast(json.message);
+        loadData();
+      } catch (err) {
+        showToast('Lỗi: ' + err.message, 'error');
+      }
+    }
+
+    async function resetData() {
+      if (!confirm('Xóa toàn bộ dữ liệu nhân viên?')) return;
+      try {
+        const res = await fetch('/api/nhanvien', { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) {
+          showToast(json.error, 'error');
+          return;
+        }
+        showToast(json.message);
+        loadData();
+      } catch (err) {
+        showToast('Lỗi: ' + err.message, 'error');
+      }
+    }
+
+    // Load on page ready
+    loadData();
+  </script>
+</body>
+</html>

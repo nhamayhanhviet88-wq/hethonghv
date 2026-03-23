@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Affiliate HV - Đồng Phục HV</title>
+    <meta name="description" content="Quản lý tài khoản affiliate theo cơ cấu tổ chức">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        .aff-header {
+            background: linear-gradient(135deg, #122546, #1e3a5f);
+            padding: 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .aff-header .brand {
+            display: flex; align-items: center; gap: 12px; color: #fad24c;
+            text-decoration: none;
+        }
+        .aff-header .brand img { width: 36px; height: 36px; border-radius: 8px; }
+        .aff-header .brand h1 { font-size: 18px; font-weight: 700; }
+        .aff-header .back-btn {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+            font-size: 13px; transition: all 0.2s;
+        }
+        .aff-header .back-btn:hover { background: rgba(255,255,255,0.25); }
+
+        .aff-container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+
+        .aff-toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        }
+        .aff-toolbar h2 { color: #122546; font-size: 22px; }
+        .aff-toolbar .actions { display: flex; gap: 10px; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white; border: none; padding: 10px 20px; border-radius: 10px;
+            font-weight: 600; cursor: pointer; font-size: 13px;
+            transition: all 0.2s; box-shadow: 0 2px 6px rgba(99,102,241,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+
+        .btn-secondary {
+            background: white; color: #122546; border: 1px solid #d1d5db;
+            padding: 10px 20px; border-radius: 10px; font-weight: 600;
+            cursor: pointer; font-size: 13px; transition: all 0.2s;
+        }
+        .btn-secondary:hover { border-color: #6366f1; color: #6366f1; }
+
+        /* Stats cards */
+        .stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card {
+            background: white; border-radius: 12px; padding: 20px;
+            flex: 1; min-width: 200px;
+            border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .stat-card .label { font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: #122546; margin-top: 4px; }
+        .stat-card .sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+        /* Tree view */
+        .tree-container { background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
+        
+        .dept-row {
+            padding: 14px 20px; border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; transition: background 0.15s;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .dept-row:hover { background: #f8fafc; }
+        .dept-row .dept-info { display: flex; align-items: center; gap: 10px; }
+        .dept-row .dept-name { font-weight: 700; color: #122546; font-size: 14px; }
+        .dept-row .dept-stats {
+            display: flex; gap: 16px; font-size: 11px; color: #6b7280;
+        }
+        .dept-row .badge {
+            background: #e0e7ff; color: #4338ca; padding: 2px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600;
+        }
+        .dept-row.root { background: #122546; }
+        .dept-row.root .dept-name { color: #fad24c; }
+        .dept-row.root .dept-stats { color: rgba(255,255,255,0.6); }
+        .dept-row.root .badge { background: rgba(250,210,76,0.2); color: #fad24c; }
+        .dept-row.root:hover { background: #1a3563; }
+
+        .child-dept { padding-left: 24px; }
+        .child-dept .dept-row { background: #fafbfc; }
+        .child-dept .dept-row:hover { background: #f0f4ff; }
+
+        .emp-row {
+            padding: 10px 20px 10px 56px; border-bottom: 1px solid #f3f4f6;
+            display: flex; align-items: center; justify-content: space-between;
+            transition: background 0.15s;
+        }
+        .emp-row:hover { background: #f8fafc; }
+        .emp-row .emp-info { display: flex; align-items: center; gap: 10px; }
+        .emp-row .emp-name { font-weight: 600; color: #374151; font-size: 13px; }
+        .emp-row .emp-role { font-size: 11px; color: #6b7280; }
+        .emp-row .emp-stats { display: flex; gap: 14px; font-size: 11px; color: #6b7280; }
+
+        .aff-row {
+            padding: 8px 20px 8px 80px; border-bottom: 1px solid #f9fafb;
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fefce8; transition: background 0.15s;
+        }
+        .aff-row:hover { background: #fef9c3; }
+        .aff-row .aff-info { display: flex; align-items: center; gap: 8px; }
+        .aff-row .aff-name { font-size: 13px; color: #92400e; font-weight: 500; }
+        .aff-row .aff-role {
+            font-size: 10px; padding: 1px 8px; border-radius: 10px;
+            font-weight: 600;
+        }
+        .aff-row .aff-role.hoa_hong { background: #fce7f3; color: #be185d; }
+        .aff-row .aff-role.ctv { background: #dbeafe; color: #1d4ed8; }
+        .aff-row .aff-role.nuoi_duong { background: #d1fae5; color: #065f46; }
+        .aff-row .aff-role.sinh_vien { background: #ede9fe; color: #5b21b6; }
+        .aff-row .aff-stats { display: flex; gap: 14px; font-size: 11px; color: #6b7280; }
+
+        .btn-assign {
+            background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;
+            padding: 4px 12px; border-radius: 8px; font-size: 11px;
+            cursor: pointer; font-weight: 600; transition: all 0.2s;
+        }
+        .btn-assign:hover { background: #d1fae5; }
+
+        .btn-unassign {
+            background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+            padding: 3px 10px; border-radius: 8px; font-size: 11px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-unassign:hover { background: #fee2e2; }
+
+        .no-affiliate {
+            padding: 6px 20px 6px 80px; font-size: 12px; color: #9ca3af;
+            font-style: italic;
+        }
+
+        .expand-icon { font-size: 12px; transition: transform 0.2s; display: inline-block; width: 16px; }
+        .expand-icon.open { transform: rotate(90deg); }
+
+        .hidden { display: none !important; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal-box {
+            background: white; border-radius: 16px; width: 500px; max-width: 90vw;
+            max-height: 80vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 { font-size: 16px; color: #122546; }
+        .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280; }
+        .modal-body { padding: 20px; overflow-y: auto; max-height: 60vh; }
+        .modal-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px; }
+
+        .search-input {
+            width: 100%; padding: 10px 14px; border: 1px solid #d1d5db;
+            border-radius: 10px; font-size: 13px; outline: none;
+        }
+        .search-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+        .list-item {
+            padding: 10px 14px; border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; border-radius: 8px; margin-bottom: 4px;
+            transition: background 0.15s;
+        }
+        .list-item:hover { background: #f0f4ff; }
+        .list-item.selected { background: #e0e7ff; border-color: #6366f1; }
+        .list-item .item-title { font-weight: 600; color: #122546; font-size: 13px; }
+        .list-item .item-sub { font-size: 11px; color: #6b7280; }
+
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            background: #122546; color: white; padding: 12px 20px;
+            border-radius: 10px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <header class="aff-header">
+        <a href="/dashboard" class="brand">
+            <img src="/images/logo.png" alt="Logo">
+            <h1>QUẢN LÝ AFFILIATE HV</h1>
+        </a>
+        <button class="back-btn" onclick="window.location='/dashboard'">← Quay về Dashboard</button>
+    </header>
+
+    <div class="aff-container">
+        <div class="aff-toolbar">
+            <h2>🤝 Phân Bổ Affiliate</h2>
+            <div class="actions">
+                <button class="btn-secondary" onclick="loadData()">🔄 Tải lại</button>
+                <button class="btn-primary" onclick="openAddDeptModal()">➕ Thêm Đơn Vị</button>
+            </div>
+        </div>
+
+        <div class="stats-row" id="statsRow"></div>
+        <div class="tree-container" id="treeContainer">
+            <div style="padding:40px;text-align:center;color:#6b7280;">⏳ Đang tải dữ liệu...</div>
+        </div>
+    </div>
+
+    <!-- Modal: Thêm đơn vị -->
+    <div class="modal-overlay hidden" id="addDeptModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>➕ Thêm Đơn Vị Hiển Thị</h3>
+                <button class="modal-close" onclick="closeModal('addDeptModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="search-input" placeholder="🔍 Tìm đơn vị / phòng ban..." id="searchDept" oninput="filterDeptList()">
+                <div id="deptList" style="margin-top:12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('addDeptModal')">Đóng</button>
+                <button class="btn-primary" onclick="addSelectedDept()">Thêm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Gán affiliate cho nhân viên -->
+    <div class="modal-overlay hidden" id="assignModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>🔗 Gán Affiliate cho <span id="assignEmpName"></span></h3>
+                <button class="modal-close" onclick="closeModal('assignModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">Chọn tài khoản affiliate chưa gán:</p>
+                <div id="unassignedList" style="margin-top:8px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('assignModal')">Đóng</button>
+                <button class="btn-primary" onclick="confirmAssign()">Gán</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        const ROLE_LABELS = {
+            hoa_hong: 'Hoa Hồng', ctv: 'CTV',
+            nuoi_duong: 'Nuôi Dưỡng', sinh_vien: 'Sinh Viên'
+        };
+
+        let _data = { departments: [], employees: [], affiliates: [] };
+        let _visibleDepts = JSON.parse(localStorage.getItem('aff_visible_depts') || '[]');
+        let _selectedDeptId = null;
+        let _assignEmpId = null;
+        let _selectedAffId = null;
+        let _expandedDepts = {};
+        let _expandedEmps = {};
+
+        async function apiCall(url, method = 'GET', body = null) {
+            const token = localStorage.getItem('token');
+            const opts = { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            if (res.status === 401) { window.location = '/'; return {}; }
+            return res.json();
+        }
+
+        function showToast(msg) {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = 'toast'; t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function formatMoney(n) {
+            if (!n) return '0đ';
+            if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'tr';
+            if (n >= 1e3) return (n / 1e3).toFixed(0) + 'k';
+            return n.toLocaleString('vi-VN') + 'đ';
+        }
+
+        function formatDate(d) {
+            if (!d) return '—';
+            return new Date(d).toLocaleDateString('vi-VN');
+        }
+
+        async function loadData() {
+            _data = await apiCall('/api/affiliate/org-tree');
+            renderStats();
+            renderTree();
+        }
+
+        function renderStats() {
+            const { affiliates } = _data;
+            const totalAffs = affiliates.length;
+            const totalCustomers = affiliates.reduce((s, a) => s + (a.total_customers || 0), 0);
+            const totalOrders = affiliates.reduce((s, a) => s + (a.total_orders || 0), 0);
+            const totalRevenue = affiliates.reduce((s, a) => s + (a.total_revenue || 0), 0);
+
+            document.getElementById('statsRow').innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Tổng Affiliate</div>
+                    <div class="value">${totalAffs}</div>
+                    <div class="sub">Hoa Hồng / CTV / Nuôi Dưỡng / Sinh Viên</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Khách Giới Thiệu</div>
+                    <div class="value">${totalCustomers}</div>
+                    <div class="sub">Tổng khách từ affiliate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Đơn Hàng</div>
+                    <div class="value">${totalOrders}</div>
+                    <div class="sub">Từ khách affiliate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Doanh Thu</div>
+                    <div class="value">${formatMoney(totalRevenue)}</div>
+                    <div class="sub">Tổng doanh thu affiliate</div>
+                </div>
+            `;
+        }
+
+        function renderTree() {
+            const { departments, employees, affiliates } = _data;
+            const container = document.getElementById('treeContainer');
+
+            if (_visibleDepts.length === 0) {
+                container.innerHTML = `<div style="padding:40px;text-align:center;color:#6b7280;">
+                    <div style="font-size:40px;margin-bottom:12px;">🏢</div>
+                    <div style="font-size:14px;margin-bottom:16px;">Chưa có đơn vị nào. Thêm đơn vị từ Cơ Cấu Tổ Chức.</div>
+                    <button class="btn-primary" onclick="openAddDeptModal()">➕ Thêm Đơn Vị</button>
+                </div>`;
+                return;
+            }
+
+            let html = '';
+            const roots = departments.filter(d => _visibleDepts.includes(d.id) && !d.parent_id);
+            const childrenOf = pid => departments.filter(d => d.parent_id === pid && (_visibleDepts.includes(d.id) || _visibleDepts.includes(pid)));
+            const empsOf = deptId => employees.filter(e => e.department_id === deptId);
+            const affsOf = empId => affiliates.filter(a => a.managed_by_user_id === empId);
+
+            function renderDeptBlock(dept, isRoot) {
+                const children = childrenOf(dept.id);
+                const allEmps = empsOf(dept.id);
+                const deptAffs = affiliates.filter(a => a.department_id === dept.id);
+                const deptRevenue = deptAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+                const isExpanded = _expandedDepts[dept.id] !== false;
+
+                html += `
+                <div class="dept-row ${isRoot ? 'root' : ''}" onclick="toggleDept(${dept.id})">
+                    <div class="dept-info">
+                        <span class="expand-icon ${isExpanded ? 'open' : ''}">▶</span>
+                        <span class="dept-name">${isRoot ? '🏢' : '📁'} ${dept.name}</span>
+                        <span class="badge">${deptAffs.length} affiliate</span>
+                    </div>
+                    <div class="dept-stats">
+                        <span>👥 ${allEmps.length} NV</span>
+                        <span>💰 ${formatMoney(deptRevenue)}</span>
+                        <button class="btn-unassign" onclick="event.stopPropagation();removeDept(${dept.id})" title="Ẩn đơn vị">✕</button>
+                    </div>
+                </div>`;
+
+                if (isExpanded) {
+                    // Child departments
+                    if (children.length > 0) {
+                        html += '<div class="child-dept">';
+                        children.forEach(c => renderDeptBlock(c, false));
+                        html += '</div>';
+                    }
+
+                    // Employees
+                    allEmps.forEach(emp => {
+                        const empAffs = affsOf(emp.id);
+                        const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+                        const isEmpExpanded = _expandedEmps[emp.id] !== false;
+
+                        html += `
+                        <div class="emp-row" onclick="toggleEmp(${emp.id})" style="cursor:pointer;">
+                            <div class="emp-info">
+                                <span class="expand-icon ${isEmpExpanded ? 'open' : ''}">▶</span>
+                                <span class="emp-name">👤 ${emp.full_name}</span>
+                                <span class="emp-role">${emp.role === 'truong_phong' ? 'Trưởng Phòng' : emp.role === 'quan_ly' ? 'Quản Lý' : 'Nhân Viên'}</span>
+                                <span style="background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${empAffs.length}</span>
+                            </div>
+                            <div class="emp-stats">
+                                <span>💰 ${formatMoney(empRevenue)}</span>
+                                <button class="btn-assign" onclick="event.stopPropagation();openAssignModal(${emp.id},'${emp.full_name.replace(/'/g, "\\'")}')">➕ Gán</button>
+                            </div>
+                        </div>`;
+
+                        if (isEmpExpanded) {
+                            if (empAffs.length === 0) {
+                                html += `<div class="no-affiliate">— Chưa có affiliate —</div>`;
+                            } else {
+                                empAffs.forEach(aff => {
+                                    html += `
+                                    <div class="aff-row">
+                                        <div class="aff-info">
+                                            <span class="aff-role ${aff.role}">${ROLE_LABELS[aff.role] || aff.role}</span>
+                                            <span class="aff-name">${aff.full_name}</span>
+                                            <span style="font-size:11px;color:#9ca3af;">${aff.phone || ''}</span>
+                                        </div>
+                                        <div class="aff-stats">
+                                            <span>👥 ${aff.total_customers} KH</span>
+                                            <span>📦 ${aff.total_orders} đơn</span>
+                                            <span>💰 ${formatMoney(aff.total_revenue)}</span>
+                                            <span>📅 ${formatDate(aff.created_at)}</span>
+                                            <button class="btn-unassign" onclick="unassignAff(${aff.id})" title="Bỏ gán">✕</button>
+                                        </div>
+                                    </div>`;
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Render visible root departments + their children
+            const allVisibleDepts = departments.filter(d => {
+                if (_visibleDepts.includes(d.id)) return true;
+                // Also include children of visible depts
+                let parent = d.parent_id;
+                while (parent) {
+                    if (_visibleDepts.includes(parent)) return true;
+                    const p = departments.find(x => x.id === parent);
+                    parent = p ? p.parent_id : null;
+                }
+                return false;
+            });
+
+            const rootDepts = allVisibleDepts.filter(d => !d.parent_id || !allVisibleDepts.find(x => x.id === d.parent_id));
+            rootDepts.forEach(d => renderDeptBlock(d, !d.parent_id));
+
+            container.innerHTML = html || `<div style="padding:30px;text-align:center;color:#6b7280;">Không có dữ liệu</div>`;
+        }
+
+        function toggleDept(id) { _expandedDepts[id] = _expandedDepts[id] === false ? true : false; renderTree(); }
+        function toggleEmp(id) { _expandedEmps[id] = _expandedEmps[id] === false ? true : false; renderTree(); }
+
+        function removeDept(id) {
+            _visibleDepts = _visibleDepts.filter(d => d !== id);
+            localStorage.setItem('aff_visible_depts', JSON.stringify(_visibleDepts));
+            renderTree();
+            showToast('Đã ẩn đơn vị');
+        }
+
+        // Add Dept Modal
+        function openAddDeptModal() {
+            document.getElementById('addDeptModal').classList.remove('hidden');
+            renderDeptPickerList();
+        }
+
+        function renderDeptPickerList() {
+            const { departments } = _data;
+            const search = (document.getElementById('searchDept').value || '').toLowerCase();
+            const filtered = departments.filter(d => !_visibleDepts.includes(d.id) && d.name.toLowerCase().includes(search));
+
+            document.getElementById('deptList').innerHTML = filtered.length === 0
+                ? '<div style="padding:20px;text-align:center;color:#9ca3af;">Không có đơn vị nào</div>'
+                : filtered.map(d => `
+                    <div class="list-item ${_selectedDeptId === d.id ? 'selected' : ''}" onclick="selectDeptPick(${d.id})">
+                        <div class="item-title">${d.parent_id ? '📁' : '🏢'} ${d.name}</div>
+                        <div class="item-sub">${d.code || ''}</div>
+                    </div>
+                `).join('');
+        }
+
+        function filterDeptList() { renderDeptPickerList(); }
+        function selectDeptPick(id) { _selectedDeptId = id; renderDeptPickerList(); }
+
+        function addSelectedDept() {
+            if (!_selectedDeptId) { showToast('Chọn đơn vị trước'); return; }
+            _visibleDepts.push(_selectedDeptId);
+            localStorage.setItem('aff_visible_depts', JSON.stringify(_visibleDepts));
+            _selectedDeptId = null;
+            closeModal('addDeptModal');
+            renderTree();
+            showToast('✅ Đã thêm đơn vị');
+        }
+
+        // Assign Modal
+        async function openAssignModal(empId, empName) {
+            _assignEmpId = empId;
+            _selectedAffId = null;
+            document.getElementById('assignEmpName').textContent = empName;
+            document.getElementById('assignModal').classList.remove('hidden');
+
+            const data = await apiCall('/api/affiliate/unassigned');
+            const list = data.affiliates || [];
+
+            document.getElementById('unassignedList').innerHTML = list.length === 0
+                ? '<div style="padding:20px;text-align:center;color:#9ca3af;">Không có affiliate chưa gán</div>'
+                : list.map(a => `
+                    <div class="list-item ${_selectedAffId === a.id ? 'selected' : ''}" onclick="selectAffPick(${a.id})">
+                        <div class="item-title">
+                            <span class="aff-role ${a.role}" style="font-size:10px;padding:1px 8px;border-radius:10px;font-weight:600;">${ROLE_LABELS[a.role]}</span>
+                            ${a.full_name}
+                        </div>
+                        <div class="item-sub">${a.phone || ''} · Tạo: ${formatDate(a.created_at)}</div>
+                    </div>
+                `).join('');
+        }
+
+        function selectAffPick(id) {
+            _selectedAffId = id;
+            document.querySelectorAll('#unassignedList .list-item').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        async function confirmAssign() {
+            if (!_assignEmpId || !_selectedAffId) { showToast('Chọn affiliate trước'); return; }
+            const data = await apiCall('/api/affiliate/assign', 'POST', {
+                affiliate_user_id: _selectedAffId,
+                employee_user_id: _assignEmpId
+            });
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                closeModal('assignModal');
+                await loadData();
+            } else {
+                showToast('❌ ' + (data.error || 'Lỗi'));
+            }
+        }
+
+        async function unassignAff(affId) {
+            if (!confirm('Bỏ gán affiliate này?')) return;
+            const data = await apiCall('/api/affiliate/unassign', 'POST', { affiliate_user_id: affId });
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                await loadData();
+            } else {
+                showToast('❌ ' + (data.error || 'Lỗi'));
+            }
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // Init
+        loadData();
+    </script>
+</body>
+</html>
