@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đồng Phục HV - Đăng Nhập</title>
+    <meta name="description" content="Hệ thống quản trị khách hàng Đồng Phục HV">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-logo">
+                <img src="/images/logo.png" alt="Đồng Phục HV">
+                <h1>ĐỒNG PHỤC HV</h1>
+                <p>Tận tâm dựng xây giá trị</p>
+            </div>
+
+            <div id="loginError" class="login-error"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Tài khoản</label>
+                    <input type="text" id="username" class="form-control" placeholder="Nhập tên đăng nhập" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" class="form-control" placeholder="Nhập mật khẩu" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    ĐĂNG NHẬP
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check if already logged in
+        fetch('/api/auth/me').then(r => r.json()).then(data => {
+            if (data.user) {
+                window.location.href = data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
+            }
+        }).catch(() => {});
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            const errDiv = document.getElementById('loginError');
+            
+            btn.innerHTML = '<span class="loading-spinner"></span>';
+            btn.disabled = true;
+            errDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    window.location.href = data.user && data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
+                } else {
+                    errDiv.textContent = data.error;
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.textContent = 'Lỗi kết nối server';
+                errDiv.style.display = 'block';
+            }
+
+            btn.innerHTML = 'ĐĂNG NHẬP';
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>

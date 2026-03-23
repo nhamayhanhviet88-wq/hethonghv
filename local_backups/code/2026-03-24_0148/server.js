@@ -55,30 +55,9 @@ async function start() {
         prefix: '/'
     });
 
-    // Serve uploaded files (PROTECTED - require login)
+    // Serve uploaded files
     const uploadsDir = path.join(__dirname, 'uploads');
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-    // Auth check for uploads - block unauthenticated access to sensitive files
-    const jwt = require('jsonwebtoken');
-    fastify.addHook('onRequest', (request, reply, done) => {
-        if (request.url.startsWith('/uploads/')) {
-            const token = request.cookies?.token;
-            if (!token) {
-                reply.code(401).send({ error: 'Chưa đăng nhập' });
-                return;
-            }
-            try {
-                jwt.verify(token, process.env.JWT_SECRET);
-                done();
-            } catch (err) {
-                reply.code(401).send({ error: 'Token không hợp lệ' });
-            }
-        } else {
-            done();
-        }
-    });
-
     fastify.register(require('@fastify/static'), {
         root: uploadsDir,
         prefix: '/uploads/',

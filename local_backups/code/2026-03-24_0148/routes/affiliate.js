@@ -10,12 +10,6 @@ async function affiliateRoutes(fastify) {
         const user = request.user;
         const dbUser = await db.get('SELECT id, role, department_id, managed_by_user_id FROM users WHERE id = ?', [user.id]);
 
-        // Block affiliate users from seeing internal org tree
-        const AFFILIATE_BLOCK_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
-        if (AFFILIATE_BLOCK_ROLES.includes(user.role)) {
-            return { departments: [], employees: [], affiliates: [] };
-        }
-
         const departments = await db.all(`
             SELECT d.id, d.name, d.code, d.parent_id, d.status, d.head_user_id
             FROM departments d WHERE d.status = 'active'
@@ -916,8 +910,8 @@ async function affiliateRoutes(fastify) {
         return { success: true, message: 'Đã xóa giải thưởng' };
     });
 
-    // Get users by department IDs (for winner selection) - admin only
-    fastify.get('/api/affiliate/awards/users-by-dept', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request) => {
+    // Get users by department IDs (for winner selection)
+    fastify.get('/api/affiliate/awards/users-by-dept', { preHandler: [authenticate] }, async (request) => {
         const { dept_ids } = request.query; // comma-separated
         if (!dept_ids) return { users: [] };
         const ids = dept_ids.split(',').map(d => parseInt(d)).filter(d => d);
