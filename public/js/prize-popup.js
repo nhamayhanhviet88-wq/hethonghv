@@ -89,7 +89,7 @@ function _showPrizePopup(award) {
                         <button class="pc-emoji-btn" onclick="_pcAddEmoji(\'👑\')">👑</button>\
                     </div>\
                     <div class="pc-comment-input">\
-                        <input type="text" id="pcCommentInput" placeholder="Viết lời chúc mừng..." maxlength="200">\
+                        <input type="text" id="pcCommentInput" placeholder="Viết lời chúc mừng..." maxlength="200" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitPrizeComment(' + award.id + ')}">\
                         <button onclick="submitPrizeComment(' + award.id + ')">🎉 Gửi</button>\
                     </div>\
                     <div class="pc-comments-list" id="pcCommentsList"></div>\
