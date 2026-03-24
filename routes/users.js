@@ -35,6 +35,11 @@ async function usersRoutes(fastify, options) {
 
     // Sinh nhật hôm nay
     fastify.get('/api/users/birthdays-today', { preHandler: [authenticate] }, async (request, reply) => {
+        // Block affiliate accounts from seeing birthday popups
+        const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+        if (AFFILIATE_ROLES.includes(request.user.role)) {
+            return { users: [] };
+        }
         const users = await db.all(
             `SELECT id, full_name, role, birth_date FROM users 
              WHERE status = 'active' AND birth_date IS NOT NULL AND birth_date != ''

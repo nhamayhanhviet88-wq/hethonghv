@@ -934,6 +934,11 @@ async function affiliateRoutes(fastify) {
 
     // Get pending popup awards for current user
     fastify.get('/api/affiliate/awards/popup', { preHandler: [authenticate] }, async (request) => {
+        // Block affiliate accounts from seeing prize popups
+        const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+        if (AFFILIATE_ROLES.includes(request.user.role)) {
+            return { awards: [], popup: null };
+        }
         const userId = request.user.id;
 
         // Get settings from app_config

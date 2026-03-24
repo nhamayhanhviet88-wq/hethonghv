@@ -111,10 +111,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     handleRoute();
 
-    // Start prize celebration popup polling
-    setTimeout(function() {
-        if (typeof initPrizePopupSystem === 'function') initPrizePopupSystem();
-    }, 2000);
+    // Start prize celebration popup polling (skip for affiliate accounts)
+    const AFFILIATE_POPUP_BLOCK = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+    if (currentUser && !AFFILIATE_POPUP_BLOCK.includes(currentUser.role)) {
+        setTimeout(function() {
+            if (typeof initPrizePopupSystem === 'function') initPrizePopupSystem();
+        }, 2000);
+    }
 
     // Restore scroll position after F5
     const savedScroll = sessionStorage.getItem('scrollPos');
@@ -1115,8 +1118,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sidebar) { sidebar.classList.add('collapsed'); }
         if (btn) { btn.textContent = '▶'; }
     }
-    // Check birthday after small delay
-    setTimeout(checkBirthdayToday, 2000);
+    // Check birthday after small delay (skip for affiliate accounts)
+    const AFFILIATE_ROLES_BD = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+    if (!currentUser || !AFFILIATE_ROLES_BD.includes(currentUser.role)) {
+        setTimeout(checkBirthdayToday, 2000);
+    }
 });
 
 // ========== BIRTHDAY POPUP ==========
