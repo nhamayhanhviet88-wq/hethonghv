@@ -98,7 +98,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
     // ========== COUNT PENDING CANCEL REQUESTS ==========
     fastify.get('/api/cancel/pending-count', { preHandler: [authenticate] }, async (request, reply) => {
         const result = await db.get(`SELECT COUNT(*) as count FROM customers WHERE cancel_requested = 1 AND cancel_approved = 0`);
-        return { count: result?.count || 0 };
+        return { count: Number(result?.count) || 0 };
     });
 
     // ========== COUNT RECENTLY AUTO-REVERTED FOR NV ==========

@@ -235,7 +235,7 @@ async function emPopupCheck() {
         // Fetch pending emergencies for this user
         const data = await apiCall('/api/emergencies?status_filter=pending');
         const emergencies = (data.emergencies || []).filter(e => e.status !== 'resolved');
-        if (emergencies.length === 0) {
+        if (!emergencies || emergencies.length <= 0) {
             // Mark as shown even with 0 so we don't keep checking
             if (hhmm >= time1) sessionStorage.setItem('emPopup_' + dateStr + '_' + time1, '1');
             if (hhmm >= time2) sessionStorage.setItem('emPopup_' + dateStr + '_' + time2, '1');
@@ -324,8 +324,8 @@ async function cancelNVPopupCheck() {
         if (hhmm >= time1) sessionStorage.setItem('cancelNV_' + dateStr + '_' + time1, '1');
         if (hhmm >= time2) sessionStorage.setItem('cancelNV_' + dateStr + '_' + time2, '1');
 
-        if (!data.count || data.count === 0) return;
-        cancelNVShowPopup(data.count, data.customers || []);
+        if (!data.count || Number(data.count) <= 0) return;
+        cancelNVShowPopup(Number(data.count), data.customers || []);
     } catch(e) {}
 }
 
@@ -386,9 +386,9 @@ async function cancelManagerPopupCheck() {
         sessionStorage.setItem('cancelMgr_' + dateStr + '_' + time1, '1');
 
         const data = await apiCall('/api/cancel/pending-count');
-        if (!data.count || data.count === 0) return;
+        if (!data.count || Number(data.count) <= 0) return;
 
-        cancelManagerShowPopup(data.count);
+        cancelManagerShowPopup(Number(data.count));
     } catch(e) {}
 }
 
