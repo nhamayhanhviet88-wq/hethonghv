@@ -156,7 +156,7 @@ async function renderChuyenSoPage(container) {
                     <div id="csoJobTitleRow" style="display:none; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>Chức Danh <span style="color:var(--danger)">*</span></label>
-                            <select id="csoJobTitle" class="form-control" required>
+                            <select id="csoJobTitle" class="form-control">
                                 <option value="">-- Chọn Chức Danh --</option>
                             </select>
                         </div>
