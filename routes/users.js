@@ -51,9 +51,14 @@ async function usersRoutes(fastify, options) {
 
     // Lấy danh sách dropdown
     fastify.get('/api/users/dropdown', { preHandler: [authenticate] }, async (request, reply) => {
-        // Block affiliate users from seeing internal employee list
+        // Affiliate users: only return their manager (for chuyển số)
         const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
         if (AFFILIATE_ROLES.includes(request.user.role)) {
+            const me = await db.get('SELECT managed_by_user_id FROM users WHERE id = ?', [request.user.id]);
+            if (me && me.managed_by_user_id) {
+                const mgr = await db.get("SELECT id, full_name, role, department_id, source_crm_type, managed_by_user_id FROM users WHERE id = ? AND status = 'active'", [me.managed_by_user_id]);
+                return { users: mgr ? [mgr] : [] };
+            }
             return { users: [] };
         }
         const { role } = request.query;
