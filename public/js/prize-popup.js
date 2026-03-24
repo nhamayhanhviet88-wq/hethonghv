@@ -100,6 +100,12 @@ function _showPrizePopup(award) {
 
     document.body.appendChild(overlay);
 
+    // Click outside popup to close
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay || e.target === overlay.firstElementChild) closePrizePopup();
+    });
+    overlay.querySelector('.pc-container').addEventListener('click', function(e) { e.stopPropagation(); });
+
     // Generate confetti
     _pcGenerateConfetti();
 
