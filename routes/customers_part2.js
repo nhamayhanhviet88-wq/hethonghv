@@ -551,6 +551,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc' };
         if (statusMap[log_type]) {
             await db.run('UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?', [statusMap[log_type], customerId]);
+
+            // Reset cancel status if customer was cancelled → return to normal flow
+            if (customer.cancel_approved === 1 || customer.cancel_approved === -2) {
+                await db.run('UPDATE customers SET cancel_requested = 0, cancel_approved = 0, cancel_reason = NULL, cancel_requested_by = NULL, cancel_requested_at = NULL, cancel_approved_by = NULL, cancel_approved_at = NULL WHERE id = ?', [customerId]);
+            }
             // Hoàn Thành Đơn → complete ALL active orders + calculate commission per order
             if (log_type === 'hoan_thanh') {
                 const activeOrders = await db.all("SELECT id FROM order_codes WHERE customer_id = ? AND status = 'active'", [customerId]);
