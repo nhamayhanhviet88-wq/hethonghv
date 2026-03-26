@@ -126,18 +126,53 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const handler = await db.get('SELECT * FROM users WHERE id = ?', [Number(handler_id)]);
         if (!handler) return reply.code(404).send({ error: 'Không tìm thấy người xử lý' });
 
+        // Check if there's already a pending emergency for this customer
+        const pendingEm = await db.get("SELECT id FROM emergencies WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
+
+        // Calculate next business day for appointment
+        const vnNow = new Date(Date.now() + 7*3600000);
+        const nextDay = new Date(vnNow);
+        nextDay.setDate(nextDay.getDate() + 1);
+        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1); // Skip Sunday
+        const nextBizDay = nextDay.toISOString().split('T')[0];
+
+        if (pendingEm) {
+            // REPEAT: Don't create new emergency, just log + send Telegram reminder
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'cap_cuu_sep', ?, ?)`,
+                [Number(customer_id), `🚨 Nhắc lại cấp cứu sếp: ${reason}`, request.user.id]);
+            // Update appointment to next business day
+            await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
+
+            const tgMsg = `🚨 <b>NHẮC LẠI CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
+            if (handler.telegram_group_id) sendTelegramMessage(handler.telegram_group_id, tgMsg);
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            return { success: true, id: pendingEm.id, message: 'Đã nhắc lại cấp cứu sếp!' };
+        }
+
+        // FIRST TIME: Create new emergency
         const result = await db.run('INSERT INTO emergencies (customer_id, requested_by, reason, handler_id) VALUES (?,?,?,?)',
             [Number(customer_id), request.user.id, reason, Number(handler_id)]);
 
-        // Also log consultation so customer appears in 'Đã xử lý hôm nay'
+        // Log consultation so customer appears in 'Đã xử lý hôm nay'
         await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'cap_cuu_sep', ?, ?)`,
             [Number(customer_id), `🚨 Cấp cứu sếp: ${reason}`, request.user.id]);
+
+        // Auto-set appointment to next business day
+        await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
         const tgMsg = `🚨 <b>CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
         if (handler.telegram_group_id) sendTelegramMessage(handler.telegram_group_id, tgMsg);
         const globalId = process.env.TELEGRAM_GROUP_ID;
         if (globalId) sendTelegramMessage(globalId, tgMsg);
         return { success: true, id: result.lastInsertRowid, message: 'Đã gửi cấp cứu sếp!' };
+    });
+
+    // Check if customer has a pending emergency
+    fastify.get('/api/emergencies/pending/:customerId', { preHandler: [authenticate] }, async (request, reply) => {
+        const cid = Number(request.params.customerId);
+        const pending = await db.get("SELECT id, reason, handler_id FROM emergencies WHERE customer_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1", [cid]);
+        return { hasPending: !!pending, emergency: pending || null };
     });
 
     fastify.get('/api/emergencies/handlers', { preHandler: [authenticate] }, async (request, reply) => {

@@ -1,5 +1,6 @@
 @echo off
 REM === BACKUP TAT CA LEN GOOGLE DRIVE - 21H MOI TOI ===
+REM Updated: su dung node pg_dump thay docker exec (fix Docker pipe loi)
 
 echo ============================================
 echo  BACKUP HE THONG - %date% %time%
@@ -10,19 +11,24 @@ for /f %%a in ('powershell -Command "Get-Date -Format yyyyMMdd_HHmm"') do set TI
 for /f %%a in ('powershell -Command "Get-Date -Format yyyy-MM-dd"') do set TODAY=%%a
 set FILENAME=db_%TIMESTAMP%.sql
 
-REM --- 1. BACKUP DATABASE ---
+REM --- 1. BACKUP DATABASE (via node script) ---
 set "DB_BACKUP_DIR=d:\0 - Google Antigravity\11 - NHAN VIEN KINH DOANH - Copy\backups\%TODAY%"
 set "DB_DRIVE_DIR=I:\My Drive\BACKUP_HV\database\%TODAY%"
 
 if not exist "%DB_BACKUP_DIR%" mkdir "%DB_BACKUP_DIR%"
 if not exist "%DB_DRIVE_DIR%" mkdir "%DB_DRIVE_DIR%"
 
-docker exec postgres-hv pg_dump -U adminhv dongphuchv > "%DB_BACKUP_DIR%\%FILENAME%"
-echo [1/3] Database backup: %TODAY%\%FILENAME%
+REM Use node script to dump database via network (no Docker needed)
+node "d:\0 - Google Antigravity\11 - NHAN VIEN KINH DOANH - Copy\backup_db_node.js" "%DB_BACKUP_DIR%\%FILENAME%"
 
-REM Copy DB len Google Drive
-copy /Y "%DB_BACKUP_DIR%\%FILENAME%" "%DB_DRIVE_DIR%\%FILENAME%"
-echo [2/3] Database - Google Drive OK
+if %errorlevel% equ 0 (
+    echo [1/3] Database backup: %TODAY%\%FILENAME%
+    REM Copy DB len Google Drive
+    copy /Y "%DB_BACKUP_DIR%\%FILENAME%" "%DB_DRIVE_DIR%\%FILENAME%"
+    echo [2/3] Database - Google Drive OK
+) else (
+    echo [1/3] LOI: Database backup that bai!
+)
 
 REM --- 2. BACKUP ANH ---
 set "IMG_SOURCE=d:\0 - Google Antigravity\11 - NHAN VIEN KINH DOANH - Copy\uploads"

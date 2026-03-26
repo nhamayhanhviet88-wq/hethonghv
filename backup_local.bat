@@ -1,6 +1,7 @@
 @echo off
 REM === LOCAL BACKUP - 50 BAN GAN NHAT (CODE + DATABASE) ===
-REM Chay moi 30 phut, giu toi da 50 ban
+REM Chay moi 15 phut, giu toi da 50 ban
+REM Updated: su dung node pg_dump thay docker exec
 
 set "PROJECT_DIR=d:\0 - Google Antigravity\11 - NHAN VIEN KINH DOANH - Copy"
 set "BACKUP_ROOT=%PROJECT_DIR%\local_backups"
@@ -19,8 +20,8 @@ REM --- 1. BACKUP CODE ---
 set "CODE_DEST=%CODE_BACKUP_DIR%\%TIMESTAMP%"
 robocopy "%PROJECT_DIR%" "%CODE_DEST%" /S /XD node_modules .git local_backups backups uploads appstest /XF *.db /NJH /NJS /NDL /NC /NS >nul 2>&1
 
-REM --- 2. BACKUP DATABASE ---
-docker exec postgres-hv pg_dump -U adminhv dongphuchv > "%DB_BACKUP_DIR%\db_%TIMESTAMP%.sql" 2>nul
+REM --- 2. BACKUP DATABASE (via node script) ---
+node "%PROJECT_DIR%\backup_db_node.js" "%DB_BACKUP_DIR%\db_%TIMESTAMP%.sql"
 
 REM --- 3. XOA BAN CU (GIU 50 BAN CODE) ---
 powershell -Command "$dirs = Get-ChildItem '%CODE_BACKUP_DIR%' -Directory | Sort-Object Name; if ($dirs.Count -gt %MAX_BACKUPS%) { $dirs[0..($dirs.Count - %MAX_BACKUPS% - 1)] | Remove-Item -Recurse -Force }"

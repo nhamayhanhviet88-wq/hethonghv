@@ -793,13 +793,20 @@ function resetCrmNhuCauFilter() {
 // ========== CONSULTATION MODAL ==========
 async function openConsultModal(customerId) {
     window._currentConsultCustomerId = customerId;
+    // Check if customer has a pending emergency
+    let pendingEmergency = null;
+    try {
+        const pendingData = await apiCall(`/api/emergencies/pending/${customerId}`);
+        if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
+    } catch(e) {}
+
     // Load handler options for Cấp Cứu Sếp
     let handlerOptions = '';
     try {
         const hData = await apiCall('/api/emergencies/handlers');
         const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
         handlerOptions = (hData.handlers || [])
-            .map(u => '<option value="' + u.id + '">' + u.full_name + ' (' + (ROLE_LABELS_H[u.role] || u.role) + ')</option>')
+            .map(u => '<option value="' + u.id + '"' + (pendingEmergency && pendingEmergency.handler_id === u.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS_H[u.role] || u.role) + ')</option>')
             .join('');
     } catch(e) {}
 
@@ -870,8 +877,13 @@ async function openConsultModal(customerId) {
     // Pre-select next logical type
     const lastLog = consultLogs.length > 0 ? consultLogs[0] : null;
 
+    // Override: if customer has a PENDING emergency → lock to cap_cuu_sep only
+    if (pendingEmergency) {
+        allowedTypes = allTypes.filter(([k]) => k === 'cap_cuu_sep');
+        defaultType = 'cap_cuu_sep';
+    }
     // Override: after Hoàn Thành Cấp Cứu → show full consultation types with Giảm Giá
-    if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
+    else if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
         allowedTypes = allTypes.filter(([k]) => ['giam_gia','lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
     }
 
@@ -959,6 +971,11 @@ async function openConsultModal(customerId) {
                 🚨 Khách hàng sẽ hiện ở trang Cấp Cứu Sếp của người được chọn.
             </div>
         </div>
+        ${pendingEmergency ? `
+        <div style="margin:12px 0;padding:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;">
+            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:4px;">🚨 Khách đang có cấp cứu sếp chưa giải quyết</div>
+            <div style="font-size:11px;color:#94a3b8;">Ấn "GHI NHẬN" sẽ nhắc lại cho sếp xử lý. Ngày hẹn tự động đặt sang ngày mai.</div>
+        </div>` : ''}
         <div id="consultOrderGroup" style="display:none">
             <div class="form-group" id="consultOrderCodeGroup" style="display:none;">
                 <label>Mã Đơn <span style="color:var(--gray-500);font-size:11px;">(Tự động)</span></label>
