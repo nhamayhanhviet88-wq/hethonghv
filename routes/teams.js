@@ -6,21 +6,44 @@ async function teamsRoutes(fastify, options) {
     // ========== CƠ CẤU TỔ CHỨC (DEPARTMENTS) ==========
 
     fastify.get('/api/departments', { preHandler: [authenticate] }, async (request, reply) => {
-        const departments = await db.all(`
-            WITH RECURSIVE dept_tree AS (
-                SELECT id, id as root_id FROM departments
-                UNION ALL
-                SELECT d.id, dt.root_id FROM departments d JOIN dept_tree dt ON d.parent_id = dt.id
-            )
-            SELECT d.*, 
-                   p.name as parent_name,
-                   u.full_name as head_name,
-                   (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) as member_count
-            FROM departments d
-            LEFT JOIN departments p ON d.parent_id = p.id
-            LEFT JOIN users u ON d.head_user_id = u.id
-            ORDER BY d.parent_id IS NULL DESC, d.parent_id, d.display_order, d.name
-        `);
+        // Ensure display_order column exists (safe migration)
+        try { await db.exec('ALTER TABLE departments ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0'); } catch(e) {}
+
+        let departments;
+        try {
+            departments = await db.all(`
+                WITH RECURSIVE dept_tree AS (
+                    SELECT id, id as root_id FROM departments
+                    UNION ALL
+                    SELECT d.id, dt.root_id FROM departments d JOIN dept_tree dt ON d.parent_id = dt.id
+                )
+                SELECT d.*, 
+                       p.name as parent_name,
+                       u.full_name as head_name,
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) as member_count
+                FROM departments d
+                LEFT JOIN departments p ON d.parent_id = p.id
+                LEFT JOIN users u ON d.head_user_id = u.id
+                ORDER BY d.parent_id IS NULL DESC, d.parent_id, d.display_order, d.name
+            `);
+        } catch(e) {
+            // Fallback without display_order if column still missing
+            departments = await db.all(`
+                WITH RECURSIVE dept_tree AS (
+                    SELECT id, id as root_id FROM departments
+                    UNION ALL
+                    SELECT d.id, dt.root_id FROM departments d JOIN dept_tree dt ON d.parent_id = dt.id
+                )
+                SELECT d.*, 
+                       p.name as parent_name,
+                       u.full_name as head_name,
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) as member_count
+                FROM departments d
+                LEFT JOIN departments p ON d.parent_id = p.id
+                LEFT JOIN users u ON d.head_user_id = u.id
+                ORDER BY d.parent_id IS NULL DESC, d.parent_id, d.name
+            `);
+        }
         return { departments };
     });
 

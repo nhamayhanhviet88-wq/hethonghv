@@ -451,11 +451,25 @@ async function checkAuth() {
         }
 
         renderSidebar();
+        // Restore sidebar scroll position after href navigation
+        var savedSidebarScroll = sessionStorage.getItem('sidebarScrollPos');
+        if (savedSidebarScroll) {
+            var navEl = document.getElementById('sidebarNav');
+            if (navEl) navEl.scrollTop = parseInt(savedSidebarScroll);
+            sessionStorage.removeItem('sidebarScrollPos');
+        }
         renderUserInfo();
         renderAffiliateFloatingButtons();
     } catch (err) {
         window.location.href = '/';
     }
+}
+
+// ========== SIDEBAR SCROLL PRESERVATION ==========
+function saveSidebarScrollAndNavigate(href) {
+    var nav = document.getElementById('sidebarNav');
+    if (nav) sessionStorage.setItem('sidebarScrollPos', nav.scrollTop.toString());
+    window.location.href = href;
 }
 
 // ========== SIDEBAR ==========
@@ -535,7 +549,7 @@ function renderSidebar() {
             items.forEach(function(item) {
                 var itemHref = item.href || ('/' + item.id);
                 var isActive = currentPage === item.id ? 'active' : '';
-                var clickAction = item.href ? "window.location.href='" + item.href + "'" : "navigate('" + item.id + "')";
+                var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
                 html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
                 html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
                 html += '</a>';
@@ -564,7 +578,7 @@ function renderSidebar() {
         items.forEach(function(item) {
             var itemHref = item.href || ('/' + item.id);
             var isActive = currentPage === item.id ? 'active' : '';
-            var clickAction = item.href ? "window.location.href='" + item.href + "'" : "navigate('" + item.id + "')";
+            var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
             html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
             html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
             html += '</a>';
@@ -795,7 +809,7 @@ function navigate(page) {
     document.getElementById('sidebarOverlay').classList.remove('show');
 }
 
-function handleRoute() {
+async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
@@ -825,6 +839,29 @@ function handleRoute() {
 
     // Render page content
     const content = document.getElementById('contentArea');
+
+    // Show loading spinner immediately
+    content.innerHTML = '<div class="spa-loading"><div class="spa-spinner"></div><div class="spa-loading-text">Đang tải trang...</div></div>';
+
+    // Inject spinner CSS once
+    if (!document.getElementById('spaLoadingStyle')) {
+        const style = document.createElement('style');
+        style.id = 'spaLoadingStyle';
+        style.textContent = `
+            .spa-loading { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px; }
+            .spa-spinner { width:40px;height:40px;border:4px solid var(--gray-200);border-top:4px solid #e65100;border-radius:50%;animation:spaSpinAnim .7s linear infinite; }
+            @keyframes spaSpinAnim { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+            .spa-loading-text { color:var(--gray-400);font-size:13px;font-weight:600; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Scroll content to top
+    content.scrollTo(0, 0);
+
+    // Use setTimeout to let spinner render before heavy sync work
+    await new Promise(r => setTimeout(r, 10));
+
     switch (currentPage) {
         case 'accounts': renderAccountsPage(content); break;
         case 'teams': renderTeamsPage(content); break;
@@ -978,9 +1015,6 @@ function setupEventListeners() {
     });
 
     document.getElementById('modalClose').addEventListener('click', closeModal);
-    document.getElementById('modalOverlay').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) closeModal();
-    });
 
     window.addEventListener('hashchange', handleRoute);
 }
@@ -1247,3 +1281,116 @@ function closeBirthdayPopup() {
         setTimeout(() => overlay.remove(), 300);
     }
 }
+
+// ========== GLOBAL NUMBER INPUT FORMATTING (2000000 → 2.000.000) ==========
+
+/** Format a number with dot separators: 2000000 → "2.000.000" */
+function _formatNumStr(val) {
+    var s = String(val).replace(/[^0-9]/g, '');
+    if (!s) return '';
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/** Parse formatted string back to number: "2.000.000" → 2000000 */
+function _parseNumInput(val) {
+    if (typeof val === 'number') return val;
+    var s = String(val).replace(/\./g, '').replace(/[^0-9\-]/g, '');
+    return s === '' ? 0 : parseInt(s, 10);
+}
+
+// Capture native getter/setter BEFORE override
+var _nativeInputDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+var _nativeGet = _nativeInputDesc.get;
+var _nativeSet = _nativeInputDesc.set;
+
+/** Apply formatting to a single input element */
+function _applyNumFormat(input) {
+    if (input.dataset.numFormatted) return;
+    input.dataset.numFormatted = '1';
+
+    // Convert type=number to type=text
+    if (input.type === 'number') {
+        var oldVal = _nativeGet.call(input);
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.pattern = '[0-9.]*';
+        input.removeAttribute('step');
+        if (oldVal) _nativeSet.call(input, _formatNumStr(oldVal));
+    }
+
+    // Format on input (use native getter/setter to avoid override recursion)
+    input.addEventListener('input', function() {
+        var pos = this.selectionStart;
+        var rawDisplay = _nativeGet.call(this);
+        var oldLen = rawDisplay.length;
+        var raw = rawDisplay.replace(/[^0-9]/g, '');
+        var formatted = _formatNumStr(raw);
+        _nativeSet.call(this, formatted);
+        var newLen = formatted.length;
+        var newPos = pos + (newLen - oldLen);
+        if (newPos < 0) newPos = 0;
+        try { this.setSelectionRange(newPos, newPos); } catch(e) {}
+    });
+
+    // Format existing value if present
+    var curVal = _nativeGet.call(input);
+    if (curVal && /\d/.test(curVal)) {
+        _nativeSet.call(input, _formatNumStr(curVal));
+    }
+}
+
+/** Scan and apply formatting to all number inputs in a container */
+function _scanNumInputs(root) {
+    var inputs = (root || document).querySelectorAll('input[type="number"]:not([data-num-formatted]), input[data-format-number]:not([data-num-formatted])');
+    inputs.forEach(_applyNumFormat);
+}
+
+/** Override .value getter/setter so code reads raw number but display shows formatted */
+Object.defineProperty(HTMLInputElement.prototype, 'value', {
+    get: function() {
+        var val = _nativeGet.call(this);
+        // For formatted inputs, strip dots so JS code gets raw number
+        if (this.dataset && this.dataset.numFormatted && val && /\./.test(val) && /^\d[\d.]*$/.test(val)) {
+            return val.replace(/\./g, '');
+        }
+        return val;
+    },
+    set: function(v) {
+        // For formatted inputs, auto-add dots when value is set programmatically
+        if (this.dataset && this.dataset.numFormatted && v !== '' && v !== null && v !== undefined) {
+            var num = String(v).replace(/[^0-9]/g, '');
+            if (num) {
+                _nativeSet.call(this, _formatNumStr(num));
+                return;
+            }
+        }
+        _nativeSet.call(this, v);
+    },
+    configurable: true
+});
+
+// MutationObserver to auto-detect new number inputs added dynamically
+var _numFmtObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+        m.addedNodes.forEach(function(node) {
+            if (node.nodeType === 1) {
+                if (node.tagName === 'INPUT' && (node.type === 'number' || (node.dataset && node.dataset.formatNumber))) {
+                    _applyNumFormat(node);
+                }
+                _scanNumInputs(node);
+            }
+        });
+    });
+});
+
+// Start observing when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        _scanNumInputs();
+        _numFmtObserver.observe(document.body, { childList: true, subtree: true });
+    });
+} else {
+    _scanNumInputs();
+    _numFmtObserver.observe(document.body, { childList: true, subtree: true });
+}
+

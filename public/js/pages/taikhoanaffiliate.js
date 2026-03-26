@@ -532,11 +532,11 @@ async function showCreateAffModal() {
                         ${(tiers.items || []).map(t => `<option value="${t.id}">${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="position:relative;">
                     <label>Gán cho TK Affiliate nào?</label>
-                    <select id="affAssignTo" class="form-control" disabled>
-                        <option value="">Chọn NV quản lý trước...</option>
-                    </select>
+                    <input type="text" id="affAssignToSearch" class="form-control" placeholder="Chọn NV quản lý trước..." disabled autocomplete="off" oninput="affFilterAssignTo(this.value)" onfocus="affShowAssignDropdown()">
+                    <input type="hidden" id="affAssignTo" value="">
+                    <div id="affAssignToResults" style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:white;margin-top:2px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
             </div>
             <div class="form-row">
@@ -582,16 +582,22 @@ async function onAffManagedByChange() {
     }
     if (resEl) resEl.style.display = 'none';
     // Load affiliates managed by this employee
-    if (assignSel) {
+    const assignInput = document.getElementById('affAssignToSearch');
+    const assignHidden = document.getElementById('affAssignTo');
+    if (assignInput) {
         if (empId) {
             const data = await apiCall(`/api/users?role=tkaffiliate`);
-            const affUsers = (data.users || []).filter(u => String(u.managed_by_user_id) === String(empId));
-            assignSel.disabled = false;
-            assignSel.innerHTML = '<option value="">— Không có (Affiliate gốc) —</option>' +
-                affUsers.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('');
+            window._affAssignToList = (data.users || []).filter(u => String(u.managed_by_user_id) === String(empId));
+            assignInput.disabled = false;
+            assignInput.placeholder = 'Gõ tên hoặc username để tìm...';
+            assignInput.value = '';
+            if (assignHidden) assignHidden.value = '';
         } else {
-            assignSel.disabled = true;
-            assignSel.innerHTML = '<option value="">Chọn NV quản lý trước...</option>';
+            assignInput.disabled = true;
+            assignInput.placeholder = 'Chọn NV quản lý trước...';
+            assignInput.value = '';
+            window._affAssignToList = [];
+            if (assignHidden) assignHidden.value = '';
         }
     }
 }
@@ -710,6 +716,9 @@ async function submitCreateAff() {
     }
     if (!body.department_id) { showToast('Vui lòng chọn Đơn vị / Phòng ban', 'error'); return; }
     if (!body.source_customer_id) { showToast('Vui lòng chọn Khách hàng nguồn', 'error'); return; }
+    if (!body.commission_tier_id) { showToast('Vui lòng chọn Tầng chiết khấu', 'error'); return; }
+    const affList = window._affAssignToList || [];
+    if (affList.length > 0 && !body.assigned_to_user_id) { showToast('Vui lòng chọn TK Affiliate gán vào', 'error'); return; }
 
     // Auto-sync phone/address/province/birthday to source customer
     body.sync_source = true;
@@ -828,11 +837,11 @@ async function showEditAffModal(userId) {
                         ${(tiers.items || []).map(t => `<option value="${t.id}" ${user.commission_tier_id==t.id?'selected':''}>${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="position:relative;">
                     <label>Gán cho TK Affiliate nào?</label>
-                    <select id="editAffAssignTo" class="form-control">
-                        <option value="">— Không có (Affiliate gốc) —</option>
-                    </select>
+                    <input type="text" id="editAffAssignToSearch" class="form-control" placeholder="Gõ tên hoặc username để tìm..." autocomplete="off" oninput="editAffFilterAssignTo(this.value)" onfocus="editAffShowAssignDropdown()">
+                    <input type="hidden" id="editAffAssignTo" value="${user.assigned_to_user_id || ''}">
+                    <div id="editAffAssignToResults" style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:white;margin-top:2px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
             </div>
             <div class="form-row">
@@ -871,14 +880,14 @@ async function showEditAffModal(userId) {
     const editProvSel = document.getElementById('editAffProvince');
     if (editProvSel && user.province) editProvSel.value = user.province;
 
-    // Populate affiliate parent dropdown
+    // Populate affiliate parent autocomplete
     if (user.managed_by_user_id) {
         const affData = await apiCall(`/api/users?role=tkaffiliate`);
-        const affUsers = (affData.users || []).filter(u => String(u.managed_by_user_id) === String(user.managed_by_user_id) && u.id !== userId);
-        const assignSel = document.getElementById('editAffAssignTo');
-        if (assignSel) {
-            assignSel.innerHTML = '<option value="">— Không có (Affiliate gốc) —</option>' +
-                affUsers.map(u => `<option value="${u.id}" ${user.assigned_to_user_id==u.id?'selected':''}>${u.full_name} (${u.username})</option>`).join('');
+        window._editAffAssignToList = (affData.users || []).filter(u => String(u.managed_by_user_id) === String(user.managed_by_user_id) && u.id !== userId);
+        const assignInput = document.getElementById('editAffAssignToSearch');
+        if (assignInput && user.assigned_to_user_id) {
+            const selected = window._editAffAssignToList.find(u => u.id === user.assigned_to_user_id);
+            if (selected) assignInput.value = `${selected.full_name} (${selected.username})`;
         }
     }
 
@@ -918,14 +927,20 @@ async function onEditAffManagedByChange() {
         }
     }
     // Load affiliates managed by this employee
-    if (assignSel) {
+    const editAssignInput = document.getElementById('editAffAssignToSearch');
+    const editAssignHidden = document.getElementById('editAffAssignTo');
+    if (editAssignInput) {
         if (managerId) {
             const data = await apiCall(`/api/users?role=tkaffiliate`);
-            const affUsers = (data.users || []).filter(u => String(u.managed_by_user_id) === String(managerId));
-            assignSel.innerHTML = '<option value="">— Không có (Affiliate gốc) —</option>' +
-                affUsers.map(u => `<option value="${u.id}">${u.full_name} (${u.username})</option>`).join('');
+            window._editAffAssignToList = (data.users || []).filter(u => String(u.managed_by_user_id) === String(managerId));
+            editAssignInput.placeholder = 'Gõ tên hoặc username để tìm...';
+            editAssignInput.value = '';
+            if (editAssignHidden) editAssignHidden.value = '';
         } else {
-            assignSel.innerHTML = '<option value="">Chọn NV quản lý trước...</option>';
+            window._editAffAssignToList = [];
+            editAssignInput.placeholder = 'Chọn NV quản lý trước...';
+            editAssignInput.value = '';
+            if (editAssignHidden) editAssignHidden.value = '';
         }
     }
 }
@@ -1270,3 +1285,70 @@ async function submitTransferAff(affId) {
         showToast('Lỗi kết nối', 'error');
     }
 }
+
+// ========== AUTOCOMPLETE: GÁN CHO TK AFFILIATE (CREATE) ==========
+function affRenderAssignDropdown(list, resultsDivId, hiddenId, searchId) {
+    const resDiv = document.getElementById(resultsDivId);
+    if (!resDiv) return;
+    let html = '';
+    if (list.length === 0) {
+        html = '<div style="padding:8px 12px;font-size:13px;color:#9ca3af;">Không tìm thấy</div>';
+    }
+    list.forEach(u => {
+        html += `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6;transition:background .15s;"
+             onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''"
+             onmousedown="affSelectAssignTo('${u.id}', '${u.full_name.replace(/'/g,"\\'")} (${u.username})', '${hiddenId}', '${searchId}', '${resultsDivId}')">
+            <b>${u.full_name}</b> <span style="color:#6b7280;">(${u.username})</span>
+        </div>`;
+    });
+    resDiv.innerHTML = html;
+    resDiv.style.display = 'block';
+}
+
+function affSelectAssignTo(id, label, hiddenId, searchId, resultsDivId) {
+    document.getElementById(hiddenId).value = id;
+    document.getElementById(searchId).value = label;
+    document.getElementById(resultsDivId).style.display = 'none';
+}
+
+function affShowAssignDropdown() {
+    const list = window._affAssignToList || [];
+    affRenderAssignDropdown(list, 'affAssignToResults', 'affAssignTo', 'affAssignToSearch');
+}
+
+function affFilterAssignTo(q) {
+    const list = window._affAssignToList || [];
+    const lower = q.toLowerCase();
+    const filtered = list.filter(u =>
+        u.full_name.toLowerCase().includes(lower) || u.username.toLowerCase().includes(lower)
+    );
+    affRenderAssignDropdown(filtered, 'affAssignToResults', 'affAssignTo', 'affAssignToSearch');
+    // If input is cleared, reset hidden value
+    if (!q.trim()) document.getElementById('affAssignTo').value = '';
+}
+
+// ========== AUTOCOMPLETE: GÁN CHO TK AFFILIATE (EDIT) ==========
+function editAffShowAssignDropdown() {
+    const list = window._editAffAssignToList || [];
+    affRenderAssignDropdown(list, 'editAffAssignToResults', 'editAffAssignTo', 'editAffAssignToSearch');
+}
+
+function editAffFilterAssignTo(q) {
+    const list = window._editAffAssignToList || [];
+    const lower = q.toLowerCase();
+    const filtered = list.filter(u =>
+        u.full_name.toLowerCase().includes(lower) || u.username.toLowerCase().includes(lower)
+    );
+    affRenderAssignDropdown(filtered, 'editAffAssignToResults', 'editAffAssignTo', 'editAffAssignToSearch');
+    if (!q.trim()) document.getElementById('editAffAssignTo').value = '';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    ['affAssignToResults', 'editAffAssignToResults'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.contains(e.target) && e.target.id !== id.replace('Results', 'Search')) {
+            el.style.display = 'none';
+        }
+    });
+});

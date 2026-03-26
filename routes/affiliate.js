@@ -545,12 +545,27 @@ async function affiliateRoutes(fastify) {
 
         // Build date range
         let dateFrom = null, dateTo = null;
-        if (period === 'month' && value) {
+        if (period === 'daily' && value) {
+            // value = "2026-03-25"
+            dateFrom = value;
+            dateTo = value + ' 23:59:59';
+        } else if (period === 'weekly' && value) {
+            // value = "2026-W13" → find Monday-Sunday of ISO week
+            const [wy, wn] = value.split('-W');
+            const jan1 = new Date(Number(wy), 0, 1);
+            const jan1Day = jan1.getDay() || 7; // Mon=1..Sun=7
+            const mon = new Date(jan1);
+            mon.setDate(jan1.getDate() + (Number(wn) - 1) * 7 - jan1Day + 2);
+            const sun = new Date(mon);
+            sun.setDate(mon.getDate() + 6);
+            dateFrom = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+            dateTo = `${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')} 23:59:59`;
+        } else if ((period === 'month' || period === 'monthly') && value) {
             const [y, m] = value.split('-');
             dateFrom = `${y}-${m.padStart(2,'0')}-01`;
             const lastDay = new Date(Number(y), Number(m), 0).getDate();
             dateTo = `${y}-${m.padStart(2,'0')}-${lastDay} 23:59:59`;
-        } else if (period === 'quarter' && value) {
+        } else if ((period === 'quarter' || period === 'quarterly') && value) {
             const [y, q] = value.split('-Q');
             const startMonth = (Number(q) - 1) * 3 + 1;
             const endMonth = startMonth + 2;
@@ -754,13 +769,132 @@ async function affiliateRoutes(fastify) {
         return { success: true, affiliateRevenue, employeeRevenue, employeeOrders, teamRevenue, hunterRanking, magnetRanking };
     });
 
+    // ===== LEADERBOARD DETAIL DRILL-DOWN =====
+    fastify.get('/api/affiliate/leaderboard-detail', { preHandler: [authenticate] }, async (request) => {
+        const { board_key, person_id, month } = request.query;
+        if (!board_key || !person_id || !month) return { success: false, error: 'Missing params' };
+
+        const [y, m] = month.split('-');
+        const dateFrom = `${y}-${m.padStart(2,'0')}-01`;
+        const lastDay = new Date(Number(y), Number(m), 0).getDate();
+        const dateTo = `${y}-${m.padStart(2,'0')}-${lastDay} 23:59:59`;
+
+        // Hunter ranking: list affiliates created by this employee
+        if (board_key === 'hunterRanking') {
+            let q = `SELECT u.id, u.full_name, u.phone, u.created_at 
+                FROM users u WHERE u.role = 'tkaffiliate' AND u.status = 'active' AND u.managed_by_user_id = ?`;
+            const params = [Number(person_id)];
+            q += ` AND u.created_at >= ? AND u.created_at <= ?`;
+            params.push(dateFrom, dateTo);
+            q += ` ORDER BY u.created_at DESC`;
+            const affiliates = await db.all(q, params);
+            return { success: true, type: 'affiliates', items: affiliates };
+        }
+
+        // For other boards: get order details
+        // First determine which referrer IDs to look at
+        let referrerIds = [];
+        if (board_key === 'affiliateRevenue') {
+            // person_id is an affiliate — get self + children
+            const children = await db.all(`SELECT id FROM users WHERE assigned_to_user_id = ? AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`, [Number(person_id)]);
+            referrerIds = [Number(person_id), ...children.map(c => c.id)];
+        } else if (board_key === 'employeeRevenue' || board_key === 'employeeOrders' || board_key === 'magnetRanking') {
+            // person_id is an employee — get all affiliates managed by this employee, then their referrer IDs
+            const affs = await db.all(`SELECT id FROM users WHERE role = 'tkaffiliate' AND status = 'active' AND managed_by_user_id = ?`, [Number(person_id)]);
+            for (const aff of affs) {
+                referrerIds.push(aff.id);
+                const children = await db.all(`SELECT id FROM users WHERE assigned_to_user_id = ? AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`, [aff.id]);
+                referrerIds.push(...children.map(c => c.id));
+            }
+        } else if (board_key === 'teamRevenue') {
+            // person_id is a department — get employees in dept, then their affiliates
+            const empRows = await db.all(`SELECT id FROM users WHERE department_id = ? AND status = 'active'`, [Number(person_id)]);
+            for (const emp of empRows) {
+                const affs = await db.all(`SELECT id FROM users WHERE role = 'tkaffiliate' AND status = 'active' AND managed_by_user_id = ?`, [emp.id]);
+                for (const aff of affs) {
+                    referrerIds.push(aff.id);
+                    const children = await db.all(`SELECT id FROM users WHERE assigned_to_user_id = ? AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`, [aff.id]);
+                    referrerIds.push(...children.map(c => c.id));
+                }
+            }
+        }
+        referrerIds = [...new Set(referrerIds)];
+
+        if (board_key === 'magnetRanking') {
+            // Return customers referred
+            if (referrerIds.length === 0) return { success: true, type: 'customers', items: [] };
+            const rph = referrerIds.map(() => '?').join(',');
+            const customers = await db.all(
+                `SELECT c.id, c.customer_name, c.phone, c.created_at, c.order_status,
+                    u.full_name as referrer_name
+                FROM customers c 
+                LEFT JOIN users u ON u.id = c.referrer_id
+                WHERE c.referrer_id IN (${rph}) AND c.created_at >= ? AND c.created_at <= ?
+                ORDER BY c.created_at DESC`,
+                [...referrerIds, dateFrom, dateTo]
+            );
+            return { success: true, type: 'customers', items: customers };
+        }
+
+        // Orders detail for revenue/orders boards
+        if (referrerIds.length === 0) return { success: true, type: 'orders', items: [] };
+        const rph = referrerIds.map(() => '?').join(',');
+        
+        // Get customers of these referrers
+        const custs = await db.all(`SELECT id, customer_name, phone, referrer_id FROM customers WHERE referrer_id IN (${rph})`, referrerIds);
+        if (custs.length === 0) return { success: true, type: 'orders', items: [] };
+
+        const custIds = custs.map(c => c.id);
+        const custMap = {};
+        custs.forEach(c => { custMap[c.id] = c; });
+
+        // Get referrer names
+        const refIds = [...new Set(custs.map(c => c.referrer_id).filter(Boolean))];
+        const refMap = {};
+        if (refIds.length > 0) {
+            const refRows = await db.all(`SELECT id, full_name FROM users WHERE id IN (${refIds.map(() => '?').join(',')})`, refIds);
+            refRows.forEach(r => { refMap[r.id] = r.full_name; });
+        }
+
+        // Get completed orders with items
+        const cph = custIds.map(() => '?').join(',');
+        const orders = await db.all(
+            `SELECT oc.id, oc.order_code, oc.customer_id, oc.created_at, oc.deposit_amount,
+                COALESCE(SUM(oi.total), 0) as order_total, COUNT(oi.id) as item_count
+            FROM order_codes oc 
+            LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+            WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
+                AND oc.created_at >= ? AND oc.created_at <= ?
+            GROUP BY oc.id
+            ORDER BY oc.created_at DESC`,
+            [...custIds, dateFrom, dateTo]
+        );
+
+        const items = orders.map(o => {
+            const cust = custMap[o.customer_id] || {};
+            return {
+                order_code: o.order_code,
+                customer_name: cust.customer_name || '',
+                customer_phone: cust.phone || '',
+                referrer_name: refMap[cust.referrer_id] || '',
+                order_total: Number(o.order_total) || 0,
+                deposit_amount: Number(o.deposit_amount) || 0,
+                item_count: o.item_count,
+                created_at: o.created_at
+            };
+        });
+
+        return { success: true, type: 'orders', items: items };
+    });
+
     // ===== PRIZES API =====
-    // Get prizes for a month
+    // Get prizes for a period
     fastify.get('/api/affiliate/prizes', { preHandler: [authenticate] }, async (request) => {
-        const { month } = request.query; // e.g. 2026-03
+        const { month, period_type } = request.query;
+        const pt = period_type || 'monthly';
         const prizes = await db.all(
-            `SELECT * FROM leaderboard_prizes WHERE month = ? AND is_active = true ORDER BY board_key, top_rank`,
-            [month || '']
+            `SELECT * FROM leaderboard_prizes WHERE month = ? AND period_type = ? AND is_active = true ORDER BY board_key, top_rank`,
+            [month || '', pt]
         );
         return { success: true, prizes };
     });
@@ -768,21 +902,25 @@ async function affiliateRoutes(fastify) {
     // Save/update prizes (giam_doc only)
     fastify.post('/api/affiliate/prizes', { preHandler: [authenticate] }, async (request, reply) => {
         if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc được phép' });
-        const { month, board_key, prizes, conditions, departments } = request.body;
+        const { month, board_key, prizes, conditions, departments, min_orders, min_revenue, min_count, period_type } = request.body;
         if (!month || !board_key || !prizes) return reply.code(400).send({ error: 'Thiếu thông tin' });
+        const pt = period_type || 'monthly';
 
-        // Delete old prizes for this board+month
-        await db.run(`DELETE FROM leaderboard_prizes WHERE board_key = ? AND month = ?`, [board_key, month]);
+        // Delete old prizes for this board+period
+        await db.run(`DELETE FROM leaderboard_prizes WHERE board_key = ? AND month = ? AND period_type = ?`, [board_key, month, pt]);
 
         // Insert new
         const condStr = conditions || '';
         const deptStr = departments ? JSON.stringify(departments) : '[]';
+        const minOrd = Number(min_orders) || 0;
+        const minRev = Number(min_revenue) || 0;
+        const minCnt = Number(min_count) || 0;
         for (const p of prizes) {
             if (!p.top_rank || !p.prize_amount) continue;
             await db.run(
-                `INSERT INTO leaderboard_prizes (board_key, month, top_rank, prize_amount, prize_description, conditions, departments, is_active, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, true, ?)`,
-                [board_key, month, p.top_rank, p.prize_amount, p.prize_description || '', condStr, deptStr, request.user.id]
+                `INSERT INTO leaderboard_prizes (board_key, month, top_rank, prize_amount, prize_description, conditions, departments, is_active, created_by, min_orders, min_revenue, min_count, period_type)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?, ?)`,
+                [board_key, month, p.top_rank, p.prize_amount, p.prize_description || '', condStr, deptStr, request.user.id, minOrd, minRev, minCnt, pt]
             );
         }
         return { success: true, message: 'Đã lưu giải thưởng' };
@@ -791,8 +929,9 @@ async function affiliateRoutes(fastify) {
     // Delete all prizes for a board+month
     fastify.delete('/api/affiliate/prizes', { preHandler: [authenticate] }, async (request, reply) => {
         if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc được phép' });
-        const { month, board_key } = request.query;
-        await db.run(`DELETE FROM leaderboard_prizes WHERE board_key = ? AND month = ?`, [board_key, month]);
+        const { month, board_key, period_type } = request.query;
+        const pt = period_type || 'monthly';
+        await db.run(`DELETE FROM leaderboard_prizes WHERE board_key = ? AND month = ? AND period_type = ?`, [board_key, month, pt]);
         return { success: true, message: 'Đã xóa giải thưởng' };
     });
 

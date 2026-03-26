@@ -3,6 +3,8 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
 
+const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+
 function getStaffTelegramIds() {
     // Note: this is now async but kept sync-compatible for broadcast
     return [];
@@ -218,6 +220,18 @@ async function customersRoutes(fastify, options) {
                 }
             }
         }
+
+        // Mask phone/address for affiliate roles viewing non-direct referrals
+        if (AFFILIATE_ROLES.includes(user.role)) {
+            for (const c of customers) {
+                if (c.referrer_id !== user.id) {
+                    c.readonly = true;
+                    c.phone = maskPhone(c.phone);
+                    c.address = null;
+                    c.referrer_customer_phone = maskPhone(c.referrer_customer_phone);
+                }
+            }
+        }
         return { customers };
     });
 
@@ -246,6 +260,13 @@ async function customersRoutes(fastify, options) {
         if ((user.role === 'quan_ly' || user.role === 'truong_phong') && customer.assigned_to_id !== user.id) {
             customer.readonly = true;
             customer.phone = maskPhone(customer.phone);
+        }
+
+        // Mask phone/address for affiliate roles viewing non-direct referrals
+        if (AFFILIATE_ROLES.includes(user.role) && customer.referrer_id !== user.id) {
+            customer.readonly = true;
+            customer.phone = maskPhone(customer.phone);
+            customer.address = null;
         }
 
         const activeOrder = await db.get('SELECT id FROM order_codes WHERE customer_id = ? AND status = \'active\' ORDER BY id DESC LIMIT 1', [Number(request.params.id)]);

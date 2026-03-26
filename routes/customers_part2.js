@@ -129,6 +129,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const result = await db.run('INSERT INTO emergencies (customer_id, requested_by, reason, handler_id) VALUES (?,?,?,?)',
             [Number(customer_id), request.user.id, reason, Number(handler_id)]);
 
+        // Also log consultation so customer appears in 'Đã xử lý hôm nay'
+        await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'cap_cuu_sep', ?, ?)`,
+            [Number(customer_id), `🚨 Cấp cứu sếp: ${reason}`, request.user.id]);
+
         const tgMsg = `🚨 <b>CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
         if (handler.telegram_group_id) sendTelegramMessage(handler.telegram_group_id, tgMsg);
         const globalId = process.env.TELEGRAM_GROUP_ID;
@@ -242,10 +246,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             [status || 'resolved', request.user.id, note || null, emId]
         );
         if (em && em.customer_id) {
-        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+        const vnNow = new Date(Date.now() + 7*3600000);
+        const nextDay = new Date(vnNow);
+        nextDay.setDate(nextDay.getDate() + 1);
+        // Skip Sunday (0 = Sunday)
+        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
+        const nextBizDay = nextDay.toISOString().split('T')[0];
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'hoan_thanh_cap_cuu', ?, ?)`,
                 [em.customer_id, `🏥 Cấp cứu hoàn thành: ${note || ''}`, request.user.id]);
-            await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [today, em.customer_id]);
+            await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, em.customer_id]);
         }
         return { success: true, message: 'Đã xử lý cấp cứu!' };
     });
@@ -461,6 +470,16 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (fields.birthday) await db.run('UPDATE customers SET birthday = ? WHERE id = ?', [fields.birthday, customerId]);
         if (fields.address) await db.run('UPDATE customers SET address = ? WHERE id = ?', [fields.address, customerId]);
         if (fields.appointment_date) await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
+
+        // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
+        if (log_type === 'hoan_thanh_cap_cuu' && !fields.appointment_date) {
+            const vnNow = new Date(Date.now() + 7*3600000);
+            const nextDay = new Date(vnNow);
+            nextDay.setDate(nextDay.getDate() + 1);
+            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1); // Skip Sunday
+            const nextBizDay = nextDay.toISOString().split('T')[0];
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextBizDay, customerId]);
+        }
 
         const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc' };
         if (statusMap[log_type]) {

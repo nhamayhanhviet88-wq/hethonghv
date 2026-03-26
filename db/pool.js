@@ -7,6 +7,11 @@ const pool = new Pool({
     connectionTimeoutMillis: 5000,
 });
 
+// Set Vietnam timezone for every new connection
+pool.on('connect', (client) => {
+    client.query("SET timezone = 'Asia/Ho_Chi_Minh'");
+});
+
 // Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ...
 function convertPlaceholders(sql, params) {
     if (!params || params.length === 0) return { sql, params };

@@ -10,24 +10,13 @@ const BXH_BOARDS = [
 ];
 
 let _bxhPrizesMap = {};
+let _bxhPeriodType = 'monthly';
 
 async function renderBangXepHangAffiliatePage(container) {
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = now.getMonth() + 1;
-    const curQuarter = Math.ceil(curMonth / 3);
 
-    let monthOpts = '';
-    for (let i = 0; i < 12; i++) {
-        let m = curMonth - i, y = curYear;
-        if (m <= 0) { m += 12; y--; }
-        monthOpts += `<option value="${y}-${String(m).padStart(2,'0')}" ${i===0?'selected':''}> Tháng ${m}/${y}</option>`;
-    }
-    let quarterOpts = '';
-    for (let q = curQuarter; q >= 1; q--) quarterOpts += `<option value="${curYear}-Q${q}">Quý ${q}/${curYear}</option>`;
-    for (let q = 4; q >= 1; q--) quarterOpts += `<option value="${curYear-1}-Q${q}">Quý ${q}/${curYear-1}</option>`;
-    let yearOpts = '';
-    for (let y = curYear; y >= 2024; y--) yearOpts += `<option value="${y}">Năm ${y}</option>`;
 
     container.innerHTML = `
         <style>
@@ -77,30 +66,36 @@ async function renderBangXepHangAffiliatePage(container) {
                         </button>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <select id="bxhPeriod" class="form-control" style="width:auto;min-width:110px;" onchange="onBxhPeriodChange()">
-                            <option value="month" selected>📅 Tháng</option>
-                            <option value="quarter">📊 Quý</option>
-                            <option value="year">📆 Năm</option>
-                        </select>
-                        <select id="bxhValueMonth" class="form-control" style="width:auto;min-width:150px;">${monthOpts}</select>
-                        <select id="bxhValueQuarter" class="form-control" style="width:auto;min-width:150px;display:none;">${quarterOpts}</select>
-                        <select id="bxhValueYear" class="form-control" style="width:auto;min-width:110px;display:none;">${yearOpts}</select>
+                        <select id="bxhValuePicker" class="form-control" style="width:auto;min-width:200px;">${_gtBuildPeriodOptions('monthly')}</select>
                         <button class="btn btn-primary" onclick="loadBxhData()" style="padding:8px 18px;">🔍 XEM BXH</button>
                     </div>
                 </div>
+                <div style="display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-top:12px;" id="bxhPeriodTabs"></div>
             </div>
         </div>
 
         <div id="bxhGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"></div>
     `;
-    await loadBxhData();
-}
 
-function onBxhPeriodChange() {
-    const p = document.getElementById('bxhPeriod').value;
-    document.getElementById('bxhValueMonth').style.display = p==='month'?'':'none';
-    document.getElementById('bxhValueQuarter').style.display = p==='quarter'?'':'none';
-    document.getElementById('bxhValueYear').style.display = p==='year'?'':'none';
+    // Build period tabs
+    const periodTypes = [{id:'daily',icon:'📆',label:'Ngày'},{id:'weekly',icon:'📅',label:'Tuần'},{id:'monthly',icon:'📅',label:'Tháng'},{id:'quarterly',icon:'📊',label:'Quý'}];
+    const tabsEl = document.getElementById('bxhPeriodTabs');
+    tabsEl.innerHTML = periodTypes.map(pt => {
+        const active = pt.id === 'monthly';
+        return `<button class="bxh-ptab" data-period="${pt.id}" style="padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;border:none;border-bottom:3px solid ${active?'#e65100':'transparent'};color:${active?'#e65100':'var(--gray-500)'};background:none;transition:all .2s;">${pt.icon} ${pt.label}</button>`;
+    }).join('');
+    tabsEl.querySelectorAll('.bxh-ptab').forEach(btn => {
+        btn.addEventListener('click', function() {
+            _bxhPeriodType = this.dataset.period;
+            tabsEl.querySelectorAll('.bxh-ptab').forEach(b => { b.style.borderBottomColor='transparent'; b.style.color='var(--gray-500)'; });
+            this.style.borderBottomColor = '#e65100';
+            this.style.color = '#e65100';
+            document.getElementById('bxhValuePicker').innerHTML = _gtBuildPeriodOptions(_bxhPeriodType);
+            loadBxhData();
+        });
+    });
+
+    await loadBxhData();
 }
 
 function _bxhFmt(n) { return n ? Number(n).toLocaleString('vi-VN') : '0'; }
@@ -153,10 +148,26 @@ function _renderBoard(el, board, rankings, prizesForBoard) {
         }).join('') + '</div>';
     }
 
+    // Build threshold info text
+    let thresholdInfo = '';
+    if (prizesForBoard && prizesForBoard.length > 0) {
+        const minOrd = Number(prizesForBoard[0].min_orders) || 0;
+        const minRev = Number(prizesForBoard[0].min_revenue) || 0;
+        const minCnt = Number(prizesForBoard[0].min_count) || 0;
+        const parts = [];
+        if (minOrd > 0) parts.push(`≥ ${minOrd} đơn`);
+        if (minRev > 0) parts.push(`≥ ${_bxhFmt(minRev)} VNĐ`);
+        if (minCnt > 0) parts.push(`≥ ${minCnt} ${board.key === 'hunterRanking' ? 'affiliate' : 'KH'}`);
+        if (parts.length > 0) thresholdInfo = `<div style="font-size:10px;font-weight:600;color:rgba(255,255,255,.8);margin-top:3px;">🎯 ĐK: ${parts.join(' & ')}</div>`;
+    }
+
     el.innerHTML = `
         <div class="bxh-board-header" style="background:${board.color};color:white;">
-            ${board.icon} ${board.name}
-            <span style="font-weight:400;font-size:11px;opacity:.75;margin-left:8px;">— ${board.subtitle}</span>
+            <div>
+                ${board.icon} ${board.name}
+                <span style="font-weight:400;font-size:11px;opacity:.75;margin-left:8px;">— ${board.subtitle}</span>
+                ${thresholdInfo}
+            </div>
             <span style="margin-left:auto;">${prizeBadgeHtml}</span>
         </div>
         ${podiumHtml}
@@ -165,21 +176,13 @@ function _renderBoard(el, board, rankings, prizesForBoard) {
 }
 
 function _getCurrentMonth() {
-    const period = document.getElementById('bxhPeriod')?.value;
-    if (period === 'month') {
-        return document.getElementById('bxhValueMonth')?.value || '';
-    }
-    // For quarter/year, derive the current month
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    return document.getElementById('bxhValuePicker')?.value || '';
 }
 
 async function loadBxhData() {
-    const period = document.getElementById('bxhPeriod').value;
-    let value = '';
-    if (period === 'month') value = document.getElementById('bxhValueMonth').value;
-    else if (period === 'quarter') value = document.getElementById('bxhValueQuarter').value;
-    else if (period === 'year') value = document.getElementById('bxhValueYear').value;
+    const value = document.getElementById('bxhValuePicker')?.value || '';
+    const periodMap = {daily:'daily',weekly:'weekly',monthly:'month',quarterly:'quarter'};
+    const period = periodMap[_bxhPeriodType] || 'month';
 
     const grid = document.getElementById('bxhGrid');
     grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--gray-500);grid-column:1/-1;">⏳ Đang tải...</div>';
@@ -187,7 +190,7 @@ async function loadBxhData() {
     // Fetch leaderboard + prizes in parallel
     const [data, prizesData] = await Promise.all([
         apiCall(`/api/affiliate/leaderboard?period=${period}&value=${encodeURIComponent(value)}`),
-        apiCall(`/api/affiliate/prizes?month=${_getCurrentMonth()}`)
+        apiCall(`/api/affiliate/prizes?month=${_getCurrentMonth()}&period_type=${_bxhPeriodType}`)
     ]);
 
     // Group prizes by board_key
@@ -197,20 +200,48 @@ async function loadBxhData() {
         _bxhPrizesMap[p.board_key].push(p);
     });
 
-    // Sort boards: those with prizes first
+    // Sort boards: those with prizes first, then filter to only show boards WITH prizes
     const sortedBoards = [...BXH_BOARDS].sort((a, b) => {
         const aHas = _bxhPrizesMap[a.key] ? 1 : 0;
         const bHas = _bxhPrizesMap[b.key] ? 1 : 0;
         return bHas - aHas;
-    });
+    }).filter(b => _bxhPrizesMap[b.key] && _bxhPrizesMap[b.key].length > 0);
 
     // Render grid
+    if (sortedBoards.length === 0) {
+        grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--gray-500);grid-column:1/-1;"><div style="font-size:40px;margin-bottom:12px;">🏆</div><div style="font-size:15px;font-weight:700;">Chưa có giải thưởng nào được thiết lập</div><div style="font-size:13px;margin-top:6px;">Vui lòng vào <strong>Setup Giải Thưởng</strong> để tạo giải cho tháng này.</div></div>';
+        return;
+    }
     grid.innerHTML = sortedBoards.map(b => `<div id="bxhBoard_${b.key}" class="bxh-board card"></div>`).join('');
 
     sortedBoards.forEach(board => {
         const el = document.getElementById(`bxhBoard_${board.key}`);
-        const rankings = data[board.key] || [];
+        let rankings = data[board.key] || [];
         const prizes = _bxhPrizesMap[board.key] || [];
+
+        // Apply threshold filters from prize settings
+        if (prizes.length > 0) {
+            const minOrders = Number(prizes[0].min_orders) || 0;
+            const minRevenue = Number(prizes[0].min_revenue) || 0;
+            const minCount = Number(prizes[0].min_count) || 0;
+
+            if (board.key === 'hunterRanking' && minCount > 0) {
+                rankings = rankings.filter(r => (r.affiliate_count || 0) >= minCount);
+            } else if (board.key === 'magnetRanking' && minCount > 0) {
+                rankings = rankings.filter(r => (r.total_customers || 0) >= minCount);
+            } else {
+                if (minOrders > 0) {
+                    rankings = rankings.filter(r => (r.total_orders || 0) >= minOrders);
+                }
+                if (minRevenue > 0) {
+                    rankings = rankings.filter(r => (r.total_revenue || 0) >= minRevenue);
+                }
+            }
+
+            // Re-number ranks after filtering
+            rankings = rankings.map((r, i) => ({ ...r, rank: i + 1 }));
+        }
+
         _renderBoard(el, board, rankings, prizes);
     });
 }

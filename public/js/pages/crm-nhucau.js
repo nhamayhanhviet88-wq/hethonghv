@@ -91,276 +91,702 @@ const CONSULT_TYPES = {
 };
 
 async function renderCRMNhuCauPage(container) {
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth() + 1;
-    const curDay = now.getDate();
-
     let topStaffOptions = '';
     if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         const staff = await apiCall('/api/managed-staff');
         const staffUsers = (staff.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly'].includes(u.role));
-        employeeOptions = staffUsers.filter(u => ['nhan_vien', 'truong_phong'].includes(u.role))
-            .map(u => '<option value="' + u.id + '">' + u.full_name + '</option>').join('');
         topStaffOptions = staffUsers
             .map(u => '<option value="' + u.id + '"' + ((['quan_ly','truong_phong'].includes(currentUser.role)) && u.id === currentUser.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS[u.role] || u.role) + ')' + '</option>').join('');
     }
 
-    let yearOpts = '';
-    for (let y = 2024; y <= curYear + 1; y++) yearOpts += `<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`;
-    let monthOpts = '';
-    for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m===curMonth?'selected':''}>Tháng ${m}</option>`;
-    let dayOpts = '';
-    for (let d = 1; d <= 31; d++) dayOpts += `<option value="${d}" ${d===curDay?'selected':''}>Ngày ${d}</option>`;
-
     container.innerHTML = `
-        <div style="display:flex; gap:0; min-height:calc(100vh - 120px);">
-            <div class="crm-filter-panel" id="crmFilterPanel">
-                <div class="filter-section">
-                    <div class="filter-title">📅 BỘ LỌC</div>
-                    <div class="filter-group">
-                        <label class="filter-label"><input type="checkbox" id="filterYearOn" checked> Năm</label>
-                        <select id="crmFilterYear" class="filter-select">${yearOpts}</select>
-                    </div>
-                    <div class="filter-group">
-                        <label class="filter-label"><input type="checkbox" id="filterMonthOn" checked> Tháng</label>
-                        <select id="crmFilterMonth" class="filter-select">${monthOpts}</select>
-                    </div>
-                    <div class="filter-group">
-                        <label class="filter-label"><input type="checkbox" id="filterDayOn"> Ngày</label>
-                        <select id="crmFilterDay" class="filter-select" disabled>${dayOpts}</select>
-                    </div>
-                    ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? `
-                    <div class="filter-group" style="margin-top:8px;">
-                        <label class="filter-label"><input type="checkbox" id="filterEmpOn"> Nhân Viên</label>
-                        <select id="crmFilterEmployee" class="filter-select" disabled>
-                            <option value="">Tất cả NV</option>${employeeOptions}
-                        </select>
-                    </div>` : ''}
-                    <button class="btn btn-primary" onclick="applyCrmNhuCauFilter()" style="width:100%;margin-top:12px;padding:8px;font-size:13px;">🔍 Lọc</button>
-                    <button class="btn btn-secondary" onclick="resetCrmNhuCauFilter()" style="width:100%;margin-top:6px;padding:6px;font-size:12px;">↩️ Mặc Định</button>
-                </div>
-                <div class="filter-stats" id="filterStats">
-                    <div class="filter-stat-label">Kết quả</div>
-                    <div class="filter-stat-value" id="filterResultCount">--</div>
-                </div>
+        <style>
+            .crm-stat-cards { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+            .crm-stat-card { flex:1; min-width:130px; padding:14px 16px; border-radius:12px; cursor:pointer; transition:all .25s; border:2px solid transparent; position:relative; overflow:hidden; }
+            .crm-stat-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.2); }
+            .crm-stat-card.active { border:3px solid #fff; box-shadow:0 0 0 3px var(--navy), 0 8px 30px rgba(18,37,70,.4); transform:translateY(-4px) scale(1.03); z-index:2; }
+            .crm-stat-cards.has-active .crm-stat-card:not(.active) { opacity:.55; transform:scale(.97); }
+            .crm-stat-card .stat-icon { font-size:24px; margin-bottom:6px; }
+            .crm-stat-card .stat-count { font-size:28px; font-weight:900; line-height:1; }
+            .crm-stat-card .stat-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px; opacity:.8; }
+            .crm-stat-card::after { content:''; position:absolute; right:-10px; bottom:-10px; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.15); }
+            .crm-date-filter { display:none; padding:10px 16px; background:linear-gradient(135deg,#1e293b,#334155); border-radius:10px; margin-bottom:12px; align-items:center; gap:12px; flex-wrap:wrap; animation:crmSlideIn .25s ease; }
+            .crm-date-filter.visible { display:flex; }
+            .crm-date-filter label { color:#94a3b8; font-size:12px; font-weight:600; margin:0; }
+            .crm-date-filter select { background:#0f172a; color:white; border:1px solid #475569; border-radius:6px; padding:5px 10px; font-size:13px; font-weight:600; cursor:pointer; }
+            .crm-date-filter select:focus { border-color:#3b82f6; outline:none; }
+            .crm-date-filter .df-label { color:#f59e0b; font-size:13px; font-weight:700; }
+            .crm-date-filter .btn-all { background:linear-gradient(135deg,#6366f1,#4f46e5); color:white; border:none; border-radius:6px; padding:5px 14px; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; }
+            .crm-date-filter .btn-all:hover { transform:scale(1.05); box-shadow:0 2px 8px rgba(99,102,241,.4); }
+            .crm-date-filter .btn-all.active { background:linear-gradient(135deg,#22c55e,#16a34a); }
+            @keyframes crmSlideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+            .crm-section-header td { background:linear-gradient(135deg,#1e293b,#334155); color:white; font-weight:700; font-size:13px; padding:10px 16px !important; border:none; letter-spacing:.5px; }
+            .crm-section-header td .section-icon { margin-right:8px; }
+            .crm-section-header td .section-count { float:right; background:rgba(255,255,255,.15); padding:2px 10px; border-radius:12px; font-size:11px; }
+            .crm-pagination { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px 0; flex-wrap:wrap; }
+            .crm-pagination button { min-width:36px; height:36px; border:1px solid #334155; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; }
+            .crm-pagination button:hover { background:#334155; color:white; }
+            .crm-pagination button.active { background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border-color:#3b82f6; box-shadow:0 2px 8px rgba(59,130,246,.4); }
+            .crm-pagination button:disabled { opacity:.4; cursor:not-allowed; }
+            .crm-pagination .pg-info { color:#94a3b8; font-size:12px; font-weight:600; margin:0 8px; }
+        </style>
+        <div class="crm-stat-cards" id="crmStatCards">
+            <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_crmFilterByCat('phai_xu_ly')">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-count" id="crmStatPhaiXuLy">0</div>
+                <div class="stat-label">Phải xử lý hôm nay</div>
             </div>
+            <div class="crm-stat-card" data-cat="da_xu_ly" style="background:linear-gradient(135deg,#10b981,#059669);color:white;" onclick="_crmFilterByCat('da_xu_ly')">
+                <div class="stat-icon">✅</div>
+                <div class="stat-count" id="crmStatDaXuLy">0</div>
+                <div class="stat-label">Đã xử lý hôm nay</div>
+            </div>
+            <div class="crm-stat-card" data-cat="xu_ly_tre" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;" onclick="_crmFilterByCat('xu_ly_tre')">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-count" id="crmStatXuLyTre">0</div>
+                <div class="stat-label">Khách xử lý trễ</div>
+            </div>
+            <div class="crm-stat-card" data-cat="cho_xu_ly" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;" onclick="_crmFilterByCat('cho_xu_ly')">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-count" id="crmStatChoXuLy">0</div>
+                <div class="stat-label">Chờ xử lý</div>
+            </div>
+            <div class="crm-stat-card" data-cat="huy_khach" style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;" onclick="_crmFilterByCat('huy_khach')">
+                <div class="stat-icon">🚫</div>
+                <div class="stat-count" id="crmStatHuyKhach">0</div>
+                <div class="stat-label">Hủy khách</div>
+            </div>
+        </div>
+        <div class="crm-date-filter" id="crmDateFilter">
+            <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
+            <button class="btn-all" id="crmDateAllBtn" onclick="_crmDateShowAll()">📋 Tất cả</button>
+            <label>Ngày</label>
+            <select id="crmDateDay" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+                <option value="">-- Cả tháng --</option>
+                ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
+            </select>
+            <label>Tháng</label>
+            <select id="crmDateMonth" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+                ${(() => { const now = new Date(); let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '"' + (m === now.getMonth()+1 ? ' selected' : '') + '>Tháng ' + m + '</option>'; return o; })()}
+            </select>
+            <label>Năm</label>
+            <select id="crmDateYear" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+                ${(() => { const now = new Date(); let o = ''; for (let y = 2024; y <= now.getFullYear()+1; y++) o += '<option value="' + y + '"' + (y === now.getFullYear() ? ' selected' : '') + '>' + y + '</option>'; return o; })()}
+            </select>
+            <span id="crmDateFilterCount" style="color:#94a3b8;font-size:12px;margin-left:auto;"></span>
+        </div>
 
-            <div style="flex:1; min-width:0;">
-                <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
-                    <select id="crmFilterStatus" class="form-control" style="width:auto;min-width:150px;">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="dang_tu_van">Đang Tư Vấn</option>
-                        <option value="bao_gia">Báo Giá</option>
-                        <option value="dat_coc">Đã Đặt Cọc</option>
-                        <option value="chot_don">Chốt Đơn</option>
-                        <option value="san_xuat">Sản Xuất</option>
-                        <option value="giao_hang">Giao Hàng</option>
-                        <option value="hoan_thanh">Hoàn Thành</option>
-                    </select>
-                    <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
-                    ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
-                </div>
-                <div class="card">
-                    <div class="card-body" style="overflow-x:auto; padding:8px;">
-                        <table class="table crm-nhucau-table" id="crmNhuCauTable">
-                            <thead><tr>
-                                <th style="min-width:100px">NV Phụ Trách</th>
-                                <th style="min-width:80px">Mã Đơn</th>
-                                <th style="min-width:120px">Nút Tư Vấn</th>
-                                <th style="min-width:160px">Nội Dung TV</th>
-                                <th style="min-width:70px;text-align:center">Lần Chăm</th>
-                                <th style="min-width:140px">Ngày Hẹn</th>
-                                <th style="min-width:80px">Mã KH</th>
-                                <th style="min-width:150px">Tên KH</th>
-                                <th style="min-width:110px">SĐT</th>
-                                <th style="min-width:130px">Địa Chỉ</th>
-                                <th style="min-width:100px">Nguồn</th>
-                                <th style="min-width:120px">Người GT</th>
-                                <th style="min-width:110px">CRM Người GT</th>
-                                <th style="min-width:100px">Ngày Sinh</th>
-                                <th style="min-width:70px;text-align:center">Lần Đặt</th>
-                                <th style="min-width:110px;text-align:right">Doanh Số</th>
-                            </tr></thead>
-                            <tbody id="crmNhuCauTbody"><tr><td colspan="16" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
+        <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
+            <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_crmRenderFilteredTable()">
+                <option value="">Tất cả trạng thái</option>
+            </select>
+            <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
+            ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
+        </div>
+        <div class="card">
+            <div class="card-body" style="overflow-x:auto; padding:8px;">
+                <table class="table crm-nhucau-table" id="crmNhuCauTable">
+                    <thead><tr>
+                        <th style="min-width:45px;text-align:center">STT</th>
+                        <th style="min-width:100px">NV Phụ Trách</th>
+                        <th style="min-width:80px">Mã Đơn</th>
+                        <th style="min-width:120px">Nút Tư Vấn</th>
+                        <th style="min-width:160px">Nội Dung TV</th>
+                        <th style="min-width:70px;text-align:center">Lần Chăm</th>
+                        <th style="min-width:140px">Ngày Hẹn</th>
+                        <th style="min-width:80px">Mã KH</th>
+                        <th style="min-width:150px">Tên KH</th>
+                        <th style="min-width:110px">SĐT</th>
+                        <th style="min-width:130px">Địa Chỉ</th>
+                        <th style="min-width:100px">Nguồn</th>
+                        <th style="min-width:120px">Người GT</th>
+                        <th style="min-width:110px">CRM Người GT</th>
+                        <th style="min-width:100px">Ngày Sinh</th>
+                        <th style="min-width:70px;text-align:center">Lần Đặt</th>
+                        <th style="min-width:110px;text-align:right">Doanh Số</th>
+                    </tr></thead>
+                    <tbody id="crmNhuCauTbody"><tr><td colspan="17" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                </table>
+                <div id="crmPagination" class="crm-pagination"></div>
             </div>
         </div>
     `;
 
-    // Filter toggles
-    document.getElementById('filterYearOn').addEventListener('change', e => { document.getElementById('crmFilterYear').disabled = !e.target.checked; });
-    document.getElementById('filterMonthOn').addEventListener('change', e => { document.getElementById('crmFilterMonth').disabled = !e.target.checked; });
-    document.getElementById('filterDayOn').addEventListener('change', e => { document.getElementById('crmFilterDay').disabled = !e.target.checked; });
-    const empCb = document.getElementById('filterEmpOn');
-    if (empCb) empCb.addEventListener('change', e => { document.getElementById('crmFilterEmployee').disabled = !e.target.checked; });
-
-    document.getElementById('crmFilterStatus').addEventListener('change', () => loadCrmNhuCauData());
+    document.getElementById('crmFilterConsultType').addEventListener('change', () => _crmRenderFilteredTable());
     const topStaffEl = document.getElementById('crmTopStaffFilter');
     if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmNhuCauData());
     let st;
     document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmNhuCauData, 400); });
 
     await loadCrmNhuCauData();
+
+    // Auto-select 'Phải xử lý hôm nay' on page load
+    _crmActiveCat = null;
+    _crmFilterByCat('phai_xu_ly');
+}
+
+var _crmActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
+var _crmAllCustomers = []; // full list for re-filtering
+var _crmAllStats = {}; // consult stats
+var _crmCurrentPage = 1;
+var _crmPageSize = 50;
+
+function _crmFilterByCat(cat) {
+    if (_crmActiveCat === cat) { _crmActiveCat = null; } else { _crmActiveCat = cat; }
+    _crmCurrentPage = 1; // reset page on category change
+    document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
+    const cardsContainer = document.getElementById('crmStatCards');
+    if (_crmActiveCat) {
+        const el = document.querySelector('.crm-stat-card[data-cat="' + _crmActiveCat + '"]');
+        if (el) el.classList.add('active');
+        if (cardsContainer) cardsContainer.classList.add('has-active');
+    } else {
+        if (cardsContainer) cardsContainer.classList.remove('has-active');
+    }
+    // Show/hide date filter for cho_xu_ly and huy_khach
+    const dateFilter = document.getElementById('crmDateFilter');
+    const dateLabel = document.getElementById('crmDateFilterLabel');
+    // Reset 'Tất cả' button and day filter when switching cards
+    const allBtn = document.getElementById('crmDateAllBtn');
+    if (allBtn && allBtn.classList.contains('active')) {
+        allBtn.classList.remove('active');
+        allBtn.textContent = '📋 Tất cả';
+        const ms = document.getElementById('crmDateMonth');
+        const ys = document.getElementById('crmDateYear');
+        const ds = document.getElementById('crmDateDay');
+        if (ms) { ms.disabled = false; ms.value = new Date().getMonth() + 1; }
+        if (ys) { ys.disabled = false; ys.value = new Date().getFullYear(); }
+        if (ds) { ds.disabled = false; ds.value = ''; }
+    }
+    if (dateFilter) {
+        if (_crmActiveCat === 'cho_xu_ly') {
+            dateFilter.classList.add('visible');
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:';
+            _crmUpdateDateFilterCounts();
+        } else if (_crmActiveCat === 'huy_khach') {
+            dateFilter.classList.add('visible');
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:';
+            _crmUpdateDateFilterCounts();
+        } else if (_crmActiveCat === 'xu_ly_tre') {
+            dateFilter.classList.add('visible');
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:';
+            _crmUpdateDateFilterCounts();
+        } else {
+            dateFilter.classList.remove('visible');
+        }
+    }
+    _crmUpdateConsultTypeDropdown();
+    _crmRenderFilteredTable();
+}
+
+function _crmUpdateDateFilterCounts() {
+    const cat = _crmActiveCat;
+    if (cat !== 'cho_xu_ly' && cat !== 'huy_khach' && cat !== 'xu_ly_tre') return;
+    const catCustomers = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === cat);
+
+    function getDateField(c) {
+        if (cat === 'cho_xu_ly' || cat === 'xu_ly_tre') return c.appointment_date;
+        return c.cancel_approved_at || c.created_at;
+    }
+
+    const monthYearCounts = {};
+    const yearCounts = {};
+    catCustomers.forEach(c => {
+        const df = getDateField(c);
+        if (!df) return;
+        const d = new Date(df);
+        const m = d.getMonth() + 1;
+        const y = d.getFullYear();
+        monthYearCounts[m + '_' + y] = (monthYearCounts[m + '_' + y] || 0) + 1;
+        yearCounts[y] = (yearCounts[y] || 0) + 1;
+    });
+
+    const monthSel = document.getElementById('crmDateMonth');
+    const yearSel = document.getElementById('crmDateYear');
+    if (!monthSel || !yearSel) return;
+    const selYear = parseInt(yearSel.value);
+
+    for (const opt of monthSel.options) {
+        const m = parseInt(opt.value);
+        const cnt = monthYearCounts[m + '_' + selYear] || 0;
+        opt.textContent = 'Tháng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
+    }
+    for (const opt of yearSel.options) {
+        const y = parseInt(opt.value);
+        const cnt = yearCounts[y] || 0;
+        opt.textContent = y + (cnt > 0 ? ' (' + cnt + ')' : '');
+    }
+}
+
+
+function _crmGetCategory(c, stats) {
+    // Priority 1: Hủy khách
+    if (c.cancel_approved === 1) return 'huy_khach';
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const s = stats[c.id] || {};
+
+    // Check if consulted today
+    let consultedToday = false;
+    if (s.lastLog && s.lastLog.created_at) {
+        const logDate = new Date(s.lastLog.created_at);
+        const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
+        consultedToday = (logStr === todayStr);
+    }
+
+    // Priority 2: Đã xử lý hôm nay
+    if (consultedToday) return 'da_xu_ly';
+
+    // Check appointment date
+    let appointIsToday = false;
+    let appointIsFuture = false;
+    if (c.appointment_date) {
+        const apptDate = new Date(c.appointment_date);
+        const apptStr = apptDate.getFullYear() + '-' + String(apptDate.getMonth()+1).padStart(2,'0') + '-' + String(apptDate.getDate()).padStart(2,'0');
+        appointIsToday = (apptStr === todayStr);
+        appointIsFuture = (apptStr > todayStr);
+    }
+
+    // Check created today
+    let createdToday = false;
+    if (c.created_at) {
+        const cDate = new Date(c.created_at);
+        const cStr = cDate.getFullYear() + '-' + String(cDate.getMonth()+1).padStart(2,'0') + '-' + String(cDate.getDate()).padStart(2,'0');
+        createdToday = (cStr === todayStr);
+    }
+
+    // Priority 3: Mới chuyển hôm nay (trước Phải xử lý)
+    if (createdToday) return 'moi_chuyen';
+
+    // Priority 4: Phải xử lý hôm nay
+    if (appointIsToday) return 'phai_xu_ly';
+
+    // Priority 5: Khách xử lý trễ (appointment was in the past, not consulted today)
+    if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
+
+    // Priority 6: Chờ xử lý (future appointment or remaining)
+    if (appointIsFuture) return 'cho_xu_ly';
+
+    // Default: chờ xử lý
+    return 'cho_xu_ly';
+}
+
+function _crmUpdateConsultTypeDropdown(filteredList) {
+    const sel = document.getElementById('crmFilterConsultType');
+    if (!sel) return;
+    const prevVal = sel.value;
+
+    // Use provided filtered list or default to category-filtered
+    let custs = filteredList;
+    if (!custs) {
+        custs = _crmAllCustomers;
+        if (_crmActiveCat) {
+            custs = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === _crmActiveCat);
+        }
+    }
+
+    // Count consult types from last log
+    const typeCounts = {};
+    let noLogCount = 0;
+    custs.forEach(c => {
+        const s = _crmAllStats[c.id] || {};
+        if (s.lastLog && s.lastLog.log_type) {
+            const lt = s.lastLog.log_type;
+            typeCounts[lt] = (typeCounts[lt] || 0) + 1;
+        } else {
+            noLogCount++;
+        }
+    });
+
+    // Build options
+    let html = '<option value="">Tất cả trạng thái (' + custs.length + ')</option>';
+    // Sort by count desc
+    const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+    sorted.forEach(([key, count]) => {
+        const t = CONSULT_TYPES[key];
+        if (t) {
+            html += '<option value="' + key + '">' + t.icon + ' ' + t.label + ' (' + count + ')</option>';
+        }
+    });
+    if (noLogCount > 0) {
+        html += '<option value="__none__">📋 Chưa tư vấn (' + noLogCount + ')</option>';
+    }
+    sel.innerHTML = html;
+
+    // Restore previous selection if still exists
+    if (prevVal) {
+        const exists = [...sel.options].some(o => o.value === prevVal);
+        if (exists) sel.value = prevVal;
+    }
+}
+function _crmRenderFilteredTable() {
+    const customers = _crmAllCustomers;
+    const stats = _crmAllStats;
+    const tbody = document.getElementById('crmNhuCauTbody');
+    
+    let filtered = customers;
+    if (_crmActiveCat) {
+        if (_crmActiveCat === 'phai_xu_ly') {
+            // Include both phai_xu_ly and moi_chuyen
+            filtered = customers.filter(c => {
+                const cat = _crmGetCategory(c, stats);
+                return cat === 'phai_xu_ly' || cat === 'moi_chuyen';
+            });
+        } else {
+            filtered = customers.filter(c => _crmGetCategory(c, stats) === _crmActiveCat);
+        }
+    }
+
+    // Apply date filter for cho_xu_ly and huy_khach (BEFORE consult type filter)
+    const isDateCat = (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'huy_khach' || _crmActiveCat === 'xu_ly_tre');
+    const allBtn = document.getElementById('crmDateAllBtn');
+    if (isDateCat && !(allBtn && allBtn.classList.contains('active'))) {
+        const selDay = document.getElementById('crmDateDay')?.value;
+        const selMonth = parseInt(document.getElementById('crmDateMonth')?.value);
+        const selYear = parseInt(document.getElementById('crmDateYear')?.value);
+        if (selMonth && selYear) {
+            filtered = filtered.filter(c => {
+                let dateField;
+                if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
+                    dateField = c.appointment_date;
+                } else {
+                    dateField = c.cancel_approved_at || c.created_at;
+                }
+                if (!dateField) return false;
+                const d = new Date(dateField);
+                if (d.getFullYear() !== selYear) return false;
+                if (d.getMonth() + 1 !== selMonth) return false;
+                if (selDay && parseInt(selDay) && d.getDate() !== parseInt(selDay)) return false;
+                return true;
+            });
+        }
+    }
+
+    // Update consult type dropdown AFTER date filter
+    _crmUpdateConsultTypeDropdown(filtered);
+
+    // Update active card count to match date-filtered result
+    if (isDateCat && _crmActiveCat) {
+        const cardCountMap = {
+            cho_xu_ly: 'crmStatChoXuLy',
+            huy_khach: 'crmStatHuyKhach',
+            xu_ly_tre: 'crmStatXuLyTre'
+        };
+        const countId = cardCountMap[_crmActiveCat];
+        if (countId) {
+            const el = document.getElementById(countId);
+            if (el) el.textContent = filtered.length;
+        }
+    }
+
+    // Apply consult type filter
+    const consultTypeVal = document.getElementById('crmFilterConsultType')?.value;
+    if (consultTypeVal) {
+        if (consultTypeVal === '__none__') {
+            filtered = filtered.filter(c => {
+                const s = stats[c.id] || {};
+                return !s.lastLog || !s.lastLog.log_type;
+            });
+        } else {
+            filtered = filtered.filter(c => {
+                const s = stats[c.id] || {};
+                return s.lastLog && s.lastLog.log_type === consultTypeVal;
+            });
+        }
+    }
+
+
+
+    // Sort by date desc (newest first)
+    filtered = [...filtered].sort((a, b) => {
+        let dateA, dateB;
+        if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
+            dateA = a.appointment_date; dateB = b.appointment_date;
+        } else if (_crmActiveCat === 'huy_khach') {
+            dateA = a.cancel_approved_at || a.created_at; dateB = b.cancel_approved_at || b.created_at;
+        } else {
+            dateA = a.created_at; dateB = b.created_at;
+        }
+        return new Date(dateB || 0) - new Date(dateA || 0);
+    });
+
+    // Update count display
+    const countEl = document.getElementById('crmDateFilterCount');
+    if (countEl && isDateCat) {
+        countEl.textContent = 'Kết quả: ' + filtered.length;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        document.getElementById('crmPagination').innerHTML = '';
+        return;
+    }
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / _crmPageSize);
+    if (_crmCurrentPage > totalPages) _crmCurrentPage = totalPages;
+    const startIdx = (_crmCurrentPage - 1) * _crmPageSize;
+    const paged = filtered.slice(startIdx, startIdx + _crmPageSize);
+
+    // Split table into two sections for phai_xu_ly
+    if (_crmActiveCat === 'phai_xu_ly') {
+        const moiChuyenRows = paged.filter(c => _crmGetCategory(c, stats) === 'moi_chuyen');
+        const phaiXuLyRows = paged.filter(c => _crmGetCategory(c, stats) === 'phai_xu_ly');
+        let html = '';
+        let stt = startIdx + 1;
+        if (moiChuyenRows.length > 0) {
+            html += `<tr class="crm-section-header"><td colspan="17"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += moiChuyenRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
+        }
+        if (phaiXuLyRows.length > 0) {
+            html += `<tr class="crm-section-header"><td colspan="17"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += phaiXuLyRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
+        }
+        tbody.innerHTML = html;
+    } else {
+        tbody.innerHTML = paged.map((c, idx) => _crmRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
+    }
+
+    // Render pagination
+    const pgEl = document.getElementById('crmPagination');
+    if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
+    let pgHtml = '<button ' + (_crmCurrentPage <= 1 ? 'disabled' : '') + ' onclick="_crmGoToPage(' + (_crmCurrentPage - 1) + ')">◀</button>';
+    for (let p = 1; p <= totalPages; p++) {
+        pgHtml += '<button class="' + (p === _crmCurrentPage ? 'active' : '') + '" onclick="_crmGoToPage(' + p + ')">' + p + '</button>';
+    }
+    pgHtml += '<button ' + (_crmCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="_crmGoToPage(' + (_crmCurrentPage + 1) + ')">▶</button>';
+    pgHtml += '<span class="pg-info">' + (startIdx+1) + '–' + Math.min(startIdx + _crmPageSize, filtered.length) + ' / ' + filtered.length + '</span>';
+    pgEl.innerHTML = pgHtml;
+}
+
+function _crmGoToPage(page) {
+    _crmCurrentPage = page;
+    _crmRenderFilteredTable();
+    // Scroll to table top
+    document.getElementById('crmNhuCauTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _crmDateShowAll() {
+    const allBtn = document.getElementById('crmDateAllBtn');
+    if (allBtn) {
+        if (allBtn.classList.contains('active')) {
+            // Deactivate: go back to monthly filter
+            allBtn.classList.remove('active');
+            allBtn.textContent = '📋 Tất cả';
+            // Reset to current month
+            const now = new Date();
+            const monthSel = document.getElementById('crmDateMonth');
+            const yearSel = document.getElementById('crmDateYear');
+            const daySel = document.getElementById('crmDateDay');
+            if (monthSel) monthSel.value = now.getMonth() + 1;
+            if (yearSel) yearSel.value = now.getFullYear();
+            if (daySel) daySel.value = '';
+            monthSel && (monthSel.disabled = false);
+            yearSel && (yearSel.disabled = false);
+            daySel && (daySel.disabled = false);
+        } else {
+            // Activate: show ALL
+            allBtn.classList.add('active');
+            allBtn.textContent = '✅ Đang hiện tất cả';
+            const monthSel = document.getElementById('crmDateMonth');
+            const yearSel = document.getElementById('crmDateYear');
+            const daySel = document.getElementById('crmDateDay');
+            monthSel && (monthSel.disabled = true);
+            yearSel && (yearSel.disabled = true);
+            daySel && (daySel.disabled = true);
+        }
+    }
+    _crmUpdateDateFilterCounts();
+    _crmRenderFilteredTable();
+}
+
+function _crmRenderCustomerRow(c, stats, stt) {
+    const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
+    const lastType = s.lastLog ? CONSULT_TYPES[s.lastLog.log_type] : null;
+    let lastContent = s.lastLog?.content || '';
+    if (lastContent && lastType) {
+        lastContent = lastContent.replace(/^(?:✅|🏥|📦|💵|📝|📢|🚨|🚫|❌|🔧|🎨|👔|📄|🤝|💬|📞|✔️)?\s*(?:Tư vấn Sếp|Cấp cứu hoàn thành|Chốt đơn|Đặt cọc|Sau bán hàng|Hoàn Thành Cấp Cứu|Cấp Cứu Sếp)[:\s]+/i, '').trim();
+    }
+    const shortContent = lastContent.length > 30 ? lastContent.substring(0, 30) + '...' : lastContent;
+
+    let appointDisplay = '';
+    if (c.appointment_date) {
+        const d = new Date(c.appointment_date);
+        const days = ['CN','T2','T3','T4','T5','T6','T7'];
+        const dayName = days[d.getDay()];
+        appointDisplay = `<span style="color:#e65100;font-weight:600">${dayName} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>`;
+    }
+
+    return `<tr>
+        <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
+        <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
+        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
+        <td>
+            ${c.readonly ? (
+                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
+                    ⏳ Chờ Duyệt Hủy
+                </span>
+            ` : (c.cancel_approved === -1) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
+                </span>
+            ` : `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
+                </span>
+            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
+                    ⏳ Chờ Duyệt Hủy
+                </button>
+            ` : (c.cancel_approved === -1) ? `
+                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;">
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
+                </button>
+            ` : `
+                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
+                </button>
+            `}
+        </td>
+        <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="openCustomerDetail(${c.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" title="${lastContent}">
+            ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
+        </td>
+        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
+        <td style="font-size:12px;">
+            ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
+        </td>
+        <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
+        <td>
+            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+            ${(() => {
+                const _colors = [
+                    {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
+                    {bg:'rgba(249,115,22,0.12)',text:'#ea580c',border:'rgba(249,115,22,0.25)'},
+                    {bg:'rgba(234,179,8,0.12)',text:'#ca8a04',border:'rgba(234,179,8,0.25)'},
+                    {bg:'rgba(34,197,94,0.12)',text:'#16a34a',border:'rgba(34,197,94,0.25)'},
+                    {bg:'rgba(20,184,166,0.12)',text:'#0d9488',border:'rgba(20,184,166,0.25)'},
+                    {bg:'rgba(6,182,212,0.12)',text:'#0891b2',border:'rgba(6,182,212,0.25)'},
+                    {bg:'rgba(59,130,246,0.12)',text:'#2563eb',border:'rgba(59,130,246,0.25)'},
+                    {bg:'rgba(139,92,246,0.12)',text:'#7c3aed',border:'rgba(139,92,246,0.25)'},
+                    {bg:'rgba(236,72,153,0.12)',text:'#db2777',border:'rgba(236,72,153,0.25)'},
+                    {bg:'rgba(244,63,94,0.12)',text:'#e11d48',border:'rgba(244,63,94,0.25)'},
+                ];
+                const _ci = (c.id || 0) % _colors.length;
+                const _cc = _colors[_ci];
+                return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${c.customer_name}</span>`;
+            })()}
+        </td>
+        <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
+        <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
+        <td style="font-size:12px">${c.source_name || '—'}</td>
+        <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? 'openReferrerSearch(' + c.id + ')' : ''}">
+            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
+        </td>
+        <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
+        <td style="font-size:12px" class="${getBirthdayDisplay(c.birthday).tdClass}">${getBirthdayDisplay(c.birthday).html}</td>
+        <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
+        <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
+    </tr>`;
 }
 
 async function loadCrmNhuCauData() {
     let url = '/api/customers?crm_type=nhu_cau';
-    const status = document.getElementById('crmFilterStatus')?.value;
     const search = document.getElementById('crmSearch')?.value;
-    if (status) url += `&order_status=${status}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-
-    if (document.getElementById('filterYearOn')?.checked) url += `&year=${document.getElementById('crmFilterYear').value}`;
-    if (document.getElementById('filterMonthOn')?.checked) url += `&month=${document.getElementById('crmFilterMonth').value}`;
-    if (document.getElementById('filterDayOn')?.checked) url += `&day=${document.getElementById('crmFilterDay').value}`;
-    const empOn = document.getElementById('filterEmpOn');
-    if (empOn?.checked) { const v = document.getElementById('crmFilterEmployee').value; if (v) url += `&employee_id=${v}`; }
-    // Top staff filter (overrides sidebar employee filter)
     const topStaff = document.getElementById('crmTopStaffFilter')?.value;
     if (topStaff) url += `&employee_id=${topStaff}`;
 
     const data = await apiCall(url);
     const tbody = document.getElementById('crmNhuCauTbody');
-    const resultEl = document.getElementById('filterResultCount');
 
-    const customers = (data.customers || []).filter(c => c.cancel_approved !== 1);
+    // Include ALL customers (including cancelled) for categorization
+    const customers = data.customers || [];
 
     // Affiliate: readonly + mask phone for child referrals
     if (currentUser.role === 'tkaffiliate') {
         customers.forEach(c => {
             c.readonly = true;
-            // Mask phone if not directly referred by this affiliate
             if (c.referrer_id && c.referrer_id !== currentUser.id && c.phone && c.phone.length >= 4) {
                 c.phone = c.phone.substring(0, 2) + 'xx xxx xx' + c.phone.substring(c.phone.length - 1);
             }
         });
     }
 
-    if (resultEl) resultEl.textContent = customers.length;
-
-    if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="16"><div class="empty-state"><div class="icon">📭</div><h3>Chưa có khách hàng</h3></div></td></tr>`;
-        return;
-    }
-
     // Fetch consultation stats in batch
     const ids = customers.map(c => c.id).join(',');
-    const statsData = await apiCall(`/api/customers/consult-stats?customer_ids=${ids}`);
-    const stats = statsData.stats || {};
+    let stats = {};
+    if (ids) {
+        const statsData = await apiCall(`/api/customers/consult-stats?customer_ids=${ids}`);
+        stats = statsData.stats || {};
+    }
 
-    tbody.innerHTML = customers.map(c => {
-        const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
-        const lastType = s.lastLog ? CONSULT_TYPES[s.lastLog.log_type] : null;
-        // Strip type prefix from content (type is already shown in Nút Tư Vấn column)
-        let lastContent = s.lastLog?.content || '';
-        if (lastContent && lastType) {
-            // Remove known prefix patterns: "✅ Tư vấn Sếp: ", "🏥 Cấp cứu hoàn thành: ", "Chốt đơn: ", etc.
-            lastContent = lastContent.replace(/^(?:✅|🏥|📦|💵|📝|📢|🚨|🚫|❌|🔧|🎨|👔|📄|🤝|💬|📞|✔️)?\s*(?:Tư vấn Sếp|Cấp cứu hoàn thành|Chốt đơn|Đặt cọc|Sau bán hàng|Hoàn Thành Cấp Cứu|Cấp Cứu Sếp)[:\s]+/i, '').trim();
-        }
-        const shortContent = lastContent.length > 30 ? lastContent.substring(0, 30) + '...' : lastContent;
+    // Store for re-filtering
+    _crmAllCustomers = customers;
+    _crmAllStats = stats;
 
-        // Format appointment with day-of-week
-        let appointDisplay = '';
-        if (c.appointment_date) {
+    // Count categories
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
+    customers.forEach(c => { const cat = _crmGetCategory(c, stats); counts[cat]++; });
+
+    // For Chờ xử lý and Hủy khách: show current month count
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curYear = now.getFullYear();
+    let choXuLyMonthly = 0;
+    let huyKhachMonthly = 0;
+    customers.forEach(c => {
+        const cat = _crmGetCategory(c, stats);
+        if (cat === 'cho_xu_ly' && c.appointment_date) {
             const d = new Date(c.appointment_date);
-            const days = ['CN','T2','T3','T4','T5','T6','T7'];
-            const dayName = days[d.getDay()];
-            appointDisplay = `<span style="color:#e65100;font-weight:600">${dayName} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>`;
+            if (d.getMonth() + 1 === curMonth && d.getFullYear() === curYear) choXuLyMonthly++;
+        } else if (cat === 'huy_khach') {
+            const df = c.cancel_approved_at || c.created_at;
+            if (df) {
+                const d = new Date(df);
+                if (d.getMonth() + 1 === curMonth && d.getFullYear() === curYear) huyKhachMonthly++;
+            }
         }
+    });
 
-        return `<tr>
-            <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
-            <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
-            <td>
-                ${c.readonly ? (
-                    (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
-                    <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
-                        ⏳ Chờ Duyệt Hủy
-                    </span>
-                ` : (c.cancel_approved === -1) ? `
-                    <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#f59e0b;color:white;opacity:0.6;cursor:not-allowed;">
-                        🔄 Tư Vấn Lại
-                    </span>
-                ` : `
-                    <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
-                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
-                    </span>
-                `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
-                    <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
-                        ⏳ Chờ Duyệt Hủy
-                    </button>
-                ` : (c.cancel_approved === -1) ? `
-                    <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
-                        style="font-size:11px;padding:4px 8px;background:#f59e0b;color:white;animation:emBlink 2s infinite;">
-                        🔄 Tư Vấn Lại
-                    </button>
-                ` : `
-                    <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
-                        style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
-                        ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
-                    </button>
-                `}
-            </td>
-            <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="openCustomerDetail(${c.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" title="${lastContent}">
-                ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
-            </td>
-            <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
-            <td style="font-size:12px;">
-                ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
-            </td>
-            <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
-            <td>
-                ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
-                ${(() => {
-                    const _colors = [
-                        {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
-                        {bg:'rgba(249,115,22,0.12)',text:'#ea580c',border:'rgba(249,115,22,0.25)'},
-                        {bg:'rgba(234,179,8,0.12)',text:'#ca8a04',border:'rgba(234,179,8,0.25)'},
-                        {bg:'rgba(34,197,94,0.12)',text:'#16a34a',border:'rgba(34,197,94,0.25)'},
-                        {bg:'rgba(20,184,166,0.12)',text:'#0d9488',border:'rgba(20,184,166,0.25)'},
-                        {bg:'rgba(6,182,212,0.12)',text:'#0891b2',border:'rgba(6,182,212,0.25)'},
-                        {bg:'rgba(59,130,246,0.12)',text:'#2563eb',border:'rgba(59,130,246,0.25)'},
-                        {bg:'rgba(139,92,246,0.12)',text:'#7c3aed',border:'rgba(139,92,246,0.25)'},
-                        {bg:'rgba(236,72,153,0.12)',text:'#db2777',border:'rgba(236,72,153,0.25)'},
-                        {bg:'rgba(244,63,94,0.12)',text:'#e11d48',border:'rgba(244,63,94,0.25)'},
-                    ];
-                    const _ci = (c.id || 0) % _colors.length;
-                    const _cc = _colors[_ci];
-                    return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${c.customer_name}</span>`;
-                })()}
-            </td>
-            <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
-            <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
-            <td style="font-size:12px">${c.source_name || '—'}</td>
-            <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? 'openReferrerSearch(' + c.id + ')' : ''}">
-                ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
-            </td>
-            <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
-            <td style="font-size:12px" class="${getBirthdayDisplay(c.birthday).tdClass}">${getBirthdayDisplay(c.birthday).html}</td>
-            <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
-            <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
-        </tr>`;
-    }).join('');
+    // Update stat cards
+    const el = (id) => document.getElementById(id);
+    if (el('crmStatPhaiXuLy')) el('crmStatPhaiXuLy').textContent = counts.phai_xu_ly + counts.moi_chuyen;
+    if (el('crmStatDaXuLy')) el('crmStatDaXuLy').textContent = counts.da_xu_ly;
+    if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
+    if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = choXuLyMonthly;
+    if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = huyKhachMonthly;
+
+    // Re-highlight active card
+    document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
+    if (_crmActiveCat) {
+        const activeEl = document.querySelector('.crm-stat-card[data-cat="' + _crmActiveCat + '"]');
+        if (activeEl) activeEl.classList.add('active');
+    }
+
+    // Update consult type dropdown
+    _crmUpdateConsultTypeDropdown();
+
+    // Render table
+    // Auto-select 'Phải xử lý hôm nay' on first load
+    if (!_crmActiveCat) {
+        _crmFilterByCat('phai_xu_ly');
+    } else {
+        _crmRenderFilteredTable();
+    }
 }
 
 function applyCrmNhuCauFilter() { loadCrmNhuCauData(); }
 function resetCrmNhuCauFilter() {
-    const now = new Date();
-    document.getElementById('filterYearOn').checked = true;
-    document.getElementById('filterMonthOn').checked = true;
-    document.getElementById('filterDayOn').checked = false;
-    document.getElementById('crmFilterYear').value = now.getFullYear();
-    document.getElementById('crmFilterYear').disabled = false;
-    document.getElementById('crmFilterMonth').value = now.getMonth() + 1;
-    document.getElementById('crmFilterMonth').disabled = false;
-    document.getElementById('crmFilterDay').disabled = true;
-    document.getElementById('crmFilterStatus').value = '';
+    _crmActiveCat = null;
+    document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('crmFilterConsultType').value = '';
     document.getElementById('crmSearch').value = '';
-    const empOn = document.getElementById('filterEmpOn');
-    if (empOn) { empOn.checked = false; document.getElementById('crmFilterEmployee').disabled = true; document.getElementById('crmFilterEmployee').value = ''; }
+    const topStaff = document.getElementById('crmTopStaffFilter');
+    if (topStaff) topStaff.value = '';
     loadCrmNhuCauData();
 }
 

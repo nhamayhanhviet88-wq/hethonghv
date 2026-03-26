@@ -226,8 +226,22 @@ async function renderChuyenSoPage(container) {
         </div>
     `;
 
+    // Also add click handler for debugging
+    const submitBtn = document.querySelector('#chuyenSoForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', (e) => {
+            console.log('[CSO] Button clicked!');
+            const form = document.getElementById('chuyenSoForm');
+            if (form && !form.checkValidity()) {
+                console.log('[CSO] Form invalid! Reporting validity...');
+                form.reportValidity();
+            }
+        });
+    }
+
     document.getElementById('chuyenSoForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('[CSO] Form submit fired!');
         const body = {
             crm_type: document.getElementById('csoCrm').value,
             customer_name: document.getElementById('csoName').value,
@@ -240,8 +254,10 @@ async function renderChuyenSoPage(container) {
             affiliate_user_id: document.getElementById('csoAffiliate')?.value || null,
             job: document.getElementById('csoJobTitle')?.value || null
         };
+        console.log('[CSO] Body:', JSON.stringify(body));
 
         if (!body.crm_type || !body.customer_name || !body.phone || !body.receiver_id) {
+            console.log('[CSO] Validation failed!', { crm: body.crm_type, name: body.customer_name, phone: body.phone, receiver: body.receiver_id });
             showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
             return;
         }

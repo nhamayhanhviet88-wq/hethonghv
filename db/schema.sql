@@ -327,6 +327,9 @@ ALTER TABLE commission_tiers ADD COLUMN IF NOT EXISTS parent_percentage DOUBLE P
 ALTER TABLE leaderboard_prizes ADD COLUMN IF NOT EXISTS conditions TEXT DEFAULT '';
 ALTER TABLE leaderboard_prizes ADD COLUMN IF NOT EXISTS departments TEXT DEFAULT '[]';
 
+-- Display order for departments
+ALTER TABLE departments ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0;
+
 -- Trao giải thưởng
 CREATE TABLE IF NOT EXISTS prize_awards (
     id SERIAL PRIMARY KEY,
@@ -370,3 +373,24 @@ CREATE TABLE IF NOT EXISTS prize_award_views (
     viewed_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(award_id, user_id)
 );
+
+-- Multi-period support: daily, weekly, monthly, quarterly
+ALTER TABLE leaderboard_prizes ADD COLUMN IF NOT EXISTS period_type TEXT DEFAULT 'monthly';
+ALTER TABLE prize_awards ADD COLUMN IF NOT EXISTS period_type TEXT DEFAULT 'monthly';
+
+-- Update UNIQUE constraints to include period_type
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'leaderboard_prizes_board_key_month_top_rank_key') THEN
+        ALTER TABLE leaderboard_prizes DROP CONSTRAINT leaderboard_prizes_board_key_month_top_rank_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'leaderboard_prizes_board_period_rank_key') THEN
+        ALTER TABLE leaderboard_prizes ADD CONSTRAINT leaderboard_prizes_board_period_rank_key UNIQUE(board_key, period_type, month, top_rank);
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'prize_awards_board_key_month_top_rank_key') THEN
+        ALTER TABLE prize_awards DROP CONSTRAINT prize_awards_board_key_month_top_rank_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'prize_awards_board_period_rank_key') THEN
+        ALTER TABLE prize_awards ADD CONSTRAINT prize_awards_board_period_rank_key UNIQUE(board_key, period_type, month, top_rank);
+    END IF;
+END $$;
