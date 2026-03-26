@@ -628,6 +628,10 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
+            ` : (c.cancel_approved === -2) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
+                    ❌ Hủy Khách (nhắc lại)
+                </span>
             ` : (c.cancel_approved === -1) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
@@ -639,6 +643,11 @@ function _crmRenderCustomerRow(c, stats, stt) {
             `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
+                </button>
+            ` : (c.cancel_approved === -2) ? `
+                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                    style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;">
+                    ❌ Hủy Khách
                 </button>
             ` : (c.cancel_approved === -1) ? `
                 <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
@@ -877,17 +886,28 @@ async function openConsultModal(customerId) {
     // Pre-select next logical type
     const lastLog = consultLogs.length > 0 ? consultLogs[0] : null;
 
-    // Override: if customer has a PENDING emergency → lock to cap_cuu_sep only
-    if (pendingEmergency) {
-        allowedTypes = allTypes.filter(([k]) => k === 'cap_cuu_sep');
-        defaultType = 'cap_cuu_sep';
-    }
     // Override: after Hoàn Thành Cấp Cứu → show full consultation types with Giảm Giá
-    else if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
+    if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
         allowedTypes = allTypes.filter(([k]) => ['giam_gia','lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
     }
 
+    // Override: if customer has a PENDING emergency → lock to cap_cuu_sep only
+    if (pendingEmergency) {
+        allowedTypes = allTypes.filter(([k]) => k === 'cap_cuu_sep');
+    }
+
+    // Override: if customer cancel was auto-reverted (24h no response) → lock to Hủy Khách only
+    if (customerInfo.cancel_approved === -2) {
+        allowedTypes = allTypes.filter(([k]) => k === 'huy');
+    }
+
     let defaultType = lastLog ? lastLog.log_type : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
+
+    // Force defaultType when pending emergency
+    if (pendingEmergency) defaultType = 'cap_cuu_sep';
+    // Force defaultType when cancel auto-reverted
+    if (customerInfo.cancel_approved === -2) defaultType = 'huy';
+
     // After Đặt Cọc → default to Chốt Đơn
     if (defaultType === 'dat_coc') defaultType = 'chot_don';
     // After Chốt Đơn → default to Hoàn Thành Đơn
@@ -963,8 +983,8 @@ async function openConsultModal(customerId) {
         </div>
         <div class="form-group" id="consultHandlerGroup" style="display:none">
             <label>Chọn Người Xử Lý <span style="color:var(--danger)">*</span></label>
-            <select id="consultHandler" class="form-control">
-                <option value="">-- Chọn Sếp --</option>
+            <select id="consultHandler" class="form-control" ${pendingEmergency ? 'disabled style="opacity:0.7;cursor:not-allowed;background:var(--gray-100);"' : ''}>
+                ${pendingEmergency ? '' : '<option value="">-- Chọn Sếp --</option>'}
                 ${handlerOptions}
             </select>
             <div style="margin-top:8px;padding:10px;background:rgba(239,68,68,0.1);border-radius:6px;font-size:12px;color:#fca5a5;">

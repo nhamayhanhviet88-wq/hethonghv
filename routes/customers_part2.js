@@ -10,6 +10,28 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
+        // Helper: next business day (skip Sunday)
+        const getNextBizDay = () => {
+            const vnNow = new Date(Date.now() + 7*3600000);
+            const nextDay = new Date(vnNow);
+            nextDay.setDate(nextDay.getDate() + 1);
+            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
+            return nextDay.toISOString().split('T')[0];
+        };
+
+        // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
+        if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
+            const nextBizDay = getNextBizDay();
+            await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, appointment_date = ?, updated_at = NOW() WHERE id = ?`,
+                [nextBizDay, custId]);
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
+                [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
+            const tgMsg = `❌ <b>NHẮC LẠI YÊU CẦU HỦY KHÁCH</b>\\nKhách: ${customer.customer_name} - ${customer.phone}\\nLý do: ${reason}\\nBởi: ${request.user.full_name}`;
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
+        }
+
         if (['nhan_vien', 'truong_phong'].includes(request.user.role)) {
             await db.run(
                 `UPDATE customers SET cancel_requested = 1, cancel_reason = ?,
@@ -58,14 +80,19 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
             return { success: true, message: 'Đã duyệt hủy khách hàng.' + (linkedUser ? ` Tài khoản ${linkedUser.full_name} đã bị khóa.` : '') };
         } else {
-            const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+            // Next business day (skip Sunday)
+            const vnNow = new Date(Date.now() + 7*3600000);
+            const nextDay = new Date(vnNow);
+            nextDay.setDate(nextDay.getDate() + 1);
+            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
+            const nextBizDay = nextDay.toISOString().split('T')[0];
             await db.run(
                 `UPDATE customers SET cancel_approved = -1, cancel_approved_by = ?,
                  cancel_approved_at = NOW()::text,
                  cancel_reason = cancel_reason || ?,
                  order_status = 'tu_van_lai', appointment_date = ?,
                  updated_at = NOW() WHERE id = ?`,
-                [request.user.id, `\n❌ Từ chối: ${manager_note}`, today, custId]
+                [request.user.id, `\n❌ Từ chối: ${manager_note}`, nextBizDay, custId]
             );
             return { success: true, message: 'Đã từ chối hủy. Khách hàng chuyển sang Tư Vấn Lại.' };
         }
@@ -82,14 +109,19 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         );
         if (expired.length === 0) return { success: true, reverted: 0, customers: [] };
 
-        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+        // Next business day (skip Sunday)
+        const vnNow = new Date(Date.now() + 7*3600000);
+        const nextDay = new Date(vnNow);
+        nextDay.setDate(nextDay.getDate() + 1);
+        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
+        const nextBizDay = nextDay.toISOString().split('T')[0];
         for (const c of expired) {
             await db.run(
-                `UPDATE customers SET cancel_approved = -1,
+                `UPDATE customers SET cancel_approved = -2,
                  cancel_reason = cancel_reason || $1,
                  order_status = 'dang_tu_van', appointment_date = $2,
                  updated_at = NOW() WHERE id = $3`,
-                ['\n⏰ Tự động từ chối: Quá 24h không có phản hồi', today, c.id]
+                ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDay, c.id]
             );
         }
         return { success: true, reverted: expired.length, customers: expired };
