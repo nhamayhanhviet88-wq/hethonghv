@@ -85,11 +85,9 @@ const MENU_CONFIG = [
     { id: 'bao-cao-hoa-hong', label: 'Báo Cáo Hoa Hồng', icon: '💰', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     // ========== QUẢN LÝ CÔNG VIỆC ==========
-    { id: 'cv-hang-ngay', label: 'Công Việc Hằng Ngày', icon: '📋', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/cvhangngay' },
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu' },
-    { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm Kinh Doanh', icon: '🏪', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
+    { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm', icon: '🏪', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
     { id: 'bangiao-khoa', label: 'Bàn Giao CV Khóa', icon: '🔐', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaokhoa' },
-    { id: 'cv-cham-soc', label: 'Công Việc Chăm Sóc Khách', icon: '💼', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/cvchamsoc' },
     { id: 'don-khach-sll', label: 'Đơn Khách SLL', icon: '📦', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachsll' },
     { id: 'don-khach-nhieu-lan', label: 'Đơn Khách Nhiều Lần', icon: '🔄', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachnhieulan' },
     { id: 'don-khach-moi', label: 'Đơn Khách Mới', icon: '🆕', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachmoi' },
@@ -902,6 +900,7 @@ async function handleRoute() {
         case 'bxh-van-phong': case 'bxhvanphong': renderBangXepHangVanPhongPage(content); break;
         case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
         case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
+        case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
         default: renderComingSoon(content); break;
     }
 }

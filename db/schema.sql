@@ -394,3 +394,24 @@ DO $$ BEGIN
         ALTER TABLE prize_awards ADD CONSTRAINT prize_awards_board_period_rank_key UNIQUE(board_key, period_type, month, top_rank);
     END IF;
 END $$;
+
+-- Bàn giao công việc điểm (weekly task point templates)
+CREATE TABLE IF NOT EXISTS task_point_templates (
+    id SERIAL PRIMARY KEY,
+    target_type TEXT NOT NULL CHECK (target_type IN ('team', 'individual')),
+    target_id INTEGER NOT NULL,
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 6),
+    task_name TEXT NOT NULL,
+    points INTEGER NOT NULL DEFAULT 0,
+    min_quantity INTEGER NOT NULL DEFAULT 1,
+    time_start TEXT NOT NULL,
+    time_end TEXT NOT NULL,
+    guide_url TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_points_target ON task_point_templates(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_task_points_day ON task_point_templates(day_of_week);
