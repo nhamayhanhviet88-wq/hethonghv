@@ -8,6 +8,19 @@ let _tpUsers = [];
 let _tpIsReadonly = false;
 let _tpCurrentWeekStart = null; // Monday of current view week
 let _tpHolidayMap = {}; // { dayOfWeek: holidayName }
+const _tpColorPalette = [
+    { bg:'#eff6ff', border:'#bfdbfe', badge:'#1d4ed8', text:'#1e3a5f', tag:'#dbeafe' },
+    { bg:'#ecfdf5', border:'#a7f3d0', badge:'#059669', text:'#064e3b', tag:'#d1fae5' },
+    { bg:'#fffbeb', border:'#fde68a', badge:'#d97706', text:'#78350f', tag:'#fef3c7' },
+    { bg:'#f5f3ff', border:'#c4b5fd', badge:'#7c3aed', text:'#4c1d95', tag:'#ede9fe' },
+    { bg:'#fff1f2', border:'#fecdd3', badge:'#e11d48', text:'#881337', tag:'#ffe4e6' },
+    { bg:'#f0fdfa', border:'#99f6e4', badge:'#0d9488', text:'#134e4a', tag:'#ccfbf1' },
+    { bg:'#fff7ed', border:'#fed7aa', badge:'#ea580c', text:'#7c2d12', tag:'#ffedd5' },
+    { bg:'#eef2ff', border:'#a5b4fc', badge:'#4f46e5', text:'#312e81', tag:'#e0e7ff' },
+    { bg:'#fdf2f8', border:'#f9a8d4', badge:'#db2777', text:'#831843', tag:'#fce7f3' },
+    { bg:'#ecfeff', border:'#a5f3fc', badge:'#0891b2', text:'#164e63', tag:'#cffafe' },
+];
+let _tpTaskColorMap = {};
 
 async function renderBanGiaoDiemPage(container) {
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
@@ -202,6 +215,14 @@ async function _tpLoadTasks() {
     _tpRenderGrid();
 }
 
+function _tpGetTaskColor(taskName) {
+    if (!_tpTaskColorMap[taskName]) {
+        const idx = Object.keys(_tpTaskColorMap).length % _tpColorPalette.length;
+        _tpTaskColorMap[taskName] = _tpColorPalette[idx];
+    }
+    return _tpTaskColorMap[taskName];
+}
+
 function _tpChangeWeek(offset) {
     if (!_tpCurrentWeekStart) return;
     const d = new Date(_tpCurrentWeekStart);
@@ -217,6 +238,11 @@ function _tpFormatDate(date) {
 function _tpRenderGrid() {
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
+
+    // Build color map from unique task names (reset each render)
+    _tpTaskColorMap = {};
+    const uniqueNames = [...new Set(_tpTasks.map(t => t.task_name))];
+    uniqueNames.forEach(name => _tpGetTaskColor(name));
 
     // Group tasks by day
     const byDay = {};
@@ -298,17 +324,18 @@ function _tpRenderGrid() {
                 }
                 const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (task) {
+                    const c = _tpGetTaskColor(task.task_name);
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                        <div style="background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:12px 14px;text-align:center;">
-                            <div style="font-weight:700;color:#122546;font-size:14px;margin-bottom:8px;">${task.task_name}</div>
+                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;">
+                            <div style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;">${task.task_name}</div>
                             <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
-                                <span style="background:#122546;color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
-                                <span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
-                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;background:#eff6ff;padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
+                                <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
+                                <span style="background:${c.tag};color:${c.text};padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
+                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
                             </div>
                             <div style="font-size:10px;color:#9ca3af;margin-top:6px;">🕐 ${tStart} — ${tEnd}</div>
                             ${!_tpIsReadonly ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
-                                <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">✏️ Sửa</button>
+                                <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
                                 <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
                             </div>` : ''}
                         </div>
