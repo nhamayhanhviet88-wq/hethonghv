@@ -653,8 +653,8 @@ async function _tpShowTaskLibrary() {
         deptCounts[did] = (deptCounts[did] || 0) + 1;
     });
 
-    const deptTabsHtml = _tpAllDepts.map(d => {
-        const cnt = deptCounts[d.id] || 0;
+    const deptTabsHtml = _tpAllDepts.filter(d => (deptCounts[d.id] || 0) > 0).map(d => {
+        const cnt = deptCounts[d.id];
         return `<button class="tpLibDeptTab" data-id="${d.id}" onclick="_tpSelectLibDept('${d.id}')" style="padding:6px 14px;border-radius:20px;border:1px solid #e5e7eb;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all .15s;">${d.name} <span style="background:#e5e7eb;color:#374151;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${cnt}</span></button>`;
     }).join('');
 
