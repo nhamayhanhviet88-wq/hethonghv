@@ -5,33 +5,65 @@ const fs = require('fs');
 
 async function taskScheduleRoutes(fastify, options) {
 
-    // Helper: get templates for a user (individual→team fallback)
-    async function _getTemplatesForUser(userId) {
+    // Helper: get templates for a user (individual→team fallback, with week_only filter)
+    async function _getTemplatesForUser(userId, weekStart) {
         const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [userId]);
         if (!user) return [];
-        let tasks = await db.all(
-            'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
-            ['individual', userId]
+
+        // Get individual tasks
+        let indivTasks = await db.all(
+            'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 AND (week_only IS NULL OR week_only = $3) ORDER BY day_of_week, time_start',
+            ['individual', userId, weekStart || null]
         );
-        if (tasks.length === 0 && user.department_id) {
-            tasks = await db.all(
-                'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
-                ['team', user.department_id]
+
+        // Get team tasks
+        let teamTasks = [];
+        if (user.department_id) {
+            teamTasks = await db.all(
+                'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 AND (week_only IS NULL OR week_only = $3) ORDER BY day_of_week, time_start',
+                ['team', user.department_id, weekStart || null]
             );
         }
-        return tasks;
+
+        // Merge: team tasks + individual tasks (individual view always gets both)
+        return [...teamTasks, ...indivTasks];
     }
 
     // Helper: ensure snapshots exist for a user + date
-    async function _ensureSnapshots(userId, dateStr, dayOfWeek) {
+    // Smart sync: if templates changed and no reports filed yet, regenerate snapshots
+    async function _ensureSnapshots(userId, dateStr, dayOfWeek, weekStart) {
         const existing = await db.all(
-            'SELECT id FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 LIMIT 1',
+            'SELECT id, template_id FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2',
             [userId, dateStr]
         );
-        if (existing.length > 0) return; // already snapshotted
 
-        const templates = await _getTemplatesForUser(userId);
+        const templates = await _getTemplatesForUser(userId, weekStart);
         const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+
+        if (existing.length > 0) {
+            // Check if snapshots match current templates
+            const snapTemplateIds = new Set(existing.map(s => s.template_id).filter(Boolean));
+            const currTemplateIds = new Set(dayTasks.map(t => t.id));
+            const isStale = snapTemplateIds.size !== currTemplateIds.size ||
+                [...currTemplateIds].some(id => !snapTemplateIds.has(id));
+
+            if (!isStale) return; // snapshots are up-to-date
+
+            // Snapshots are stale — check if any reports exist for this date
+            const reports = await db.all(
+                'SELECT id FROM task_point_reports WHERE user_id = $1 AND report_date = $2 LIMIT 1',
+                [userId, dateStr]
+            );
+            if (reports.length > 0) return; // has reports, don't touch
+
+            // No reports → safe to regenerate snapshots
+            await db.run(
+                'DELETE FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2',
+                [userId, dateStr]
+            );
+        }
+
+        // Create fresh snapshots from current templates
         for (const t of dayTasks) {
             await db.run(
                 `INSERT INTO daily_task_snapshots (user_id, snapshot_date, template_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, requires_approval)
@@ -43,6 +75,11 @@ async function taskScheduleRoutes(fastify, options) {
 
     // GET weekly tasks with snapshot logic
     // Past+today → snapshots (auto-create if needed), future → live templates
+    // Helper: format date as YYYY-MM-DD using LOCAL timezone (not UTC!)
+    function _localDateStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
     fastify.get('/api/schedule/week-tasks', { preHandler: [authenticate] }, async (request, reply) => {
         const { user_id, week_start } = request.query;
         const uid = Number(user_id) || request.user.id;
@@ -50,24 +87,24 @@ async function taskScheduleRoutes(fastify, options) {
         if (!week_start) return reply.code(400).send({ error: 'Thiếu week_start' });
 
         const today = new Date(); today.setHours(0,0,0,0);
-        const todayStr = today.toISOString().slice(0,10);
+        const todayStr = _localDateStr(today);
         const monDate = new Date(week_start + 'T00:00:00');
 
         // Get templates for future days
-        const templates = await _getTemplatesForUser(uid);
+        const templates = await _getTemplatesForUser(uid, week_start);
 
         let allTasks = [];
 
         for (let d = 0; d < 7; d++) {
             const colDate = new Date(monDate);
             colDate.setDate(monDate.getDate() + d);
-            const dateStr = colDate.toISOString().slice(0,10);
+            const dateStr = _localDateStr(colDate);
             const jsDow = colDate.getDay(); // 0=Sun
             const dayOfWeek = jsDow === 0 ? 7 : jsDow; // 1=Mon..7=Sun
 
             if (dateStr <= todayStr) {
                 // Past or today → use snapshots
-                await _ensureSnapshots(uid, dateStr, dayOfWeek);
+                await _ensureSnapshots(uid, dateStr, dayOfWeek, week_start);
                 const snaps = await db.all(
                     'SELECT * FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
                     [uid, dateStr]
@@ -141,7 +178,7 @@ async function taskScheduleRoutes(fastify, options) {
         if (!from || !to) return reply.code(400).send({ error: 'Thiếu from/to' });
 
         const reports = await db.all(
-            `SELECT r.*, t.task_name, t.points as template_points, t.requires_approval
+            `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points, t.requires_approval
              FROM task_point_reports r
              LEFT JOIN task_point_templates t ON r.template_id = t.id
              WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
@@ -205,6 +242,13 @@ async function taskScheduleRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Phải có ít nhất link hoặc hình ảnh' });
         }
 
+        // Only allow reporting for TODAY — managers/directors can bypass
+        const todayLocal = _localDateStr(new Date());
+        const isManagerRole = ['giam_doc','quan_ly','truong_phong'].includes(request.user.role);
+        if (report_date !== todayLocal && !isManagerRole) {
+            return reply.code(403).send({ error: 'Chỉ được phép báo cáo ngày hôm nay. Liên hệ Quản lý để được báo cáo bù.' });
+        }
+
         const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
 
         const template = await db.get('SELECT * FROM task_point_templates WHERE id = $1', [Number(template_id)]);
@@ -262,7 +306,7 @@ async function taskScheduleRoutes(fastify, options) {
         if (!from || !to) return reply.code(400).send({ error: 'Thiếu from/to' });
 
         const rows = await db.all(
-            `SELECT report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
+            `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
              FROM task_point_reports
              WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
              GROUP BY report_date

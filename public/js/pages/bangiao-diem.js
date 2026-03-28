@@ -6,8 +6,13 @@ let _tpAllDepts = [];
 let _tpActiveDeptIds = [];
 let _tpUsers = [];
 let _tpIsReadonly = false;
-let _tpCurrentWeekStart = null; // Monday of current view week
-let _tpHolidayMap = {}; // { dayOfWeek: holidayName }
+let _tpIsDirector = false; // only giam_doc can manage fixed tasks
+let _tpCurrentWeekStart = null;
+let _tpHolidayMap = {};
+let _tpViewMode = 'team'; // 'team' | 'individual'
+let _tpViewUserId = null;
+let _tpViewUserName = '';
+let _tpDeptMembers = []; // members of currently selected dept
 const _tpColorPalette = [
     { bg:'#eff6ff', border:'#bfdbfe', badge:'#1d4ed8', text:'#1e3a5f', tag:'#dbeafe' },
     { bg:'#ecfdf5', border:'#a7f3d0', badge:'#059669', text:'#064e3b', tag:'#d1fae5' },
@@ -23,7 +28,8 @@ const _tpColorPalette = [
 let _tpTaskColorMap = {};
 
 async function renderBanGiaoDiemPage(container) {
-    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    _tpIsDirector = currentUser.role === 'giam_doc';
     _tpIsReadonly = !isManager;
     _tpCurrentWeekStart = null; // Always reset to current week on page load
 
@@ -35,7 +41,27 @@ async function renderBanGiaoDiemPage(container) {
         _tpActiveDeptIds = d.active_dept_ids || [];
     } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
 
-    const activeDepts = _tpAllDepts.filter(d => _tpActiveDeptIds.includes(d.id));
+    // Filter active + sort hierarchically (parent before children)
+    const activeSet = new Set(_tpActiveDeptIds);
+    // Also include parent depts of active teams  
+    const activeDeptsList = _tpAllDepts.filter(d => activeSet.has(d.id));
+    activeDeptsList.forEach(d => {
+        if (d.parent_id) {
+            const parent = _tpAllDepts.find(p => p.id === d.parent_id);
+            if (parent && !activeSet.has(parent.id)) {
+                activeSet.add(parent.id);
+            }
+        }
+    });
+    const activeDepts = _tpAllDepts.filter(d => activeSet.has(d.id))
+        .sort((a, b) => {
+            // Parent depts first (no parent_id or parent is system-level)
+            const aIsTeam = _tpAllDepts.some(p => p.id === a.parent_id && activeSet.has(p.id));
+            const bIsTeam = _tpAllDepts.some(p => p.id === b.parent_id && activeSet.has(p.id));
+            if (!aIsTeam && bIsTeam) return -1;
+            if (aIsTeam && !bIsTeam) return 1;
+            return (a.display_order || 0) - (b.display_order || 0);
+        });
 
     container.innerHTML = `
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
@@ -54,12 +80,22 @@ async function renderBanGiaoDiemPage(container) {
             <!-- LEFT: Dept list -->
             <div style="min-width:200px;max-width:220px;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);flex-shrink:0;">
                 <div style="padding:12px 14px;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Phòng ban</div>
-                <div id="tpDeptList" style="max-height:calc(100vh - 200px);overflow-y:auto;">
-                    ${activeDepts.map((d, i) => `
-                        <div class="tp-dept-item" data-id="${d.id}" onclick="_tpSelectDept(${d.id})" style="padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;${i === 0 ? 'background:#eff6ff;color:#122546;font-weight:600;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
-                            ${d.name}
+                <div style="padding:6px 10px;border-bottom:1px solid #f3f4f6;">
+                    <input type="text" id="tpGlobalSearch" placeholder="🔍 Tìm NV / phòng ban..." 
+                           oninput="_tpGlobalFilter()" 
+                           style="width:100%;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;box-sizing:border-box;color:#374151;background:#f9fafb;outline:none;" 
+                           onfocus="this.style.borderColor='#2563eb';this.style.background='white'" 
+                           onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'" />
+                </div>
+                <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
+                    ${activeDepts.map((d, i) => {
+                        const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
+                        return `
+                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" onclick="_tpSelectDept(${d.id})" style="padding:10px ${isChild ? '14px 10px 24px' : '14px'};font-size:${isChild ? '12px' : '13px'};color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;font-weight:600;${i === 0 ? 'background:#eff6ff;color:#122546;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
+                            ${isChild ? '└ ' : ''}${d.name}
                         </div>
-                    `).join('')}
+                        <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
+                    }).join('')}
                 </div>
                 ${isManager ? `<div style="padding:8px 10px;border-top:1px solid #f3f4f6;">
                     <button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="width:100%;padding:7px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>
@@ -78,10 +114,13 @@ async function renderBanGiaoDiemPage(container) {
         </div>
     </div>`;
 
-    // Auto-select first dept
+    // Auto-select first dept (also loads members list for ALL teams)
     if (activeDepts.length > 0) {
-        _tpTarget = { type: 'team', id: activeDepts[0].id };
-        _tpLoadTasks();
+        // Load members for ALL active depts
+        for (const dept of activeDepts) {
+            await _tpLoadDeptMembers(dept.id);
+        }
+        _tpSelectDept(activeDepts[0].id);
     }
 }
 
@@ -160,22 +199,123 @@ function _tpActivateDept() {
     const list = document.getElementById('tpDeptList');
     if (list) {
         const div = document.createElement('div');
-        div.className = 'tp-dept-item';
+        div.className = 'tp-dept-item' + (targetType === 'team' ? ' tp-dept-header' : '');
         div.dataset.key = itemKey;
         div.dataset.type = targetType;
         div.dataset.id = targetId;
-        div.onclick = () => _tpSelectItem(targetType, targetId);
-        div.style.cssText = `padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;${userId ? 'padding-left:22px;' : ''}`;
+        if (targetType === 'team') {
+            div.onclick = () => _tpSelectDept(targetId);
+        } else {
+            div.onclick = () => _tpSelectItem(targetType, targetId);
+        }
+        div.style.cssText = `padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;font-weight:600;${userId ? 'padding-left:22px;font-weight:400;' : ''}`;
         div.innerHTML = label;
         div.onmouseover = function(){ if(!this.classList.contains('tp-active')) this.style.background='#f9fafb'; };
         div.onmouseout = function(){ if(!this.classList.contains('tp-active')) this.style.background='white'; };
         list.appendChild(div);
+        
+        // Add member wrap div for new teams
+        if (targetType === 'team') {
+            const memberWrap = document.createElement('div');
+            memberWrap.id = `tpMemberWrap_${deptId}`;
+            memberWrap.style.display = 'none';
+            list.appendChild(memberWrap);
+        }
     }
-    _tpSelectItem(targetType, targetId);
+    if (targetType === 'team') {
+        _tpSelectDept(targetId);
+    } else {
+        _tpSelectItem(targetType, targetId);
+    }
     showToast(`✅ Đã tạo lịch cho ${userId ? userName : deptName}`);
 }
 
-function _tpSelectDept(deptId) { _tpSelectItem('team', deptId); }
+async function _tpSelectDept(deptId) {
+    _tpViewMode = 'team';
+    _tpViewUserId = null;
+    _tpViewUserName = '';
+    _tpSelectItem('team', deptId);
+    // Load and show members under this dept
+    await _tpLoadDeptMembers(deptId);
+}
+
+async function _tpLoadDeptMembers(deptId) {
+    const wrap = document.getElementById(`tpMemberWrap_${deptId}`);
+    if (!wrap) return;
+
+    try {
+        const u = await apiCall(`/api/task-points/users?department_id=${deptId}`);
+        _tpDeptMembers = u.users || [];
+    } catch(e) { _tpDeptMembers = []; }
+
+    wrap.style.display = 'block';
+    wrap.innerHTML = `
+        <div id="tpMemberList_${deptId}">
+            ${_tpDeptMembers.map(m => `
+                <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
+                     onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
+                     style="padding:6px 14px 6px 22px;font-size:12px;color:#6b7280;cursor:pointer;transition:all .12s;border-left:3px solid transparent;"
+                     onmouseover="this.style.background='#f0fdf4';this.style.color='#059669'" 
+                     onmouseout="if(!this.classList.contains('tp-member-active')){this.style.background='';this.style.color='#6b7280'}">
+                    👤 ${m.full_name} <span style="color:#9ca3af;font-size:10px;">(${m.username || m.role})</span>
+                </div>
+            `).join('')}
+        </div>`;
+}
+
+function _tpGlobalFilter() {
+    const q = (document.getElementById('tpGlobalSearch')?.value || '').toLowerCase().trim();
+    
+    // Filter members across all depts
+    document.querySelectorAll('.tp-member-item').forEach(el => {
+        if (!q) { el.style.display = ''; return; }
+        const name = el.dataset.name || '';
+        const uname = el.dataset.uname || '';
+        el.style.display = (name.includes(q) || uname.includes(q)) ? '' : 'none';
+    });
+    
+    // Filter dept headers — show if name matches or has visible members
+    document.querySelectorAll('.tp-dept-header').forEach(el => {
+        if (!q) { el.style.display = ''; return; }
+        const deptName = (el.textContent || '').toLowerCase();
+        const deptId = el.dataset.id;
+        const wrap = document.getElementById(`tpMemberWrap_${deptId}`);
+        const hasVisibleMembers = wrap ? wrap.querySelectorAll('.tp-member-item:not([style*="display: none"])').length > 0 : false;
+        el.style.display = (deptName.includes(q) || hasVisibleMembers) ? '' : 'none';
+        
+        // If dept name matches, show ALL its members
+        if (deptName.includes(q) && wrap) {
+            wrap.querySelectorAll('.tp-member-item').forEach(m => m.style.display = '');
+        }
+        
+        // Show/hide member wrap
+        if (wrap) wrap.style.display = el.style.display === 'none' ? 'none' : 'block';
+    });
+}
+
+function _tpSelectMember(deptId, userId, userName) {
+    _tpViewMode = 'individual';
+    _tpViewUserId = userId;
+    _tpViewUserName = userName;
+    // Highlight member
+    document.querySelectorAll('.tp-member-item').forEach(el => {
+        const isActive = Number(el.dataset.uid) === userId;
+        el.classList.toggle('tp-member-active', isActive);
+        el.style.background = isActive ? '#ecfdf5' : '';
+        el.style.color = isActive ? '#059669' : '#6b7280';
+        el.style.fontWeight = isActive ? '600' : '';
+        el.style.borderLeft = isActive ? '3px solid #059669' : '3px solid transparent';
+    });
+    // Highlight dept header
+    document.querySelectorAll('.tp-dept-header').forEach(el => {
+        const isActive = Number(el.dataset.id) === deptId;
+        el.style.background = isActive ? '#eff6ff' : 'white';
+        el.style.color = isActive ? '#122546' : '#374151';
+        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+    });
+    _tpTarget = { type: 'team', id: deptId, userId: userId };
+    _tpLoadTasks();
+}
 
 function _tpSelectItem(targetType, targetId) {
     const itemKey = `${targetType}-${targetId}`;
@@ -187,6 +327,14 @@ function _tpSelectItem(targetType, targetId) {
         el.style.fontWeight = isActive ? '600' : '400';
         el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
     });
+    // Clear member highlights
+    document.querySelectorAll('.tp-member-item').forEach(el => {
+        el.classList.remove('tp-member-active');
+        el.style.background = '';
+        el.style.color = '#6b7280';
+        el.style.fontWeight = '';
+        el.style.borderLeft = '3px solid transparent';
+    });
     _tpTarget = { type: targetType, id: targetId };
     _tpLoadTasks();
 }
@@ -194,7 +342,7 @@ function _tpSelectItem(targetType, targetId) {
 async function _tpLoadTasks() {
     if (!_tpTarget.id) return;
 
-    // Init week to current week if not set
+    // Init week
     if (!_tpCurrentWeekStart) {
         const now = new Date();
         const day = now.getDay();
@@ -203,19 +351,31 @@ async function _tpLoadTasks() {
         _tpCurrentWeekStart = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
     }
 
+    const weekStr = _tpDateStr(_tpCurrentWeekStart);
+
     try {
-        const d = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}`);
-        _tpTasks = d.tasks || [];
+        if (_tpViewMode === 'individual' && _tpViewUserId) {
+            // Individual view: merged team + personal tasks
+            const d = await apiCall(`/api/task-points/individual?user_id=${_tpViewUserId}&week_start=${weekStr}`);
+            _tpTasks = d.tasks || [];
+        } else {
+            // Team view
+            const d = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}&week_start=${weekStr}`);
+            _tpTasks = d.tasks || [];
+        }
     } catch(e) { _tpTasks = []; }
 
-    // Load holidays for this week
+    // Load holidays
     try {
-        const dateStr = _tpCurrentWeekStart.toISOString().slice(0, 10);
-        const h = await apiCall(`/api/holidays/week?date=${dateStr}`);
+        const h = await apiCall(`/api/holidays/week?date=${weekStr}`);
         _tpHolidayMap = h.holidays || {};
     } catch(e) { _tpHolidayMap = {}; }
 
     _tpRenderGrid();
+}
+
+function _tpDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function _tpGetTaskColor(taskName) {
@@ -265,7 +425,23 @@ function _tpRenderGrid() {
     const monDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
     const sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
 
-    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
+    let html = '';
+
+    // View mode header  
+    if (_tpViewMode === 'individual' && _tpViewUserName) {
+        html += `<div style="padding:10px 14px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;justify-content:space-between;border-radius:10px 10px 0 0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:18px;">👤</span>
+                <div>
+                    <div style="font-weight:700;color:#064e3b;font-size:14px;">Lịch cá nhân: ${_tpViewUserName}</div>
+                    <div style="font-size:11px;color:#059669;">📦 = Từ team (chỉ xem) &nbsp;|&nbsp; 👤 = Riêng (sửa/xóa được)</div>
+                </div>
+            </div>
+            <button onclick="_tpSelectDept(${_tpTarget.id})" style="padding:5px 12px;border:1px solid #a7f3d0;border-radius:6px;background:white;color:#059669;cursor:pointer;font-size:12px;font-weight:600;">← Về lịch team</button>
+        </div>`;
+    }
+
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}">
         <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
         <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
         <button onclick="_tpChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
@@ -319,7 +495,6 @@ function _tpRenderGrid() {
             </td>`;
             for (let d = 1; d <= 7; d++) {
                 if (_tpHolidayMap[d]) {
-                    // Holiday column — greyed out
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};background:#fef2f2;vertical-align:middle;text-align:center;">
                         <div style="color:#fca5a5;font-size:18px;">🏖️</div>
                     </td>`;
@@ -328,16 +503,37 @@ function _tpRenderGrid() {
                 const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (task) {
                     const c = _tpGetTaskColor(task.task_name);
+                    const isTeamTask = task._source === 'team';
+                    const isIndivView = _tpViewMode === 'individual';
+                    const isFixedTask = !task.week_only;
+                    const canEditFixed = _tpIsDirector; // only director can edit fixed tasks
+                    const canEdit = !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
+                    
+                    // Source badge
+                    let sourceBadge = '';
+                    if (isIndivView) {
+                        sourceBadge = isTeamTask 
+                            ? `<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">📦 Từ team</span>`
+                            : `<span style="background:#d1fae5;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">👤 Riêng</span>`;
+                    }
+                    // Week-only badge
+                    let weekBadge = '';
+                    if (task.week_only) {
+                        weekBadge = `<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">📅 Tuần này</span>`;
+                    }
+
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;">
+                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}">
                             <div style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;">${task.task_name}</div>
                             <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
                                 <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
                                 <span style="background:${c.tag};color:${c.text};padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
-                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
+                                ${sourceBadge}
+                                ${weekBadge}
                             </div>
+                            ${task.guide_url ? `<div style="margin-top:6px;"><a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a></div>` : ''}
                             <div style="font-size:10px;color:#9ca3af;margin-top:6px;">🕐 ${tStart} — ${tEnd}</div>
-                            ${!_tpIsReadonly ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
+                            ${canEdit ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
                                 <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
                                 <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
                             </div>` : ''}
@@ -451,6 +647,17 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
             <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
         </div>
+        <div style="margin-bottom:8px;padding:10px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
+            <label style="font-weight:600;font-size:13px;color:#0c4a6e;display:block;margin-bottom:6px;">📌 Loại lịch:</label>
+            <div style="display:flex;gap:12px;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#0369a1;padding:4px 10px;border:1px solid ${!(task?.week_only || pf._auto_week_only) ? '#0284c7' : '#e5e7eb'};border-radius:6px;background:${!(task?.week_only || pf._auto_week_only) ? '#e0f2fe' : 'white'};">
+                    <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''} style="accent-color:#0284c7;cursor:pointer;"> 📌 Cố định (mỗi tuần)
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#d97706;padding:4px 10px;border:1px solid ${(task?.week_only || pf._auto_week_only) ? '#d97706' : '#e5e7eb'};border-radius:6px;background:${(task?.week_only || pf._auto_week_only) ? '#fef3c7' : 'white'};">
+                    <input type="radio" name="tpWeekType" value="weekly" ${(task?.week_only || pf._auto_week_only) ? 'checked' : ''} style="accent-color:#d97706;cursor:pointer;"> 📅 Chỉ tuần này
+                </label>
+            </div>
+        </div>
         ${daysHtml}
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
             <button onclick="document.getElementById('tpModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
@@ -468,28 +675,37 @@ async function _tpSaveTask(editId, defaultDay) {
     const time_end = document.getElementById('tpFEnd').value;
     const guide_url = document.getElementById('tpFGuide').value.trim();
     const requires_approval = document.getElementById('tpFApproval')?.checked || false;
+    const weekTypeRadio = document.querySelector('input[name="tpWeekType"]:checked');
+    const isWeekOnly = weekTypeRadio?.value === 'weekly';
+    const week_only = isWeekOnly && _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : null;
 
     if (!task_name || !time_start || !time_end) { showToast('Vui lòng điền đầy đủ!', 'error'); return; }
 
+    // Determine target: if individual view, create as individual for user
+    let targetType = _tpTarget.type;
+    let targetId = _tpTarget.id;
+    if (_tpViewMode === 'individual' && _tpViewUserId) {
+        targetType = 'individual';
+        targetId = _tpViewUserId;
+    }
+
     try {
         if (editId) {
-            // Update
             await apiCall(`/api/task-points/${editId}`, 'PUT', {
-                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval
+                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, week_only
             });
             showToast('✅ Đã cập nhật');
         } else {
-            // Create — for each checked day
             const checkedDays = [...document.querySelectorAll('.tpDayCb:checked')].map(cb => Number(cb.value));
             if (checkedDays.length === 0) { showToast('Chọn ít nhất 1 ngày!', 'error'); return; }
 
             for (const day of checkedDays) {
                 await apiCall('/api/task-points', 'POST', {
-                    target_type: _tpTarget.type, target_id: _tpTarget.id,
-                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval
+                    target_type: targetType, target_id: targetId,
+                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval, week_only
                 });
             }
-            showToast(`✅ Đã thêm ${checkedDays.length} công việc`);
+            showToast(`✅ Đã thêm ${checkedDays.length} công việc${isWeekOnly ? ' (tuần này)' : ''}`);
         }
         document.getElementById('tpModal')?.remove();
         _tpLoadTasks();
@@ -640,23 +856,15 @@ let _tpLibFilterDeptId = '';
 
 async function _tpShowTaskLibrary() {
     _tpLibFilterDeptId = '';
-    // Pre-load all library tasks to get counts
+    _tpLibFilterWeekly = false; // false = cố định, true = 1 tuần
+    // Pre-load all library tasks
     try {
         const d = await apiCall('/api/task-library');
         _tpLibraryTasks = d.tasks || [];
     } catch(e) { _tpLibraryTasks = []; }
 
-    // Count per dept
-    const deptCounts = {};
-    _tpLibraryTasks.forEach(t => {
-        const did = t.department_id || 0;
-        deptCounts[did] = (deptCounts[did] || 0) + 1;
-    });
-
-    const deptTabsHtml = _tpAllDepts.filter(d => (deptCounts[d.id] || 0) > 0).map(d => {
-        const cnt = deptCounts[d.id];
-        return `<button class="tpLibDeptTab" data-id="${d.id}" onclick="_tpSelectLibDept('${d.id}')" style="padding:6px 14px;border-radius:20px;border:1px solid #e5e7eb;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all .15s;">${d.name} <span style="background:#e5e7eb;color:#374151;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${cnt}</span></button>`;
-    }).join('');
+    const fixedCount = _tpLibraryTasks.filter(t => !t.is_weekly).length;
+    const weeklyCount = _tpLibraryTasks.filter(t => t.is_weekly).length;
 
     const modal = document.createElement('div');
     modal.id = 'tpLibModal';
@@ -669,38 +877,86 @@ async function _tpShowTaskLibrary() {
                 <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Quản lý tất cả công việc để tái sử dụng · ${_tpLibraryTasks.length} CV</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-                <button onclick="_tpShowLibAddModal()" style="padding:7px 16px;border-radius:8px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">＋ Thêm CV mới</button>
+                <button id="tpLibAddBtn" onclick="_tpShowLibAddModal(null, _tpLibFilterWeekly)" style="padding:7px 16px;border-radius:8px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">＋ Thêm CV mới</button>
                 <button onclick="document.getElementById('tpLibModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
             </div>
         </div>
-        <div style="padding:12px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;overflow-x:auto;">
-            <button class="tpLibDeptTab" data-id="" onclick="_tpSelectLibDept('')" style="padding:6px 14px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;">Tất cả <span style="background:#2563eb;color:white;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${_tpLibraryTasks.length}</span></button>
-            ${deptTabsHtml}
-
+        <!-- 2 Main Tabs: Cố Định / 1 Tuần -->
+        <div style="display:flex;border-bottom:2px solid #e5e7eb;">
+            <button id="tpLibTabFixed" onclick="_tpSwitchLibTab(false)" style="flex:1;padding:12px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:#eff6ff;color:#2563eb;border-bottom:3px solid #2563eb;transition:all .2s;">
+                📌 Cố Định <span style="background:#2563eb;color:white;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:4px;">${fixedCount}</span>
+            </button>
+            <button id="tpLibTabWeekly" onclick="_tpSwitchLibTab(true)" style="flex:1;padding:12px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:#f9fafb;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s;">
+                📅 Chỉ 1 Tuần <span style="background:#e5e7eb;color:#374151;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:4px;">${weeklyCount}</span>
+            </button>
         </div>
+        <!-- Dept sub-filter -->
+        <div id="tpLibDeptFilter" style="padding:10px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:6px;overflow-x:auto;"></div>
         <div id="tpLibList" style="flex:1;overflow-y:auto;padding:12px 22px;"></div>
     </div>`;
     document.body.appendChild(modal);
+    // Initial add button visibility (Fixed tab is default)
+    if (!_tpIsDirector) {
+        const addBtn = document.getElementById('tpLibAddBtn');
+        if (addBtn) addBtn.style.display = 'none';
+    }
+    _tpUpdateLibDeptFilter();
     _tpRenderLibList();
+}
+
+let _tpLibFilterWeekly = false;
+
+function _tpSwitchLibTab(isWeekly) {
+    _tpLibFilterWeekly = isWeekly;
+    _tpLibFilterDeptId = '';
+    // Update tab styles
+    const fixedTab = document.getElementById('tpLibTabFixed');
+    const weeklyTab = document.getElementById('tpLibTabWeekly');
+    if (fixedTab) {
+        fixedTab.style.background = !isWeekly ? '#eff6ff' : '#f9fafb';
+        fixedTab.style.color = !isWeekly ? '#2563eb' : '#6b7280';
+        fixedTab.style.borderBottom = !isWeekly ? '3px solid #2563eb' : '3px solid transparent';
+        const badge = fixedTab.querySelector('span');
+        if (badge) { badge.style.background = !isWeekly ? '#2563eb' : '#e5e7eb'; badge.style.color = !isWeekly ? 'white' : '#374151'; }
+    }
+    if (weeklyTab) {
+        weeklyTab.style.background = isWeekly ? '#fff7ed' : '#f9fafb';
+        weeklyTab.style.color = isWeekly ? '#ea580c' : '#6b7280';
+        weeklyTab.style.borderBottom = isWeekly ? '3px solid #ea580c' : '3px solid transparent';
+        const badge = weeklyTab.querySelector('span');
+        if (badge) { badge.style.background = isWeekly ? '#ea580c' : '#e5e7eb'; badge.style.color = isWeekly ? 'white' : '#374151'; }
+    }
+    // Show/hide add button based on permissions
+    const addBtn = document.getElementById('tpLibAddBtn');
+    if (addBtn) {
+        const canAdd = isWeekly || _tpIsDirector; // Fixed: only director; Weekly: all managers
+        addBtn.style.display = canAdd ? '' : 'none';
+    }
+    _tpUpdateLibDeptFilter();
+    _tpRenderLibList();
+}
+
+function _tpUpdateLibDeptFilter() {
+    const wrap = document.getElementById('tpLibDeptFilter');
+    if (!wrap) return;
+    const filtered = _tpLibraryTasks.filter(t => !!t.is_weekly === _tpLibFilterWeekly);
+    const deptCounts = {};
+    filtered.forEach(t => { const did = t.department_id || 0; deptCounts[did] = (deptCounts[did] || 0) + 1; });
+    
+    const totalCount = filtered.length;
+    let html = `<button class="tpLibDeptTab" data-id="" onclick="_tpSelectLibDept('')" style="padding:5px 12px;border-radius:16px;border:${!_tpLibFilterDeptId ? '2px solid #2563eb' : '1px solid #e5e7eb'};background:${!_tpLibFilterDeptId ? '#eff6ff' : 'white'};color:${!_tpLibFilterDeptId ? '#2563eb' : '#374151'};cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;">Tất cả <span style="background:${!_tpLibFilterDeptId ? '#2563eb' : '#e5e7eb'};color:${!_tpLibFilterDeptId ? 'white' : '#374151'};padding:0 6px;border-radius:8px;font-size:10px;margin-left:3px;">${totalCount}</span></button>`;
+    
+    _tpAllDepts.filter(d => (deptCounts[d.id] || 0) > 0).forEach(d => {
+        const cnt = deptCounts[d.id];
+        const active = String(_tpLibFilterDeptId) === String(d.id);
+        html += `<button class="tpLibDeptTab" data-id="${d.id}" onclick="_tpSelectLibDept('${d.id}')" style="padding:5px 12px;border-radius:16px;border:${active ? '2px solid #2563eb' : '1px solid #e5e7eb'};background:${active ? '#eff6ff' : 'white'};color:${active ? '#2563eb' : '#374151'};cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;">${d.name} <span style="background:${active ? '#2563eb' : '#e5e7eb'};color:${active ? 'white' : '#374151'};padding:0 6px;border-radius:8px;font-size:10px;margin-left:3px;">${cnt}</span></button>`;
+    });
+    wrap.innerHTML = html;
 }
 
 function _tpSelectLibDept(deptId) {
     _tpLibFilterDeptId = deptId;
-    // Update tab styles
-    document.querySelectorAll('.tpLibDeptTab').forEach(btn => {
-        const id = btn.dataset.id;
-        const active = id === String(deptId);
-        btn.style.border = active ? '2px solid #2563eb' : '1px solid #e5e7eb';
-        btn.style.background = active ? '#eff6ff' : 'white';
-        btn.style.color = active ? '#2563eb' : '#374151';
-        btn.style.fontWeight = active ? '700' : '600';
-        // Update count badge
-        const badge = btn.querySelector('span');
-        if (badge) {
-            badge.style.background = active ? '#2563eb' : '#e5e7eb';
-            badge.style.color = active ? 'white' : '#374151';
-        }
-    });
+    _tpUpdateLibDeptFilter();
     _tpRenderLibList();
 }
 
@@ -717,11 +973,12 @@ function _tpRenderLibList() {
     const wrap = document.getElementById('tpLibList');
     if (!wrap) return;
 
-    let filtered = _tpLibraryTasks;
+    let filtered = _tpLibraryTasks.filter(t => !!t.is_weekly === _tpLibFilterWeekly);
     if (_tpLibFilterDeptId) filtered = filtered.filter(t => t.department_id === Number(_tpLibFilterDeptId));
 
+    const tabLabel = _tpLibFilterWeekly ? '📅 1 Tuần' : '📌 Cố Định';
     if (filtered.length === 0) {
-        wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#9ca3af;font-size:14px;">📦 Chưa có công việc nào trong kho.<br>Ấn <b>＋ Thêm CV mới</b> để bắt đầu.</div>';
+        wrap.innerHTML = `<div style="padding:30px;text-align:center;color:#9ca3af;font-size:14px;">📦 Chưa có công việc ${tabLabel} nào.<br>Ấn <b>＋ Thêm CV mới</b> để bắt đầu.</div>`;
         return;
     }
 
@@ -739,6 +996,7 @@ function _tpRenderLibList() {
             <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #f3f4f6;">🏢 ${deptName} (${byDept[deptName].length})</div>`;
         byDept[deptName].forEach(t => {
             const c = _tpGetTaskColor(t.task_name);
+            const canManage = _tpLibFilterWeekly || _tpIsDirector; // Fixed: only director; Weekly: all managers
             html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;">
                 <div style="flex:1;">
                     <div style="font-weight:700;color:${c.text};font-size:14px;">${t.task_name}</div>
@@ -749,10 +1007,10 @@ function _tpRenderLibList() {
                         ${t.guide_url ? '<span style="font-size:10px;color:#2563eb;">📘 Có HD</span>' : ''}
                     </div>
                 </div>
-                <div style="display:flex;gap:4px;">
+                ${canManage ? `<div style="display:flex;gap:4px;">
                     <button onclick="_tpEditLibTask(${t.id})" style="padding:4px 10px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};font-size:11px;cursor:pointer;">✏️</button>
                     <button onclick="_tpDeleteLibTask(${t.id})" style="padding:4px 10px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;font-size:11px;cursor:pointer;">🗑️</button>
-                </div>
+                </div>` : '<div style="font-size:10px;color:#9ca3af;padding:4px 8px;">👁️ Xem</div>'}
             </div>`;
         });
         html += `</div>`;
@@ -760,14 +1018,22 @@ function _tpRenderLibList() {
     wrap.innerHTML = html;
 }
 
-function _tpShowLibAddModal(editTask) {
+function _tpShowLibAddModal(editTask, isWeekly) {
     const isEdit = !!editTask;
+    if (isEdit && editTask.is_weekly !== undefined) isWeekly = editTask.is_weekly;
+    const typeLabel = isWeekly ? '📅 Chỉ 1 Tuần' : '📌 Cố Định';
+    const typeBg = isWeekly ? '#fff7ed' : '#eff6ff';
+    const typeColor = isWeekly ? '#ea580c' : '#2563eb';
     const m = document.createElement('div');
     m.id = 'tpLibAddModal';
     m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:10000;';
     m.innerHTML = `
     <div style="background:white;border-radius:12px;padding:22px;width:min(440px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
-        <h3 style="margin:0 0 16px;font-size:16px;color:#122546;">${isEdit ? '✏️ Sửa công việc' : '＋ Thêm công việc vào kho'}</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:16px;color:#122546;">${isEdit ? '✏️ Sửa công việc' : '＋ Thêm công việc vào kho'}</h3>
+            <span style="background:${typeBg};color:${typeColor};padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ${typeColor}30;">${typeLabel}</span>
+        </div>
+        <input type="hidden" id="tpLibIsWeekly" value="${isWeekly ? '1' : '0'}" />
         <div style="margin-bottom:12px;">
             <label style="font-weight:600;font-size:12px;color:#374151;">Phòng ban <span style="color:#dc2626;">*</span></label>
             <select id="tpLibDept" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
@@ -814,11 +1080,12 @@ async function _tpSaveLibTask(editId) {
     const minQty = document.getElementById('tpLibMinQty')?.value;
     const guide = document.getElementById('tpLibGuide')?.value?.trim();
     const approval = document.getElementById('tpLibApproval')?.checked;
+    const isWeekly = document.getElementById('tpLibIsWeekly')?.value === '1';
 
     if (!name) { showToast('Nhập tên công việc!', 'error'); return; }
     if (!dept) { showToast('Chọn phòng ban!', 'error'); return; }
 
-    const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept) };
+    const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept), is_weekly: isWeekly };
 
     try {
         if (editId) {
@@ -836,7 +1103,7 @@ async function _tpSaveLibTask(editId) {
 function _tpEditLibTask(id) {
     const task = _tpLibraryTasks.find(t => t.id === id);
     if (!task) return;
-    _tpShowLibAddModal(task);
+    _tpShowLibAddModal(task, task.is_weekly);
 }
 
 async function _tpDeleteLibTask(id) {
@@ -849,12 +1116,22 @@ async function _tpDeleteLibTask(id) {
 }
 
 // ===== THÊM TỪ KHO VÀO GRID =====
+let _tpPickerTasks = []; // cache for picker flow
 async function _tpShowPickFromLibrary(dayOfWeek) {
-    // Load library for current dept
-    const deptId = _tpTarget.type === 'team' ? _tpTarget.id : null;
+    // Load library for current dept — resolve dept for individual targets too
+    let deptId = null;
+    if (_tpTarget.type === 'team') {
+        deptId = _tpTarget.id;
+    } else if (_tpTarget.type === 'individual') {
+        // Look up user's department_id
+        try {
+            const u = await apiCall(`/api/users/${_tpTarget.id}`);
+            deptId = u.user?.department_id || null;
+        } catch(e) {}
+    }
     let tasks = [];
     try {
-        const url = deptId ? `/api/task-library?department_id=${deptId}` : '/api/task-library';
+        const url = deptId ? `/api/task-library?department_id=${deptId}&include_ancestors=true` : '/api/task-library';
         const d = await apiCall(url);
         tasks = d.tasks || [];
     } catch(e) { tasks = []; }
@@ -864,27 +1141,66 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
         return;
     }
 
+    _tpPickerTasks = tasks; // cache for _tpPickLibTask
+
+    // Group tasks by department name
+    const byDept = {};
+    tasks.forEach(t => {
+        const key = t.dept_name || 'Chưa gán phòng';
+        if (!byDept[key]) byDept[key] = { deptId: t.department_id, tasks: [] };
+        byDept[key].tasks.push(t);
+    });
+
+    // Determine if current target is this dept or inherited
+    const currentDeptId = deptId;
+
+    let tasksHtml = '';
+    Object.keys(byDept).forEach(deptName => {
+        const group = byDept[deptName];
+        const isOwn = group.deptId === currentDeptId;
+        const icon = isOwn ? '📦' : '📂';
+        const label = isOwn ? `CV của ${deptName}` : `CV từ ${deptName}`;
+        const labelColor = isOwn ? '#1d4ed8' : '#059669';
+        const labelBg = isOwn ? '#eff6ff' : '#ecfdf5';
+
+        tasksHtml += `<div style="margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:700;color:${labelColor};text-transform:uppercase;margin-bottom:6px;padding:6px 10px;background:${labelBg};border-radius:6px;border-left:3px solid ${labelColor};">${icon} ${label} (${group.tasks.length})</div>`;
+        group.tasks.forEach(t => {
+            const c = _tpGetTaskColor(t.task_name);
+            const isFixed = !t.is_weekly;
+            const locked = isFixed && !_tpIsDirector;
+            if (locked) {
+                tasksHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f3f4f6;border:1px solid #e5e7eb;border-left:3px solid #d1d5db;border-radius:8px;margin-bottom:6px;cursor:not-allowed;opacity:0.6;" title="Chỉ Giám Đốc mới thêm CV cố định">
+                    <div style="flex:1;">
+                        <div style="font-weight:700;color:#9ca3af;font-size:14px;">🔒 ${t.task_name}</div>
+                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần · 📌 Cố định — Chỉ GĐ</div>
+                    </div>
+                    <span style="color:#d1d5db;font-size:14px;">🔒</span>
+                </div>`;
+            } else {
+                const typeTag = isFixed ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;">📌</span> ' : '<span style="background:#fff7ed;color:#ea580c;padding:1px 5px;border-radius:3px;font-size:9px;">📅</span> ';
+                tasksHtml += `<div onclick="_tpPickLibTask(${t.id},${dayOfWeek})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='none'">
+                    <div style="flex:1;">
+                        <div style="font-weight:700;color:${c.text};font-size:14px;">${typeTag}${t.task_name}</div>
+                        <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần ${t.requires_approval ? '· 🔒Duyệt' : ''} · <span style="color:${labelColor};font-weight:600;">${deptName}</span></div>
+                    </div>
+                    <span style="color:${c.badge};font-size:18px;">→</span>
+                </div>`;
+            }
+        });
+        tasksHtml += `</div>`;
+    });
+
     const modal = document.createElement('div');
     modal.id = 'tpPickModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
 
-    const tasksHtml = tasks.map(t => {
-        const c = _tpGetTaskColor(t.task_name);
-        return `<div onclick="_tpPickLibTask(${t.id},${dayOfWeek})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='none'">
-            <div style="flex:1;">
-                <div style="font-weight:700;color:${c.text};font-size:14px;">${t.task_name}</div>
-                <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần ${t.requires_approval ? '· 🔒Duyệt' : ''}</div>
-            </div>
-            <span style="color:${c.badge};font-size:18px;">→</span>
-        </div>`;
-    }).join('');
-
     modal.innerHTML = `
-    <div style="background:white;border-radius:14px;padding:0;width:min(460px,90vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="background:white;border-radius:14px;padding:0;width:min(500px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
             <div>
                 <h3 style="margin:0;font-size:16px;color:#122546;">📦 Chọn CV từ Kho — ${DAY_NAMES[dayOfWeek]}</h3>
-                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Click để thêm vào lịch</div>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Click để thêm vào lịch · ${tasks.length} CV có sẵn</div>
             </div>
             <button onclick="document.getElementById('tpPickModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
         </div>
@@ -897,7 +1213,8 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
 }
 
 async function _tpPickLibTask(libId, dayOfWeek) {
-    const t = _tpLibraryTasks.length > 0 ? _tpLibraryTasks.find(x => x.id === libId) : null;
+    // Check picker cache first (includes ancestor tasks), then library cache, then API
+    let t = _tpPickerTasks.find(x => x.id === libId) || _tpLibraryTasks.find(x => x.id === libId) || null;
     if (!t) {
         // Fetch from API
         try {
@@ -914,12 +1231,14 @@ async function _tpPickLibTask(libId, dayOfWeek) {
 function _tpPickLibTaskDo(libTask, dayOfWeek) {
     document.getElementById('tpPickModal')?.remove();
     // Pre-fill the task modal with library data
+    // Auto-set week_only based on library task type
     const task = {
         task_name: libTask.task_name,
         points: libTask.points,
         min_quantity: libTask.min_quantity,
         guide_url: libTask.guide_url,
-        requires_approval: libTask.requires_approval
+        requires_approval: libTask.requires_approval,
+        _auto_week_only: libTask.is_weekly ? true : false
     };
     _tpShowTaskModal(null, dayOfWeek, task);
 }

@@ -400,13 +400,15 @@ CREATE TABLE IF NOT EXISTS task_point_templates (
     id SERIAL PRIMARY KEY,
     target_type TEXT NOT NULL CHECK (target_type IN ('team', 'individual')),
     target_id INTEGER NOT NULL,
-    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 6),
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
     task_name TEXT NOT NULL,
     points INTEGER NOT NULL DEFAULT 0,
     min_quantity INTEGER NOT NULL DEFAULT 1,
     time_start TEXT NOT NULL,
     time_end TEXT NOT NULL,
     guide_url TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    week_only DATE DEFAULT NULL,
     sort_order INTEGER DEFAULT 0,
     created_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT NOW(),
@@ -415,6 +417,18 @@ CREATE TABLE IF NOT EXISTS task_point_templates (
 
 CREATE INDEX IF NOT EXISTS idx_task_points_target ON task_point_templates(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_task_points_day ON task_point_templates(day_of_week);
+CREATE INDEX IF NOT EXISTS idx_task_points_week ON task_point_templates(week_only);
+
+-- Migration: add week_only + requires_approval columns
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'task_point_templates' AND column_name = 'week_only') THEN
+        ALTER TABLE task_point_templates ADD COLUMN week_only DATE DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_task_points_week ON task_point_templates(week_only);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'task_point_templates' AND column_name = 'requires_approval') THEN
+        ALTER TABLE task_point_templates ADD COLUMN requires_approval BOOLEAN DEFAULT false;
+    END IF;
+END $$;
 
 -- Ngày nghỉ lễ
 CREATE TABLE IF NOT EXISTS holidays (
@@ -500,3 +514,11 @@ CREATE TABLE IF NOT EXISTS task_library (
     created_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Allow Sunday (day_of_week = 7) in task templates
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name LIKE '%day_of_week%' AND check_clause LIKE '%1 AND 6%') THEN
+        ALTER TABLE task_point_templates DROP CONSTRAINT IF EXISTS task_point_templates_day_of_week_check;
+        ALTER TABLE task_point_templates ADD CONSTRAINT task_point_templates_day_of_week_check CHECK (day_of_week BETWEEN 1 AND 7);
+    END IF;
+END $$;

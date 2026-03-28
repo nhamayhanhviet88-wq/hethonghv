@@ -27,8 +27,66 @@ function _kbGetColor(name) {
     return _kbColorMap[name];
 }
 
+// View report detail modal
+function _kbViewReport(el) {
+    const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
+    const statusMap = {
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' }
+    };
+    const s = statusMap[data.status] || statusMap.pending;
+
+    let detailHtml = `
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:20px;font-weight:800;color:#1e293b;">${data.task_name}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:4px;">📅 ${data.report_date}</div>
+        </div>
+        <div style="background:${s.bg};border-radius:10px;padding:12px;text-align:center;margin-bottom:14px;">
+            <span style="font-size:16px;font-weight:800;color:${s.color};">${s.label}</span>
+            ${data.points_earned ? `<span style="margin-left:8px;font-size:14px;font-weight:700;color:${s.color};">+${data.points_earned}đ</span>` : ''}
+        </div>`;
+
+    if (data.quantity) {
+        detailHtml += `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:#64748b;">📊 Số lượng</span>
+            <span style="font-size:14px;font-weight:700;color:#1e293b;">${data.quantity}</span>
+        </div>`;
+    }
+    if (data.content) {
+        detailHtml += `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:4px;">📝 Nội dung</div>
+            <div style="font-size:13px;color:#1e293b;">${data.content}</div>
+        </div>`;
+    }
+    if (data.report_value) {
+        detailHtml += `<div style="padding:8px 12px;background:#eff6ff;border-radius:8px;margin-bottom:8px;">
+            <a href="${data.report_value}" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
+        </div>`;
+    }
+    if (data.report_image) {
+        detailHtml += `<div style="text-align:center;margin-top:8px;">
+            <img src="${data.report_image}" style="max-width:100%;max-height:300px;border-radius:10px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${data.report_image}','_blank')">
+        </div>`;
+    }
+
+    // Remove old modal
+    let modal = document.getElementById('kbReportViewModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'kbReportViewModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;';
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
+        <button onclick="document.getElementById('kbReportViewModal').remove()" style="position:absolute;top:12px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">✕</button>
+        ${detailHtml}
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+}
+
 function _kbFmtDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
-function _kbDateStr(d) { return d.toISOString().slice(0,10); }
+function _kbDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
 async function renderLichKhoaBieuPage(container) {
     _kbWeekStart = null;
@@ -303,6 +361,7 @@ function _kbRenderGrid() {
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
     const canReport = isSelf; // Can report own tasks (via 'Lịch của tôi' or own name in sidebar)
     const canApprove = isManager && !isSelf;
+    const todayStr = _kbDateStr(new Date()); // For date comparison
 
     // Week nav
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
@@ -374,35 +433,44 @@ function _kbRenderGrid() {
                 const report = _kbReports[reportKey];
 
                 let statusBadge = '';
-                let reportBtn = '';
+                let actionBtn = ''; // inline with guide button row
                 if (report) {
+                    // HAS REPORT — make it clickable to view details
+                    const rData = JSON.stringify({
+                        task_name: task.task_name, status: report.status, points_earned: report.points_earned,
+                        quantity: report.quantity, report_value: report.report_value || '', report_image: report.report_image || '',
+                        report_date: dateStr, content: report.content || ''
+                    }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
                     if (report.status === 'approved') {
-                        statusBadge = `<div style="margin-top:6px;"><span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Đã nộp +${report.points_earned}đ</span></div>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">✅ +${report.points_earned}đ</span>`;
                     } else if (report.status === 'pending') {
-                        statusBadge = `<div style="margin-top:6px;"><span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span></div>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ duyệt</span>`;
                         if (canApprove) {
-                            statusBadge += `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;">
+                            statusBadge = `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;">
                                 <button onclick="_kbApprove(${report.id},'approve')" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#16a34a;color:white;cursor:pointer;">✅ Duyệt</button>
                                 <button onclick="_kbApprove(${report.id},'reject')" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;">❌ Từ chối</button>
                             </div>`;
                         }
                     } else if (report.status === 'rejected') {
-                        statusBadge = `<div style="margin-top:6px;"><span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">❌ Bị từ chối</span></div>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">❌ Từ chối</span>`;
                     }
-                    // View report attachments
-                    let attachments = '';
-                    if (report.report_value) {
-                        attachments += `<a href="${report.report_value}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;">🔗 Link</a> `;
-                    }
-                    if (report.report_image) {
-                        attachments += `<a href="${report.report_image}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;">🖼️ Ảnh</a>`;
-                    }
-                    if (attachments) statusBadge += `<div style="margin-top:4px;">${attachments}</div>`;
-                    if (report.quantity) statusBadge += `<div style="margin-top:2px;font-size:9px;color:#6b7280;">SL: ${report.quantity}</div>`;
                 } else if (canReport) {
-                    reportBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}')" style="margin-top:6px;padding:3px 10px;font-size:11px;border:1px dashed ${c.badge};border-radius:5px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button>`;
+                    if (dateStr === todayStr) {
+                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;">📝 Báo cáo</button>`;
+                    } else if (dateStr < todayStr) {
+                        actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                    } else {
+                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🔒 Sắp tới</span>`;
+                    }
                 } else {
-                    statusBadge = `<div style="margin-top:6px;"><span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:6px;font-size:10px;">❌ Chưa nộp</span></div>`;
+                    if (dateStr < todayStr) {
+                        actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                    } else if (dateStr === todayStr) {
+                        actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;line-height:1;display:inline-flex;align-items:center;">⏳ Chưa nộp</span>`;
+                    } else {
+                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🔒 Sắp tới</span>`;
+                    }
                 }
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
@@ -410,12 +478,11 @@ function _kbRenderGrid() {
                         <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
-                            ${task.requires_approval ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;">🔒 Duyệt</span>' : ''}
                         </div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
-                        <div style="display:flex;gap:4px;justify-content:center;margin-top:4px;">
-                            ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 6px;border-radius:4px;">📘 Hướng dẫn</a>` : ''}
-                            ${reportBtn}
+                        <div style="display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                            ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:3px 6px;border-radius:4px;line-height:1;display:inline-flex;align-items:center;">📘 Hướng dẫn</a>` : ''}
+                            ${actionBtn}
                         </div>
                         ${statusBadge}
                     </div>
