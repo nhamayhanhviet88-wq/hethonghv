@@ -568,6 +568,14 @@ function _tpRenderGrid() {
     wrap.innerHTML = html;
 }
 
+// Auto-format time input as HH:MM (24h)
+function _tpFormatTime(el) {
+    let v = el.value.replace(/[^\d]/g, '');
+    if (v.length > 4) v = v.slice(0, 4);
+    if (v.length >= 3) v = v.slice(0, 2) + ':' + v.slice(2);
+    el.value = v;
+}
+
 function _tpAddTask(dayOfWeek) {
     _tpShowPickFromLibrary(dayOfWeek);
 }
@@ -591,11 +599,22 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
     const isEdit = !!task;
     const pf = prefill || {}; // pre-fill from library
     const title = isEdit ? '✏️ Sửa công việc' : `＋ Thêm công việc — ${DAY_NAMES[dayOfWeek]}`;
+    const isFromLib = !isEdit && (pf.task_name || pf.points); // picked from library = lock fields
+
+    // Locked field styles
+    const lockStyle = isFromLib ? 'background:#f3f4f6;color:#6b7280;cursor:not-allowed;' : '';
+    const lockAttr = isFromLib ? 'readonly tabindex="-1"' : '';
 
     // Days checkboxes for multi-day add
     const daysHtml = !isEdit ? `
     <div style="margin-top:12px;">
-        <label style="font-weight:600;font-size:13px;color:#374151;">Áp dụng cho ngày:</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Áp dụng cho ngày:</label>
+            <div style="display:flex;gap:6px;">
+                <button type="button" onclick="document.querySelectorAll('.tpDayCb').forEach(c=>c.checked=true)" style="padding:3px 10px;font-size:11px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;">Tất cả</button>
+                <button type="button" onclick="document.querySelectorAll('.tpDayCb').forEach(c=>{c.checked=[1,2,3,4,5,6].includes(Number(c.value))})" style="padding:3px 10px;font-size:11px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:600;">Hành chính</button>
+            </div>
+        </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
             ${[1,2,3,4,5,6,7].map(d => `
                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#374151;padding:4px 8px;border:1px solid ${d === dayOfWeek ? '#2563eb' : '#e5e7eb'};border-radius:6px;background:${d === dayOfWeek ? '#eff6ff' : 'white'};">
@@ -617,34 +636,34 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
         </div>
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Tên công việc <span style="color:#dc2626;">*</span></label>
-            <input id="tpFTask" type="text" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.task_name : (pf.task_name || '')}" placeholder="VD: Gọi điện Telesale" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            <input id="tpFTask" type="text" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? task.task_name : (pf.task_name || '')}" placeholder="VD: Gọi điện Telesale" onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">Điểm <span style="color:#dc2626;">*</span></label>
-                <input id="tpFPoints" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.points : (pf.points || '')}" placeholder="20" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFPoints" type="number" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? task.points : (pf.points || '')}" placeholder="20" onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">SL tối thiểu <span style="color:#dc2626;">*</span></label>
-                <input id="tpFMinQty" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.min_quantity : (pf.min_quantity || '1')}" placeholder="15" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFMinQty" type="number" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? task.min_quantity : (pf.min_quantity || '1')}" placeholder="15" onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">Giờ bắt đầu <span style="color:#dc2626;">*</span></label>
-                <input id="tpFStart" type="time" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_start : ''}" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFStart" type="text" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_start : ''}" placeholder="08:30" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'" oninput="_tpFormatTime(this)">
             </div>
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">Giờ kết thúc <span style="color:#dc2626;">*</span></label>
-                <input id="tpFEnd" type="time" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_end : ''}" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFEnd" type="text" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_end : ''}" placeholder="10:30" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'" oninput="_tpFormatTime(this)">
             </div>
         </div>
         <div style="margin-bottom:8px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Link hướng dẫn CV</label>
-            <input id="tpFGuide" type="url" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? (task.guide_url || '') : (pf.guide_url || '')}" placeholder="https://docs.google.com/..." onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            <input id="tpFGuide" type="url" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? (task.guide_url || '') : (pf.guide_url || '')}" placeholder="https://docs.google.com/..." onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
         <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
-            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} ${isFromLib ? 'disabled' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
         </div>
         <div style="display:none;">
@@ -673,6 +692,8 @@ async function _tpSaveTask(editId, defaultDay) {
     const week_only = isWeekOnly && _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : null;
 
     if (!task_name || !time_start || !time_end) { showToast('Vui lòng điền đầy đủ!', 'error'); return; }
+    const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (!timeRegex.test(time_start) || !timeRegex.test(time_end)) { showToast('Giờ phải đúng định dạng HH:MM (VD: 08:30, 15:00)', 'error'); return; }
 
     // Determine target: if individual view, create as individual for user
     let targetType = _tpTarget.type;
