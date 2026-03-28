@@ -299,9 +299,9 @@ function _kbRenderGrid() {
         totalPerDay[d] = _kbHolidayMap[d] ? 0 : (byDay[d]||[]).reduce((s,t) => s + (t.points||0), 0);
     }
 
-    const isSelf = !_kbViewUserId;
+    const isSelf = !_kbViewUserId || Number(_kbViewUserId) === currentUser.id;
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
-    const canReport = isSelf; // NV only reports own tasks
+    const canReport = isSelf; // Can report own tasks (via 'Lịch của tôi' or own name in sidebar)
     const canApprove = isManager && !isSelf;
 
     // Week nav
