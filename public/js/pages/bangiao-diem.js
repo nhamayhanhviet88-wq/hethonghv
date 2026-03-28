@@ -25,7 +25,10 @@ async function renderBanGiaoDiemPage(container) {
 
     container.innerHTML = `
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
-        <h2 style="margin:0 0 16px;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
+            ${isManager ? `<button onclick="_tpShowHolidayManager()" style="padding:7px 16px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📅 Quản lý ngày nghỉ</button>` : ''}
+        </div>
         <input type="hidden" id="tpTargetType" value="team">
         <select id="tpUserSelect" style="display:none;"><option value=""></option></select>
         <select id="tpDeptSelect" style="display:none;"><option value=""></option></select>
@@ -466,5 +469,109 @@ async function _tpCopyToIndividual() {
         const r = await apiCall('/api/task-points/copy-to-individual', 'POST', { team_id: Number(deptId), user_id: Number(userId) });
         showToast(`✅ Đã copy ${r.copied} công việc`);
         _tpLoadTasks();
+    } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+// ===== HOLIDAY MANAGER =====
+async function _tpShowHolidayManager() {
+    const year = new Date().getFullYear();
+    const modal = document.createElement('div');
+    modal.id = 'tpHolidayModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:12px;width:min(520px,92vw);max-height:85vh;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #f3f4f6;">
+            <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">📅 Quản lý ngày nghỉ lễ</h3>
+            <button onclick="document.getElementById('tpHolidayModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
+        </div>
+        <div style="padding:14px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;">
+            <label style="font-weight:600;font-size:13px;color:#6b7280;">Năm:</label>
+            <select id="tpHolidayYear" onchange="_tpLoadHolidayList()" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;">
+                ${[year-1, year, year+1].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+            </select>
+        </div>
+        <div id="tpHolidayList" style="flex:1;overflow-y:auto;padding:12px 20px;min-height:150px;">
+            <div style="text-align:center;color:#9ca3af;padding:30px;">Đang tải...</div>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid #f3f4f6;">
+            <div style="font-weight:600;font-size:13px;color:#374151;margin-bottom:8px;">＋ Thêm ngày nghỉ mới</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+                <div style="flex:1;">
+                    <label style="font-size:11px;color:#6b7280;">Ngày</label>
+                    <input id="tpHNewDate" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                </div>
+                <div style="flex:1.5;">
+                    <label style="font-size:11px;color:#6b7280;">Tên ngày lễ</label>
+                    <input id="tpHNewName" type="text" placeholder="VD: Giỗ Tổ Hùng Vương" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                </div>
+                <button onclick="_tpAddHoliday()" style="padding:7px 16px;border-radius:6px;border:none;background:#16a34a;color:white;font-size:13px;cursor:pointer;font-weight:600;white-space:nowrap;">＋ Thêm</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    _tpLoadHolidayList();
+}
+
+async function _tpLoadHolidayList() {
+    const year = document.getElementById('tpHolidayYear')?.value || new Date().getFullYear();
+    const listEl = document.getElementById('tpHolidayList');
+    if (!listEl) return;
+
+    let holidays = [];
+    try {
+        const d = await apiCall(`/api/holidays?year=${year}`);
+        holidays = d.holidays || [];
+    } catch(e) {}
+
+    if (holidays.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:30px;font-size:13px;">Chưa có ngày nghỉ nào cho năm ' + year + '</div>';
+        return;
+    }
+
+    let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
+    html += `<thead><tr>
+        <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:600;">NGÀY</th>
+        <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:600;">TÊN NGÀY LỄ</th>
+        <th style="width:50px;border-bottom:1px solid #e5e7eb;"></th>
+    </tr></thead><tbody>`;
+    holidays.forEach(h => {
+        const d = new Date(h.holiday_date);
+        const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+        const dayName = dayNames[d.getDay()];
+        html += `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px;color:#122546;font-weight:600;">${dateStr} <span style="color:#9ca3af;font-weight:400;">(${dayName})</span></td>
+            <td style="padding:8px;color:#374151;">${h.holiday_name}</td>
+            <td style="padding:8px;text-align:center;">
+                <button onclick="_tpDeleteHoliday(${h.id})" style="padding:2px 8px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+            </td>
+        </tr>`;
+    });
+    html += `</tbody></table>`;
+    listEl.innerHTML = html;
+}
+
+async function _tpAddHoliday() {
+    const dateVal = document.getElementById('tpHNewDate')?.value;
+    const nameVal = document.getElementById('tpHNewName')?.value?.trim();
+    if (!dateVal || !nameVal) { showToast('Nhập đầy đủ ngày và tên!', 'error'); return; }
+
+    try {
+        await apiCall('/api/holidays', 'POST', { holiday_date: dateVal, holiday_name: nameVal });
+        showToast('✅ Đã thêm ngày nghỉ');
+        document.getElementById('tpHNewDate').value = '';
+        document.getElementById('tpHNewName').value = '';
+        _tpLoadHolidayList();
+        _tpLoadTasks(); // Refresh grid
+    } catch(e) { showToast('Lỗi: ' + (e.message || 'Ngày đã tồn tại'), 'error'); }
+}
+
+async function _tpDeleteHoliday(id) {
+    if (!confirm('Xóa ngày nghỉ này?')) return;
+    try {
+        await apiCall(`/api/holidays/${id}`, 'DELETE');
+        showToast('✅ Đã xóa');
+        _tpLoadHolidayList();
+        _tpLoadTasks(); // Refresh grid
     } catch(e) { showToast('Lỗi!', 'error'); }
 }
