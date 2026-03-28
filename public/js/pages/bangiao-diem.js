@@ -497,8 +497,12 @@ async function _tpShowHolidayManager() {
             <div style="font-weight:600;font-size:13px;color:#374151;margin-bottom:8px;">＋ Thêm ngày nghỉ mới</div>
             <div style="display:flex;gap:8px;align-items:flex-end;">
                 <div style="flex:1;">
-                    <label style="font-size:11px;color:#6b7280;">Ngày</label>
+                    <label style="font-size:11px;color:#6b7280;">Từ ngày</label>
                     <input id="tpHNewDate" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:11px;color:#6b7280;">Đến ngày <span style="color:#9ca3af;">(bỏ trống = 1 ngày)</span></label>
+                    <input id="tpHNewDateEnd" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
                 </div>
                 <div style="flex:1.5;">
                     <label style="font-size:11px;color:#6b7280;">Tên ngày lễ</label>
@@ -553,17 +557,34 @@ async function _tpLoadHolidayList() {
 
 async function _tpAddHoliday() {
     const dateVal = document.getElementById('tpHNewDate')?.value;
+    const dateEndVal = document.getElementById('tpHNewDateEnd')?.value;
     const nameVal = document.getElementById('tpHNewName')?.value?.trim();
     if (!dateVal || !nameVal) { showToast('Nhập đầy đủ ngày và tên!', 'error'); return; }
 
+    // Build list of dates
+    const dates = [];
+    const start = new Date(dateVal);
+    const end = dateEndVal ? new Date(dateEndVal) : new Date(dateVal);
+    if (end < start) { showToast('Đến ngày phải sau Từ ngày!', 'error'); return; }
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().slice(0, 10));
+    }
+
+    let ok = 0;
     try {
-        await apiCall('/api/holidays', 'POST', { holiday_date: dateVal, holiday_name: nameVal });
-        showToast('✅ Đã thêm ngày nghỉ');
+        for (const dt of dates) {
+            try {
+                await apiCall('/api/holidays', 'POST', { holiday_date: dt, holiday_name: nameVal });
+                ok++;
+            } catch(e) {} // skip duplicates
+        }
+        showToast(`✅ Đã thêm ${ok} ngày nghỉ`);
         document.getElementById('tpHNewDate').value = '';
+        document.getElementById('tpHNewDateEnd').value = '';
         document.getElementById('tpHNewName').value = '';
         _tpLoadHolidayList();
-        _tpLoadTasks(); // Refresh grid
-    } catch(e) { showToast('Lỗi: ' + (e.message || 'Ngày đã tồn tại'), 'error'); }
+        _tpLoadTasks();
+    } catch(e) { showToast('Lỗi!', 'error'); }
 }
 
 async function _tpDeleteHoliday(id) {
