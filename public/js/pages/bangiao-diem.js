@@ -640,29 +640,66 @@ let _tpLibFilterDeptId = '';
 
 async function _tpShowTaskLibrary() {
     _tpLibFilterDeptId = '';
+    // Pre-load all library tasks to get counts
+    try {
+        const d = await apiCall('/api/task-library');
+        _tpLibraryTasks = d.tasks || [];
+    } catch(e) { _tpLibraryTasks = []; }
+
+    // Count per dept
+    const deptCounts = {};
+    _tpLibraryTasks.forEach(t => {
+        const did = t.department_id || 0;
+        deptCounts[did] = (deptCounts[did] || 0) + 1;
+    });
+
+    const deptTabsHtml = _tpAllDepts.map(d => {
+        const cnt = deptCounts[d.id] || 0;
+        return `<button class="tpLibDeptTab" data-id="${d.id}" onclick="_tpSelectLibDept('${d.id}')" style="padding:6px 14px;border-radius:20px;border:1px solid #e5e7eb;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all .15s;">${d.name} <span style="background:#e5e7eb;color:#374151;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${cnt}</span></button>`;
+    }).join('');
+
     const modal = document.createElement('div');
     modal.id = 'tpLibModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = `
-    <div style="background:white;border-radius:14px;padding:0;width:min(700px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
+    <div style="background:white;border-radius:14px;padding:0;width:min(720px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
         <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:18px 22px;display:flex;justify-content:space-between;align-items:center;">
             <div>
                 <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📦 Kho Công Việc</h3>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Quản lý tất cả công việc để tái sử dụng</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Quản lý tất cả công việc để tái sử dụng · ${_tpLibraryTasks.length} CV</div>
             </div>
             <button onclick="document.getElementById('tpLibModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
-        <div style="padding:14px 22px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <select id="tpLibDeptFilter" onchange="_tpLibFilterDeptId=this.value;_tpRenderLibList()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#374151;min-width:180px;">
-                <option value="">Tất cả phòng ban</option>
-                ${_tpAllDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
-            </select>
-            <button onclick="_tpShowLibAddModal()" style="padding:7px 16px;border-radius:8px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">＋ Thêm CV mới</button>
+        <div style="padding:12px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;overflow-x:auto;">
+            <button class="tpLibDeptTab" data-id="" onclick="_tpSelectLibDept('')" style="padding:6px 14px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;">Tất cả <span style="background:#2563eb;color:white;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${_tpLibraryTasks.length}</span></button>
+            ${deptTabsHtml}
+            <div style="flex:1;"></div>
+            <button onclick="_tpShowLibAddModal()" style="padding:6px 16px;border-radius:20px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">＋ Thêm CV mới</button>
         </div>
         <div id="tpLibList" style="flex:1;overflow-y:auto;padding:12px 22px;"></div>
     </div>`;
     document.body.appendChild(modal);
-    await _tpLoadLibrary();
+    _tpRenderLibList();
+}
+
+function _tpSelectLibDept(deptId) {
+    _tpLibFilterDeptId = deptId;
+    // Update tab styles
+    document.querySelectorAll('.tpLibDeptTab').forEach(btn => {
+        const id = btn.dataset.id;
+        const active = id === String(deptId);
+        btn.style.border = active ? '2px solid #2563eb' : '1px solid #e5e7eb';
+        btn.style.background = active ? '#eff6ff' : 'white';
+        btn.style.color = active ? '#2563eb' : '#374151';
+        btn.style.fontWeight = active ? '700' : '600';
+        // Update count badge
+        const badge = btn.querySelector('span');
+        if (badge) {
+            badge.style.background = active ? '#2563eb' : '#e5e7eb';
+            badge.style.color = active ? 'white' : '#374151';
+        }
+    });
+    _tpRenderLibList();
 }
 
 async function _tpLoadLibrary() {
