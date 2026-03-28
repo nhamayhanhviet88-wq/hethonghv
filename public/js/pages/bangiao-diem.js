@@ -1073,11 +1073,8 @@ function _tpShowLibAddModal(editTask, isWeekly) {
             <label style="font-weight:600;font-size:12px;color:#374151;">Link hướng dẫn</label>
             <input id="tpLibGuide" type="url" value="${editTask ? (editTask.guide_url || '') : ''}" placeholder="https://..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
         </div>
-        <div style="margin-bottom:16px;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#374151;cursor:pointer;">
-                <input type="checkbox" id="tpLibApproval" ${editTask && editTask.requires_approval ? 'checked' : ''} style="accent-color:#d97706;">
-                🔒 Cần quản lý duyệt
-            </label>
+        <div style="display:none;">
+            <input type="checkbox" id="tpLibApproval" ${editTask && editTask.requires_approval ? 'checked' : ''}>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;">
             <button onclick="document.getElementById('tpLibAddModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
