@@ -62,71 +62,109 @@ async function renderBanGiaoDiemPage(container) {
     }
 }
 
-// Show modal to select a dept to create template for
+// Show modal to create template for dept or individual
 function _tpShowCreateDeptModal() {
-    const unusedDepts = _tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id));
-    if (unusedDepts.length === 0) {
-        showToast('Tất cả phòng ban đã có lịch công việc!', 'info');
-        return;
-    }
-
     const modal = document.createElement('div');
     modal.id = 'tpCreateDeptModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = `
-    <div style="background:white;border-radius:12px;padding:24px;width:min(400px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;font-size:16px;color:#122546;">＋ Tạo lịch CV cho phòng ban</h3>
+            <h3 style="margin:0;font-size:16px;color:#122546;">＋ Tạo lịch công việc</h3>
             <button onclick="document.getElementById('tpCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
         </div>
-        <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Chọn phòng ban chưa có lịch công việc:</p>
-        <select id="tpNewDeptSelect" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-            ${unusedDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
-        </select>
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
+            <select id="tpNewDeptSelect" onchange="_tpLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                ${_tpAllDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+            </select>
+        </div>
+        <div style="margin-bottom:6px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Nhân viên <span style="color:#9ca3af;font-weight:400;">(không chọn = lịch team)</span></label>
+            <select id="tpNewUserSelect" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                <option value="">— Toàn bộ Team —</option>
+            </select>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">💡 Để trống = lịch chung cho cả team. Chọn NV = lịch riêng cho người đó.</div>
+        </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
             <button onclick="document.getElementById('tpCreateDeptModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
             <button onclick="_tpActivateDept()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Tạo</button>
         </div>
     </div>`;
     document.body.appendChild(modal);
+    // Auto-load users for first dept
+    _tpLoadCreateUsers();
+}
+
+async function _tpLoadCreateUsers() {
+    const deptId = document.getElementById('tpNewDeptSelect')?.value;
+    const userSel = document.getElementById('tpNewUserSelect');
+    if (!deptId || !userSel) return;
+    try {
+        const u = await apiCall(`/api/task-points/users?department_id=${deptId}`);
+        const users = u.users || [];
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
+    } catch(e) {
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>';
+    }
 }
 
 function _tpActivateDept() {
-    const sel = document.getElementById('tpNewDeptSelect');
-    if (!sel) return;
-    const deptId = Number(sel.value);
-    const deptName = sel.options[sel.selectedIndex]?.text;
+    const deptSel = document.getElementById('tpNewDeptSelect');
+    const userSel = document.getElementById('tpNewUserSelect');
+    if (!deptSel) return;
+    const deptId = Number(deptSel.value);
+    const deptName = deptSel.options[deptSel.selectedIndex]?.text;
+    const userId = userSel?.value ? Number(userSel.value) : null;
+    const userName = userId ? userSel.options[userSel.selectedIndex]?.text : null;
     document.getElementById('tpCreateDeptModal')?.remove();
 
-    // Add to active list + left sidebar
-    _tpActiveDeptIds.push(deptId);
+    const targetType = userId ? 'individual' : 'team';
+    const targetId = userId || deptId;
+    const itemKey = `${targetType}-${targetId}`;
+    const label = userId ? `👤 ${userName}` : deptName;
+
+    // Check duplicate
+    const existing = document.querySelector(`.tp-dept-item[data-key="${itemKey}"]`);
+    if (existing) {
+        _tpSelectItem(targetType, targetId);
+        showToast('Đã có lịch này rồi!', 'info');
+        return;
+    }
+
+    // Add to left sidebar
+    if (targetType === 'team') _tpActiveDeptIds.push(deptId);
     const list = document.getElementById('tpDeptList');
     if (list) {
         const div = document.createElement('div');
         div.className = 'tp-dept-item';
-        div.dataset.id = deptId;
-        div.onclick = () => _tpSelectDept(deptId);
-        div.style.cssText = 'padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;';
-        div.textContent = deptName;
+        div.dataset.key = itemKey;
+        div.dataset.type = targetType;
+        div.dataset.id = targetId;
+        div.onclick = () => _tpSelectItem(targetType, targetId);
+        div.style.cssText = `padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;${userId ? 'padding-left:22px;' : ''}`;
+        div.innerHTML = label;
         div.onmouseover = function(){ if(!this.classList.contains('tp-active')) this.style.background='#f9fafb'; };
         div.onmouseout = function(){ if(!this.classList.contains('tp-active')) this.style.background='white'; };
         list.appendChild(div);
     }
-    _tpSelectDept(deptId);
-    showToast(`✅ Đã tạo lịch cho ${deptName}`);
+    _tpSelectItem(targetType, targetId);
+    showToast(`✅ Đã tạo lịch cho ${userId ? userName : deptName}`);
 }
 
-function _tpSelectDept(deptId) {
-    // Highlight active
+function _tpSelectDept(deptId) { _tpSelectItem('team', deptId); }
+
+function _tpSelectItem(targetType, targetId) {
+    const itemKey = `${targetType}-${targetId}`;
     document.querySelectorAll('.tp-dept-item').forEach(el => {
-        const isActive = Number(el.dataset.id) === deptId;
+        const isActive = el.dataset.key === itemKey || (!el.dataset.key && el.dataset.id == targetId && targetType === 'team');
         el.classList.toggle('tp-active', isActive);
         el.style.background = isActive ? '#eff6ff' : 'white';
         el.style.color = isActive ? '#122546' : '#374151';
         el.style.fontWeight = isActive ? '600' : '400';
         el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
     });
-    _tpTarget = { type: 'team', id: deptId };
+    _tpTarget = { type: targetType, id: targetId };
     _tpLoadTasks();
 }
 
