@@ -1117,21 +1117,26 @@ async function _tpDeleteLibTask(id) {
 
 // ===== THÊM TỪ KHO VÀO GRID =====
 let _tpPickerTasks = []; // cache for picker flow
+let _tpPickerDayOfWeek = 1;
+let _tpPickerFilterWeekly = false; // false = cố định tab, true = 1 tuần tab
+let _tpPickerDeptId = null;
+
 async function _tpShowPickFromLibrary(dayOfWeek) {
+    _tpPickerDayOfWeek = dayOfWeek;
+    _tpPickerFilterWeekly = false;
     // Load library for current dept — resolve dept for individual targets too
-    let deptId = null;
+    _tpPickerDeptId = null;
     if (_tpTarget.type === 'team') {
-        deptId = _tpTarget.id;
+        _tpPickerDeptId = _tpTarget.id;
     } else if (_tpTarget.type === 'individual') {
-        // Look up user's department_id
         try {
             const u = await apiCall(`/api/users/${_tpTarget.id}`);
-            deptId = u.user?.department_id || null;
+            _tpPickerDeptId = u.user?.department_id || null;
         } catch(e) {}
     }
     let tasks = [];
     try {
-        const url = deptId ? `/api/task-library?department_id=${deptId}&include_ancestors=true` : '/api/task-library';
+        const url = _tpPickerDeptId ? `/api/task-library?department_id=${_tpPickerDeptId}&include_ancestors=true` : '/api/task-library';
         const d = await apiCall(url);
         tasks = d.tasks || [];
     } catch(e) { tasks = []; }
@@ -1141,20 +1146,86 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
         return;
     }
 
-    _tpPickerTasks = tasks; // cache for _tpPickLibTask
+    _tpPickerTasks = tasks;
 
-    // Group tasks by department name
+    const fixedCount = tasks.filter(t => !t.is_weekly).length;
+    const weeklyCount = tasks.filter(t => t.is_weekly).length;
+
+    const modal = document.createElement('div');
+    modal.id = 'tpPickModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:16px;color:#122546;">📦 Chọn CV từ Kho — ${DAY_NAMES[dayOfWeek]}</h3>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Click để thêm vào lịch · ${tasks.length} CV có sẵn</div>
+            </div>
+            <button onclick="document.getElementById('tpPickModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
+        </div>
+        <!-- 2 Tabs -->
+        <div style="display:flex;border-bottom:2px solid #e5e7eb;">
+            <button id="tpPickTabFixed" onclick="_tpSwitchPickerTab(false)" style="flex:1;padding:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:#eff6ff;color:#2563eb;border-bottom:3px solid #2563eb;transition:all .2s;">
+                📌 Cố Định <span style="background:#2563eb;color:white;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:3px;">${fixedCount}</span>
+            </button>
+            <button id="tpPickTabWeekly" onclick="_tpSwitchPickerTab(true)" style="flex:1;padding:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:#f9fafb;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s;">
+                📅 Chỉ 1 Tuần <span style="background:#e5e7eb;color:#374151;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:3px;">${weeklyCount}</span>
+            </button>
+        </div>
+        <div id="tpPickList" style="flex:1;overflow-y:auto;padding:12px 20px;"></div>
+        <div style="padding:10px 20px;border-top:1px solid #f3f4f6;text-align:center;">
+            <button onclick="document.getElementById('tpPickModal').remove();_tpShowTaskModal(null,${dayOfWeek})" style="padding:6px 14px;border:1px dashed #6b7280;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-size:12px;">✏️ Hoặc tạo thủ công</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    _tpRenderPickerTab();
+}
+
+function _tpSwitchPickerTab(isWeekly) {
+    _tpPickerFilterWeekly = isWeekly;
+    const fixedTab = document.getElementById('tpPickTabFixed');
+    const weeklyTab = document.getElementById('tpPickTabWeekly');
+    if (fixedTab) {
+        fixedTab.style.background = !isWeekly ? '#eff6ff' : '#f9fafb';
+        fixedTab.style.color = !isWeekly ? '#2563eb' : '#6b7280';
+        fixedTab.style.borderBottom = !isWeekly ? '3px solid #2563eb' : '3px solid transparent';
+        const badge = fixedTab.querySelector('span');
+        if (badge) { badge.style.background = !isWeekly ? '#2563eb' : '#e5e7eb'; badge.style.color = !isWeekly ? 'white' : '#374151'; }
+    }
+    if (weeklyTab) {
+        weeklyTab.style.background = isWeekly ? '#fff7ed' : '#f9fafb';
+        weeklyTab.style.color = isWeekly ? '#ea580c' : '#6b7280';
+        weeklyTab.style.borderBottom = isWeekly ? '3px solid #ea580c' : '3px solid transparent';
+        const badge = weeklyTab.querySelector('span');
+        if (badge) { badge.style.background = isWeekly ? '#ea580c' : '#e5e7eb'; badge.style.color = isWeekly ? 'white' : '#374151'; }
+    }
+    _tpRenderPickerTab();
+}
+
+function _tpRenderPickerTab() {
+    const wrap = document.getElementById('tpPickList');
+    if (!wrap) return;
+    const dayOfWeek = _tpPickerDayOfWeek;
+    const currentDeptId = _tpPickerDeptId;
+
+    const filtered = _tpPickerTasks.filter(t => !!t.is_weekly === _tpPickerFilterWeekly);
+
+    if (filtered.length === 0) {
+        const tabLabel = _tpPickerFilterWeekly ? '📅 1 Tuần' : '📌 Cố Định';
+        wrap.innerHTML = `<div style="padding:30px;text-align:center;color:#9ca3af;font-size:14px;">📦 Chưa có CV ${tabLabel} nào trong kho.</div>`;
+        return;
+    }
+
+    // Group by department
     const byDept = {};
-    tasks.forEach(t => {
+    filtered.forEach(t => {
         const key = t.dept_name || 'Chưa gán phòng';
         if (!byDept[key]) byDept[key] = { deptId: t.department_id, tasks: [] };
         byDept[key].tasks.push(t);
     });
 
-    // Determine if current target is this dept or inherited
-    const currentDeptId = deptId;
-
-    let tasksHtml = '';
+    let html = '';
     Object.keys(byDept).forEach(deptName => {
         const group = byDept[deptName];
         const isOwn = group.deptId === currentDeptId;
@@ -1163,14 +1234,14 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
         const labelColor = isOwn ? '#1d4ed8' : '#059669';
         const labelBg = isOwn ? '#eff6ff' : '#ecfdf5';
 
-        tasksHtml += `<div style="margin-bottom:12px;">
+        html += `<div style="margin-bottom:12px;">
             <div style="font-size:12px;font-weight:700;color:${labelColor};text-transform:uppercase;margin-bottom:6px;padding:6px 10px;background:${labelBg};border-radius:6px;border-left:3px solid ${labelColor};">${icon} ${label} (${group.tasks.length})</div>`;
         group.tasks.forEach(t => {
             const c = _tpGetTaskColor(t.task_name);
             const isFixed = !t.is_weekly;
             const locked = isFixed && !_tpIsDirector;
             if (locked) {
-                tasksHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f3f4f6;border:1px solid #e5e7eb;border-left:3px solid #d1d5db;border-radius:8px;margin-bottom:6px;cursor:not-allowed;opacity:0.6;" title="Chỉ Giám Đốc mới thêm CV cố định">
+                html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f3f4f6;border:1px solid #e5e7eb;border-left:3px solid #d1d5db;border-radius:8px;margin-bottom:6px;cursor:not-allowed;opacity:0.6;" title="Chỉ Giám Đốc mới thêm CV cố định vào lịch">
                     <div style="flex:1;">
                         <div style="font-weight:700;color:#9ca3af;font-size:14px;">🔒 ${t.task_name}</div>
                         <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần · 📌 Cố định — Chỉ GĐ</div>
@@ -1178,38 +1249,18 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
                     <span style="color:#d1d5db;font-size:14px;">🔒</span>
                 </div>`;
             } else {
-                const typeTag = isFixed ? '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:9px;">📌</span> ' : '<span style="background:#fff7ed;color:#ea580c;padding:1px 5px;border-radius:3px;font-size:9px;">📅</span> ';
-                tasksHtml += `<div onclick="_tpPickLibTask(${t.id},${dayOfWeek})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='none'">
+                html += `<div onclick="_tpPickLibTask(${t.id},${dayOfWeek})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='none'">
                     <div style="flex:1;">
-                        <div style="font-weight:700;color:${c.text};font-size:14px;">${typeTag}${t.task_name}</div>
+                        <div style="font-weight:700;color:${c.text};font-size:14px;">${t.task_name}</div>
                         <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần ${t.requires_approval ? '· 🔒Duyệt' : ''} · <span style="color:${labelColor};font-weight:600;">${deptName}</span></div>
                     </div>
                     <span style="color:${c.badge};font-size:18px;">→</span>
                 </div>`;
             }
         });
-        tasksHtml += `</div>`;
+        html += `</div>`;
     });
-
-    const modal = document.createElement('div');
-    modal.id = 'tpPickModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
-
-    modal.innerHTML = `
-    <div style="background:white;border-radius:14px;padding:0;width:min(500px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
-        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-            <div>
-                <h3 style="margin:0;font-size:16px;color:#122546;">📦 Chọn CV từ Kho — ${DAY_NAMES[dayOfWeek]}</h3>
-                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Click để thêm vào lịch · ${tasks.length} CV có sẵn</div>
-            </div>
-            <button onclick="document.getElementById('tpPickModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
-        </div>
-        <div style="flex:1;overflow-y:auto;padding:12px 20px;">${tasksHtml}</div>
-        <div style="padding:10px 20px;border-top:1px solid #f3f4f6;text-align:center;">
-            <button onclick="document.getElementById('tpPickModal').remove();_tpShowTaskModal(null,${dayOfWeek})" style="padding:6px 14px;border:1px dashed #6b7280;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-size:12px;">✏️ Hoặc tạo thủ công</button>
-        </div>
-    </div>`;
-    document.body.appendChild(modal);
+    wrap.innerHTML = html;
 }
 
 async function _tpPickLibTask(libId, dayOfWeek) {
