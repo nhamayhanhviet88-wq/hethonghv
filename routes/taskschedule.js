@@ -27,13 +27,24 @@ async function taskScheduleRoutes(fastify, options) {
         return { tasks, source: tasks.length > 0 ? (tasks[0]?.target_type || 'none') : 'none' };
     });
 
-    // GET team members for manager (truong_phong sees own team, quan_ly/giam_doc sees managed teams)
+    // GET team members for manager — only those with task templates (individual or team-level)
     fastify.get('/api/schedule/team-members', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
         let members = [];
 
+        // Get department IDs that have team templates
+        const deptWithTemplates = await db.all(
+            "SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'"
+        );
+        const deptIds = deptWithTemplates.map(r => r.target_id);
+
+        // Get user IDs that have individual templates
+        const usersWithTemplates = await db.all(
+            "SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'individual'"
+        );
+        const userIds = usersWithTemplates.map(r => r.target_id);
+
         if (['giam_doc', 'quan_ly', 'trinh'].includes(user.role)) {
-            // All staff in all departments
             members = await db.all(
                 `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
                  FROM users u LEFT JOIN departments d ON u.department_id = d.id
@@ -41,7 +52,6 @@ async function taskScheduleRoutes(fastify, options) {
                  ORDER BY d.name, u.full_name`
             );
         } else if (user.role === 'truong_phong') {
-            // Staff in same department
             members = await db.all(
                 `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
                  FROM users u LEFT JOIN departments d ON u.department_id = d.id
@@ -50,6 +60,9 @@ async function taskScheduleRoutes(fastify, options) {
                 [user.department_id, user.id]
             );
         }
+
+        // Filter: only keep users who have individual templates OR belong to a dept with team templates
+        members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));
 
         return { members };
     });
