@@ -644,7 +644,7 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
                 <input id="tpFPoints" type="number" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? task.points : (pf.points || '')}" placeholder="20" onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
             <div>
-                <label style="font-weight:600;font-size:13px;color:#374151;">SL tối thiểu <span style="color:#dc2626;">*</span></label>
+                <label style="font-weight:600;font-size:13px;color:#374151;">SL tối thiểu phải làm <span style="color:#dc2626;">*</span></label>
                 <input id="tpFMinQty" type="number" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? task.min_quantity : (pf.min_quantity || '1')}" placeholder="15" onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
         </div>
@@ -1061,16 +1061,16 @@ function _tpShowLibAddModal(editTask, isWeekly) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
             <div>
-                <label style="font-weight:600;font-size:12px;color:#374151;">Điểm</label>
+                <label style="font-weight:600;font-size:12px;color:#374151;">Điểm <span style="color:#dc2626;">*</span></label>
                 <input id="tpLibPoints" type="number" value="${editTask ? editTask.points : 20}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
             </div>
             <div>
-                <label style="font-weight:600;font-size:12px;color:#374151;">SL tối thiểu</label>
+                <label style="font-weight:600;font-size:12px;color:#374151;">SL tối thiểu phải làm <span style="color:#dc2626;">*</span></label>
                 <input id="tpLibMinQty" type="number" value="${editTask ? editTask.min_quantity : 1}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
             </div>
         </div>
         <div style="margin-bottom:12px;">
-            <label style="font-weight:600;font-size:12px;color:#374151;">Link hướng dẫn</label>
+            <label style="font-weight:600;font-size:12px;color:#374151;">Link hướng dẫn <span style="color:#dc2626;">*</span></label>
             <input id="tpLibGuide" type="url" value="${editTask ? (editTask.guide_url || '') : ''}" placeholder="https://..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
         </div>
         <div style="display:none;">
@@ -1095,6 +1095,9 @@ async function _tpSaveLibTask(editId) {
 
     if (!name) { showToast('Nhập tên công việc!', 'error'); return; }
     if (!dept) { showToast('Chọn phòng ban!', 'error'); return; }
+    if (!points || Number(points) <= 0) { showToast('Nhập điểm!', 'error'); return; }
+    if (!minQty || Number(minQty) <= 0) { showToast('Nhập số lượng tối thiểu!', 'error'); return; }
+    if (!guide) { showToast('Nhập link hướng dẫn!', 'error'); return; }
 
     const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept), is_weekly: isWeekly };
 
