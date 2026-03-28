@@ -647,16 +647,9 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
             <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
         </div>
-        <div style="margin-bottom:8px;padding:10px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
-            <label style="font-weight:600;font-size:13px;color:#0c4a6e;display:block;margin-bottom:6px;">📌 Loại lịch:</label>
-            <div style="display:flex;gap:12px;">
-                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#0369a1;padding:4px 10px;border:1px solid ${!(task?.week_only || pf._auto_week_only) ? '#0284c7' : '#e5e7eb'};border-radius:6px;background:${!(task?.week_only || pf._auto_week_only) ? '#e0f2fe' : 'white'};">
-                    <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''} style="accent-color:#0284c7;cursor:pointer;"> 📌 Cố định (mỗi tuần)
-                </label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#d97706;padding:4px 10px;border:1px solid ${(task?.week_only || pf._auto_week_only) ? '#d97706' : '#e5e7eb'};border-radius:6px;background:${(task?.week_only || pf._auto_week_only) ? '#fef3c7' : 'white'};">
-                    <input type="radio" name="tpWeekType" value="weekly" ${(task?.week_only || pf._auto_week_only) ? 'checked' : ''} style="accent-color:#d97706;cursor:pointer;"> 📅 Chỉ tuần này
-                </label>
-            </div>
+        <div style="display:none;">
+            <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
+            <input type="radio" name="tpWeekType" value="weekly" ${(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
         </div>
         ${daysHtml}
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
