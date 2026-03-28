@@ -14,7 +14,8 @@ async function renderBanGiaoDiemPage(container) {
     // Load departments
     try {
         const d = await apiCall('/api/task-points/departments');
-        _tpAllDepts = d.departments || [];
+        const raw = d.departments || [];
+        _tpAllDepts = raw.filter(d => !d.name.startsWith('HỆ THỐNG'));
         _tpActiveDeptIds = d.active_dept_ids || [];
     } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
 
@@ -76,7 +77,7 @@ function _tpShowCreateDeptModal() {
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="tpNewDeptSelect" onchange="_tpLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${_tpAllDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                ${_tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
             </select>
         </div>
         <div style="margin-bottom:6px;">
