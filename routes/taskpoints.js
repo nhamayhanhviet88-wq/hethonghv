@@ -84,6 +84,53 @@ async function taskPointRoutes(fastify, options) {
         return { users };
     });
 
+    // ===== KHO CÔNG VIỆC (TASK LIBRARY) =====
+
+    // GET all library tasks (optionally filter by department_id)
+    fastify.get('/api/task-library', { preHandler: [authenticate] }, async (request, reply) => {
+        const { department_id } = request.query;
+        let tasks;
+        if (department_id) {
+            tasks = await db.all(
+                'SELECT tl.*, d.name as dept_name FROM task_library tl LEFT JOIN departments d ON tl.department_id = d.id WHERE tl.department_id = $1 ORDER BY tl.task_name',
+                [Number(department_id)]
+            );
+        } else {
+            tasks = await db.all(
+                'SELECT tl.*, d.name as dept_name FROM task_library tl LEFT JOIN departments d ON tl.department_id = d.id ORDER BY d.name, tl.task_name'
+            );
+        }
+        return { tasks };
+    });
+
+    // CREATE a library task
+    fastify.post('/api/task-library', { preHandler: [authenticate] }, async (request, reply) => {
+        const { task_name, points, min_quantity, guide_url, requires_approval, department_id } = request.body || {};
+        if (!task_name) return reply.code(400).send({ error: 'Thiếu tên công việc' });
+        const result = await db.run(
+            `INSERT INTO task_library (task_name, points, min_quantity, guide_url, requires_approval, department_id, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, request.user.id]
+        );
+        return { success: true, id: result.lastInsertRowid };
+    });
+
+    // UPDATE a library task
+    fastify.put('/api/task-library/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const { task_name, points, min_quantity, guide_url, requires_approval, department_id } = request.body || {};
+        await db.run(
+            `UPDATE task_library SET task_name=$1, points=$2, min_quantity=$3, guide_url=$4, requires_approval=$5, department_id=$6 WHERE id=$7`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, Number(request.params.id)]
+        );
+        return { success: true };
+    });
+
+    // DELETE a library task
+    fastify.delete('/api/task-library/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        await db.run('DELETE FROM task_library WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
     // ===== HOLIDAYS =====
 
     // GET all holidays (optionally filter by year)

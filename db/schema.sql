@@ -487,3 +487,16 @@ CREATE TABLE IF NOT EXISTS daily_task_snapshots (
     UNIQUE(user_id, snapshot_date, template_id)
 );
 CREATE INDEX IF NOT EXISTS idx_snapshots_user_date ON daily_task_snapshots(user_id, snapshot_date);
+
+-- Kho Công Việc (Task Library)
+CREATE TABLE IF NOT EXISTS task_library (
+    id SERIAL PRIMARY KEY,
+    task_name TEXT NOT NULL,
+    points INTEGER DEFAULT 0,
+    min_quantity INTEGER DEFAULT 1,
+    guide_url TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    department_id INTEGER REFERENCES departments(id),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);

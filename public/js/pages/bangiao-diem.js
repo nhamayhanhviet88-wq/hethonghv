@@ -41,7 +41,10 @@ async function renderBanGiaoDiemPage(container) {
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
-            ${isManager ? `<button onclick="_tpShowHolidayManager()" style="padding:7px 16px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📅 Quản lý ngày nghỉ</button>` : ''}
+            ${isManager ? `<div style="display:flex;gap:8px;">
+                <button onclick="_tpShowTaskLibrary()" style="padding:7px 16px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📦 Kho Công Việc</button>
+                <button onclick="_tpShowHolidayManager()" style="padding:7px 16px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📅 Quản lý ngày nghỉ</button>
+            </div>` : ''}
         </div>
         <input type="hidden" id="tpTargetType" value="team">
         <select id="tpUserSelect" style="display:none;"><option value=""></option></select>
@@ -370,7 +373,7 @@ function _tpRenderGrid() {
 }
 
 function _tpAddTask(dayOfWeek) {
-    _tpShowTaskModal(null, dayOfWeek);
+    _tpShowPickFromLibrary(dayOfWeek);
 }
 
 function _tpEditTask(taskId) {
@@ -388,8 +391,9 @@ async function _tpDeleteTask(taskId) {
     } catch(e) { showToast('Lỗi!', 'error'); }
 }
 
-function _tpShowTaskModal(task, dayOfWeek) {
+function _tpShowTaskModal(task, dayOfWeek, prefill) {
     const isEdit = !!task;
+    const pf = prefill || {}; // pre-fill from library
     const title = isEdit ? '✏️ Sửa công việc' : `＋ Thêm công việc — ${DAY_NAMES[dayOfWeek]}`;
 
     // Days checkboxes for multi-day add
@@ -417,16 +421,16 @@ function _tpShowTaskModal(task, dayOfWeek) {
         </div>
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Tên công việc <span style="color:#dc2626;">*</span></label>
-            <input id="tpFTask" type="text" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.task_name : ''}" placeholder="VD: Gọi điện Telesale" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            <input id="tpFTask" type="text" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.task_name : (pf.task_name || '')}" placeholder="VD: Gọi điện Telesale" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">Điểm <span style="color:#dc2626;">*</span></label>
-                <input id="tpFPoints" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.points : ''}" placeholder="20" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFPoints" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.points : (pf.points || '')}" placeholder="20" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
             <div>
                 <label style="font-weight:600;font-size:13px;color:#374151;">SL tối thiểu <span style="color:#dc2626;">*</span></label>
-                <input id="tpFMinQty" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.min_quantity : '1'}" placeholder="15" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <input id="tpFMinQty" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.min_quantity : (pf.min_quantity || '1')}" placeholder="15" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
@@ -441,10 +445,10 @@ function _tpShowTaskModal(task, dayOfWeek) {
         </div>
         <div style="margin-bottom:8px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Link hướng dẫn CV</label>
-            <input id="tpFGuide" type="url" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? (task.guide_url || '') : ''}" placeholder="https://docs.google.com/..." onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            <input id="tpFGuide" type="url" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? (task.guide_url || '') : (pf.guide_url || '')}" placeholder="https://docs.google.com/..." onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
         <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
-            <input id="tpFApproval" type="checkbox" ${task && task.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
         </div>
         ${daysHtml}
@@ -628,4 +632,255 @@ async function _tpDeleteHoliday(id) {
         _tpLoadHolidayList();
         _tpLoadTasks(); // Refresh grid
     } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+// ===== KHO CÔNG VIỆC (TASK LIBRARY) =====
+let _tpLibraryTasks = [];
+let _tpLibFilterDeptId = '';
+
+async function _tpShowTaskLibrary() {
+    _tpLibFilterDeptId = '';
+    const modal = document.createElement('div');
+    modal.id = 'tpLibModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:0;width:min(700px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
+        <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:18px 22px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📦 Kho Công Việc</h3>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Quản lý tất cả công việc để tái sử dụng</div>
+            </div>
+            <button onclick="document.getElementById('tpLibModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:14px 22px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <select id="tpLibDeptFilter" onchange="_tpLibFilterDeptId=this.value;_tpRenderLibList()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#374151;min-width:180px;">
+                <option value="">Tất cả phòng ban</option>
+                ${_tpAllDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+            </select>
+            <button onclick="_tpShowLibAddModal()" style="padding:7px 16px;border-radius:8px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">＋ Thêm CV mới</button>
+        </div>
+        <div id="tpLibList" style="flex:1;overflow-y:auto;padding:12px 22px;"></div>
+    </div>`;
+    document.body.appendChild(modal);
+    await _tpLoadLibrary();
+}
+
+async function _tpLoadLibrary() {
+    try {
+        const url = _tpLibFilterDeptId ? `/api/task-library?department_id=${_tpLibFilterDeptId}` : '/api/task-library';
+        const d = await apiCall(url);
+        _tpLibraryTasks = d.tasks || [];
+    } catch(e) { _tpLibraryTasks = []; }
+    _tpRenderLibList();
+}
+
+function _tpRenderLibList() {
+    const wrap = document.getElementById('tpLibList');
+    if (!wrap) return;
+
+    let filtered = _tpLibraryTasks;
+    if (_tpLibFilterDeptId) filtered = filtered.filter(t => t.department_id === Number(_tpLibFilterDeptId));
+
+    if (filtered.length === 0) {
+        wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#9ca3af;font-size:14px;">📦 Chưa có công việc nào trong kho.<br>Ấn <b>＋ Thêm CV mới</b> để bắt đầu.</div>';
+        return;
+    }
+
+    // Group by department
+    const byDept = {};
+    filtered.forEach(t => {
+        const key = t.dept_name || 'Chưa gán phòng';
+        if (!byDept[key]) byDept[key] = [];
+        byDept[key].push(t);
+    });
+
+    let html = '';
+    Object.keys(byDept).sort().forEach(deptName => {
+        html += `<div style="margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #f3f4f6;">🏢 ${deptName} (${byDept[deptName].length})</div>`;
+        byDept[deptName].forEach(t => {
+            const c = _tpGetTaskColor(t.task_name);
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700;color:${c.text};font-size:14px;">${t.task_name}</div>
+                    <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                        <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${t.points}đ</span>
+                        <span style="background:${c.tag};color:${c.text};padding:1px 6px;border-radius:4px;font-size:10px;">≥ ${t.min_quantity} lần</span>
+                        ${t.requires_approval ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;">🔒 Duyệt</span>' : ''}
+                        ${t.guide_url ? '<span style="font-size:10px;color:#2563eb;">📘 Có HD</span>' : ''}
+                    </div>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    <button onclick="_tpEditLibTask(${t.id})" style="padding:4px 10px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};font-size:11px;cursor:pointer;">✏️</button>
+                    <button onclick="_tpDeleteLibTask(${t.id})" style="padding:4px 10px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;font-size:11px;cursor:pointer;">🗑️</button>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+    });
+    wrap.innerHTML = html;
+}
+
+function _tpShowLibAddModal(editTask) {
+    const isEdit = !!editTask;
+    const m = document.createElement('div');
+    m.id = 'tpLibAddModal';
+    m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    m.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:22px;width:min(440px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <h3 style="margin:0 0 16px;font-size:16px;color:#122546;">${isEdit ? '✏️ Sửa công việc' : '＋ Thêm công việc vào kho'}</h3>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:12px;color:#374151;">Phòng ban <span style="color:#dc2626;">*</span></label>
+            <select id="tpLibDept" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+                <option value="">-- Chọn phòng --</option>
+                ${_tpAllDepts.map(d => `<option value="${d.id}" ${editTask && editTask.department_id === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+            </select>
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:12px;color:#374151;">Tên công việc <span style="color:#dc2626;">*</span></label>
+            <input id="tpLibName" type="text" value="${editTask ? editTask.task_name : ''}" placeholder="VD: Gọi điện Telesale" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+                <label style="font-weight:600;font-size:12px;color:#374151;">Điểm</label>
+                <input id="tpLibPoints" type="number" value="${editTask ? editTask.points : 20}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="font-weight:600;font-size:12px;color:#374151;">SL tối thiểu</label>
+                <input id="tpLibMinQty" type="number" value="${editTask ? editTask.min_quantity : 1}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+            </div>
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-weight:600;font-size:12px;color:#374151;">Link hướng dẫn</label>
+            <input id="tpLibGuide" type="url" value="${editTask ? (editTask.guide_url || '') : ''}" placeholder="https://..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#374151;cursor:pointer;">
+                <input type="checkbox" id="tpLibApproval" ${editTask && editTask.requires_approval ? 'checked' : ''} style="accent-color:#d97706;">
+                🔒 Cần quản lý duyệt
+            </label>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="document.getElementById('tpLibAddModal').remove()" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_tpSaveLibTask(${isEdit ? editTask.id : 'null'})" style="padding:8px 20px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">💾 Lưu</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _tpSaveLibTask(editId) {
+    const dept = document.getElementById('tpLibDept')?.value;
+    const name = document.getElementById('tpLibName')?.value?.trim();
+    const points = document.getElementById('tpLibPoints')?.value;
+    const minQty = document.getElementById('tpLibMinQty')?.value;
+    const guide = document.getElementById('tpLibGuide')?.value?.trim();
+    const approval = document.getElementById('tpLibApproval')?.checked;
+
+    if (!name) { showToast('Nhập tên công việc!', 'error'); return; }
+    if (!dept) { showToast('Chọn phòng ban!', 'error'); return; }
+
+    const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept) };
+
+    try {
+        if (editId) {
+            await apiCall(`/api/task-library/${editId}`, 'PUT', body);
+            showToast('✅ Đã cập nhật');
+        } else {
+            await apiCall('/api/task-library', 'POST', body);
+            showToast('✅ Đã thêm vào kho');
+        }
+        document.getElementById('tpLibAddModal')?.remove();
+        await _tpLoadLibrary();
+    } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+function _tpEditLibTask(id) {
+    const task = _tpLibraryTasks.find(t => t.id === id);
+    if (!task) return;
+    _tpShowLibAddModal(task);
+}
+
+async function _tpDeleteLibTask(id) {
+    if (!confirm('Xóa công việc này khỏi kho?')) return;
+    try {
+        await apiCall(`/api/task-library/${id}`, 'DELETE');
+        showToast('✅ Đã xóa');
+        await _tpLoadLibrary();
+    } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+// ===== THÊM TỪ KHO VÀO GRID =====
+async function _tpShowPickFromLibrary(dayOfWeek) {
+    // Load library for current dept
+    const deptId = _tpTarget.type === 'team' ? _tpTarget.id : null;
+    let tasks = [];
+    try {
+        const url = deptId ? `/api/task-library?department_id=${deptId}` : '/api/task-library';
+        const d = await apiCall(url);
+        tasks = d.tasks || [];
+    } catch(e) { tasks = []; }
+
+    if (tasks.length === 0) {
+        showToast('Kho công việc trống! Hãy thêm CV vào Kho trước.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'tpPickModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+
+    const tasksHtml = tasks.map(t => {
+        const c = _tpGetTaskColor(t.task_name);
+        return `<div onclick="_tpPickLibTask(${t.id},${dayOfWeek})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='none'">
+            <div style="flex:1;">
+                <div style="font-weight:700;color:${c.text};font-size:14px;">${t.task_name}</div>
+                <div style="font-size:10px;color:#6b7280;margin-top:2px;">${t.points}đ · ≥${t.min_quantity} lần ${t.requires_approval ? '· 🔒Duyệt' : ''}</div>
+            </div>
+            <span style="color:${c.badge};font-size:18px;">→</span>
+        </div>`;
+    }).join('');
+
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:0;width:min(460px,90vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:16px;color:#122546;">📦 Chọn CV từ Kho — ${DAY_NAMES[dayOfWeek]}</h3>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Click để thêm vào lịch</div>
+            </div>
+            <button onclick="document.getElementById('tpPickModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:12px 20px;">${tasksHtml}</div>
+        <div style="padding:10px 20px;border-top:1px solid #f3f4f6;text-align:center;">
+            <button onclick="document.getElementById('tpPickModal').remove();_tpShowTaskModal(null,${dayOfWeek})" style="padding:6px 14px;border:1px dashed #6b7280;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-size:12px;">✏️ Hoặc tạo thủ công</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+async function _tpPickLibTask(libId, dayOfWeek) {
+    const t = _tpLibraryTasks.length > 0 ? _tpLibraryTasks.find(x => x.id === libId) : null;
+    if (!t) {
+        // Fetch from API
+        try {
+            const d = await apiCall('/api/task-library');
+            const found = (d.tasks || []).find(x => x.id === libId);
+            if (found) return _tpPickLibTaskDo(found, dayOfWeek);
+        } catch(e) {}
+        showToast('Không tìm thấy CV!', 'error');
+        return;
+    }
+    _tpPickLibTaskDo(t, dayOfWeek);
+}
+
+function _tpPickLibTaskDo(libTask, dayOfWeek) {
+    document.getElementById('tpPickModal')?.remove();
+    // Pre-fill the task modal with library data
+    const task = {
+        task_name: libTask.task_name,
+        points: libTask.points,
+        min_quantity: libTask.min_quantity,
+        guide_url: libTask.guide_url,
+        requires_approval: libTask.requires_approval
+    };
+    _tpShowTaskModal(null, dayOfWeek, task);
 }
