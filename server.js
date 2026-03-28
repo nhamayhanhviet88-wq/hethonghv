@@ -94,6 +94,7 @@ async function start() {
     fastify.register(require('./routes/customers'));
     fastify.register(require('./routes/affiliate'));
     fastify.register(require('./routes/taskpoints'));
+    fastify.register(require('./routes/taskschedule'));
 
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {

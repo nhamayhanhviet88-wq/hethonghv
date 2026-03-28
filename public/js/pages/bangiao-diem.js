@@ -443,6 +443,10 @@ function _tpShowTaskModal(task, dayOfWeek) {
             <label style="font-weight:600;font-size:13px;color:#374151;">Link hướng dẫn CV</label>
             <input id="tpFGuide" type="url" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? (task.guide_url || '') : ''}" placeholder="https://docs.google.com/..." onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
+        <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
+            <input id="tpFApproval" type="checkbox" ${task && task.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+            <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
+        </div>
         ${daysHtml}
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
             <button onclick="document.getElementById('tpModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
@@ -459,6 +463,7 @@ async function _tpSaveTask(editId, defaultDay) {
     const time_start = document.getElementById('tpFStart').value;
     const time_end = document.getElementById('tpFEnd').value;
     const guide_url = document.getElementById('tpFGuide').value.trim();
+    const requires_approval = document.getElementById('tpFApproval')?.checked || false;
 
     if (!task_name || !time_start || !time_end) { showToast('Vui lòng điền đầy đủ!', 'error'); return; }
 
@@ -466,7 +471,7 @@ async function _tpSaveTask(editId, defaultDay) {
         if (editId) {
             // Update
             await apiCall(`/api/task-points/${editId}`, 'PUT', {
-                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0
+                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval
             });
             showToast('✅ Đã cập nhật');
         } else {
@@ -477,7 +482,7 @@ async function _tpSaveTask(editId, defaultDay) {
             for (const day of checkedDays) {
                 await apiCall('/api/task-points', 'POST', {
                     target_type: _tpTarget.type, target_id: _tpTarget.id,
-                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0
+                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval
                 });
             }
             showToast(`✅ Đã thêm ${checkedDays.length} công việc`);

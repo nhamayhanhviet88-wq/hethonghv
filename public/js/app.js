@@ -901,6 +901,7 @@ async function handleRoute() {
         case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
         case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
         case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
+        case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
         default: renderComingSoon(content); break;
     }
 }

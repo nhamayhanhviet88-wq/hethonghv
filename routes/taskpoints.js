@@ -16,14 +16,14 @@ async function taskPointRoutes(fastify, options) {
 
     // CREATE a new task
     fastify.post('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
-        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order } = request.body || {};
+        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval } = request.body || {};
         if (!target_type || !target_id || !day_of_week || !task_name || !time_start || !time_end) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
         const result = await db.run(
-            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, created_by)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, request.user.id]
+            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, request.user.id]
         );
         return { success: true, id: result.lastInsertRowid };
     });
@@ -31,10 +31,10 @@ async function taskPointRoutes(fastify, options) {
     // UPDATE a task
     fastify.put('/api/task-points/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week } = request.body || {};
+        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval } = request.body || {};
         await db.run(
-            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, updated_at=NOW() WHERE id=?`,
-            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), id]
+            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, updated_at=NOW() WHERE id=?`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, id]
         );
         return { success: true };
     });
@@ -57,9 +57,9 @@ async function taskPointRoutes(fastify, options) {
         const teamTasks = await db.all('SELECT * FROM task_point_templates WHERE target_type = ? AND target_id = ?', ['team', Number(team_id)]);
         for (const t of teamTasks) {
             await db.run(
-                `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, created_by)
-                 VALUES ('individual',?,?,?,?,?,?,?,?,?,?)`,
-                [Number(user_id), t.day_of_week, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.guide_url, t.sort_order, request.user.id]
+                `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, created_by)
+                 VALUES ('individual',?,?,?,?,?,?,?,?,?,?,?)`,
+                [Number(user_id), t.day_of_week, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.guide_url, t.sort_order, t.requires_approval || false, request.user.id]
             );
         }
         return { success: true, copied: teamTasks.length };

@@ -440,3 +440,28 @@ INSERT INTO holidays (holiday_date, holiday_name) VALUES
     ('2026-05-01', 'Quốc tế Lao động'),
     ('2026-09-02', 'Quốc khánh')
 ON CONFLICT (holiday_date) DO NOTHING;
+
+-- Add requires_approval flag to templates
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'task_point_templates' AND column_name = 'requires_approval') THEN
+        ALTER TABLE task_point_templates ADD COLUMN requires_approval BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
+-- Báo cáo công việc điểm
+CREATE TABLE IF NOT EXISTS task_point_reports (
+    id SERIAL PRIMARY KEY,
+    template_id INTEGER REFERENCES task_point_templates(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    report_date DATE NOT NULL,
+    report_type TEXT NOT NULL CHECK (report_type IN ('link', 'image')),
+    report_value TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
+    points_earned INTEGER DEFAULT 0,
+    approved_by INTEGER REFERENCES users(id),
+    note TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(template_id, user_id, report_date)
+);
+CREATE INDEX IF NOT EXISTS idx_reports_user_date ON task_point_reports(user_id, report_date);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON task_point_reports(status);
