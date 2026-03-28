@@ -83,6 +83,67 @@ async function taskPointRoutes(fastify, options) {
         );
         return { users };
     });
+
+    // ===== HOLIDAYS =====
+
+    // GET all holidays (optionally filter by year)
+    fastify.get('/api/holidays', { preHandler: [authenticate] }, async (request, reply) => {
+        const year = request.query.year || new Date().getFullYear();
+        const holidays = await db.all(
+            "SELECT * FROM holidays WHERE EXTRACT(YEAR FROM holiday_date) = $1 ORDER BY holiday_date",
+            [Number(year)]
+        );
+        return { holidays };
+    });
+
+    // GET holidays for a specific week (given any date in that week)
+    fastify.get('/api/holidays/week', { preHandler: [authenticate] }, async (request, reply) => {
+        const { date } = request.query; // e.g. 2026-03-28
+        if (!date) return reply.code(400).send({ error: 'Thiếu date' });
+        // Calculate Mon-Sat of that week
+        const d = new Date(date);
+        const dayOfWeek = d.getDay(); // 0=Sun,1=Mon...6=Sat
+        const mon = new Date(d);
+        mon.setDate(d.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        const sat = new Date(mon);
+        sat.setDate(mon.getDate() + 5);
+        const monStr = mon.toISOString().slice(0, 10);
+        const satStr = sat.toISOString().slice(0, 10);
+        const holidays = await db.all(
+            "SELECT * FROM holidays WHERE holiday_date BETWEEN $1 AND $2 ORDER BY holiday_date",
+            [monStr, satStr]
+        );
+        // Map: day_of_week (1=Mon..6=Sat) => holiday_name
+        const map = {};
+        holidays.forEach(h => {
+            const hd = new Date(h.holiday_date);
+            const dow = hd.getDay(); // 0=Sun
+            const mapped = dow === 0 ? 7 : dow; // 1=Mon..6=Sat,7=Sun
+            if (mapped >= 1 && mapped <= 6) map[mapped] = h.holiday_name;
+        });
+        return { holidays: map, week_start: monStr, week_end: satStr };
+    });
+
+    // CREATE a holiday
+    fastify.post('/api/holidays', { preHandler: [authenticate] }, async (request, reply) => {
+        const { holiday_date, holiday_name } = request.body || {};
+        if (!holiday_date || !holiday_name) return reply.code(400).send({ error: 'Thiếu thông tin' });
+        try {
+            await db.run(
+                "INSERT INTO holidays (holiday_date, holiday_name, created_by) VALUES ($1, $2, $3)",
+                [holiday_date, holiday_name, request.user.id]
+            );
+            return { success: true };
+        } catch(e) {
+            return reply.code(409).send({ error: 'Ngày này đã tồn tại' });
+        }
+    });
+
+    // DELETE a holiday
+    fastify.delete('/api/holidays/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        await db.run('DELETE FROM holidays WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
 }
 
 module.exports = taskPointRoutes;

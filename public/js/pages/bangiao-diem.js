@@ -6,6 +6,8 @@ let _tpAllDepts = [];
 let _tpActiveDeptIds = [];
 let _tpUsers = [];
 let _tpIsReadonly = false;
+let _tpCurrentWeekStart = null; // Monday of current view week
+let _tpHolidayMap = {}; // { dayOfWeek: holidayName }
 
 async function renderBanGiaoDiemPage(container) {
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
@@ -172,12 +174,40 @@ function _tpSelectItem(targetType, targetId) {
 async function _tpLoadTasks() {
     if (!_tpTarget.id) return;
 
+    // Init week to current week if not set
+    if (!_tpCurrentWeekStart) {
+        const now = new Date();
+        const day = now.getDay();
+        const mon = new Date(now);
+        mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        _tpCurrentWeekStart = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
+    }
+
     try {
         const d = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}`);
         _tpTasks = d.tasks || [];
     } catch(e) { _tpTasks = []; }
 
+    // Load holidays for this week
+    try {
+        const dateStr = _tpCurrentWeekStart.toISOString().slice(0, 10);
+        const h = await apiCall(`/api/holidays/week?date=${dateStr}`);
+        _tpHolidayMap = h.holidays || {};
+    } catch(e) { _tpHolidayMap = {}; }
+
     _tpRenderGrid();
+}
+
+function _tpChangeWeek(offset) {
+    if (!_tpCurrentWeekStart) return;
+    const d = new Date(_tpCurrentWeekStart);
+    d.setDate(d.getDate() + offset * 7);
+    _tpCurrentWeekStart = d;
+    _tpLoadTasks();
+}
+
+function _tpFormatDate(date) {
+    return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`;
 }
 
 function _tpRenderGrid() {
@@ -194,26 +224,46 @@ function _tpRenderGrid() {
     _tpTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
 
-    // Calculate totals per day
+    // Calculate totals per day (skip holidays)
     const dayTotals = {};
-    for (let d = 1; d <= 6; d++) dayTotals[d] = byDay[d].reduce((s, t) => s + (t.points || 0), 0);
+    for (let d = 1; d <= 6; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : byDay[d].reduce((s, t) => s + (t.points || 0), 0);
 
-    let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
+    // Week navigation
+    const monDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
+    const satDate = new Date(monDate); satDate.setDate(monDate.getDate() + 5);
 
-    // Header
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
+        <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
+        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(satDate)}/${monDate.getFullYear()}</div>
+        <button onclick="_tpChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
+    </div>`;
+
+    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
+
+    // Header with dates
     html += `<thead><tr>`;
     html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:105px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
     for (let d = 1; d <= 6; d++) {
-        const total = dayTotals[d];
-        const pct = Math.min(total, 100);
-        const barColor = total === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
-        html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#f8fafc;">
-            <div style="font-weight:700;color:#122546;font-size:13px;">${DAY_NAMES[d]}</div>
-            <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
-                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
-            </div>
-            <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${total}/100đ</div>
-        </th>`;
+        const isHoliday = !!_tpHolidayMap[d];
+        const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
+        const dateLabel = _tpFormatDate(colDate);
+        if (isHoliday) {
+            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#fef2f2;">
+                <div style="font-weight:700;color:#dc2626;font-size:13px;">${DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
+                <div style="margin-top:4px;font-size:11px;color:#dc2626;">🏖️ ${_tpHolidayMap[d]}</div>
+            </th>`;
+        } else {
+            const total = dayTotals[d];
+            const pct = Math.min(total, 100);
+            const barColor = total === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
+            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#f8fafc;">
+                <div style="font-weight:700;color:#122546;font-size:13px;">${DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
+                <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
+                </div>
+                <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${total}/100đ</div>
+            </th>`;
+        }
     }
     html += `</tr></thead>`;
 
@@ -235,6 +285,13 @@ function _tpRenderGrid() {
                 <div style="color:#9ca3af;font-size:11px;margin-top:1px;">→ ${tEnd}</div>
             </td>`;
             for (let d = 1; d <= 6; d++) {
+                if (_tpHolidayMap[d]) {
+                    // Holiday column — greyed out
+                    html += `<td style="padding:8px 10px;border-bottom:${borderB};background:#fef2f2;vertical-align:middle;text-align:center;">
+                        <div style="color:#fca5a5;font-size:18px;">🏖️</div>
+                    </td>`;
+                    continue;
+                }
                 const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (task) {
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
@@ -261,14 +318,18 @@ function _tpRenderGrid() {
     }
     html += `</tbody>`;
 
-    // Footer — Add buttons
+    // Footer — Add buttons (skip holidays)
     if (!_tpIsReadonly) {
         html += `<tfoot><tr>`;
         html += `<td style="padding:8px 14px;background:#fafbfc;font-weight:600;font-size:11px;color:#9ca3af;border-top:2px solid #e5e7eb;">THÊM</td>`;
         for (let d = 1; d <= 6; d++) {
-            html += `<td style="padding:8px;text-align:center;background:#fafbfc;border-top:2px solid #e5e7eb;">
+            if (_tpHolidayMap[d]) {
+                html += `<td style="padding:8px;text-align:center;background:#fef2f2;border-top:2px solid #e5e7eb;"></td>`;
+            } else {
+                html += `<td style="padding:8px;text-align:center;background:#fafbfc;border-top:2px solid #e5e7eb;">
                 <button onclick="_tpAddTask(${d})" style="padding:5px 14px;font-size:12px;border:1px dashed #93c5fd;border-radius:6px;background:rgba(37,99,235,0.04);color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#2563eb'" onmouseout="this.style.background='rgba(37,99,235,0.04)';this.style.borderColor='#93c5fd'">＋ Thêm</button>
             </td>`;
+            }
         }
         html += `</tr></tfoot>`;
     }

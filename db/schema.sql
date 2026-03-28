@@ -415,3 +415,28 @@ CREATE TABLE IF NOT EXISTS task_point_templates (
 
 CREATE INDEX IF NOT EXISTS idx_task_points_target ON task_point_templates(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_task_points_day ON task_point_templates(day_of_week);
+
+-- Ngày nghỉ lễ
+CREATE TABLE IF NOT EXISTS holidays (
+    id SERIAL PRIMARY KEY,
+    holiday_date DATE NOT NULL UNIQUE,
+    holiday_name TEXT NOT NULL,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date);
+
+-- Seed Vietnamese holidays for current year
+INSERT INTO holidays (holiday_date, holiday_name) VALUES
+    ('2026-01-01', 'Tết Dương lịch'),
+    ('2026-01-27', 'Tết Nguyên đán (27 Tết)'),
+    ('2026-01-28', 'Tết Nguyên đán (28 Tết)'),
+    ('2026-01-29', 'Tết Nguyên đán (29 Tết)'),
+    ('2026-01-30', 'Tết Nguyên đán (30 Tết)'),
+    ('2026-01-31', 'Tết Nguyên đán (Mùng 1)'),
+    ('2026-02-01', 'Tết Nguyên đán (Mùng 2)'),
+    ('2026-02-02', 'Tết Nguyên đán (Mùng 3)'),
+    ('2026-04-30', 'Giải phóng miền Nam'),
+    ('2026-05-01', 'Quốc tế Lao động'),
+    ('2026-09-02', 'Quốc khánh')
+ON CONFLICT (holiday_date) DO NOTHING;
