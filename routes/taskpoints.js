@@ -65,10 +65,12 @@ async function taskPointRoutes(fastify, options) {
         return { success: true, copied: teamTasks.length };
     });
 
-    // GET departments list for dropdown
+    // GET departments list for dropdown (with template status)
     fastify.get('/api/task-points/departments', { preHandler: [authenticate] }, async (request, reply) => {
         const depts = await db.all("SELECT id, name FROM departments WHERE status = 'active' ORDER BY display_order, name");
-        return { departments: depts };
+        const activeIds = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
+        const activeSet = new Set(activeIds.map(r => r.target_id));
+        return { departments: depts, active_dept_ids: [...activeSet] };
     });
 
     // GET users in a department

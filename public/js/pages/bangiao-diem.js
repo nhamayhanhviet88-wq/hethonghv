@@ -2,7 +2,8 @@
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 let _tpTasks = [];
 let _tpTarget = { type: 'team', id: null };
-let _tpDepts = [];
+let _tpAllDepts = [];
+let _tpActiveDeptIds = [];
 let _tpUsers = [];
 let _tpIsReadonly = false;
 
@@ -13,34 +14,41 @@ async function renderBanGiaoDiemPage(container) {
     // Load departments
     try {
         const d = await apiCall('/api/task-points/departments');
-        _tpDepts = d.departments || [];
-    } catch(e) { _tpDepts = []; }
+        _tpAllDepts = d.departments || [];
+        _tpActiveDeptIds = d.active_dept_ids || [];
+    } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
+
+    const activeDepts = _tpAllDepts.filter(d => _tpActiveDeptIds.includes(d.id));
 
     container.innerHTML = `
     <div style="max-width:1400px;margin:0 auto;padding:16px;">
-        <h2 style="margin:0 0 16px;font-size:20px;color:var(--text-primary);">🏪 Bàn Giao CV Điểm</h2>
+        <h2 style="margin:0 0 16px;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
 
         <!-- Target Selector -->
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:14px 18px;background:var(--card-bg);border-radius:10px;border:1px solid var(--border-color);">
-            <label style="font-weight:600;font-size:13px;color:var(--text-secondary);">Áp dụng cho:</label>
-            <select id="tpTargetType" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;" ${_tpIsReadonly ? 'disabled' : ''}>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <label style="font-weight:600;font-size:13px;color:#6b7280;">Áp dụng cho:</label>
+            <select id="tpTargetType" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;" ${_tpIsReadonly ? 'disabled' : ''}>
                 <option value="team">🏢 Team / Phòng ban</option>
                 <option value="individual">👤 Cá nhân</option>
             </select>
-            <select id="tpDeptSelect" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;">
+            <select id="tpDeptSelect" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;">
                 <option value="">-- Chọn phòng ban --</option>
-                ${_tpDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                ${activeDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
             </select>
-            <select id="tpUserSelect" style="display:none;padding:6px 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:13px;">
+            <select id="tpUserSelect" style="display:none;padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;">
                 <option value="">-- Chọn nhân viên --</option>
             </select>
-            ${isManager ? `<button onclick="_tpCopyToIndividual()" id="tpCopyBtn" style="display:none;padding:6px 12px;border-radius:6px;border:none;background:var(--primary);color:white;font-size:12px;cursor:pointer;font-weight:600;">📋 Copy từ Team</button>` : ''}
+            ${isManager ? `
+                <button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="padding:6px 14px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.06);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>
+                <button onclick="_tpCopyToIndividual()" id="tpCopyBtn" style="display:none;padding:6px 14px;border-radius:6px;border:none;background:#122546;color:white;font-size:12px;cursor:pointer;font-weight:600;">📋 Copy từ Team</button>
+            ` : ''}
         </div>
 
         <!-- Grid -->
-        <div id="tpGridWrap" style="overflow-x:auto;background:var(--card-bg);border-radius:10px;border:1px solid var(--border-color);">
-            <div style="padding:40px;text-align:center;color:var(--text-secondary);font-size:14px;">
-                👆 Chọn phòng ban hoặc nhân viên để xem lịch công việc
+        <div id="tpGridWrap" style="overflow-x:auto;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <div style="padding:50px;text-align:center;color:#9ca3af;font-size:14px;">
+                <div style="font-size:40px;margin-bottom:12px;">📋</div>
+                ${activeDepts.length > 0 ? 'Chọn phòng ban để xem lịch công việc' : 'Chưa có phòng ban nào. Ấn <b>＋ Tạo mới</b> để bắt đầu.'}
             </div>
         </div>
     </div>`;
@@ -51,6 +59,8 @@ async function renderBanGiaoDiemPage(container) {
         document.getElementById('tpUserSelect').style.display = isIndividual ? '' : 'none';
         const copyBtn = document.getElementById('tpCopyBtn');
         if (copyBtn) copyBtn.style.display = isIndividual ? '' : 'none';
+        const createBtn = document.getElementById('tpCreateBtn');
+        if (createBtn) createBtn.style.display = isIndividual ? 'none' : '';
         if (!isIndividual) _tpLoadTasks();
     });
 
@@ -72,6 +82,54 @@ async function renderBanGiaoDiemPage(container) {
     document.getElementById('tpUserSelect').addEventListener('change', function() {
         if (this.value) _tpLoadTasks();
     });
+}
+
+// Show modal to select a dept to create template for
+function _tpShowCreateDeptModal() {
+    const unusedDepts = _tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id));
+    if (unusedDepts.length === 0) {
+        showToast('Tất cả phòng ban đã có lịch công việc!', 'info');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'tpCreateDeptModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:24px;width:min(400px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:16px;color:#122546;">＋ Tạo lịch CV cho phòng ban</h3>
+            <button onclick="document.getElementById('tpCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Chọn phòng ban chưa có lịch công việc:</p>
+        <select id="tpNewDeptSelect" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+            ${unusedDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+        </select>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button onclick="document.getElementById('tpCreateDeptModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_tpActivateDept()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Tạo</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+function _tpActivateDept() {
+    const sel = document.getElementById('tpNewDeptSelect');
+    if (!sel) return;
+    const deptId = Number(sel.value);
+    const deptName = sel.options[sel.selectedIndex]?.text;
+    document.getElementById('tpCreateDeptModal')?.remove();
+
+    // Add to active list + dropdown
+    _tpActiveDeptIds.push(deptId);
+    const deptSelect = document.getElementById('tpDeptSelect');
+    const opt = document.createElement('option');
+    opt.value = deptId;
+    opt.textContent = deptName;
+    deptSelect.appendChild(opt);
+    deptSelect.value = deptId;
+    deptSelect.dispatchEvent(new Event('change'));
+    showToast(`✅ Đã tạo lịch cho ${deptName}`);
 }
 
 async function _tpLoadTasks() {
@@ -104,7 +162,7 @@ function _tpRenderGrid() {
 
     // Collect all unique time slots and sort
     const allSlots = new Set();
-    _tpTasks.forEach(t => allSlots.add(t.time_start + '-' + t.time_end));
+    _tpTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
 
     // Calculate totals per day
@@ -114,15 +172,18 @@ function _tpRenderGrid() {
     let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
 
     // Header
-    html += `<thead><tr style="background:var(--bg-secondary);">`;
-    html += `<th style="padding:10px 12px;text-align:left;border:1px solid var(--border-color);min-width:100px;font-weight:700;color:var(--text-secondary);font-size:11px;text-transform:uppercase;">Khung giờ</th>`;
+    html += `<thead><tr>`;
+    html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:105px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
     for (let d = 1; d <= 6; d++) {
         const total = dayTotals[d];
-        const color = total === 100 ? '#22c55e' : total > 100 ? '#ef4444' : '#f59e0b';
-        const icon = total === 100 ? '✅' : total > 100 ? '🔴' : '⚠️';
-        html += `<th style="padding:10px 12px;text-align:center;border:1px solid var(--border-color);min-width:160px;">
-            <div style="font-weight:700;color:var(--text-primary);font-size:13px;">${DAY_NAMES[d]}</div>
-            <div style="font-size:11px;margin-top:4px;color:${color};font-weight:600;">${icon} ${total}/100đ</div>
+        const pct = Math.min(total, 100);
+        const barColor = total === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
+        html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#f8fafc;">
+            <div style="font-weight:700;color:#122546;font-size:13px;">${DAY_NAMES[d]}</div>
+            <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
+            </div>
+            <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${total}/100đ</div>
         </th>`;
     }
     html += `</tr></thead>`;
@@ -130,33 +191,40 @@ function _tpRenderGrid() {
     // Body — one row per time slot
     html += `<tbody>`;
     if (sortedSlots.length === 0) {
-        html += `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-secondary);border:1px solid var(--border-color);">
+        html += `<tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;border-bottom:1px solid #f3f4f6;">
             Chưa có công việc nào.${!_tpIsReadonly ? ' Ấn <b>+ Thêm</b> để bắt đầu.' : ''}
         </td></tr>`;
     } else {
-        sortedSlots.forEach(slot => {
-            const [tStart, tEnd] = slot.split('-');
+        sortedSlots.forEach((slot, idx) => {
+            const [tStart, tEnd] = slot.split('|');
+            const isLast = idx === sortedSlots.length - 1;
+            const borderB = isLast ? 'none' : '1px solid #f3f4f6';
             html += `<tr>`;
-            html += `<td style="padding:8px 12px;border:1px solid var(--border-color);background:var(--bg-secondary);font-weight:600;color:var(--text-primary);white-space:nowrap;vertical-align:top;">
-                ${tStart}<br><span style="color:var(--text-secondary);font-weight:400;font-size:11px;">→ ${tEnd}</span>
+            // Time column
+            html += `<td style="padding:10px 14px;border-bottom:${borderB};background:#fafbfc;vertical-align:top;">
+                <div style="font-weight:700;color:#122546;font-size:14px;">${tStart}</div>
+                <div style="color:#9ca3af;font-size:11px;margin-top:1px;">→ ${tEnd}</div>
             </td>`;
             for (let d = 1; d <= 6; d++) {
-                const task = byDay[d].find(t => t.time_start + '-' + t.time_end === slot);
+                const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (task) {
-                    html += `<td style="padding:6px 10px;border:1px solid var(--border-color);vertical-align:top;">
-                        <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">${task.task_name}</div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                            <span style="background:var(--primary);color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
-                            <span style="font-size:11px;color:var(--text-secondary);">TT ${task.min_quantity}</span>
-                            ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:11px;color:var(--info);text-decoration:none;" title="Hướng dẫn">📘 HD</a>` : ''}
+                    html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
+                        <div style="background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;position:relative;">
+                            <div style="font-weight:700;color:#122546;font-size:13px;margin-bottom:6px;">${task.task_name}</div>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="background:#122546;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
+                                <span style="background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
+                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;background:#eff6ff;padding:2px 6px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
+                            </div>
+                            <div style="font-size:10px;color:#9ca3af;margin-top:5px;">🕐 ${tStart} — ${tEnd}</div>
+                            ${!_tpIsReadonly ? `<div style="margin-top:8px;display:flex;gap:6px;">
+                                <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">✏️ Sửa</button>
+                                <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
+                            </div>` : ''}
                         </div>
-                        ${!_tpIsReadonly ? `<div style="margin-top:6px;display:flex;gap:4px;">
-                            <button onclick="_tpEditTask(${task.id})" style="padding:2px 8px;font-size:10px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;">✏️</button>
-                            <button onclick="_tpDeleteTask(${task.id})" style="padding:2px 8px;font-size:10px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-secondary);color:#ef4444;cursor:pointer;">🗑️</button>
-                        </div>` : ''}
                     </td>`;
                 } else {
-                    html += `<td style="padding:6px 10px;border:1px solid var(--border-color);vertical-align:top;text-align:center;color:var(--text-secondary);font-size:11px;">—</td>`;
+                    html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:middle;text-align:center;color:#d1d5db;font-size:20px;">—</td>`;
                 }
             }
             html += `</tr>`;
@@ -166,11 +234,11 @@ function _tpRenderGrid() {
 
     // Footer — Add buttons
     if (!_tpIsReadonly) {
-        html += `<tfoot><tr style="background:var(--bg-secondary);">`;
-        html += `<td style="padding:8px 12px;border:1px solid var(--border-color);font-weight:600;font-size:12px;color:var(--text-secondary);">Thêm CV</td>`;
+        html += `<tfoot><tr>`;
+        html += `<td style="padding:8px 14px;background:#fafbfc;font-weight:600;font-size:11px;color:#9ca3af;border-top:2px solid #e5e7eb;">THÊM</td>`;
         for (let d = 1; d <= 6; d++) {
-            html += `<td style="padding:8px;border:1px solid var(--border-color);text-align:center;">
-                <button onclick="_tpAddTask(${d})" style="padding:4px 12px;font-size:12px;border:1px dashed var(--primary);border-radius:6px;background:transparent;color:var(--primary);cursor:pointer;font-weight:600;">+ Thêm</button>
+            html += `<td style="padding:8px;text-align:center;background:#fafbfc;border-top:2px solid #e5e7eb;">
+                <button onclick="_tpAddTask(${d})" style="padding:5px 14px;font-size:12px;border:1px dashed #93c5fd;border-radius:6px;background:rgba(37,99,235,0.04);color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#2563eb'" onmouseout="this.style.background='rgba(37,99,235,0.04)';this.style.borderColor='#93c5fd'">＋ Thêm</button>
             </td>`;
         }
         html += `</tr></tfoot>`;
@@ -201,16 +269,16 @@ async function _tpDeleteTask(taskId) {
 
 function _tpShowTaskModal(task, dayOfWeek) {
     const isEdit = !!task;
-    const title = isEdit ? 'Sửa công việc' : `Thêm công việc — ${DAY_NAMES[dayOfWeek]}`;
+    const title = isEdit ? '✏️ Sửa công việc' : `＋ Thêm công việc — ${DAY_NAMES[dayOfWeek]}`;
 
     // Days checkboxes for multi-day add
     const daysHtml = !isEdit ? `
-    <div class="form-group" style="margin-top:8px;">
-        <label style="font-weight:600;font-size:13px;">Áp dụng cho ngày:</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+    <div style="margin-top:12px;">
+        <label style="font-weight:600;font-size:13px;color:#374151;">Áp dụng cho ngày:</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
             ${[1,2,3,4,5,6].map(d => `
-                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
-                    <input type="checkbox" class="tpDayCb" value="${d}" ${d === dayOfWeek ? 'checked' : ''} style="cursor:pointer;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#374151;padding:4px 8px;border:1px solid ${d === dayOfWeek ? '#2563eb' : '#e5e7eb'};border-radius:6px;background:${d === dayOfWeek ? '#eff6ff' : 'white'};">
+                    <input type="checkbox" class="tpDayCb" value="${d}" ${d === dayOfWeek ? 'checked' : ''} style="cursor:pointer;accent-color:#2563eb;">
                     ${DAY_NAMES[d]}
                 </label>
             `).join('')}
@@ -219,45 +287,45 @@ function _tpShowTaskModal(task, dayOfWeek) {
 
     const modal = document.createElement('div');
     modal.id = 'tpModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = `
-    <div style="background:var(--card-bg);border-radius:12px;padding:24px;width:min(440px,90vw);max-height:90vh;overflow-y:auto;border:1px solid var(--border-color);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;font-size:16px;color:var(--text-primary);">${title}</h3>
-            <button onclick="document.getElementById('tpModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-secondary);">×</button>
+    <div style="background:white;border-radius:12px;padding:24px;width:min(460px,90vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">
+            <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">${title}</h3>
+            <button onclick="document.getElementById('tpModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
         </div>
-        <div class="form-group" style="margin-bottom:12px;">
-            <label style="font-weight:600;font-size:13px;">Tên công việc *</label>
-            <input id="tpFTask" type="text" class="form-control" value="${task ? task.task_name : ''}" placeholder="VD: Gọi điện Telesale" style="margin-top:4px;">
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Tên công việc <span style="color:#dc2626;">*</span></label>
+            <input id="tpFTask" type="text" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.task_name : ''}" placeholder="VD: Gọi điện Telesale" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div class="form-group">
-                <label style="font-weight:600;font-size:13px;">Điểm *</label>
-                <input id="tpFPoints" type="number" class="form-control" value="${task ? task.points : ''}" placeholder="20" style="margin-top:4px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Điểm <span style="color:#dc2626;">*</span></label>
+                <input id="tpFPoints" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.points : ''}" placeholder="20" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
-            <div class="form-group">
-                <label style="font-weight:600;font-size:13px;">SL tối thiểu *</label>
-                <input id="tpFMinQty" type="number" class="form-control" value="${task ? task.min_quantity : '1'}" placeholder="15" style="margin-top:4px;">
-            </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div class="form-group">
-                <label style="font-weight:600;font-size:13px;">Giờ bắt đầu *</label>
-                <input id="tpFStart" type="time" class="form-control" value="${task ? task.time_start : ''}" style="margin-top:4px;">
-            </div>
-            <div class="form-group">
-                <label style="font-weight:600;font-size:13px;">Giờ kết thúc *</label>
-                <input id="tpFEnd" type="time" class="form-control" value="${task ? task.time_end : ''}" style="margin-top:4px;">
+            <div>
+                <label style="font-weight:600;font-size:13px;color:#374151;">SL tối thiểu <span style="color:#dc2626;">*</span></label>
+                <input id="tpFMinQty" type="number" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.min_quantity : '1'}" placeholder="15" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
             </div>
         </div>
-        <div class="form-group" style="margin-bottom:12px;">
-            <label style="font-weight:600;font-size:13px;">Link hướng dẫn CV</label>
-            <input id="tpFGuide" type="url" class="form-control" value="${task ? (task.guide_url || '') : ''}" placeholder="https://docs.google.com/..." style="margin-top:4px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Giờ bắt đầu <span style="color:#dc2626;">*</span></label>
+                <input id="tpFStart" type="time" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_start : ''}" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            </div>
+            <div>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Giờ kết thúc <span style="color:#dc2626;">*</span></label>
+                <input id="tpFEnd" type="time" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? task.time_end : ''}" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+            </div>
+        </div>
+        <div style="margin-bottom:8px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Link hướng dẫn CV</label>
+            <input id="tpFGuide" type="url" style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;" value="${task ? (task.guide_url || '') : ''}" placeholder="https://docs.google.com/..." onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
         ${daysHtml}
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('tpModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;font-size:13px;">Hủy</button>
-            <button onclick="_tpSaveTask(${isEdit ? task.id : 'null'}, ${dayOfWeek})" style="padding:8px 20px;border-radius:6px;border:none;background:var(--primary);color:white;cursor:pointer;font-size:13px;font-weight:600;">💾 Lưu</button>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
+            <button onclick="document.getElementById('tpModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
+            <button onclick="_tpSaveTask(${isEdit ? task.id : 'null'}, ${dayOfWeek})" style="padding:9px 22px;border-radius:8px;border:none;background:#122546;color:white;cursor:pointer;font-size:13px;font-weight:600;">💾 Lưu</button>
         </div>
     </div>`;
     document.body.appendChild(modal);
