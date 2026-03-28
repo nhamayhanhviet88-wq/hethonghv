@@ -43,7 +43,7 @@ async function taskPointRoutes(fastify, options) {
 
     // CREATE a new task
     fastify.post('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
-        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only } = request.body || {};
+        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements } = request.body || {};
         if (!target_type || !target_id || !day_of_week || !task_name || !time_start || !time_end) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
@@ -52,9 +52,9 @@ async function taskPointRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo CV cố định vào lịch' });
         }
         const result = await db.run(
-            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only, created_by)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, week_only || null, request.user.id]
+            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), request.user.id]
         );
         return { success: true, id: result.lastInsertRowid };
     });
@@ -62,15 +62,15 @@ async function taskPointRoutes(fastify, options) {
     // UPDATE a task
     fastify.put('/api/task-points/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval, week_only } = request.body || {};
+        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval, week_only, input_requirements, output_requirements } = request.body || {};
         // Only giam_doc can edit fixed tasks
         const existing = await db.get('SELECT week_only FROM task_point_templates WHERE id = ?', [id]);
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
         }
         await db.run(
-            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, week_only=?, updated_at=NOW() WHERE id=?`,
-            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, week_only || null, id]
+            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, week_only=?, input_requirements=?, output_requirements=?, updated_at=NOW() WHERE id=?`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), id]
         );
         return { success: true };
     });
@@ -173,31 +173,31 @@ async function taskPointRoutes(fastify, options) {
 
     // CREATE a library task
     fastify.post('/api/task-library', { preHandler: [authenticate] }, async (request, reply) => {
-        const { task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly } = request.body || {};
+        const { task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly, input_requirements, output_requirements } = request.body || {};
         if (!task_name) return reply.code(400).send({ error: 'Thiếu tên công việc' });
         // Only giam_doc can create fixed (non-weekly) tasks
         if (!is_weekly && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo CV cố định' });
         }
         const result = await db.run(
-            `INSERT INTO task_library (task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, is_weekly ? true : false, request.user.id]
+            `INSERT INTO task_library (task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly, input_requirements, output_requirements, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, is_weekly ? true : false, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), request.user.id]
         );
         return { success: true, id: result.lastInsertRowid };
     });
 
     // UPDATE a library task
     fastify.put('/api/task-library/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        const { task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly } = request.body || {};
+        const { task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly, input_requirements, output_requirements } = request.body || {};
         // Check if target task is fixed — only giam_doc can edit
         const existing = await db.get('SELECT is_weekly FROM task_library WHERE id = $1', [Number(request.params.id)]);
         if (existing && !existing.is_weekly && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
         }
         await db.run(
-            `UPDATE task_library SET task_name=$1, points=$2, min_quantity=$3, guide_url=$4, requires_approval=$5, department_id=$6, is_weekly=$7 WHERE id=$8`,
-            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, is_weekly ? true : false, Number(request.params.id)]
+            `UPDATE task_library SET task_name=$1, points=$2, min_quantity=$3, guide_url=$4, requires_approval=$5, department_id=$6, is_weekly=$7, input_requirements=$8, output_requirements=$9 WHERE id=$10`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, is_weekly ? true : false, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), Number(request.params.id)]
         );
         return { success: true };
     });

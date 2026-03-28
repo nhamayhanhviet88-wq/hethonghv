@@ -19,6 +19,12 @@ let _kbViewUserId = null; // null = self
 let _kbColorMap = {};
 const _KB_DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
+function _kbParseJSON(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    try { return JSON.parse(val); } catch(e) { return []; }
+}
+
 function _kbGetColor(name) {
     if (!_kbColorMap[name]) {
         const idx = Object.keys(_kbColorMap).length % _KB_COLORS.length;
@@ -478,6 +484,16 @@ function _kbRenderGrid() {
                     }
                 }
 
+                const inputReqs = _kbParseJSON(task.input_requirements);
+                const outputReqs = _kbParseJSON(task.output_requirements);
+                const reqsHtml = (inputReqs.length || outputReqs.length) ? `
+                    <div style="text-align:left;margin-top:6px;padding-top:5px;border-top:1px dashed ${c.border};font-size:10px;">
+                        ${inputReqs.length ? `<div style="color:#2563eb;font-weight:600;margin-bottom:2px;">📥 Đầu vào:</div>
+                            ${inputReqs.map((r,i) => `<div style="color:#374151;padding-left:8px;">${i+1}. ${r}</div>`).join('')}` : ''}
+                        ${outputReqs.length ? `<div style="color:#059669;font-weight:600;margin-top:3px;margin-bottom:2px;">📤 Đầu ra:</div>
+                            ${outputReqs.map((r,i) => `<div style="color:#374151;padding-left:8px;">${i+1}. ${r}</div>`).join('')}` : ''}
+                    </div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;">
                         <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${task.task_name}</div>
@@ -485,6 +501,7 @@ function _kbRenderGrid() {
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
                         </div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
+                        ${reqsHtml}
                         <div style="display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:6px;">
                             ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:3px 6px;border-radius:4px;line-height:1;display:inline-flex;align-items:center;">📘 Hướng dẫn</a>` : ''}
                             ${actionBtn}

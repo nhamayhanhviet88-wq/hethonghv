@@ -669,6 +669,8 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
         <div style="display:none;">
             <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
             <input type="radio" name="tpWeekType" value="weekly" ${(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
+            <input type="hidden" id="tpFInputReqs" value="${encodeURIComponent(JSON.stringify(_tpParseJSON(task ? task.input_requirements : pf.input_requirements)))}">
+            <input type="hidden" id="tpFOutputReqs" value="${encodeURIComponent(JSON.stringify(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)))}">
         </div>
         ${daysHtml}
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
@@ -690,6 +692,9 @@ async function _tpSaveTask(editId, defaultDay) {
     const weekTypeRadio = document.querySelector('input[name="tpWeekType"]:checked');
     const isWeekOnly = weekTypeRadio?.value === 'weekly';
     const week_only = isWeekOnly && _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : null;
+    let input_requirements = [], output_requirements = [];
+    try { input_requirements = JSON.parse(decodeURIComponent(document.getElementById('tpFInputReqs')?.value || '[]')); } catch(e) {}
+    try { output_requirements = JSON.parse(decodeURIComponent(document.getElementById('tpFOutputReqs')?.value || '[]')); } catch(e) {}
 
     if (!task_name || !time_start || !time_end) { showToast('Vui lòng điền đầy đủ!', 'error'); return; }
     const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -706,7 +711,7 @@ async function _tpSaveTask(editId, defaultDay) {
     try {
         if (editId) {
             await apiCall(`/api/task-points/${editId}`, 'PUT', {
-                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, week_only
+                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, week_only, input_requirements, output_requirements
             });
             showToast('✅ Đã cập nhật');
         } else {
@@ -716,7 +721,7 @@ async function _tpSaveTask(editId, defaultDay) {
             for (const day of checkedDays) {
                 await apiCall('/api/task-points', 'POST', {
                     target_type: targetType, target_id: targetId,
-                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval, week_only
+                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval, week_only, input_requirements, output_requirements
                 });
             }
             showToast(`✅ Đã thêm ${checkedDays.length} công việc${isWeekOnly ? ' (tuần này)' : ''}`);
@@ -1073,6 +1078,20 @@ function _tpShowLibAddModal(editTask, isWeekly) {
             <label style="font-weight:600;font-size:12px;color:#374151;">Link hướng dẫn <span style="color:#dc2626;">*</span></label>
             <input id="tpLibGuide" type="url" value="${editTask ? (editTask.guide_url || '') : ''}" placeholder="https://..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-top:4px;box-sizing:border-box;">
         </div>
+        <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;">📥 Yêu cầu đầu vào CV <span style="color:#dc2626;">*</span></label>
+                <button type="button" onclick="_tpAddReqItem('tpLibInputReqs')" style="padding:2px 10px;font-size:14px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;">＋</button>
+            </div>
+            <div id="tpLibInputReqs">${_tpRenderReqItems(editTask ? _tpParseJSON(editTask.input_requirements) : [''])}</div>
+        </div>
+        <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;">📤 Yêu cầu đầu ra CV <span style="color:#dc2626;">*</span></label>
+                <button type="button" onclick="_tpAddReqItem('tpLibOutputReqs')" style="padding:2px 10px;font-size:14px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:700;">＋</button>
+            </div>
+            <div id="tpLibOutputReqs">${_tpRenderReqItems(editTask ? _tpParseJSON(editTask.output_requirements) : [''])}</div>
+        </div>
         <div style="display:none;">
             <input type="checkbox" id="tpLibApproval" ${editTask && editTask.requires_approval ? 'checked' : ''}>
         </div>
@@ -1082,6 +1101,60 @@ function _tpShowLibAddModal(editTask, isWeekly) {
         </div>
     </div>`;
     document.body.appendChild(m);
+}
+
+function _tpParseJSON(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    try { return JSON.parse(val); } catch(e) { return []; }
+}
+
+function _tpRenderReqItems(items) {
+    if (!items || items.length === 0) items = [''];
+    return items.map((item, i) => `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" class="tpReqRow">
+            <span style="font-size:11px;font-weight:700;color:#6b7280;min-width:20px;">${i + 1}.</span>
+            <input type="text" class="tpReqInput" value="${(item || '').replace(/"/g, '&quot;')}" placeholder="Nhập yêu cầu..." style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;box-sizing:border-box;">
+            <button type="button" onclick="_tpRemoveReqItem(this)" style="padding:2px 8px;font-size:12px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;" title="Xóa">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function _tpAddReqItem(containerId) {
+    const wrap = document.getElementById(containerId);
+    if (!wrap) return;
+    const count = wrap.querySelectorAll('.tpReqRow').length;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+    div.className = 'tpReqRow';
+    div.innerHTML = `
+        <span style="font-size:11px;font-weight:700;color:#6b7280;min-width:20px;">${count + 1}.</span>
+        <input type="text" class="tpReqInput" placeholder="Nhập yêu cầu..." style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;box-sizing:border-box;">
+        <button type="button" onclick="_tpRemoveReqItem(this)" style="padding:2px 8px;font-size:12px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;" title="Xóa">🗑️</button>
+    `;
+    wrap.appendChild(div);
+    div.querySelector('.tpReqInput').focus();
+}
+
+function _tpRemoveReqItem(btn) {
+    const row = btn.closest('.tpReqRow');
+    const wrap = row.parentElement;
+    if (wrap.querySelectorAll('.tpReqRow').length <= 1) {
+        showToast('Phải có ít nhất 1 yêu cầu!', 'error');
+        return;
+    }
+    row.remove();
+    // Re-number
+    wrap.querySelectorAll('.tpReqRow').forEach((r, i) => {
+        const num = r.querySelector('span');
+        if (num) num.textContent = (i + 1) + '.';
+    });
+}
+
+function _tpCollectReqItems(containerId) {
+    const wrap = document.getElementById(containerId);
+    if (!wrap) return [];
+    return [...wrap.querySelectorAll('.tpReqInput')].map(el => el.value.trim()).filter(v => v);
 }
 
 async function _tpSaveLibTask(editId) {
@@ -1099,7 +1172,12 @@ async function _tpSaveLibTask(editId) {
     if (!minQty || Number(minQty) <= 0) { showToast('Nhập số lượng tối thiểu!', 'error'); return; }
     if (!guide) { showToast('Nhập link hướng dẫn!', 'error'); return; }
 
-    const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept), is_weekly: isWeekly };
+    const inputReqs = _tpCollectReqItems('tpLibInputReqs');
+    const outputReqs = _tpCollectReqItems('tpLibOutputReqs');
+    if (inputReqs.length === 0) { showToast('Nhập ít nhất 1 yêu cầu đầu vào!', 'error'); return; }
+    if (outputReqs.length === 0) { showToast('Nhập ít nhất 1 yêu cầu đầu ra!', 'error'); return; }
+
+    const body = { task_name: name, points: Number(points) || 0, min_quantity: Number(minQty) || 1, guide_url: guide || null, requires_approval: approval, department_id: Number(dept), is_weekly: isWeekly, input_requirements: inputReqs, output_requirements: outputReqs };
 
     try {
         if (editId) {
@@ -1303,6 +1381,8 @@ function _tpPickLibTaskDo(libTask, dayOfWeek) {
         min_quantity: libTask.min_quantity,
         guide_url: libTask.guide_url,
         requires_approval: libTask.requires_approval,
+        input_requirements: libTask.input_requirements,
+        output_requirements: libTask.output_requirements,
         _auto_week_only: libTask.is_weekly ? true : false
     };
     _tpShowTaskModal(null, dayOfWeek, task);
