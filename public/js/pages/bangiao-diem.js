@@ -21,67 +21,45 @@ async function renderBanGiaoDiemPage(container) {
     const activeDepts = _tpAllDepts.filter(d => _tpActiveDeptIds.includes(d.id));
 
     container.innerHTML = `
-    <div style="max-width:1400px;margin:0 auto;padding:16px;">
+    <div style="max-width:1500px;margin:0 auto;padding:16px;">
         <h2 style="margin:0 0 16px;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
+        <input type="hidden" id="tpTargetType" value="team">
+        <select id="tpUserSelect" style="display:none;"><option value=""></option></select>
+        <select id="tpDeptSelect" style="display:none;"><option value=""></option></select>
 
-        <!-- Target Selector -->
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-            <label style="font-weight:600;font-size:13px;color:#6b7280;">Áp dụng cho:</label>
-            <select id="tpTargetType" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;" ${_tpIsReadonly ? 'disabled' : ''}>
-                <option value="team">🏢 Team / Phòng ban</option>
-                <option value="individual">👤 Cá nhân</option>
-            </select>
-            <select id="tpDeptSelect" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;">
-                <option value="">-- Chọn phòng ban --</option>
-                ${activeDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
-            </select>
-            <select id="tpUserSelect" style="display:none;padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#122546;font-size:13px;">
-                <option value="">-- Chọn nhân viên --</option>
-            </select>
-            ${isManager ? `
-                <button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="padding:6px 14px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.06);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>
-                <button onclick="_tpCopyToIndividual()" id="tpCopyBtn" style="display:none;padding:6px 14px;border-radius:6px;border:none;background:#122546;color:white;font-size:12px;cursor:pointer;font-weight:600;">📋 Copy từ Team</button>
-            ` : ''}
-        </div>
+        <div style="display:flex;gap:16px;align-items:flex-start;">
+            <!-- LEFT: Dept list -->
+            <div style="min-width:200px;max-width:220px;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);flex-shrink:0;">
+                <div style="padding:12px 14px;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Phòng ban</div>
+                <div id="tpDeptList" style="max-height:calc(100vh - 200px);overflow-y:auto;">
+                    ${activeDepts.map((d, i) => `
+                        <div class="tp-dept-item" data-id="${d.id}" onclick="_tpSelectDept(${d.id})" style="padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;${i === 0 ? 'background:#eff6ff;color:#122546;font-weight:600;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
+                            ${d.name}
+                        </div>
+                    `).join('')}
+                </div>
+                ${isManager ? `<div style="padding:8px 10px;border-top:1px solid #f3f4f6;">
+                    <button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="width:100%;padding:7px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>
+                </div>` : ''}
+            </div>
 
-        <!-- Grid -->
-        <div id="tpGridWrap" style="overflow-x:auto;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-            <div style="padding:50px;text-align:center;color:#9ca3af;font-size:14px;">
-                <div style="font-size:40px;margin-bottom:12px;">📋</div>
-                ${activeDepts.length > 0 ? 'Chọn phòng ban để xem lịch công việc' : 'Chưa có phòng ban nào. Ấn <b>＋ Tạo mới</b> để bắt đầu.'}
+            <!-- RIGHT: Grid -->
+            <div style="flex:1;min-width:0;">
+                <div id="tpGridWrap" style="overflow-x:auto;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="padding:50px;text-align:center;color:#9ca3af;font-size:14px;">
+                        <div style="font-size:40px;margin-bottom:12px;">📋</div>
+                        ${activeDepts.length > 0 ? 'Chọn phòng ban bên trái để xem lịch' : 'Chưa có phòng ban nào. Ấn <b>＋ Tạo mới</b> để bắt đầu.'}
+                    </div>
+                </div>
             </div>
         </div>
     </div>`;
 
-    // Event listeners
-    document.getElementById('tpTargetType').addEventListener('change', function() {
-        const isIndividual = this.value === 'individual';
-        document.getElementById('tpUserSelect').style.display = isIndividual ? '' : 'none';
-        const copyBtn = document.getElementById('tpCopyBtn');
-        if (copyBtn) copyBtn.style.display = isIndividual ? '' : 'none';
-        const createBtn = document.getElementById('tpCreateBtn');
-        if (createBtn) createBtn.style.display = isIndividual ? 'none' : '';
-        if (!isIndividual) _tpLoadTasks();
-    });
-
-    document.getElementById('tpDeptSelect').addEventListener('change', async function() {
-        const deptId = this.value;
-        if (!deptId) return;
-        // Load users for this dept
-        try {
-            const u = await apiCall(`/api/task-points/users?department_id=${deptId}`);
-            _tpUsers = u.users || [];
-        } catch(e) { _tpUsers = []; }
-        const userSel = document.getElementById('tpUserSelect');
-        userSel.innerHTML = '<option value="">-- Chọn nhân viên --</option>' + _tpUsers.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
-
-        const targetType = document.getElementById('tpTargetType').value;
-        if (targetType === 'team') _tpLoadTasks();
-    });
-
-    document.getElementById('tpUserSelect').addEventListener('change', function() {
-        if (this.value) _tpLoadTasks();
-    });
+    // Auto-select first dept
+    if (activeDepts.length > 0) {
+        _tpTarget = { type: 'team', id: activeDepts[0].id };
+        _tpLoadTasks();
+    }
 }
 
 // Show modal to select a dept to create template for
@@ -120,28 +98,40 @@ function _tpActivateDept() {
     const deptName = sel.options[sel.selectedIndex]?.text;
     document.getElementById('tpCreateDeptModal')?.remove();
 
-    // Add to active list + dropdown
+    // Add to active list + left sidebar
     _tpActiveDeptIds.push(deptId);
-    const deptSelect = document.getElementById('tpDeptSelect');
-    const opt = document.createElement('option');
-    opt.value = deptId;
-    opt.textContent = deptName;
-    deptSelect.appendChild(opt);
-    deptSelect.value = deptId;
-    deptSelect.dispatchEvent(new Event('change'));
+    const list = document.getElementById('tpDeptList');
+    if (list) {
+        const div = document.createElement('div');
+        div.className = 'tp-dept-item';
+        div.dataset.id = deptId;
+        div.onclick = () => _tpSelectDept(deptId);
+        div.style.cssText = 'padding:10px 14px;font-size:13px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;';
+        div.textContent = deptName;
+        div.onmouseover = function(){ if(!this.classList.contains('tp-active')) this.style.background='#f9fafb'; };
+        div.onmouseout = function(){ if(!this.classList.contains('tp-active')) this.style.background='white'; };
+        list.appendChild(div);
+    }
+    _tpSelectDept(deptId);
     showToast(`✅ Đã tạo lịch cho ${deptName}`);
 }
 
-async function _tpLoadTasks() {
-    const targetType = document.getElementById('tpTargetType').value;
-    const deptId = document.getElementById('tpDeptSelect').value;
-    const userId = document.getElementById('tpUserSelect')?.value;
+function _tpSelectDept(deptId) {
+    // Highlight active
+    document.querySelectorAll('.tp-dept-item').forEach(el => {
+        const isActive = Number(el.dataset.id) === deptId;
+        el.classList.toggle('tp-active', isActive);
+        el.style.background = isActive ? '#eff6ff' : 'white';
+        el.style.color = isActive ? '#122546' : '#374151';
+        el.style.fontWeight = isActive ? '600' : '400';
+        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+    });
+    _tpTarget = { type: 'team', id: deptId };
+    _tpLoadTasks();
+}
 
-    if (targetType === 'team' && deptId) {
-        _tpTarget = { type: 'team', id: Number(deptId) };
-    } else if (targetType === 'individual' && userId) {
-        _tpTarget = { type: 'individual', id: Number(userId) };
-    } else return;
+async function _tpLoadTasks() {
+    if (!_tpTarget.id) return;
 
     try {
         const d = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}`);
@@ -209,15 +199,15 @@ function _tpRenderGrid() {
                 const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (task) {
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                        <div style="background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;position:relative;">
-                            <div style="font-weight:700;color:#122546;font-size:13px;margin-bottom:6px;">${task.task_name}</div>
-                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                <span style="background:#122546;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
-                                <span style="background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
-                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;background:#eff6ff;padding:2px 6px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
+                        <div style="background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:12px 14px;text-align:center;">
+                            <div style="font-weight:700;color:#122546;font-size:14px;margin-bottom:8px;">${task.task_name}</div>
+                            <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+                                <span style="background:#122546;color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
+                                <span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
+                                ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;background:#eff6ff;padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a>` : ''}
                             </div>
-                            <div style="font-size:10px;color:#9ca3af;margin-top:5px;">🕐 ${tStart} — ${tEnd}</div>
-                            ${!_tpIsReadonly ? `<div style="margin-top:8px;display:flex;gap:6px;">
+                            <div style="font-size:10px;color:#9ca3af;margin-top:6px;">🕐 ${tStart} — ${tEnd}</div>
+                            ${!_tpIsReadonly ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
                                 <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">✏️ Sửa</button>
                                 <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
                             </div>` : ''}
