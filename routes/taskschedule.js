@@ -5,43 +5,111 @@ const fs = require('fs');
 
 async function taskScheduleRoutes(fastify, options) {
 
-    // GET my weekly tasks (NV: own schedule with individual→team fallback)
-    fastify.get('/api/schedule/my-tasks', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = request.user.id;
-        const deptId = request.user.department_id;
-
-        // Try individual templates first
+    // Helper: get templates for a user (individual→team fallback)
+    async function _getTemplatesForUser(userId) {
+        const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [userId]);
+        if (!user) return [];
         let tasks = await db.all(
             'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
             ['individual', userId]
         );
-
-        // Fallback to team templates
-        if (tasks.length === 0 && deptId) {
+        if (tasks.length === 0 && user.department_id) {
             tasks = await db.all(
                 'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
-                ['team', deptId]
+                ['team', user.department_id]
             );
         }
+        return tasks;
+    }
 
+    // Helper: ensure snapshots exist for a user + date
+    async function _ensureSnapshots(userId, dateStr, dayOfWeek) {
+        const existing = await db.all(
+            'SELECT id FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 LIMIT 1',
+            [userId, dateStr]
+        );
+        if (existing.length > 0) return; // already snapshotted
+
+        const templates = await _getTemplatesForUser(userId);
+        const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+        for (const t of dayTasks) {
+            await db.run(
+                `INSERT INTO daily_task_snapshots (user_id, snapshot_date, template_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, requires_approval)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
+                [userId, dateStr, t.id, t.day_of_week, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.guide_url, t.requires_approval || false]
+            );
+        }
+    }
+
+    // GET weekly tasks with snapshot logic
+    // Past+today → snapshots (auto-create if needed), future → live templates
+    fastify.get('/api/schedule/week-tasks', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, week_start } = request.query;
+        const uid = Number(user_id) || request.user.id;
+
+        if (!week_start) return reply.code(400).send({ error: 'Thiếu week_start' });
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        const todayStr = today.toISOString().slice(0,10);
+        const monDate = new Date(week_start + 'T00:00:00');
+
+        // Get templates for future days
+        const templates = await _getTemplatesForUser(uid);
+
+        let allTasks = [];
+
+        for (let d = 0; d < 7; d++) {
+            const colDate = new Date(monDate);
+            colDate.setDate(monDate.getDate() + d);
+            const dateStr = colDate.toISOString().slice(0,10);
+            const jsDow = colDate.getDay(); // 0=Sun
+            const dayOfWeek = jsDow === 0 ? 7 : jsDow; // 1=Mon..7=Sun
+
+            if (dateStr <= todayStr) {
+                // Past or today → use snapshots
+                await _ensureSnapshots(uid, dateStr, dayOfWeek);
+                const snaps = await db.all(
+                    'SELECT * FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
+                    [uid, dateStr]
+                );
+                // Add snapshot data with _date field for frontend
+                snaps.forEach(s => {
+                    allTasks.push({ ...s, _source: 'snapshot', _date: dateStr });
+                });
+            } else {
+                // Future → live templates
+                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+                dayTasks.forEach(t => {
+                    allTasks.push({ ...t, _source: 'template', _date: dateStr });
+                });
+            }
+        }
+
+        return { tasks: allTasks };
+    });
+
+    // GET my weekly tasks (legacy — still used for schedule)
+    fastify.get('/api/schedule/my-tasks', { preHandler: [authenticate] }, async (request, reply) => {
+        const tasks = await _getTemplatesForUser(request.user.id);
         return { tasks, source: tasks.length > 0 ? (tasks[0]?.target_type || 'none') : 'none' };
     });
 
-    // GET team members for manager — only those with task templates (individual or team-level)
+    // GET user tasks (manager viewing a specific user — legacy)
+    fastify.get('/api/schedule/user-tasks', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id } = request.query;
+        if (!user_id) return reply.code(400).send({ error: 'Thiếu user_id' });
+        const tasks = await _getTemplatesForUser(Number(user_id));
+        return { tasks };
+    });
+
+    // GET team members for manager — only those with task templates
     fastify.get('/api/schedule/team-members', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
         let members = [];
 
-        // Get department IDs that have team templates
-        const deptWithTemplates = await db.all(
-            "SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'"
-        );
+        const deptWithTemplates = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
         const deptIds = deptWithTemplates.map(r => r.target_id);
-
-        // Get user IDs that have individual templates
-        const usersWithTemplates = await db.all(
-            "SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'individual'"
-        );
+        const usersWithTemplates = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'individual'");
         const userIds = usersWithTemplates.map(r => r.target_id);
 
         if (['giam_doc', 'quan_ly', 'trinh'].includes(user.role)) {
@@ -61,33 +129,8 @@ async function taskScheduleRoutes(fastify, options) {
             );
         }
 
-        // Filter: only keep users who have individual templates OR belong to a dept with team templates
         members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));
-
         return { members };
-    });
-
-    // GET user tasks (manager viewing a specific user)
-    fastify.get('/api/schedule/user-tasks', { preHandler: [authenticate] }, async (request, reply) => {
-        const { user_id } = request.query;
-        if (!user_id) return reply.code(400).send({ error: 'Thiếu user_id' });
-
-        const targetUser = await db.get('SELECT id, department_id FROM users WHERE id = $1', [Number(user_id)]);
-        if (!targetUser) return reply.code(404).send({ error: 'User not found' });
-
-        // Individual first, then team fallback
-        let tasks = await db.all(
-            'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
-            ['individual', Number(user_id)]
-        );
-        if (tasks.length === 0 && targetUser.department_id) {
-            tasks = await db.all(
-                'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start',
-                ['team', targetUser.department_id]
-            );
-        }
-
-        return { tasks };
     });
 
     // GET reports for a user + date range

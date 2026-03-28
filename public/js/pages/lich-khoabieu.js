@@ -17,7 +17,7 @@ let _kbMonthlyHolidays = []; // holidays in the month
 let _kbWeekStart = null;
 let _kbViewUserId = null; // null = self
 let _kbColorMap = {};
-const _KB_DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+const _KB_DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
 function _kbGetColor(name) {
     if (!_kbColorMap[name]) {
@@ -119,24 +119,20 @@ async function _kbLoadSchedule() {
     }
 
     const monStr = _kbDateStr(_kbWeekStart);
-    const sat = new Date(_kbWeekStart); sat.setDate(_kbWeekStart.getDate() + 5);
-    const satStr = _kbDateStr(sat);
+    const sun = new Date(_kbWeekStart); sun.setDate(_kbWeekStart.getDate() + 6);
+    const sunStr = _kbDateStr(sun);
 
-    // Load tasks
+    // Load tasks (snapshot-aware)
     try {
-        if (_kbViewUserId) {
-            const d = await apiCall(`/api/schedule/user-tasks?user_id=${_kbViewUserId}`);
-            _kbTasks = d.tasks || [];
-        } else {
-            const d = await apiCall('/api/schedule/my-tasks');
-            _kbTasks = d.tasks || [];
-        }
+        const uid = _kbViewUserId || currentUser.id;
+        const d = await apiCall(`/api/schedule/week-tasks?user_id=${uid}&week_start=${monStr}`);
+        _kbTasks = d.tasks || [];
     } catch(e) { _kbTasks = []; }
 
     // Load reports
     try {
         const uid = _kbViewUserId || currentUser.id;
-        const r = await apiCall(`/api/schedule/reports?user_id=${uid}&from=${monStr}&to=${satStr}`);
+        const r = await apiCall(`/api/schedule/reports?user_id=${uid}&from=${monStr}&to=${sunStr}`);
         _kbReports = {};
         (r.reports || []).forEach(rep => {
             const key = `${rep.template_id}_${rep.report_date.slice(0,10)}`;
@@ -147,7 +143,7 @@ async function _kbLoadSchedule() {
     // Load summary
     try {
         const uid = _kbViewUserId || currentUser.id;
-        const s = await apiCall(`/api/schedule/summary?user_id=${uid}&from=${monStr}&to=${satStr}`);
+        const s = await apiCall(`/api/schedule/summary?user_id=${uid}&from=${monStr}&to=${sunStr}`);
         _kbSummary = {};
         (s.summary || []).forEach(row => { _kbSummary[row.report_date.slice(0,10)] = row; });
     } catch(e) { _kbSummary = {}; }
@@ -267,10 +263,20 @@ function _kbRenderGrid() {
     const uniqueNames = [...new Set(_kbTasks.map(t => t.task_name))];
     uniqueNames.forEach(n => _kbGetColor(n));
 
-    // Group by day
+    // Group by column (1=Mon..7=Sun) using _date or day_of_week
     const byDay = {};
-    for (let d = 1; d <= 6; d++) byDay[d] = [];
-    _kbTasks.forEach(t => { if (byDay[t.day_of_week]) byDay[t.day_of_week].push(t); });
+    for (let d = 1; d <= 7; d++) byDay[d] = [];
+    const monDate0 = new Date(_kbWeekStart);
+    _kbTasks.forEach(t => {
+        let col = t.day_of_week;
+        if (t._date) {
+            // Calculate column from date
+            const td = new Date(t._date + 'T00:00:00');
+            const diff = Math.round((td - monDate0) / 86400000);
+            col = diff + 1; // 1-based
+        }
+        if (col >= 1 && col <= 7 && byDay[col]) byDay[col].push(t);
+    });
 
     // Slots
     const allSlots = new Set();
@@ -279,18 +285,18 @@ function _kbRenderGrid() {
 
     // Week dates
     const monDate = new Date(_kbWeekStart);
-    const satDate = new Date(monDate); satDate.setDate(monDate.getDate() + 5);
+    const sunDate2 = new Date(monDate); sunDate2.setDate(monDate.getDate() + 6);
 
     // Calculate earned points per day
     const earnedPerDay = {};
     const totalPerDay = {};
-    for (let d = 1; d <= 6; d++) {
+    for (let d = 1; d <= 7; d++) {
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
         const dateStr = _kbDateStr(colDate);
         let earned = 0;
         if (_kbSummary[dateStr]) earned = _kbSummary[dateStr].total_points || 0;
         earnedPerDay[d] = _kbHolidayMap[d] ? 0 : earned;
-        totalPerDay[d] = _kbHolidayMap[d] ? 0 : byDay[d].reduce((s,t) => s + (t.points||0), 0);
+        totalPerDay[d] = _kbHolidayMap[d] ? 0 : (byDay[d]||[]).reduce((s,t) => s + (t.points||0), 0);
     }
 
     const isSelf = !_kbViewUserId;
@@ -301,7 +307,7 @@ function _kbRenderGrid() {
     // Week nav
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
         <button onclick="_kbChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
-        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_kbFmtDate(monDate)} — ${_kbFmtDate(satDate)}/${monDate.getFullYear()}</div>
+        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_kbFmtDate(monDate)} — ${_kbFmtDate(sunDate2)}/${monDate.getFullYear()}</div>
         <button onclick="_kbChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
     </div>`;
 
@@ -310,7 +316,7 @@ function _kbRenderGrid() {
     // Header
     html += `<thead><tr>`;
     html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:100px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
-    for (let d = 1; d <= 6; d++) {
+    for (let d = 1; d <= 7; d++) {
         const isH = !!_kbHolidayMap[d];
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
         const dateLabel = _kbFmtDate(colDate);
@@ -338,7 +344,7 @@ function _kbRenderGrid() {
     // Body
     html += `<tbody>`;
     if (sortedSlots.length === 0) {
-        html += `<tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Chưa có lịch công việc. Hãy setup tại <b>Bàn Giao CV Điểm</b> trước.</td></tr>`;
+        html += `<tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Chưa có lịch công việc. Hãy setup tại <b>Bàn Giao CV Điểm</b> trước.</td></tr>`;
     } else {
         sortedSlots.forEach((slot, idx) => {
             const [tStart, tEnd] = slot.split('|');
@@ -349,7 +355,7 @@ function _kbRenderGrid() {
                 <div style="font-weight:700;color:#122546;font-size:14px;">${tStart}</div>
                 <div style="color:#9ca3af;font-size:11px;margin-top:1px;">→ ${tEnd}</div>
             </td>`;
-            for (let d = 1; d <= 6; d++) {
+            for (let d = 1; d <= 7; d++) {
                 if (_kbHolidayMap[d]) {
                     html += `<td style="padding:8px;border-bottom:${borderB};background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">🏖️</div></td>`;
                     continue;
@@ -363,7 +369,8 @@ function _kbRenderGrid() {
                 const c = _kbGetColor(task.task_name);
                 const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
                 const dateStr = _kbDateStr(colDate);
-                const reportKey = `${task.id}_${dateStr}`;
+                const reportTemplateId = task._source === 'snapshot' ? task.template_id : task.id;
+                const reportKey = `${reportTemplateId}_${dateStr}`;
                 const report = _kbReports[reportKey];
 
                 let statusBadge = '';
@@ -389,7 +396,7 @@ function _kbRenderGrid() {
                         statusBadge += `<div style="margin-top:4px;"><a href="${report.report_value}" target="_blank" style="font-size:10px;color:#2563eb;">🔗 Xem link</a></div>`;
                     }
                 } else if (canReport) {
-                    reportBtn = `<button onclick="_kbShowReportModal(${task.id},'${dateStr}')" style="margin-top:6px;padding:3px 10px;font-size:11px;border:1px dashed ${c.badge};border-radius:5px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button>`;
+                    reportBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}')" style="margin-top:6px;padding:3px 10px;font-size:11px;border:1px dashed ${c.badge};border-radius:5px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button>`;
                 } else {
                     statusBadge = `<div style="margin-top:6px;"><span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:6px;font-size:10px;">❌ Chưa nộp</span></div>`;
                 }

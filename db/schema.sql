@@ -465,3 +465,22 @@ CREATE TABLE IF NOT EXISTS task_point_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_reports_user_date ON task_point_reports(user_id, report_date);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON task_point_reports(status);
+
+-- Daily task snapshots: freeze tasks for past days
+CREATE TABLE IF NOT EXISTS daily_task_snapshots (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    snapshot_date DATE NOT NULL,
+    template_id INTEGER REFERENCES task_point_templates(id) ON DELETE SET NULL,
+    day_of_week INTEGER NOT NULL,
+    task_name TEXT NOT NULL,
+    points INTEGER DEFAULT 0,
+    min_quantity INTEGER DEFAULT 1,
+    time_start TEXT NOT NULL,
+    time_end TEXT NOT NULL,
+    guide_url TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, snapshot_date, template_id)
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_user_date ON daily_task_snapshots(user_id, snapshot_date);
