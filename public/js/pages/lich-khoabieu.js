@@ -140,6 +140,10 @@ async function renderLichKhoaBieuPage(container) {
             ${membersHtml}
             <div style="flex:1;">
                 <div id="kbStatsBar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;"></div>
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">⚠️</span>
+                    <span style="font-size:12px;color:#92400e;font-weight:500;">Mỗi ngày tối đa <strong>100 điểm</strong>. Nếu tổng điểm CV trong ngày vượt 100đ, hệ thống chỉ tính tối đa 100đ cho ngày đó.</span>
+                </div>
                 <div id="kbGridWrap" style="background:white;border:1px solid #e5e7eb;border-radius:10px;overflow-x:auto;">
                     <div style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</div>
                 </div>
@@ -277,21 +281,19 @@ function _kbRenderStats() {
         }
     }
 
-    // Today's points
+    // Today's points (capped at 100)
     const todayStr = _kbDateStr(now);
-    const todayEarned = _kbSummary[todayStr]?.total_points || 0;
+    const todayEarnedRaw = _kbSummary[todayStr]?.total_points || 0;
+    const todayEarned = Math.min(todayEarnedRaw, 100);
 
-    // Week points (Mon-Sat from current view)
+    // Week points (Mon-Sun, each day capped at 100)
     let weekEarned = 0;
-    for (let d = 1; d <= 6; d++) {
+    const sunDate = new Date(_kbWeekStart); sunDate.setDate(_kbWeekStart.getDate() + 6);
+    for (let d = 1; d <= 7; d++) {
         const colDate = new Date(_kbWeekStart); colDate.setDate(_kbWeekStart.getDate() + d - 1);
         const ds = _kbDateStr(colDate);
-        if (_kbSummary[ds]) weekEarned += _kbSummary[ds].total_points || 0;
+        if (_kbSummary[ds]) weekEarned += Math.min(_kbSummary[ds].total_points || 0, 100);
     }
-    // Sunday of this week
-    const sunDate = new Date(_kbWeekStart); sunDate.setDate(_kbWeekStart.getDate() + 6);
-    const sunStr = _kbDateStr(sunDate);
-    if (_kbSummary[sunStr]) weekEarned += _kbSummary[sunStr].total_points || 0;
 
     // Month max = days in month × 100
     const monthMax = lastDay * 100;
@@ -387,14 +389,17 @@ function _kbRenderGrid() {
         } else {
             const earned = earnedPerDay[d];
             const total = totalPerDay[d];
-            const pct = total > 0 ? Math.min(Math.round(earned/total*100),100) : 0;
-            const barColor = earned >= total && total > 0 ? '#16a34a' : earned > 0 ? '#d97706' : '#e5e7eb';
+            const cappedEarned = Math.min(earned, 100);
+            const cappedTotal = Math.min(total, 100);
+            const pct = cappedTotal > 0 ? Math.min(Math.round(cappedEarned/cappedTotal*100),100) : 0;
+            const barColor = cappedEarned >= cappedTotal && cappedTotal > 0 ? '#16a34a' : cappedEarned > 0 ? '#d97706' : '#e5e7eb';
+            const overCap = total > 100;
             html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#f8fafc;">
                 <div style="font-weight:700;color:#122546;font-size:13px;">${_KB_DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
                 <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
                     <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
                 </div>
-                <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${earned}/${total}đ</div>
+                <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${cappedEarned}/${cappedTotal}đ${overCap ? ' <span style="color:#dc2626;" title="Tổng CV = ' + total + 'đ, chỉ tính tối đa 100đ">(max 100)</span>' : ''}</div>
             </th>`;
         }
     }
