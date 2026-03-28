@@ -12,6 +12,8 @@ const _KB_COLORS = [
     { bg:'#ecfeff', border:'#a5f3fc', badge:'#0891b2', text:'#164e63', tag:'#cffafe' },
 ];
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
+let _kbMonthlySummary = 0; // total approved points this month
+let _kbMonthlyHolidays = []; // holidays in the month
 let _kbWeekStart = null;
 let _kbViewUserId = null; // null = self
 let _kbColorMap = {};
@@ -78,8 +80,11 @@ async function renderLichKhoaBieuPage(container) {
         </div>
         <div style="display:flex;gap:16px;">
             ${membersHtml}
-            <div id="kbGridWrap" style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:10px;overflow-x:auto;">
-                <div style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</div>
+            <div style="flex:1;">
+                <div id="kbStatsBar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;"></div>
+                <div id="kbGridWrap" style="background:white;border:1px solid #e5e7eb;border-radius:10px;overflow-x:auto;">
+                    <div style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</div>
+                </div>
             </div>
         </div>
     </div>`;
@@ -153,6 +158,25 @@ async function _kbLoadSchedule() {
         _kbHolidayMap = h.holidays || {};
     } catch(e) { _kbHolidayMap = {}; }
 
+    // Load monthly summary + holidays
+    const viewMonth = _kbWeekStart.getMonth();
+    const viewYear = _kbWeekStart.getFullYear();
+    const monthStart = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-01`;
+    const lastDay = new Date(viewYear, viewMonth+1, 0).getDate();
+    const monthEnd = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    try {
+        const uid = _kbViewUserId || currentUser.id;
+        const ms = await apiCall(`/api/schedule/summary?user_id=${uid}&from=${monthStart}&to=${monthEnd}`);
+        _kbMonthlySummary = (ms.summary || []).reduce((s, r) => s + (r.total_points || 0), 0);
+    } catch(e) { _kbMonthlySummary = 0; }
+    try {
+        const mh = await apiCall(`/api/holidays?year=${viewYear}`);
+        _kbMonthlyHolidays = (mh.holidays || []).filter(h => {
+            const d = new Date(h.holiday_date);
+            return d.getMonth() === viewMonth;
+        });
+    } catch(e) { _kbMonthlyHolidays = []; }
+
     // Update label
     const lbl = document.getElementById('kbViewingLabel');
     if (lbl) {
@@ -165,6 +189,7 @@ async function _kbLoadSchedule() {
         }
     }
 
+    _kbRenderStats();
     _kbRenderGrid();
 }
 
@@ -174,6 +199,63 @@ function _kbChangeWeek(offset) {
     d.setDate(d.getDate() + offset * 7);
     _kbWeekStart = d;
     _kbLoadSchedule();
+}
+
+// ===== STAT CARDS =====
+function _kbRenderStats() {
+    const bar = document.getElementById('kbStatsBar');
+    if (!bar) return;
+
+    const now = new Date();
+    const viewMonth = _kbWeekStart.getMonth();
+    const viewYear = _kbWeekStart.getFullYear();
+    const lastDay = new Date(viewYear, viewMonth+1, 0).getDate();
+
+    // Count working days (Mon-Sat) minus holidays
+    let workingDays = 0;
+    const holidayDates = new Set(_kbMonthlyHolidays.map(h => h.holiday_date.slice(0,10)));
+    for (let day = 1; day <= lastDay; day++) {
+        const d = new Date(viewYear, viewMonth, day);
+        const dow = d.getDay(); // 0=Sun, 1=Mon...6=Sat
+        if (dow >= 1 && dow <= 6) { // Mon-Sat
+            const ds = _kbDateStr(d);
+            if (!holidayDates.has(ds)) workingDays++;
+        }
+    }
+
+    // Today's points
+    const todayStr = _kbDateStr(now);
+    const todayEarned = _kbSummary[todayStr]?.total_points || 0;
+
+    // Week points (Mon-Sat from current view)
+    let weekEarned = 0;
+    for (let d = 1; d <= 6; d++) {
+        const colDate = new Date(_kbWeekStart); colDate.setDate(_kbWeekStart.getDate() + d - 1);
+        const ds = _kbDateStr(colDate);
+        if (_kbSummary[ds]) weekEarned += _kbSummary[ds].total_points || 0;
+    }
+    // Sunday of this week
+    const sunDate = new Date(_kbWeekStart); sunDate.setDate(_kbWeekStart.getDate() + 6);
+    const sunStr = _kbDateStr(sunDate);
+    if (_kbSummary[sunStr]) weekEarned += _kbSummary[sunStr].total_points || 0;
+
+    // Month max = days in month × 100
+    const monthMax = lastDay * 100;
+    const weekMax = 700;
+    const monthNames = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+
+    const card = (icon, label, value, sub, color) => `
+        <div style="background:white;border:2px solid ${color};border-radius:10px;padding:14px 16px;text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">${icon} ${label}</div>
+            <div style="font-size:26px;font-weight:800;color:${color};line-height:1;">${value}</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">${sub}</div>
+        </div>`;
+
+    bar.innerHTML = 
+        card('📅', 'SỐ NGÀY CÔNG NHẬT', workingDays, `${monthNames[viewMonth]} — T2→T7 trừ lễ`, '#122546') +
+        card('⭐', 'ĐIỂM NGÀY', `${todayEarned}/100`, `Hôm nay ${_kbFmtDate(now)}`, '#dc2626') +
+        card('📊', 'ĐIỂM TUẦN', `${weekEarned}/${weekMax}`, `T2→CN (${_kbFmtDate(_kbWeekStart)}—${_kbFmtDate(sunDate)})`, '#d97706') +
+        card('🏆', 'ĐIỂM TỔNG THÁNG', `${_kbMonthlySummary}/${monthMax}`, `${monthNames[viewMonth]} ${viewYear}`, '#16a34a');
 }
 
 function _kbRenderGrid() {
