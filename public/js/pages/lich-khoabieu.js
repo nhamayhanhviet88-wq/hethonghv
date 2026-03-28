@@ -389,12 +389,16 @@ function _kbRenderGrid() {
                     } else if (report.status === 'rejected') {
                         statusBadge = `<div style="margin-top:6px;"><span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">❌ Bị từ chối</span></div>`;
                     }
-                    // View report
-                    if (report.report_type === 'image') {
-                        statusBadge += `<div style="margin-top:4px;"><a href="${report.report_value}" target="_blank" style="font-size:10px;color:#2563eb;">🖼️ Xem ảnh</a></div>`;
-                    } else {
-                        statusBadge += `<div style="margin-top:4px;"><a href="${report.report_value}" target="_blank" style="font-size:10px;color:#2563eb;">🔗 Xem link</a></div>`;
+                    // View report attachments
+                    let attachments = '';
+                    if (report.report_value) {
+                        attachments += `<a href="${report.report_value}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;">🔗 Link</a> `;
                     }
+                    if (report.report_image) {
+                        attachments += `<a href="${report.report_image}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;">🖼️ Ảnh</a>`;
+                    }
+                    if (attachments) statusBadge += `<div style="margin-top:4px;">${attachments}</div>`;
+                    if (report.quantity) statusBadge += `<div style="margin-top:2px;font-size:9px;color:#6b7280;">SL: ${report.quantity}</div>`;
                 } else if (canReport) {
                     reportBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}')" style="margin-top:6px;padding:3px 10px;font-size:11px;border:1px dashed ${c.badge};border-radius:5px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button>`;
                 } else {
@@ -425,93 +429,164 @@ function _kbRenderGrid() {
     wrap.innerHTML = html;
 }
 
-// Report modal
+// Report modal — full redesign
+let _kbPastedFile = null;
+
 function _kbShowReportModal(templateId, reportDate) {
+    const task = _kbTasks.find(t => {
+        const tid = t._source === 'snapshot' ? t.template_id : t.id;
+        return tid === templateId;
+    });
+    const taskName = task ? task.task_name : 'Công việc';
+    const taskPoints = task ? task.points : 0;
+    const needsApproval = task ? task.requires_approval : false;
+    const minQty = task ? (task.min_quantity || 1) : 1;
+    _kbPastedFile = null;
+
+    const approvalWarn = needsApproval ? `
+        <div style="padding:10px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">🔒</span>
+            <div style="font-size:12px;color:#78350f;font-weight:600;">Công việc này cần Quản lý/TP duyệt mới được tính điểm</div>
+        </div>` : '';
+
     const modal = document.createElement('div');
     modal.id = 'kbReportModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = `
-    <div style="background:white;border-radius:12px;padding:24px;width:min(440px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;font-size:16px;color:#122546;">📝 Báo cáo công việc</h3>
-            <button onclick="document.getElementById('kbReportModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
-        </div>
-        <div style="margin-bottom:14px;">
-            <label style="font-weight:600;font-size:13px;color:#374151;">Loại báo cáo</label>
-            <div style="display:flex;gap:8px;margin-top:6px;">
-                <button id="kbTypeLink" onclick="_kbSwitchType('link')" style="flex:1;padding:8px;border:2px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;font-size:13px;">🔗 Link</button>
-                <button id="kbTypeImage" onclick="_kbSwitchType('image')" style="flex:1;padding:8px;border:2px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-weight:600;font-size:13px;">🖼️ Hình ảnh</button>
+    <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
+        <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📝 Báo cáo công việc</h3>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Nộp kết quả hoàn thành</div>
             </div>
+            <button onclick="document.getElementById('kbReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
-        <div id="kbInputLink" style="margin-bottom:14px;">
-            <label style="font-size:12px;color:#6b7280;">URL báo cáo</label>
-            <input id="kbReportLink" type="url" placeholder="https://..." style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;margin-top:4px;">
-        </div>
-        <div id="kbInputImage" style="margin-bottom:14px;display:none;">
-            <label style="font-size:12px;color:#6b7280;">Chọn hình ảnh</label>
-            <input id="kbReportFile" type="file" accept="image/*" style="width:100%;padding:8px;border:1px dashed #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;margin-top:4px;background:#f9fafb;">
-        </div>
-        <input type="hidden" id="kbReportTemplateId" value="${templateId}">
-        <input type="hidden" id="kbReportDate" value="${reportDate}">
-        <input type="hidden" id="kbReportType" value="link">
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('kbReportModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
-            <button onclick="_kbSubmitReport()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">📤 Nộp báo cáo</button>
+        <div style="padding:20px 22px;">
+            ${approvalWarn}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
+                    <div style="font-size:14px;font-weight:700;color:#122546;">${taskName}</div>
+                </div>
+                <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📅 Ngày báo cáo</div>
+                    <div style="font-size:14px;font-weight:700;color:#122546;">${reportDate.split('-').reverse().join('/')}</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div style="padding:10px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;">
+                    <div style="font-size:10px;color:#059669;text-transform:uppercase;font-weight:600;margin-bottom:4px;">⭐ Điểm thưởng</div>
+                    <div style="font-size:18px;font-weight:800;color:#059669;">${taskPoints}đ</div>
+                </div>
+                <div>
+                    <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📊 Số lượng hoàn thành <span style="color:#dc2626;">*</span></label>
+                    <input id="kbRptQty" type="number" min="0" value="${minQty}" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-weight:700;color:#122546;box-sizing:border-box;text-align:center;">
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành</label>
+                <textarea id="kbRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả</label>
+                <input id="kbRptLink" type="url" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
+                <div id="kbPasteZone" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafbfc;transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div>
+                    <div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
+                </div>
+                <div id="kbPastePreview" style="display:none;margin-top:8px;position:relative;">
+                    <img id="kbPasteImg" style="max-width:100%;max-height:150px;border-radius:6px;border:1px solid #e5e7eb;">
+                    <button onclick="_kbRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">×</button>
+                </div>
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-bottom:14px;background:#f9fafb;padding:8px 10px;border-radius:6px;border:1px solid #f3f4f6;">
+                💡 <b>Lưu ý:</b> Bắt buộc phải có ít nhất <b>link</b> hoặc <b>hình ảnh</b> để nộp báo cáo.
+            </div>
+            <input type="hidden" id="kbRptTemplateId" value="${templateId}">
+            <input type="hidden" id="kbRptDate" value="${reportDate}">
+            <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;">
+                <button onclick="document.getElementById('kbReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+                <button onclick="_kbSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,0.3);">📤 Nộp báo cáo</button>
+            </div>
         </div>
     </div>`;
     document.body.appendChild(modal);
+    // Paste listener on zone
+    const zone = document.getElementById('kbPasteZone');
+    zone.addEventListener('paste', _kbHandlePaste);
+    setTimeout(() => zone.focus(), 100);
 }
 
-function _kbSwitchType(type) {
-    document.getElementById('kbReportType').value = type;
-    document.getElementById('kbInputLink').style.display = type === 'link' ? 'block' : 'none';
-    document.getElementById('kbInputImage').style.display = type === 'image' ? 'block' : 'none';
-    document.getElementById('kbTypeLink').style.borderColor = type === 'link' ? '#2563eb' : '#d1d5db';
-    document.getElementById('kbTypeLink').style.background = type === 'link' ? '#eff6ff' : 'white';
-    document.getElementById('kbTypeLink').style.color = type === 'link' ? '#2563eb' : '#374151';
-    document.getElementById('kbTypeImage').style.borderColor = type === 'image' ? '#2563eb' : '#d1d5db';
-    document.getElementById('kbTypeImage').style.background = type === 'image' ? '#eff6ff' : 'white';
-    document.getElementById('kbTypeImage').style.color = type === 'image' ? '#2563eb' : '#374151';
+function _kbHandlePaste(e) {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            _kbPastedFile = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('kbPasteImg').src = ev.target.result;
+                document.getElementById('kbPastePreview').style.display = 'block';
+                const z = document.getElementById('kbPasteZone');
+                z.innerHTML = '<div style="font-size:14px;color:#16a34a;font-weight:600;">✅ Đã dán ảnh thành công!</div>';
+                z.style.borderColor = '#16a34a';
+                z.style.background = '#f0fdf4';
+            };
+            reader.readAsDataURL(_kbPastedFile);
+            break;
+        }
+    }
+}
+
+function _kbRemovePaste() {
+    _kbPastedFile = null;
+    document.getElementById('kbPastePreview').style.display = 'none';
+    const z = document.getElementById('kbPasteZone');
+    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div><div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>';
+    z.style.borderColor = '#d1d5db';
+    z.style.background = '#fafbfc';
 }
 
 async function _kbSubmitReport() {
-    const templateId = document.getElementById('kbReportTemplateId')?.value;
-    const reportDate = document.getElementById('kbReportDate')?.value;
-    const reportType = document.getElementById('kbReportType')?.value;
+    const templateId = document.getElementById('kbRptTemplateId')?.value;
+    const reportDate = document.getElementById('kbRptDate')?.value;
+    const link = document.getElementById('kbRptLink')?.value?.trim();
+    const qty = document.getElementById('kbRptQty')?.value || '0';
+    const content = document.getElementById('kbRptContent')?.value?.trim();
 
-    if (reportType === 'link') {
-        const link = document.getElementById('kbReportLink')?.value?.trim();
-        if (!link) { showToast('Nhập link báo cáo!', 'error'); return; }
-        try {
-            await apiCall('/api/schedule/report', 'POST', { template_id: Number(templateId), report_date: reportDate, report_value: link });
-            showToast('✅ Đã nộp báo cáo!');
-            document.getElementById('kbReportModal')?.remove();
-            _kbLoadSchedule();
-        } catch(e) { showToast('Lỗi!', 'error'); }
-    } else {
-        const file = document.getElementById('kbReportFile')?.files?.[0];
-        if (!file) { showToast('Chọn hình ảnh!', 'error'); return; }
+    if (!link && !_kbPastedFile) {
+        showToast('Phải có ít nhất link hoặc hình ảnh!', 'error');
+        return;
+    }
+
+    try {
         const formData = new FormData();
         formData.append('template_id', templateId);
         formData.append('report_date', reportDate);
-        formData.append('file', file);
-        try {
-            const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
-            const resp = await fetch('/api/schedule/report', {
-                method: 'POST',
-                body: formData,
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            });
-            const data = await resp.json();
-            if (data.success) {
-                showToast('✅ Đã nộp báo cáo!');
-                document.getElementById('kbReportModal')?.remove();
-                _kbLoadSchedule();
-            } else {
-                showToast('Lỗi: ' + (data.error || 'Unknown'), 'error');
-            }
-        } catch(e) { showToast('Lỗi upload!', 'error'); }
-    }
+        formData.append('quantity', qty);
+        if (content) formData.append('content', content);
+        if (link) formData.append('report_value', link);
+        if (_kbPastedFile) formData.append('report_image', _kbPastedFile, 'paste.png');
+
+        const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+        const resp = await fetch('/api/schedule/report', {
+            method: 'POST',
+            body: formData,
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(`✅ Đã nộp báo cáo! ${data.status === 'pending' ? '⏳ Chờ duyệt' : '+' + data.points_earned + 'đ'}`);
+            document.getElementById('kbReportModal')?.remove();
+            _kbLoadSchedule();
+        } else {
+            showToast('Lỗi: ' + (data.error || 'Unknown'), 'error');
+        }
+    } catch(e) { showToast('Lỗi gửi báo cáo!', 'error'); }
 }
 
 async function _kbApprove(reportId, action) {

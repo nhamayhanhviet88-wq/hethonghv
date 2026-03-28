@@ -143,56 +143,70 @@ async function taskScheduleRoutes(fastify, options) {
         const reports = await db.all(
             `SELECT r.*, t.task_name, t.points as template_points, t.requires_approval
              FROM task_point_reports r
-             JOIN task_point_templates t ON r.template_id = t.id
+             LEFT JOIN task_point_templates t ON r.template_id = t.id
              WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
-             ORDER BY r.report_date, t.time_start`,
+             ORDER BY r.report_date`,
             [uid, from, to]
         );
 
         return { reports };
     });
 
-    // SUBMIT a report (link or image)
+    // SUBMIT a report (multipart with optional image paste)
     fastify.post('/api/schedule/report', { preHandler: [authenticate] }, async (request, reply) => {
         const contentType = request.headers['content-type'] || '';
 
-        let template_id, report_date, report_type, report_value;
+        let template_id, report_date, report_value, report_image, quantity, content;
 
         if (contentType.includes('multipart')) {
-            // Image upload
-            const data = await request.file();
-            if (!data) return reply.code(400).send({ error: 'Không có file' });
+            const parts = request.parts();
+            let fileBuffer = null, fileExt = '.png';
 
-            template_id = data.fields.template_id?.value;
-            report_date = data.fields.report_date?.value;
-            report_type = 'image';
+            for await (const part of parts) {
+                if (part.type === 'file' && part.fieldname === 'report_image') {
+                    const chunks = [];
+                    for await (const chunk of part.file) chunks.push(chunk);
+                    fileBuffer = Buffer.concat(chunks);
+                    fileExt = path.extname(part.filename) || '.png';
+                } else if (part.type === 'field') {
+                    if (part.fieldname === 'template_id') template_id = part.value;
+                    if (part.fieldname === 'report_date') report_date = part.value;
+                    if (part.fieldname === 'report_value') report_value = part.value;
+                    if (part.fieldname === 'quantity') quantity = part.value;
+                    if (part.fieldname === 'content') content = part.value;
+                }
+            }
 
-            // Save file
-            const ext = path.extname(data.filename) || '.jpg';
-            const fileName = `report_${request.user.id}_${Date.now()}${ext}`;
-            const uploadDir = path.join(__dirname, '..', 'uploads', 'reports');
-            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-            const filePath = path.join(uploadDir, fileName);
-            const writeStream = fs.createWriteStream(filePath);
-            await data.file.pipe(writeStream);
-            await new Promise((resolve, reject) => { writeStream.on('finish', resolve); writeStream.on('error', reject); });
-
-            report_value = `/uploads/reports/${fileName}`;
+            // Save image if present
+            if (fileBuffer && fileBuffer.length > 0) {
+                const fileName = `report_${request.user.id}_${Date.now()}${fileExt}`;
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'reports');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
+                report_image = `/uploads/reports/${fileName}`;
+            }
         } else {
-            // JSON body — link
             const body = request.body || {};
             template_id = body.template_id;
             report_date = body.report_date;
-            report_type = 'link';
             report_value = body.report_value;
+            report_image = body.report_image;
+            quantity = body.quantity;
+            content = body.content;
         }
 
-        if (!template_id || !report_date || !report_value) {
+        // Validate: at least link or image required
+        const hasLink = report_value && report_value.trim();
+        const hasImage = !!report_image;
+        if (!template_id || !report_date) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
+        if (!hasLink && !hasImage) {
+            return reply.code(400).send({ error: 'Phải có ít nhất link hoặc hình ảnh' });
+        }
 
-        // Get template info
+        const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
+
         const template = await db.get('SELECT * FROM task_point_templates WHERE id = $1', [Number(template_id)]);
         if (!template) return reply.code(404).send({ error: 'Template not found' });
 
@@ -201,11 +215,11 @@ async function taskScheduleRoutes(fastify, options) {
 
         try {
             await db.run(
-                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, status, points_earned)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                  ON CONFLICT (template_id, user_id, report_date) DO UPDATE SET
-                 report_type = $4, report_value = $5, status = $6, points_earned = $7`,
-                [Number(template_id), request.user.id, report_date, report_type, report_value, status, points]
+                 report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10`,
+                [Number(template_id), request.user.id, report_date, report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, status, points]
             );
             return { success: true, status, points_earned: points };
         } catch(e) {
