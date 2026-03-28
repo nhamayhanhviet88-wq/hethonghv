@@ -668,13 +668,15 @@ async function _tpShowTaskLibrary() {
                 <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📦 Kho Công Việc</h3>
                 <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Quản lý tất cả công việc để tái sử dụng · ${_tpLibraryTasks.length} CV</div>
             </div>
-            <button onclick="document.getElementById('tpLibModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button onclick="_tpShowLibAddModal()" style="padding:7px 16px;border-radius:8px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">＋ Thêm CV mới</button>
+                <button onclick="document.getElementById('tpLibModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
         </div>
         <div style="padding:12px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;overflow-x:auto;">
             <button class="tpLibDeptTab" data-id="" onclick="_tpSelectLibDept('')" style="padding:6px 14px;border-radius:20px;border:2px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;">Tất cả <span style="background:#2563eb;color:white;padding:0 7px;border-radius:10px;font-size:11px;font-weight:700;min-width:18px;text-align:center;">${_tpLibraryTasks.length}</span></button>
             ${deptTabsHtml}
-            <div style="flex:1;"></div>
-            <button onclick="_tpShowLibAddModal()" style="padding:6px 16px;border-radius:20px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">＋ Thêm CV mới</button>
+
         </div>
         <div id="tpLibList" style="flex:1;overflow-y:auto;padding:12px 22px;"></div>
     </div>`;
