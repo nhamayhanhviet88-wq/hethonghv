@@ -12,6 +12,7 @@ let _tpHolidayMap = {}; // { dayOfWeek: holidayName }
 async function renderBanGiaoDiemPage(container) {
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
     _tpIsReadonly = !isManager;
+    _tpCurrentWeekStart = null; // Always reset to current week on page load
 
     // Load departments
     try {
