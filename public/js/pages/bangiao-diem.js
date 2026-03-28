@@ -760,6 +760,20 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
             <label style="font-weight:600;font-size:13px;color:#374151;">Link hướng dẫn CV</label>
             <input id="tpFGuide" type="url" ${lockAttr} style="margin-top:4px;width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;outline:none;${lockStyle}" value="${task ? (task.guide_url || '') : (pf.guide_url || '')}" placeholder="https://docs.google.com/..." onfocus="if(!this.readOnly)this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
         </div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">📥 Yêu cầu đầu vào CV <span style="color:#dc2626;">*</span></label>
+                ${!isFromLib ? '<button type="button" onclick="_tpAddReqItem(\'tpFInputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;">＋</button>' : ''}
+            </div>
+            <div id="tpFInputReqList">${isFromLib ? _tpRenderReqReadonly(_tpParseJSON(task ? task.input_requirements : pf.input_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.input_requirements : pf.input_requirements)).length ? _tpParseJSON(task ? task.input_requirements : pf.input_requirements) : [''])}</div>
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">📤 Yêu cầu đầu ra CV <span style="color:#dc2626;">*</span></label>
+                ${!isFromLib ? '<button type="button" onclick="_tpAddReqItem(\'tpFOutputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:700;">＋</button>' : ''}
+            </div>
+            <div id="tpFOutputReqList">${isFromLib ? _tpRenderReqReadonly(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.output_requirements : pf.output_requirements)).length ? _tpParseJSON(task ? task.output_requirements : pf.output_requirements) : [''])}</div>
+        </div>
         <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
             <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} ${isFromLib ? 'disabled' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
@@ -767,8 +781,6 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
         <div style="display:none;">
             <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
             <input type="radio" name="tpWeekType" value="weekly" ${(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
-            <input type="hidden" id="tpFInputReqs" value="${encodeURIComponent(JSON.stringify(_tpParseJSON(task ? task.input_requirements : pf.input_requirements)))}">
-            <input type="hidden" id="tpFOutputReqs" value="${encodeURIComponent(JSON.stringify(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)))}">
         </div>
         ${daysHtml}
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid #f3f4f6;">
@@ -791,8 +803,20 @@ async function _tpSaveTask(editId, defaultDay) {
     const isWeekOnly = weekTypeRadio?.value === 'weekly';
     const week_only = isWeekOnly && _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : null;
     let input_requirements = [], output_requirements = [];
-    try { input_requirements = JSON.parse(decodeURIComponent(document.getElementById('tpFInputReqs')?.value || '[]')); } catch(e) {}
-    try { output_requirements = JSON.parse(decodeURIComponent(document.getElementById('tpFOutputReqs')?.value || '[]')); } catch(e) {}
+    // Collect from visible lists if present, otherwise empty
+    const inpList = document.getElementById('tpFInputReqList');
+    const outList = document.getElementById('tpFOutputReqList');
+    if (inpList && inpList.querySelectorAll('.tpReqInput').length > 0) {
+        input_requirements = _tpCollectReqItems('tpFInputReqList');
+    } else if (inpList) {
+        // readonly: parse from data attrs
+        input_requirements = [...inpList.querySelectorAll('.tpReqReadonlyItem')].map(el => el.textContent.replace(/^\d+\.\s*/, '').trim()).filter(v => v);
+    }
+    if (outList && outList.querySelectorAll('.tpReqInput').length > 0) {
+        output_requirements = _tpCollectReqItems('tpFOutputReqList');
+    } else if (outList) {
+        output_requirements = [...outList.querySelectorAll('.tpReqReadonlyItem')].map(el => el.textContent.replace(/^\d+\.\s*/, '').trim()).filter(v => v);
+    }
 
     if (!task_name || !time_start || !time_end) { showToast('Vui lòng điền đầy đủ!', 'error'); return; }
     const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -1253,6 +1277,16 @@ function _tpCollectReqItems(containerId) {
     const wrap = document.getElementById(containerId);
     if (!wrap) return [];
     return [...wrap.querySelectorAll('.tpReqInput')].map(el => el.value.trim()).filter(v => v);
+}
+
+function _tpRenderReqReadonly(items) {
+    if (!items || items.length === 0) return '<div style="font-size:12px;color:#9ca3af;padding:4px 0;">Không có</div>';
+    return items.map((item, i) => `
+        <div class="tpReqReadonlyItem" style="display:flex;align-items:center;gap:6px;margin-bottom:3px;padding:5px 10px;background:#f3f4f6;border-radius:5px;font-size:12px;color:#374151;">
+            <span style="font-weight:700;color:#6b7280;min-width:20px;">${i + 1}.</span>
+            ${(item || '')}
+        </div>
+    `).join('');
 }
 
 async function _tpSaveLibTask(editId) {
