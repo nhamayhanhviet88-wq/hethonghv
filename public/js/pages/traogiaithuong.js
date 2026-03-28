@@ -157,7 +157,7 @@ async function loadTraoGiaiData() {
     gridEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-500);grid-column:1/-1;">⏳ Đang tải...</div>';
 
     var pData = await apiCall('/api/affiliate/prizes?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType);
-    var aData = await apiCall('/api/affiliate/awards?month=' + _tgSelectedMonth);
+    var aData = await apiCall('/api/affiliate/awards?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType);
     // Fetch leaderboard data for current period
     var periodMap = {daily:'daily',weekly:'weekly',monthly:'month',quarterly:'quarter'};
     var lbPeriod = periodMap[_tgSelectedPeriodType] || 'month';
@@ -527,6 +527,7 @@ async function submitTgAward(boardKey, topRank, prizeAmount, prizeDesc) {
     formData.append('winner_name', winnerName);
     formData.append('prize_amount', prizeAmount);
     formData.append('prize_description', prizeDesc);
+    formData.append('period_type', _tgSelectedPeriodType);
     formData.append('photo_winner', photo1);
     formData.append('photo_certificate', photo2);
 
@@ -859,7 +860,7 @@ async function _tgLoadDrillDown(boardKey, personId, month, drillType, idx) {
     document.body.appendChild(overlay);
 
     try {
-        var res = await apiCall('/api/affiliate/leaderboard-detail?board_key=' + boardKey + '&person_id=' + personId + '&month=' + month);
+        var res = await apiCall('/api/affiliate/leaderboard-detail?board_key=' + boardKey + '&person_id=' + personId + '&month=' + month + '&period_type=' + _tgSelectedPeriodType);
 
         // Determine title and icon
         var titles = {
@@ -868,8 +869,17 @@ async function _tgLoadDrillDown(boardKey, personId, month, drillType, idx) {
             affiliates: '🔑 Chi tiết Affiliate Đã Tuyển'
         };
         var title = titles[res.type] || '📊 Chi tiết';
-        var monthParts = month.split('-');
-        var monthLabel = 'Tháng ' + monthParts[1] + '/' + monthParts[0];
+        // Build period label
+        var monthLabel = month;
+        if (_tgSelectedPeriodType === 'daily') {
+            var dp = month.split('-'); monthLabel = dp[2] + '/' + dp[1] + '/' + dp[0];
+        } else if (_tgSelectedPeriodType === 'weekly') {
+            monthLabel = 'Tuần ' + month.split('-W')[1] + '/' + month.split('-W')[0];
+        } else if (_tgSelectedPeriodType === 'quarterly') {
+            var qp = month.split('-Q'); monthLabel = 'Quý ' + qp[1] + '/' + qp[0];
+        } else {
+            var monthParts = month.split('-'); monthLabel = 'Tháng ' + monthParts[1] + '/' + monthParts[0];
+        }
 
         if (!res.success || !res.items || res.items.length === 0) {
             overlay.querySelector('div > div').innerHTML =

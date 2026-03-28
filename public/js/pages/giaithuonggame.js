@@ -263,16 +263,38 @@ async function loadGiaiThuongData() {
     var ct = document.getElementById('gtBoardsContainer');
     ct.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-500);grid-column:1/-1;">⏳ Đang tải...</div>';
 
-    // Check if previous month awards are complete
-    var parts = _gtSelectedMonth.split('-');
-    var y = parseInt(parts[0]), m = parseInt(parts[1]);
-    var pm = m - 1, py = y;
-    if (pm <= 0) { pm = 12; py--; }
-    var prevMonth = py + '-' + String(pm).padStart(2, '0');
+    // Check if previous period awards are complete
+    var prevPeriodValue = '';
+    var prevPeriodLabel = '';
+    if (_gtSelectedPeriodType === 'daily') {
+        var dp = _gtSelectedMonth.split('-');
+        var prev = new Date(parseInt(dp[0]), parseInt(dp[1])-1, parseInt(dp[2]) - 1);
+        prevPeriodValue = prev.getFullYear() + '-' + String(prev.getMonth()+1).padStart(2,'0') + '-' + String(prev.getDate()).padStart(2,'0');
+        prevPeriodLabel = prev.getDate() + '/' + (prev.getMonth()+1) + '/' + prev.getFullYear();
+    } else if (_gtSelectedPeriodType === 'weekly') {
+        var wp = _gtSelectedMonth.split('-W');
+        var wn = parseInt(wp[1]) - 1, wy = parseInt(wp[0]);
+        if (wn <= 0) { wn = 52; wy--; }
+        prevPeriodValue = wy + '-W' + String(wn).padStart(2,'0');
+        prevPeriodLabel = 'Tuần ' + wn + '/' + wy;
+    } else if (_gtSelectedPeriodType === 'quarterly') {
+        var qp = _gtSelectedMonth.split('-Q');
+        var qq = parseInt(qp[1]) - 1, qy = parseInt(qp[0]);
+        if (qq <= 0) { qq = 4; qy--; }
+        prevPeriodValue = qy + '-Q' + qq;
+        prevPeriodLabel = 'Quý ' + qq + '/' + qy;
+    } else {
+        var parts = _gtSelectedMonth.split('-');
+        var y = parseInt(parts[0]), m = parseInt(parts[1]);
+        var pm = m - 1, py = y;
+        if (pm <= 0) { pm = 12; py--; }
+        prevPeriodValue = py + '-' + String(pm).padStart(2, '0');
+        prevPeriodLabel = 'Tháng ' + pm + '/' + py;
+    }
 
     _gtPrevMonthBlocked = false;
     try {
-        var checkRes = await apiCall('/api/affiliate/awards/check?month=' + prevMonth);
+        var checkRes = await apiCall('/api/affiliate/awards/check?month=' + prevPeriodValue + '&period_type=' + _gtSelectedPeriodType);
         if (checkRes.success && !checkRes.complete && checkRes.total > 0) {
             _gtPrevMonthBlocked = true;
         }
@@ -290,8 +312,8 @@ async function loadGiaiThuongData() {
         warnEl.innerHTML = '<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;border-radius:12px;padding:16px;margin-bottom:16px;">' +
             '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span style="font-size:28px;">⚠️</span>' +
-            '<div><div style="font-weight:800;color:#b91c1c;font-size:14px;">Chưa thể setup tháng mới!</div>' +
-            '<div style="color:#dc2626;font-size:12px;margin-top:4px;">Tháng ' + pm + '/' + py + ' vẫn còn giải thưởng chưa trao. Vui lòng vào <strong>Trao Giải Thưởng</strong> để hoàn thành trước.</div></div>' +
+            '<div><div style="font-weight:800;color:#b91c1c;font-size:14px;">Chưa thể setup kỳ mới!</div>' +
+            '<div style="color:#dc2626;font-size:12px;margin-top:4px;">' + prevPeriodLabel + ' vẫn còn giải thưởng chưa trao. Vui lòng vào <strong>Trao Giải Thưởng</strong> để hoàn thành trước.</div></div>' +
             '</div></div>';
     } else {
         warnEl.innerHTML = '';

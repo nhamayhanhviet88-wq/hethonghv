@@ -1,5 +1,5 @@
 // ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
-const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 let _tpTasks = [];
 let _tpTarget = { type: 'team', id: null };
 let _tpAllDepts = [];
@@ -246,7 +246,7 @@ function _tpRenderGrid() {
 
     // Group tasks by day
     const byDay = {};
-    for (let d = 1; d <= 6; d++) byDay[d] = [];
+    for (let d = 1; d <= 7; d++) byDay[d] = [];
     _tpTasks.forEach(t => { if (byDay[t.day_of_week]) byDay[t.day_of_week].push(t); });
 
     // Collect all unique time slots and sort
@@ -256,15 +256,15 @@ function _tpRenderGrid() {
 
     // Calculate totals per day (skip holidays)
     const dayTotals = {};
-    for (let d = 1; d <= 6; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : byDay[d].reduce((s, t) => s + (t.points || 0), 0);
+    for (let d = 1; d <= 7; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : (byDay[d] || []).reduce((s, t) => s + (t.points || 0), 0);
 
     // Week navigation
     const monDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
-    const satDate = new Date(monDate); satDate.setDate(monDate.getDate() + 5);
+    const sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
 
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
         <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
-        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(satDate)}/${monDate.getFullYear()}</div>
+        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
         <button onclick="_tpChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
     </div>`;
 
@@ -273,7 +273,7 @@ function _tpRenderGrid() {
     // Header with dates
     html += `<thead><tr>`;
     html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:105px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
-    for (let d = 1; d <= 6; d++) {
+    for (let d = 1; d <= 7; d++) {
         const isHoliday = !!_tpHolidayMap[d];
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
         const dateLabel = _tpFormatDate(colDate);
@@ -314,7 +314,7 @@ function _tpRenderGrid() {
                 <div style="font-weight:700;color:#122546;font-size:14px;">${tStart}</div>
                 <div style="color:#9ca3af;font-size:11px;margin-top:1px;">→ ${tEnd}</div>
             </td>`;
-            for (let d = 1; d <= 6; d++) {
+            for (let d = 1; d <= 7; d++) {
                 if (_tpHolidayMap[d]) {
                     // Holiday column — greyed out
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};background:#fef2f2;vertical-align:middle;text-align:center;">
@@ -353,7 +353,7 @@ function _tpRenderGrid() {
     if (!_tpIsReadonly) {
         html += `<tfoot><tr>`;
         html += `<td style="padding:8px 14px;background:#fafbfc;font-weight:600;font-size:11px;color:#9ca3af;border-top:2px solid #e5e7eb;">THÊM</td>`;
-        for (let d = 1; d <= 6; d++) {
+        for (let d = 1; d <= 7; d++) {
             if (_tpHolidayMap[d]) {
                 html += `<td style="padding:8px;text-align:center;background:#fef2f2;border-top:2px solid #e5e7eb;"></td>`;
             } else {
@@ -397,7 +397,7 @@ function _tpShowTaskModal(task, dayOfWeek) {
     <div style="margin-top:12px;">
         <label style="font-weight:600;font-size:13px;color:#374151;">Áp dụng cho ngày:</label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-            ${[1,2,3,4,5,6].map(d => `
+            ${[1,2,3,4,5,6,7].map(d => `
                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#374151;padding:4px 8px;border:1px solid ${d === dayOfWeek ? '#2563eb' : '#e5e7eb'};border-radius:6px;background:${d === dayOfWeek ? '#eff6ff' : 'white'};">
                     <input type="checkbox" class="tpDayCb" value="${d}" ${d === dayOfWeek ? 'checked' : ''} style="cursor:pointer;accent-color:#2563eb;">
                     ${DAY_NAMES[d]}

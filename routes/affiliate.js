@@ -2,6 +2,49 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const AFFILIATE_ROLES = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
+// Helper: parse period_type + value into dateFrom/dateTo
+function _parsePeriodDateRange(periodType, value) {
+    let dateFrom = null, dateTo = null;
+    if (!value) return { dateFrom, dateTo };
+    if (periodType === 'daily') {
+        dateFrom = value;
+        dateTo = value + ' 23:59:59';
+    } else if (periodType === 'weekly') {
+        const [wy, wn] = value.split('-W');
+        const jan1 = new Date(Number(wy), 0, 1);
+        const jan1Day = jan1.getDay() || 7;
+        const mon = new Date(jan1);
+        mon.setDate(jan1.getDate() + (Number(wn) - 1) * 7 - jan1Day + 2);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        dateFrom = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+        dateTo = `${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')} 23:59:59`;
+    } else if (periodType === 'monthly' || periodType === 'month') {
+        const parts = value.split('-');
+        const y = parts[0], m = parts[1];
+        dateFrom = `${y}-${m.padStart(2,'0')}-01`;
+        const lastDay = new Date(Number(y), Number(m), 0).getDate();
+        dateTo = `${y}-${m.padStart(2,'0')}-${lastDay} 23:59:59`;
+    } else if (periodType === 'quarterly' || periodType === 'quarter') {
+        const [y, q] = value.split('-Q');
+        const startMonth = (Number(q) - 1) * 3 + 1;
+        const endMonth = startMonth + 2;
+        dateFrom = `${y}-${String(startMonth).padStart(2,'0')}-01`;
+        const lastDay = new Date(Number(y), endMonth, 0).getDate();
+        dateTo = `${y}-${String(endMonth).padStart(2,'0')}-${lastDay} 23:59:59`;
+    } else {
+        // Fallback: treat as monthly
+        const parts = value.split('-');
+        if (parts.length === 2) {
+            const y = parts[0], m = parts[1];
+            dateFrom = `${y}-${m.padStart(2,'0')}-01`;
+            const lastDay = new Date(Number(y), Number(m), 0).getDate();
+            dateTo = `${y}-${m.padStart(2,'0')}-${lastDay} 23:59:59`;
+        }
+    }
+    return { dateFrom, dateTo };
+}
+
 async function affiliateRoutes(fastify) {
     const db = require('../db/pool');
 
@@ -771,13 +814,11 @@ async function affiliateRoutes(fastify) {
 
     // ===== LEADERBOARD DETAIL DRILL-DOWN =====
     fastify.get('/api/affiliate/leaderboard-detail', { preHandler: [authenticate] }, async (request) => {
-        const { board_key, person_id, month } = request.query;
+        const { board_key, person_id, month, period_type } = request.query;
         if (!board_key || !person_id || !month) return { success: false, error: 'Missing params' };
 
-        const [y, m] = month.split('-');
-        const dateFrom = `${y}-${m.padStart(2,'0')}-01`;
-        const lastDay = new Date(Number(y), Number(m), 0).getDate();
-        const dateTo = `${y}-${m.padStart(2,'0')}-${lastDay} 23:59:59`;
+        const { dateFrom, dateTo } = _parsePeriodDateRange(period_type || 'monthly', month);
+        if (!dateFrom || !dateTo) return { success: false, error: 'Invalid period' };
 
         // Hunter ranking: list affiliates created by this employee
         if (board_key === 'hunterRanking') {
@@ -939,37 +980,44 @@ async function affiliateRoutes(fastify) {
 
     // Get all awards for a month (or all months for history)
     fastify.get('/api/affiliate/awards', { preHandler: [authenticate] }, async (request) => {
-        const { month, year } = request.query;
+        const { month, year, period_type } = request.query;
         let query = `SELECT pa.*, u.full_name as awarded_by_name FROM prize_awards pa LEFT JOIN users u ON pa.awarded_by = u.id`;
         let params = [];
+        const conditions = [];
         if (month) {
-            query += ` WHERE pa.month = ?`;
+            conditions.push('pa.month = ?');
             params.push(month);
         } else if (year) {
-            query += ` WHERE pa.month LIKE ?`;
+            conditions.push('pa.month LIKE ?');
             params.push(year + '-%');
         }
+        if (period_type) {
+            conditions.push('pa.period_type = ?');
+            params.push(period_type);
+        }
+        if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
         query += ` ORDER BY pa.month DESC, pa.board_key, pa.top_rank`;
         const awards = await db.all(query, params);
         return { success: true, awards };
     });
 
-    // Check if previous month is fully awarded (for blocking new setup)
+    // Check if previous period is fully awarded (for blocking new setup)
     fastify.get('/api/affiliate/awards/check', { preHandler: [authenticate] }, async (request) => {
-        const { month } = request.query; // month to check (e.g. previous month)
+        const { month, period_type } = request.query; // month = period_value to check
         if (!month) return { success: true, complete: true };
+        const pt = period_type || 'monthly';
 
-        // Get all prizes set for that month
+        // Get all prizes set for that period
         const prizes = await db.all(
-            `SELECT DISTINCT board_key, top_rank FROM leaderboard_prizes WHERE month = ? AND is_active = true`,
-            [month]
+            `SELECT DISTINCT board_key, top_rank FROM leaderboard_prizes WHERE month = ? AND period_type = ? AND is_active = true`,
+            [month, pt]
         );
         if (prizes.length === 0) return { success: true, complete: true, message: 'Không có giải nào cần trao' };
 
-        // Get all awards for that month
+        // Get all awards for that period
         const awards = await db.all(
-            `SELECT board_key, top_rank FROM prize_awards WHERE month = ?`,
-            [month]
+            `SELECT board_key, top_rank FROM prize_awards WHERE month = ? AND period_type = ?`,
+            [month, pt]
         );
 
         const awardSet = new Set(awards.map(a => a.board_key + '_' + a.top_rank));
@@ -1023,23 +1071,25 @@ async function affiliateRoutes(fastify) {
             return reply.code(400).send({ error: 'Bắt buộc upload ảnh người nhận giải và ảnh bằng khen' });
         }
 
+        const pt = fields.period_type || 'monthly';
+
         // Check if already awarded
         const existing = await db.get(
-            `SELECT id FROM prize_awards WHERE board_key = ? AND month = ? AND top_rank = ?`,
-            [board_key, month, parseInt(top_rank)]
+            `SELECT id FROM prize_awards WHERE board_key = ? AND month = ? AND top_rank = ? AND period_type = ?`,
+            [board_key, month, parseInt(top_rank), pt]
         );
         if (existing) {
             return reply.code(400).send({ error: 'Giải này đã được trao rồi' });
         }
 
         await db.run(
-            `INSERT INTO prize_awards (board_key, month, top_rank, winner_type, winner_user_id, winner_team_id, winner_name, prize_amount, prize_description, photo_winner, photo_certificate, awarded_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO prize_awards (board_key, month, top_rank, winner_type, winner_user_id, winner_team_id, winner_name, prize_amount, prize_description, photo_winner, photo_certificate, awarded_by, period_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [board_key, month, parseInt(top_rank), winner_type || 'individual',
              winner_user_id ? parseInt(winner_user_id) : null,
              winner_team_id ? parseInt(winner_team_id) : null,
              winner_name, parseFloat(prize_amount) || 0, prize_description || '',
-             files.photo_winner, files.photo_certificate, request.user.id]
+             files.photo_winner, files.photo_certificate, request.user.id, pt]
         );
 
         return { success: true, message: 'Đã trao giải thưởng!' };

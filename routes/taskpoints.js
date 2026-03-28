@@ -105,13 +105,13 @@ async function taskPointRoutes(fastify, options) {
         const dayOfWeek = d.getDay(); // 0=Sun,1=Mon...6=Sat
         const mon = new Date(d);
         mon.setDate(d.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        const sat = new Date(mon);
-        sat.setDate(mon.getDate() + 5);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
         const monStr = mon.toISOString().slice(0, 10);
-        const satStr = sat.toISOString().slice(0, 10);
+        const sunStr = sun.toISOString().slice(0, 10);
         const holidays = await db.all(
             "SELECT * FROM holidays WHERE holiday_date BETWEEN $1 AND $2 ORDER BY holiday_date",
-            [monStr, satStr]
+            [monStr, sunStr]
         );
         // Map: day_of_week (1=Mon..6=Sat) => holiday_name
         const map = {};
@@ -119,9 +119,9 @@ async function taskPointRoutes(fastify, options) {
             const hd = new Date(h.holiday_date);
             const dow = hd.getDay(); // 0=Sun
             const mapped = dow === 0 ? 7 : dow; // 1=Mon..6=Sat,7=Sun
-            if (mapped >= 1 && mapped <= 6) map[mapped] = h.holiday_name;
+            if (mapped >= 1 && mapped <= 7) map[mapped] = h.holiday_name;
         });
-        return { holidays: map, week_start: monStr, week_end: satStr };
+        return { holidays: map, week_start: monStr, week_end: sunStr };
     });
 
     // CREATE a holiday
