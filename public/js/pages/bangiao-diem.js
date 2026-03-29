@@ -454,13 +454,16 @@ function _tpRenderGrid() {
     const dayTotals = {};
     for (let d = 1; d <= 7; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : (byDay[d] || []).reduce((s, t) => s + (t.points || 0), 0);
 
+    // Today for past-day protection
+    const today = new Date(); today.setHours(0,0,0,0);
+
     // Week navigation
     const monDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
     const sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
 
     let html = '';
 
-    // View mode header  
+    // View mode header
     if (_tpViewMode === 'individual' && _tpViewUserName) {
         html += `<div style="padding:10px 14px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;justify-content:space-between;border-radius:10px 10px 0 0;">
             <div style="display:flex;align-items:center;gap:8px;">
@@ -474,10 +477,16 @@ function _tpRenderGrid() {
         </div>`;
     }
 
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}">
-        <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
-        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
-        <button onclick="_tpChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
+            <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
+            <button onclick="_tpChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <input type="month" id="tpMonthPicker" value="${monDate.getFullYear()}-${String(monDate.getMonth()+1).padStart(2,'0')}" onchange="_tpShowMonthView(this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;color:#374151;cursor:pointer;background:white;" title="Xem lịch tháng" />
+            <button onclick="_tpShowChangeLog()" style="padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:14px;" title="Lịch sử thay đổi">📝</button>
+        </div>
     </div>`;
 
     html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
@@ -542,10 +551,13 @@ function _tpRenderGrid() {
                     const isTeamTask = task._source === 'team';
                     const isIndivView = _tpViewMode === 'individual';
                     const isFixedTask = !task.week_only;
-                    const canEditFixed = _tpIsDirector; // only director can edit fixed tasks
-                    const canEdit = !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
-                    // Director can delete team tasks from individual view
-                    const canDeleteTeam = isIndivView && isTeamTask && _tpIsDirector;
+                    const canEditFixed = _tpIsDirector;
+                    // Past-day protection: calculate actual date for this column
+                    const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1); colDate.setHours(0,0,0,0);
+                    const isPast = colDate < today;
+                    const canEdit = !isPast && !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
+                    // Director can delete team tasks from individual view (but not past)
+                    const canDeleteTeam = !isPast && isIndivView && isTeamTask && _tpIsDirector;
                     
                     // Source badge
                     let sourceBadge = '';
@@ -607,8 +619,12 @@ function _tpRenderGrid() {
         html += `<tfoot><tr>`;
         html += `<td style="padding:8px 14px;background:#fafbfc;font-weight:600;font-size:11px;color:#9ca3af;border-top:2px solid #e5e7eb;">THÊM</td>`;
         for (let d = 1; d <= 7; d++) {
+            const footDate = new Date(monDate); footDate.setDate(monDate.getDate() + d - 1); footDate.setHours(0,0,0,0);
+            const footPast = footDate < today;
             if (_tpHolidayMap[d]) {
                 html += `<td style="padding:8px;text-align:center;background:#fef2f2;border-top:2px solid #e5e7eb;"></td>`;
+            } else if (footPast) {
+                html += `<td style="padding:8px;text-align:center;background:#fafbfc;border-top:2px solid #e5e7eb;color:#d1d5db;font-size:10px;">🔒</td>`;
             } else {
                 html += `<td style="padding:8px;text-align:center;background:#fafbfc;border-top:2px solid #e5e7eb;">
                 <button onclick="_tpAddTask(${d})" style="padding:5px 14px;font-size:12px;border:1px dashed #93c5fd;border-radius:6px;background:rgba(37,99,235,0.04);color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#2563eb'" onmouseout="this.style.background='rgba(37,99,235,0.04)';this.style.borderColor='#93c5fd'">＋ Thêm</button>
@@ -1893,3 +1909,184 @@ async function _tpSaveReorder() {
         showToast('Lỗi lưu thứ tự', 'error');
     }
 }
+
+// ===== MONTH VIEW =====
+async function _tpShowMonthView(monthStr) {
+    if (!monthStr) return;
+    const [year, month] = monthStr.split('-').map(Number);
+    const wrap = document.getElementById('tpGridWrap');
+    if (!wrap) return;
+
+    // Load tasks for the target
+    let tasks = [];
+    try {
+        if (_tpViewMode === 'individual' && _tpViewUserId) {
+            const r = await apiCall(`/api/task-points/individual?user_id=${_tpViewUserId}`);
+            tasks = r.tasks || [];
+        } else if (_tpTarget.id) {
+            const r = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}`);
+            tasks = r.tasks || [];
+        }
+    } catch(e) {}
+
+    // Calculate weeks of the month
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    // Find Monday of first week containing day 1
+    let startMon = new Date(firstDay);
+    const dow = startMon.getDay() || 7; // convert Sunday(0) to 7
+    startMon.setDate(startMon.getDate() - (dow - 1));
+
+    const weeks = [];
+    let cursor = new Date(startMon);
+    while (cursor <= lastDay || cursor.getDay() !== 1) {
+        const weekStart = new Date(cursor);
+        const weekDays = [];
+        for (let i = 0; i < 7; i++) {
+            weekDays.push(new Date(cursor));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        weeks.push({ start: weekStart, days: weekDays });
+        if (cursor > lastDay && cursor.getDay() === 1) break;
+    }
+
+    // Group tasks by day_of_week
+    const byDay = {};
+    for (let d = 1; d <= 7; d++) byDay[d] = [];
+    tasks.forEach(t => { if (byDay[t.day_of_week]) byDay[t.day_of_week].push(t); });
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const monthNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:2px solid #e5e7eb;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:10px 10px 0 0;">
+        <div style="font-weight:800;color:#122546;font-size:16px;">📆 ${monthNames[month]} ${year}</div>
+        <div style="display:flex;gap:6px;">
+            <button onclick="_tpShowMonthView('${year}-${String(month-1).padStart(2,'0')}')" ${month <= 1 ? `onclick="_tpShowMonthView('${year-1}-12')"` : ''} style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀</button>
+            <button onclick="document.getElementById('tpMonthPicker').value='';_tpLoadTasks()" style="padding:4px 12px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:600;">⬅ Xem tuần</button>
+            <button onclick="_tpShowMonthView('${year}-${String(month+1).padStart(2,'0')}')" ${month >= 12 ? `onclick="_tpShowMonthView('${year+1}-01')"` : ''} style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">▶</button>
+        </div>
+    </div>`;
+
+    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+    html += `<thead><tr>`;
+    const dayHeaders = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
+    dayHeaders.forEach(h => {
+        html += `<th style="padding:8px;text-align:center;border-bottom:2px solid #e5e7eb;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;width:${100/7}%;">${h}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    weeks.forEach(week => {
+        html += `<tr>`;
+        week.days.forEach((day, idx) => {
+            const isThisMonth = day.getMonth() === month - 1;
+            const isToday = day.getTime() === today.getTime();
+            const dayNum = day.getDate();
+            const dayOfWeek = idx + 1; // 1=Mon, 7=Sun
+            const dayTasks = byDay[dayOfWeek] || [];
+            const totalPts = dayTasks.reduce((s, t) => s + (t.points || 0), 0);
+            const isPast = day < today;
+
+            // Click on week to drill into week view
+            const weekMonday = new Date(week.start);
+
+            html += `<td style="padding:6px 8px;border:1px solid #f1f5f9;vertical-align:top;min-height:80px;height:80px;background:${isToday ? '#eff6ff' : isPast ? '#fafbfc' : 'white'};${!isThisMonth ? 'opacity:0.4;' : ''}cursor:pointer;transition:background .15s;" 
+                onclick="_tpGoToWeek('${_tpDateStr(weekMonday)}')" 
+                onmouseover="this.style.background='${isToday ? '#dbeafe' : '#f8fafc'}'" 
+                onmouseout="this.style.background='${isToday ? '#eff6ff' : isPast ? '#fafbfc' : 'white'}'">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-weight:${isToday ? '800' : '600'};font-size:${isToday ? '14px' : '12px'};color:${isToday ? '#2563eb' : '#374151'};">${dayNum}</span>
+                    ${totalPts > 0 ? `<span style="font-size:9px;padding:1px 5px;border-radius:8px;font-weight:700;background:${totalPts >= 100 ? '#dcfce7' : '#fef3c7'};color:${totalPts >= 100 ? '#16a34a' : '#d97706'};">${totalPts}đ</span>` : ''}
+                </div>`;
+
+            // Show max 3 task names
+            dayTasks.slice(0, 3).forEach(t => {
+                const c = _tpGetTaskColor(t.task_name);
+                html += `<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:3px;background:${c.bg};color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${c.badge};">${t.task_name}</div>`;
+            });
+            if (dayTasks.length > 3) {
+                html += `<div style="font-size:8px;color:#9ca3af;">+${dayTasks.length - 3} khác</div>`;
+            }
+            if (isPast && isThisMonth) {
+                html += `<div style="font-size:8px;color:#d1d5db;margin-top:2px;">🔒</div>`;
+            }
+
+            html += `</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table>`;
+    wrap.innerHTML = html;
+}
+
+function _tpGoToWeek(weekStartStr) {
+    _tpCurrentWeekStart = new Date(weekStartStr);
+    _tpLoadTasks();
+}
+
+// ===== CHANGE LOG POPUP =====
+async function _tpShowChangeLog() {
+    const targetId = _tpTarget.id;
+    const targetType = _tpTarget.type || 'team';
+    
+    let logs = [];
+    try {
+        const r = await apiCall(`/api/task-points/change-log?target_type=${targetType}&target_id=${targetId}&limit=50`);
+        logs = r.logs || [];
+    } catch(e) {}
+
+    // Group by month
+    const byMonth = {};
+    logs.forEach(log => {
+        const d = new Date(log.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = `Tháng ${d.getMonth()+1}/${d.getFullYear()}`;
+        if (!byMonth[key]) byMonth[key] = { label, items: [] };
+        byMonth[key].items.push(log);
+    });
+
+    const actionIcons = { add: '➕', edit: '✏️', delete: '🗑️' };
+    const actionLabels = { add: 'Thêm', edit: 'Sửa', delete: 'Xóa' };
+
+    let logHtml = '';
+    const sortedMonths = Object.keys(byMonth).sort().reverse();
+    if (sortedMonths.length === 0) {
+        logHtml = '<div style="padding:30px;text-align:center;color:#9ca3af;">Chưa có thay đổi nào.</div>';
+    } else {
+        sortedMonths.forEach(key => {
+            const group = byMonth[key];
+            logHtml += `<div style="padding:8px 14px;background:#f1f5f9;font-weight:700;font-size:12px;color:#475569;border-bottom:1px solid #e2e8f0;">📅 ${group.label}</div>`;
+            group.items.forEach(log => {
+                const d = new Date(log.created_at);
+                const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+                const icon = actionIcons[log.action] || '📝';
+                const label = actionLabels[log.action] || log.action;
+                logHtml += `<div style="padding:8px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;align-items:flex-start;gap:8px;">
+                    <span>${icon}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;color:#1e293b;">${label}: <span style="color:#2563eb;">${log.task_name || ''}</span></div>
+                        <div style="font-size:10px;color:#94a3b8;margin-top:2px;">👤 ${log.changed_by_name || 'N/A'} — ${time}</div>
+                    </div>
+                </div>`;
+            });
+        });
+    }
+
+    // Create modal
+    document.getElementById('_tpChangeLogModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = '_tpChangeLogModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `<div style="background:white;border-radius:14px;width:440px;max-height:70vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.15);display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+        <div style="padding:16px 20px;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px 14px 0 0;">
+            <div style="font-weight:800;font-size:15px;color:#1e293b;">📝 Lịch sử thay đổi</div>
+            <button onclick="this.closest('#_tpChangeLogModal').remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#94a3b8;padding:4px;">✕</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;">
+            ${logHtml}
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+

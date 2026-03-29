@@ -10,6 +10,19 @@ async function taskPointRoutes(fastify, options) {
         created_at TIMESTAMP DEFAULT NOW()
     )`);
 
+    // Change log table
+    await db.run(`CREATE TABLE IF NOT EXISTS task_change_log (
+        id SERIAL PRIMARY KEY,
+        action TEXT NOT NULL,
+        task_name TEXT,
+        target_type TEXT,
+        target_id INTEGER,
+        changed_by INTEGER,
+        changed_by_name TEXT,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    )`);
+
     // GET all templates for a target (team or individual)
     // Optional: ?week_start=YYYY-MM-DD to filter week_only templates
     fastify.get('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
@@ -85,6 +98,8 @@ async function taskPointRoutes(fastify, options) {
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), request.user.id]
         );
+        // Log change
+        try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['add', task_name, target_type, Number(target_id), request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}
         return { success: true, id: result.lastInsertRowid };
     });
 
@@ -97,21 +112,27 @@ async function taskPointRoutes(fastify, options) {
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
         }
+        // Get existing for log
+        const oldTask = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [id]);
         await db.run(
             `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, week_only=?, input_requirements=?, output_requirements=?, updated_at=NOW() WHERE id=?`,
             [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), id]
         );
+        // Log change
+        try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['edit', task_name || (oldTask && oldTask.task_name), oldTask?.target_type, oldTask?.target_id, request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}
         return { success: true };
     });
 
     // DELETE a task
     fastify.delete('/api/task-points/:id', { preHandler: [authenticate] }, async (request, reply) => {
         // Only giam_doc can delete fixed tasks
-        const existing = await db.get('SELECT week_only FROM task_point_templates WHERE id = ?', [Number(request.params.id)]);
+        const existing = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [Number(request.params.id)]);
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa CV cố định' });
         }
         await db.run('DELETE FROM task_point_templates WHERE id = ?', [Number(request.params.id)]);
+        // Log change
+        if (existing) { try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['delete', existing.task_name, existing.target_type, existing.target_id, request.user.id, request.user.full_name || request.user.username, JSON.stringify({points: existing.points, day_of_week: existing.day_of_week})]); } catch(e) {} }
         return { success: true };
     });
 
@@ -459,6 +480,18 @@ async function taskPointRoutes(fastify, options) {
             }
         }
         return { ok: true, message: 'Đã lưu thứ tự' };
+    });
+    // GET change log
+    fastify.get('/api/task-points/change-log', { preHandler: [authenticate] }, async (request, reply) => {
+        const { target_type, target_id, limit } = request.query;
+        const maxRows = Math.min(Number(limit) || 50, 100);
+        let logs;
+        if (target_type && target_id) {
+            logs = await db.all('SELECT * FROM task_change_log WHERE target_type = $1 AND target_id = $2 ORDER BY created_at DESC LIMIT $3', [target_type, Number(target_id), maxRows]);
+        } else {
+            logs = await db.all('SELECT * FROM task_change_log ORDER BY created_at DESC LIMIT $1', [maxRows]);
+        }
+        return { logs };
     });
 }
 
