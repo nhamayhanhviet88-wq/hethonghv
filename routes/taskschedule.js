@@ -5,6 +5,14 @@ const fs = require('fs');
 
 async function taskScheduleRoutes(fastify, options) {
 
+    // Fix 4: Ensure performance indexes exist
+    try {
+        await db.run('CREATE INDEX IF NOT EXISTS idx_snapshots_user_date ON daily_task_snapshots(user_id, snapshot_date)');
+        await db.run('CREATE INDEX IF NOT EXISTS idx_reports_user_date ON task_point_reports(user_id, report_date)');
+        await db.run('CREATE INDEX IF NOT EXISTS idx_reports_status ON task_point_reports(status)');
+        await db.run('CREATE INDEX IF NOT EXISTS idx_templates_target ON task_point_templates(target_type, target_id)');
+    } catch(e) { /* indexes may already exist */ }
+
     // Helper: get templates for a user (individual→team fallback, with week_only filter)
     async function _getTemplatesForUser(userId, weekStart) {
         const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [userId]);
@@ -105,6 +113,106 @@ async function taskScheduleRoutes(fastify, options) {
     function _localDateStr(d) {
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
+
+    // ===== CONSOLIDATED DASHBOARD API (Fix 2: single request instead of 6) =====
+    fastify.get('/api/schedule/dashboard', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, week_start } = request.query;
+        const uid = Number(user_id) || request.user.id;
+        if (!week_start) return reply.code(400).send({ error: 'Thiếu week_start' });
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        const todayStr = _localDateStr(today);
+        const monDate = new Date(week_start + 'T00:00:00');
+        const sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
+        const monStr = week_start;
+        const sunStr = _localDateStr(sunDate);
+
+        // Monthly range
+        const viewMonth = monDate.getMonth();
+        const viewYear = monDate.getFullYear();
+        const monthStart = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-01`;
+        const lastDay = new Date(viewYear, viewMonth+1, 0).getDate();
+        const monthEnd = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+
+        // Run ALL queries in parallel
+        const templates = await _getTemplatesForUser(uid, week_start);
+
+        const [reportsResult, weeklySummary, monthlySummary, weekHolidays, yearHolidays] = await Promise.all([
+            // Reports
+            db.all(
+                `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points, t.requires_approval
+                 FROM task_point_reports r LEFT JOIN task_point_templates t ON r.template_id = t.id
+                 WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 ORDER BY r.report_date`,
+                [uid, monStr, sunStr]
+            ),
+            // Weekly summary
+            db.all(
+                `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
+                 FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
+                 GROUP BY report_date ORDER BY report_date`,
+                [uid, monStr, sunStr]
+            ),
+            // Monthly summary
+            db.all(
+                `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
+                 FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
+                 GROUP BY report_date ORDER BY report_date`,
+                [uid, monthStart, monthEnd]
+            ),
+            // Week holidays
+            db.all(
+                "SELECT * FROM holidays WHERE holiday_date BETWEEN $1 AND $2 ORDER BY holiday_date",
+                [monStr, sunStr]
+            ),
+            // Year holidays
+            db.all(
+                "SELECT * FROM holidays WHERE EXTRACT(YEAR FROM holiday_date) = $1 ORDER BY holiday_date",
+                [viewYear]
+            )
+        ]);
+
+        // Build tasks (snapshot logic — inline)
+        let allTasks = [];
+        for (let d = 0; d < 7; d++) {
+            const colDate = new Date(monDate);
+            colDate.setDate(monDate.getDate() + d);
+            const dateStr = _localDateStr(colDate);
+            const jsDow = colDate.getDay();
+            const dayOfWeek = jsDow === 0 ? 7 : jsDow;
+
+            if (dateStr <= todayStr) {
+                await _ensureSnapshots(uid, dateStr, dayOfWeek, week_start);
+                const snaps = await db.all(
+                    'SELECT * FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
+                    [uid, dateStr]
+                );
+                snaps.forEach(s => { allTasks.push({ ...s, _source: 'snapshot', _date: dateStr }); });
+            } else {
+                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+                dayTasks.forEach(t => { allTasks.push({ ...t, _source: 'template', _date: dateStr }); });
+            }
+        }
+
+        // Build holiday map
+        const holidayMap = {};
+        weekHolidays.forEach(h => {
+            const hd = new Date(h.holiday_date);
+            const dow = hd.getDay();
+            const mapped = dow === 0 ? 7 : dow;
+            if (mapped >= 1 && mapped <= 7) holidayMap[mapped] = h.holiday_name;
+        });
+
+        return {
+            tasks: allTasks,
+            reports: reportsResult,
+            weekly_summary: weeklySummary,
+            monthly_summary: monthlySummary,
+            holidays_week: holidayMap,
+            holidays_year: yearHolidays,
+            month_start: monthStart,
+            month_end: monthEnd
+        };
+    });
 
     fastify.get('/api/schedule/week-tasks', { preHandler: [authenticate] }, async (request, reply) => {
         const { user_id, week_start } = request.query;

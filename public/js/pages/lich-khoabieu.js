@@ -196,56 +196,37 @@ async function _kbLoadSchedule() {
     const sun = new Date(_kbWeekStart); sun.setDate(_kbWeekStart.getDate() + 6);
     const sunStr = _kbDateStr(sun);
 
-    // Load tasks (snapshot-aware)
+    // Load ALL data in ONE request via consolidated dashboard API
     try {
         const uid = _kbViewUserId || currentUser.id;
-        const d = await apiCall(`/api/schedule/week-tasks?user_id=${uid}&week_start=${monStr}`);
-        _kbTasks = d.tasks || [];
-    } catch(e) { _kbTasks = []; }
+        const viewMonth = _kbWeekStart.getMonth();
+        const viewYear = _kbWeekStart.getFullYear();
 
-    // Load reports
-    try {
-        const uid = _kbViewUserId || currentUser.id;
-        const r = await apiCall(`/api/schedule/reports?user_id=${uid}&from=${monStr}&to=${sunStr}`);
+        const data = await apiCall(`/api/schedule/dashboard?user_id=${uid}&week_start=${monStr}`);
+
+        _kbTasks = data.tasks || [];
+
         _kbReports = {};
-        (r.reports || []).forEach(rep => {
+        (data.reports || []).forEach(rep => {
             const key = `${rep.template_id}_${rep.report_date.slice(0,10)}`;
             _kbReports[key] = rep;
         });
-    } catch(e) { _kbReports = {}; }
 
-    // Load summary
-    try {
-        const uid = _kbViewUserId || currentUser.id;
-        const s = await apiCall(`/api/schedule/summary?user_id=${uid}&from=${monStr}&to=${sunStr}`);
         _kbSummary = {};
-        (s.summary || []).forEach(row => { _kbSummary[row.report_date.slice(0,10)] = row; });
-    } catch(e) { _kbSummary = {}; }
+        (data.weekly_summary || []).forEach(row => { _kbSummary[row.report_date.slice(0,10)] = row; });
 
-    // Load holidays
-    try {
-        const h = await apiCall(`/api/holidays/week?date=${monStr}`);
-        _kbHolidayMap = h.holidays || {};
-    } catch(e) { _kbHolidayMap = {}; }
+        _kbHolidayMap = data.holidays_week || {};
 
-    // Load monthly summary + holidays
-    const viewMonth = _kbWeekStart.getMonth();
-    const viewYear = _kbWeekStart.getFullYear();
-    const monthStart = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-01`;
-    const lastDay = new Date(viewYear, viewMonth+1, 0).getDate();
-    const monthEnd = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-    try {
-        const uid = _kbViewUserId || currentUser.id;
-        const ms = await apiCall(`/api/schedule/summary?user_id=${uid}&from=${monthStart}&to=${monthEnd}`);
-        _kbMonthlySummary = (ms.summary || []).reduce((s, r) => s + (r.total_points || 0), 0);
-    } catch(e) { _kbMonthlySummary = 0; }
-    try {
-        const mh = await apiCall(`/api/holidays?year=${viewYear}`);
-        _kbMonthlyHolidays = (mh.holidays || []).filter(h => {
-            const d = new Date(h.holiday_date);
-            return d.getMonth() === viewMonth;
+        _kbMonthlySummary = (data.monthly_summary || []).reduce((s, r) => s + (r.total_points || 0), 0);
+
+        _kbMonthlyHolidays = (data.holidays_year || []).filter(hol => {
+            const dd = new Date(hol.holiday_date);
+            return dd.getMonth() === viewMonth;
         });
-    } catch(e) { _kbMonthlyHolidays = []; }
+    } catch(e) {
+        _kbTasks = []; _kbReports = {}; _kbSummary = {};
+        _kbHolidayMap = {}; _kbMonthlySummary = 0; _kbMonthlyHolidays = [];
+    }
 
     // Update label
     const lbl = document.getElementById('kbViewingLabel');

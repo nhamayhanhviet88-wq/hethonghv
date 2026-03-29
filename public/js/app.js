@@ -2,6 +2,7 @@
 let currentUser = null;
 let currentPage = 'dashboard';
 let userPermissions = {};
+let _configCache = {}; // Cache for app-config values
 
 // ========== ROLE CONFIG ==========
 const ROLE_LABELS = {
@@ -227,9 +228,11 @@ async function emPopupCheck() {
         const now = new Date();
         const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 
-        // Get configurable popup times
-        const t1 = await apiCall('/api/app-config/emergency_popup_time_1');
-        const t2 = await apiCall('/api/app-config/emergency_popup_time_2');
+        // Get configurable popup times (use cache or fetch in parallel)
+        const [t1, t2] = await Promise.all([
+            apiCall('/api/app-config/emergency_popup_time_1'),
+            apiCall('/api/app-config/emergency_popup_time_2')
+        ]);
         const time1 = t1?.value || '11:00';
         const time2 = t2?.value || '16:00';
 
@@ -316,8 +319,10 @@ async function cancelNVPopupCheck() {
         const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
         const dateStr = now.toISOString().split('T')[0];
 
-        const t1 = await apiCall('/api/app-config/cancel_nv_popup_time_1');
-        const t2 = await apiCall('/api/app-config/cancel_nv_popup_time_2');
+        const [t1, t2] = await Promise.all([
+            apiCall('/api/app-config/cancel_nv_popup_time_1'),
+            apiCall('/api/app-config/cancel_nv_popup_time_2')
+        ]);
         const time1 = t1?.value || '09:30';
         const time2 = t2?.value || '15:00';
 
@@ -448,14 +453,20 @@ async function checkAuth() {
         currentUser = data.user;
         userPermissions = data.user.permissions || {};
 
-        // Load dynamic roles for menu items (e.g. leaderboard)
-        for (const item of MENU_CONFIG) {
-            if (item.dynamicRoles) {
-                try {
-                    const cfg = await fetch('/api/app-config/' + item.dynamicRoles).then(r => r.json());
-                    if (cfg.value) item.roles = JSON.parse(cfg.value);
-                } catch(e) {}
-            }
+        // Load dynamic roles for menu items (in parallel)
+        const dynamicItems = MENU_CONFIG.filter(item => item.dynamicRoles);
+        if (dynamicItems.length > 0) {
+            const configResults = await Promise.all(
+                dynamicItems.map(item =>
+                    fetch('/api/app-config/' + item.dynamicRoles).then(r => r.json()).catch(() => ({}))
+                )
+            );
+            dynamicItems.forEach((item, i) => {
+                if (configResults[i]?.value) {
+                    item.roles = JSON.parse(configResults[i].value);
+                    _configCache[item.dynamicRoles] = configResults[i].value;
+                }
+            });
         }
 
         renderSidebar();
