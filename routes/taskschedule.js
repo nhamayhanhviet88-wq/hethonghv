@@ -346,6 +346,31 @@ async function taskScheduleRoutes(fastify, options) {
         }
 
         members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));
+        
+        // Include head_user_id users in their managed departments
+        const deptsWithHeads = await db.all(
+            "SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active'"
+        );
+        for (const dept of deptsWithHeads) {
+            const alreadyInDept = members.some(m => m.id === dept.head_user_id && m.dept_name === dept.name);
+            if (!alreadyInDept) {
+                const headUser = await db.get(
+                    "SELECT id, full_name, role, department_id FROM users WHERE id = $1 AND status = 'active'",
+                    [dept.head_user_id]
+                );
+                if (headUser) {
+                    members.push({
+                        id: headUser.id,
+                        full_name: headUser.full_name,
+                        role: headUser.role,
+                        dept_name: dept.name,
+                        department_id: headUser.department_id,
+                        _is_dept_head: true
+                    });
+                }
+            }
+        }
+        
         return { members };
     });
 
