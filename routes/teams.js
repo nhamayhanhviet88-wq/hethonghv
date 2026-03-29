@@ -81,7 +81,7 @@ async function teamsRoutes(fastify, options) {
     });
 
     fastify.put('/api/departments/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
-        const { name, code, parent_id, head_user_id, status } = request.body || {};
+        const { name, code, parent_id, head_user_id, status, display_order } = request.body || {};
         const id = Number(request.params.id);
 
         if (parent_id && Number(parent_id) === id) {
@@ -95,6 +95,7 @@ async function teamsRoutes(fastify, options) {
         if (parent_id !== undefined) { updates.push('parent_id = ?'); params.push(parent_id ? Number(parent_id) : null); }
         if (head_user_id !== undefined) { updates.push('head_user_id = ?'); params.push(head_user_id ? Number(head_user_id) : null); }
         if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+        if (display_order !== undefined) { updates.push('display_order = ?'); params.push(Number(display_order)); }
 
         if (updates.length > 0) {
             params.push(id);

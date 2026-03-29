@@ -29,11 +29,12 @@ async function renderTeamsPage(container) {
                         <th style="padding:10px 14px;text-align:center;width:100px;">Trạng thái</th>
                         <th style="padding:10px 14px;text-align:center;width:130px;">Trưởng đơn vị</th>
                         <th style="padding:10px 14px;text-align:center;width:80px;">NV</th>
+                        <th style="padding:10px 14px;text-align:center;width:55px;">STT</th>
                         <th style="padding:10px 14px;text-align:center;width:60px;"></th>
                     </tr>
                 </thead>
                 <tbody id="deptTreeBody">
-                    <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--gray-500);">⏳ Đang tải...</td></tr>
+                    <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--gray-500);">⏳ Đang tải...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -78,7 +79,7 @@ function renderDeptTree(filterText, userMatchedDeptIds) {
     const tbody = document.getElementById('deptTreeBody');
     if (!tbody) return;
     if (_deptData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray-500);">
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--gray-500);">
             <div style="font-size:24px;margin-bottom:8px;">🏢</div>
             <div>Chưa có đơn vị nào</div>
             <div style="font-size:12px;margin-top:4px;">Bấm "Thêm cơ cấu" để bắt đầu</div>
@@ -159,6 +160,13 @@ function renderDeptTree(filterText, userMatchedDeptIds) {
             <td style="text-align:center;font-size:12px;color:#122546;font-weight:600;">${dept.head_name || '<span style="color:#d1d5db;">—</span>'}</td>
             <td style="text-align:center;font-weight:700;color:#122546;">${dept.member_count || 0}</td>
             <td style="text-align:center;">
+                <input type="number" value="${dept.display_order || 0}" min="0" max="999"
+                    onchange="saveDeptOrder(${dept.id}, this.value)"
+                    onblur="saveDeptOrder(${dept.id}, this.value)"
+                    style="width:42px;text-align:center;border:1px solid #cbd5e1;border-radius:6px;padding:3px 2px;font-size:12px;font-weight:700;color:#122546;background:#f8fafc;"
+                    onclick="event.stopPropagation();this.select()">
+            </td>
+            <td style="text-align:center;">
                 <div style="display:flex;gap:4px;justify-content:center;">
                     <button onclick="showEditDeptModal(${dept.id})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Sửa">✏️</button>
                     ${deptLevel !== 0 ? `<button onclick="showDeptMembers(${dept.id})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Nhân sự">👥</button>` : ''}
@@ -167,7 +175,7 @@ function renderDeptTree(filterText, userMatchedDeptIds) {
             </td>
         </tr>
         <tr class="dept-accordion" data-dept-acc="${dept.id}" style="display:none;">
-            <td colspan="7" style="padding:0;">
+            <td colspan="8" style="padding:0;">
                 <div id="deptAcc_${dept.id}" style="background:#f0f4ff;padding:12px 20px 12px ${indent + 40}px;border-bottom:2px solid #c7d2fe;">
                     <div style="text-align:center;color:#6b7280;font-size:12px;">⏳ Đang tải...</div>
                 </div>
@@ -186,7 +194,7 @@ function renderDeptTree(filterText, userMatchedDeptIds) {
         return a.name.localeCompare(b.name, 'vi');
     });
     roots.forEach(r => renderNode(r, 0));
-    tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#6b7280;">Không tìm thấy</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#6b7280;">Không tìm thấy</td></tr>';
 }
 
 function toggleDeptRow(id) {
@@ -757,4 +765,45 @@ async function unassignDeptMember(deptId, userId) {
         showDeptMembers(deptId);
         loadDeptTree();
     }
+}
+
+// ========== INLINE ORDER SAVE ==========
+let _orderSaveTimers = {};
+async function saveDeptOrder(deptId, value) {
+    const order = Number(value) || 0;
+    // Debounce per dept
+    clearTimeout(_orderSaveTimers[deptId]);
+    _orderSaveTimers[deptId] = setTimeout(async () => {
+        // Save expand state before reload
+        const expandState = {};
+        document.querySelectorAll('.dept-toggle').forEach(t => {
+            expandState[t.dataset.id] = t.textContent.trim();
+        });
+        const data = await apiCall(`/api/departments/${deptId}`, 'PUT', { display_order: order });
+        if (data.success) {
+            // Reload tree and restore expand state
+            const dData = await apiCall('/api/departments');
+            _deptData = dData.departments || [];
+            renderDeptTree();
+            // Restore expand states
+            document.querySelectorAll('.dept-toggle').forEach(t => {
+                const id = t.dataset.id;
+                if (expandState[id] === '▶') {
+                    t.textContent = '▶';
+                    // Hide descendants
+                    document.querySelectorAll(`.dept-row[data-parent="${id}"]`).forEach(r => {
+                        r.style.display = 'none';
+                        // Recursively hide
+                        function hideChildren(pid) {
+                            document.querySelectorAll(`.dept-row[data-parent="${pid}"]`).forEach(cr => {
+                                cr.style.display = 'none';
+                                hideChildren(cr.dataset.id);
+                            });
+                        }
+                        hideChildren(r.dataset.id);
+                    });
+                }
+            });
+        }
+    }, 400);
 }
