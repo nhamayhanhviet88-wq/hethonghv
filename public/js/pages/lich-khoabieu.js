@@ -1020,8 +1020,19 @@ async function _kbShowSetupTab() {
 
         systems.forEach(sys => {
             const children = allDepts.filter(d => d.parent_id === sys.id);
+            const sysApprovers = approvers.filter(a => a.department_id === sys.id);
             html += `<div style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">
-                <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:10px 14px;font-weight:800;font-size:13px;letter-spacing:.3px;">🏢 ${sys.name}</div>`;
+                <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:10px 14px;font-weight:800;font-size:13px;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between;">
+                    <span>🏢 ${sys.name}</span>
+                    <select onchange="_kbAddApprover(this.value, ${sys.id}); this.value='';" style="padding:3px 8px;font-size:11px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;color:white;background:rgba(255,255,255,0.15);cursor:pointer;">
+                        <option value="" style="color:#333;">+ Gán duyệt toàn hệ thống</option>
+                        ${allUsers.filter(u => !sysApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}" style="color:#333;">${u.full_name} (${u.role})</option>`).join('')}
+                    </select>
+                </div>
+                ${sysApprovers.length > 0 ? `<div style="padding:6px 14px;background:#eff6ff;border-bottom:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+                    <span style="font-size:10px;color:#64748b;font-weight:600;">Duyệt toàn hệ thống:</span>
+                    ${sysApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;border:1px solid #93c5fd;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#1d4ed8;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">×</button></span>`).join('')}
+                </div>` : ''}`;
 
             children.forEach(dept => {
                 const deptApprovers = approvers.filter(a => a.department_id === dept.id);
