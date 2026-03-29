@@ -1929,6 +1929,18 @@ async function _tpShowMonthView(monthStr) {
         }
     } catch(e) {}
 
+    // Fetch change log to mark modified tasks
+    let changedTaskNames = new Set();
+    try {
+        const logR = await apiCall(`/api/task-points/change-log?target_type=${_tpTarget.type || 'team'}&target_id=${_tpTarget.id}&limit=100`);
+        (logR.logs || []).forEach(log => {
+            const logDate = new Date(log.created_at);
+            if (logDate.getMonth() === month - 1 && logDate.getFullYear() === year) {
+                if (log.task_name) changedTaskNames.add(log.task_name);
+            }
+        });
+    } catch(e) {}
+
     // Calculate weeks of the month
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
@@ -2001,7 +2013,8 @@ async function _tpShowMonthView(monthStr) {
             // Show max 3 task names
             dayTasks.slice(0, 3).forEach(t => {
                 const c = _tpGetTaskColor(t.task_name);
-                html += `<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:3px;background:${c.bg};color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${c.badge};">${t.task_name}</div>`;
+                const hasChange = changedTaskNames.has(t.task_name);
+                html += `<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:3px;background:${c.bg};color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${hasChange ? '#f59e0b' : c.badge};display:flex;align-items:center;gap:2px;">${hasChange ? '<span title="Đã thay đổi" style="flex-shrink:0;">🔄</span>' : ''}${t.task_name}</div>`;
             });
             if (dayTasks.length > 3) {
                 html += `<div style="font-size:8px;color:#9ca3af;">+${dayTasks.length - 3} khác</div>`;
