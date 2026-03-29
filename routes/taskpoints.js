@@ -4,6 +4,12 @@ const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'T
 
 async function taskPointRoutes(fastify, options) {
 
+    // Ensure active teams registry table exists
+    await db.run(`CREATE TABLE IF NOT EXISTS task_schedule_active_teams (
+        team_id INTEGER PRIMARY KEY,
+        created_at TIMESTAMP DEFAULT NOW()
+    )`);
+
     // GET all templates for a target (team or individual)
     // Optional: ?week_start=YYYY-MM-DD to filter week_only templates
     fastify.get('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
@@ -133,8 +139,17 @@ async function taskPointRoutes(fastify, options) {
     fastify.get('/api/task-points/departments', { preHandler: [authenticate] }, async (request, reply) => {
         const depts = await db.all("SELECT id, name, parent_id, display_order FROM departments WHERE status = 'active' ORDER BY display_order, name");
         const activeIds = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
-        const activeSet = new Set(activeIds.map(r => r.target_id));
+        const registeredIds = await db.all("SELECT team_id FROM task_schedule_active_teams");
+        const activeSet = new Set([...activeIds.map(r => r.target_id), ...registeredIds.map(r => r.team_id)]);
         return { departments: depts, active_dept_ids: [...activeSet] };
+    });
+
+    // Register a team as active (persist even without tasks)
+    fastify.post('/api/task-points/activate-team', { preHandler: [authenticate] }, async (request, reply) => {
+        const { team_id } = request.body || {};
+        if (!team_id) return reply.code(400).send({ error: 'Thiếu team_id' });
+        await db.run('INSERT INTO task_schedule_active_teams (team_id) VALUES ($1) ON CONFLICT DO NOTHING', [Number(team_id)]);
+        return { success: true };
     });
 
     // GET users in a department (with username for search)

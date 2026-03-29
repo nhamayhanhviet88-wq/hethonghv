@@ -174,7 +174,7 @@ async function _tpLoadCreateUsers() {
     }
 }
 
-function _tpActivateDept() {
+async function _tpActivateDept() {
     const deptSel = document.getElementById('tpNewDeptSelect');
     const userSel = document.getElementById('tpNewUserSelect');
     if (!deptSel) return;
@@ -198,7 +198,11 @@ function _tpActivateDept() {
     }
 
     // Add to left sidebar
-    if (targetType === 'team') _tpActiveDeptIds.push(deptId);
+    if (targetType === 'team') {
+        _tpActiveDeptIds.push(deptId);
+        // Persist so it survives F5
+        try { await apiCall('/api/task-points/activate-team', 'POST', { team_id: deptId }); } catch(e) {}
+    }
     const list = document.getElementById('tpDeptList');
     if (list) {
         const div = document.createElement('div');
