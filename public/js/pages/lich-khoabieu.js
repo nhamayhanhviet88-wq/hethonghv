@@ -164,12 +164,12 @@ async function renderLichKhoaBieuPage(container) {
                 if (!isChild) {
                     parentStt++;
                     childStt = 0;
-                    sttLabel = `<span style="color:#64748b;font-size:11px;font-weight:800;margin-right:4px;">${parentStt}.</span>`;
+                    sttLabel = `<span style="color:rgba(255,255,255,0.8);font-size:12px;font-weight:900;margin-right:4px;">${parentStt}.</span>`;
                 } else {
                     childStt++;
                     sttLabel = `<span style="color:#94a3b8;font-size:10px;font-weight:700;margin-right:3px;">${childStt}.</span>`;
                 }
-                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:8px 14px;font-size:${isChild ? '11px' : '12px'};font-weight:800;color:${isChild ? '#64748b' : '#1e293b'};text-transform:uppercase;background:${isChild ? '#f8fafc' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};border-bottom:1px solid #e2e8f0;${isChild ? 'padding-left:28px;' : ''}letter-spacing:0.3px;display:flex;align-items:center;gap:4px;">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:13px;">🏢</span> '}${dept.name}</div>`;
+                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
                 deptMembers.forEach(u => {
                     const isLead = _kbIsLeader(u.role);
                     const roleTag = _kbRoleLabel[u.role] || u.role;
