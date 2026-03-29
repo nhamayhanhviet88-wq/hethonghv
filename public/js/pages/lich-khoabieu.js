@@ -1134,7 +1134,7 @@ async function _kbLoadApprovalPanel() {
             }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             rows += `<tr style="border-bottom:1px solid #f1f5f9;">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
-                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span> ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span> ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${r.template_points}đ</td>
                 <td style="padding:8px 12px;font-size:11px;">
