@@ -1126,9 +1126,15 @@ async function _kbLoadApprovalPanel() {
         pending.forEach(r => {
             const isRedo = r.redo_count > 0;
             const dateFormatted = r.report_date.split('-').reverse().join('/');
+            const rData = JSON.stringify({
+                task_name: r.task_name, status: r.status || 'pending', points_earned: r.points_earned || 0,
+                quantity: r.quantity || '', report_value: r.report_value || '', report_image: r.report_image || '',
+                report_date: r.report_date || '', content: r.content || '', reject_reason: r.reject_reason || '',
+                redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || ''
+            }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             rows += `<tr style="border-bottom:1px solid #f1f5f9;">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
-                <td style="padding:8px 12px;font-size:13px;color:#374151;">${r.task_name} ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span> ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${r.template_points}đ</td>
                 <td style="padding:8px 12px;font-size:11px;">
