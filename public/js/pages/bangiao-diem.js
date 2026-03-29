@@ -99,10 +99,10 @@ async function renderBanGiaoDiemPage(container) {
                         if (!isChild) {
                             _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
                             _tpChildSttCounter = 0;
-                            sttLabel = `<span style="color:rgba(255,255,255,0.8);font-size:12px;font-weight:900;margin-right:4px;">${_tpParentSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#ffffff;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.3);">${_tpParentSttCounter}.</span>`;
                         } else {
                             _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
-                            sttLabel = `<span style="color:#94a3b8;font-size:10px;font-weight:700;margin-right:3px;">${_tpChildSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${_tpChildSttCounter}.</span>`;
                         }
                         return `
                         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
