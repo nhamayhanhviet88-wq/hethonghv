@@ -169,7 +169,7 @@ async function renderBanGiaoDiemPage(container) {
                         if (!isChild) {
                             _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
                             _tpChildSttCounter = 0;
-                            sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${_tpParentSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${_tpParentSttCounter}.</span>`;
                         } else {
                             _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
                             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${_tpChildSttCounter}.</span>`;
