@@ -14,15 +14,15 @@ const _KB_COLORS = [
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbMonthlySummary = 0; // total approved points this month
 
-// ===== HIDDEN DEPTS for LKB (per user, localStorage) =====
+// ===== HIDDEN DEPTS — shared key with Bàn Giao (per user, localStorage) =====
 function _kbGetHiddenDepts() {
     try {
-        const key = `kb_hidden_depts_${window._currentUser?.id || 'default'}`;
+        const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
         return JSON.parse(localStorage.getItem(key) || '[]');
     } catch { return []; }
 }
 function _kbSetHiddenDepts(ids) {
-    const key = `kb_hidden_depts_${window._currentUser?.id || 'default'}`;
+    const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
     localStorage.setItem(key, JSON.stringify(ids));
 }
 function _kbToggleHideDept(deptId, event) {
