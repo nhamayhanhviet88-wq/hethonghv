@@ -213,9 +213,13 @@ async function renderBanGiaoDiemPage(container) {
 
 // Show modal to create template for dept or individual
 function _tpShowCreateDeptModal() {
+    const hidden = _tpGetHiddenDepts();
     const modal = document.createElement('div');
     modal.id = 'tpCreateDeptModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    // Build options: inactive depts + hidden depts
+    const inactiveOpts = _tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    const hiddenOpts = _tpAllDepts.filter(d => hidden.includes(d.id)).map(d => `<option value="${d.id}" data-hidden="1">🔒 ${d.name} (đã ẩn — chọn để mở lại)</option>`).join('');
     modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -225,7 +229,8 @@ function _tpShowCreateDeptModal() {
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="tpNewDeptSelect" onchange="_tpLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${_tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                ${hiddenOpts ? `<optgroup label="📌 Phòng đã ẩn (chọn để mở lại)">${hiddenOpts}</optgroup>` : ''}
+                ${inactiveOpts ? `<optgroup label="➕ Phòng chưa có lịch">${inactiveOpts}</optgroup>` : ''}
             </select>
         </div>
         <div style="margin-bottom:6px;">
@@ -241,7 +246,6 @@ function _tpShowCreateDeptModal() {
         </div>
     </div>`;
     document.body.appendChild(modal);
-    // Auto-load users for first dept
     _tpLoadCreateUsers();
 }
 
@@ -263,9 +267,21 @@ async function _tpActivateDept() {
     const userSel = document.getElementById('tpNewUserSelect');
     if (!deptSel) return;
     const deptId = Number(deptSel.value);
-    const deptName = deptSel.options[deptSel.selectedIndex]?.text;
+    const deptName = deptSel.options[deptSel.selectedIndex]?.text?.replace(/^🔒\s*/, '').replace(/\s*\(đã ẩn.*$/, '');
     const userId = userSel?.value ? Number(userSel.value) : null;
     const userName = userId ? userSel.options[userSel.selectedIndex]?.text : null;
+    
+    // Check if this is a hidden dept being unhidden
+    const hidden = _tpGetHiddenDepts();
+    if (hidden.includes(deptId)) {
+        const newHidden = hidden.filter(id => id !== deptId);
+        _tpSetHiddenDepts(newHidden);
+        document.getElementById('tpCreateDeptModal')?.remove();
+        _tpRebuildSidebar();
+        showToast(`✅ Đã mở lại ${deptName}`, 'success');
+        return;
+    }
+    
     document.getElementById('tpCreateDeptModal')?.remove();
 
     const targetType = userId ? 'individual' : 'team';
