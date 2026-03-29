@@ -493,7 +493,7 @@ function _tpRenderGrid() {
                 <div style="background:linear-gradient(135deg,#122546,#1e3a5f);border-radius:10px;padding:10px 14px;text-align:center;box-shadow:0 2px 8px rgba(18,37,70,0.15);min-width:70px;">
                     <div style="font-weight:800;color:#fff;font-size:16px;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${tStart}</div>
                     <div style="margin:4px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
-                    <div style="font-weight:800;color:#f59e0b;font-size:16px;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${tEnd}</div>
+                    <div style="font-weight:800;color:#FFC107;font-size:16px;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${tEnd}</div>
                 </div>
             </td>`;
             for (let d = 1; d <= 7; d++) {
