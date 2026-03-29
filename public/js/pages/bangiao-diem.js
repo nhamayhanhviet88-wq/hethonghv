@@ -1934,10 +1934,7 @@ async function _tpShowMonthView(monthStr) {
     try {
         const logR = await apiCall(`/api/task-points/change-log?target_type=${_tpTarget.type || 'team'}&target_id=${_tpTarget.id}&limit=100`);
         (logR.logs || []).forEach(log => {
-            const logDate = new Date(log.created_at);
-            if (logDate.getMonth() === month - 1 && logDate.getFullYear() === year) {
-                if (log.task_name) changedTaskNames.add(log.task_name);
-            }
+            if (log.task_name) changedTaskNames.add(log.task_name);
         });
     } catch(e) {}
 
@@ -1970,12 +1967,20 @@ async function _tpShowMonthView(monthStr) {
     const today = new Date(); today.setHours(0,0,0,0);
     const monthNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
+    // Compute prev/next month strings
+    const prevY = month <= 1 ? year - 1 : year;
+    const prevM = month <= 1 ? 12 : month - 1;
+    const nextY = month >= 12 ? year + 1 : year;
+    const nextM = month >= 12 ? 1 : month + 1;
+    const prevStr = prevY + '-' + String(prevM).padStart(2, '0');
+    const nextStr = nextY + '-' + String(nextM).padStart(2, '0');
+
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:2px solid #e5e7eb;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:10px 10px 0 0;">
         <div style="font-weight:800;color:#122546;font-size:16px;">📆 ${monthNames[month]} ${year}</div>
         <div style="display:flex;gap:6px;">
-            <button onclick="_tpShowMonthView('${year}-${String(month-1).padStart(2,'0')}')" ${month <= 1 ? `onclick="_tpShowMonthView('${year-1}-12')"` : ''} style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀</button>
-            <button onclick="document.getElementById('tpMonthPicker').value='';_tpLoadTasks()" style="padding:4px 12px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:600;">⬅ Xem tuần</button>
-            <button onclick="_tpShowMonthView('${year}-${String(month+1).padStart(2,'0')}')" ${month >= 12 ? `onclick="_tpShowMonthView('${year+1}-01')"` : ''} style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">▶</button>
+            <button onclick="_tpShowMonthView('${prevStr}')" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀</button>
+            <button onclick="_tpLoadTasks()" style="padding:4px 12px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:12px;font-weight:600;">⬅ Xem tuần</button>
+            <button onclick="_tpShowMonthView('${nextStr}')" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">▶</button>
         </div>
     </div>`;
 
