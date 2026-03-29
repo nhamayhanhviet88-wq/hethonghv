@@ -31,12 +31,19 @@ async function taskScheduleRoutes(fastify, options) {
             ['individual', userId, weekStart || null]
         );
 
-        // Get team tasks
+        // Get team tasks — from own dept + managed depts
         let teamTasks = [];
-        if (user.department_id) {
+        const deptIds = new Set();
+        if (user.department_id) deptIds.add(user.department_id);
+        const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = ? AND status = ?', [userId, 'active']);
+        headDepts.forEach(d => deptIds.add(d.id));
+        if (deptIds.size > 0) {
+            const ids = [...deptIds];
+            const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+            const weekParam = `$${ids.length + 1}`;
             teamTasks = await db.all(
-                'SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 AND (week_only IS NULL OR week_only = $3) ORDER BY day_of_week, time_start',
-                ['team', user.department_id, weekStart || null]
+                `SELECT * FROM task_point_templates WHERE target_type = 'team' AND target_id IN (${ph}) AND (week_only IS NULL OR week_only = ${weekParam}) ORDER BY day_of_week, time_start`,
+                [...ids, weekStart || null]
             );
         }
 
