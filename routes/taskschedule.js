@@ -95,32 +95,28 @@ async function taskScheduleRoutes(fastify, options) {
             // Check if snapshots match current templates
             const snapTemplateIds = new Set(existing.map(s => s.template_id).filter(Boolean));
             const currTemplateIds = new Set(dayTasks.map(t => t.id));
-            const isStale = snapTemplateIds.size !== currTemplateIds.size ||
-                [...currTemplateIds].some(id => !snapTemplateIds.has(id));
 
-            if (!isStale) {
-                // IDs match, update content from current templates (safe — doesn't affect reports)
-                for (const t of dayTasks) {
+            // Update existing snapshots that match current templates (refresh content)
+            for (const t of dayTasks) {
+                if (snapTemplateIds.has(t.id)) {
                     await db.run(
                         `UPDATE daily_task_snapshots SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6, task_name=$7 WHERE user_id=$8 AND snapshot_date=$9 AND template_id=$10`,
                         [t.input_requirements || '[]', t.output_requirements || '[]', t.guide_url, t.points, t.min_quantity, t.requires_approval || false, t.task_name, userId, dateStr, t.id]
                     );
                 }
-                return;
             }
 
-            // Snapshots are stale — check if any reports exist for this date
-            const reports = await db.all(
-                'SELECT id FROM task_point_reports WHERE user_id = $1 AND report_date = $2 LIMIT 1',
-                [userId, dateStr]
-            );
-            if (reports.length > 0) return; // has reports, don't touch
-
-            // No reports → safe to regenerate snapshots
-            await db.run(
-                'DELETE FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2',
-                [userId, dateStr]
-            );
+            // ADDITIVE: only add new templates not yet in snapshots (never delete old ones)
+            for (const t of dayTasks) {
+                if (!snapTemplateIds.has(t.id)) {
+                    await db.run(
+                        `INSERT INTO daily_task_snapshots (user_id, snapshot_date, template_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, requires_approval, input_requirements, output_requirements)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING`,
+                        [userId, dateStr, t.id, t.day_of_week, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.guide_url, t.requires_approval || false, t.input_requirements || '[]', t.output_requirements || '[]']
+                    );
+                }
+            }
+            return;
         }
 
         // Create fresh snapshots from current templates
@@ -411,8 +407,16 @@ async function taskScheduleRoutes(fastify, options) {
 
         const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
 
-        const template = await db.get('SELECT * FROM task_point_templates WHERE id = $1', [Number(template_id)]);
-        if (!template) return reply.code(404).send({ error: 'Template not found' });
+        let template = await db.get('SELECT * FROM task_point_templates WHERE id = $1', [Number(template_id)]);
+        // Fallback: if template was deleted, check snapshot for task data
+        if (!template) {
+            const snap = await db.get('SELECT * FROM daily_task_snapshots WHERE template_id = $1 AND user_id = $2 AND snapshot_date = $3', [Number(template_id), request.user.id, report_date]);
+            if (snap) {
+                template = { id: snap.template_id, points: snap.points, requires_approval: snap.requires_approval, task_name: snap.task_name };
+            } else {
+                return reply.code(404).send({ error: 'Template not found' });
+            }
+        }
 
         const status = template.requires_approval ? 'pending' : 'approved';
         const points = template.requires_approval ? 0 : (template.points || 0);
