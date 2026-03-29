@@ -722,10 +722,11 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
     const pf = prefill || {}; // pre-fill from library
     const title = isEdit ? '✏️ Sửa công việc' : `＋ Thêm công việc — ${DAY_NAMES[dayOfWeek]}`;
     const isFromLib = !isEdit && (pf.task_name || pf.points); // picked from library = lock fields
+    const shouldLock = isFromLib || isEdit; // Lock fields when editing or from library
 
     // Locked field styles
-    const lockStyle = isFromLib ? 'background:#f3f4f6;color:#6b7280;cursor:not-allowed;' : '';
-    const lockAttr = isFromLib ? 'readonly tabindex="-1"' : '';
+    const lockStyle = shouldLock ? 'background:#f3f4f6;color:#6b7280;cursor:not-allowed;' : '';
+    const lockAttr = shouldLock ? 'readonly tabindex="-1"' : '';
 
     // Days checkboxes for multi-day add
     const daysHtml = !isEdit ? `
@@ -787,19 +788,19 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
         <div style="margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">📥 Yêu cầu đầu vào CV <span style="color:#dc2626;">*</span></label>
-                ${!isFromLib ? '<button type="button" onclick="_tpAddReqItem(\'tpFInputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;">＋</button>' : ''}
+                ${!shouldLock ? '<button type="button" onclick="_tpAddReqItem(\'tpFInputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;">＋</button>' : ''}
             </div>
-            <div id="tpFInputReqList">${isFromLib ? _tpRenderReqReadonly(_tpParseJSON(task ? task.input_requirements : pf.input_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.input_requirements : pf.input_requirements)).length ? _tpParseJSON(task ? task.input_requirements : pf.input_requirements) : [''])}</div>
+            <div id="tpFInputReqList">${shouldLock ? _tpRenderReqReadonly(_tpParseJSON(task ? task.input_requirements : pf.input_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.input_requirements : pf.input_requirements)).length ? _tpParseJSON(task ? task.input_requirements : pf.input_requirements) : [''])}</div>
         </div>
         <div style="margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">📤 Yêu cầu đầu ra CV <span style="color:#dc2626;">*</span></label>
-                ${!isFromLib ? '<button type="button" onclick="_tpAddReqItem(\'tpFOutputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:700;">＋</button>' : ''}
+                ${!shouldLock ? '<button type="button" onclick="_tpAddReqItem(\'tpFOutputReqList\')" style="padding:2px 10px;font-size:14px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:700;">＋</button>' : ''}
             </div>
-            <div id="tpFOutputReqList">${isFromLib ? _tpRenderReqReadonly(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.output_requirements : pf.output_requirements)).length ? _tpParseJSON(task ? task.output_requirements : pf.output_requirements) : [''])}</div>
+            <div id="tpFOutputReqList">${shouldLock ? _tpRenderReqReadonly(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.output_requirements : pf.output_requirements)).length ? _tpParseJSON(task ? task.output_requirements : pf.output_requirements) : [''])}</div>
         </div>
         <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
-            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} ${isFromLib ? 'disabled' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
         </div>
         <div style="display:none;">
