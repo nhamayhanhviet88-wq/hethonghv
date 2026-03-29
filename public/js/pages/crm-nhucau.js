@@ -804,30 +804,25 @@ async function openConsultModal(customerId) {
     window._currentConsultCustomerId = customerId;
     // Check if customer has a pending emergency
     let pendingEmergency = null;
-    try {
-        const pendingData = await apiCall(`/api/emergencies/pending/${customerId}`);
-        if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
-    } catch(e) {}
-
-    // Load handler options for Cấp Cứu Sếp
     let handlerOptions = '';
-    try {
-        const hData = await apiCall('/api/emergencies/handlers');
-        const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
-        handlerOptions = (hData.handlers || [])
-            .map(u => '<option value="' + u.id + '"' + (pendingEmergency && pendingEmergency.handler_id === u.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS_H[u.role] || u.role) + ')</option>')
-            .join('');
-    } catch(e) {}
-
-    // Load customer data for order_status, address, province, and consultation logs
     let customerInfo = {};
     let existingItems = [];
     let consultLogs = [];
     try {
-        const custData = await apiCall(`/api/customers/${customerId}`);
+        // Load all data in parallel
+        const [pendingData, hData, custData, logData] = await Promise.all([
+            apiCall(`/api/emergencies/pending/${customerId}`).catch(() => ({})),
+            apiCall('/api/emergencies/handlers').catch(() => ({})),
+            apiCall(`/api/customers/${customerId}`).catch(() => ({})),
+            apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({}))
+        ]);
+        if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
+        const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
+        handlerOptions = (hData.handlers || [])
+            .map(u => '<option value="' + u.id + '"' + (pendingEmergency && pendingEmergency.handler_id === u.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS_H[u.role] || u.role) + ')</option>')
+            .join('');
         customerInfo = custData.customer || {};
         existingItems = custData.items || [];
-        const logData = await apiCall(`/api/customers/${customerId}/consult-logs`);
         consultLogs = logData.logs || [];
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
@@ -2009,7 +2004,13 @@ async function saveCustomerInfo(customerId) {
 
 // ========== CHI TIẾT KHÁCH HÀNG ==========
 async function openCustomerDetail(customerId) {
-    const data = await apiCall(`/api/customers/${customerId}`);
+    // Load all customer data in parallel
+    const [data, logsData, orderData, orderCodesData] = await Promise.all([
+        apiCall(`/api/customers/${customerId}`),
+        apiCall(`/api/customers/${customerId}/consult-logs`),
+        apiCall(`/api/customers/${customerId}/orders`),
+        apiCall(`/api/customers/${customerId}/order-codes`)
+    ]);
     const c = data.customer || {};
     const items = data.items || [];
     let holidays = [];
@@ -2018,17 +2019,11 @@ async function openCustomerDetail(customerId) {
     const createdDate = c.created_at ? new Date(c.created_at) : null;
     const connectDays = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / 86400000) : 0;
 
-    // Load consultation history
-    const logsData = await apiCall(`/api/customers/${customerId}/consult-logs`);
     const logs = logsData.logs || [];
 
-    // Load order items from dedicated endpoint
-    const orderData = await apiCall(`/api/customers/${customerId}/orders`);
     const orders = orderData.items || [];
     const grandTotal = orders.reduce((s, i) => s + (i.total || 0), 0);
 
-    // Load order codes
-    const orderCodesData = await apiCall(`/api/customers/${customerId}/order-codes`);
     const orderCodes = orderCodesData.codes || [];
     const cdTotalDeposit = orderCodesData.total_deposit || 0;
 

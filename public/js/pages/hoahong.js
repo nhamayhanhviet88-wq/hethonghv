@@ -16,16 +16,16 @@ async function renderMyCustomersPage(container) {
         </div>
     `;
 
-    // Get balance
-    const me = await apiCall('/api/auth/me');
+    // Get balance and customers in parallel
+    const [me, data] = await Promise.all([
+        apiCall('/api/auth/me'),
+        apiCall('/api/customers')
+    ]);
     const balanceEl = document.getElementById('myBalance');
     if (me.user) {
-        // Need to get balance from user detail - but CTV may not have access
-        // The balance is stored on the user object
-        balanceEl.textContent = formatCurrency(0); // Will be populated later if API supports
+        balanceEl.textContent = formatCurrency(0);
     }
 
-    const data = await apiCall('/api/customers');
     const area = document.getElementById('myCustomersList');
 
     if (!data.customers || data.customers.length === 0) {

@@ -250,8 +250,10 @@ async function saveEmergencyPopupSettings() {
     const time1 = document.getElementById('emPopupTime1')?.value;
     const time2 = document.getElementById('emPopupTime2')?.value;
     if (!time1 || !time2) { showToast('Vui lòng nhập đủ giờ', 'error'); return; }
-    await apiCall('/api/app-config/emergency_popup_time_1', 'PUT', { value: time1 });
-    await apiCall('/api/app-config/emergency_popup_time_2', 'PUT', { value: time2 });
+    await Promise.all([
+        apiCall('/api/app-config/emergency_popup_time_1', 'PUT', { value: time1 }),
+        apiCall('/api/app-config/emergency_popup_time_2', 'PUT', { value: time2 })
+    ]);
     showToast('✅ Đã lưu cài đặt pop-up cấp cứu!');
 }
 
@@ -259,8 +261,10 @@ async function saveCancelNVPopupSettings() {
     const time1 = document.getElementById('cancelNVTime1')?.value;
     const time2 = document.getElementById('cancelNVTime2')?.value;
     if (!time1 || !time2) { showToast('Vui lòng nhập đủ giờ', 'error'); return; }
-    await apiCall('/api/app-config/cancel_nv_popup_time_1', 'PUT', { value: time1 });
-    await apiCall('/api/app-config/cancel_nv_popup_time_2', 'PUT', { value: time2 });
+    await Promise.all([
+        apiCall('/api/app-config/cancel_nv_popup_time_1', 'PUT', { value: time1 }),
+        apiCall('/api/app-config/cancel_nv_popup_time_2', 'PUT', { value: time2 })
+    ]);
     showToast('✅ Đã lưu cài đặt pop-up hủy khách (NV)!');
 }
 
@@ -424,10 +428,12 @@ async function loadPrizePopupSettings() {
     content.innerHTML = '<div class="text-center text-muted" style="padding:30px;">Đang tải...</div>';
 
     // Load current values
-    const hourRes = await apiCall('/api/app-config/prize_popup_start_hour');
-    const minuteRes = await apiCall('/api/app-config/prize_popup_start_minute');
-    const daysRes = await apiCall('/api/app-config/prize_popup_days');
-    const intervalRes = await apiCall('/api/app-config/prize_popup_interval_minutes');
+    const [hourRes, minuteRes, daysRes, intervalRes] = await Promise.all([
+        apiCall('/api/app-config/prize_popup_start_hour'),
+        apiCall('/api/app-config/prize_popup_start_minute'),
+        apiCall('/api/app-config/prize_popup_days'),
+        apiCall('/api/app-config/prize_popup_interval_minutes')
+    ]);
 
     const startHour = hourRes.value || '10';
     const startMinute = minuteRes.value || '0';
@@ -474,10 +480,12 @@ async function savePrizePopupSettings() {
     const days = document.getElementById('ppDays').value;
     const interval = document.getElementById('ppInterval').value;
 
-    await apiCall('/api/app-config/prize_popup_start_hour', 'PUT', { value: hour });
-    await apiCall('/api/app-config/prize_popup_start_minute', 'PUT', { value: minute });
-    await apiCall('/api/app-config/prize_popup_days', 'PUT', { value: days });
-    await apiCall('/api/app-config/prize_popup_interval_minutes', 'PUT', { value: interval });
+    await Promise.all([
+        apiCall('/api/app-config/prize_popup_start_hour', 'PUT', { value: hour }),
+        apiCall('/api/app-config/prize_popup_start_minute', 'PUT', { value: minute }),
+        apiCall('/api/app-config/prize_popup_days', 'PUT', { value: days }),
+        apiCall('/api/app-config/prize_popup_interval_minutes', 'PUT', { value: interval })
+    ]);
 
     showToast('✅ Đã lưu cài đặt pop-up giải thưởng!');
 }

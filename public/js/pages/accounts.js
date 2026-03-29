@@ -223,9 +223,11 @@ function buildAccDeptOptions(depts, selectedId) {
 }
 
 async function showCreateAccountModal() {
-    const tiers = await apiCall('/api/settings/commission-tiers');
-    const staffList = await apiCall('/api/users/dropdown');
-    const deptData = await apiCall('/api/departments');
+    const [tiers, staffList, deptData] = await Promise.all([
+        apiCall('/api/settings/commission-tiers'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAccDeptOptions(depts);
 
@@ -713,18 +715,18 @@ async function submitCreateAccount() {
 }
 
 async function showEditAccountModal(userId) {
-    const { user } = await apiCall(`/api/users/${userId}`);
+    const [userData, tiers, staffList, deptData, socialData, toolData] = await Promise.all([
+        apiCall(`/api/users/${userId}`),
+        apiCall('/api/settings/commission-tiers'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments'),
+        apiCall(`/api/users/${userId}/social-handovers`),
+        apiCall(`/api/users/${userId}/tool-handovers`)
+    ]);
+    const user = userData.user;
     if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
-
-    const tiers = await apiCall('/api/settings/commission-tiers');
-    const staffList = await apiCall('/api/users/dropdown');
-    const deptData = await apiCall('/api/departments');
     const depts = deptData.departments || [];
     const editDeptOptionsHTML = buildAccDeptOptions(depts, user.department_id);
-
-    // Load handover data
-    const socialData = await apiCall(`/api/users/${userId}/social-handovers`);
-    const toolData = await apiCall(`/api/users/${userId}/tool-handovers`);
     const socialItems = socialData.items || [];
     const toolItems = toolData.items || [];
 

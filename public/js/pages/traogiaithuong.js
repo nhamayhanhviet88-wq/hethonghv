@@ -142,8 +142,7 @@ async function renderTraoGiaiThuongPage(container) {
         });
     });
 
-    await loadTraoGiaiData();
-    await loadTgAnnualData();
+    await Promise.all([loadTraoGiaiData(), loadTgAnnualData()]);
 }
 
 function _tgUpdatePeriod() {
@@ -156,8 +155,10 @@ async function loadTraoGiaiData() {
     var gridEl = document.getElementById('tgAwardsGrid');
     gridEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-500);grid-column:1/-1;">⏳ Đang tải...</div>';
 
-    var pData = await apiCall('/api/affiliate/prizes?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType);
-    var aData = await apiCall('/api/affiliate/awards?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType);
+    var [pData, aData] = await Promise.all([
+        apiCall('/api/affiliate/prizes?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType),
+        apiCall('/api/affiliate/awards?month=' + _tgSelectedMonth + '&period_type=' + _tgSelectedPeriodType)
+    ]);
     // Fetch leaderboard data for current period
     var periodMap = {daily:'daily',weekly:'weekly',monthly:'month',quarterly:'quarter'};
     var lbPeriod = periodMap[_tgSelectedPeriodType] || 'month';

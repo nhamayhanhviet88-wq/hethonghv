@@ -43,7 +43,7 @@ async function renderBanGiaoDiemPage(container) {
         _tpActiveDeptIds = d.active_dept_ids || [];
     } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
 
-    // Filter active + sort hierarchically (parent before children)
+    // Filter active + sort hierarchically (tree-walk: parent → children immediately after)
     const activeSet = new Set(_tpActiveDeptIds);
     // Also include parent depts of active teams  
     const activeDeptsList = _tpAllDepts.filter(d => activeSet.has(d.id));
@@ -55,15 +55,17 @@ async function renderBanGiaoDiemPage(container) {
             }
         }
     });
-    const activeDepts = _tpAllDepts.filter(d => activeSet.has(d.id))
-        .sort((a, b) => {
-            // Parent depts first (no parent_id or parent is system-level)
-            const aIsTeam = _tpAllDepts.some(p => p.id === a.parent_id && activeSet.has(p.id));
-            const bIsTeam = _tpAllDepts.some(p => p.id === b.parent_id && activeSet.has(p.id));
-            if (!aIsTeam && bIsTeam) return -1;
-            if (aIsTeam && !bIsTeam) return 1;
-            return (a.display_order || 0) - (b.display_order || 0);
-        });
+    // Tree-walk: parents sorted by display_order, each parent's children right after
+    const allActive = _tpAllDepts.filter(d => activeSet.has(d.id));
+    const parents = allActive.filter(d => !d.parent_id || !allActive.some(p => p.id === d.parent_id))
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    const activeDepts = [];
+    parents.forEach(p => {
+        activeDepts.push(p);
+        const children = allActive.filter(c => c.parent_id === p.id)
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        activeDepts.push(...children);
+    });
 
     container.innerHTML = `
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
@@ -93,9 +95,10 @@ async function renderBanGiaoDiemPage(container) {
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
                     ${activeDepts.map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
+                        const gripHtml = _tpIsDirector ? `<span class="tp-grip" onmousedown="event.stopPropagation()" style="cursor:grab;color:#9ca3af;font-size:14px;margin-right:4px;user-select:none;flex-shrink:0;line-height:1;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">⠿</span>` : '';
                         return `
-                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" onclick="_tpSelectDept(${d.id})" style="padding:10px ${isChild ? '14px 10px 24px' : '14px'};font-size:${isChild ? '12px' : '13px'};color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;font-weight:600;${i === 0 ? 'background:#eff6ff;color:#122546;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
-                            ${isChild ? '└ ' : ''}${d.name}
+                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" ${_tpIsDirector ? `draggable="true" ondragstart="_tpSidebarDragStart(event)" ondragover="_tpSidebarDragOver(event)" ondrop="_tpSidebarDrop(event)" ondragend="_tpSidebarDragEnd(event)"` : ''} onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;padding:10px ${isChild ? '14px 10px 24px' : '14px'};font-size:${isChild ? '12px' : '13px'};color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;font-weight:600;${i === 0 ? 'background:#eff6ff;color:#122546;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
+                            ${gripHtml}${isChild ? '└ ' : ''}${d.name}
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join('')}
@@ -117,12 +120,10 @@ async function renderBanGiaoDiemPage(container) {
         </div>
     </div>`;
 
-    // Auto-select first dept (also loads members list for ALL teams)
+    // Auto-select first dept (also loads members list for ALL teams — in parallel!)
     if (activeDepts.length > 0) {
-        // Load members for ALL active depts
-        for (const dept of activeDepts) {
-            await _tpLoadDeptMembers(dept.id);
-        }
+        // Load members for ALL active depts in parallel instead of sequential
+        await Promise.all(activeDepts.map(dept => _tpLoadDeptMembers(dept.id)));
         _tpSelectDept(activeDepts[0].id);
     }
 }
@@ -1786,3 +1787,156 @@ document.addEventListener('dragend', (e) => {
     document.removeEventListener('keyup', _tpDragKeyHandler);
     _tpDragData = null;
 });
+
+// ===== SIDEBAR DRAG-AND-DROP REORDER (giam_doc only) =====
+let _tpSidebarDragId = null;
+let _tpSidebarDragParentId = null;
+
+function _tpSidebarDragStart(e) {
+    const el = e.target.closest('.tp-dept-header');
+    if (!el) return;
+    _tpSidebarDragId = Number(el.dataset.id);
+    _tpSidebarDragParentId = el.dataset.parentId || '';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', _tpSidebarDragId);
+    setTimeout(() => { el.style.opacity = '0.4'; el.style.border = '1px dashed #93c5fd'; }, 0);
+}
+
+function _tpSidebarDragOver(e) {
+    e.preventDefault();
+    if (_tpSidebarDragId === null) return;
+    const el = e.target.closest('.tp-dept-header');
+    if (!el || Number(el.dataset.id) === _tpSidebarDragId) return;
+
+    const dragIsChild = _tpSidebarDragParentId !== '';
+    const targetIsChild = (el.dataset.parentId || '') !== '';
+
+    // Enforce: parent↔parent, child↔child of same parent
+    if (dragIsChild !== targetIsChild) { e.dataTransfer.dropEffect = 'none'; return; }
+    if (dragIsChild && el.dataset.parentId !== _tpSidebarDragParentId) { e.dataTransfer.dropEffect = 'none'; return; }
+
+    e.dataTransfer.dropEffect = 'move';
+
+    // Show drop indicator
+    document.querySelectorAll('.tp-dept-header').forEach(h => { h.style.borderTop = ''; h.style.borderBottom = ''; });
+    const rect = el.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+        el.style.borderTop = '2px solid #2563eb';
+        el.style.borderBottom = '';
+    } else {
+        el.style.borderTop = '';
+        el.style.borderBottom = '2px solid #2563eb';
+    }
+}
+
+function _tpSidebarDrop(e) {
+    e.preventDefault();
+    const targetEl = e.target.closest('.tp-dept-header');
+    if (!targetEl || _tpSidebarDragId === null) return;
+    const targetId = Number(targetEl.dataset.id);
+    if (targetId === _tpSidebarDragId) return;
+
+    const dragIsChild = _tpSidebarDragParentId !== '';
+    const targetIsChild = (targetEl.dataset.parentId || '') !== '';
+    if (dragIsChild !== targetIsChild) return;
+    if (dragIsChild && targetEl.dataset.parentId !== _tpSidebarDragParentId) return;
+
+    // Determine insert position
+    const rect = targetEl.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+
+    const list = document.getElementById('tpDeptList');
+    if (!list) return;
+
+    // Get the dragged dept-header + its memberWrap
+    const dragEl = list.querySelector(`.tp-dept-header[data-id="${_tpSidebarDragId}"]`);
+    if (!dragEl) return;
+    const dragMemberWrap = document.getElementById(`tpMemberWrap_${_tpSidebarDragId}`);
+
+    // For parent drag: also collect its children elements
+    let dragGroup = [dragEl];
+    if (dragMemberWrap) dragGroup.push(dragMemberWrap);
+    if (!dragIsChild) {
+        // Find child dept-headers and their member wraps that belong to this parent
+        const childHeaders = list.querySelectorAll(`.tp-dept-header[data-parent-id="${_tpSidebarDragId}"]`);
+        childHeaders.forEach(ch => {
+            dragGroup.push(ch);
+            const chWrap = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
+            if (chWrap) dragGroup.push(chWrap);
+        });
+    }
+
+    // Remove all drag group elements temporarily
+    dragGroup.forEach(el => el.remove());
+
+    // Re-find target (it may have shifted)
+    const newTargetEl = list.querySelector(`.tp-dept-header[data-id="${targetId}"]`);
+    if (!newTargetEl) { /* re-append at end */ dragGroup.forEach(el => list.appendChild(el)); }
+    else {
+        if (insertBefore) {
+            dragGroup.forEach(el => newTargetEl.parentNode.insertBefore(el, newTargetEl));
+        } else {
+            // Insert after target + its memberWrap + its children
+            let afterEl = newTargetEl;
+            const targetMemberWrap = document.getElementById(`tpMemberWrap_${targetId}`);
+            if (targetMemberWrap) afterEl = targetMemberWrap;
+            // If target is parent, skip past its children
+            if (!targetIsChild) {
+                const targetChildren = list.querySelectorAll(`.tp-dept-header[data-parent-id="${targetId}"]`);
+                targetChildren.forEach(ch => {
+                    afterEl = ch;
+                    const chWrap = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
+                    if (chWrap) afterEl = chWrap;
+                });
+            }
+            // Insert after afterEl
+            const nextSibling = afterEl.nextSibling;
+            dragGroup.forEach(el => list.insertBefore(el, nextSibling));
+        }
+    }
+
+    // Clear indicators
+    document.querySelectorAll('.tp-dept-header').forEach(h => { h.style.borderTop = ''; h.style.borderBottom = ''; });
+
+    // Persist new order
+    _tpSidebarPersistOrder();
+}
+
+function _tpSidebarDragEnd(e) {
+    _tpSidebarDragId = null;
+    _tpSidebarDragParentId = null;
+    // Reset visuals
+    document.querySelectorAll('.tp-dept-header').forEach(h => {
+        h.style.opacity = '1';
+        h.style.border = '';
+        h.style.borderTop = '';
+        h.style.borderBottom = '';
+        h.style.borderBottom = '1px solid #f9fafb'; // restore original
+    });
+}
+
+async function _tpSidebarPersistOrder() {
+    const list = document.getElementById('tpDeptList');
+    if (!list) return;
+    const headers = list.querySelectorAll('.tp-dept-header');
+    const orders = [];
+    let parentOrder = 0;
+    let childOrder = 0;
+    headers.forEach(h => {
+        const id = Number(h.dataset.id);
+        const isChild = (h.dataset.parentId || '') !== '';
+        if (!isChild) {
+            orders.push({ id, display_order: parentOrder++ });
+            childOrder = 0;
+        } else {
+            orders.push({ id, display_order: childOrder++ });
+        }
+    });
+    try {
+        await apiCall('/api/task-points/reorder-departments', 'PUT', { orders });
+        showToast('✅ Đã lưu thứ tự');
+    } catch(e) {
+        showToast('Lỗi lưu thứ tự', 'error');
+    }
+}

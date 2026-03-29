@@ -424,9 +424,11 @@ function buildAffDeptOptions(depts, selectedId) {
 
 // ========== TẠO TK AFFILIATE ==========
 async function showCreateAffModal() {
-    const tiers = await apiCall('/api/settings/commission-tiers');
-    const staffList = await apiCall('/api/users/dropdown');
-    const deptData = await apiCall('/api/departments');
+    const [tiers, staffList, deptData] = await Promise.all([
+        apiCall('/api/settings/commission-tiers'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAccDeptOptions(depts);
 
@@ -735,12 +737,14 @@ async function submitCreateAff() {
 
 // ========== SỬA TK AFFILIATE ==========
 async function showEditAffModal(userId) {
-    const { user } = await apiCall(`/api/users/${userId}`);
+    const [userData, tiers, staffList, deptData] = await Promise.all([
+        apiCall(`/api/users/${userId}`),
+        apiCall('/api/settings/commission-tiers'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
+    const user = userData.user;
     if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
-
-    const tiers = await apiCall('/api/settings/commission-tiers');
-    const staffList = await apiCall('/api/users/dropdown');
-    const deptData = await apiCall('/api/departments');
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAffDeptOptions(depts, user.department_id);
     const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};

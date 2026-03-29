@@ -446,6 +446,20 @@ async function taskPointRoutes(fastify, options) {
         await db.run('DELETE FROM task_exemptions WHERE id = ?', [id]);
         return { ok: true, message: 'Đã khôi phục CV cho nhân viên' };
     });
+
+    // ===== REORDER DEPARTMENTS (director only) =====
+    fastify.put('/api/task-points/reorder-departments', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { orders } = request.body || {};
+        if (!Array.isArray(orders) || orders.length === 0) {
+            return reply.code(400).send({ error: 'Thiếu danh sách thứ tự' });
+        }
+        for (const item of orders) {
+            if (item.id && item.display_order !== undefined) {
+                await db.run('UPDATE departments SET display_order = $1 WHERE id = $2', [Number(item.display_order), Number(item.id)]);
+            }
+        }
+        return { ok: true, message: 'Đã lưu thứ tự' };
+    });
 }
 
 module.exports = taskPointRoutes;
