@@ -14,6 +14,20 @@ const _KB_COLORS = [
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbMonthlySummary = 0; // total approved points this month
 
+// ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
+function _kbSaveSelection(sel) {
+    try {
+        const key = `kb_selection_${window._currentUser?.id || 'default'}`;
+        localStorage.setItem(key, JSON.stringify(sel));
+    } catch {}
+}
+function _kbGetSavedSelection() {
+    try {
+        const key = `kb_selection_${window._currentUser?.id || 'default'}`;
+        return JSON.parse(localStorage.getItem(key));
+    } catch { return null; }
+}
+
 // ===== HIDDEN DEPTS — shared key with Bàn Giao (per user, localStorage) =====
 function _kbGetHiddenDepts() {
     try {
@@ -287,7 +301,18 @@ async function renderLichKhoaBieuPage(container) {
         </div>
     </div>`;
 
-    _kbLoadSchedule();
+    // Restore saved selection or default to "Lịch của tôi"
+    const kbSaved = _kbGetSavedSelection();
+    if (kbSaved && kbSaved.userId) {
+        const memberEl = document.querySelector(`.kb-member-item[data-uid="${kbSaved.userId}"]`);
+        if (memberEl) {
+            _kbSelectMember(kbSaved.userId);
+        } else {
+            _kbLoadSchedule();
+        }
+    } else {
+        _kbLoadSchedule();
+    }
     if (hasApprovalScope) _kbLoadApprovalPanel();
     _kbCheckRejectedPopup();
 }
@@ -296,15 +321,20 @@ function _kbSelectMember(userId) {
     _kbViewUserId = userId;
     _kbWeekStart = null;
     _kbColorMap = {};
-    // Highlight
+    // Highlight — green bg + white text
     document.querySelectorAll('.kb-member-item').forEach(el => {
         const isActive = (el.dataset.uid === '' && userId === null) || (el.dataset.uid == userId);
         el.classList.toggle('kb-active', isActive);
-        el.style.background = isActive ? '#eff6ff' : 'white';
-        el.style.color = isActive ? '#122546' : '#374151';
-        el.style.fontWeight = isActive ? '600' : '400';
-        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+        el.style.background = isActive ? '#059669' : 'white';
+        el.style.color = isActive ? '#fff' : '#1e293b';
+        el.style.fontWeight = isActive ? '700' : '400';
+        el.style.borderLeft = isActive ? '3px solid #047857' : '3px solid transparent';
+        if (isActive) el.style.borderRadius = '6px';
+        else el.style.borderRadius = '';
     });
+    // Save selection
+    const memberEl = userId ? document.querySelector(`.kb-member-item[data-uid="${userId}"]`) : null;
+    _kbSaveSelection({ userId, userName: memberEl?.dataset?.name || '' });
     _kbLoadSchedule();
 }
 

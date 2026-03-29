@@ -14,6 +14,20 @@ let _tpViewMode = 'team'; // 'team' | 'individual'
 let _tpViewUserId = null;
 let _tpViewUserName = '';
 
+// ===== SELECTION PERSISTENCE (per user, localStorage) =====
+function _tpSaveSelection(sel) {
+    try {
+        const key = `tp_selection_${window._currentUser?.id || 'default'}`;
+        localStorage.setItem(key, JSON.stringify(sel));
+    } catch {}
+}
+function _tpGetSavedSelection() {
+    try {
+        const key = `tp_selection_${window._currentUser?.id || 'default'}`;
+        return JSON.parse(localStorage.getItem(key));
+    } catch { return null; }
+}
+
 // ===== HIDDEN DEPTS (per user, localStorage) =====
 function _tpGetHiddenDepts() {
     try {
@@ -201,11 +215,26 @@ async function renderBanGiaoDiemPage(container) {
         </div>
     </div>`;
 
-    // Auto-select first dept (also loads members list for ALL teams — in parallel!)
+    // Auto-select (restore from localStorage or default to first dept)
     if (activeDepts.length > 0) {
         // Load members for ALL active depts in parallel instead of sequential
         await Promise.all(activeDepts.map(dept => _tpLoadDeptMembers(dept.id)));
-        _tpSelectDept(activeDepts[0].id);
+        const saved = _tpGetSavedSelection();
+        if (saved && saved.type === 'member' && saved.userId) {
+            // Find which dept this member belongs to
+            const memberEl = document.querySelector(`.tp-member-item[data-uid="${saved.userId}"]`);
+            if (memberEl) {
+                const deptId = saved.deptId || activeDepts[0].id;
+                _tpSelectMember(deptId, saved.userId, saved.userName || '');
+            } else {
+                _tpSelectDept(activeDepts[0].id);
+            }
+        } else if (saved && saved.type === 'dept' && saved.deptId) {
+            const deptExists = activeDepts.some(d => d.id === saved.deptId);
+            _tpSelectDept(deptExists ? saved.deptId : activeDepts[0].id);
+        } else {
+            _tpSelectDept(activeDepts[0].id);
+        }
         // Auto-snapshot today's tasks (idempotent)
         try { apiCall('/api/task-points/snapshot-today', { method: 'POST' }); } catch(e) {}
     }
@@ -342,6 +371,7 @@ async function _tpSelectDept(deptId) {
     _tpViewUserId = null;
     _tpViewUserName = '';
     _tpSelectItem('team', deptId);
+    _tpSaveSelection({ type: 'dept', deptId });
     // Load and show members under this dept
     await _tpLoadDeptMembers(deptId);
 }
@@ -422,14 +452,16 @@ function _tpSelectMember(deptId, userId, userName) {
     _tpViewMode = 'individual';
     _tpViewUserId = userId;
     _tpViewUserName = userName;
-    // Highlight member
+    // Highlight member — green bg + white text
     document.querySelectorAll('.tp-member-item').forEach(el => {
         const isActive = Number(el.dataset.uid) === userId;
         el.classList.toggle('tp-member-active', isActive);
-        el.style.background = isActive ? '#ecfdf5' : '';
-        el.style.color = isActive ? '#059669' : '#6b7280';
-        el.style.fontWeight = isActive ? '600' : '';
-        el.style.borderLeft = isActive ? '3px solid #059669' : '3px solid transparent';
+        el.style.background = isActive ? '#059669' : '';
+        el.style.color = isActive ? '#fff' : '#1e293b';
+        el.style.fontWeight = isActive ? '700' : '';
+        el.style.borderLeft = isActive ? '3px solid #047857' : '3px solid transparent';
+        if (isActive) el.style.borderRadius = '6px';
+        else el.style.borderRadius = '';
     });
     // Highlight dept header
     document.querySelectorAll('.tp-dept-header').forEach(el => {
@@ -439,6 +471,7 @@ function _tpSelectMember(deptId, userId, userName) {
         el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
     });
     _tpTarget = { type: 'team', id: deptId, userId: userId };
+    _tpSaveSelection({ type: 'member', deptId, userId, userName });
     _tpLoadTasks();
 }
 
