@@ -927,9 +927,15 @@ async function _tpDoExempt(templateId, exemptType) {
             week_start: exemptType === 'week' ? weekStr : null
         });
         document.getElementById('tpExemptModal')?.remove();
-        showToast(`✅ ${r.message}`);
-        _tpLoadTasks();
+        if (r.error) {
+            showToast('❌ ' + r.error, 'error');
+        } else {
+            const msg = r.message || (exemptType === 'permanent' ? 'Đã xóa vĩnh viễn cho nhân viên' : 'Đã bỏ qua tuần này');
+            showToast('✅ ' + msg);
+            _tpLoadTasks();
+        }
     } catch(e) {
+        document.getElementById('tpExemptModal')?.remove();
         showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
     }
 }
