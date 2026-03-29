@@ -435,32 +435,7 @@ async function taskScheduleRoutes(fastify, options) {
         }
     });
 
-    // APPROVE / REJECT a report (manager only)
-    fastify.put('/api/schedule/report/:id/approve', { preHandler: [authenticate] }, async (request, reply) => {
-        const id = Number(request.params.id);
-        const { action } = request.body || {}; // 'approve' or 'reject'
-
-        if (!['approve', 'reject'].includes(action)) {
-            return reply.code(400).send({ error: 'action phải là approve hoặc reject' });
-        }
-
-        const report = await db.get(
-            `SELECT r.*, t.points as template_points FROM task_point_reports r
-             JOIN task_point_templates t ON r.template_id = t.id WHERE r.id = $1`,
-            [id]
-        );
-        if (!report) return reply.code(404).send({ error: 'Report not found' });
-
-        const newStatus = action === 'approve' ? 'approved' : 'rejected';
-        const pts = action === 'approve' ? (report.template_points || 0) : 0;
-
-        await db.run(
-            'UPDATE task_point_reports SET status = $1, points_earned = $2, approved_by = $3 WHERE id = $4',
-            [newStatus, pts, request.user.id, id]
-        );
-
-        return { success: true, status: newStatus, points_earned: pts };
-    });
+    // (old approve/reject moved below with full permission checks)
 
     // GET daily point summary for a user across a date range
     fastify.get('/api/schedule/summary', { preHandler: [authenticate] }, async (request, reply) => {
@@ -479,6 +454,289 @@ async function taskScheduleRoutes(fastify, options) {
         );
 
         return { summary: rows };
+    });
+
+    // ========== HELPER: Check if user can approve for a department (cascade up) ==========
+    async function _canApproveForDept(userId, deptId) {
+        // Giám đốc auto-approve all
+        const u = await db.get('SELECT role FROM users WHERE id = $1', [userId]);
+        if (u && u.role === 'giam_doc') return true;
+
+        // Check direct assignment
+        const direct = await db.get('SELECT id FROM task_approvers WHERE user_id = $1 AND department_id = $2', [userId, deptId]);
+        if (direct) return true;
+
+        // Check cascade: if assigned to parent department
+        const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [deptId]);
+        if (dept && dept.parent_id) {
+            return _canApproveForDept(userId, dept.parent_id);
+        }
+        return false;
+    }
+
+    // ========== HELPER: Auto-expire overdue redo deadlines ==========
+    async function _autoExpireRedos() {
+        const now = new Date();
+        const overdue = await db.all(
+            `SELECT id FROM task_point_reports WHERE status = 'rejected' AND redo_deadline IS NOT NULL AND redo_deadline < $1`,
+            [now.toISOString()]
+        );
+        for (const r of overdue) {
+            await db.run(
+                `UPDATE task_point_reports SET status = 'expired', points_earned = 0 WHERE id = $1`,
+                [r.id]
+            );
+        }
+        return overdue.length;
+    }
+
+    // ========== APPROVER MANAGEMENT (GĐ only) ==========
+
+    // GET all approvers
+    fastify.get('/api/schedule/approvers', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(
+            `SELECT ta.id, ta.user_id, ta.department_id, u.full_name as user_name, u.role as user_role, d.name as dept_name
+             FROM task_approvers ta
+             JOIN users u ON ta.user_id = u.id
+             JOIN departments d ON ta.department_id = d.id
+             ORDER BY d.name, u.full_name`
+        );
+        return { approvers: rows };
+    });
+
+    // POST add approver
+    fastify.post('/api/schedule/approvers', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được setup' });
+        const { user_id, department_id } = request.body;
+        if (!user_id || !department_id) return reply.code(400).send({ error: 'Thiếu user_id hoặc department_id' });
+        try {
+            await db.run('INSERT INTO task_approvers (user_id, department_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user_id, department_id]);
+            return { success: true };
+        } catch(e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // DELETE remove approver
+    fastify.delete('/api/schedule/approvers/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được setup' });
+        await db.run('DELETE FROM task_approvers WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
+    // ========== PENDING APPROVALS ==========
+
+    // GET pending reports for current user's approval scope
+    fastify.get('/api/schedule/pending-approvals', { preHandler: [authenticate] }, async (request, reply) => {
+        // Auto-expire overdue first
+        await _autoExpireRedos();
+
+        const userId = request.user.id;
+        const isGD = request.user.role === 'giam_doc';
+
+        // Get departments this user can approve for
+        let deptIds = [];
+        if (isGD) {
+            const allDepts = await db.all('SELECT id FROM departments');
+            deptIds = allDepts.map(d => d.id);
+        } else {
+            const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [userId]);
+            const directIds = assigned.map(a => a.department_id);
+            // Expand: include child departments (cascade)
+            for (const did of directIds) {
+                deptIds.push(did);
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [did]);
+                children.forEach(c => { if (!deptIds.includes(c.id)) deptIds.push(c.id); });
+                // 3rd level (grandchildren)
+                for (const child of children) {
+                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    grandchildren.forEach(gc => { if (!deptIds.includes(gc.id)) deptIds.push(gc.id); });
+                }
+            }
+        }
+
+        if (deptIds.length === 0) return { pending: [], redo: [] };
+
+        const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+
+        // Pending reports (status = 'pending') from users in these departments
+        const pending = await db.all(
+            `SELECT r.id, r.template_id, r.user_id, r.report_date::text as report_date, r.report_type, r.report_value, r.report_image, r.quantity, r.content, r.status, r.redo_count,
+                    t.task_name, t.points as template_points, t.requires_approval,
+                    u.full_name as user_name, u.username
+             FROM task_point_reports r
+             JOIN task_point_templates t ON r.template_id = t.id
+             JOIN users u ON r.user_id = u.id
+             WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}
+             ORDER BY r.report_date DESC, u.full_name`,
+            [...deptIds, userId]
+        );
+
+        // Redo reports (status = 'rejected' but still within deadline — waiting for resubmission)
+        // Actually these are just info for the manager — the NV needs to fix them
+
+        return { pending };
+    });
+
+    // GET pending count (for sidebar badge)
+    fastify.get('/api/schedule/pending-count', { preHandler: [authenticate] }, async (request, reply) => {
+        await _autoExpireRedos();
+
+        const userId = request.user.id;
+        const isGD = request.user.role === 'giam_doc';
+
+        let deptIds = [];
+        if (isGD) {
+            const allDepts = await db.all('SELECT id FROM departments');
+            deptIds = allDepts.map(d => d.id);
+        } else {
+            const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [userId]);
+            const directIds = assigned.map(a => a.department_id);
+            for (const did of directIds) {
+                deptIds.push(did);
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [did]);
+                children.forEach(c => { if (!deptIds.includes(c.id)) deptIds.push(c.id); });
+                for (const child of children) {
+                    const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc.forEach(g => { if (!deptIds.includes(g.id)) deptIds.push(g.id); });
+                }
+            }
+        }
+
+        if (deptIds.length === 0) return { count: 0 };
+
+        const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+        const result = await db.get(
+            `SELECT COUNT(*) as c FROM task_point_reports r
+             JOIN users u ON r.user_id = u.id
+             WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}`,
+            [...deptIds, userId]
+        );
+
+        return { count: Number(result.c) };
+    });
+
+    // ========== APPROVE / REJECT with full logic ==========
+
+    // APPROVE / REJECT a report (permission-checked)
+    fastify.put('/api/schedule/report/:id/approve', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const { action, reject_reason } = request.body || {};
+
+        if (!['approve', 'reject'].includes(action)) {
+            return reply.code(400).send({ error: 'action phải là approve hoặc reject' });
+        }
+
+        const report = await db.get(
+            `SELECT r.*, t.points as template_points, t.task_name, u.department_id
+             FROM task_point_reports r
+             JOIN task_point_templates t ON r.template_id = t.id
+             JOIN users u ON r.user_id = u.id
+             WHERE r.id = $1`,
+            [id]
+        );
+        if (!report) return reply.code(404).send({ error: 'Report not found' });
+
+        // Check permission
+        const canApprove = await _canApproveForDept(request.user.id, report.department_id);
+        if (!canApprove) return reply.code(403).send({ error: 'Bạn không có quyền duyệt phòng này' });
+
+        if (action === 'approve') {
+            const pts = report.template_points || 0;
+            await db.run(
+                'UPDATE task_point_reports SET status = $1, points_earned = $2, approved_by = $3 WHERE id = $4',
+                ['approved', pts, request.user.id, id]
+            );
+            return { success: true, status: 'approved', points_earned: pts };
+        } else {
+            // REJECT
+            if (!reject_reason || !reject_reason.trim()) {
+                return reply.code(400).send({ error: 'Phải nhập lý do từ chối' });
+            }
+
+            // Get redo config
+            const redoConfig = await db.get("SELECT value FROM app_config WHERE key = 'task_redo_max'");
+            const maxRedo = Number(redoConfig?.value) || 1;
+            const currentRedo = report.redo_count || 0;
+
+            if (currentRedo >= maxRedo) {
+                // Already used all redo attempts → final reject → 0 points
+                await db.run(
+                    `UPDATE task_point_reports SET status = 'expired', points_earned = 0, approved_by = $1, reject_reason = $2, rejected_at = NOW() WHERE id = $3`,
+                    [request.user.id, reject_reason, id]
+                );
+                return { success: true, status: 'expired', message: 'Đã hết lượt làm lại' };
+            }
+
+            // Set redo deadline: 23:59 next day
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(23, 59, 59, 0);
+
+            await db.run(
+                `UPDATE task_point_reports SET status = 'rejected', points_earned = 0, approved_by = $1, reject_reason = $2, rejected_at = NOW(), redo_deadline = $3 WHERE id = $4`,
+                [request.user.id, reject_reason, tomorrow.toISOString(), id]
+            );
+
+            return { success: true, status: 'rejected', redo_deadline: tomorrow.toISOString(), redo_remaining: maxRedo - currentRedo };
+        }
+    });
+
+    // ========== REDO: Employee resubmits after rejection ==========
+    fastify.put('/api/schedule/report/:id/redo', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const report = await db.get('SELECT * FROM task_point_reports WHERE id = $1', [id]);
+        if (!report) return reply.code(404).send({ error: 'Report not found' });
+        if (report.user_id !== request.user.id) return reply.code(403).send({ error: 'Chỉ chính chủ mới được nộp lại' });
+        if (report.status !== 'rejected') return reply.code(400).send({ error: 'Report không ở trạng thái bị từ chối' });
+
+        // Check deadline
+        if (report.redo_deadline && new Date(report.redo_deadline) < new Date()) {
+            return reply.code(400).send({ error: 'Đã quá hạn nộp lại' });
+        }
+
+        const { report_value, report_image, quantity, content } = request.body;
+        const hasLink = report_value && report_value.trim();
+        const hasImage = !!report_image;
+        if (!hasLink && !hasImage) return reply.code(400).send({ error: 'Phải có link hoặc hình ảnh' });
+
+        const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
+
+        await db.run(
+            `UPDATE task_point_reports SET status = 'pending', report_type = $1, report_value = $2, report_image = $3, quantity = $4, content = $5, redo_count = redo_count + 1, reject_reason = NULL WHERE id = $6`,
+            [report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, id]
+        );
+
+        return { success: true, status: 'pending' };
+    });
+
+    // ========== GET rejected reports for current user (for popup) ==========
+    fastify.get('/api/schedule/my-rejected', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(
+            `SELECT r.id, r.template_id, r.report_date::text as report_date, r.reject_reason, r.redo_deadline, r.redo_count,
+                    t.task_name, t.points
+             FROM task_point_reports r
+             JOIN task_point_templates t ON r.template_id = t.id
+             WHERE r.user_id = $1 AND r.status = 'rejected' AND r.redo_deadline IS NOT NULL AND r.redo_deadline > NOW()
+             ORDER BY r.redo_deadline ASC`,
+            [request.user.id]
+        );
+        return { rejected: rows };
+    });
+
+    // ========== CONFIG: redo limit ==========
+    fastify.get('/api/schedule/config', { preHandler: [authenticate] }, async (request, reply) => {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'task_redo_max'");
+        return { task_redo_max: Number(row?.value) || 1 };
+    });
+
+    fastify.post('/api/schedule/config', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const { task_redo_max } = request.body;
+        if (task_redo_max != null) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('task_redo_max', $1) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(task_redo_max)]);
+        }
+        return { success: true };
     });
 }
 

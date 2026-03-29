@@ -48,7 +48,8 @@ function _kbViewReport(el) {
     const statusMap = {
         approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
         pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
-        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' }
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn làm lại', color: '#6b7280', bg: '#f3f4f6' }
     };
     const s = statusMap[data.status] || statusMap.pending;
 
@@ -61,6 +62,14 @@ function _kbViewReport(el) {
             <span style="font-size:16px;font-weight:800;color:${s.color};">${s.label}</span>
             ${data.points_earned ? `<span style="margin-left:8px;font-size:14px;font-weight:700;color:${s.color};">+${data.points_earned}đ</span>` : ''}
         </div>`;
+
+    // Show reject reason
+    if (data.reject_reason) {
+        detailHtml += `<div style="padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+            <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:4px;">💬 Lý do từ chối:</div>
+            <div style="font-size:13px;color:#7f1d1d;">${data.reject_reason}</div>
+        </div>`;
+    }
 
     if (data.quantity) {
         detailHtml += `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
@@ -208,12 +217,20 @@ async function renderLichKhoaBieuPage(container) {
         } catch(e) {}
     }
 
+    const isGD = currentUser.role === 'giam_doc';
+    const hasApprovalScope = isManager; // Will be refined after loading approvers
+
     container.innerHTML = `
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">📋 Lịch Khóa Biểu Công Việc</h2>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">📋 Lịch Khóa Biểu Công Việc</h2>
+                ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">⚙️ Setup Người Duyệt</button>` : ''}
+            </div>
             <div id="kbViewingLabel" style="font-size:13px;color:#6b7280;"></div>
         </div>
+        <div id="kbSetupPanel" style="display:none;margin-bottom:16px;"></div>
+        <div id="kbApprovalPanel" style="margin-bottom:14px;"></div>
         <div style="display:flex;gap:16px;">
             ${membersHtml}
             <div style="flex:1;">
@@ -230,6 +247,8 @@ async function renderLichKhoaBieuPage(container) {
     </div>`;
 
     _kbLoadSchedule();
+    if (hasApprovalScope) _kbLoadApprovalPanel();
+    _kbCheckRejectedPopup();
 }
 
 function _kbSelectMember(userId) {
@@ -524,21 +543,22 @@ function _kbRenderGrid() {
                     const rData = JSON.stringify({
                         task_name: task.task_name, status: report.status, points_earned: report.points_earned,
                         quantity: report.quantity, report_value: report.report_value || '', report_image: report.report_image || '',
-                        report_date: dateStr, content: report.content || ''
+                        report_date: dateStr, content: report.content || '', reject_reason: report.reject_reason || '',
+                        redo_count: report.redo_count || 0, redo_deadline: report.redo_deadline || ''
                     }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                     if (report.status === 'approved') {
                         actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">✅ +${report.points_earned}đ</span>`;
                     } else if (report.status === 'pending') {
-                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ duyệt</span>`;
-                        if (canApprove) {
-                            statusBadge = `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;">
-                                <button onclick="_kbApprove(${report.id},'approve')" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#16a34a;color:white;cursor:pointer;">✅ Duyệt</button>
-                                <button onclick="_kbApprove(${report.id},'reject')" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;">❌ Từ chối</button>
-                            </div>`;
-                        }
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ ${report.redo_count > 0 ? 'Chờ duyệt lại' : 'Chờ duyệt'}</span>`;
                     } else if (report.status === 'rejected') {
-                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">❌ Từ chối</span>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">❌ Bị từ chối</span>`;
+                        // Show redo button for self
+                        if (isSelf && report.redo_deadline && new Date(report.redo_deadline) > new Date()) {
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:2px 8px;font-size:10px;border:1px dashed #d97706;border-radius:4px;background:#fef3c7;color:#d97706;cursor:pointer;font-weight:600;">📝 Nộp lại</button></div>`;
+                        }
+                    } else if (report.status === 'expired') {
+                        actionBtn = `<span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🚫 Hết hạn (0đ)</span>`;
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
@@ -679,7 +699,7 @@ function _kbShowTaskDetail(templateId) {
 // Report modal — full redesign
 let _kbPastedFile = null;
 
-function _kbShowReportModal(templateId, reportDate, fallbackName) {
+function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) {
     let task = _kbTasks.find(t => {
         const tid = t._source === 'snapshot' ? t.template_id : t.id;
         return tid === templateId;
@@ -703,10 +723,11 @@ function _kbShowReportModal(templateId, reportDate, fallbackName) {
     const outputReqs = task ? _kbParseJSON(task.output_requirements) : [];
     _kbPastedFile = null;
 
+    const isRedo = !!redoReportId;
     const approvalWarn = needsApproval ? `
-        <div style="padding:10px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:18px;">🔒</span>
-            <div style="font-size:12px;color:#78350f;font-weight:600;">Công việc này cần Quản lý/TP duyệt mới được tính điểm</div>
+        <div style="padding:10px 12px;background:${isRedo ? '#fef2f2' : '#fef3c7'};border:1px solid ${isRedo ? '#fecaca' : '#fde68a'};border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">${isRedo ? '🔄' : '🔒'}</span>
+            <div style="font-size:12px;color:${isRedo ? '#991b1b' : '#78350f'};font-weight:600;">${isRedo ? 'Nộp lại công việc bị từ chối — sửa và nộp lại để duyệt' : 'Công việc này cần Quản lý/TP duyệt mới được tính điểm'}</div>
         </div>` : '';
 
     // Build requirements HTML (compact)
@@ -740,10 +761,10 @@ function _kbShowReportModal(templateId, reportDate, fallbackName) {
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.innerHTML = `
     <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
-        <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
+        <div style="background:linear-gradient(135deg,${isRedo ? '#991b1b,#dc2626' : '#122546,#1e3a5f'});padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📝 Báo cáo công việc</h3>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">Nộp kết quả hoàn thành</div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">${isRedo ? '🔄 Nộp lại công việc' : '📝 Báo cáo công việc'}</h3>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">${isRedo ? 'Sửa và nộp lại để được duyệt' : 'Nộp kết quả hoàn thành'}</div>
             </div>
             <button onclick="document.getElementById('kbReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
@@ -798,9 +819,10 @@ function _kbShowReportModal(templateId, reportDate, fallbackName) {
             </div>
             <input type="hidden" id="kbRptTemplateId" value="${templateId}">
             <input type="hidden" id="kbRptDate" value="${reportDate}">
+            <input type="hidden" id="kbRptRedoId" value="${redoReportId || ''}">
             <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;">
                 <button onclick="document.getElementById('kbReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
-                <button onclick="_kbSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,0.3);">📤 Nộp báo cáo</button>
+                <button onclick="_kbSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,${isRedo ? '#dc2626,#991b1b' : '#16a34a,#15803d'});color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,0.3);">${isRedo ? '🔄 Nộp lại' : '📤 Nộp báo cáo'}</button>
             </div>
         </div>
     </div>`;
@@ -848,6 +870,7 @@ async function _kbSubmitReport() {
     const link = document.getElementById('kbRptLink')?.value?.trim();
     const qty = document.getElementById('kbRptQty')?.value || '0';
     const content = document.getElementById('kbRptContent')?.value?.trim();
+    const redoId = document.getElementById('kbRptRedoId')?.value;
 
     if (!link && !_kbPastedFile) {
         showToast('Phải có ít nhất link hoặc hình ảnh!', 'error');
@@ -855,6 +878,38 @@ async function _kbSubmitReport() {
     }
 
     try {
+        // Check if this is a redo submission
+        if (redoId) {
+            let imageUrl = '';
+            if (_kbPastedFile) {
+                // Upload image first
+                const imgForm = new FormData();
+                imgForm.append('report_image', _kbPastedFile, 'paste.png');
+                const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+                const imgResp = await fetch('/api/schedule/upload-image', {
+                    method: 'POST', body: imgForm,
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                const imgData = await imgResp.json();
+                imageUrl = imgData.url || '';
+            }
+
+            const redoData = {
+                report_value: link || '',
+                report_image: imageUrl || '',
+                quantity: Number(qty),
+                content: content || ''
+            };
+            const result = await apiCall(`/api/schedule/report/${redoId}/redo`, 'PUT', redoData);
+            if (result.success) {
+                showToast('🔄 Đã nộp lại! ⏳ Chờ duyệt');
+                document.getElementById('kbReportModal')?.remove();
+                _kbLoadSchedule();
+                if (typeof _kbLoadApprovalPanel === 'function') _kbLoadApprovalPanel();
+            }
+            return;
+        }
+
         const formData = new FormData();
         formData.append('template_id', templateId);
         formData.append('report_date', reportDate);
@@ -877,7 +932,7 @@ async function _kbSubmitReport() {
         } else {
             showToast('Lỗi: ' + (data.error || 'Unknown'), 'error');
         }
-    } catch(e) { showToast('Lỗi gửi báo cáo!', 'error'); }
+    } catch(e) { showToast('Lỗi gửi báo cáo: ' + (e.message || ''), 'error'); }
 }
 
 async function _kbApprove(reportId, action) {
@@ -919,4 +974,309 @@ function _kbFilterMembers() {
             h.style.display = 'none';
         }
     });
+}
+
+// ========== SETUP NGƯỜI DUYỆT (GĐ only) ==========
+let _kbSetupVisible = false;
+async function _kbShowSetupTab() {
+    const panel = document.getElementById('kbSetupPanel');
+    if (!panel) return;
+    _kbSetupVisible = !_kbSetupVisible;
+    const btn = document.getElementById('kbSetupBtn');
+    if (!_kbSetupVisible) {
+        panel.style.display = 'none';
+        if (btn) { btn.style.background = 'white'; btn.style.color = '#64748b'; }
+        return;
+    }
+    if (btn) { btn.style.background = '#2563eb'; btn.style.color = 'white'; }
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Đang tải...</div>';
+
+    try {
+        const [approverData, deptData, configData, usersData] = await Promise.all([
+            apiCall('/api/schedule/approvers'),
+            apiCall('/api/task-points/departments'),
+            apiCall('/api/schedule/config'),
+            apiCall('/api/users/dropdown')
+        ]);
+
+        const approvers = approverData.approvers || [];
+        const allDepts = (deptData.departments || []);
+        const redoMax = configData.task_redo_max || 1;
+        const allUsers = (usersData.users || []).filter(u => u.role !== 'tkaffiliate' && u.status !== 'resigned');
+
+        // Build tree
+        const systems = allDepts.filter(d => !d.parent_id);
+        let html = `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="margin:0;font-size:16px;color:#1e293b;font-weight:700;">⚙️ Setup Người Duyệt Công Việc</h3>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <label style="font-size:12px;color:#64748b;font-weight:600;">Số lần làm lại tối đa:</label>
+                    <input type="number" id="kbRedoMaxInput" value="${redoMax}" min="0" max="10" style="width:60px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;text-align:center;" />
+                    <button onclick="_kbSaveRedoMax()" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#2563eb;color:white;cursor:pointer;font-weight:600;">Lưu</button>
+                </div>
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">ℹ️ Giám Đốc tự động duyệt tất cả, không cần gán. Gán người duyệt cho phòng CHA → tự động duyệt luôn team CON.</div>`;
+
+        systems.forEach(sys => {
+            const children = allDepts.filter(d => d.parent_id === sys.id);
+            html += `<div style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:10px 14px;font-weight:800;font-size:13px;letter-spacing:.3px;">🏢 ${sys.name}</div>`;
+
+            children.forEach(dept => {
+                const deptApprovers = approvers.filter(a => a.department_id === dept.id);
+                const subTeams = allDepts.filter(d => d.parent_id === dept.id);
+
+                html += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:13px;color:#1e293b;">📦 ${dept.name}</span>
+                        <select onchange="_kbAddApprover(this.value, ${dept.id}); this.value='';" style="padding:3px 8px;font-size:11px;border:1px solid #e2e8f0;border-radius:6px;color:#64748b;">
+                            <option value="">+ Thêm người duyệt</option>
+                            ${allUsers.filter(u => !deptApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('')}
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        ${deptApprovers.length === 0 ? '<span style="font-size:11px;color:#d1d5db;font-style:italic;">Chưa gán</span>' : ''}
+                        ${deptApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:#1d4ed8;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">×</button></span>`).join('')}
+                    </div>`;
+
+                // Sub-teams
+                subTeams.forEach(team => {
+                    const teamApprovers = approvers.filter(a => a.department_id === team.id);
+                    html += `<div style="margin-top:6px;padding-left:16px;border-left:2px solid #e2e8f0;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                            <span style="font-size:12px;color:#475569;font-weight:600;">└ ${team.name}</span>
+                            <select onchange="_kbAddApprover(this.value, ${team.id}); this.value='';" style="padding:2px 6px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;color:#64748b;">
+                                <option value="">+ Thêm</option>
+                                ${allUsers.filter(u => !teamApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                            ${teamApprovers.length === 0 ? '<span style="font-size:10px;color:#d1d5db;font-style:italic;">Kế thừa từ phòng cha</span>' : ''}
+                            ${teamApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:3px;background:#ecfdf5;border:1px solid #a7f3d0;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:600;color:#059669;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0;line-height:1;">×</button></span>`).join('')}
+                        </div>
+                    </div>`;
+                });
+
+                html += `</div>`;
+            });
+            html += `</div>`;
+        });
+
+        html += `</div>`;
+        panel.innerHTML = html;
+    } catch(e) {
+        panel.innerHTML = `<div style="color:#dc2626;padding:12px;">Lỗi: ${e.message}</div>`;
+    }
+}
+
+async function _kbAddApprover(userId, deptId) {
+    if (!userId) return;
+    try {
+        await apiCall('/api/schedule/approvers', 'POST', { user_id: Number(userId), department_id: deptId });
+        _kbShowSetupTab(); _kbSetupVisible = false; _kbShowSetupTab(); // refresh
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+async function _kbRemoveApprover(id) {
+    if (!confirm('Xóa phân quyền duyệt này?')) return;
+    try {
+        await apiCall(`/api/schedule/approvers/${id}`, 'DELETE');
+        _kbShowSetupTab(); _kbSetupVisible = false; _kbShowSetupTab();
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+async function _kbSaveRedoMax() {
+    const v = Number(document.getElementById('kbRedoMaxInput')?.value) || 1;
+    try {
+        await apiCall('/api/schedule/config', 'POST', { task_redo_max: v });
+        alert('Đã lưu: Tối đa ' + v + ' lần làm lại');
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// ========== APPROVAL PANEL (pending reports) ==========
+async function _kbLoadApprovalPanel() {
+    const panel = document.getElementById('kbApprovalPanel');
+    if (!panel) return;
+
+    try {
+        const data = await apiCall('/api/schedule/pending-approvals');
+        const pending = data.pending || [];
+
+        // Update sidebar badge
+        _kbUpdateSidebarBadge(pending.length);
+
+        if (pending.length === 0) {
+            panel.innerHTML = '';
+            return;
+        }
+
+        let rows = '';
+        pending.forEach(r => {
+            const isRedo = r.redo_count > 0;
+            const dateFormatted = r.report_date.split('-').reverse().join('/');
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;">${r.task_name} ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
+                <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
+                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${r.template_points}đ</td>
+                <td style="padding:8px 12px;font-size:11px;">
+                    ${r.report_value ? `<a href="${r.report_value}" target="_blank" style="color:#2563eb;text-decoration:none;">🔗 Link</a>` : ''}
+                    ${r.report_image ? `<a href="${r.report_image}" target="_blank" style="color:#2563eb;text-decoration:none;margin-left:4px;">🖼️ Ảnh</a>` : ''}
+                    ${r.content ? `<span style="color:#6b7280;margin-left:4px;" title="${r.content.replace(/"/g, '&quot;')}">📝</span>` : ''}
+                </td>
+                <td style="padding:8px 12px;text-align:center;">
+                    <button onclick="_kbApproveReport(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
+                    <button onclick="_kbRejectReport(${r.id}, '${r.task_name.replace(/'/g, "\\'")}', '${r.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
+                </td>
+            </tr>`;
+        });
+
+        panel.innerHTML = `
+        <div style="background:white;border:2px solid #fde68a;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(217,119,6,0.1);">
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+                <span style="color:white;font-weight:800;font-size:14px;">📋 CÔNG VIỆC CHỜ DUYỆT</span>
+                <span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#fefce8;">
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Nhân viên</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Công việc</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Ngày</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Điểm</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Báo cáo</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>`;
+    } catch(e) {
+        panel.innerHTML = '';
+    }
+}
+
+async function _kbApproveReport(reportId) {
+    try {
+        await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'approve' });
+        _kbLoadApprovalPanel();
+        _kbLoadSchedule();
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
+}
+
+function _kbRejectReport(reportId, taskName, userName) {
+    let modal = document.getElementById('kbRejectModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'kbRejectModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối báo cáo</h3>
+        <div style="margin-bottom:12px;">
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — ${taskName}</div>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmReject(${reportId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('kbRejectReason')?.focus(), 100);
+}
+
+async function _kbConfirmReject(reportId) {
+    const reason = document.getElementById('kbRejectReason')?.value?.trim();
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
+    try {
+        await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'reject', reject_reason: reason });
+        document.getElementById('kbRejectModal')?.remove();
+        _kbLoadApprovalPanel();
+        _kbLoadSchedule();
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
+}
+
+// ========== REJECTED POPUP (for employees) ==========
+async function _kbCheckRejectedPopup() {
+    try {
+        const data = await apiCall('/api/schedule/my-rejected');
+        const rejected = data.rejected || [];
+        if (rejected.length === 0) return;
+
+        let items = '';
+        rejected.forEach((r, i) => {
+            const dateF = r.report_date.split('-').reverse().join('/');
+            const deadlineDate = new Date(r.redo_deadline);
+            const deadlineStr = `${String(deadlineDate.getDate()).padStart(2,'0')}/${String(deadlineDate.getMonth()+1).padStart(2,'0')}`;
+            items += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:8px;">
+                <div style="font-weight:700;font-size:13px;color:#dc2626;margin-bottom:4px;">${i+1}. ${r.task_name} (${dateF})</div>
+                <div style="font-size:12px;color:#7f1d1d;margin-bottom:4px;">💬 Lý do: "${r.reject_reason}"</div>
+                <div style="font-size:11px;color:#d97706;font-weight:600;">⏰ Hạn nộp lại: 23:59 ngày ${deadlineStr}</div>
+            </div>`;
+        });
+
+        let modal = document.createElement('div');
+        modal.id = 'kbRejectedPopup';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;width:450px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);border-top:4px solid #dc2626;">
+            <div style="text-align:center;margin-bottom:16px;">
+                <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+                <div style="font-size:18px;font-weight:800;color:#dc2626;">BẠN CÓ CÔNG VIỆC BỊ TỪ CHỐI!</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:4px;">Hãy sửa và nộp lại trước hạn để không mất điểm</div>
+            </div>
+            ${items}
+            <div style="text-align:center;margin-top:16px;">
+                <button onclick="document.getElementById('kbRejectedPopup').remove()" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Đã hiểu ✓</button>
+            </div>
+        </div>`;
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+    } catch(e) {}
+}
+
+// ========== SIDEBAR BADGE ==========
+function _kbUpdateSidebarBadge(count) {
+    // Find the sidebar menu item for "Lịch Khóa Biểu Công Việc"
+    const menuItems = document.querySelectorAll('.sidebar-menu-item, [data-page]');
+    menuItems.forEach(el => {
+        if (el.textContent.includes('Lịch Khóa Biểu') && !el.textContent.includes('Badge')) {
+            let badge = el.querySelector('.kb-pending-badge');
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'kb-pending-badge';
+                    badge.style.cssText = 'background:#dc2626;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:6px;line-height:1.3;display:inline-block;animation:_kbPulse 2s infinite;';
+                    el.appendChild(badge);
+                }
+                badge.textContent = count;
+            } else if (badge) {
+                badge.remove();
+            }
+        }
+    });
+}
+
+// Load badge on page init for managers
+async function _kbInitBadge() {
+    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser?.role);
+    if (!isManager) return;
+    try {
+        const data = await apiCall('/api/schedule/pending-count');
+        _kbUpdateSidebarBadge(data.count || 0);
+    } catch(e) {}
+}
+
+// Auto-init badge
+if (typeof currentUser !== 'undefined' && currentUser) {
+    setTimeout(_kbInitBadge, 1000);
 }

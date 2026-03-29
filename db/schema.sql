@@ -522,3 +522,24 @@ DO $$ BEGIN
         ALTER TABLE task_point_templates ADD CONSTRAINT task_point_templates_day_of_week_check CHECK (day_of_week BETWEEN 1 AND 7);
     END IF;
 END $$;
+
+-- Phân quyền duyệt công việc (ai duyệt cho phòng nào)
+CREATE TABLE IF NOT EXISTS task_approvers (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, department_id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_approvers_user ON task_approvers(user_id);
+CREATE INDEX IF NOT EXISTS idx_task_approvers_dept ON task_approvers(department_id);
+
+-- Add reject/redo columns to task_point_reports
+ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS reject_reason TEXT;
+ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS redo_count INTEGER DEFAULT 0;
+ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;
+ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;
+
+-- Default redo limit config
+INSERT INTO app_config (key, value) VALUES ('task_redo_max', '1')
+ON CONFLICT (key) DO NOTHING;
