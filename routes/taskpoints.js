@@ -297,7 +297,7 @@ async function taskPointRoutes(fastify, options) {
     });
 
     // POST exempt a team task for a specific user (director only)
-    fastify.post('/api/task-points/exempt', { preHandler: [authenticate, requireRole(['giam_doc'])] }, async (request, reply) => {
+    fastify.post('/api/task-points/exempt', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const { user_id, template_id, exempt_type, week_start } = request.body;
         if (!user_id || !template_id || !exempt_type) {
             return reply.code(400).send({ error: 'Thiếu thông tin' });
@@ -338,7 +338,7 @@ async function taskPointRoutes(fastify, options) {
     });
 
     // DELETE restore an exemption (director only)
-    fastify.delete('/api/task-points/exempt/:id', { preHandler: [authenticate, requireRole(['giam_doc'])] }, async (request, reply) => {
+    fastify.delete('/api/task-points/exempt/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const id = Number(request.params.id);
         const exemption = await db.get('SELECT * FROM task_exemptions WHERE id = ?', [id]);
         if (!exemption) {
