@@ -320,13 +320,29 @@ async function taskScheduleRoutes(fastify, options) {
                  ORDER BY d.name, u.full_name`
             );
         } else if (user.role === 'truong_phong') {
-            members = await db.all(
-                `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
-                 FROM users u LEFT JOIN departments d ON u.department_id = d.id
-                 WHERE u.department_id = $1 AND u.status = 'active' AND u.id != $2
-                 ORDER BY u.full_name`,
-                [user.department_id, user.id]
-            );
+            // Get all departments where this user is head + own department + children
+            const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = $1 AND status = $2', [user.id, 'active']);
+            const allDeptIds = new Set();
+            const queue = headDepts.map(d => d.id);
+            if (user.department_id) queue.push(user.department_id);
+            while (queue.length > 0) {
+                const dId = queue.shift();
+                if (allDeptIds.has(dId)) continue;
+                allDeptIds.add(dId);
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [dId, 'active']);
+                children.forEach(c => queue.push(c.id));
+            }
+            if (allDeptIds.size > 0) {
+                const ids = [...allDeptIds];
+                const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+                members = await db.all(
+                    `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
+                     FROM users u LEFT JOIN departments d ON u.department_id = d.id
+                     WHERE u.department_id IN (${ph}) AND u.status = 'active' AND u.id != $${ids.length + 1}
+                     ORDER BY d.name, u.full_name`,
+                    [...ids, user.id]
+                );
+            }
         }
 
         members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));

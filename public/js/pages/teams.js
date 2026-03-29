@@ -559,15 +559,15 @@ async function showEditDeptModal(deptId) {
     // Head candidates by current level
     const headRolesByLevel = [['giam_doc', 'pho_giam_doc', 'trinh'], ['quan_ly', 'trinh'], ['truong_phong', 'to_truong']];
     const headRoles = headRolesByLevel[deptLevel] || headRolesByLevel[2];
-    const otherHeadIds = allDepts.filter(d => d.id !== deptId && d.head_user_id).map(d => d.head_user_id);
-    const headCandidates = allStaff.filter(u => headRoles.includes(u.role) && !otherHeadIds.includes(u.id));
+    // Allow 1 person to be head of multiple departments
+    const headCandidates = allStaff.filter(u => headRoles.includes(u.role));
     const headRoleLabelMap = ['Giám Đốc / PGĐ / Trinh', 'Quản Lý / Trinh', 'Trưởng Phòng / Tổ Trưởng'];
     const headRoleLabel = headRoleLabelMap[deptLevel] || headRoleLabelMap[2];
     // Store for dynamic onchange
     window._editDeptAllDepts = allDepts;
     window._editDeptAllStaff = allStaff;
     window._editDeptId = deptId;
-    window._editDeptOtherHeadIds = otherHeadIds;
+    window._editDeptOtherHeadIds = [];
 
     // Build parent options for each level
     const parentOptsLevel1 = allDepts.filter(d => !d.parent_id && d.id !== deptId && d.name.toUpperCase().includes('HỆ THỐNG')).map(s => `<option value="${s.id}" ${dept.parent_id === s.id ? 'selected' : ''}>🏢 ${s.name}</option>`).join('');
@@ -698,9 +698,8 @@ async function showDeptMembers(deptId) {
     const dept = deptData.department;
     const members = deptData.members || [];
     const allStaff = staffData.users || [];
-    // Exclude users already in this dept, giam_doc, already assigned to ANOTHER dept, or head of another dept
-    const otherHeadIds = _deptData.filter(d => d.id !== deptId && d.head_user_id).map(d => d.head_user_id);
-    const available = allStaff.filter(u => !members.find(m => m.id === u.id) && u.role !== 'giam_doc' && (!u.department_id || u.department_id === deptId) && !otherHeadIds.includes(u.id));
+    // Exclude users already in this dept, giam_doc, already assigned to ANOTHER dept
+    const available = allStaff.filter(u => !members.find(m => m.id === u.id) && u.role !== 'giam_doc' && (!u.department_id || u.department_id === deptId));
 
     const ROLE_LABELS = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', hoa_hong: 'Hoa Hồng' };
 

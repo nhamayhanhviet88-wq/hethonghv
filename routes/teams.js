@@ -101,14 +101,14 @@ async function teamsRoutes(fastify, options) {
             await db.run(`UPDATE departments SET ${updates.join(', ')} WHERE id = ?`, params);
         }
 
-        // Auto-assign department_id to new head user
+        // Auto-sync: when setting head_user_id, also add to task_approvers for approval system
         if (head_user_id !== undefined && head_user_id) {
-            // Check if user is already head of another department
-            const existingHead = await db.get('SELECT id, name FROM departments WHERE head_user_id = ? AND id != ?', [Number(head_user_id), id]);
-            if (existingHead) {
-                return reply.code(400).send({ error: `Người này đang là Trưởng đơn vị "${existingHead.name}". Phải gỡ trước.` });
+            const huid = Number(head_user_id);
+            // Upsert into task_approvers (department approver for task schedule)
+            const existing = await db.get('SELECT id FROM task_approvers WHERE user_id = ? AND department_id = ?', [huid, id]);
+            if (!existing) {
+                await db.run('INSERT INTO task_approvers (user_id, department_id) VALUES (?, ?)', [huid, id]);
             }
-            await db.run('UPDATE users SET department_id = ? WHERE id = ?', [id, Number(head_user_id)]);
         }
 
         if (status === 'active' || status === 'inactive') {
