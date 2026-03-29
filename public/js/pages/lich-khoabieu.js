@@ -487,15 +487,7 @@ function _kbRenderGrid() {
                     }
                 }
 
-                const inputReqs = _kbParseJSON(task.input_requirements);
-                const outputReqs = _kbParseJSON(task.output_requirements);
-                const reqsHtml = (inputReqs.length || outputReqs.length) ? `
-                    <div style="text-align:left;margin-top:6px;padding-top:5px;border-top:1px dashed ${c.border};font-size:10px;">
-                        ${inputReqs.length ? `<div style="color:#2563eb;font-weight:600;margin-bottom:2px;">📥 Đầu vào:</div>
-                            ${inputReqs.map((r,i) => `<div style="color:#374151;padding-left:8px;">${i+1}. ${r}</div>`).join('')}` : ''}
-                        ${outputReqs.length ? `<div style="color:#059669;font-weight:600;margin-top:3px;margin-bottom:2px;">📤 Đầu ra:</div>
-                            ${outputReqs.map((r,i) => `<div style="color:#374151;padding-left:8px;">${i+1}. ${r}</div>`).join('')}` : ''}
-                    </div>` : '';
+                const reqsHtml = '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;">
