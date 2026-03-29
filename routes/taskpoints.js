@@ -64,12 +64,20 @@ async function taskPointRoutes(fastify, options) {
         const user = await db.get('SELECT id, department_id FROM users WHERE id = ?', [Number(user_id)]);
         if (!user) return reply.code(404).send({ error: 'Không tìm thấy user' });
 
-        // Team tasks (read-only, _source='team')
+        // Team tasks (read-only, _source='team') — from own dept + managed depts
         let teamTasks = [];
-        if (user.department_id) {
+        const deptIds = new Set();
+        if (user.department_id) deptIds.add(user.department_id);
+        // Also include departments where user is head
+        const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = ? AND status = ?', [Number(user_id), 'active']);
+        headDepts.forEach(d => deptIds.add(d.id));
+        if (deptIds.size > 0) {
+            const ids = [...deptIds];
+            const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+            const weekParam = `$${ids.length + 1}`;
             teamTasks = await db.all(
-                `SELECT *, 'team' as _source FROM task_point_templates WHERE target_type = 'team' AND target_id = ? AND (week_only IS NULL OR week_only = ?) ORDER BY day_of_week, sort_order, time_start`,
-                [user.department_id, week_start || null]
+                `SELECT *, 'team' as _source FROM task_point_templates WHERE target_type = 'team' AND target_id IN (${ph}) AND (week_only IS NULL OR week_only = ${weekParam}) ORDER BY day_of_week, sort_order, time_start`,
+                [...ids, week_start || null]
             );
         }
 
