@@ -210,7 +210,7 @@ async function renderLichKhoaBieuPage(container) {
                 if (!isChild) {
                     parentStt++;
                     childStt = 0;
-                    sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${parentStt}.</span>`;
+                    sttLabel = `<span style="color:#c7d2fe;font-size:13px;font-weight:900;margin-right:5px;">${parentStt}.</span>`;
                 } else {
                     childStt++;
                     sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
@@ -232,9 +232,7 @@ async function renderLichKhoaBieuPage(container) {
                         </div>`;
                 });
             });
-            if (kbHidden.length > 0) {
-                deptListHtml += `<div onclick="_kbShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${kbHidden.length} phòng đã ẩn</div>`;
-            }
+
 
             membersHtml = `
             <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:230px;min-width:230px;overflow-y:auto;max-height:calc(100vh - 140px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">

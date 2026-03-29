@@ -60,7 +60,7 @@ function _tpRebuildSidebar() {
         if (!isChild) {
             parentStt++;
             childStt = 0;
-            sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${parentStt}.</span>`;
+            sttLabel = `<span style="color:#c7d2fe;font-size:13px;font-weight:900;margin-right:5px;">${parentStt}.</span>`;
         } else {
             childStt++;
             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
@@ -72,9 +72,7 @@ function _tpRebuildSidebar() {
         </div>
         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
     }).join('');
-    if (hidden.length > 0) {
-        html += `<div onclick="_tpShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${hidden.length} phòng đã ẩn</div>`;
-    }
+
     list.innerHTML = html;
 }
 let _tpDeptMembers = []; // members of currently selected dept
@@ -183,7 +181,7 @@ async function renderBanGiaoDiemPage(container) {
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join('')}
-                    ${_tpGetHiddenDepts().length > 0 ? `<div onclick="_tpShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${_tpGetHiddenDepts().length} phòng đã ẩn</div>` : ''}
+
                 </div>
                 <div style="padding:8px 10px;border-top:1px solid #e2e8f0;display:flex;gap:6px;">
                     ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:8px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
