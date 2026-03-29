@@ -499,7 +499,7 @@ function _kbRenderGrid() {
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;">
-                        <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${task.task_name}</div>
+                        <div onclick="_kbShowTaskDetail(${task._source === 'snapshot' ? task.template_id : task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
                         </div>
@@ -519,6 +519,97 @@ function _kbRenderGrid() {
     html += `</tbody></table>`;
 
     wrap.innerHTML = html;
+}
+
+// Premium task detail modal (same design as Bàn Giao CV Điểm)
+function _kbShowTaskDetail(templateId) {
+    const task = _kbTasks.find(t => {
+        const tid = t._source === 'snapshot' ? t.template_id : t.id;
+        return tid === templateId;
+    });
+    if (!task) return;
+    const c = _kbGetColor(task.task_name);
+    const inputReqs = _kbParseJSON(task.input_requirements);
+    const outputReqs = _kbParseJSON(task.output_requirements);
+    const isFixed = !task.week_only;
+
+    document.getElementById('kbDetailModal')?.remove();
+
+    const reqList = (items, icon, color, label) => {
+        if (!items || items.length === 0) return '';
+        return `
+            <div style="margin-bottom:14px;">
+                <div style="font-weight:700;font-size:12px;color:${color};margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:14px;">${icon}</span> ${label}
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:10px 14px;border:1px solid #e5e7eb;">
+                    ${items.map((r, i) => `
+                        <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;${i < items.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
+                            <span style="background:${color};color:white;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i + 1}</span>
+                            <span style="font-size:13px;color:#374151;line-height:1.5;padding-top:1px;">${r}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    };
+
+    const m = document.createElement('div');
+    m.id = 'kbDetailModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;animation:kbFadeIn .2s ease;';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+    <style>
+        @keyframes kbFadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes kbSlideUp { from { transform:translateY(20px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+    </style>
+    <div style="background:white;border-radius:16px;width:min(480px,92vw);max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.2);animation:kbSlideUp .25s ease;">
+        <div style="background:linear-gradient(135deg, ${c.badge}, ${c.badge}dd);padding:24px 28px;border-radius:16px 16px 0 0;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+            <div style="position:absolute;bottom:-30px;left:30px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+            <button onclick="document.getElementById('kbDetailModal').remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+            <div style="font-size:22px;font-weight:800;color:white;margin-bottom:6px;text-shadow:0 1px 3px rgba(0,0,0,0.15);">${task.task_name}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">${isFixed ? '📌 Cố định' : '📅 1 tuần'}</span>
+                <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">${_KB_DAY_NAMES[task.day_of_week]}</span>
+                ${task.requires_approval ? '<span style="background:rgba(255,200,0,0.3);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">🔒 Cần duyệt</span>' : ''}
+            </div>
+        </div>
+        <div style="padding:24px 28px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+                <div style="text-align:center;background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:12px 8px;">
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Điểm</div>
+                    <div style="font-size:24px;font-weight:800;color:${c.badge};">${task.points}<span style="font-size:12px;">đ</span></div>
+                </div>
+                <div style="text-align:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 8px;">
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">SL Tối Thiểu</div>
+                    <div style="font-size:24px;font-weight:800;color:#16a34a;">≥${task.min_quantity || 1}<span style="font-size:12px;"> lần</span></div>
+                </div>
+                <div style="text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 8px;">
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Khung Giờ</div>
+                    <div style="font-size:14px;font-weight:800;color:#334155;margin-top:2px;">${task.time_start}</div>
+                    <div style="font-size:9px;color:#9ca3af;">→ ${task.time_end}</div>
+                </div>
+            </div>
+            ${task.guide_url ? `
+            <div style="margin-bottom:18px;">
+                <a href="${task.guide_url}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg, #eff6ff, #dbeafe);border:1px solid #93c5fd;border-radius:10px;text-decoration:none;color:#1d4ed8;transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(37,99,235,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                    <span style="font-size:20px;">📘</span>
+                    <div>
+                        <div style="font-weight:700;font-size:13px;">Xem hướng dẫn công việc</div>
+                        <div style="font-size:11px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:350px;">${task.guide_url}</div>
+                    </div>
+                    <span style="margin-left:auto;font-size:14px;">→</span>
+                </a>
+            </div>` : ''}
+            ${reqList(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
+            ${reqList(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
+            ${!inputReqs.length && !outputReqs.length ? `
+            <div style="text-align:center;padding:16px;color:#9ca3af;font-size:13px;background:#f9fafb;border-radius:8px;border:1px dashed #e5e7eb;">
+                Chưa có yêu cầu đầu vào/ra
+            </div>` : ''}
+        </div>
+    </div>`;
+    document.body.appendChild(m);
 }
 
 // Report modal — full redesign
