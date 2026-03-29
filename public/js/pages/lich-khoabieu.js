@@ -624,6 +624,9 @@ function _kbShowReportModal(templateId, reportDate) {
     const taskPoints = task ? task.points : 0;
     const needsApproval = task ? task.requires_approval : false;
     const minQty = task ? (task.min_quantity || 1) : 1;
+    const guideUrl = task ? (task.guide_url || '') : '';
+    const inputReqs = task ? _kbParseJSON(task.input_requirements) : [];
+    const outputReqs = task ? _kbParseJSON(task.output_requirements) : [];
     _kbPastedFile = null;
 
     const approvalWarn = needsApproval ? `
@@ -631,6 +634,35 @@ function _kbShowReportModal(templateId, reportDate) {
             <span style="font-size:18px;">🔒</span>
             <div style="font-size:12px;color:#78350f;font-weight:600;">Công việc này cần Quản lý/TP duyệt mới được tính điểm</div>
         </div>` : '';
+
+    // Build requirements HTML (compact)
+    const reqHtml = (items, icon, color, label) => {
+        if (!items.length) return '';
+        return `<div style="margin-top:8px;">
+            <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px;">${icon} ${label}</div>
+            ${items.map((r, i) => `<div style="font-size:11px;color:#374151;padding:2px 0 2px 12px;border-left:2px solid ${color}20;">${i+1}. ${r}</div>`).join('')}
+        </div>`;
+    };
+
+    const hasTaskInfo = guideUrl || inputReqs.length || outputReqs.length;
+    const taskInfoSection = hasTaskInfo ? `
+        <details style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <summary style="padding:10px 14px;background:#f8fafc;cursor:pointer;font-size:12px;font-weight:700;color:#374151;list-style:none;display:flex;align-items:center;gap:6px;user-select:none;">
+                <span style="transition:transform .2s;display:inline-block;">▶</span> 📖 Xem hướng dẫn & yêu cầu công việc
+            </summary>
+            <div style="padding:12px 14px;background:white;">
+                ${guideUrl ? `<a href="${guideUrl}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;text-decoration:none;color:#1d4ed8;margin-bottom:8px;transition:all .15s;font-size:12px;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                    <span style="font-size:16px;">📘</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;">Hướng dẫn công việc</div>
+                        <div style="font-size:10px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${guideUrl}</div>
+                    </div>
+                    <span>→</span>
+                </a>` : ''}
+                ${reqHtml(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
+                ${reqHtml(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
+            </div>
+        </details>` : '';
 
     const modal = document.createElement('div');
     modal.id = 'kbReportModal';
@@ -656,16 +688,21 @@ function _kbShowReportModal(templateId, reportDate) {
                     <div style="font-size:14px;font-weight:700;color:#122546;">${reportDate.split('-').reverse().join('/')}</div>
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-                <div style="padding:10px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;">
-                    <div style="font-size:10px;color:#059669;text-transform:uppercase;font-weight:600;margin-bottom:4px;">⭐ Điểm thưởng</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div style="padding:10px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;text-align:center;">
+                    <div style="font-size:10px;color:#059669;text-transform:uppercase;font-weight:600;margin-bottom:4px;">⭐ Điểm</div>
                     <div style="font-size:18px;font-weight:800;color:#059669;">${taskPoints}đ</div>
                 </div>
+                <div style="padding:10px 12px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;text-align:center;">
+                    <div style="font-size:10px;color:#2563eb;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📊 Tối thiểu</div>
+                    <div style="font-size:18px;font-weight:800;color:#2563eb;">≥${minQty}</div>
+                </div>
                 <div>
-                    <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📊 Số lượng hoàn thành <span style="color:#dc2626;">*</span></label>
+                    <label style="font-weight:600;font-size:11px;color:#374151;display:block;margin-bottom:4px;">SL hoàn thành <span style="color:#dc2626;">*</span></label>
                     <input id="kbRptQty" type="number" min="0" value="${minQty}" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-weight:700;color:#122546;box-sizing:border-box;text-align:center;">
                 </div>
             </div>
+            ${taskInfoSection}
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành</label>
                 <textarea id="kbRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
