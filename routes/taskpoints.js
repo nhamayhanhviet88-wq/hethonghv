@@ -214,7 +214,7 @@ async function taskPointRoutes(fastify, options) {
     fastify.put('/api/task-library/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { task_name, points, min_quantity, guide_url, requires_approval, department_id, is_weekly, input_requirements, output_requirements } = request.body || {};
         // Check if target task is fixed — only giam_doc can edit
-        const existing = await db.get('SELECT is_weekly FROM task_library WHERE id = $1', [Number(request.params.id)]);
+        const existing = await db.get('SELECT is_weekly, task_name FROM task_library WHERE id = $1', [Number(request.params.id)]);
         if (existing && !existing.is_weekly && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
         }
@@ -222,6 +222,18 @@ async function taskPointRoutes(fastify, options) {
             `UPDATE task_library SET task_name=$1, points=$2, min_quantity=$3, guide_url=$4, requires_approval=$5, department_id=$6, is_weekly=$7, input_requirements=$8, output_requirements=$9 WHERE id=$10`,
             [task_name, Number(points) || 0, Number(min_quantity) || 1, guide_url || null, requires_approval ? true : false, department_id ? Number(department_id) : null, is_weekly ? true : false, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), Number(request.params.id)]
         );
+
+        // Sync to all task_point_templates with the same name (old or new name)
+        const oldName = existing ? existing.task_name : task_name;
+        const namesToSync = [oldName];
+        if (task_name !== oldName) namesToSync.push(task_name);
+        for (const n of namesToSync) {
+            await db.run(
+                `UPDATE task_point_templates SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6 WHERE task_name=$7`,
+                [JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), guide_url || null, Number(points) || 0, Number(min_quantity) || 1, requires_approval ? true : false, n]
+            );
+        }
+
         return { success: true };
     });
 
