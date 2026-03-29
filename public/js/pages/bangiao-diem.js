@@ -1913,7 +1913,10 @@ async function _tpSaveReorder() {
 // ===== MONTH VIEW =====
 async function _tpShowMonthView(monthStr) {
     if (!monthStr) return;
-    const [year, month] = monthStr.split('-').map(Number);
+    // Parse robustly via Date
+    const parsedDate = new Date(monthStr + '-01');
+    const year = parsedDate.getFullYear();
+    const month = parsedDate.getMonth() + 1; // 1-indexed
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
 
