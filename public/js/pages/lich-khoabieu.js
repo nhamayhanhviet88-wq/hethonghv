@@ -110,14 +110,69 @@ async function renderLichKhoaBieuPage(container) {
     let membersHtml = '';
     if (isManager) {
         try {
-            const m = await apiCall('/api/schedule/team-members');
+            // Fetch members AND departments in parallel
+            const [m, dData] = await Promise.all([
+                apiCall('/api/schedule/team-members'),
+                apiCall('/api/task-points/departments')
+            ]);
             const members = m.members || [];
-            // Group by dept
+            const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
+            const activeDeptIds = new Set(dData.active_dept_ids || []);
+
+            // Tree-walk sort: parents by display_order, children after parent
+            const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
+            // Also include parents of active children
+            activeDepts.forEach(d => {
+                if (d.parent_id) {
+                    const parent = allDepts.find(p => p.id === d.parent_id);
+                    if (parent && !activeDeptIds.has(parent.id)) {
+                        activeDeptIds.add(parent.id);
+                        activeDepts.push(parent);
+                    }
+                }
+            });
+            const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            const sortedDepts = [];
+            parents.forEach(p => {
+                sortedDepts.push(p);
+                const children = activeDepts.filter(c => c.parent_id === p.id)
+                    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                sortedDepts.push(...children);
+            });
+
+            // Group members by dept name for lookup
             const byDept = {};
             members.forEach(u => {
                 const dn = u.dept_name || 'Không phòng ban';
                 if (!byDept[dn]) byDept[dn] = [];
                 byDept[dn].push(u);
+            });
+
+            // Build HTML with tree-walk order + STT
+            let deptListHtml = '';
+            let parentStt = 0, childStt = 0;
+            sortedDepts.forEach(dept => {
+                const isChild = activeDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
+                const deptMembers = byDept[dept.name] || [];
+                let sttLabel = '';
+                if (!isChild) {
+                    parentStt++;
+                    childStt = 0;
+                    sttLabel = `<span style="color:#9ca3af;font-size:9px;font-weight:700;margin-right:3px;">${parentStt}.</span>`;
+                } else {
+                    childStt++;
+                    sttLabel = `<span style="color:#9ca3af;font-size:9px;margin-right:2px;">${childStt}.</span>`;
+                }
+                deptListHtml += `<div style="padding:6px 14px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #f3f4f6;${isChild ? 'padding-left:24px;' : ''}">${sttLabel}${isChild ? '└ ' : ''}${dept.name}</div>`;
+                deptMembers.forEach(u => {
+                    deptListHtml += `
+                        <div class="kb-member-item" data-uid="${u.id}" onclick="_kbSelectMember(${u.id})" style="padding:8px 14px ${isChild ? '8px 28px' : '8px 14px'};font-size:12px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;"
+                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f9fafb'"
+                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
+                            ${u.full_name} <span style="color:#9ca3af;font-size:10px;">(${u.role})</span>
+                        </div>`;
+                });
             });
 
             membersHtml = `
@@ -127,16 +182,7 @@ async function renderLichKhoaBieuPage(container) {
                     <div class="kb-member-item kb-active" data-uid="" onclick="_kbSelectMember(null)" style="padding:10px 14px;font-size:13px;color:#122546;cursor:pointer;border-bottom:1px solid #f9fafb;border-left:3px solid #2563eb;background:#eff6ff;font-weight:600;">
                         👤 Lịch của tôi
                     </div>
-                    ${Object.entries(byDept).map(([dept, users]) => `
-                        <div style="padding:6px 14px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #f3f4f6;">${dept}</div>
-                        ${users.map(u => `
-                            <div class="kb-member-item" data-uid="${u.id}" onclick="_kbSelectMember(${u.id})" style="padding:8px 14px;font-size:12px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;"
-                                onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f9fafb'"
-                                onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
-                                ${u.full_name} <span style="color:#9ca3af;font-size:10px;">(${u.role})</span>
-                            </div>
-                        `).join('')}
-                    `).join('')}
+                    ${deptListHtml}
                 </div>
             </div>`;
         } catch(e) {}
