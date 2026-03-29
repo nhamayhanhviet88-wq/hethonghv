@@ -13,6 +13,35 @@ const _KB_COLORS = [
 ];
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbMonthlySummary = 0; // total approved points this month
+
+// ===== HIDDEN DEPTS for LKB (per user, localStorage) =====
+function _kbGetHiddenDepts() {
+    try {
+        const key = `kb_hidden_depts_${window._currentUser?.id || 'default'}`;
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch { return []; }
+}
+function _kbSetHiddenDepts(ids) {
+    const key = `kb_hidden_depts_${window._currentUser?.id || 'default'}`;
+    localStorage.setItem(key, JSON.stringify(ids));
+}
+function _kbToggleHideDept(deptId, event) {
+    if (event) event.stopPropagation();
+    const hidden = _kbGetHiddenDepts();
+    const idx = hidden.indexOf(deptId);
+    if (idx >= 0) hidden.splice(idx, 1);
+    else hidden.push(deptId);
+    _kbSetHiddenDepts(hidden);
+    // Re-render sidebar
+    const container = document.getElementById('app');
+    if (container) renderLichKhoaBieuPage(container);
+}
+function _kbShowHiddenDepts(event) {
+    if (event) event.stopPropagation();
+    _kbSetHiddenDepts([]);
+    const container = document.getElementById('app');
+    if (container) renderLichKhoaBieuPage(container);
+}
 let _kbMonthlyHolidays = []; // holidays in the month
 let _kbWeekStart = null;
 let _kbViewUserId = null; // null = self
@@ -168,7 +197,12 @@ async function renderLichKhoaBieuPage(container) {
             // Build HTML with tree-walk order + STT
             let deptListHtml = '';
             let parentStt = 0, childStt = 0;
-            sortedDepts.forEach(dept => {
+            const kbHidden = _kbGetHiddenDepts();
+            sortedDepts.filter(dept => {
+                if (kbHidden.includes(dept.id)) return false;
+                if (dept.parent_id && kbHidden.includes(dept.parent_id)) return false;
+                return true;
+            }).forEach(dept => {
                 const isChild = activeDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
                 const deptMembers = (byDept[dept.name] || [])
                     .sort((a, b) => (_kbRolePriority[b.role] || 0) - (_kbRolePriority[a.role] || 0));
@@ -176,12 +210,13 @@ async function renderLichKhoaBieuPage(container) {
                 if (!isChild) {
                     parentStt++;
                     childStt = 0;
-                    sttLabel = `<span style="color:#ffffff;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.3);">${parentStt}.</span>`;
+                    sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${parentStt}.</span>`;
                 } else {
                     childStt++;
                     sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
                 }
-                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
+                const hideBtn = !isChild ? `<span onclick="_kbToggleHideDept(${dept.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
+                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${hideBtn}</div>`;
                 deptMembers.forEach(u => {
                     const isLead = _kbIsLeader(u.role);
                     const roleTag = _kbRoleLabel[u.role] || u.role;
@@ -197,6 +232,9 @@ async function renderLichKhoaBieuPage(container) {
                         </div>`;
                 });
             });
+            if (kbHidden.length > 0) {
+                deptListHtml += `<div onclick="_kbShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${kbHidden.length} phòng đã ẩn</div>`;
+            }
 
             membersHtml = `
             <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:230px;min-width:230px;overflow-y:auto;max-height:calc(100vh - 140px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">

@@ -13,6 +13,70 @@ let _tpHolidayMap = {};
 let _tpViewMode = 'team'; // 'team' | 'individual'
 let _tpViewUserId = null;
 let _tpViewUserName = '';
+
+// ===== HIDDEN DEPTS (per user, localStorage) =====
+function _tpGetHiddenDepts() {
+    try {
+        const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch { return []; }
+}
+function _tpSetHiddenDepts(ids) {
+    const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
+    localStorage.setItem(key, JSON.stringify(ids));
+}
+function _tpToggleHideDept(deptId, event) {
+    if (event) event.stopPropagation();
+    const hidden = _tpGetHiddenDepts();
+    const idx = hidden.indexOf(deptId);
+    if (idx >= 0) hidden.splice(idx, 1);
+    else hidden.push(deptId);
+    _tpSetHiddenDepts(hidden);
+    // Re-render sidebar only
+    _tpRebuildSidebar();
+}
+function _tpShowHiddenDepts(event) {
+    if (event) event.stopPropagation();
+    // Show all hidden depts temporarily
+    _tpSetHiddenDepts([]);
+    _tpRebuildSidebar();
+}
+let _tpCachedActiveDepts = []; // cached for rebuild
+function _tpRebuildSidebar() {
+    const list = document.getElementById('tpDeptList');
+    if (!list || !_tpCachedActiveDepts.length) return;
+    const activeDepts = _tpCachedActiveDepts;
+    const activeSet = new Set(_tpActiveDeptIds);
+    const hidden = _tpGetHiddenDepts();
+    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    let parentStt = 0, childStt = 0;
+    let html = activeDepts.filter(d => {
+        if (hidden.includes(d.id)) return false;
+        if (d.parent_id && hidden.includes(d.parent_id)) return false;
+        return true;
+    }).map((d, i) => {
+        const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
+        let sttLabel = '';
+        if (!isChild) {
+            parentStt++;
+            childStt = 0;
+            sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${parentStt}.</span>`;
+        } else {
+            childStt++;
+            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
+        }
+        const hideBtn = !isChild ? `<span onclick="_tpToggleHideDept(${d.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
+        return `
+        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
+            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${hideBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
+        </div>
+        <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
+    }).join('');
+    if (hidden.length > 0) {
+        html += `<div onclick="_tpShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${hidden.length} phòng đã ẩn</div>`;
+    }
+    list.innerHTML = html;
+}
 let _tpDeptMembers = []; // members of currently selected dept
 const _tpColorPalette = [
     { bg:'#eff6ff', border:'#bfdbfe', badge:'#1d4ed8', text:'#1e3a5f', tag:'#dbeafe' },
@@ -66,6 +130,7 @@ async function renderBanGiaoDiemPage(container) {
             .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         activeDepts.push(...children);
     });
+    _tpCachedActiveDepts = activeDepts; // cache for sidebar rebuild
 
     container.innerHTML = `
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
@@ -93,23 +158,32 @@ async function renderBanGiaoDiemPage(container) {
                 </div>
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
                     ${(() => { _tpParentSttCounter = 0; _tpChildSttCounter = 0; return ''; })()}
-                    ${activeDepts.map((d, i) => {
+                    ${activeDepts.filter(d => {
+                        // Hide departments that user has hidden (and their children)
+                        const hidden = _tpGetHiddenDepts();
+                        if (hidden.includes(d.id)) return false;
+                        // If parent is hidden, hide child too
+                        if (d.parent_id && hidden.includes(d.parent_id)) return false;
+                        return true;
+                    }).map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
                         let sttLabel = '';
                         if (!isChild) {
                             _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
                             _tpChildSttCounter = 0;
-                            sttLabel = `<span style="color:#ffffff;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.3);">${_tpParentSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#fde68a;font-size:13px;font-weight:900;margin-right:5px;text-shadow:0 1px 2px rgba(0,0,0,0.4);">${_tpParentSttCounter}.</span>`;
                         } else {
                             _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
                             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${_tpChildSttCounter}.</span>`;
                         }
+                        const hideBtn = !isChild ? `<span onclick="_tpToggleHideDept(${d.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
                         return `
                         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
-                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
+                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${hideBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join('')}
+                    ${_tpGetHiddenDepts().length > 0 ? `<div onclick="_tpShowHiddenDepts(event)" style="padding:8px 14px;font-size:11px;color:#6b7280;cursor:pointer;text-align:center;border-top:1px dashed #e2e8f0;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#6b7280'">👁️ Hiện ${_tpGetHiddenDepts().length} phòng đã ẩn</div>` : ''}
                 </div>
                 <div style="padding:8px 10px;border-top:1px solid #e2e8f0;display:flex;gap:6px;">
                     ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:8px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
