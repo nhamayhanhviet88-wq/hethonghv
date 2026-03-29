@@ -83,39 +83,37 @@ async function renderBanGiaoDiemPage(container) {
 
         <div style="display:flex;gap:16px;align-items:flex-start;">
             <!-- LEFT: Dept list -->
-            <div style="min-width:200px;max-width:220px;background:white;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.06);flex-shrink:0;">
-                <div style="padding:12px 14px;border-bottom:1px solid #f3f4f6;font-weight:700;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Phòng ban</div>
-                <div style="padding:6px 10px;border-bottom:1px solid #f3f4f6;">
+            <div style="min-width:230px;max-width:240px;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.06);flex-shrink:0;">
+                <div style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;">
                     <input type="text" id="tpGlobalSearch" placeholder="🔍 Tìm NV / phòng ban..." 
                            oninput="_tpGlobalFilter()" 
-                           style="width:100%;padding:6px 10px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;box-sizing:border-box;color:#374151;background:#f9fafb;outline:none;" 
-                           onfocus="this.style.borderColor='#2563eb';this.style.background='white'" 
-                           onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'" />
+                           style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;color:#1e293b;background:white;outline:none;" 
+                           onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'" 
+                           onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
                 </div>
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
                     ${(() => { _tpParentSttCounter = 0; _tpChildSttCounter = 0; return ''; })()}
                     ${activeDepts.map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
-                        // Calculate STT: parents get global counter, children get per-parent counter
                         let sttLabel = '';
                         if (!isChild) {
                             _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
                             _tpChildSttCounter = 0;
-                            sttLabel = `<span style="color:#9ca3af;font-size:11px;margin-right:4px;font-weight:700;">${_tpParentSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#64748b;font-size:11px;font-weight:800;margin-right:4px;">${_tpParentSttCounter}.</span>`;
                         } else {
                             _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
-                            sttLabel = `<span style="color:#9ca3af;font-size:10px;margin-right:3px;">${_tpChildSttCounter}.</span>`;
+                            sttLabel = `<span style="color:#94a3b8;font-size:10px;font-weight:700;margin-right:3px;">${_tpChildSttCounter}.</span>`;
                         }
                         return `
-                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;padding:10px ${isChild ? '14px 10px 24px' : '14px'};font-size:${isChild ? '12px' : '13px'};color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;font-weight:600;${i === 0 ? 'background:#eff6ff;color:#122546;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
-                            ${sttLabel}${isChild ? '└ ' : ''}${d.name}
+                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:4px;padding:${isChild ? '8px 14px 8px 28px' : '8px 14px'};font-size:${isChild ? '11px' : '12px'};color:${isChild ? '#64748b' : '#1e293b'};cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .15s;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;background:${isChild ? '#f8fafc' : (i === 0 ? '#eff6ff' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)')};${i === 0 ? 'border-left:3px solid #2563eb;color:#122546;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f1f5f9'" onmouseout="if(!this.classList.contains('tp-active')){this.style.background='${isChild ? '#f8fafc' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'}'}">
+                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:13px;">🏢</span> '}${d.name}
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join('')}
                 </div>
-                <div style="padding:8px 10px;border-top:1px solid #f3f4f6;display:flex;gap:6px;">
-                    ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
-                    ${_tpIsDirector ? `<button onclick="_tpShowReorderModal()" style="padding:7px 10px;border-radius:6px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;" title="Sắp xếp thứ tự phòng ban">🔢 STT</button>` : ''}
+                <div style="padding:8px 10px;border-top:1px solid #e2e8f0;display:flex;gap:6px;">
+                    ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:8px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
+                    ${_tpIsDirector ? `<button onclick="_tpShowReorderModal()" style="padding:7px 10px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;" title="Sắp xếp thứ tự phòng ban">🔢 STT</button>` : ''}
                 </div>
             </div>
 
@@ -267,18 +265,31 @@ async function _tpLoadDeptMembers(deptId) {
         _tpDeptMembers = u.users || [];
     } catch(e) { _tpDeptMembers = []; }
 
+    // Sort by role priority: leaders first
+    const _rolePri = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
+    const _roleLabel = { giam_doc: '⭐ Quản lý', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
+    const _isLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
+    _tpDeptMembers.sort((a, b) => (_rolePri[b.role] || 0) - (_rolePri[a.role] || 0));
+
     wrap.style.display = 'block';
     wrap.innerHTML = `
         <div id="tpMemberList_${deptId}">
-            ${_tpDeptMembers.map(m => `
+            ${_tpDeptMembers.map(m => {
+                const lead = _isLeader(m.role);
+                const roleTag = _roleLabel[m.role] || m.role;
+                const starStyle = lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
+                return `
                 <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
                      onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
-                     style="padding:6px 14px 6px 22px;font-size:12px;color:#6b7280;cursor:pointer;transition:all .12s;border-left:3px solid transparent;"
-                     onmouseover="this.style.background='#f0fdf4';this.style.color='#059669'" 
-                     onmouseout="if(!this.classList.contains('tp-member-active')){this.style.background='';this.style.color='#6b7280'}">
-                    👤 ${m.full_name} <span style="color:#9ca3af;font-size:10px;">(${m.username || m.role})</span>
-                </div>
-            `).join('')}
+                     style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
+                     onmouseover="this.style.background='#f8fafc'" 
+                     onmouseout="if(!this.classList.contains('tp-member-active')){this.style.background=''}">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:${lead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
+                        <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                    </div>
+                </div>`;
+            }).join('')}
         </div>`;
 }
 

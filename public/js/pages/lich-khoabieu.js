@@ -169,13 +169,13 @@ async function renderLichKhoaBieuPage(container) {
                     childStt++;
                     sttLabel = `<span style="color:#94a3b8;font-size:10px;font-weight:700;margin-right:3px;">${childStt}.</span>`;
                 }
-                deptListHtml += `<div style="padding:8px 14px;font-size:${isChild ? '11px' : '12px'};font-weight:800;color:${isChild ? '#64748b' : '#1e293b'};text-transform:uppercase;background:${isChild ? '#f8fafc' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};border-bottom:1px solid #e2e8f0;${isChild ? 'padding-left:28px;' : ''}letter-spacing:0.3px;display:flex;align-items:center;gap:4px;">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:13px;">🏢</span> '}${dept.name}</div>`;
+                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:8px 14px;font-size:${isChild ? '11px' : '12px'};font-weight:800;color:${isChild ? '#64748b' : '#1e293b'};text-transform:uppercase;background:${isChild ? '#f8fafc' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};border-bottom:1px solid #e2e8f0;${isChild ? 'padding-left:28px;' : ''}letter-spacing:0.3px;display:flex;align-items:center;gap:4px;">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:13px;">🏢</span> '}${dept.name}</div>`;
                 deptMembers.forEach(u => {
                     const isLead = _kbIsLeader(u.role);
                     const roleTag = _kbRoleLabel[u.role] || u.role;
                     const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
                     deptListHtml += `
-                        <div class="kb-member-item" data-uid="${u.id}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
+                        <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
@@ -188,9 +188,15 @@ async function renderLichKhoaBieuPage(container) {
 
             membersHtml = `
             <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:230px;min-width:230px;overflow-y:auto;max-height:calc(100vh - 140px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                <div style="padding:12px 16px;border-bottom:2px solid #e2e8f0;font-weight:800;font-size:12px;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">👥</span> NHÂN VIÊN</div>
+                <div style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;">
+                    <input type="text" id="kbMemberSearch" placeholder="🔍 Tìm nhân viên..." 
+                           oninput="_kbFilterMembers()" 
+                           style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;color:#1e293b;background:white;outline:none;" 
+                           onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'" 
+                           onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
+                </div>
                 <div id="kbMemberList">
-                    <div class="kb-member-item kb-active" data-uid="" onclick="_kbSelectMember(null)" style="padding:12px 16px;font-size:14px;color:#122546;cursor:pointer;border-bottom:1px solid #e2e8f0;border-left:3px solid #2563eb;background:#eff6ff;font-weight:700;display:flex;align-items:center;gap:8px;">
+                    <div class="kb-member-item kb-active" data-uid="" data-name="Lịch của tôi" onclick="_kbSelectMember(null)" style="padding:12px 16px;font-size:14px;color:#122546;cursor:pointer;border-bottom:1px solid #e2e8f0;border-left:3px solid #2563eb;background:#eff6ff;font-weight:700;display:flex;align-items:center;gap:8px;">
                         <span style="font-size:16px;">📋</span> Lịch của tôi
                     </div>
                     ${deptListHtml}
@@ -848,4 +854,37 @@ async function _kbApprove(reportId, action) {
         showToast(action === 'approve' ? '✅ Đã duyệt!' : '❌ Đã từ chối!');
         _kbLoadSchedule();
     } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+function _kbFilterMembers() {
+    const q = (document.getElementById('kbMemberSearch')?.value || '').toLowerCase().trim();
+    const list = document.getElementById('kbMemberList');
+    if (!list) return;
+    const members = list.querySelectorAll('.kb-member-item');
+    const deptHeaders = list.querySelectorAll('.kb-dept-header');
+    
+    // Track which depts have visible members
+    const visibleDepts = new Set();
+    
+    members.forEach(el => {
+        const name = (el.dataset.name || '').toLowerCase();
+        const dept = el.dataset.dept || '';
+        const uid = el.dataset.uid;
+        if (!q || uid === '' || name.includes(q)) {
+            el.style.display = '';
+            if (dept) visibleDepts.add(dept);
+        } else {
+            el.style.display = 'none';
+        }
+    });
+    
+    // Show/hide dept headers based on whether they have visible members
+    deptHeaders.forEach(h => {
+        const dept = h.dataset.dept || '';
+        if (!q || visibleDepts.has(dept)) {
+            h.style.display = '';
+        } else {
+            h.style.display = 'none';
+        }
+    });
 }
