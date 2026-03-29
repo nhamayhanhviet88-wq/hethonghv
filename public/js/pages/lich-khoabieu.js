@@ -646,11 +646,8 @@ function _kbShowReportModal(templateId, reportDate) {
 
     const hasTaskInfo = guideUrl || inputReqs.length || outputReqs.length;
     const taskInfoSection = hasTaskInfo ? `
-        <details style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-            <summary style="padding:10px 14px;background:#f8fafc;cursor:pointer;font-size:12px;font-weight:700;color:#374151;list-style:none;display:flex;align-items:center;gap:6px;user-select:none;">
-                <span style="transition:transform .2s;display:inline-block;">▶</span> 📖 Xem hướng dẫn & yêu cầu công việc
-            </summary>
-            <div style="padding:12px 14px;background:white;">
+        <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <div style="padding:12px 14px;background:#f8fafc;">
                 ${guideUrl ? `<a href="${guideUrl}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;text-decoration:none;color:#1d4ed8;margin-bottom:8px;transition:all .15s;font-size:12px;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
                     <span style="font-size:16px;">📘</span>
                     <div style="flex:1;min-width:0;">
@@ -662,7 +659,7 @@ function _kbShowReportModal(templateId, reportDate) {
                 ${reqHtml(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
                 ${reqHtml(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
             </div>
-        </details>` : '';
+        </div>` : '';
 
     const modal = document.createElement('div');
     modal.id = 'kbReportModal';
