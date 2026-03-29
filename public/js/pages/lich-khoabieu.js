@@ -606,12 +606,19 @@ function _kbRenderGrid() {
 }
 
 // Premium task detail modal (same design as Bàn Giao CV Điểm)
-function _kbShowTaskDetail(templateId) {
-    const task = _kbTasks.find(t => {
+async function _kbShowTaskDetail(templateId) {
+    let task = _kbTasks.find(t => {
         const tid = t._source === 'snapshot' ? t.template_id : t.id;
         return tid === templateId;
     });
-    if (!task) return;
+    // If not in local cache (e.g. viewing from approval panel), fetch from API
+    if (!task) {
+        try {
+            const data = await apiCall(`/api/task-points/template/${templateId}`);
+            task = data.template;
+        } catch(e) {}
+    }
+    if (!task) { showToast('Không tìm thấy công việc', 'error'); return; }
     const c = _kbGetColor(task.task_name);
     const inputReqs = _kbParseJSON(task.input_requirements);
     const outputReqs = _kbParseJSON(task.output_requirements);

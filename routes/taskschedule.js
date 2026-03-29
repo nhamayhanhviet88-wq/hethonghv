@@ -13,6 +13,13 @@ async function taskScheduleRoutes(fastify, options) {
         await db.run('CREATE INDEX IF NOT EXISTS idx_templates_target ON task_point_templates(target_type, target_id)');
     } catch(e) { /* indexes may already exist */ }
 
+    // GET single template by ID
+    fastify.get('/api/task-points/template/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const template = await db.get('SELECT * FROM task_point_templates WHERE id = $1', [Number(request.params.id)]);
+        if (!template) return reply.code(404).send({ error: 'Template not found' });
+        return { template };
+    });
+
     // Helper: get templates for a user (individual→team fallback, with week_only filter)
     async function _getTemplatesForUser(userId, weekStart) {
         const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [userId]);
