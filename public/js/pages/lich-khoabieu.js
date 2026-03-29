@@ -307,7 +307,7 @@ async function _kbLoadSchedule() {
 
         _kbHolidayMap = data.holidays_week || {};
 
-        _kbMonthlySummary = (data.monthly_summary || []).reduce((s, r) => s + (r.total_points || 0), 0);
+        _kbMonthlySummary = (data.monthly_summary || []).reduce((s, r) => s + Number(r.total_points || 0), 0);
 
         _kbMonthlyHolidays = (data.holidays_year || []).filter(hol => {
             const dd = new Date(hol.holiday_date);
@@ -366,7 +366,7 @@ function _kbRenderStats() {
 
     // Today's points (capped at 100)
     const todayStr = _kbDateStr(now);
-    const todayEarnedRaw = _kbSummary[todayStr]?.total_points || 0;
+    const todayEarnedRaw = Number(_kbSummary[todayStr]?.total_points || 0);
     const todayEarned = Math.min(todayEarnedRaw, 100);
 
     // Week points (Mon-Sun, each day capped at 100)
@@ -375,7 +375,7 @@ function _kbRenderStats() {
     for (let d = 1; d <= 7; d++) {
         const colDate = new Date(_kbWeekStart); colDate.setDate(_kbWeekStart.getDate() + d - 1);
         const ds = _kbDateStr(colDate);
-        if (_kbSummary[ds]) weekEarned += Math.min(_kbSummary[ds].total_points || 0, 100);
+        if (_kbSummary[ds]) weekEarned += Math.min(Number(_kbSummary[ds].total_points || 0), 100);
     }
 
     // Month max = days in month × 100
@@ -445,7 +445,7 @@ function _kbRenderGrid() {
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
         const dateStr = _kbDateStr(colDate);
         let earned = 0;
-        if (_kbSummary[dateStr]) earned = _kbSummary[dateStr].total_points || 0;
+        if (_kbSummary[dateStr]) earned = Number(_kbSummary[dateStr].total_points || 0);
         earnedPerDay[d] = _kbHolidayMap[d] ? 0 : earned;
         totalPerDay[d] = _kbHolidayMap[d] ? 0 : (byDay[d]||[]).reduce((s,t) => s + (t.points||0), 0);
     }
