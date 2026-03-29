@@ -121,7 +121,6 @@ async function renderLichKhoaBieuPage(container) {
 
             // Tree-walk sort: parents by display_order, children after parent
             const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
-            // Also include parents of active children
             activeDepts.forEach(d => {
                 if (d.parent_id) {
                     const parent = allDepts.find(p => p.id === d.parent_id);
@@ -149,38 +148,50 @@ async function renderLichKhoaBieuPage(container) {
                 byDept[dn].push(u);
             });
 
+            // Role priority: higher number = shown first
+            const _kbRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
+            const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
+            const _kbIsLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
+
             // Build HTML with tree-walk order + STT
             let deptListHtml = '';
             let parentStt = 0, childStt = 0;
             sortedDepts.forEach(dept => {
                 const isChild = activeDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
-                const deptMembers = byDept[dept.name] || [];
+                const deptMembers = (byDept[dept.name] || [])
+                    .sort((a, b) => (_kbRolePriority[b.role] || 0) - (_kbRolePriority[a.role] || 0));
                 let sttLabel = '';
                 if (!isChild) {
                     parentStt++;
                     childStt = 0;
-                    sttLabel = `<span style="color:#9ca3af;font-size:9px;font-weight:700;margin-right:3px;">${parentStt}.</span>`;
+                    sttLabel = `<span style="color:#64748b;font-size:11px;font-weight:800;margin-right:4px;">${parentStt}.</span>`;
                 } else {
                     childStt++;
-                    sttLabel = `<span style="color:#9ca3af;font-size:9px;margin-right:2px;">${childStt}.</span>`;
+                    sttLabel = `<span style="color:#94a3b8;font-size:10px;font-weight:700;margin-right:3px;">${childStt}.</span>`;
                 }
-                deptListHtml += `<div style="padding:6px 14px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #f3f4f6;${isChild ? 'padding-left:24px;' : ''}">${sttLabel}${isChild ? '└ ' : ''}${dept.name}</div>`;
+                deptListHtml += `<div style="padding:8px 14px;font-size:${isChild ? '11px' : '12px'};font-weight:800;color:${isChild ? '#64748b' : '#1e293b'};text-transform:uppercase;background:${isChild ? '#f8fafc' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};border-bottom:1px solid #e2e8f0;${isChild ? 'padding-left:28px;' : ''}letter-spacing:0.3px;display:flex;align-items:center;gap:4px;">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:13px;">🏢</span> '}${dept.name}</div>`;
                 deptMembers.forEach(u => {
+                    const isLead = _kbIsLeader(u.role);
+                    const roleTag = _kbRoleLabel[u.role] || u.role;
+                    const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
                     deptListHtml += `
-                        <div class="kb-member-item" data-uid="${u.id}" onclick="_kbSelectMember(${u.id})" style="padding:8px 14px ${isChild ? '8px 28px' : '8px 14px'};font-size:12px;color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;border-left:3px solid transparent;"
-                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f9fafb'"
+                        <div class="kb-member-item" data-uid="${u.id}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
+                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
-                            ${u.full_name} <span style="color:#9ca3af;font-size:10px;">(${u.role})</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:${isLead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                                <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                            </div>
                         </div>`;
                 });
             });
 
             membersHtml = `
-            <div style="background:white;border:1px solid #e5e7eb;border-radius:10px;width:200px;min-width:200px;overflow-y:auto;max-height:calc(100vh - 140px);">
-                <div style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:11px;color:#6b7280;text-transform:uppercase;background:#f8fafc;border-radius:10px 10px 0 0;">NHÂN VIÊN</div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:230px;min-width:230px;overflow-y:auto;max-height:calc(100vh - 140px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div style="padding:12px 16px;border-bottom:2px solid #e2e8f0;font-weight:800;font-size:12px;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">👥</span> NHÂN VIÊN</div>
                 <div id="kbMemberList">
-                    <div class="kb-member-item kb-active" data-uid="" onclick="_kbSelectMember(null)" style="padding:10px 14px;font-size:13px;color:#122546;cursor:pointer;border-bottom:1px solid #f9fafb;border-left:3px solid #2563eb;background:#eff6ff;font-weight:600;">
-                        👤 Lịch của tôi
+                    <div class="kb-member-item kb-active" data-uid="" onclick="_kbSelectMember(null)" style="padding:12px 16px;font-size:14px;color:#122546;cursor:pointer;border-bottom:1px solid #e2e8f0;border-left:3px solid #2563eb;background:#eff6ff;font-weight:700;display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:16px;">📋</span> Lịch của tôi
                     </div>
                     ${deptListHtml}
                 </div>
