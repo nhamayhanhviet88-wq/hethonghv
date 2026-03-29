@@ -351,11 +351,33 @@ function _tpSelectItem(targetType, targetId) {
     const itemKey = `${targetType}-${targetId}`;
     document.querySelectorAll('.tp-dept-item').forEach(el => {
         const isActive = el.dataset.key === itemKey || (!el.dataset.key && el.dataset.id == targetId && targetType === 'team');
+        const isDeptHeader = el.classList.contains('tp-dept-header');
+        const isChild = !!el.dataset.parentId;
         el.classList.toggle('tp-active', isActive);
-        el.style.background = isActive ? '#eff6ff' : 'white';
-        el.style.color = isActive ? '#122546' : '#374151';
-        el.style.fontWeight = isActive ? '600' : '400';
-        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+        if (isDeptHeader) {
+            // Preserve gradient for dept headers
+            if (!isChild) {
+                el.style.background = isActive ? 'linear-gradient(135deg,#0f2a4a,#1e50a0)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)';
+                el.style.color = '#fff';
+                el.style.fontWeight = '900';
+                el.style.borderLeft = '';
+                if (isActive) {
+                    el.style.boxShadow = '0 2px 12px rgba(37,99,235,0.4)';
+                } else {
+                    el.style.boxShadow = '0 2px 8px rgba(37,99,235,0.25)';
+                }
+            } else {
+                el.style.background = isActive ? '#e0e7ff' : 'linear-gradient(135deg,#f1f5f9,#e8eef5)';
+                el.style.color = isActive ? '#1e3a8a' : '#475569';
+                el.style.fontWeight = isActive ? '900' : '800';
+                el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid #93c5fd';
+            }
+        } else {
+            el.style.background = isActive ? '#eff6ff' : 'white';
+            el.style.color = isActive ? '#122546' : '#374151';
+            el.style.fontWeight = isActive ? '600' : '400';
+            el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+        }
     });
     // Clear member highlights
     document.querySelectorAll('.tp-member-item').forEach(el => {
