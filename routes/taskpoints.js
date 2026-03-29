@@ -54,7 +54,13 @@ async function taskPointRoutes(fastify, options) {
             [Number(user_id), week_start || null]
         );
 
-        return { tasks: [...teamTasks, ...indivTasks] };
+        // Get permanently exempted team tasks (for showing restore cards)
+        const permExemptions = await db.all(
+            `SELECT e.id as exemption_id, e.exempt_type, e.week_start as exempt_week, t.* FROM task_exemptions e JOIN task_point_templates t ON t.id = e.template_id WHERE e.user_id = ? AND e.exempt_type = 'permanent' AND t.target_type = 'team'`,
+            [Number(user_id)]
+        );
+
+        return { tasks: [...teamTasks, ...indivTasks], exempted_tasks: permExemptions };
     });
 
     // CREATE a new task
@@ -329,6 +335,17 @@ async function taskPointRoutes(fastify, options) {
         );
 
         return { ok: true, message: exempt_type === 'permanent' ? 'Đã xóa vĩnh viễn cho nhân viên này' : 'Đã bỏ qua tuần này cho nhân viên' };
+    });
+
+    // DELETE restore an exemption (director only)
+    fastify.delete('/api/task-points/exempt/:id', { preHandler: [authenticate, requireRole(['giam_doc'])] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const exemption = await db.get('SELECT * FROM task_exemptions WHERE id = ?', [id]);
+        if (!exemption) {
+            return reply.code(404).send({ error: 'Không tìm thấy miễn trừ' });
+        }
+        await db.run('DELETE FROM task_exemptions WHERE id = ?', [id]);
+        return { ok: true, message: 'Đã khôi phục CV cho nhân viên' };
     });
 }
 

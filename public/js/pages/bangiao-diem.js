@@ -26,6 +26,7 @@ const _tpColorPalette = [
     { bg:'#ecfeff', border:'#a5f3fc', badge:'#0891b2', text:'#164e63', tag:'#cffafe' },
 ];
 let _tpTaskColorMap = {};
+let _tpExemptedTasks = []; // permanently exempted team tasks
 
 async function renderBanGiaoDiemPage(container) {
     const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
@@ -358,10 +359,12 @@ async function _tpLoadTasks() {
             // Individual view: merged team + personal tasks
             const d = await apiCall(`/api/task-points/individual?user_id=${_tpViewUserId}&week_start=${weekStr}`);
             _tpTasks = d.tasks || [];
+            _tpExemptedTasks = d.exempted_tasks || [];
         } else {
             // Team view
             const d = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}&week_start=${weekStr}`);
             _tpTasks = d.tasks || [];
+            _tpExemptedTasks = [];
         }
     } catch(e) { _tpTasks = []; }
 
@@ -415,6 +418,7 @@ function _tpRenderGrid() {
     // Collect all unique time slots and sort
     const allSlots = new Set();
     _tpTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
+    _tpExemptedTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
 
     // Calculate totals per day (skip holidays)
@@ -548,7 +552,19 @@ function _tpRenderGrid() {
                         </div>
                     </td>`;
                 } else {
-                    html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:middle;text-align:center;color:#d1d5db;font-size:20px;">—</td>`;
+                    // Check if there's an exempted task for this slot+day
+                    const exempted = _tpExemptedTasks.find(e => e.day_of_week === d && e.time_start + '|' + e.time_end === slot);
+                    if (exempted) {
+                        html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
+                            <div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;padding:10px 12px;text-align:center;opacity:0.7;">
+                                <div style="font-size:12px;color:#9ca3af;font-weight:600;margin-bottom:4px;">🚫 ${exempted.task_name}</div>
+                                <div style="font-size:10px;color:#d1d5db;margin-bottom:6px;">Đã miễn trừ</div>
+                                ${_tpIsDirector ? `<button onclick="_tpRestoreExempt(${exempted.exemption_id}, '${exempted.task_name.replace(/'/g, "\\\\'")}')" style="padding:3px 10px;font-size:10px;border:1px solid #a7f3d0;border-radius:5px;background:#ecfdf5;color:#059669;cursor:pointer;font-weight:600;">🔄 Khôi phục</button>` : ''}
+                            </div>
+                        </td>`;
+                    } else {
+                        html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:middle;text-align:center;color:#d1d5db;font-size:20px;">—</td>`;
+                    }
                 }
             }
             html += `</tr>`;
@@ -915,6 +931,17 @@ async function _tpDoExempt(templateId, exemptType) {
         _tpLoadTasks();
     } catch(e) {
         showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
+    }
+}
+
+async function _tpRestoreExempt(exemptionId, taskName) {
+    if (!confirm(`Khôi phục CV "${taskName}" cho nhân viên ${_tpViewUserName}?`)) return;
+    try {
+        const r = await apiCall(`/api/task-points/exempt/${exemptionId}`, 'DELETE');
+        showToast(`✅ ${r.message}`);
+        _tpLoadTasks();
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không thể khôi phục'), 'error');
     }
 }
 
