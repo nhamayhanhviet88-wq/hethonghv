@@ -296,6 +296,50 @@ async function taskPointRoutes(fastify, options) {
         return { success: true };
     });
 
+    // POST clone tasks from one team to another (director only)
+    fastify.post('/api/task-points/clone-from-team', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { source_team_id, target_team_id, mode } = request.body;
+        if (!source_team_id || !target_team_id) {
+            return reply.code(400).send({ error: 'Thiếu source hoặc target team' });
+        }
+        if (source_team_id === target_team_id) {
+            return reply.code(400).send({ error: 'Không thể clone từ chính team này' });
+        }
+        if (!['replace', 'merge'].includes(mode)) {
+            return reply.code(400).send({ error: 'Mode phải là replace hoặc merge' });
+        }
+
+        // Get source tasks
+        const sourceTasks = await db.all(
+            'SELECT * FROM task_point_templates WHERE target_type = ? AND target_id = ?',
+            ['team', source_team_id]
+        );
+        if (sourceTasks.length === 0) {
+            return reply.code(400).send({ error: 'Team nguồn không có công việc nào' });
+        }
+
+        // If replace mode, delete all existing tasks in target team
+        if (mode === 'replace') {
+            await db.run(
+                'DELETE FROM task_point_templates WHERE target_type = ? AND target_id = ?',
+                ['team', target_team_id]
+            );
+        }
+
+        // Clone tasks
+        let cloned = 0;
+        for (const t of sourceTasks) {
+            await db.run(
+                `INSERT INTO task_point_templates (target_type, target_id, task_name, points, min_quantity, time_start, time_end, day_of_week, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                ['team', target_team_id, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.day_of_week, t.guide_url, t.sort_order, t.requires_approval, t.week_only, t.input_requirements, t.output_requirements]
+            );
+            cloned++;
+        }
+
+        return { ok: true, message: `Đã clone ${cloned} công việc từ team nguồn`, cloned };
+    });
+
     // POST exempt a team task for a specific user (director only)
     fastify.post('/api/task-points/exempt', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const { user_id, template_id, exempt_type, week_start } = request.body;

@@ -70,6 +70,7 @@ async function renderBanGiaoDiemPage(container) {
             <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
             ${isManager ? `<div style="display:flex;gap:8px;">
                 <button onclick="_tpShowTaskLibrary()" style="padding:7px 16px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📦 Kho Công Việc</button>
+                ${currentUser.role === 'giam_doc' ? '<button onclick="_tpShowCloneDialog()" style="padding:7px 16px;border-radius:8px;border:1px solid #059669;background:#ecfdf5;color:#059669;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📋 Áp dụng từ team khác</button>' : ''}
                 <button onclick="_tpShowHolidayManager()" style="padding:7px 16px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📅 Quản lý ngày nghỉ</button>
             </div>` : ''}
         </div>
@@ -889,6 +890,83 @@ async function _tpCopyToIndividual() {
         showToast(`✅ Đã copy ${r.copied} công việc`);
         _tpLoadTasks();
     } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+// ===== CLONE FROM TEAM (Director only) =====
+function _tpShowCloneDialog() {
+    if (_tpViewMode !== 'team' || !_tpTarget.id) {
+        showToast('Hãy chọn một team/phòng ban trước!', 'error');
+        return;
+    }
+    const currentTeamId = Number(_tpTarget.id);
+    const currentTeamName = _tpAllDepts.find(d => d.id === currentTeamId)?.name || 'Team hiện tại';
+    const teamOptions = _tpAllDepts
+        .filter(d => d.id !== currentTeamId)
+        .map(d => `<option value="${d.id}">${d.name}</option>`)
+        .join('');
+
+    if (!teamOptions) {
+        showToast('Không có team khác để clone!', 'error');
+        return;
+    }
+
+    const m = document.createElement('div');
+    m.id = 'tpCloneModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(3px);';
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:0;width:460px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#059669,#047857);padding:18px 24px;color:white;">
+            <div style="font-size:16px;font-weight:800;">📋 Áp dụng CV từ team khác</div>
+            <div style="font-size:12px;margin-top:4px;opacity:0.9;">Team đích: <b>${currentTeamName}</b></div>
+        </div>
+        <div style="padding:20px 24px;">
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Chọn team nguồn:</label>
+                <select id="tpCloneSource" style="margin-top:6px;width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#d1d5db'">
+                    <option value="">-- Chọn team --</option>
+                    ${teamOptions}
+                </select>
+            </div>
+            <div style="margin-bottom:12px;font-size:13px;color:#374151;font-weight:600;">Chế độ áp dụng:</div>
+            <button onclick="_tpDoClone('replace')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'">
+                🔄 Thay thế toàn bộ<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Xóa CV cũ của ${currentTeamName}, thay bằng CV team nguồn</span>
+            </button>
+            <button onclick="_tpDoClone('merge')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #2563eb;border-radius:10px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#2563eb';this.style.color='white'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
+                ➕ Gộp thêm<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Giữ CV cũ, thêm CV từ team nguồn</span>
+            </button>
+            <button onclick="document.getElementById('tpCloneModal').remove()" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _tpDoClone(mode) {
+    const sourceId = document.getElementById('tpCloneSource')?.value;
+    if (!sourceId) { showToast('Chọn team nguồn!', 'error'); return; }
+    const sourceName = _tpAllDepts.find(d => d.id === Number(sourceId))?.name || 'Team nguồn';
+    const targetName = _tpAllDepts.find(d => d.id === Number(_tpTarget.id))?.name || 'Team đích';
+
+    const confirmMsg = mode === 'replace'
+        ? `⚠️ XÓA toàn bộ CV của "${targetName}" và thay bằng CV của "${sourceName}"?\n\nHành động này KHÔNG thể hoàn tác!`
+        : `Thêm CV từ "${sourceName}" vào "${targetName}"?\n\nCV hiện tại sẽ được giữ nguyên.`;
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        const r = await apiCall('/api/task-points/clone-from-team', 'POST', {
+            source_team_id: Number(sourceId),
+            target_team_id: Number(_tpTarget.id),
+            mode
+        });
+        document.getElementById('tpCloneModal')?.remove();
+        if (r.error) {
+            showToast('❌ ' + r.error, 'error');
+        } else {
+            showToast('✅ ' + (r.message || `Đã clone ${r.cloned} CV`));
+            _tpLoadTasks();
+        }
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không thể clone'), 'error');
+    }
 }
 
 // ===== EXEMPT TEAM TASK (Director only) =====
