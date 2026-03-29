@@ -92,7 +92,7 @@ async function renderBanGiaoDiemPage(container) {
                            onfocus="this.style.borderColor='#2563eb';this.style.background='white'" 
                            onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'" />
                 </div>
-                <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
+                <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;" ${_tpIsDirector ? 'ondragover="_tpSidebarDragOver(event)" ondrop="_tpSidebarDrop(event)"' : ''}>
                     ${activeDepts.map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
                         const gripHtml = _tpIsDirector ? `<span class="tp-grip" onmousedown="event.stopPropagation()" style="cursor:grab;color:#9ca3af;font-size:14px;margin-right:4px;user-select:none;flex-shrink:0;line-height:1;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">⠿</span>` : '';
@@ -1799,66 +1799,122 @@ function _tpSidebarDragStart(e) {
     _tpSidebarDragParentId = el.dataset.parentId || '';
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', _tpSidebarDragId);
-    setTimeout(() => { el.style.opacity = '0.4'; el.style.border = '1px dashed #93c5fd'; }, 0);
+    setTimeout(() => {
+        el.style.opacity = '0.35';
+        el.style.background = '#f1f5f9';
+        el.style.border = '1px dashed #93c5fd';
+        el.style.borderRadius = '6px';
+    }, 0);
+}
+
+function _tpSidebarGetSeparator() {
+    let sep = document.getElementById('_tpSidebarSep');
+    if (!sep) {
+        sep = document.createElement('div');
+        sep.id = '_tpSidebarSep';
+        sep.style.cssText = 'height:4px;background:#2563eb;border-radius:2px;margin:0 8px;box-shadow:0 0 8px rgba(37,99,235,0.5);position:relative;transition:opacity .1s;pointer-events:none;';
+        // Left dot
+        const dotL = document.createElement('div');
+        dotL.style.cssText = 'position:absolute;left:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:#2563eb;box-shadow:0 0 6px rgba(37,99,235,0.6);';
+        sep.appendChild(dotL);
+        // Right dot
+        const dotR = document.createElement('div');
+        dotR.style.cssText = 'position:absolute;right:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:#2563eb;box-shadow:0 0 6px rgba(37,99,235,0.6);';
+        sep.appendChild(dotR);
+    }
+    return sep;
+}
+
+function _tpSidebarRemoveSeparator() {
+    document.getElementById('_tpSidebarSep')?.remove();
+    // Clear all highlights
+    document.querySelectorAll('.tp-dept-header').forEach(h => {
+        if (Number(h.dataset.id) !== _tpSidebarDragId) {
+            h.style.background = h.classList.contains('tp-active') ? '#eff6ff' : '';
+        }
+    });
 }
 
 function _tpSidebarDragOver(e) {
     e.preventDefault();
     if (_tpSidebarDragId === null) return;
-    const el = e.target.closest('.tp-dept-header');
-    if (!el || Number(el.dataset.id) === _tpSidebarDragId) return;
+    
+    // Find closest dept-header (could be hovering over memberWrap area)
+    let el = e.target.closest('.tp-dept-header');
+    if (!el) {
+        // Check if hovering inside a memberWrap — find nearest dept-header above
+        const wrap = e.target.closest('[id^="tpMemberWrap_"]');
+        if (wrap) {
+            el = wrap.previousElementSibling;
+            if (!el || !el.classList.contains('tp-dept-header')) { _tpSidebarRemoveSeparator(); return; }
+        } else {
+            _tpSidebarRemoveSeparator();
+            return;
+        }
+    }
+    if (Number(el.dataset.id) === _tpSidebarDragId) { _tpSidebarRemoveSeparator(); return; }
 
     const dragIsChild = _tpSidebarDragParentId !== '';
     const targetIsChild = (el.dataset.parentId || '') !== '';
 
     // Enforce: parent↔parent, child↔child of same parent
-    if (dragIsChild !== targetIsChild) { e.dataTransfer.dropEffect = 'none'; return; }
-    if (dragIsChild && el.dataset.parentId !== _tpSidebarDragParentId) { e.dataTransfer.dropEffect = 'none'; return; }
+    if (dragIsChild !== targetIsChild) { e.dataTransfer.dropEffect = 'none'; _tpSidebarRemoveSeparator(); return; }
+    if (dragIsChild && el.dataset.parentId !== _tpSidebarDragParentId) { e.dataTransfer.dropEffect = 'none'; _tpSidebarRemoveSeparator(); return; }
 
     e.dataTransfer.dropEffect = 'move';
 
-    // Show drop indicator
-    document.querySelectorAll('.tp-dept-header').forEach(h => { h.style.borderTop = ''; h.style.borderBottom = ''; });
+    // Highlight target
+    document.querySelectorAll('.tp-dept-header').forEach(h => {
+        if (Number(h.dataset.id) !== _tpSidebarDragId) {
+            h.style.background = h.classList.contains('tp-active') ? '#eff6ff' : '';
+        }
+    });
+    el.style.background = '#dbeafe';
+
+    // Position separator
     const rect = el.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
+    const sep = _tpSidebarGetSeparator();
+    const list = document.getElementById('tpDeptList');
+
     if (e.clientY < midY) {
-        el.style.borderTop = '2px solid #2563eb';
-        el.style.borderBottom = '';
+        // Insert before el
+        list.insertBefore(sep, el);
     } else {
-        el.style.borderTop = '';
-        el.style.borderBottom = '2px solid #2563eb';
+        // Insert after el (and its memberWrap + children if parent)
+        let afterEl = el;
+        const memberWrap = document.getElementById(`tpMemberWrap_${el.dataset.id}`);
+        if (memberWrap) afterEl = memberWrap;
+        if (!targetIsChild) {
+            const children = list.querySelectorAll(`.tp-dept-header[data-parent-id="${el.dataset.id}"]`);
+            children.forEach(ch => {
+                afterEl = ch;
+                const chWrap = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
+                if (chWrap) afterEl = chWrap;
+            });
+        }
+        afterEl.parentNode.insertBefore(sep, afterEl.nextSibling);
     }
 }
 
 function _tpSidebarDrop(e) {
     e.preventDefault();
-    const targetEl = e.target.closest('.tp-dept-header');
-    if (!targetEl || _tpSidebarDragId === null) return;
-    const targetId = Number(targetEl.dataset.id);
-    if (targetId === _tpSidebarDragId) return;
+    const sep = document.getElementById('_tpSidebarSep');
+    if (!sep || _tpSidebarDragId === null) { _tpSidebarRemoveSeparator(); return; }
 
     const dragIsChild = _tpSidebarDragParentId !== '';
-    const targetIsChild = (targetEl.dataset.parentId || '') !== '';
-    if (dragIsChild !== targetIsChild) return;
-    if (dragIsChild && targetEl.dataset.parentId !== _tpSidebarDragParentId) return;
-
-    // Determine insert position
-    const rect = targetEl.getBoundingClientRect();
-    const insertBefore = e.clientY < rect.top + rect.height / 2;
-
     const list = document.getElementById('tpDeptList');
     if (!list) return;
 
     // Get the dragged dept-header + its memberWrap
     const dragEl = list.querySelector(`.tp-dept-header[data-id="${_tpSidebarDragId}"]`);
-    if (!dragEl) return;
+    if (!dragEl) { _tpSidebarRemoveSeparator(); return; }
     const dragMemberWrap = document.getElementById(`tpMemberWrap_${_tpSidebarDragId}`);
 
     // For parent drag: also collect its children elements
     let dragGroup = [dragEl];
     if (dragMemberWrap) dragGroup.push(dragMemberWrap);
     if (!dragIsChild) {
-        // Find child dept-headers and their member wraps that belong to this parent
         const childHeaders = list.querySelectorAll(`.tp-dept-header[data-parent-id="${_tpSidebarDragId}"]`);
         childHeaders.forEach(ch => {
             dragGroup.push(ch);
@@ -1867,53 +1923,33 @@ function _tpSidebarDrop(e) {
         });
     }
 
-    // Remove all drag group elements temporarily
+    // Remove drag group elements
     dragGroup.forEach(el => el.remove());
 
-    // Re-find target (it may have shifted)
-    const newTargetEl = list.querySelector(`.tp-dept-header[data-id="${targetId}"]`);
-    if (!newTargetEl) { /* re-append at end */ dragGroup.forEach(el => list.appendChild(el)); }
-    else {
-        if (insertBefore) {
-            dragGroup.forEach(el => newTargetEl.parentNode.insertBefore(el, newTargetEl));
-        } else {
-            // Insert after target + its memberWrap + its children
-            let afterEl = newTargetEl;
-            const targetMemberWrap = document.getElementById(`tpMemberWrap_${targetId}`);
-            if (targetMemberWrap) afterEl = targetMemberWrap;
-            // If target is parent, skip past its children
-            if (!targetIsChild) {
-                const targetChildren = list.querySelectorAll(`.tp-dept-header[data-parent-id="${targetId}"]`);
-                targetChildren.forEach(ch => {
-                    afterEl = ch;
-                    const chWrap = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
-                    if (chWrap) afterEl = chWrap;
-                });
-            }
-            // Insert after afterEl
-            const nextSibling = afterEl.nextSibling;
-            dragGroup.forEach(el => list.insertBefore(el, nextSibling));
-        }
-    }
+    // Insert at separator position
+    const sepParent = sep.parentNode;
+    dragGroup.forEach(el => sepParent.insertBefore(el, sep));
 
-    // Clear indicators
-    document.querySelectorAll('.tp-dept-header').forEach(h => { h.style.borderTop = ''; h.style.borderBottom = ''; });
+    // Cleanup
+    _tpSidebarRemoveSeparator();
 
     // Persist new order
     _tpSidebarPersistOrder();
 }
 
 function _tpSidebarDragEnd(e) {
-    _tpSidebarDragId = null;
-    _tpSidebarDragParentId = null;
-    // Reset visuals
+    _tpSidebarRemoveSeparator();
+    // Reset ALL visuals
     document.querySelectorAll('.tp-dept-header').forEach(h => {
         h.style.opacity = '1';
         h.style.border = '';
-        h.style.borderTop = '';
-        h.style.borderBottom = '';
-        h.style.borderBottom = '1px solid #f9fafb'; // restore original
+        h.style.borderRadius = '';
+        if (!h.classList.contains('tp-active')) {
+            h.style.background = '';
+        }
     });
+    _tpSidebarDragId = null;
+    _tpSidebarDragParentId = null;
 }
 
 async function _tpSidebarPersistOrder() {
