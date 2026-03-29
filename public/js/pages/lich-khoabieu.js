@@ -1165,13 +1165,13 @@ async function _kbLoadApprovalPanel() {
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;">
                     <thead>
-                        <tr style="background:#fefce8;">
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Nhân viên</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Công việc</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Ngày</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Điểm</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Báo cáo</th>
-                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;">Hành động</th>
+                        <tr style="background:#1e3a5f;">
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Nhân viên</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Công việc</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Ngày</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Điểm</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Báo cáo</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
