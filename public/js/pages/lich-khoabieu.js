@@ -25,6 +25,12 @@ function _kbParseJSON(val) {
     try { return JSON.parse(val); } catch(e) { return []; }
 }
 
+// Auto-linkify URLs in text
+function _kbLinkify(text) {
+    if (!text) return '';
+    return String(text).replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()">$1</a>');
+}
+
 function _kbGetColor(name) {
     if (!_kbColorMap[name]) {
         const idx = Object.keys(_kbColorMap).length % _KB_COLORS.length;
@@ -538,7 +544,7 @@ function _kbShowTaskDetail(templateId) {
                     ${items.map((r, i) => `
                         <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;${i < items.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
                             <span style="background:${color};color:white;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i + 1}</span>
-                            <span style="font-size:13px;color:#374151;line-height:1.5;padding-top:1px;">${r}</span>
+                            <span style="font-size:13px;color:#374151;line-height:1.5;padding-top:1px;">${_kbLinkify(r)}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -632,7 +638,7 @@ function _kbShowReportModal(templateId, reportDate) {
         if (!items.length) return '';
         return `<div style="margin-top:8px;">
             <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px;">${icon} ${label}</div>
-            ${items.map((r, i) => `<div style="font-size:11px;color:#374151;padding:2px 0 2px 12px;border-left:2px solid ${color}20;">${i+1}. ${r}</div>`).join('')}
+            ${items.map((r, i) => `<div style="font-size:11px;color:#374151;padding:2px 0 2px 12px;border-left:2px solid ${color}20;">${i+1}. ${_kbLinkify(r)}</div>`).join('')}
         </div>`;
     };
 

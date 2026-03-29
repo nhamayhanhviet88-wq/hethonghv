@@ -1,5 +1,6 @@
 // ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+function _tpLinkify(t) { return t ? String(t).replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()">$1</a>') : ''; }
 let _tpTasks = [];
 let _tpTarget = { type: 'team', id: null };
 let _tpAllDepts = [];
@@ -630,7 +631,7 @@ function _tpShowTaskDetail(taskId) {
                     ${items.map((r, i) => `
                         <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;${i < items.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
                             <span style="background:${color};color:white;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i + 1}</span>
-                            <span style="font-size:13px;color:#374151;line-height:1.5;padding-top:1px;">${r}</span>
+                            <span style="font-size:13px;color:#374151;line-height:1.5;padding-top:1px;">${_tpLinkify(r)}</span>
                         </div>
                     `).join('')}
                 </div>

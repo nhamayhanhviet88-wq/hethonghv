@@ -63,7 +63,17 @@ async function taskScheduleRoutes(fastify, options) {
             const isStale = snapTemplateIds.size !== currTemplateIds.size ||
                 [...currTemplateIds].some(id => !snapTemplateIds.has(id));
 
-            if (!isStale) return; // snapshots are up-to-date
+            if (!isStale) {
+                // IDs match, but content may have changed (e.g. library sync updated requirements)
+                // Update snapshot content from current templates (safe — doesn't affect reports)
+                for (const t of dayTasks) {
+                    await db.run(
+                        `UPDATE daily_task_snapshots SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6, task_name=$7 WHERE user_id=$8 AND snapshot_date=$9 AND template_id=$10`,
+                        [t.input_requirements || '[]', t.output_requirements || '[]', t.guide_url, t.points, t.min_quantity, t.requires_approval || false, t.task_name, userId, dateStr, t.id]
+                    );
+                }
+                return;
+            }
 
             // Snapshots are stale — check if any reports exist for this date
             const reports = await db.all(
