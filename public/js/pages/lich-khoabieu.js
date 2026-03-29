@@ -210,7 +210,7 @@ async function renderLichKhoaBieuPage(container) {
                 if (!isChild) {
                     parentStt++;
                     childStt = 0;
-                    sttLabel = `<span style="color:#c7d2fe;font-size:13px;font-weight:900;margin-right:5px;">${parentStt}.</span>`;
+                    sttLabel = `<span style="color:#1e3a5f;font-size:14px;font-weight:900;margin-right:5px;text-shadow:0 0 4px rgba(255,255,255,0.5);">${parentStt}.</span>`;
                 } else {
                     childStt++;
                     sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
