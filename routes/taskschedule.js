@@ -57,7 +57,7 @@ async function taskScheduleRoutes(fastify, options) {
     // Smart sync: if templates changed and no reports filed yet, regenerate snapshots
     async function _ensureSnapshots(userId, dateStr, dayOfWeek, weekStart) {
         const existing = await db.all(
-            'SELECT id, template_id FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2',
+            'SELECT id, template_id, task_name, time_start FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2',
             [userId, dateStr]
         );
 
@@ -65,6 +65,33 @@ async function taskScheduleRoutes(fastify, options) {
         const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
 
         if (existing.length > 0) {
+            // Fix null template_ids first: match by task_name + time_start
+            const hasNulls = existing.some(s => !s.template_id);
+            if (hasNulls) {
+                for (const snap of existing) {
+                    if (snap.template_id) continue; // already has valid id
+                    // Find matching template by task_name + time_start
+                    const match = dayTasks.find(t => t.task_name === snap.task_name && t.time_start === snap.time_start);
+                    if (match) {
+                        await db.run(
+                            'UPDATE daily_task_snapshots SET template_id = $1 WHERE id = $2',
+                            [match.id, snap.id]
+                        );
+                        snap.template_id = match.id; // update in-memory too
+                    } else {
+                        // Try matching by task_name only (time may differ slightly)
+                        const nameMatch = dayTasks.find(t => t.task_name === snap.task_name);
+                        if (nameMatch) {
+                            await db.run(
+                                'UPDATE daily_task_snapshots SET template_id = $1 WHERE id = $2',
+                                [nameMatch.id, snap.id]
+                            );
+                            snap.template_id = nameMatch.id;
+                        }
+                    }
+                }
+            }
+
             // Check if snapshots match current templates
             const snapTemplateIds = new Set(existing.map(s => s.template_id).filter(Boolean));
             const currTemplateIds = new Set(dayTasks.map(t => t.id));
@@ -72,8 +99,7 @@ async function taskScheduleRoutes(fastify, options) {
                 [...currTemplateIds].some(id => !snapTemplateIds.has(id));
 
             if (!isStale) {
-                // IDs match, but content may have changed (e.g. library sync updated requirements)
-                // Update snapshot content from current templates (safe — doesn't affect reports)
+                // IDs match, update content from current templates (safe — doesn't affect reports)
                 for (const t of dayTasks) {
                     await db.run(
                         `UPDATE daily_task_snapshots SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6, task_name=$7 WHERE user_id=$8 AND snapshot_date=$9 AND template_id=$10`,

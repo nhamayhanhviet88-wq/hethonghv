@@ -273,6 +273,11 @@ async function _kbLoadSchedule() {
         (data.reports || []).forEach(rep => {
             const key = `${rep.template_id}_${rep.report_date.slice(0,10)}`;
             _kbReports[key] = rep;
+            // Also index by task_name for fallback matching (when snapshot has null template_id)
+            if (rep.task_name) {
+                const nameKey = `name_${rep.task_name}_${rep.report_date.slice(0,10)}`;
+                _kbReports[nameKey] = rep;
+            }
         });
 
         _kbSummary = {};
@@ -494,7 +499,12 @@ function _kbRenderGrid() {
                 const dateStr = _kbDateStr(colDate);
                 const reportTemplateId = task._source === 'snapshot' ? task.template_id : task.id;
                 const reportKey = `${reportTemplateId}_${dateStr}`;
-                const report = _kbReports[reportKey];
+                // Fallback: if template_id is null OR no match, try matching by task_name
+                let report = _kbReports[reportKey];
+                if (!report && task.task_name) {
+                    const nameKey = `name_${task.task_name}_${dateStr}`;
+                    report = _kbReports[nameKey];
+                }
 
                 let statusBadge = '';
                 let actionBtn = ''; // inline with guide button row
@@ -521,7 +531,7 @@ function _kbRenderGrid() {
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
-                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;">📝 Báo cáo</button>`;
+                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;">📝 Báo cáo</button>`;
                     } else if (dateStr < todayStr) {
                         actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
                     } else {
@@ -657,11 +667,21 @@ function _kbShowTaskDetail(templateId) {
 // Report modal — full redesign
 let _kbPastedFile = null;
 
-function _kbShowReportModal(templateId, reportDate) {
-    const task = _kbTasks.find(t => {
+function _kbShowReportModal(templateId, reportDate, fallbackName) {
+    let task = _kbTasks.find(t => {
         const tid = t._source === 'snapshot' ? t.template_id : t.id;
         return tid === templateId;
     });
+    // Fallback: if templateId is null/0, find by task_name + date
+    if (!task && fallbackName) {
+        task = _kbTasks.find(t => t.task_name === fallbackName && t._date === reportDate);
+    }
+    // If task found from snapshot with null template_id, resolve the real template_id
+    if (task && task._source === 'snapshot' && !task.template_id && task.task_name) {
+        // Find the template by task_name in all tasks (look for template version)
+        const tmpl = _kbTasks.find(t => t._source !== 'snapshot' && t.task_name === task.task_name);
+        if (tmpl) templateId = tmpl.id;
+    }
     const taskName = task ? task.task_name : 'Công việc';
     const taskPoints = task ? task.points : 0;
     const needsApproval = task ? task.requires_approval : false;
