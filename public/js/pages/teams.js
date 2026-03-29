@@ -711,18 +711,24 @@ async function showDeptMembers(deptId) {
 
     const ROLE_LABELS = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', hoa_hong: 'Hoa Hồng' };
 
-    const membersHTML = members.length > 0 ? members.map(m => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f3f4f6;">
-            <div style="width:32px;height:32px;border-radius:50%;background:#122546;color:#fad24c;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">
+    const membersHTML = members.length > 0 ? members.map(m => {
+        const isHead = m._is_head;
+        const headBadge = isHead ? '<span style="background:#fef3c7;color:#d97706;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">⭐ Trưởng đơn vị</span>' : '';
+        const removeBtn = isHead && m.department_id !== deptId
+            ? '<span style="font-size:10px;color:#9ca3af;" title="Quản lý từ phòng khác">🔗 Liên kết</span>'
+            : `<button onclick="unassignDeptMember(${deptId},${m.id})" class="btn btn-sm" style="background:#ef4444;color:white;font-size:10px;padding:3px 8px;">Gỡ</button>`;
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f3f4f6;${isHead ? 'background:#fefce8;' : ''}">
+            <div style="width:32px;height:32px;border-radius:50%;background:${isHead ? '#d97706' : '#122546'};color:${isHead ? '#fff' : '#fad24c'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">
                 ${m.full_name.split(' ').map(w=>w[0]).join('').slice(0,2)}
             </div>
             <div style="flex:1;">
-                <div style="font-weight:600;color:#122546;font-size:13px;">${m.full_name}</div>
+                <div style="font-weight:600;color:#122546;font-size:13px;">${m.full_name}${headBadge}</div>
                 <div style="font-size:11px;color:#6b7280;">${ROLE_LABELS[m.role] || m.role}</div>
             </div>
-            <button onclick="unassignDeptMember(${deptId},${m.id})" class="btn btn-sm" style="background:#ef4444;color:white;font-size:10px;padding:3px 8px;">Gỡ</button>
-        </div>
-    `).join('') : '<div style="text-align:center;padding:20px;color:#6b7280;">Chưa có nhân viên</div>';
+            ${removeBtn}
+        </div>`;
+    }).join('') : '<div style="text-align:center;padding:20px;color:#6b7280;">Chưa có nhân viên</div>';
 
     const bodyHTML = `
         <div style="margin-bottom:16px;">

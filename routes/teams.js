@@ -20,7 +20,9 @@ async function teamsRoutes(fastify, options) {
                 SELECT d.*, 
                        p.name as parent_name,
                        u.full_name as head_name,
-                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) as member_count
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) 
+                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) THEN 1 ELSE 0 END
+                       as member_count
                 FROM departments d
                 LEFT JOIN departments p ON d.parent_id = p.id
                 LEFT JOIN users u ON d.head_user_id = u.id
@@ -37,7 +39,9 @@ async function teamsRoutes(fastify, options) {
                 SELECT d.*, 
                        p.name as parent_name,
                        u.full_name as head_name,
-                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) as member_count
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id))
+                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) THEN 1 ELSE 0 END
+                       as member_count
                 FROM departments d
                 LEFT JOIN departments p ON d.parent_id = p.id
                 LEFT JOIN users u ON d.head_user_id = u.id
@@ -62,6 +66,25 @@ async function teamsRoutes(fastify, options) {
             FROM users WHERE department_id = ?
             ORDER BY full_name
         `, [Number(request.params.id)]);
+
+        // Include head_user if not already in members list
+        if (dept.head_user_id) {
+            const headExists = members.some(m => m.id === dept.head_user_id);
+            if (!headExists) {
+                const headUser = await db.get(
+                    'SELECT id, full_name, phone, role, status, birth_date FROM users WHERE id = ?',
+                    [dept.head_user_id]
+                );
+                if (headUser) {
+                    headUser._is_head = true;
+                    members.unshift(headUser); // Add to top
+                }
+            } else {
+                // Mark existing head member
+                const headMember = members.find(m => m.id === dept.head_user_id);
+                if (headMember) headMember._is_head = true;
+            }
+        }
 
         return { department: dept, members };
     });
