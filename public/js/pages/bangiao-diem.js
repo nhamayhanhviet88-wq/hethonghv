@@ -134,6 +134,8 @@ async function renderBanGiaoDiemPage(container) {
         // Load members for ALL active depts in parallel instead of sequential
         await Promise.all(activeDepts.map(dept => _tpLoadDeptMembers(dept.id)));
         _tpSelectDept(activeDepts[0].id);
+        // Auto-snapshot today's tasks (idempotent)
+        try { apiCall('/api/task-points/snapshot-today', { method: 'POST' }); } catch(e) {}
     }
 }
 
@@ -1945,15 +1947,14 @@ async function _tpShowMonthView(monthStr) {
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
 
-    // Load tasks for the target
-    let tasks = [];
+    // Load month data from snapshot API (past = snapshots, future = templates)
+    let dayData = {};
+    let snapshotDates = [];
     try {
-        if (_tpViewMode === 'individual' && _tpViewUserId) {
-            const r = await apiCall(`/api/task-points/individual?user_id=${_tpViewUserId}`);
-            tasks = r.tasks || [];
-        } else if (_tpTarget.id) {
-            const r = await apiCall(`/api/task-points?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}`);
-            tasks = r.tasks || [];
+        if (_tpTarget.id) {
+            const r = await apiCall(`/api/task-points/month-data?target_type=${_tpTarget.type}&target_id=${_tpTarget.id}&month=${monthStr}`);
+            dayData = r.dayData || {};
+            snapshotDates = r.snapshotDates || [];
         }
     } catch(e) {}
 
@@ -1969,9 +1970,8 @@ async function _tpShowMonthView(monthStr) {
     // Calculate weeks of the month
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
-    // Find Monday of first week containing day 1
     let startMon = new Date(firstDay);
-    const dow = startMon.getDay() || 7; // convert Sunday(0) to 7
+    const dow = startMon.getDay() || 7;
     startMon.setDate(startMon.getDate() - (dow - 1));
 
     const weeks = [];
@@ -1986,11 +1986,6 @@ async function _tpShowMonthView(monthStr) {
         weeks.push({ start: weekStart, days: weekDays });
         if (cursor > lastDay && cursor.getDay() === 1) break;
     }
-
-    // Group tasks by day_of_week
-    const byDay = {};
-    for (let d = 1; d <= 7; d++) byDay[d] = [];
-    tasks.forEach(t => { if (byDay[t.day_of_week]) byDay[t.day_of_week].push(t); });
 
     const today = new Date(); today.setHours(0,0,0,0);
     const monthNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
@@ -2027,33 +2022,43 @@ async function _tpShowMonthView(monthStr) {
             const isThisMonth = day.getMonth() === month - 1;
             const isToday = day.getTime() === today.getTime();
             const dayNum = day.getDate();
-            const dayOfWeek = idx + 1; // 1=Mon, 7=Sun
-            const dayTasks = byDay[dayOfWeek] || [];
-            const totalPts = dayTasks.reduce((s, t) => s + (t.points || 0), 0);
             const isPast = day < today;
+
+            // Get tasks for this specific date from dayData
+            const dateStr = _tpDateStr(day);
+            const dayTasks = dayData[dateStr] || [];
+            const totalPts = dayTasks.reduce((s, t) => s + (t.points || 0), 0);
+            const hasSnapshot = snapshotDates.includes(dateStr);
 
             // Click on week to drill into week view
             const weekMonday = new Date(week.start);
 
-            html += `<td style="padding:6px 8px;border:1px solid #f1f5f9;vertical-align:top;min-height:80px;height:80px;background:${isToday ? '#eff6ff' : isPast ? '#fafbfc' : 'white'};${!isThisMonth ? 'opacity:0.4;' : ''}cursor:pointer;transition:background .15s;" 
+            // Past + no snapshot = gray "no data" state
+            const noData = isPast && !hasSnapshot && dayTasks.length === 0;
+
+            html += `<td style="padding:6px 8px;border:1px solid #f1f5f9;vertical-align:top;min-height:80px;height:80px;background:${isToday ? '#eff6ff' : noData ? '#f9fafb' : isPast ? '#fafbfc' : 'white'};${!isThisMonth ? 'opacity:0.4;' : ''}cursor:pointer;transition:background .15s;" 
                 onclick="_tpGoToWeek('${_tpDateStr(weekMonday)}')" 
                 onmouseover="this.style.background='${isToday ? '#dbeafe' : '#f8fafc'}'" 
-                onmouseout="this.style.background='${isToday ? '#eff6ff' : isPast ? '#fafbfc' : 'white'}'">
+                onmouseout="this.style.background='${isToday ? '#eff6ff' : noData ? '#f9fafb' : isPast ? '#fafbfc' : 'white'}'">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <span style="font-weight:${isToday ? '800' : '600'};font-size:${isToday ? '14px' : '12px'};color:${isToday ? '#2563eb' : '#374151'};">${dayNum}</span>
                     ${totalPts > 0 ? `<span style="font-size:9px;padding:1px 5px;border-radius:8px;font-weight:700;background:${totalPts >= 100 ? '#dcfce7' : '#fef3c7'};color:${totalPts >= 100 ? '#16a34a' : '#d97706'};">${totalPts}đ</span>` : ''}
                 </div>`;
 
-            // Show max 3 task names
-            dayTasks.slice(0, 3).forEach(t => {
-                const c = _tpGetTaskColor(t.task_name);
-                const hasChange = changedTaskNames.has(t.task_name);
-                html += `<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:3px;background:${c.bg};color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${hasChange ? '#f59e0b' : c.badge};display:flex;align-items:center;gap:2px;">${hasChange ? '<span title="Đã thay đổi" style="flex-shrink:0;">🔄</span>' : ''}${t.task_name}</div>`;
-            });
-            if (dayTasks.length > 3) {
-                html += `<div style="font-size:8px;color:#9ca3af;">+${dayTasks.length - 3} khác</div>`;
+            if (noData && isThisMonth) {
+                html += `<div style="font-size:8px;color:#d1d5db;text-align:center;margin-top:8px;">—</div>`;
+            } else {
+                // Show max 3 task names
+                dayTasks.slice(0, 3).forEach(t => {
+                    const c = _tpGetTaskColor(t.task_name);
+                    const hasChange = changedTaskNames.has(t.task_name);
+                    html += `<div style="font-size:9px;padding:1px 4px;margin-bottom:2px;border-radius:3px;background:${c.bg};color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid ${hasChange ? '#f59e0b' : c.badge};display:flex;align-items:center;gap:2px;">${hasChange ? '<span title="Đã thay đổi" style="flex-shrink:0;">🔄</span>' : ''}${t.task_name}</div>`;
+                });
+                if (dayTasks.length > 3) {
+                    html += `<div style="font-size:8px;color:#9ca3af;">+${dayTasks.length - 3} khác</div>`;
+                }
             }
-            if (isPast && isThisMonth) {
+            if (isPast && isThisMonth && hasSnapshot) {
                 html += `<div style="font-size:8px;color:#d1d5db;margin-top:2px;">🔒</div>`;
             }
 

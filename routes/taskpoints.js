@@ -23,6 +23,27 @@ async function taskPointRoutes(fastify, options) {
         created_at TIMESTAMP DEFAULT NOW()
     )`);
 
+    // Daily snapshot table for preserving historical task data
+    await db.run(`CREATE TABLE IF NOT EXISTS task_point_snapshots (
+        id SERIAL PRIMARY KEY,
+        snapshot_date DATE NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        day_of_week INTEGER NOT NULL,
+        task_name TEXT NOT NULL,
+        points INTEGER DEFAULT 0,
+        min_quantity INTEGER DEFAULT 1,
+        time_start TEXT,
+        time_end TEXT,
+        guide_url TEXT,
+        sort_order INTEGER DEFAULT 0,
+        requires_approval BOOLEAN DEFAULT FALSE,
+        template_id INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    try { await db.run(`CREATE INDEX IF NOT EXISTS idx_snapshots_lookup ON task_point_snapshots(snapshot_date, target_type, target_id)`); } catch(e) {}
+    try { await db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_unique ON task_point_snapshots(snapshot_date, target_type, target_id, task_name, time_start)`); } catch(e) {}
+
     // GET all templates for a target (team or individual)
     // Optional: ?week_start=YYYY-MM-DD to filter week_only templates
     fastify.get('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
@@ -492,6 +513,126 @@ async function taskPointRoutes(fastify, options) {
             logs = await db.all('SELECT * FROM task_change_log ORDER BY created_at DESC LIMIT $1', [maxRows]);
         }
         return { logs };
+    });
+
+    // ===== SNAPSHOT SYSTEM =====
+
+    // Create snapshot for today (idempotent - skips if already exists)
+    fastify.post('/api/task-points/snapshot-today', { preHandler: [authenticate] }, async (request, reply) => {
+        const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const todayDate = new Date(todayStr);
+        const dayOfWeek = todayDate.getDay() || 7; // 1=Mon..7=Sun
+
+        // Get all active teams
+        const activeTeams = await db.all('SELECT team_id FROM task_schedule_active_teams');
+        let totalSnapped = 0;
+
+        for (const team of activeTeams) {
+            // Check if snapshot already exists for this team today
+            const existing = await db.get('SELECT COUNT(*) as cnt FROM task_point_snapshots WHERE snapshot_date = ? AND target_type = ? AND target_id = ?', [todayStr, 'team', team.team_id]);
+            if (existing && existing.cnt > 0) continue; // Already snapshotted
+
+            // Get current templates for today's day_of_week
+            const templates = await db.all(
+                'SELECT * FROM task_point_templates WHERE target_type = ? AND target_id = ? AND day_of_week = ? AND (week_only IS NULL)',
+                ['team', team.team_id, dayOfWeek]
+            );
+
+            // Insert snapshot rows
+            for (const t of templates) {
+                try {
+                    await db.run(
+                        `INSERT INTO task_point_snapshots (snapshot_date, target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, template_id)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ON CONFLICT DO NOTHING`,
+                        [todayStr, 'team', team.team_id, dayOfWeek, t.task_name, t.points || 0, t.min_quantity || 1, t.time_start, t.time_end, t.guide_url, t.sort_order || 0, t.requires_approval || false, t.id]
+                    );
+                    totalSnapped++;
+                } catch(e) { /* duplicate, skip */ }
+            }
+        }
+
+        return { success: true, date: todayStr, snapped: totalSnapped };
+    });
+
+    // Get month data: snapshots for past days, templates for current/future
+    fastify.get('/api/task-points/month-data', { preHandler: [authenticate] }, async (request, reply) => {
+        const { target_type, target_id, month } = request.query;
+        if (!target_type || !target_id || !month) {
+            return reply.code(400).send({ error: 'Thiếu target_type, target_id, hoặc month (YYYY-MM)' });
+        }
+
+        // Parse month
+        const [yearStr, monthStr] = month.split('-');
+        const year = parseInt(yearStr);
+        const mon = parseInt(monthStr);
+        const firstDay = new Date(year, mon - 1, 1);
+        const lastDay = new Date(year, mon, 0);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const today = new Date(todayStr);
+
+        // Calculate date range for the month grid (include overflow days from prev/next month)
+        let startMon = new Date(firstDay);
+        const dow = startMon.getDay() || 7;
+        startMon.setDate(startMon.getDate() - (dow - 1));
+        let endSun = new Date(lastDay);
+        const edow = endSun.getDay() || 7;
+        if (edow < 7) endSun.setDate(endSun.getDate() + (7 - edow));
+
+        const startStr = startMon.toISOString().split('T')[0];
+        const endStr = endSun.toISOString().split('T')[0];
+
+        // Get all snapshots for this range
+        const snapshots = await db.all(
+            'SELECT * FROM task_point_snapshots WHERE target_type = ? AND target_id = ? AND snapshot_date >= ? AND snapshot_date <= ? ORDER BY snapshot_date, sort_order, time_start',
+            [target_type, Number(target_id), startStr, endStr]
+        );
+
+        // Get current templates (for future days)
+        const templates = await db.all(
+            'SELECT * FROM task_point_templates WHERE target_type = ? AND target_id = ? AND week_only IS NULL ORDER BY day_of_week, sort_order, time_start',
+            [target_type, Number(target_id)]
+        );
+
+        // Group snapshots by date
+        const snapshotsByDate = {};
+        snapshots.forEach(s => {
+            const dateKey = (typeof s.snapshot_date === 'string') ? s.snapshot_date.split('T')[0] : new Date(s.snapshot_date).toISOString().split('T')[0];
+            if (!snapshotsByDate[dateKey]) snapshotsByDate[dateKey] = [];
+            snapshotsByDate[dateKey].push(s);
+        });
+
+        // Group templates by day_of_week
+        const templatesByDay = {};
+        for (let d = 1; d <= 7; d++) templatesByDay[d] = [];
+        templates.forEach(t => {
+            if (templatesByDay[t.day_of_week]) templatesByDay[t.day_of_week].push(t);
+        });
+
+        // Build day-by-day data
+        const dayData = {};
+        let cursor = new Date(startMon);
+        while (cursor <= endSun) {
+            const dateStr = cursor.toISOString().split('T')[0];
+            const cursorDow = cursor.getDay() || 7; // 1=Mon..7=Sun
+
+            if (cursor < today) {
+                // Past: use snapshot (or empty if none)
+                dayData[dateStr] = snapshotsByDate[dateStr] || [];
+            } else {
+                // Today or future: use templates
+                dayData[dateStr] = (templatesByDay[cursorDow] || []).map(t => ({
+                    ...t, snapshot_date: dateStr, _source: 'template'
+                }));
+            }
+
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        // Get dates that have snapshots (for informational purposes)
+        const snapshotDates = Object.keys(snapshotsByDate);
+
+        return { dayData, snapshotDates, month };
     });
 }
 
