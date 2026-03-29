@@ -93,19 +93,30 @@ async function renderBanGiaoDiemPage(container) {
                            onblur="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'" />
                 </div>
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
+                    ${(() => { _tpParentSttCounter = 0; _tpChildSttCounter = 0; return ''; })()}
                     ${activeDepts.map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
-                        const gripHtml = _tpIsDirector ? `<span class="tp-grip" onmousedown="_tpSidebarGripDown(event, ${d.id})" style="cursor:grab;color:#9ca3af;font-size:14px;margin-right:6px;user-select:none;flex-shrink:0;line-height:1;padding:2px;" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#9ca3af'">⠿</span>` : '';
+                        // Calculate STT: parents get global counter, children get per-parent counter
+                        let sttLabel = '';
+                        if (!isChild) {
+                            _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
+                            _tpChildSttCounter = 0;
+                            sttLabel = `<span style="color:#9ca3af;font-size:11px;margin-right:4px;font-weight:700;">${_tpParentSttCounter}.</span>`;
+                        } else {
+                            _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
+                            sttLabel = `<span style="color:#9ca3af;font-size:10px;margin-right:3px;">${_tpChildSttCounter}.</span>`;
+                        }
                         return `
                         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;padding:10px ${isChild ? '14px 10px 24px' : '14px'};font-size:${isChild ? '12px' : '13px'};color:#374151;cursor:pointer;border-bottom:1px solid #f9fafb;transition:all .15s;font-weight:600;${i === 0 ? 'background:#eff6ff;color:#122546;border-left:3px solid #2563eb;' : 'border-left:3px solid transparent;'}" onmouseover="if(!this.classList.contains('tp-active'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('tp-active'))this.style.background='white'">
-                            ${gripHtml}${isChild ? '└ ' : ''}${d.name}
+                            ${sttLabel}${isChild ? '└ ' : ''}${d.name}
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join('')}
                 </div>
-                ${isManager ? `<div style="padding:8px 10px;border-top:1px solid #f3f4f6;">
-                    <button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="width:100%;padding:7px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>
-                </div>` : ''}
+                <div style="padding:8px 10px;border-top:1px solid #f3f4f6;display:flex;gap:6px;">
+                    ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:6px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
+                    ${_tpIsDirector ? `<button onclick="_tpShowReorderModal()" style="padding:7px 10px;border-radius:6px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;" title="Sắp xếp thứ tự phòng ban">🔢 STT</button>` : ''}
+                </div>
             </div>
 
             <!-- RIGHT: Grid -->
@@ -1788,201 +1799,85 @@ document.addEventListener('dragend', (e) => {
     _tpDragData = null;
 });
 
-// ===== SIDEBAR MOUSE-BASED REORDER (giam_doc only) =====
-let _tpDrag = null; // { id, parentId, el, ghost, startY, isDragging }
+// ===== SIDEBAR STT REORDER MODAL (giam_doc only) =====
+let _tpParentSttCounter = 0;
+let _tpChildSttCounter = 0;
 
-function _tpSidebarGripDown(e, deptId) {
-    e.preventDefault();
-    e.stopPropagation();
-    const header = e.target.closest('.tp-dept-header');
-    if (!header) return;
-    _tpDrag = {
-        id: deptId,
-        parentId: header.dataset.parentId || '',
-        el: header,
-        ghost: null,
-        startY: e.clientY,
-        isDragging: false
-    };
-    document.addEventListener('mousemove', _tpSidebarMouseMove);
-    document.addEventListener('mouseup', _tpSidebarMouseUp);
-}
-
-function _tpSidebarMouseMove(e) {
-    if (!_tpDrag) return;
-    // Start drag after 4px movement threshold
-    if (!_tpDrag.isDragging) {
-        if (Math.abs(e.clientY - _tpDrag.startY) < 4) return;
-        _tpDrag.isDragging = true;
-        // Create ghost
-        const ghost = document.createElement('div');
-        ghost.id = '_tpDragGhost';
-        ghost.textContent = _tpDrag.el.textContent.trim();
-        ghost.style.cssText = `position:fixed;padding:8px 14px;background:#2563eb;color:white;border-radius:8px;font-size:12px;font-weight:700;box-shadow:0 8px 25px rgba(37,99,235,0.4);pointer-events:none;z-index:99999;white-space:nowrap;transform:translate(-50%,-50%);`;
-        document.body.appendChild(ghost);
-        _tpDrag.ghost = ghost;
-        // Dim source
-        _tpDrag.el.style.opacity = '0.3';
-        _tpDrag.el.style.border = '1px dashed #93c5fd';
-        _tpDrag.el.style.borderRadius = '6px';
-        document.body.style.cursor = 'grabbing';
-        document.body.style.userSelect = 'none';
-    }
-    // Move ghost
-    _tpDrag.ghost.style.left = e.clientX + 'px';
-    _tpDrag.ghost.style.top = e.clientY + 'px';
-    // Find drop target
-    _tpSidebarUpdateSep(e.clientY);
-}
-
-function _tpSidebarUpdateSep(mouseY) {
-    const list = document.getElementById('tpDeptList');
-    if (!list || !_tpDrag) return;
-    const headers = [...list.querySelectorAll('.tp-dept-header')];
-    const dragIsChild = _tpDrag.parentId !== '';
-
-    // Remove old separator
-    document.getElementById('_tpSidebarSep')?.remove();
-    // Clear highlights
-    headers.forEach(h => {
-        if (Number(h.dataset.id) !== _tpDrag.id) {
-            h.style.background = h.classList.contains('tp-active') ? '#eff6ff' : '';
-        }
-    });
-
-    // Find closest valid target
-    let bestEl = null, bestPos = 'after', bestDist = Infinity;
-    for (const h of headers) {
-        if (Number(h.dataset.id) === _tpDrag.id) continue;
-        const hIsChild = (h.dataset.parentId || '') !== '';
-        // parent↔parent, child↔child of same parent only
-        if (dragIsChild !== hIsChild) continue;
-        if (dragIsChild && h.dataset.parentId !== _tpDrag.parentId) continue;
-        const rect = h.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        const dist = Math.abs(mouseY - midY);
-        if (dist < bestDist) {
-            bestDist = dist;
-            bestEl = h;
-            bestPos = mouseY < midY ? 'before' : 'after';
-        }
-    }
-
-    if (!bestEl) return;
-
-    // Highlight target
-    bestEl.style.background = '#dbeafe';
-
-    // Create separator
-    const sep = document.createElement('div');
-    sep.id = '_tpSidebarSep';
-    sep.style.cssText = 'height:4px;background:#2563eb;border-radius:2px;margin:2px 8px;box-shadow:0 0 10px rgba(37,99,235,0.6);position:relative;pointer-events:none;';
-    sep.innerHTML = '<div style="position:absolute;left:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:#2563eb;box-shadow:0 0 6px rgba(37,99,235,0.6);"></div><div style="position:absolute;right:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:#2563eb;box-shadow:0 0 6px rgba(37,99,235,0.6);"></div>';
-
-    if (bestPos === 'before') {
-        list.insertBefore(sep, bestEl);
-    } else {
-        // After: skip memberWrap + children
-        let afterEl = bestEl;
-        const wrap = document.getElementById(`tpMemberWrap_${bestEl.dataset.id}`);
-        if (wrap) afterEl = wrap;
-        const hIsChild = (bestEl.dataset.parentId || '') !== '';
-        if (!hIsChild) {
-            const kids = list.querySelectorAll(`.tp-dept-header[data-parent-id="${bestEl.dataset.id}"]`);
-            kids.forEach(ch => {
-                afterEl = ch;
-                const cw = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
-                if (cw) afterEl = cw;
-            });
-        }
-        afterEl.parentNode.insertBefore(sep, afterEl.nextSibling);
-    }
-}
-
-function _tpSidebarMouseUp(e) {
-    document.removeEventListener('mousemove', _tpSidebarMouseMove);
-    document.removeEventListener('mouseup', _tpSidebarMouseUp);
-    if (!_tpDrag) return;
-
-    const wasDragging = _tpDrag.isDragging;
-    const dragId = _tpDrag.id;
-    const dragParentId = _tpDrag.parentId;
-
-    // Remove ghost
-    _tpDrag.ghost?.remove();
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-
-    // Reset source visual
-    _tpDrag.el.style.opacity = '1';
-    _tpDrag.el.style.border = '';
-    _tpDrag.el.style.borderRadius = '';
-
-    const sep = document.getElementById('_tpSidebarSep');
-    if (!wasDragging || !sep) {
-        _tpDrag = null;
-        sep?.remove();
-        return;
-    }
-
-    const list = document.getElementById('tpDeptList');
-    if (!list) { _tpDrag = null; sep.remove(); return; }
-
-    const dragIsChild = dragParentId !== '';
-    const dragEl = list.querySelector(`.tp-dept-header[data-id="${dragId}"]`);
-    if (!dragEl) { _tpDrag = null; sep.remove(); return; }
-    const dragMemberWrap = document.getElementById(`tpMemberWrap_${dragId}`);
-
-    // Collect drag group
-    let dragGroup = [dragEl];
-    if (dragMemberWrap) dragGroup.push(dragMemberWrap);
-    if (!dragIsChild) {
-        const childHeaders = list.querySelectorAll(`.tp-dept-header[data-parent-id="${dragId}"]`);
-        childHeaders.forEach(ch => {
-            dragGroup.push(ch);
-            const chWrap = document.getElementById(`tpMemberWrap_${ch.dataset.id}`);
-            if (chWrap) dragGroup.push(chWrap);
-        });
-    }
-
-    // Remove drag group
-    dragGroup.forEach(el => el.remove());
-
-    // Insert at separator position
-    dragGroup.forEach(el => sep.parentNode.insertBefore(el, sep));
-    sep.remove();
-
-    // Clear highlights
-    document.querySelectorAll('.tp-dept-header').forEach(h => {
-        if (!h.classList.contains('tp-active')) h.style.background = '';
-    });
-
-    _tpDrag = null;
-
-    // Persist
-    _tpSidebarPersistOrder();
-}
-
-async function _tpSidebarPersistOrder() {
+function _tpShowReorderModal() {
+    // Get current active depts from sidebar
     const list = document.getElementById('tpDeptList');
     if (!list) return;
-    const headers = list.querySelectorAll('.tp-dept-header');
+
+    // Build tree structure from _tpAllDepts that are active
+    const activeHeaders = list.querySelectorAll('.tp-dept-header');
+    const activeIds = new Set([...activeHeaders].map(h => Number(h.dataset.id)));
+    const activeDepts = _tpAllDepts.filter(d => activeIds.has(d.id));
+    
+    // Separate parents and children
+    const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    
+    let rowsHtml = '';
+    let parentIdx = 0;
+    parents.forEach(p => {
+        parentIdx++;
+        rowsHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f3f4f6;background:#f8fafc;">
+                <input type="number" min="1" class="_tpSttInput" data-id="${p.id}" data-level="parent" value="${p.display_order !== null && p.display_order !== undefined ? p.display_order + 1 : parentIdx}" style="width:50px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-weight:700;text-align:center;color:#2563eb;outline:none;" onfocus="this.style.borderColor='#2563eb';this.select()" onblur="this.style.borderColor='#d1d5db'">
+                <span style="font-weight:700;color:#122546;font-size:13px;">${p.name}</span>
+            </div>`;
+        // Children of this parent
+        const children = activeDepts.filter(c => c.parent_id === p.id)
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        children.forEach((c, ci) => {
+            rowsHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 36px;border-bottom:1px solid #f9fafb;">
+                <input type="number" min="1" class="_tpSttInput" data-id="${c.id}" data-level="child" data-parent="${p.id}" value="${c.display_order !== null && c.display_order !== undefined ? c.display_order + 1 : ci + 1}" style="width:46px;padding:5px 6px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;text-align:center;color:#059669;outline:none;" onfocus="this.style.borderColor='#059669';this.select()" onblur="this.style.borderColor='#e5e7eb'">
+                <span style="color:#6b7280;font-size:12px;">└ ${c.name}</span>
+            </div>`;
+        });
+    });
+
+    const modal = document.createElement('div');
+    modal.id = '_tpReorderModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+    <div style="background:white;border-radius:12px;width:min(420px,90vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">🔢 Sắp xếp thứ tự phòng ban</h3>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Nhập số STT — số nhỏ hiển trước</div>
+            </div>
+            <button onclick="document.getElementById('_tpReorderModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;">
+            ${rowsHtml}
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="document.getElementById('_tpReorderModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_tpSaveReorder()" style="padding:8px 20px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Lưu thứ tự</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+async function _tpSaveReorder() {
+    const inputs = document.querySelectorAll('._tpSttInput');
     const orders = [];
-    let parentOrder = 0;
-    let childOrder = 0;
-    headers.forEach(h => {
-        const id = Number(h.dataset.id);
-        const isChild = (h.dataset.parentId || '') !== '';
-        if (!isChild) {
-            orders.push({ id, display_order: parentOrder++ });
-            childOrder = 0;
-        } else {
-            orders.push({ id, display_order: childOrder++ });
-        }
+    inputs.forEach(inp => {
+        const id = Number(inp.dataset.id);
+        const stt = Number(inp.value) || 0;
+        // Store as 0-indexed (STT 1 = display_order 0)
+        orders.push({ id, display_order: stt - 1 });
     });
     try {
         await apiCall('/api/task-points/reorder-departments', 'PUT', { orders });
         showToast('✅ Đã lưu thứ tự');
+        document.getElementById('_tpReorderModal')?.remove();
+        // Reload page to reflect new order
+        const content = document.getElementById('content') || document.querySelector('[id="content"]');
+        if (content) renderBanGiaoDiemPage(content);
     } catch(e) {
         showToast('Lỗi lưu thứ tự', 'error');
     }
