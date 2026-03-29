@@ -317,8 +317,8 @@ async function taskPointRoutes(fastify, options) {
 
         // Avoid duplicate
         const existing = await db.get(
-            'SELECT id FROM task_exemptions WHERE user_id = ? AND template_id = ? AND exempt_type = ? AND (week_start = ? OR (week_start IS NULL AND ? IS NULL))',
-            [user_id, template_id, exempt_type, week_start || null, week_start || null]
+            'SELECT id FROM task_exemptions WHERE user_id = ? AND template_id = ? AND exempt_type = ? AND (week_start IS NOT DISTINCT FROM ?)',
+            [user_id, template_id, exempt_type, week_start || null]
         );
         if (existing) {
             return { ok: true, message: 'Đã miễn trừ trước đó' };
