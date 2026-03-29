@@ -407,8 +407,8 @@ async function _tpLoadDeptMembers(deptId) {
                 <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
                      onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
                      style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
-                     onmouseover="this.style.background='#f8fafc'" 
-                     onmouseout="if(!this.classList.contains('tp-member-active')){this.style.background=''}">
+                     onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='#f8fafc'" 
+                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='';else this.style.background='#059669'">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:${lead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
                         <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>

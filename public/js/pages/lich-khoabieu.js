@@ -243,7 +243,7 @@ async function renderLichKhoaBieuPage(container) {
                     deptListHtml += `
                         <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
-                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
+                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white';else this.style.background='#059669'">
                             <div style="flex:1;min-width:0;">
                                 <div style="font-weight:${isLead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
                                 <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
