@@ -523,7 +523,8 @@ function _tpRenderGrid() {
                     }
 
                     html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}">
+                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}">
+                            <span style="position:absolute;top:-6px;right:-6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.15);${task.week_only ? 'background:#fef3c7;color:#d97706;border:1px solid #fde68a;' : 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;'}">${task.week_only ? '📅 Tuần' : '📌 CĐ'}</span>
                             <div onclick="_tpShowTaskDetail(${task.id})" style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                             <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
                                 <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
