@@ -532,8 +532,8 @@ function _tpRenderGrid() {
                         weekBadge = `<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600;">📅 Tuần này</span>`;
                     }
 
-                    html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                        <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}">
+                    html += `<td data-day="${d}" data-slot="${slot}" ondragover="_tpDragOver(event)" ondrop="_tpDrop(event)" ondragenter="_tpDragEnter(event)" ondragleave="_tpDragLeave(event)" style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;transition:background .15s;">
+                        <div ${_tpIsDirector ? `draggable="true" ondragstart="_tpDragStart(event, ${task.id}, '${slot}', ${d})"` : ''} style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}${_tpIsDirector ? 'cursor:grab;' : ''}">
                             <span style="position:absolute;top:-6px;right:-6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.15);${task.week_only ? 'background:#fef3c7;color:#d97706;border:1px solid #fde68a;' : 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;'}">${task.week_only ? '📅 Tuần' : '📌 CĐ'}</span>
                             <div onclick="_tpShowTaskDetail(${task.id})" style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                             <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
@@ -556,6 +556,7 @@ function _tpRenderGrid() {
                     // Check if there's an exempted task for this slot+day
                     const exempted = _tpExemptedTasks.find(e => e.day_of_week === d && e.time_start + '|' + e.time_end === slot);
                     if (exempted) {
+                        // exempted cells are also drop targets
                         html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                             <div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;padding:10px 12px;text-align:center;opacity:0.7;">
                                 <div style="font-size:12px;color:#9ca3af;font-weight:600;margin-bottom:4px;">🚫 ${exempted.task_name}</div>
@@ -564,7 +565,7 @@ function _tpRenderGrid() {
                             </div>
                         </td>`;
                     } else {
-                        html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:middle;text-align:center;color:#d1d5db;font-size:20px;">—</td>`;
+                        html += `<td data-day="${d}" data-slot="${slot}" ondragover="_tpDragOver(event)" ondrop="_tpDrop(event)" ondragenter="_tpDragEnter(event)" ondragleave="_tpDragLeave(event)" style="padding:8px 10px;border-bottom:${borderB};vertical-align:middle;text-align:center;color:#d1d5db;font-size:20px;transition:background .15s;">—</td>`;
                     }
                 }
             }
@@ -1683,3 +1684,100 @@ function _tpPickLibTaskDo(libTask, dayOfWeek) {
     };
     _tpShowTaskModal(null, dayOfWeek, task);
 }
+
+// ========== DRAG & DROP (Director only) ==========
+let _tpDragData = null;
+
+function _tpDragStart(e, taskId, slot, day) {
+    _tpDragData = { taskId, slot, day, clone: e.ctrlKey || e.metaKey };
+    e.dataTransfer.effectAllowed = _tpDragData.clone ? 'copy' : 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+    // Visual: reduce opacity of dragged element
+    setTimeout(() => { e.target.style.opacity = '0.4'; }, 0);
+    // Show hint
+    const hint = document.createElement('div');
+    hint.id = '_tpDragHint';
+    hint.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#122546;color:white;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:600;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:none;';
+    hint.textContent = e.ctrlKey || e.metaKey ? '📋 Nhân bản — thả vào ô đích' : '↕️ Di chuyển — giữ Ctrl để nhân bản';
+    document.body.appendChild(hint);
+    // Listen for Ctrl key changes during drag
+    document.addEventListener('keydown', _tpDragKeyHandler);
+    document.addEventListener('keyup', _tpDragKeyHandler);
+}
+
+function _tpDragKeyHandler(e) {
+    if (e.key === 'Control' || e.key === 'Meta') {
+        if (_tpDragData) _tpDragData.clone = e.type === 'keydown';
+        const hint = document.getElementById('_tpDragHint');
+        if (hint) hint.textContent = e.type === 'keydown' ? '📋 Nhân bản — thả vào ô đích' : '↕️ Di chuyển — giữ Ctrl để nhân bản';
+    }
+}
+
+function _tpDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = (_tpDragData && _tpDragData.clone) ? 'copy' : 'move';
+}
+
+function _tpDragEnter(e) {
+    e.preventDefault();
+    const td = e.target.closest('td[data-day]');
+    if (td) td.style.background = '#ecfdf5';
+}
+
+function _tpDragLeave(e) {
+    const td = e.target.closest('td[data-day]');
+    if (td) td.style.background = '';
+}
+
+async function _tpDrop(e) {
+    e.preventDefault();
+    // Clean up
+    document.getElementById('_tpDragHint')?.remove();
+    document.removeEventListener('keydown', _tpDragKeyHandler);
+    document.removeEventListener('keyup', _tpDragKeyHandler);
+
+    const td = e.target.closest('td[data-day]');
+    if (!td || !_tpDragData) return;
+    td.style.background = '';
+
+    const targetDay = Number(td.dataset.day);
+    const targetSlot = td.dataset.slot;
+    if (!targetDay || !targetSlot) return;
+
+    const [newStart, newEnd] = targetSlot.split('|');
+    const { taskId, slot: srcSlot, day: srcDay, clone } = _tpDragData;
+    _tpDragData = null;
+
+    // Same slot same day = no-op (unless clone)
+    if (!clone && targetDay === srcDay && targetSlot === srcSlot) {
+        _tpRenderGrid(); // reset opacity
+        return;
+    }
+
+    try {
+        const r = await apiCall('/api/task-points/move-task', 'POST', {
+            task_id: taskId,
+            new_day: targetDay,
+            new_time_start: newStart,
+            new_time_end: newEnd,
+            clone: !!clone
+        });
+        if (r.error) {
+            showToast('❌ ' + r.error, 'error');
+        } else {
+            showToast('✅ ' + (r.message || 'Thành công'));
+            _tpLoadTasks();
+        }
+    } catch(err) {
+        showToast('Lỗi: ' + (err.message || 'Không thể thực hiện'), 'error');
+    }
+}
+
+// Reset drag visual on dragend
+document.addEventListener('dragend', (e) => {
+    if (e.target.draggable) e.target.style.opacity = '1';
+    document.getElementById('_tpDragHint')?.remove();
+    document.removeEventListener('keydown', _tpDragKeyHandler);
+    document.removeEventListener('keyup', _tpDragKeyHandler);
+    _tpDragData = null;
+});

@@ -1,5 +1,6 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
+const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
 async function taskPointRoutes(fastify, options) {
 
@@ -294,6 +295,33 @@ async function taskPointRoutes(fastify, options) {
     fastify.delete('/api/holidays/:id', { preHandler: [authenticate] }, async (request, reply) => {
         await db.run('DELETE FROM holidays WHERE id = $1', [Number(request.params.id)]);
         return { success: true };
+    });
+
+    // POST move or clone a task to a different day/time slot (director only)
+    fastify.post('/api/task-points/move-task', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { task_id, new_day, new_time_start, new_time_end, clone } = request.body;
+        if (!task_id || !new_day || !new_time_start || !new_time_end) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+        const task = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [task_id]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy công việc' });
+
+        if (clone) {
+            // Clone: insert new task
+            await db.run(
+                `INSERT INTO task_point_templates (target_type, target_id, task_name, points, min_quantity, time_start, time_end, day_of_week, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [task.target_type, task.target_id, task.task_name, task.points, task.min_quantity, new_time_start, new_time_end, new_day, task.guide_url, task.sort_order, task.requires_approval, task.week_only, task.input_requirements, task.output_requirements]
+            );
+            return { ok: true, message: `Đã nhân bản "${task.task_name}" sang ${DAY_NAMES[new_day] || 'ngày ' + new_day}` };
+        } else {
+            // Move: update existing
+            await db.run(
+                'UPDATE task_point_templates SET day_of_week = ?, time_start = ?, time_end = ? WHERE id = ?',
+                [new_day, new_time_start, new_time_end, task_id]
+            );
+            return { ok: true, message: `Đã di chuyển "${task.task_name}" sang ${DAY_NAMES[new_day] || 'ngày ' + new_day}` };
+        }
     });
 
     // POST clone tasks from one team to another (director only)
