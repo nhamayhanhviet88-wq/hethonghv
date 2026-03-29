@@ -202,6 +202,14 @@ async function taskPointRoutes(fastify, options) {
         return { success: true };
     });
 
+    // Remove team from sidebar (keeps task templates intact)
+    fastify.post('/api/task-points/deactivate-team', { preHandler: [authenticate] }, async (request, reply) => {
+        const { team_id } = request.body || {};
+        if (!team_id) return reply.code(400).send({ error: 'Thiếu team_id' });
+        await db.run('DELETE FROM task_schedule_active_teams WHERE team_id = $1', [Number(team_id)]);
+        return { success: true };
+    });
+
     // GET users in a department (with username for search)
     fastify.get('/api/task-points/users', { preHandler: [authenticate] }, async (request, reply) => {
         const { department_id } = request.query;

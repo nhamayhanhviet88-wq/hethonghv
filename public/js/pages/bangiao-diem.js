@@ -28,32 +28,31 @@ function _tpGetSavedSelection() {
     } catch { return null; }
 }
 
-// ===== HIDDEN DEPTS (per user, localStorage) =====
-function _tpGetHiddenDepts() {
+// ===== REMOVE DEPT from sidebar (deactivate via API) =====
+async function _tpRemoveDept(deptId, event) {
+    if (event) event.stopPropagation();
+    const dept = _tpAllDepts.find(d => d.id === deptId);
+    const name = dept?.name || 'phòng này';
+    if (!confirm(`Xóa ${name} khỏi sidebar?\nDữ liệu công việc vẫn được giữ nguyên.\nCó thể thêm lại bất cứ lúc nào.`)) return;
     try {
-        const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
-        return JSON.parse(localStorage.getItem(key) || '[]');
-    } catch { return []; }
-}
-function _tpSetHiddenDepts(ids) {
-    const key = `tp_hidden_depts_${window._currentUser?.id || 'default'}`;
-    localStorage.setItem(key, JSON.stringify(ids));
-}
-function _tpToggleHideDept(deptId, event) {
-    if (event) event.stopPropagation();
-    const hidden = _tpGetHiddenDepts();
-    const idx = hidden.indexOf(deptId);
-    if (idx >= 0) hidden.splice(idx, 1);
-    else hidden.push(deptId);
-    _tpSetHiddenDepts(hidden);
-    // Re-render sidebar only
-    _tpRebuildSidebar();
-}
-function _tpShowHiddenDepts(event) {
-    if (event) event.stopPropagation();
-    // Show all hidden depts temporarily
-    _tpSetHiddenDepts([]);
-    _tpRebuildSidebar();
+        await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: deptId });
+        // Also remove child teams
+        const children = _tpAllDepts.filter(d => d.parent_id === deptId);
+        for (const child of children) {
+            await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: child.id });
+            _tpActiveDeptIds = _tpActiveDeptIds.filter(id => id !== child.id);
+        }
+        _tpActiveDeptIds = _tpActiveDeptIds.filter(id => id !== deptId);
+        _tpCachedActiveDepts = _tpCachedActiveDepts.filter(d => d.id !== deptId && d.parent_id !== deptId);
+        _tpRebuildSidebar();
+        // Select first remaining dept
+        if (_tpCachedActiveDepts.length > 0) {
+            _tpSelectDept(_tpCachedActiveDepts[0].id);
+        }
+        showToast(`✅ Đã xóa ${name} khỏi sidebar`);
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
+    }
 }
 let _tpCachedActiveDepts = []; // cached for rebuild
 function _tpRebuildSidebar() {
@@ -61,14 +60,9 @@ function _tpRebuildSidebar() {
     if (!list || !_tpCachedActiveDepts.length) return;
     const activeDepts = _tpCachedActiveDepts;
     const activeSet = new Set(_tpActiveDeptIds);
-    const hidden = _tpGetHiddenDepts();
     const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
     let parentStt = 0, childStt = 0;
-    let html = activeDepts.filter(d => {
-        if (hidden.includes(d.id)) return false;
-        if (d.parent_id && hidden.includes(d.parent_id)) return false;
-        return true;
-    }).map((d, i) => {
+    let html = activeDepts.map((d, i) => {
         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
         let sttLabel = '';
         if (!isChild) {
@@ -79,10 +73,10 @@ function _tpRebuildSidebar() {
             childStt++;
             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
         }
-        const hideBtn = !isChild ? `<span onclick="_tpToggleHideDept(${d.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
+        const deleteBtn = !isChild ? `<span onclick="_tpRemoveDept(${d.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
         return `
         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
-            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${hideBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
+            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
         </div>
         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
     }).join('');
