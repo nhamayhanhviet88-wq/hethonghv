@@ -60,7 +60,7 @@ function _tpRebuildSidebar() {
         if (!isChild) {
             parentStt++;
             childStt = 0;
-            sttLabel = `<span style="color:#1e3a5f;font-size:14px;font-weight:900;margin-right:5px;text-shadow:0 0 4px rgba(255,255,255,0.5);">${parentStt}.</span>`;
+            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
         } else {
             childStt++;
             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
