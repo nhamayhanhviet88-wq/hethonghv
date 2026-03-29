@@ -205,7 +205,11 @@ async function renderLichKhoaBieuPage(container) {
             }).forEach(dept => {
                 const isChild = activeDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
                 const deptMembers = (byDept[dept.name] || [])
-                    .sort((a, b) => (_kbRolePriority[b.role] || 0) - (_kbRolePriority[a.role] || 0));
+                    .sort((a, b) => {
+                        const aHead = a._is_dept_head ? 10 : 0;
+                        const bHead = b._is_dept_head ? 10 : 0;
+                        return (bHead + (_kbRolePriority[b.role] || 0)) - (aHead + (_kbRolePriority[a.role] || 0));
+                    });
                 let sttLabel = '';
                 if (!isChild) {
                     parentStt++;
@@ -218,8 +222,9 @@ async function renderLichKhoaBieuPage(container) {
                 const hideBtn = !isChild ? `<span onclick="_kbToggleHideDept(${dept.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
                 deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${hideBtn}</div>`;
                 deptMembers.forEach(u => {
-                    const isLead = _kbIsLeader(u.role);
-                    const roleTag = _kbRoleLabel[u.role] || u.role;
+                    const isDeptHead = u._is_dept_head;
+                    const isLead = isDeptHead || _kbIsLeader(u.role);
+                    const roleTag = isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role);
                     const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
                     deptListHtml += `
                         <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"

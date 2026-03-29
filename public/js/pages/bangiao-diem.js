@@ -355,18 +355,23 @@ async function _tpLoadDeptMembers(deptId) {
         _tpDeptMembers = u.users || [];
     } catch(e) { _tpDeptMembers = []; }
 
-    // Sort by role priority: leaders first
+    // Sort by role priority: leaders first, dept heads at top
     const _rolePri = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
     const _roleLabel = { giam_doc: '⭐ Quản lý', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
     const _isLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
-    _tpDeptMembers.sort((a, b) => (_rolePri[b.role] || 0) - (_rolePri[a.role] || 0));
+    _tpDeptMembers.sort((a, b) => {
+        const aHead = a._is_dept_head ? 10 : 0;
+        const bHead = b._is_dept_head ? 10 : 0;
+        return (bHead + (_rolePri[b.role] || 0)) - (aHead + (_rolePri[a.role] || 0));
+    });
 
     wrap.style.display = 'block';
     wrap.innerHTML = `
         <div id="tpMemberList_${deptId}">
             ${_tpDeptMembers.map(m => {
-                const lead = _isLeader(m.role);
-                const roleTag = _roleLabel[m.role] || m.role;
+                const isDeptHead = m._is_dept_head;
+                const lead = isDeptHead || _isLeader(m.role);
+                const roleTag = isDeptHead ? '⭐ Trưởng phòng' : (_roleLabel[m.role] || m.role);
                 const starStyle = lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
                 return `
                 <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
