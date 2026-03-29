@@ -1913,10 +1913,13 @@ async function _tpSaveReorder() {
 // ===== MONTH VIEW =====
 async function _tpShowMonthView(monthStr) {
     if (!monthStr) return;
+    // Validate format: must be YYYY-MM (4-digit year)
+    if (!/^\d{4}-\d{2}$/.test(monthStr)) return;
     // Parse robustly via Date
     const parsedDate = new Date(monthStr + '-01');
     const year = parsedDate.getFullYear();
     const month = parsedDate.getMonth() + 1; // 1-indexed
+    if (isNaN(year) || year < 2020 || year > 2100) return;
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
 
@@ -1978,7 +1981,6 @@ async function _tpShowMonthView(monthStr) {
     const prevStr = prevY + '-' + String(prevM).padStart(2, '0');
     const nextStr = nextY + '-' + String(nextM).padStart(2, '0');
     const titleStr = '📆 ' + monthNames[month] + ' ' + String(year);
-    console.log('[MonthView] monthStr=', monthStr, 'year=', year, 'month=', month, 'title=', titleStr);
 
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:2px solid #e5e7eb;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:10px 10px 0 0;">
         <div style="font-weight:800;color:#122546;font-size:16px;">${titleStr}</div>
