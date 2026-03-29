@@ -436,7 +436,10 @@ function _tpDateStr(d) {
 
 function _tpGetTaskColor(taskName) {
     if (!_tpTaskColorMap[taskName]) {
-        const idx = Object.keys(_tpTaskColorMap).length % _tpColorPalette.length;
+        // Deterministic hash — same name always gets same color (synced with lich-khoabieu)
+        let hash = 0;
+        for (let i = 0; i < taskName.length; i++) hash = ((hash << 5) - hash) + taskName.charCodeAt(i);
+        const idx = Math.abs(hash) % _tpColorPalette.length;
         _tpTaskColorMap[taskName] = _tpColorPalette[idx];
     }
     return _tpTaskColorMap[taskName];
@@ -458,7 +461,15 @@ function _tpRenderGrid() {
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
 
-    // Build color map from unique task names (reset each render)
+    // Inject approval badge pulse animation (once)
+    if (!document.getElementById('_tpPulseStyle')) {
+        const s = document.createElement('style');
+        s.id = '_tpPulseStyle';
+        s.textContent = '@keyframes _tpPulse { 0%,100%{transform:scale(1);box-shadow:0 2px 6px rgba(217,119,6,0.4)} 50%{transform:scale(1.08);box-shadow:0 3px 10px rgba(217,119,6,0.6)} }';
+        document.head.appendChild(s);
+    }
+
+    // Build color map from unique task names (hash-based — deterministic)
     _tpTaskColorMap = {};
     const uniqueNames = [...new Set(_tpTasks.map(t => t.task_name))];
     uniqueNames.forEach(name => _tpGetTaskColor(name));
@@ -599,6 +610,7 @@ function _tpRenderGrid() {
                     html += `<td data-day="${d}" data-slot="${slot}" ondragover="_tpDragOver(event)" ondrop="_tpDrop(event)" ondragenter="_tpDragEnter(event)" ondragleave="_tpDragLeave(event)" style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;transition:background .15s;">
                         <div ${_tpIsDirector ? `draggable="true" ondragstart="_tpDragStart(event, ${task.id}, '${slot}', ${d})"` : ''} style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}${_tpIsDirector ? 'cursor:grab;' : ''}">
                             <span style="position:absolute;top:-6px;right:-6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.15);${task.week_only ? 'background:#fef3c7;color:#d97706;border:1px solid #fde68a;' : 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;'}">${task.week_only ? '📅 Tuần' : '📌 CĐ'}</span>
+                            ${task.requires_approval ? '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_tpPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
                             <div onclick="_tpShowTaskDetail(${task.id})" style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                             <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
                                 <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>

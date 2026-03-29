@@ -33,7 +33,10 @@ function _kbLinkify(text) {
 
 function _kbGetColor(name) {
     if (!_kbColorMap[name]) {
-        const idx = Object.keys(_kbColorMap).length % _KB_COLORS.length;
+        // Deterministic hash — same name always gets same color (synced with bangiao-diem)
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+        const idx = Math.abs(hash) % _KB_COLORS.length;
         _kbColorMap[name] = _KB_COLORS[idx];
     }
     return _kbColorMap[name];
@@ -379,7 +382,15 @@ function _kbRenderGrid() {
     const wrap = document.getElementById('kbGridWrap');
     if (!wrap) return;
 
-    // Colors
+    // Inject approval badge pulse animation (once)
+    if (!document.getElementById('_kbPulseStyle')) {
+        const s = document.createElement('style');
+        s.id = '_kbPulseStyle';
+        s.textContent = '@keyframes _kbPulse { 0%,100%{transform:scale(1);box-shadow:0 2px 6px rgba(217,119,6,0.4)} 50%{transform:scale(1.08);box-shadow:0 3px 10px rgba(217,119,6,0.6)} }';
+        document.head.appendChild(s);
+    }
+
+    // Colors (hash-based — deterministic)
     _kbColorMap = {};
     const uniqueNames = [...new Set(_kbTasks.map(t => t.task_name))];
     uniqueNames.forEach(n => _kbGetColor(n));
@@ -550,7 +561,8 @@ function _kbRenderGrid() {
                 const reqsHtml = '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
-                    <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;">
+                    <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
+                        ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
                         <div onclick="_kbShowTaskDetail(${task._source === 'snapshot' ? task.template_id : task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
