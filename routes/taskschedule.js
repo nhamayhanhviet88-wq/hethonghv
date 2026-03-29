@@ -26,6 +26,22 @@ async function taskScheduleRoutes(fastify, options) {
         }
 
         // Merge: team tasks + individual tasks (individual view always gets both)
+        // Filter out exempted team tasks
+        const exemptions = await db.all(
+            'SELECT template_id, exempt_type, week_start FROM task_exemptions WHERE user_id = $1',
+            [userId]
+        );
+        if (exemptions.length > 0) {
+            teamTasks = teamTasks.filter(t => {
+                return !exemptions.some(e => {
+                    if (e.template_id !== t.id) return false;
+                    if (e.exempt_type === 'permanent') return true;
+                    if (e.exempt_type === 'week' && e.week_start === (weekStart || null)) return true;
+                    return false;
+                });
+            });
+        }
+
         return [...teamTasks, ...indivTasks];
     }
 

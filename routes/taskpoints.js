@@ -32,6 +32,22 @@ async function taskPointRoutes(fastify, options) {
             );
         }
 
+        // Filter out exempted team tasks
+        const exemptions = await db.all(
+            `SELECT template_id, exempt_type, week_start FROM task_exemptions WHERE user_id = ?`,
+            [Number(user_id)]
+        );
+        if (exemptions.length > 0) {
+            teamTasks = teamTasks.filter(t => {
+                return !exemptions.some(e => {
+                    if (e.template_id !== t.id) return false;
+                    if (e.exempt_type === 'permanent') return true;
+                    if (e.exempt_type === 'week' && e.week_start === (week_start || null)) return true;
+                    return false;
+                });
+            });
+        }
+
         // Individual tasks (_source='individual')
         const indivTasks = await db.all(
             `SELECT *, 'individual' as _source FROM task_point_templates WHERE target_type = 'individual' AND target_id = ? AND (week_only IS NULL OR week_only = ?) ORDER BY day_of_week, sort_order, time_start`,
@@ -272,6 +288,47 @@ async function taskPointRoutes(fastify, options) {
     fastify.delete('/api/holidays/:id', { preHandler: [authenticate] }, async (request, reply) => {
         await db.run('DELETE FROM holidays WHERE id = $1', [Number(request.params.id)]);
         return { success: true };
+    });
+
+    // POST exempt a team task for a specific user (director only)
+    fastify.post('/api/task-points/exempt', { preHandler: [authenticate, requireRole(['giam_doc'])] }, async (request, reply) => {
+        const { user_id, template_id, exempt_type, week_start } = request.body;
+        if (!user_id || !template_id || !exempt_type) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+        if (!['permanent', 'week'].includes(exempt_type)) {
+            return reply.code(400).send({ error: 'exempt_type phải là permanent hoặc week' });
+        }
+        if (exempt_type === 'week' && !week_start) {
+            return reply.code(400).send({ error: 'Thiếu week_start cho xóa tạm' });
+        }
+
+        // Check template exists and is a team task
+        const tpl = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [template_id]);
+        if (!tpl || tpl.target_type !== 'team') {
+            return reply.code(400).send({ error: 'Chỉ có thể miễn trừ CV team' });
+        }
+
+        // Avoid duplicate
+        const existing = await db.get(
+            'SELECT id FROM task_exemptions WHERE user_id = ? AND template_id = ? AND exempt_type = ? AND (week_start = ? OR (week_start IS NULL AND ? IS NULL))',
+            [user_id, template_id, exempt_type, week_start || null, week_start || null]
+        );
+        if (existing) {
+            return { ok: true, message: 'Đã miễn trừ trước đó' };
+        }
+
+        // If permanent, remove any existing week exemptions for this pair
+        if (exempt_type === 'permanent') {
+            await db.run('DELETE FROM task_exemptions WHERE user_id = ? AND template_id = ?', [user_id, template_id]);
+        }
+
+        await db.run(
+            'INSERT INTO task_exemptions (user_id, template_id, exempt_type, week_start, created_by) VALUES (?, ?, ?, ?, ?)',
+            [user_id, template_id, exempt_type, week_start || null, request.user.id]
+        );
+
+        return { ok: true, message: exempt_type === 'permanent' ? 'Đã xóa vĩnh viễn cho nhân viên này' : 'Đã bỏ qua tuần này cho nhân viên' };
     });
 }
 

@@ -511,6 +511,8 @@ function _tpRenderGrid() {
                     const isFixedTask = !task.week_only;
                     const canEditFixed = _tpIsDirector; // only director can edit fixed tasks
                     const canEdit = !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
+                    // Director can delete team tasks from individual view
+                    const canDeleteTeam = isIndivView && isTeamTask && _tpIsDirector;
                     
                     // Source badge
                     let sourceBadge = '';
@@ -539,6 +541,9 @@ function _tpRenderGrid() {
                             ${canEdit ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
                                 <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
                                 <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
+                            </div>` : ''}
+                            ${canDeleteTeam ? `<div style="margin-top:8px;display:flex;justify-content:center;">
+                                <button onclick="_tpExemptTeamTask(${task.id}, '${task.task_name.replace(/'/g, "\\'")}')" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa CV team</button>
                             </div>` : ''}
                         </div>
                     </td>`;
@@ -867,6 +872,50 @@ async function _tpCopyToIndividual() {
         showToast(`✅ Đã copy ${r.copied} công việc`);
         _tpLoadTasks();
     } catch(e) { showToast('Lỗi!', 'error'); }
+}
+
+// ===== EXEMPT TEAM TASK (Director only) =====
+function _tpExemptTeamTask(templateId, taskName) {
+    const weekStr = _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : '';
+    const userName = _tpViewUserName || '';
+    const m = document.createElement('div');
+    m.id = 'tpExemptModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(3px);';
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:0;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;animation:fadeIn .2s ease-out;">
+        <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:18px 24px;color:white;">
+            <div style="font-size:16px;font-weight:800;">⚠️ Xóa CV team cho nhân viên</div>
+            <div style="font-size:12px;margin-top:4px;opacity:0.9;">CV: <b>${taskName}</b> — NV: <b>${userName}</b></div>
+        </div>
+        <div style="padding:20px 24px;">
+            <div style="margin-bottom:12px;font-size:13px;color:#374151;">Chọn cách xóa:</div>
+            <button onclick="_tpDoExempt(${templateId}, 'permanent')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'">
+                🗑️ Xóa vĩnh viễn<br><span style="font-weight:400;font-size:11px;opacity:0.8;">NV ${userName} không phải làm CV này từ nay trở đi</span>
+            </button>
+            <button onclick="_tpDoExempt(${templateId}, 'week')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #d97706;border-radius:10px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#d97706';this.style.color='white'" onmouseout="this.style.background='#fffbeb';this.style.color='#d97706'">
+                📅 Chỉ bỏ tuần này<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Tuần sau NV ${userName} vẫn phải làm CV này</span>
+            </button>
+            <button onclick="document.getElementById('tpExemptModal').remove()" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _tpDoExempt(templateId, exemptType) {
+    const weekStr = _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : '';
+    try {
+        const r = await apiCall('/api/task-points/exempt', 'POST', {
+            user_id: _tpViewUserId,
+            template_id: templateId,
+            exempt_type: exemptType,
+            week_start: exemptType === 'week' ? weekStr : null
+        });
+        document.getElementById('tpExemptModal')?.remove();
+        showToast(`✅ ${r.message}`);
+        _tpLoadTasks();
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
+    }
 }
 
 // ===== HOLIDAY MANAGER =====
