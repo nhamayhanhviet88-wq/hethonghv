@@ -530,10 +530,9 @@ function _tpRenderGrid() {
                                 <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
                                 <span style="background:${c.tag};color:${c.text};padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
                                 ${sourceBadge}
-                                ${weekBadge}
                             </div>
                             ${task.guide_url ? `<div style="margin-top:6px;"><a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a></div>` : ''}
-                            <div style="font-size:10px;color:#9ca3af;margin-top:6px;">🕐 ${tStart} — ${tEnd}</div>
+
                             ${canEdit ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
                                 <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
                                 <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
