@@ -2,6 +2,7 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
+const { calculateRealDeadline, toDateStr, toLocalTimestamp } = require('./deadline-checker');
 
 async function taskScheduleRoutes(fastify, options) {
 
@@ -477,12 +478,20 @@ async function taskScheduleRoutes(fastify, options) {
         const points = template.requires_approval ? 0 : (template.points || 0);
 
         try {
+            // Calculate approval deadline if pending
+            let approvalDeadline = null;
+            if (status === 'pending') {
+                try {
+                    approvalDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+                } catch(e2) { /* fallback: no deadline */ }
+            }
+
             await db.run(
-                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned, approval_deadline)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  ON CONFLICT (template_id, user_id, report_date) DO UPDATE SET
-                 report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10`,
-                [Number(template_id), request.user.id, report_date, report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, status, points]
+                 report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10, approval_deadline = $11`,
+                [Number(template_id), request.user.id, report_date, report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, status, points, approvalDeadline]
             );
             return { success: true, status, points_earned: points };
         } catch(e) {
@@ -617,6 +626,7 @@ async function taskScheduleRoutes(fastify, options) {
         // Pending reports (status = 'pending') from users in these departments
         const pending = await db.all(
             `SELECT r.id, r.template_id, r.user_id, r.report_date::text as report_date, r.report_type, r.report_value, r.report_image, r.quantity, r.content, r.status, r.redo_count,
+                    r.approval_deadline, r.created_at,
                     t.task_name, t.points as template_points, t.requires_approval,
                     u.full_name as user_name, u.username
              FROM task_point_reports r
@@ -793,6 +803,296 @@ async function taskScheduleRoutes(fastify, options) {
         }
         return { success: true };
     });
+    // ========== REPORT HISTORY API ==========
+    fastify.get('/api/report-history/user/:userId', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = Number(request.params.userId);
+        const month = request.query.month; // YYYY-MM
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return reply.code(400).send({ error: 'Thiếu hoặc sai format month (YYYY-MM)' });
+        }
+
+        // Calculate date range for the month
+        const [year, mon] = month.split('-').map(Number);
+        const lastDay = new Date(year, mon, 0).getDate();
+        const fromDate = `${month}-01`;
+        const toDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+        // Get user info
+        const userInfo = await db.get(
+            'SELECT u.id, u.full_name, u.role, u.department_id, d.name as dept_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = $1',
+            [userId]
+        );
+        if (!userInfo) return reply.code(404).send({ error: 'User not found' });
+
+        // Run all queries in parallel
+        const [templates, reports, snapshots, holidays] = await Promise.all([
+            // Active task templates for this user (team + individual)
+            (async () => {
+                const indiv = await db.all(
+                    "SELECT *, 'individual' as _source FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND week_only IS NULL ORDER BY day_of_week, time_start",
+                    [userId]
+                );
+                // Get team tasks from user's department
+                let team = [];
+                if (userInfo.department_id) {
+                    team = await db.all(
+                        "SELECT *, 'team' as _source FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND week_only IS NULL ORDER BY day_of_week, time_start",
+                        [userInfo.department_id]
+                    );
+                }
+                // Also check departments where user is head
+                const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = $1 AND status = $2', [userId, 'active']);
+                for (const hd of headDepts) {
+                    if (hd.id !== userInfo.department_id) {
+                        const hdTasks = await db.all(
+                            "SELECT *, 'team' as _source FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND week_only IS NULL ORDER BY day_of_week, time_start",
+                            [hd.id]
+                        );
+                        team = team.concat(hdTasks);
+                    }
+                }
+                return [...team, ...indiv];
+            })(),
+            // All reports in this month
+            db.all(
+                `SELECT r.*, r.report_date::text as report_date, 
+                 t.task_name as template_task_name, t.points as template_points,
+                 t.guide_url as template_guide_url, t.min_quantity as template_min_quantity,
+                 t.time_start as template_time_start, t.time_end as template_time_end,
+                 t.requires_approval as template_requires_approval,
+                 t.input_requirements as template_input_requirements,
+                 t.output_requirements as template_output_requirements
+                 FROM task_point_reports r
+                 LEFT JOIN task_point_templates t ON r.template_id = t.id
+                 WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
+                 ORDER BY r.report_date`,
+                [userId, fromDate, toDate]
+            ),
+            // All snapshots in this month (for seeing which tasks were assigned on which days)
+            db.all(
+                `SELECT *, snapshot_date::text as snapshot_date_str FROM daily_task_snapshots
+                 WHERE user_id = $1 AND snapshot_date BETWEEN $2 AND $3
+                 ORDER BY daily_task_snapshots.snapshot_date, time_start`,
+                [userId, fromDate, toDate]
+            ),
+            // Holidays in this month
+            db.all(
+                "SELECT holiday_date::text as holiday_date, holiday_name FROM holidays WHERE holiday_date BETWEEN $1 AND $2 ORDER BY holiday_date",
+                [fromDate, toDate]
+            )
+        ]);
+
+        return {
+            user_info: userInfo,
+            templates,
+            reports,
+            snapshots,
+            holidays,
+            month,
+            from_date: fromDate,
+            to_date: toDate
+        };
+    });
+
+    // ========== SẾP HỖ TRỢ APIs ==========
+
+    // NV: Gửi yêu cầu hỗ trợ
+    fastify.post('/api/task-support/request', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const { template_id, task_date, task_name } = request.body || {};
+
+        if (!template_id || !task_date || !task_name) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+
+        // Get user info + department
+        const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [userId]);
+        if (!user || !user.department_id) {
+            return reply.code(400).send({ error: 'Không tìm thấy phòng ban' });
+        }
+
+        // Find approver from task_approvers (Setup Người Duyệt Công Việc)
+        // Walk up department tree: user dept → parent dept → grandparent etc.
+        let managerId = null;
+        let lookupDeptId = user.department_id;
+        const visited = new Set();
+        while (lookupDeptId && !visited.has(lookupDeptId)) {
+            visited.add(lookupDeptId);
+            // Check if there's an approver assigned to this dept (not self)
+            const approver = await db.get(
+                'SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1',
+                [lookupDeptId, userId]
+            );
+            if (approver) {
+                managerId = approver.user_id;
+                break;
+            }
+            // Go up
+            const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [lookupDeptId]);
+            lookupDeptId = dept ? dept.parent_id : null;
+        }
+
+        if (!managerId) {
+            return reply.code(400).send({ error: 'Chưa có người duyệt công việc trong Setup. Liên hệ giám đốc.' });
+        }
+
+        // Calculate deadline with holidays, leave, Sunday awareness
+        let realDeadline;
+        try {
+            realDeadline = await calculateRealDeadline(new Date(), managerId);
+        } catch(e2) {
+            // Fallback: simple tomorrow
+            realDeadline = new Date();
+            realDeadline.setDate(realDeadline.getDate() + 1);
+            realDeadline.setHours(23, 59, 59, 0);
+        }
+        const deadlineStr = toDateStr(realDeadline);
+        const deadlineAt = toLocalTimestamp(realDeadline);
+
+        // Check limit: 1 per CV per day
+        const existing = await db.get(
+            'SELECT id FROM task_support_requests WHERE user_id = $1 AND template_id = $2 AND task_date = $3',
+            [userId, template_id, task_date]
+        );
+        if (existing) {
+            return reply.code(400).send({ error: 'Bạn đã gửi yêu cầu hỗ trợ cho công việc này hôm nay rồi' });
+        }
+
+        await db.run(
+            `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, deadline_at, manager_id, department_id, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
+            [userId, template_id, task_name, task_date, deadlineStr, deadlineAt, managerId, user.department_id]
+        );
+
+        return { success: true, message: 'Đã gửi yêu cầu hỗ trợ đến quản lý', deadline: deadlineStr };
+    });
+
+    // QL: Lấy danh sách chờ hỗ trợ
+    fastify.get('/api/task-support/pending', { preHandler: [authenticate] }, async (request, reply) => {
+        const managerId = request.user.id;
+        const isGD = request.user.role === 'giam_doc';
+
+        let pending;
+        if (isGD) {
+            // GĐ sees all pending support requests
+            pending = await db.all(
+                `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
+                        u.full_name as user_name, d.name as dept_name,
+                        m.full_name as manager_name
+                 FROM task_support_requests sr
+                 LEFT JOIN users u ON sr.user_id = u.id
+                 LEFT JOIN departments d ON sr.department_id = d.id
+                 LEFT JOIN users m ON sr.manager_id = m.id
+                 WHERE sr.status = 'pending'
+                 ORDER BY sr.created_at DESC`
+            );
+        } else {
+            pending = await db.all(
+                `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
+                        u.full_name as user_name, d.name as dept_name
+                 FROM task_support_requests sr
+                 LEFT JOIN users u ON sr.user_id = u.id
+                 LEFT JOIN departments d ON sr.department_id = d.id
+                 WHERE sr.manager_id = $1 AND sr.status = 'pending'
+                 ORDER BY sr.created_at DESC`,
+                [managerId]
+            );
+        }
+
+        return { pending };
+    });
+
+    // QL: Đánh dấu "Đã hỗ trợ"
+    fastify.post('/api/task-support/respond/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const requestId = Number(request.params.id);
+        const managerId = request.user.id;
+        const { note } = request.body || {};
+
+        if (!note || !note.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập ghi chú hỗ trợ (bắt buộc)' });
+        }
+
+        let sr;
+        if (request.user.role === 'giam_doc') {
+            sr = await db.get('SELECT * FROM task_support_requests WHERE id = $1', [requestId]);
+        } else {
+            sr = await db.get('SELECT * FROM task_support_requests WHERE id = $1 AND manager_id = $2', [requestId, managerId]);
+        }
+        if (!sr) {
+            return reply.code(404).send({ error: 'Không tìm thấy yêu cầu hỗ trợ hoặc bạn không có quyền' });
+        }
+        if (sr.status !== 'pending') {
+            return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
+        }
+
+        await db.run(
+            `UPDATE task_support_requests SET status = 'supported', manager_note = $1, supported_at = NOW() WHERE id = $2`,
+            [note.trim(), requestId]
+        );
+
+        return { success: true, message: 'Đã đánh dấu hỗ trợ thành công' };
+    });
+
+    // NV: Lấy requests của mình (cho hiện status trên card)
+    fastify.get('/api/task-support/my-requests', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = Number(request.query.user_id || request.user.id);
+        const weekStart = request.query.week_start;
+        const weekEnd = request.query.week_end;
+
+        if (!weekStart || !weekEnd) {
+            return reply.code(400).send({ error: 'Thiếu week_start/week_end' });
+        }
+
+        const requests = await db.all(
+            `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
+                    m.full_name as manager_name
+             FROM task_support_requests sr
+             LEFT JOIN users m ON sr.manager_id = m.id
+             WHERE sr.user_id = $1 AND sr.task_date BETWEEN $2 AND $3
+             ORDER BY sr.task_date`,
+            [userId, weekStart, weekEnd]
+        );
+
+        return { requests };
+    });
+
+    // ========== AUTO-LOCK CRON (check every 30 min) ==========
+    setInterval(async () => {
+        try {
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            // Find expired pending requests
+            const expired = await db.all(
+                `SELECT sr.id, sr.manager_id, sr.task_name, sr.template_id, sr.user_id, u.full_name as user_name
+                 FROM task_support_requests sr
+                 LEFT JOIN users u ON sr.user_id = u.id
+                 WHERE sr.status = 'pending' AND sr.deadline < $1`,
+                [todayStr]
+            );
+
+            for (const req of expired) {
+                // Get penalty amount from config
+                const penaltyConfig = await db.get(
+                    'SELECT penalty_amount FROM task_penalty_config WHERE template_id = $1',
+                    [req.template_id]
+                );
+                const penaltyAmount = penaltyConfig ? penaltyConfig.penalty_amount : 0;
+                const penaltyReason = `Không hỗ trợ công việc "${req.task_name}" cho nhân viên ${req.user_name} trong thời hạn quy định`;
+
+                // Mark as expired + set penalty
+                await db.run(
+                    `UPDATE task_support_requests SET status = 'expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3`,
+                    [penaltyAmount, penaltyReason, req.id]
+                );
+                // Lock manager account
+                await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [req.manager_id]);
+                console.log(`🔒 Auto-locked manager ${req.manager_id} for not supporting task "${req.task_name}" for ${req.user_name} — Fine: ${penaltyAmount.toLocaleString()}đ`);
+            }
+        } catch(e) {
+            console.error('Auto-lock cron error:', e.message);
+        }
+    }, 30 * 60 * 1000); // every 30 minutes
 }
 
 module.exports = taskScheduleRoutes;

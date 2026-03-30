@@ -95,6 +95,8 @@ async function start() {
     fastify.register(require('./routes/affiliate'));
     fastify.register(require('./routes/taskpoints'));
     fastify.register(require('./routes/taskschedule'));
+    fastify.register(require('./routes/khoatknv'));
+    fastify.register(require('./routes/xinnghi'));
 
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {
@@ -117,6 +119,10 @@ async function start() {
     const PORT = process.env.PORT || 11000;
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+
+    // Start deadline checker cron (mỗi 15 phút)
+    const { startDeadlineChecker } = require('./routes/deadline-checker');
+    startDeadlineChecker();
 }
 
 start().catch(err => {

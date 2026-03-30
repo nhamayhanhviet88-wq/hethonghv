@@ -16,6 +16,7 @@ const PERM_FEATURES = [
     { key: 'cap_cuu_sep', label: 'Cấp Cứu Sếp', perms: ['view','create','edit'] },
     { key: 'chuyen_so', label: 'Hệ Thống Chuyển Số', perms: ['view','create','edit'] },
     { key: 'cai_dat', label: 'Cài Đặt', perms: ['view','edit'] },
+    { key: 'lich_su_bao_cao', label: 'Lịch Sử Báo Cáo CV', perms: ['view','create','edit','delete'] },
 ];
 
 const PERM_LABELS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa' };

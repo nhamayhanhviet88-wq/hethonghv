@@ -543,3 +543,93 @@ ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;
 -- Default redo limit config
 INSERT INTO app_config (key, value) VALUES ('task_redo_max', '1')
 ON CONFLICT (key) DO NOTHING;
+
+-- ========== SẾP HỖ TRỢ (Manager Support Requests) ==========
+CREATE TABLE IF NOT EXISTS task_support_requests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    template_id INTEGER NOT NULL REFERENCES task_point_templates(id),
+    task_name TEXT NOT NULL,
+    task_date DATE NOT NULL,
+    deadline DATE NOT NULL,
+    manager_id INTEGER REFERENCES users(id),
+    department_id INTEGER REFERENCES departments(id),
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'supported', 'expired')),
+    manager_note TEXT,
+    supported_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, template_id, task_date)
+);
+
+-- Penalty columns on support requests
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS penalty_amount INTEGER DEFAULT 0;
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS penalty_reason TEXT;
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN DEFAULT false;
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMP;
+
+-- ========== PENALTY CONFIG (mức phạt cho từng CV) ==========
+CREATE TABLE IF NOT EXISTS task_penalty_config (
+    id SERIAL PRIMARY KEY,
+    task_name TEXT NOT NULL UNIQUE,
+    template_id INTEGER REFERENCES task_point_templates(id),
+    penalty_amount INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ========== LEAVE REQUESTS (Xin nghỉ NV) ==========
+CREATE TABLE IF NOT EXISTS leave_requests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    department_id INTEGER REFERENCES departments(id),
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    first_day_session TEXT DEFAULT 'full' CHECK (first_day_session IN ('full','morning','afternoon')),
+    last_day_session TEXT DEFAULT 'full' CHECK (last_day_session IN ('full','morning','afternoon')),
+    total_days NUMERIC(4,1) NOT NULL,
+    reason TEXT NOT NULL,
+    handover_user_id INTEGER REFERENCES users(id),
+    proof_image TEXT NOT NULL,
+    telegram_sent BOOLEAN DEFAULT false,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active','cancelled')),
+    cancelled_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ========== DEADLINE & AUTO-LOCK ==========
+-- Deadline chính xác cho pending reports (quản lý cần duyệt trước thời điểm này)
+ALTER TABLE task_point_reports ADD COLUMN IF NOT EXISTS approval_deadline TIMESTAMP;
+
+-- Deadline chính xác (timestamp) cho support requests
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP;
+
+-- Người chịu trách nhiệm trong penalty config
+ALTER TABLE task_penalty_config ADD COLUMN IF NOT EXISTS responsible_role TEXT DEFAULT 'quan_ly';
+
+-- Ngày lễ (GĐ cấu hình)
+CREATE TABLE IF NOT EXISTS holidays (
+    id SERIAL PRIMARY KEY,
+    holiday_date DATE NOT NULL UNIQUE,
+    holiday_name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Default Vietnam holidays 2026
+INSERT INTO holidays (holiday_date, holiday_name) VALUES
+('2026-01-01', 'Tết Dương lịch'),
+('2026-01-28', 'Tết Nguyên đán'),
+('2026-01-29', 'Tết Nguyên đán'),
+('2026-01-30', 'Tết Nguyên đán'),
+('2026-01-31', 'Tết Nguyên đán'),
+('2026-02-01', 'Tết Nguyên đán'),
+('2026-04-30', 'Giải phóng miền Nam'),
+('2026-05-01', 'Quốc tế Lao động'),
+('2026-09-02', 'Quốc khánh')
+ON CONFLICT DO NOTHING;
+
+-- ========== DEPT PENALTY CONFIG (mức phạt theo phòng ban) ==========
+CREATE TABLE IF NOT EXISTS dept_penalty_config (
+    id SERIAL PRIMARY KEY,
+    department_id INTEGER NOT NULL UNIQUE REFERENCES departments(id),
+    penalty_amount INTEGER NOT NULL DEFAULT 50000,
+    updated_at TIMESTAMP DEFAULT NOW()
+);

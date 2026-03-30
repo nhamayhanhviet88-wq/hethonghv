@@ -139,13 +139,12 @@ async function renderBanGiaoDiemPage(container) {
     _tpCachedActiveDepts = activeDepts; // cache for sidebar rebuild
 
     container.innerHTML = `
-    <div style="max-width:1500px;margin:0 auto;padding:16px;">
+    <div style="margin:0 auto;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">🏪 Bàn Giao CV Điểm</h2>
             ${isManager ? `<div style="display:flex;gap:8px;">
                 <button onclick="_tpShowTaskLibrary()" style="padding:7px 16px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📦 Kho Công Việc</button>
                 ${currentUser.role === 'giam_doc' ? '<button onclick="_tpShowCloneDialog()" style="padding:7px 16px;border-radius:8px;border:1px solid #059669;background:#ecfdf5;color:#059669;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📋 Áp dụng từ team khác</button>' : ''}
-                <button onclick="_tpShowHolidayManager()" style="padding:7px 16px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">📅 Quản lý ngày nghỉ</button>
             </div>` : ''}
         </div>
         <input type="hidden" id="tpTargetType" value="team">
@@ -154,7 +153,7 @@ async function renderBanGiaoDiemPage(container) {
 
         <div style="display:flex;gap:16px;align-items:flex-start;">
             <!-- LEFT: Dept list -->
-            <div style="min-width:230px;max-width:240px;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.06);flex-shrink:0;">
+            <div style="min-width:230px;max-width:240px;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.06);flex-shrink:0;overflow-x:hidden;">
                 <div style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;">
                     <input type="text" id="tpGlobalSearch" placeholder="🔍 Tìm NV / phòng ban..." 
                            oninput="_tpGlobalFilter()" 
@@ -163,32 +162,24 @@ async function renderBanGiaoDiemPage(container) {
                            onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
                 </div>
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
-                    ${(() => { _tpParentSttCounter = 0; _tpChildSttCounter = 0; return ''; })()}
-                    ${activeDepts.filter(d => {
-                        // Hide departments that user has hidden (and their children)
-                        const hidden = _tpGetHiddenDepts();
-                        if (hidden.includes(d.id)) return false;
-                        // If parent is hidden, hide child too
-                        if (d.parent_id && hidden.includes(d.parent_id)) return false;
-                        return true;
-                    }).map((d, i) => {
+                    ${(() => { let parentStt = 0, childStt = 0; return activeDepts.map((d, i) => {
                         const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
                         let sttLabel = '';
                         if (!isChild) {
-                            _tpParentSttCounter = (_tpParentSttCounter || 0) + 1;
-                            _tpChildSttCounter = 0;
-                            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${_tpParentSttCounter}.</span>`;
+                            parentStt++;
+                            childStt = 0;
+                            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
                         } else {
-                            _tpChildSttCounter = (_tpChildSttCounter || 0) + 1;
-                            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${_tpChildSttCounter}.</span>`;
+                            childStt++;
+                            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
                         }
-                        const hideBtn = !isChild ? `<span onclick="_tpToggleHideDept(${d.id}, event)" title="Ẩn phòng này" style="font-size:11px;opacity:0.6;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">👁️</span>` : '';
+                        const deleteBtn = !isChild ? `<span onclick="_tpRemoveDept(${d.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
                         return `
                         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
-                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${hideBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
+                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
                         </div>
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
-                    }).join('')}
+                    }).join(''); })()} 
 
                 </div>
                 <div style="padding:8px 10px;border-top:1px solid #e2e8f0;display:flex;gap:6px;">
@@ -236,13 +227,11 @@ async function renderBanGiaoDiemPage(container) {
 
 // Show modal to create template for dept or individual
 function _tpShowCreateDeptModal() {
-    const hidden = _tpGetHiddenDepts();
     const modal = document.createElement('div');
     modal.id = 'tpCreateDeptModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    // Build options: inactive depts + hidden depts
+    // Build options: inactive depts
     const inactiveOpts = _tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    const hiddenOpts = _tpAllDepts.filter(d => hidden.includes(d.id)).map(d => `<option value="${d.id}" data-hidden="1">🔒 ${d.name} (đã ẩn — chọn để mở lại)</option>`).join('');
     modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -252,7 +241,6 @@ function _tpShowCreateDeptModal() {
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="tpNewDeptSelect" onchange="_tpLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${hiddenOpts ? `<optgroup label="📌 Phòng đã ẩn (chọn để mở lại)">${hiddenOpts}</optgroup>` : ''}
                 ${inactiveOpts ? `<optgroup label="➕ Phòng chưa có lịch">${inactiveOpts}</optgroup>` : ''}
             </select>
         </div>
@@ -294,16 +282,6 @@ async function _tpActivateDept() {
     const userId = userSel?.value ? Number(userSel.value) : null;
     const userName = userId ? userSel.options[userSel.selectedIndex]?.text : null;
     
-    // Check if this is a hidden dept being unhidden
-    const hidden = _tpGetHiddenDepts();
-    if (hidden.includes(deptId)) {
-        const newHidden = hidden.filter(id => id !== deptId);
-        _tpSetHiddenDepts(newHidden);
-        document.getElementById('tpCreateDeptModal')?.remove();
-        _tpRebuildSidebar();
-        showToast(`✅ Đã mở lại ${deptName}`, 'success');
-        return;
-    }
     
     document.getElementById('tpCreateDeptModal')?.remove();
 
@@ -648,13 +626,13 @@ function _tpRenderGrid() {
 
     // Header with dates
     html += `<thead><tr>`;
-    html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:105px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
+    html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:100px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
     for (let d = 1; d <= 7; d++) {
         const isHoliday = !!_tpHolidayMap[d];
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
         const dateLabel = _tpFormatDate(colDate);
         if (isHoliday) {
-            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#fef2f2;">
+            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#fef2f2;">
                 <div style="font-weight:700;color:#dc2626;font-size:13px;">${DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
                 <div style="margin-top:4px;font-size:11px;color:#dc2626;">🏖️ ${_tpHolidayMap[d]}</div>
             </th>`;
@@ -662,7 +640,7 @@ function _tpRenderGrid() {
             const total = dayTotals[d];
             const pct = Math.min(total, 100);
             const barColor = total === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
-            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:160px;background:#f8fafc;">
+            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#f8fafc;">
                 <div style="font-weight:700;color:#122546;font-size:13px;">${DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
                 <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
                     <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
@@ -728,23 +706,23 @@ function _tpRenderGrid() {
                     }
 
                     html += `<td data-day="${d}" data-slot="${slot}" ondragover="_tpDragOver(event)" ondrop="_tpDrop(event)" ondragenter="_tpDragEnter(event)" ondragleave="_tpDragLeave(event)" style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;transition:background .15s;">
-                        <div ${_tpIsDirector ? `draggable="true" ondragstart="_tpDragStart(event, ${task.id}, '${slot}', ${d})"` : ''} style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:12px 14px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}${_tpIsDirector ? 'cursor:grab;' : ''}">
+                        <div ${_tpIsDirector ? `draggable="true" ondragstart="_tpDragStart(event, ${task.id}, '${slot}', ${d})"` : ''} style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;${isTeamTask && isIndivView ? 'opacity:0.85;' : ''}${_tpIsDirector ? 'cursor:grab;' : ''}">
                             <span style="position:absolute;top:-6px;right:-6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.15);${task.week_only ? 'background:#fef3c7;color:#d97706;border:1px solid #fde68a;' : 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;'}">${task.week_only ? '📅 Tuần' : '📌 CĐ'}</span>
                             ${task.requires_approval ? '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_tpPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
-                            <div onclick="_tpShowTaskDetail(${task.id})" style="font-weight:700;color:${c.text};font-size:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
-                            <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
-                                <span style="background:${c.badge};color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${task.points}đ</span>
-                                <span style="background:${c.tag};color:${c.text};padding:2px 8px;border-radius:6px;font-size:10px;">≥ ${task.min_quantity} lần</span>
+                            <div onclick="_tpShowTaskDetail(${task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
+                            <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
+                                <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
+                                <span style="background:${c.tag};color:${c.text};padding:1px 6px;border-radius:4px;font-size:9px;">≥ ${task.min_quantity} lần</span>
                                 ${sourceBadge}
                             </div>
-                            ${task.guide_url ? `<div style="margin-top:6px;"><a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 8px;border-radius:6px;">📘 Hướng dẫn</a></div>` : ''}
+                            ${task.guide_url ? `<div style="margin-top:6px;"><a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 6px;border-radius:4px;">📘 Hướng dẫn</a></div>` : ''}
 
-                            ${canEdit ? `<div style="margin-top:8px;display:flex;justify-content:center;gap:6px;">
-                                <button onclick="_tpEditTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
-                                <button onclick="_tpDeleteTask(${task.id})" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
+                            ${canEdit ? `<div style="margin-top:6px;display:flex;justify-content:center;gap:4px;">
+                                <button onclick="_tpEditTask(${task.id})" style="padding:2px 8px;font-size:10px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
+                                <button onclick="_tpDeleteTask(${task.id})" style="padding:2px 8px;font-size:10px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa</button>
                             </div>` : ''}
-                            ${canDeleteTeam ? `<div style="margin-top:8px;display:flex;justify-content:center;">
-                                <button onclick="_tpExemptTeamTask(${task.id}, '${task.task_name.replace(/'/g, "\\'")}')" style="padding:3px 10px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa CV team</button>
+                            ${canDeleteTeam ? `<div style="margin-top:6px;display:flex;justify-content:center;">
+                                <button onclick="_tpExemptTeamTask(${task.id}, '${task.task_name.replace(/'/g, "\\'")}')" style="padding:2px 8px;font-size:10px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:500;">🗑️ Xóa CV team</button>
                             </div>` : ''}
                         </div>
                     </td>`;
@@ -1231,130 +1209,6 @@ async function _tpRestoreExempt(exemptionId, taskName) {
     }
 }
 
-// ===== HOLIDAY MANAGER =====
-async function _tpShowHolidayManager() {
-    const year = new Date().getFullYear();
-    const modal = document.createElement('div');
-    modal.id = 'tpHolidayModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    modal.innerHTML = `
-    <div style="background:white;border-radius:12px;width:min(520px,92vw);max-height:85vh;display:flex;flex-direction:column;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #f3f4f6;">
-            <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">📅 Quản lý ngày nghỉ lễ</h3>
-            <button onclick="document.getElementById('tpHolidayModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
-        </div>
-        <div style="padding:14px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;">
-            <label style="font-weight:600;font-size:13px;color:#6b7280;">Năm:</label>
-            <select id="tpHolidayYear" onchange="_tpLoadHolidayList()" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;">
-                ${[year-1, year, year+1].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
-            </select>
-        </div>
-        <div id="tpHolidayList" style="flex:1;overflow-y:auto;padding:12px 20px;min-height:150px;">
-            <div style="text-align:center;color:#9ca3af;padding:30px;">Đang tải...</div>
-        </div>
-        <div style="padding:14px 20px;border-top:1px solid #f3f4f6;">
-            <div style="font-weight:600;font-size:13px;color:#374151;margin-bottom:8px;">＋ Thêm ngày nghỉ mới</div>
-            <div style="display:flex;gap:8px;align-items:flex-end;">
-                <div style="flex:1;">
-                    <label style="font-size:11px;color:#6b7280;">Từ ngày</label>
-                    <input id="tpHNewDate" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                </div>
-                <div style="flex:1;">
-                    <label style="font-size:11px;color:#6b7280;">Đến ngày <span style="color:#9ca3af;">(bỏ trống = 1 ngày)</span></label>
-                    <input id="tpHNewDateEnd" type="date" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                </div>
-                <div style="flex:1.5;">
-                    <label style="font-size:11px;color:#6b7280;">Tên ngày lễ</label>
-                    <input id="tpHNewName" type="text" placeholder="VD: Giỗ Tổ Hùng Vương" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                </div>
-                <button onclick="_tpAddHoliday()" style="padding:7px 16px;border-radius:6px;border:none;background:#16a34a;color:white;font-size:13px;cursor:pointer;font-weight:600;white-space:nowrap;">＋ Thêm</button>
-            </div>
-        </div>
-    </div>`;
-    document.body.appendChild(modal);
-    _tpLoadHolidayList();
-}
-
-async function _tpLoadHolidayList() {
-    const year = document.getElementById('tpHolidayYear')?.value || new Date().getFullYear();
-    const listEl = document.getElementById('tpHolidayList');
-    if (!listEl) return;
-
-    let holidays = [];
-    try {
-        const d = await apiCall(`/api/holidays?year=${year}`);
-        holidays = d.holidays || [];
-    } catch(e) {}
-
-    if (holidays.length === 0) {
-        listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:30px;font-size:13px;">Chưa có ngày nghỉ nào cho năm ' + year + '</div>';
-        return;
-    }
-
-    let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
-    html += `<thead><tr>
-        <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:600;">NGÀY</th>
-        <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;border-bottom:1px solid #e5e7eb;font-weight:600;">TÊN NGÀY LỄ</th>
-        <th style="width:50px;border-bottom:1px solid #e5e7eb;"></th>
-    </tr></thead><tbody>`;
-    holidays.forEach(h => {
-        const d = new Date(h.holiday_date);
-        const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-        const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
-        const dayName = dayNames[d.getDay()];
-        html += `<tr style="border-bottom:1px solid #f3f4f6;">
-            <td style="padding:8px;color:#122546;font-weight:600;">${dateStr} <span style="color:#9ca3af;font-weight:400;">(${dayName})</span></td>
-            <td style="padding:8px;color:#374151;">${h.holiday_name}</td>
-            <td style="padding:8px;text-align:center;">
-                <button onclick="_tpDeleteHoliday(${h.id})" style="padding:2px 8px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
-            </td>
-        </tr>`;
-    });
-    html += `</tbody></table>`;
-    listEl.innerHTML = html;
-}
-
-async function _tpAddHoliday() {
-    const dateVal = document.getElementById('tpHNewDate')?.value;
-    const dateEndVal = document.getElementById('tpHNewDateEnd')?.value;
-    const nameVal = document.getElementById('tpHNewName')?.value?.trim();
-    if (!dateVal || !nameVal) { showToast('Nhập đầy đủ ngày và tên!', 'error'); return; }
-
-    // Build list of dates
-    const dates = [];
-    const start = new Date(dateVal);
-    const end = dateEndVal ? new Date(dateEndVal) : new Date(dateVal);
-    if (end < start) { showToast('Đến ngày phải sau Từ ngày!', 'error'); return; }
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().slice(0, 10));
-    }
-
-    let ok = 0;
-    try {
-        for (const dt of dates) {
-            try {
-                await apiCall('/api/holidays', 'POST', { holiday_date: dt, holiday_name: nameVal });
-                ok++;
-            } catch(e) {} // skip duplicates
-        }
-        showToast(`✅ Đã thêm ${ok} ngày nghỉ`);
-        document.getElementById('tpHNewDate').value = '';
-        document.getElementById('tpHNewDateEnd').value = '';
-        document.getElementById('tpHNewName').value = '';
-        _tpLoadHolidayList();
-        _tpLoadTasks();
-    } catch(e) { showToast('Lỗi!', 'error'); }
-}
-
-async function _tpDeleteHoliday(id) {
-    if (!confirm('Xóa ngày nghỉ này?')) return;
-    try {
-        await apiCall(`/api/holidays/${id}`, 'DELETE');
-        showToast('✅ Đã xóa');
-        _tpLoadHolidayList();
-        _tpLoadTasks(); // Refresh grid
-    } catch(e) { showToast('Lỗi!', 'error'); }
-}
 
 // ===== KHO CÔNG VIỆC (TASK LIBRARY) =====
 let _tpLibraryTasks = [];

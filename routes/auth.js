@@ -25,7 +25,23 @@ async function authRoutes(fastify, options) {
         }
 
         if (user.status === 'locked') {
-            return reply.code(403).send({ error: '🔒 Tài khoản đã bị khóa. Vui lòng liên hệ nhân viên Đồng Phục HV để được hỗ trợ.' });
+            // Fetch pending penalty details for popup
+            const penalties = await db.all(
+                `SELECT sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason
+                 FROM task_support_requests sr
+                 WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.acknowledged = false
+                 ORDER BY sr.task_date`,
+                [user.id]
+            );
+            const totalFine = penalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
+
+            return reply.code(403).send({
+                error: 'locked',
+                locked: true,
+                penalties,
+                totalFine,
+                userId: user.id
+            });
         }
 
         // Check if user's department (or any parent dept) is inactive

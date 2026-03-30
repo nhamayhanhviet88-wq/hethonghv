@@ -12,6 +12,7 @@ const _KB_COLORS = [
     { bg:'#ecfeff', border:'#a5f3fc', badge:'#0891b2', text:'#164e63', tag:'#cffafe' },
 ];
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
+let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbMonthlySummary = 0; // total approved points this month
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
@@ -214,8 +215,7 @@ async function renderLichKhoaBieuPage(container) {
                     childStt++;
                     sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
                 }
-                const deleteBtn = !isChild ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
-                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
+                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
                 deptMembers.forEach(u => {
                     const isDeptHead = u._is_dept_head;
                     const isLead = isDeptHead || _kbIsLeader(u.role);
@@ -267,6 +267,7 @@ async function renderLichKhoaBieuPage(container) {
         </div>
         <div id="kbSetupPanel" style="display:none;margin-bottom:16px;"></div>
         <div id="kbApprovalPanel" style="margin-bottom:14px;"></div>
+        <div id="kbSupportPanel" style="margin-bottom:14px;"></div>
         <div style="display:flex;gap:16px;">
             ${membersHtml}
             <div style="flex:1;">
@@ -295,6 +296,7 @@ async function renderLichKhoaBieuPage(container) {
         _kbLoadSchedule();
     }
     if (hasApprovalScope) _kbLoadApprovalPanel();
+    if (hasApprovalScope) _kbLoadSupportPanel();
     _kbCheckRejectedPopup();
 }
 
@@ -380,6 +382,18 @@ async function _kbLoadSchedule() {
         } else {
             lbl.innerHTML = `<span style="background:#ecfdf5;color:#059669;padding:3px 10px;border-radius:6px;font-weight:600;">📋 Lịch của tôi</span>`;
         }
+    }
+
+    // Load support requests for this week
+    try {
+        const uid = _kbViewUserId || currentUser.id;
+        const srData = await apiCall(`/api/task-support/my-requests?user_id=${uid}&week_start=${monStr}&week_end=${sunStr}`);
+        _kbSupportRequests = {};
+        (srData.requests || []).forEach(sr => {
+            _kbSupportRequests[`${sr.template_id}_${sr.task_date}`] = sr;
+        });
+    } catch(e) {
+        _kbSupportRequests = {};
     }
 
     _kbRenderStats();
@@ -616,13 +630,32 @@ function _kbRenderGrid() {
                     if (dateStr === todayStr) {
                         actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;">📝 Báo cáo</button>`;
                     } else if (dateStr < todayStr) {
-                        actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                        // Check support request
+                        const srKey = `${reportTemplateId}_${dateStr}`;
+                        const sr = _kbSupportRequests[srKey];
+                        if (sr && sr.status === 'pending') {
+                            actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ HT</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:2px 8px;font-size:9px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button></div>`;
+                        } else if (sr && sr.status === 'supported') {
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:2px 8px;font-size:9px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button></div>`;
+                        } else {
+                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                        }
                     } else {
                         actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🔒 Sắp tới</span>`;
                     }
                 } else {
                     if (dateStr < todayStr) {
-                        actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                        const srKey2 = `${reportTemplateId}_${dateStr}`;
+                        const sr2 = _kbSupportRequests[srKey2];
+                        if (sr2 && sr2.status === 'pending') {
+                            actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ HT</span>`;
+                        } else if (sr2 && sr2.status === 'supported') {
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr2.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
+                        } else {
+                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
+                        }
                     } else if (dateStr === todayStr) {
                         actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;line-height:1;display:inline-flex;align-items:center;">⏳ Chưa nộp</span>`;
                     } else {
@@ -646,6 +679,7 @@ function _kbRenderGrid() {
                             ${actionBtn}
                         </div>
                         ${statusBadge}
+                        ${isSelf && dateStr <= todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<div style="margin-top:4px;"><button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:2px 8px;font-size:9px;border:1px solid #fca5a5;border-radius:4px;background:linear-gradient(135deg,#fef2f2,#fecaca);color:#dc2626;cursor:pointer;font-weight:700;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">🆘 Sếp HT</button></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -1164,6 +1198,22 @@ async function _kbSaveRedoMax() {
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
+// ========== COUNTDOWN HELPER ==========
+function _kbFormatCountdown(deadlineStr) {
+    if (!deadlineStr) return '<span style="color:#9ca3af;">—</span>';
+    const now = new Date();
+    const dl = new Date(deadlineStr);
+    const diff = dl - now;
+    if (diff <= 0) return '<span style="font-weight:800;color:#dc2626;font-size:11px;">🔴 HẾT HẠN</span>';
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    let color = '#059669'; // green
+    let bg = '#ecfdf5';
+    if (hours < 6) { color = '#dc2626'; bg = '#fef2f2'; } // red
+    else if (hours < 12) { color = '#d97706'; bg = '#fef3c7'; } // orange
+    return `<span style="font-weight:800;color:${color};background:${bg};padding:2px 8px;border-radius:6px;font-size:11px;">${hours}h${mins > 0 ? String(mins).padStart(2,'0') + 'p' : ''}</span>`;
+}
+
 // ========== APPROVAL PANEL (pending reports) ==========
 async function _kbLoadApprovalPanel() {
     const panel = document.getElementById('kbApprovalPanel');
@@ -1185,22 +1235,26 @@ async function _kbLoadApprovalPanel() {
         pending.forEach(r => {
             const isRedo = r.redo_count > 0;
             const dateFormatted = r.report_date.split('-').reverse().join('/');
+            const countdown = _kbFormatCountdown(r.approval_deadline);
+            const dlDate = r.approval_deadline ? new Date(r.approval_deadline) : null;
+            const isOverdue = dlDate && dlDate < new Date();
+            const isUrgent = dlDate && (dlDate - new Date()) < 6 * 3600000;
             const rData = JSON.stringify({
                 task_name: r.task_name, status: r.status || 'pending', points_earned: r.points_earned || 0,
                 quantity: r.quantity || '', report_value: r.report_value || '', report_image: r.report_image || '',
                 report_date: r.report_date || '', content: r.content || '', reject_reason: r.reject_reason || '',
                 redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || ''
             }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            rows += `<tr style="border-bottom:1px solid #f1f5f9;">
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span> ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${r.template_points}đ</td>
                 <td style="padding:8px 12px;font-size:11px;">
                     ${r.report_value ? `<a href="${r.report_value}" target="_blank" style="color:#2563eb;text-decoration:none;">🔗 Link</a>` : ''}
-                    ${r.report_image ? `<a href="${r.report_image}" target="_blank" style="color:#2563eb;text-decoration:none;margin-left:4px;">🖼️ Ảnh</a>` : ''}
-                    ${r.content ? `<span style="color:#6b7280;margin-left:4px;" title="${r.content.replace(/"/g, '&quot;')}">📝</span>` : ''}
+                    ${r.report_image ? `<a href="${r.report_image}" target="_blank" style="color:#2563eb;text-decoration:none;margin-left:4px;">🖼️</a>` : ''}
                 </td>
+                <td style="padding:8px 12px;text-align:center;">${countdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbApproveReport(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
                     <button onclick="_kbRejectReport(${r.id}, '${r.task_name.replace(/'/g, "\\'")}', '${r.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
@@ -1223,6 +1277,7 @@ async function _kbLoadApprovalPanel() {
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Ngày</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Điểm</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Báo cáo</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
                             <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>
                     </thead>
@@ -1355,4 +1410,140 @@ async function _kbInitBadge() {
 // Auto-init badge
 if (typeof currentUser !== 'undefined' && currentUser) {
     setTimeout(_kbInitBadge, 1000);
+}
+
+// ========== SẾP HỖ TRỢ FUNCTIONS ==========
+
+// NV: Send support request
+async function _kbSendSupportRequest(templateId, dateStr, taskName) {
+    if (!confirm(`🆘 Gửi yêu cầu hỗ trợ cho công việc "${taskName}" ngày ${dateStr.split('-').reverse().join('/')}?\n\nDeadline hỗ trợ: hạn đến hết ngày mai.\nBạn vẫn có thể tự báo cáo công việc này.`)) return;
+
+    try {
+        const res = await apiCall('/api/task-support/request', 'POST', {
+            template_id: templateId,
+            task_date: dateStr,
+            task_name: taskName
+        });
+        if (res.error) {
+            showToast(res.error, 'error');
+            return;
+        }
+        showToast(`✅ ${res.message || 'Đã gửi yêu cầu hỗ trợ'}`);
+        _kbLoadSchedule();
+    } catch(e) {
+        showToast(e.message || 'Lỗi gửi yêu cầu', 'error');
+    }
+}
+
+// QL: Load support panel
+async function _kbLoadSupportPanel() {
+    const panel = document.getElementById('kbSupportPanel');
+    if (!panel) return;
+
+    try {
+        const data = await apiCall('/api/task-support/pending');
+        const pending = data.pending || [];
+
+        if (pending.length === 0) {
+            panel.innerHTML = '';
+            return;
+        }
+
+        let rows = '';
+        pending.forEach(r => {
+            const dateFormatted = r.task_date.split('-').reverse().join('/');
+            const countdown = _kbFormatCountdown(r.deadline_at || (r.deadline + 'T23:59:59'));
+            const dlDate = r.deadline_at ? new Date(r.deadline_at) : new Date(r.deadline + 'T23:59:59');
+            const isOverdue = dlDate < new Date();
+            const isUrgent = !isOverdue && (dlDate - new Date()) < 6 * 3600000;
+
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
+                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span></td>
+                <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
+                <td style="padding:8px 12px;text-align:center;">${countdown}</td>
+                <td style="padding:8px 12px;text-align:center;">
+                    <button onclick="_kbRespondSupport(${r.id}, '${(r.task_name||'').replace(/'/g,"\\'")}', '${(r.user_name||'').replace(/'/g,"\\'")}', '${dateFormatted}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">✅ Đã hỗ trợ</button>
+                </td>
+            </tr>`;
+        });
+
+        panel.innerHTML = `
+        <div style="background:white;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(220,38,38,0.1);">
+            <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+                <span style="color:white;font-weight:800;font-size:14px;">🆘 HỖ TRỢ NHÂN SỰ</span>
+                <span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>
+            </div>
+            <div style="padding:6px 12px;background:#fef2f2;font-size:11px;color:#dc2626;font-weight:600;">
+                ⚠️ Nếu không hỗ trợ trước hạn, tài khoản sẽ bị <b>KHÓA</b>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#1e3a5f;">
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Nhân viên</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Công việc</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Ngày</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>`;
+    } catch(e) {
+        panel.innerHTML = '';
+    }
+}
+
+// QL: Respond to support request
+function _kbRespondSupport(requestId, taskName, userName, dateStr) {
+    let modal = document.getElementById('kbSupportModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'kbSupportModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:24px;width:480px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#059669;">✅ Xác nhận hỗ trợ nhân sự</h3>
+        <div style="margin-bottom:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;">
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — ${taskName}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">📅 Ngày: ${dateStr}</div>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Ghi chú hỗ trợ * (bắt buộc)</label>
+            <textarea id="kbSupportNote" rows="4" style="width:100%;padding:8px 12px;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Mô tả cách bạn đã hỗ trợ nhân viên (VD: đã gọi điện hướng dẫn, đã chat giải đáp...)"></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="document.getElementById('kbSupportModal')?.remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e5e7eb;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;">Hủy</button>
+            <button onclick="_kbSubmitSupport(${requestId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">✅ Xác nhận đã hỗ trợ</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.getElementById('kbSupportNote')?.focus();
+}
+
+async function _kbSubmitSupport(requestId) {
+    const note = document.getElementById('kbSupportNote')?.value;
+    if (!note || !note.trim()) {
+        alert('⚠️ Vui lòng nhập ghi chú hỗ trợ (bắt buộc)');
+        return;
+    }
+
+    try {
+        const res = await apiCall(`/api/task-support/respond/${requestId}`, 'POST', { note: note.trim() });
+        if (res.error) {
+            alert('Lỗi: ' + res.error);
+            return;
+        }
+        document.getElementById('kbSupportModal')?.remove();
+        showToast('✅ Đã đánh dấu hỗ trợ thành công');
+        _kbLoadSupportPanel();
+        _kbLoadSchedule();
+    } catch(e) {
+        alert('Lỗi: ' + (e.message || 'Không thể xử lý'));
+    }
 }

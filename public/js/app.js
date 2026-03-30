@@ -80,6 +80,9 @@ const MENU_CONFIG = [
     // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
     { id: 'teams', label: 'Cơ Cấu Tổ Chức', icon: '🏢', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
     { id: 'permissions', label: 'Phân Quyền', icon: '🔐', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
+    { id: 'khoa-tk-nv', label: 'Phạt Khóa TK NV', icon: '🔒', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','ke_toan','nhan_su','thu_quy','thu_kho','thu_ky'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/khoatknv' },
+    { id: 'xin-nghi-nv', label: 'Xin Nghỉ NV', icon: '📋', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','ke_toan','nhan_su','thu_quy','thu_kho','thu_ky'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/xinnghinhanvien' },
+    { id: 'setup-ngay-le', label: 'Setup Ngày Lễ', icon: '📅', roles: ['giam_doc','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/setupngayle' },
     { id: 'settings', label: 'Cài Đặt Phân Tầng', icon: '⚙️', roles: ['giam_doc'], section: 'HỆ THỐNG' },
     { id: 'my-customers', label: 'Khách Hàng Của Tôi', icon: '👤', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
@@ -87,6 +90,7 @@ const MENU_CONFIG = [
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu' },
+    { id: 'lich-su-bao-cao', label: 'Lịch Sử Báo Cáo CV', icon: '📊', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichsubaocaocv' },
     { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm', icon: '🏪', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
     { id: 'bangiao-khoa', label: 'Bàn Giao CV Khóa', icon: '🔐', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaokhoa' },
     { id: 'don-khach-sll', label: 'Đơn Khách SLL', icon: '📦', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachsll' },
@@ -112,6 +116,7 @@ const MENU_PERM_MAP = {
     'chuyen-so': 'chuyen_so',
     'settings': 'cai_dat',
     'trao-giai-thuong': 'trao_giai_thuong',
+    'lich-su-bao-cao': 'lich_su_bao_cao',
 };
 
 // ========== INIT ==========
@@ -149,6 +154,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentUser && ['quan_ly', 'truong_phong'].includes(currentUser.role)) {
         emPopupCheck();
         setInterval(emPopupCheck, 60000);
+    }
+
+    // Check if user has unacknowledged penalties → show lock popup
+    if (currentUser && ['quan_ly', 'truong_phong'].includes(currentUser.role)) {
+        setTimeout(async () => {
+            try {
+                const data = await apiCall('/api/penalty/my-pending');
+                if (data.pending && data.pending.length > 0) {
+                    _showPenaltyLockPopup(data.pending, data.total);
+                }
+            } catch(e) {}
+        }, 1500);
     }
 
     // Cancel popup checker for NV (9:30, 15:00)
@@ -913,6 +930,10 @@ async function handleRoute() {
         case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
         case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
         case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
+        case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
+        case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
+        case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
+        case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
         default: renderComingSoon(content); break;
     }
 }

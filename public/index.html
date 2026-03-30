@@ -65,6 +65,9 @@
                 
                 if (data.success) {
                     window.location.href = data.user && data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
+                } else if (data.locked && data.penalties) {
+                    // Show penalty popup
+                    _showPenaltyPopup(data.penalties, data.totalFine, data.userId);
                 } else {
                     errDiv.textContent = data.error;
                     errDiv.style.display = 'block';
@@ -77,6 +80,74 @@
             btn.innerHTML = 'ĐĂNG NHẬP';
             btn.disabled = false;
         });
+
+        function _showPenaltyPopup(penalties, totalFine, userId) {
+            document.getElementById('penaltyLoginPopup')?.remove();
+
+            let itemsHtml = penalties.length > 0 ? penalties.map((p, i) => `
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;${i > 0 ? 'border-top:1px solid #fecaca;' : ''}">
+                    <span style="background:#dc2626;color:white;min-width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${i + 1}</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:700;color:#1e293b;font-size:13px;">${p.task_name}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:2px;">📅 ${p.task_date.split('-').reverse().join('/')}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${p.penalty_reason || 'Vi phạm quy định'}</div>
+                    </div>
+                    <span style="font-weight:700;color:#dc2626;font-size:13px;white-space:nowrap;">${(p.penalty_amount || 0).toLocaleString()}đ</span>
+                </div>
+            `).join('') : '<div style="padding:14px;color:#6b7280;text-align:center;">Tài khoản bị khóa. Liên hệ quản lý.</div>';
+
+            const popup = document.createElement('div');
+            popup.id = 'penaltyLoginPopup';
+            popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            popup.innerHTML = `
+            <div style="background:white;border-radius:16px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.4);">
+                <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:24px 28px;border-radius:16px 16px 0 0;text-align:center;">
+                    <div style="font-size:40px;margin-bottom:8px;">🔒</div>
+                    <div style="font-size:20px;color:white;font-weight:800;">Tài khoản bị khóa</div>
+                    <div style="font-size:12px;color:#fca5a5;margin-top:4px;">Bạn đã vi phạm quy định công việc</div>
+                </div>
+
+                <div style="padding:16px 20px;max-height:300px;overflow-y:auto;background:#fef2f2;">
+                    ${itemsHtml}
+                </div>
+
+                <div style="padding:16px 20px;background:#fff;border-top:2px solid #fecaca;display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:14px;font-weight:600;color:#374151;">Tổng phạt:</span>
+                    <span style="font-size:22px;font-weight:800;color:#dc2626;">${(totalFine || 0).toLocaleString()}đ</span>
+                </div>
+
+                <div style="padding:16px 20px;background:#f8fafc;border-radius:0 0 16px 16px;text-align:center;">
+                    <button onclick="_acknowledgeAndUnlock()" style="padding:12px 32px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:800;box-shadow:0 4px 12px rgba(220,38,38,0.4);transition:all .15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'">✅ Tôi đã biết và xác nhận</button>
+                    <div style="font-size:10px;color:#9ca3af;margin-top:8px;">Bấm xác nhận để mở khóa tài khoản</div>
+                </div>
+            </div>`;
+            document.body.appendChild(popup);
+        }
+
+        async function _acknowledgeAndUnlock() {
+            try {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                // Call acknowledge endpoint with credentials to unlock
+                const ackRes = await fetch('/api/penalty/acknowledge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const ackData = await ackRes.json();
+
+                if (ackData.success) {
+                    document.getElementById('penaltyLoginPopup')?.remove();
+                    // Re-submit login
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                } else {
+                    alert(ackData.error || 'Lỗi mở khóa');
+                }
+            } catch(e) {
+                alert('Lỗi: ' + e.message);
+            }
+        }
     </script>
 </body>
 </html>

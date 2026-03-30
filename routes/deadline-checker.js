@@ -1,0 +1,199 @@
+/**
+ * DEADLINE CHECKER — Cron job chạy mỗi 15 phút
+ * Kiểm tra pending approvals & support requests quá hạn
+ * → Khóa tài khoản quản lý + ghi phạt
+ */
+const db = require('../db/pool');
+
+let _holidayCache = null;
+let _holidayCacheTime = 0;
+
+// ===== HELPERS =====
+
+// Lấy danh sách ngày lễ (cache 1 giờ)
+async function getHolidays() {
+    const now = Date.now();
+    if (_holidayCache && now - _holidayCacheTime < 3600000) return _holidayCache;
+    const rows = await db.all("SELECT holiday_date::text as d FROM holidays");
+    _holidayCache = new Set(rows.map(r => r.d));
+    _holidayCacheTime = now;
+    return _holidayCache;
+}
+
+// Kiểm tra quản lý có nghỉ ngày X không
+async function isManagerOnLeave(managerId, dateStr) {
+    const leave = await db.get(
+        "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
+        [managerId, dateStr]
+    );
+    return !!leave;
+}
+
+// Format date → YYYY-MM-DD
+function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Format date → local timestamp string (for PostgreSQL TIMESTAMP WITHOUT TIMEZONE)
+function toLocalTimestamp(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
+// Kiểm tra ngày có phải nghỉ không (Chủ nhật hoặc ngày lễ)
+async function isDayOff(dateStr) {
+    const holidays = await getHolidays();
+    const d = new Date(dateStr + 'T00:00:00');
+    if (d.getDay() === 0) return true; // Chủ nhật
+    return holidays.has(dateStr);
+}
+
+/**
+ * Tính deadline thực tế cho một task
+ * - Base: 23:59 ngày làm việc tiếp theo sau created_at
+ * - Kéo dài nếu Chủ nhật/lễ/quản lý nghỉ
+ */
+async function calculateRealDeadline(createdAt, managerId) {
+    const created = new Date(createdAt);
+    
+    // Bắt đầu từ ngày sau created_at
+    let deadline = new Date(created);
+    deadline.setDate(deadline.getDate() + 1);
+    
+    // Kéo dài qua Chủ nhật, lễ, và ngày quản lý nghỉ
+    let maxIterations = 30; // safety limit
+    while (maxIterations-- > 0) {
+        const ds = toDateStr(deadline);
+        const dayOff = await isDayOff(ds);
+        const onLeave = managerId ? await isManagerOnLeave(managerId, ds) : false;
+        
+        if (!dayOff && !onLeave) break; // Ngày làm việc + quản lý không nghỉ → OK
+        deadline.setDate(deadline.getDate() + 1); // Kéo thêm 1 ngày
+    }
+    
+    // Set 23:59:59
+    deadline.setHours(23, 59, 59, 0);
+    return deadline;
+}
+
+// ===== MAIN CHECKER =====
+async function runDeadlineCheck() {
+    const now = new Date();
+    console.log(`⏰ [${now.toISOString()}] Đang kiểm tra deadline...`);
+    
+    let lockedCount = 0;
+    let penaltyCount = 0;
+
+    const nowLocal = toLocalTimestamp(now);
+
+    // ========== 1. CHECK SUPPORT REQUESTS ==========
+    const pendingSupport = await db.all(
+        "SELECT * FROM task_support_requests WHERE status = 'pending' AND deadline_at IS NOT NULL AND deadline_at < $1",
+        [nowLocal]
+    );
+    
+    for (const sr of pendingSupport) {
+        if (!sr.manager_id) continue;
+        
+        // Tính lại deadline thực (có tính nghỉ)
+        const realDeadline = await calculateRealDeadline(sr.created_at, sr.manager_id);
+        if (now < realDeadline) continue; // Chưa hết hạn thực
+        
+        // Lấy mức phạt
+        let penaltyAmount = 50000; // default 50k
+        const config = await db.get(
+            "SELECT penalty_amount FROM task_penalty_config WHERE task_name = $1 AND penalty_amount > 0",
+            [sr.task_name]
+        );
+        if (config) penaltyAmount = config.penalty_amount;
+        
+        // Ghi phạt vào support request
+        await db.run(
+            "UPDATE task_support_requests SET status = 'expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3",
+            [penaltyAmount, `Không hỗ trợ nhân sự trước hạn: ${sr.task_name}`, sr.id]
+        );
+        
+        // Khóa tài khoản quản lý
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.manager_id]);
+        
+        lockedCount++;
+        penaltyCount++;
+        console.log(`  🔒 Khóa quản lý id=${sr.manager_id} — Không hỗ trợ: ${sr.task_name} (phạt ${penaltyAmount}đ)`);
+    }
+
+    // ========== 2. CHECK PENDING APPROVALS ==========
+    const pendingReports = await db.all(
+        "SELECT r.*, t.task_name FROM task_point_reports r JOIN task_point_templates t ON r.template_id = t.id WHERE r.status = 'pending' AND r.approval_deadline IS NOT NULL AND r.approval_deadline < $1",
+        [nowLocal]
+    );
+    
+    // Group by approver (via task_approvers)
+    for (const report of pendingReports) {
+        // Find which manager should have approved this
+        const reporter = await db.get("SELECT department_id FROM users WHERE id = $1", [report.user_id]);
+        if (!reporter || !reporter.department_id) continue;
+        
+        // Walk up department tree to find approver
+        let managerId = null;
+        let lookupDeptId = reporter.department_id;
+        const visited = new Set();
+        while (lookupDeptId && !visited.has(lookupDeptId)) {
+            visited.add(lookupDeptId);
+            const approver = await db.get(
+                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
+                [lookupDeptId, report.user_id]
+            );
+            if (approver) { managerId = approver.user_id; break; }
+            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
+            lookupDeptId = dept ? dept.parent_id : null;
+        }
+        
+        if (!managerId) continue;
+        
+        // Tính deadline thực
+        const realDeadline = await calculateRealDeadline(report.created_at, managerId);
+        if (now < realDeadline) continue;
+        
+        // Lấy mức phạt
+        let penaltyAmount = 50000;
+        const config = await db.get(
+            "SELECT penalty_amount FROM task_penalty_config WHERE task_name = $1 AND penalty_amount > 0",
+            [report.task_name]
+        );
+        if (config) penaltyAmount = config.penalty_amount;
+        
+        // Auto-approve (vì quản lý không duyệt, để NV không bị ảnh hưởng)
+        // Giữ pending để quản lý phải xử lý khi unlock
+        
+        // Tạo penalty record trong task_support_requests
+        await db.run(
+            `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, manager_id, department_id, status, penalty_amount, penalty_reason)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'expired', $8, $9)
+             ON CONFLICT (user_id, template_id, task_date) DO UPDATE SET status = 'expired', penalty_amount = $8, penalty_reason = $9`,
+            [report.user_id, report.template_id, report.task_name, report.report_date,
+             toDateStr(realDeadline), managerId, reporter.department_id,
+             penaltyAmount, `Không duyệt công việc trước hạn: ${report.task_name}`]
+        );
+        
+        // Khóa tài khoản quản lý
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+        
+        lockedCount++;
+        penaltyCount++;
+        console.log(`  🔒 Khóa quản lý id=${managerId} — Không duyệt: ${report.task_name} (phạt ${penaltyAmount}đ)`);
+    }
+
+    if (lockedCount > 0) {
+        console.log(`  ✅ Đã khóa ${lockedCount} quản lý, ${penaltyCount} lỗi vi phạm`);
+    }
+}
+
+// ===== START CRON =====
+function startDeadlineChecker() {
+    console.log('⏰ Deadline checker khởi động (mỗi 15 phút)');
+    // Run immediately on start
+    setTimeout(() => runDeadlineCheck().catch(e => console.error('Deadline check error:', e)), 5000);
+    // Then every 15 minutes
+    setInterval(() => runDeadlineCheck().catch(e => console.error('Deadline check error:', e)), 15 * 60 * 1000);
+}
+
+module.exports = { startDeadlineChecker, calculateRealDeadline, toDateStr, toLocalTimestamp };
