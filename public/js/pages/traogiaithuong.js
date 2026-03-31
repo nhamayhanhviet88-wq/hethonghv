@@ -412,43 +412,50 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
         } catch(e) {}
     }
 
+    var preSelectedName = expectedWinner ? expectedName : '';
     var teamOpts = '';
     if (isTeam) {
         try {
             var tRes = await apiCall('/api/teams');
             (tRes.teams || []).forEach(function(t) {
-                teamOpts += '<option value="' + t.id + '">' + t.name + '</option>';
+                var sel = '';
+                if (expectedWinner && (t.id === expectedWinner.id || t.name === expectedName)) {
+                    sel = ' selected';
+                    preSelectedName = t.name;
+                }
+                teamOpts += '<option value="' + t.id + '"' + sel + '>' + t.name + '</option>';
             });
         } catch(e) {}
     }
 
-    // Build user options, auto-select expected winner
+    // Build user options, auto-select expected winner (ONLY for individual awards, NOT team)
     var userOpts = '<option value="">-- Chọn nhân viên --</option>';
-    var preSelectedName = expectedWinner ? expectedName : '';
     var matchedExpected = false;
-    // Get expected winner's user ID from leaderboard data
-    var expectedUserId = expectedWinner ? (expectedWinner.user_id || expectedWinner.manager_id || expectedWinner.id || null) : null;
-    _tgDeptUsers.forEach(function(u) {
-        var selected = '';
-        if (expectedWinner && !matchedExpected) {
-            // Match by ID first (most reliable), then by name
-            if (expectedUserId && u.id === expectedUserId) {
-                selected = ' selected';
-                preSelectedName = u.full_name;
-                matchedExpected = true;
-            } else {
-                var eName = expectedName.toLowerCase().trim();
-                var uName = (u.full_name || '').toLowerCase().trim();
-                var uUsername = (u.username || '').toLowerCase().trim();
-                if (uName === eName || uUsername === eName || eName.includes(uName) || uName.includes(eName)) {
+    if (!isTeam) {
+        // Get expected winner's user ID from leaderboard data
+        var expectedUserId = expectedWinner ? (expectedWinner.user_id || expectedWinner.manager_id || expectedWinner.id || null) : null;
+        _tgDeptUsers.forEach(function(u) {
+            var selected = '';
+            if (expectedWinner && !matchedExpected) {
+                // Match by ID first (most reliable), then by name
+                if (expectedUserId && u.id === expectedUserId) {
                     selected = ' selected';
                     preSelectedName = u.full_name;
                     matchedExpected = true;
+                } else {
+                    var eName = expectedName.toLowerCase().trim();
+                    var uName = (u.full_name || '').toLowerCase().trim();
+                    var uUsername = (u.username || '').toLowerCase().trim();
+                    if (uName === eName || uUsername === eName || eName.includes(uName) || uName.includes(eName)) {
+                        selected = ' selected';
+                        preSelectedName = u.full_name;
+                        matchedExpected = true;
+                    }
                 }
             }
-        }
-        userOpts += '<option value="' + u.id + '"' + selected + '>' + u.full_name + '</option>';
-    });
+            userOpts += '<option value="' + u.id + '"' + selected + '>' + u.full_name + '</option>';
+        });
+    }
 
     // Build recommendation banner
     var recommendHtml = '';
@@ -488,7 +495,7 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
             ' + warningDiv + '\
             ' + (isTeam ? '\
                 <label>🏢 Chọn Team</label>\
-                <select id="tgWinnerTeam"><option value="">-- Chọn team --</option>' + teamOpts + '</select>\
+                <select id="tgWinnerTeam" disabled style="background:#f1f5f9;cursor:not-allowed;opacity:0.8;"><option value="">-- Chọn team --</option>' + teamOpts + '</select>\
                 <input type="hidden" id="tgWinnerType" value="team">\
             ' : '\
                 <label>👤 Người Nhận Giải' + (depts.length > 0 ? ' (từ bộ phận áp dụng)' : '') + '</label>\
@@ -553,7 +560,7 @@ async function submitTgAward(boardKey, topRank, prizeAmount, prizeDesc) {
     var userEl = document.getElementById('tgWinnerUser');
     if (userEl) { userEl.disabled = false; if (userEl.value) formData.append('winner_user_id', userEl.value); userEl.disabled = true; }
     var teamEl = document.getElementById('tgWinnerTeam');
-    if (teamEl && teamEl.value) formData.append('winner_team_id', teamEl.value);
+    if (teamEl) { teamEl.disabled = false; if (teamEl.value) formData.append('winner_team_id', teamEl.value); teamEl.disabled = true; }
 
     try {
         var token = document.cookie.split(';').find(function(c) { return c.trim().startsWith('token='); });
