@@ -455,6 +455,12 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
             }
             userOpts += '<option value="' + u.id + '"' + selected + '>' + u.full_name + '</option>';
         });
+        // If expected winner from BXH was NOT found in dept user list, inject them directly
+        if (expectedWinner && !matchedExpected && expectedUserId) {
+            userOpts += '<option value="' + expectedUserId + '" selected>' + expectedName + '</option>';
+            preSelectedName = expectedName;
+            matchedExpected = true;
+        }
     }
 
     // Build recommendation banner
