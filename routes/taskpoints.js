@@ -114,7 +114,7 @@ async function taskPointRoutes(fastify, options) {
 
     // CREATE a new task
     fastify.post('/api/task-points', { preHandler: [authenticate] }, async (request, reply) => {
-        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements } = request.body || {};
+        const { target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, max_redo_count, week_only, input_requirements, output_requirements } = request.body || {};
         if (!target_type || !target_id || !day_of_week || !task_name || !time_start || !time_end) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
@@ -123,9 +123,9 @@ async function taskPointRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo CV cố định vào lịch' });
         }
         const result = await db.run(
-            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, week_only, input_requirements, output_requirements, created_by)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), request.user.id]
+            `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, max_redo_count, week_only, input_requirements, output_requirements, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [target_type, Number(target_id), Number(day_of_week), task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, requires_approval ? true : false, Number(max_redo_count) || 3, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), request.user.id]
         );
         // Log change
         try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['add', task_name, target_type, Number(target_id), request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}
@@ -135,7 +135,7 @@ async function taskPointRoutes(fastify, options) {
     // UPDATE a task
     fastify.put('/api/task-points/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval, week_only, input_requirements, output_requirements } = request.body || {};
+        const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval, max_redo_count, week_only, input_requirements, output_requirements } = request.body || {};
         // Only giam_doc can edit fixed tasks
         const existing = await db.get('SELECT week_only FROM task_point_templates WHERE id = ?', [id]);
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
@@ -144,8 +144,8 @@ async function taskPointRoutes(fastify, options) {
         // Get existing for log
         const oldTask = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [id]);
         await db.run(
-            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, week_only=?, input_requirements=?, output_requirements=?, updated_at=NOW() WHERE id=?`,
-            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), id]
+            `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, sort_order=?, day_of_week=?, requires_approval=?, max_redo_count=?, week_only=?, input_requirements=?, output_requirements=?, updated_at=NOW() WHERE id=?`,
+            [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, Number(sort_order) || 0, Number(day_of_week), requires_approval ? true : false, Number(max_redo_count) || 3, week_only || null, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), id]
         );
         // Log change
         try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['edit', task_name || (oldTask && oldTask.task_name), oldTask?.target_type, oldTask?.target_id, request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}

@@ -149,7 +149,7 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const { task_name, task_content, guide_link, input_requirements, output_requirements,
-                recurrence_type, recurrence_value, requires_approval, penalty_amount
+                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count
         } = request.body || {};
 
         if (!task_name || !recurrence_type) {
@@ -165,12 +165,12 @@ async function lockTaskRoutes(fastify, options) {
 
         const result = await db.get(
             `INSERT INTO lock_tasks (task_name, task_content, guide_link, input_requirements, output_requirements,
-                                     recurrence_type, recurrence_value, requires_approval, penalty_amount,
+                                     recurrence_type, recurrence_value, requires_approval, max_redo_count, penalty_amount,
                                      created_by, department_id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
              RETURNING id`,
             [task_name, task_content || null, guide_link || null, input_requirements || null, output_requirements || null,
-             recurrence_type, recurrence_value || null, requires_approval || false, penalty_amount || 50000,
+             recurrence_type, recurrence_value || null, requires_approval || false, max_redo_count || 3, penalty_amount || 50000,
              request.user.id, departmentId || null]
         );
 
@@ -197,14 +197,14 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const { task_name, task_content, guide_link, input_requirements, output_requirements,
-                recurrence_type, recurrence_value, requires_approval, penalty_amount } = request.body || {};
+                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count } = request.body || {};
 
         await db.run(
             `UPDATE lock_tasks SET task_name=$1, task_content=$2, guide_link=$3, input_requirements=$4,
-             output_requirements=$5, recurrence_type=$6, recurrence_value=$7, requires_approval=$8, penalty_amount=$9
-             WHERE id=$10`,
+             output_requirements=$5, recurrence_type=$6, recurrence_value=$7, requires_approval=$8, penalty_amount=$9, max_redo_count=$10
+             WHERE id=$11`,
             [task_name, task_content, guide_link, input_requirements, output_requirements,
-             recurrence_type, recurrence_value, requires_approval || false, penalty_amount || 50000, taskId]
+             recurrence_type, recurrence_value, requires_approval || false, penalty_amount || 50000, max_redo_count || 3, taskId]
         );
 
         // Update assignments if provided
@@ -232,12 +232,14 @@ async function lockTaskRoutes(fastify, options) {
 
     // ========== SUBMISSIONS ==========
 
-    // POST: NV upload proof
+    // POST: NV upload proof (supports redo)
     fastify.post('/api/lock-tasks/:id/submit', { preHandler: [authenticate] }, async (request, reply) => {
         const taskId = Number(request.params.id);
         const userId = request.user.id;
 
-        const today = new Date();
+        // Support date param for calendar submission
+        const dateParam = request.query?.date;
+        const today = dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
@@ -249,31 +251,52 @@ async function lockTaskRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Vui lòng upload file chứng minh' });
         }
 
+        // Check redo count
+        const task = await db.get('SELECT requires_approval, max_redo_count FROM lock_tasks WHERE id = $1', [taskId]);
+        const lastCompletion = await db.get(
+            `SELECT redo_count, status FROM lock_task_completions
+             WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+             ORDER BY redo_count DESC LIMIT 1`,
+            [taskId, userId, todayStr]
+        );
+
+        let redoCount = 0;
+        if (lastCompletion) {
+            if (lastCompletion.status === 'rejected') {
+                redoCount = lastCompletion.redo_count + 1;
+                const maxRedo = task?.max_redo_count || 3;
+                if (redoCount > maxRedo) {
+                    return reply.code(400).send({ error: `Đã vượt quá số lần nộp lại (${maxRedo} lần)` });
+                }
+            } else if (lastCompletion.status === 'pending' || lastCompletion.status === 'approved') {
+                return reply.code(400).send({ error: 'Bài đã nộp, đang chờ duyệt hoặc đã duyệt' });
+            } else {
+                redoCount = lastCompletion.redo_count + 1;
+            }
+        }
+
         // Save file
         const uploadsDir = path.join(__dirname, '..', 'uploads', 'lock-tasks');
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
         const ext = path.extname(data.filename) || '.jpg';
-        const filename = `lt_${taskId}_${userId}_${todayStr}${ext}`;
+        const filename = `lt_${taskId}_${userId}_${todayStr}_r${redoCount}${ext}`;
         const filePath = path.join(uploadsDir, filename);
         const writeStream = fs.createWriteStream(filePath);
         await data.file.pipe(writeStream);
         await new Promise((resolve, reject) => { writeStream.on('finish', resolve); writeStream.on('error', reject); });
 
         const proofUrl = `/uploads/lock-tasks/${filename}`;
-
-        // Check if task requires approval
-        const task = await db.get('SELECT requires_approval FROM lock_tasks WHERE id = $1', [taskId]);
         const status = task?.requires_approval ? 'pending' : 'approved';
 
         await db.run(
-            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, status)
-             VALUES ($1,$2,$3,$4,$5)
-             ON CONFLICT (lock_task_id, user_id, completion_date) DO UPDATE SET proof_url=$4, status=$5, created_at=NOW()`,
-            [taskId, userId, todayStr, proofUrl, status]
+            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, status)
+             VALUES ($1,$2,$3,$4,$5,$6)
+             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, status=$6, created_at=NOW()`,
+            [taskId, userId, todayStr, redoCount, proofUrl, status]
         );
 
-        return { success: true, status, proofUrl };
+        return { success: true, status, proofUrl, redo_count: redoCount };
     });
 
     // POST: QL duyệt/từ chối
@@ -287,13 +310,77 @@ async function lockTaskRoutes(fastify, options) {
 
         const status = action === 'approve' ? 'approved' : 'rejected';
 
+        // If rejecting, calculate redo_deadline (23:59 next working day for NV)
+        let redoDeadline = null;
+        if (action === 'reject') {
+            const comp = await db.get('SELECT user_id, lock_task_id FROM lock_task_completions WHERE id = $1', [completionId]);
+            if (comp) {
+                const { calculateRealDeadline } = require('./deadline-checker');
+                const deadline = await calculateRealDeadline(new Date(), comp.user_id);
+                redoDeadline = `${deadline.getFullYear()}-${String(deadline.getMonth()+1).padStart(2,'0')}-${String(deadline.getDate()).padStart(2,'0')} 23:59:59`;
+            }
+        }
+
         await db.run(
-            `UPDATE lock_task_completions SET status=$1, reviewed_by=$2, reviewed_at=NOW(), reject_reason=$3
-             WHERE id=$4`,
-            [status, request.user.id, action === 'reject' ? (reject_reason || 'Không đạt yêu cầu') : null, completionId]
+            `UPDATE lock_task_completions SET status=$1, reviewed_by=$2, reviewed_at=NOW(), reject_reason=$3, redo_deadline=$4
+             WHERE id=$5`,
+            [status, request.user.id, action === 'reject' ? (reject_reason || 'Không đạt yêu cầu') : null, redoDeadline, completionId]
         );
 
         return { success: true, status };
+    });
+
+    // GET: Task detail for popup
+    fastify.get('/api/lock-tasks/:id/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        const taskId = Number(request.params.id);
+        const task = await db.get('SELECT lt.*, d.name as dept_name FROM lock_tasks lt LEFT JOIN departments d ON d.id = lt.department_id WHERE lt.id = $1', [taskId]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy' });
+        return { task };
+    });
+
+    // POST: Support request (🆘 Sếp HT) for CV Khóa
+    fastify.post('/api/lock-tasks/:id/support', { preHandler: [authenticate] }, async (request, reply) => {
+        const lockTaskId = Number(request.params.id);
+        const userId = request.user.id;
+        const { task_date } = request.body || {};
+
+        if (!task_date) return reply.code(400).send({ error: 'Thiếu ngày' });
+
+        const task = await db.get('SELECT * FROM lock_tasks WHERE id = $1', [lockTaskId]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy CV' });
+
+        // Find manager
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+        let managerId = null;
+        let lookupDeptId = user?.department_id;
+        const visited = new Set();
+        while (lookupDeptId && !visited.has(lookupDeptId)) {
+            visited.add(lookupDeptId);
+            const approver = await db.get('SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1', [lookupDeptId, userId]);
+            if (approver) { managerId = approver.user_id; break; }
+            const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [lookupDeptId]);
+            lookupDeptId = dept ? dept.parent_id : null;
+        }
+
+        // Calc deadline
+        const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+        const deadlineDate = await calculateRealDeadline(new Date(), managerId);
+        const deadlineDateStr = `${deadlineDate.getFullYear()}-${String(deadlineDate.getMonth()+1).padStart(2,'0')}-${String(deadlineDate.getDate()).padStart(2,'0')}`;
+
+        // Check existing
+        const existing = await db.get(
+            "SELECT id FROM task_support_requests WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3 AND source_type = 'khoa'",
+            [userId, lockTaskId, task_date]
+        );
+        if (existing) return reply.code(400).send({ error: 'Đã gửi yêu cầu hỗ trợ cho CV này rồi' });
+
+        await db.run(
+            `INSERT INTO task_support_requests (user_id, template_id, lock_task_id, task_name, task_date, deadline, deadline_at, manager_id, department_id, status, source_type)
+             VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, 'pending', 'khoa')`,
+            [userId, lockTaskId, task.task_name, task_date, deadlineDateStr, toLocalTimestamp(deadlineDate), managerId, user?.department_id]
+        );
+
+        return { success: true };
     });
 
     // ========== CALENDAR DATA ==========
@@ -330,10 +417,12 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const weekEnd = dates[6];
+        // Get LATEST completion per task per day (highest redo_count)
         const completions = await db.all(
-            `SELECT ltc.*, ltc.completion_date::text as completion_date
+            `SELECT DISTINCT ON (ltc.lock_task_id, ltc.completion_date) ltc.*, ltc.completion_date::text as completion_date
              FROM lock_task_completions ltc
-             WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3`,
+             WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
+             ORDER BY ltc.lock_task_id, ltc.completion_date, ltc.redo_count DESC`,
             [targetUserId, week_start, weekEnd]
         );
 
@@ -344,7 +433,14 @@ async function lockTaskRoutes(fastify, options) {
         );
         const holidaySet = new Set(holidays.map(h => h.holiday_date));
 
-        return { tasks, completions, dates, holidays: Array.from(holidaySet) };
+        // Get CV Khóa support requests for this week
+        const supportRequests = await db.all(
+            `SELECT * FROM task_support_requests
+             WHERE user_id = $1 AND task_date BETWEEN $2 AND $3 AND source_type = 'khoa'`,
+            [targetUserId, week_start, weekEnd]
+        );
+
+        return { tasks, completions, dates, holidays: Array.from(holidaySet), supportRequests };
     });
 
     // GET: Pending reviews for QL

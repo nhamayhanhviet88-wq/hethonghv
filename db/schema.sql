@@ -646,6 +646,7 @@ CREATE TABLE IF NOT EXISTS lock_tasks (
     recurrence_type TEXT NOT NULL DEFAULT 'administrative' CHECK (recurrence_type IN ('weekly','monthly','once','administrative','daily')),
     recurrence_value TEXT,
     requires_approval BOOLEAN DEFAULT false,
+    max_redo_count INTEGER DEFAULT 3,
     penalty_amount INTEGER DEFAULT 50000,
     created_by INTEGER REFERENCES users(id),
     department_id INTEGER REFERENCES departments(id),
@@ -663,19 +664,48 @@ CREATE TABLE IF NOT EXISTS lock_task_assignments (
     UNIQUE(lock_task_id, user_id)
 );
 
--- NV nộp bài / hoàn thành hàng ngày
+-- NV nộp bài / hoàn thành hàng ngày (lưu lịch sử nhiều lần nộp)
 CREATE TABLE IF NOT EXISTS lock_task_completions (
     id SERIAL PRIMARY KEY,
     lock_task_id INTEGER NOT NULL REFERENCES lock_tasks(id),
     user_id INTEGER NOT NULL REFERENCES users(id),
     completion_date DATE NOT NULL,
+    redo_count INTEGER DEFAULT 0,
     proof_url TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired')),
     reviewed_by INTEGER REFERENCES users(id),
     reviewed_at TIMESTAMP,
     reject_reason TEXT,
+    redo_deadline TIMESTAMP,
     penalty_amount INTEGER DEFAULT 0,
     penalty_applied BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(lock_task_id, user_id, completion_date)
+    UNIQUE(lock_task_id, user_id, completion_date, redo_count)
 );
+
+-- Migration: add new columns if table already exists
+ALTER TABLE lock_tasks ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS redo_count INTEGER DEFAULT 0;
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;
+
+-- Drop old unique constraint and add new one (safe migration)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lock_task_completions_lock_task_id_user_id_completion_date_key') THEN
+        ALTER TABLE lock_task_completions DROP CONSTRAINT lock_task_completions_lock_task_id_user_id_completion_date_key;
+    END IF;
+    -- Add new constraint with redo_count
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lock_task_completions_task_user_date_redo_key') THEN
+        ALTER TABLE lock_task_completions ADD CONSTRAINT lock_task_completions_task_user_date_redo_key UNIQUE(lock_task_id, user_id, completion_date, redo_count);
+    END IF;
+END $$;
+
+-- Add source_type to task_support_requests (diem/khoa)
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'diem';
+-- Make template_id nullable for CV Khóa support requests
+ALTER TABLE task_support_requests ALTER COLUMN template_id DROP NOT NULL;
+-- Add lock_task_id column for CV Khóa references
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS lock_task_id INTEGER REFERENCES lock_tasks(id);
+
+-- Add max_redo_count to task_point_templates (CV Điểm)
+ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
+

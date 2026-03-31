@@ -980,8 +980,12 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
             <div id="tpFOutputReqList">${shouldLock ? _tpRenderReqReadonly(_tpParseJSON(task ? task.output_requirements : pf.output_requirements)) : _tpRenderReqItems((_tpParseJSON(task ? task.output_requirements : pf.output_requirements)).length ? _tpParseJSON(task ? task.output_requirements : pf.output_requirements) : [''])}</div>
         </div>
         <div style="margin-bottom:8px;padding:10px 12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
-            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
+            <input id="tpFApproval" type="checkbox" ${(task && task.requires_approval) || pf.requires_approval ? 'checked' : ''} onchange="document.getElementById('tpFRedoWrap').style.display=this.checked?'block':'none'" style="width:16px;height:16px;accent-color:#d97706;cursor:pointer;">
             <label for="tpFApproval" style="font-size:13px;color:#78350f;cursor:pointer;font-weight:600;">🔒 Cần duyệt <span style="font-weight:400;font-size:11px;color:#92400e;">(Quản lý/TP phải duyệt mới tính điểm)</span></label>
+        </div>
+        <div id="tpFRedoWrap" style="margin-bottom:8px;margin-left:24px;display:${(task && task.requires_approval) || pf.requires_approval ? 'block' : 'none'};">
+            <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Số lần nộp lại tối đa khi bị từ chối</label>
+            <input id="tpFRedoMax" type="number" value="${task?.max_redo_count || pf.max_redo_count || 3}" min="1" max="10" style="width:100px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
         </div>
         <div style="display:none;">
             <input type="radio" name="tpWeekType" value="fixed" ${!(task?.week_only || pf._auto_week_only) ? 'checked' : ''}>
@@ -1004,6 +1008,7 @@ async function _tpSaveTask(editId, defaultDay) {
     const time_end = document.getElementById('tpFEnd').value;
     const guide_url = document.getElementById('tpFGuide').value.trim();
     const requires_approval = document.getElementById('tpFApproval')?.checked || false;
+    const max_redo_count = Number(document.getElementById('tpFRedoMax')?.value) || 3;
     const weekTypeRadio = document.querySelector('input[name="tpWeekType"]:checked');
     const isWeekOnly = weekTypeRadio?.value === 'weekly';
     const week_only = isWeekOnly && _tpCurrentWeekStart ? _tpDateStr(_tpCurrentWeekStart) : null;
@@ -1038,7 +1043,7 @@ async function _tpSaveTask(editId, defaultDay) {
     try {
         if (editId) {
             await apiCall(`/api/task-points/${editId}`, 'PUT', {
-                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, week_only, input_requirements, output_requirements
+                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, max_redo_count, week_only, input_requirements, output_requirements
             });
             showToast('✅ Đã cập nhật');
         } else {
@@ -1048,7 +1053,7 @@ async function _tpSaveTask(editId, defaultDay) {
             for (const day of checkedDays) {
                 await apiCall('/api/task-points', 'POST', {
                     target_type: targetType, target_id: targetId,
-                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval, week_only, input_requirements, output_requirements
+                    day_of_week: day, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order: 0, requires_approval, max_redo_count, week_only, input_requirements, output_requirements
                 });
             }
             showToast(`✅ Đã thêm ${checkedDays.length} công việc${isWeekOnly ? ' (tuần này)' : ''}`);

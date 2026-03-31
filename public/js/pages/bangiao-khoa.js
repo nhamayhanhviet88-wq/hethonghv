@@ -386,9 +386,13 @@ async function _lkShowCreateModal(deptId, editTask) {
             </div>
             <div style="margin-bottom:14px;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input id="lkf_approval" type="checkbox" ${t.requires_approval ? 'checked' : ''} style="width:16px;height:16px;">
+                    <input id="lkf_approval" type="checkbox" ${t.requires_approval ? 'checked' : ''} onchange="document.getElementById('lkf_redo_wrap').style.display=this.checked?'block':'none'" style="width:16px;height:16px;">
                     <span style="font-size:12px;font-weight:600;color:#374151;">QL phải duyệt (Nếu tích, sau khi NV nộp → QL phải duyệt/từ chối)</span>
                 </label>
+                <div id="lkf_redo_wrap" style="margin-top:8px;margin-left:24px;display:${t.requires_approval ? 'block' : 'none'};">
+                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Số lần nộp lại tối đa khi bị từ chối</label>
+                    <input id="lkf_redo_max" type="number" value="${t.max_redo_count || 3}" min="1" max="10" style="width:100px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                </div>
             </div>
             <!-- ASSIGN USERS -->
             <div style="margin-bottom:14px;">
@@ -472,6 +476,7 @@ async function _lkSaveTask(taskId, deptId) {
         recurrence_type: document.getElementById('lkf_recurrence')?.value || 'administrative',
         recurrence_value: document.getElementById('lkf_recval')?.value || '',
         requires_approval: document.getElementById('lkf_approval')?.checked || false,
+        max_redo_count: Number(document.getElementById('lkf_redo_max')?.value) || 3,
         penalty_amount: Number(document.getElementById('lkf_penalty')?.value) || 50000,
         department_id: deptId,
         user_ids: userIds
