@@ -681,11 +681,21 @@ async function taskScheduleRoutes(fastify, options) {
         );
 
         // Count 2: Pending support requests (Hỗ Trợ Nhân Sự)
-        const supportCount = await db.get(
-            `SELECT COUNT(*) as c FROM task_support_requests
-             WHERE manager_id = $1 AND status = 'pending'`,
-            [userId]
-        );
+        // giam_doc sees all, others see where they are the manager
+        let supportCount;
+        if (isGD) {
+            supportCount = await db.get(
+                `SELECT COUNT(*) as c FROM task_support_requests WHERE status = 'pending'`
+            );
+        } else {
+            supportCount = await db.get(
+                `SELECT COUNT(*) as c FROM task_support_requests
+                 WHERE status = 'pending' AND (manager_id = $1 OR manager_id IN (
+                     SELECT id FROM users WHERE department_id IN (${placeholders})
+                 ))`,
+                [userId, ...deptIds]
+            );
+        }
 
         const total = Number(reportCount.c) + Number(supportCount.c);
         return { count: total };
