@@ -249,7 +249,8 @@ async function khoaTKNVRoutes(fastify, options) {
 
         const dept = await db.get('SELECT name FROM departments WHERE id = $1', [manager.department_id]);
 
-        const items = await db.all(
+        // Source 1: task_support_requests (CV Điểm + Hỗ trợ NV)
+        const srItems = await db.all(
             `SELECT sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                     u.full_name as requested_by
              FROM task_support_requests sr
@@ -258,7 +259,26 @@ async function khoaTKNVRoutes(fastify, options) {
              ORDER BY sr.task_date`,
             [managerId, monthStart, monthEnd]
         );
+        srItems.forEach(item => {
+            item.source_type = (item.penalty_reason && item.penalty_reason.includes('Không duyệt')) ? 'diem' : 'support';
+        });
 
+        // Source 2: lock_task_completions (CV Khóa)
+        const ltItems = await db.all(
+            `SELECT lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount, ltc.acknowledged
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
+               AND ltc.completion_date BETWEEN $2::date AND $3::date
+             ORDER BY ltc.completion_date`,
+            [managerId, monthStart, monthEnd]
+        );
+        ltItems.forEach(item => {
+            item.source_type = 'khoa';
+            item.penalty_reason = 'Không nộp báo cáo';
+        });
+
+        const items = [...srItems, ...ltItems];
         const total = items.reduce((s, i) => s + (i.penalty_amount || 0), 0);
 
         return {
