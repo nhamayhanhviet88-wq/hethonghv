@@ -475,14 +475,14 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
                 <select id="tgWinnerTeam"><option value="">-- Chọn team --</option>' + teamOpts + '</select>\
                 <input type="hidden" id="tgWinnerType" value="team">\
             ' : '\
-                <label>👤 Chọn Người Nhận Giải' + (depts.length > 0 ? ' (từ bộ phận áp dụng)' : '') + '</label>\
-                <select id="tgWinnerUser" onchange="_tgCheckWinnerMatch(this,\'' + expectedName.replace(/'/g, "\\'") + '\')">\
+                <label>👤 Người Nhận Giải' + (depts.length > 0 ? ' (từ bộ phận áp dụng)' : '') + '</label>\
+                <select id="tgWinnerUser" disabled style="background:#f1f5f9;cursor:not-allowed;opacity:0.8;">\
                     ' + userOpts + '\
                 </select>\
                 <input type="hidden" id="tgWinnerType" value="individual">\
             ') + '\
             <label>Tên hiển thị</label>\
-            <input type="text" id="tgWinnerName" placeholder="Tên người/team nhận giải..." value="' + preSelectedName.replace(/"/g, '&quot;') + '">\
+            <input type="text" id="tgWinnerName" placeholder="Tên người/team nhận giải..." value="' + preSelectedName.replace(/"/g, '&quot;') + '" readonly style="background:#f1f5f9;cursor:not-allowed;">\
             <label>📸 Ảnh người nhận giải (bắt buộc)</label>\
             <div class="tg-upload-box" id="tgUpload1">\
                 <div>📷 Click để chọn ảnh</div>\
@@ -535,7 +535,7 @@ async function submitTgAward(boardKey, topRank, prizeAmount, prizeDesc) {
     formData.append('photo_certificate', photo2);
 
     var userEl = document.getElementById('tgWinnerUser');
-    if (userEl && userEl.value) formData.append('winner_user_id', userEl.value);
+    if (userEl) { userEl.disabled = false; if (userEl.value) formData.append('winner_user_id', userEl.value); userEl.disabled = true; }
     var teamEl = document.getElementById('tgWinnerTeam');
     if (teamEl && teamEl.value) formData.append('winner_team_id', teamEl.value);
 
