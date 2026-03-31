@@ -133,6 +133,23 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         return { count: Number(result?.count) || 0 };
     });
 
+    // ========== COUNT PENDING EMERGENCY REQUESTS ==========
+    fastify.get('/api/emergency/pending-count', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+        let result;
+        if (user.role === 'giam_doc') {
+            result = await db.get(`SELECT COUNT(*) as count FROM emergencies WHERE status = 'pending'`);
+        } else if (['quan_ly', 'truong_phong'].includes(user.role)) {
+            result = await db.get(
+                `SELECT COUNT(*) as count FROM emergencies WHERE status = 'pending' AND (handler_id = $1 OR requested_by = $1 OR handover_to = $1)`,
+                [user.id]
+            );
+        } else {
+            return { count: 0 };
+        }
+        return { count: Number(result?.count) || 0 };
+    });
+
     // ========== COUNT RECENTLY AUTO-REVERTED FOR NV ==========
     fastify.get('/api/cancel/reverted-for-me', { preHandler: [authenticate] }, async (request, reply) => {
         // Get customers that were auto-reverted (cancel_approved = -1) and assigned to current user

@@ -939,7 +939,55 @@ async function handleRoute() {
     }
 
     // Refresh sidebar badges after every navigation
-    if (typeof _kbInitBadge === 'function') setTimeout(_kbInitBadge, 500);
+    setTimeout(_globalRefreshBadges, 500);
+}
+
+// ========== GLOBAL SIDEBAR BADGES ==========
+function _setBadge(menuText, count) {
+    const menuItems = document.querySelectorAll('.sidebar-menu-item, [data-page]');
+    menuItems.forEach(el => {
+        if (el.textContent.includes(menuText) && !el.querySelector('.sb-badge-' + menuText.substring(0,4))) {
+            // Clean existing badge
+            const old = el.querySelector('.sb-badge');
+            if (old) old.remove();
+        }
+        if (el.textContent.includes(menuText)) {
+            let badge = el.querySelector('.sb-badge');
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'sb-badge';
+                    badge.style.cssText = 'background:#dc2626;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:6px;line-height:1.3;display:inline-block;animation:_kbPulse 2s infinite;';
+                    el.appendChild(badge);
+                }
+                badge.textContent = count;
+            } else if (badge) {
+                badge.remove();
+            }
+        }
+    });
+}
+
+async function _globalRefreshBadges() {
+    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser?.role);
+    if (!isManager) return;
+    try {
+        const [scheduleRes, cancelRes, emergencyRes] = await Promise.all([
+            apiCall('/api/schedule/pending-count').catch(() => ({ count: 0 })),
+            apiCall('/api/cancel/pending-count').catch(() => ({ count: 0 })),
+            apiCall('/api/emergency/pending-count').catch(() => ({ count: 0 }))
+        ]);
+        // Lịch Khóa Biểu Công Việc
+        if (typeof _kbUpdateSidebarBadge === 'function') {
+            _kbUpdateSidebarBadge(scheduleRes.count || 0);
+        } else {
+            _setBadge('Lịch Khóa Biểu', scheduleRes.count || 0);
+        }
+        // Hủy Khách Hàng
+        _setBadge('Hủy Khách Hàng', cancelRes.count || 0);
+        // Cấp Cứu Sếp
+        _setBadge('Cấp Cứu Sếp', emergencyRes.count || 0);
+    } catch(e) {}
 }
 
 // ========== DASHBOARD ==========
