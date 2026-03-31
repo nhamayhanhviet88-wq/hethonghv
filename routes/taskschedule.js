@@ -671,14 +671,24 @@ async function taskScheduleRoutes(fastify, options) {
         if (deptIds.length === 0) return { count: 0 };
 
         const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
-        const result = await db.get(
+
+        // Count 1: Pending task reports (CV Chờ Duyệt)
+        const reportCount = await db.get(
             `SELECT COUNT(*) as c FROM task_point_reports r
              JOIN users u ON r.user_id = u.id
              WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}`,
             [...deptIds, userId]
         );
 
-        return { count: Number(result.c) };
+        // Count 2: Pending support requests (Hỗ Trợ Nhân Sự)
+        const supportCount = await db.get(
+            `SELECT COUNT(*) as c FROM task_support_requests
+             WHERE manager_id = $1 AND status = 'pending'`,
+            [userId]
+        );
+
+        const total = Number(reportCount.c) + Number(supportCount.c);
+        return { count: total };
     });
 
     // ========== APPROVE / REJECT with full logic ==========

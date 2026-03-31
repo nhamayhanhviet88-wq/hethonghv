@@ -937,6 +937,9 @@ async function handleRoute() {
         case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
         default: renderComingSoon(content); break;
     }
+
+    // Refresh sidebar badges after every navigation
+    if (typeof _kbInitBadge === 'function') setTimeout(_kbInitBadge, 500);
 }
 
 // ========== DASHBOARD ==========
