@@ -182,8 +182,130 @@ async function runDeadlineCheck() {
         console.log(`  🔒 Khóa quản lý id=${managerId} — Không duyệt: ${report.task_name} (phạt ${penaltyAmount}đ)`);
     }
 
+    // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
+    // Chạy vào 00:00 - 00:30: kiểm tra CV hôm qua chưa nộp → khóa NV + phạt
+    const hour = now.getHours();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toDateStr(yesterday);
+    const yesterdayDow = yesterday.getDay(); // 0=Sun, 1=Mon...
+
+    const holidays = await getHolidays();
+    const isYesterdayHoliday = holidays.has(yesterdayStr);
+    const isYesterdaySunday = yesterdayDow === 0;
+
+    // Get all active lock tasks with assignments
+    const lockAssignments = await db.all(
+        `SELECT lt.id as task_id, lt.task_name, lt.recurrence_type, lt.recurrence_value,
+                lt.requires_approval, lt.penalty_amount, lt.department_id,
+                lta.user_id
+         FROM lock_task_assignments lta
+         JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
+    );
+
+    for (const la of lockAssignments) {
+        // Check if task applies to yesterday based on recurrence
+        let applies = false;
+
+        if (la.recurrence_type === 'administrative') {
+            // T2-T7 (Mon-Sat), skip Sun + holidays
+            applies = yesterdayDow >= 1 && yesterdayDow <= 6 && !isYesterdayHoliday;
+        } else if (la.recurrence_type === 'daily') {
+            // T2-CN, only skip holidays (Sunday NOT skipped!)
+            applies = !isYesterdayHoliday;
+        } else if (la.recurrence_type === 'weekly') {
+            // Specific day of week
+            applies = yesterdayDow === Number(la.recurrence_value) && !isYesterdayHoliday;
+            if (isYesterdaySunday && la.recurrence_value !== '0') applies = false;
+        } else if (la.recurrence_type === 'monthly') {
+            // Specific day of month
+            applies = yesterday.getDate() === Number(la.recurrence_value) && !isYesterdayHoliday && !isYesterdaySunday;
+        } else if (la.recurrence_type === 'once') {
+            // Specific date
+            applies = yesterdayStr === la.recurrence_value && !isYesterdayHoliday && !isYesterdaySunday;
+        }
+
+        if (!applies) continue;
+
+        // Check if there's a completion
+        const completion = await db.get(
+            `SELECT id, status FROM lock_task_completions
+             WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3`,
+            [la.task_id, la.user_id, yesterdayStr]
+        );
+
+        if (completion && (completion.status === 'approved' || completion.status === 'pending')) {
+            // Đã nộp (hoặc chờ duyệt) → NV an toàn
+            continue;
+        }
+
+        // NV CHƯA NỘP → Khóa TK + Phạt
+        const penaltyAmount = la.penalty_amount || 50000;
+
+        // Tạo completion record với status expired
+        await db.run(
+            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, status, penalty_amount, penalty_applied)
+             VALUES ($1, $2, $3, 'expired', $4, true)
+             ON CONFLICT (lock_task_id, user_id, completion_date) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+            [la.task_id, la.user_id, yesterdayStr, penaltyAmount]
+        );
+
+        // Khóa tài khoản NV
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [la.user_id]);
+
+        lockedCount++;
+        penaltyCount++;
+        console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${yesterdayStr} (phạt ${penaltyAmount}đ)`);
+    }
+
+    // ========== 3b. CHECK CV KHÓA - QL CHƯA DUYỆT ==========
+    // Nếu CV requires_approval, NV đã nộp nhưng QL chưa duyệt → QL bị khóa
+    // Deadline: 23:59 ngày làm việc tiếp theo
+    const pendingLockReviews = await db.all(
+        `SELECT ltc.*, lt.task_name, lt.department_id, u.department_id as user_dept_id
+         FROM lock_task_completions ltc
+         JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.requires_approval = true
+         JOIN users u ON u.id = ltc.user_id
+         WHERE ltc.status = 'pending'`
+    );
+
+    for (const pr of pendingLockReviews) {
+        // Tính deadline cho QL: 23:59 ngày làm việc tiếp theo sau NV nộp
+        const submittedAt = new Date(pr.created_at);
+
+        // Find the manager (approver) for this employee's department
+        let managerId = null;
+        let lookupDeptId = pr.user_dept_id;
+        const visitedDepts = new Set();
+        while (lookupDeptId && !visitedDepts.has(lookupDeptId)) {
+            visitedDepts.add(lookupDeptId);
+            const approver = await db.get(
+                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
+                [lookupDeptId, pr.user_id]
+            );
+            if (approver) { managerId = approver.user_id; break; }
+            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
+            lookupDeptId = dept ? dept.parent_id : null;
+        }
+
+        if (!managerId) continue;
+
+        // Tính real deadline (kéo dài qua CN/lễ/nghỉ QL)
+        const realDeadline = await calculateRealDeadline(submittedAt, managerId);
+        if (now < realDeadline) continue; // Chưa hết hạn
+
+        // QL quá hạn → Khóa QL
+        const penaltyAmount = pr.penalty_amount || 50000;
+
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+
+        lockedCount++;
+        penaltyCount++;
+        console.log(`  🔐 [CV Khóa] Khóa QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+    }
+
     if (lockedCount > 0) {
-        console.log(`  ✅ Đã khóa ${lockedCount} quản lý, ${penaltyCount} lỗi vi phạm`);
+        console.log(`  ✅ Đã khóa ${lockedCount} tài khoản, ${penaltyCount} lỗi vi phạm`);
     }
 }
 
