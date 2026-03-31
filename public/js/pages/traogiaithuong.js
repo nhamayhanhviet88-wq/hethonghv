@@ -325,10 +325,12 @@ function _renderTgPending() {
                 html += '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">Chưa có ai đạt điều kiện</div>';
             }
             html += '</div></div></div>';
-            html += '<div style="display:flex;gap:6px;align-items:center;">';
-            html += '<button class="tg-btn" style="font-size:11px;padding:4px 12px;background:var(--info);color:white;" onclick="event.stopPropagation();showTgPrizeDetail(\'' + p.board_key + '\',' + p.top_rank + ',false)">🔍 Chi tiết</button>';
-            if (canAward) {
-                html += '<button class="tg-btn tg-btn-primary" style="font-size:11px;padding:4px 12px;" onclick="event.stopPropagation();openTgAwardForm(\'' + p.board_key + '\',' + p.top_rank + ',' + p.prize_amount + ',\'' + (p.prize_description || '').replace(/'/g, "\\'") + '\',\'' + (p.departments || '[]').replace(/'/g, "\\'") + '\')">🎖 Trao giải</button>';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            if (currentWinner) {
+                html += '<button class="tg-btn" style="font-size:11px;padding:4px 12px;background:var(--info);color:white;" onclick="event.stopPropagation();showTgPrizeDetail(\'' + p.board_key + '\',' + p.top_rank + ',false)">🔍 Chi tiết</button>';
+                if (canAward) {
+                    html += '<button class="tg-btn tg-btn-primary" style="font-size:11px;padding:4px 12px;" onclick="event.stopPropagation();openTgAwardForm(\'' + p.board_key + '\',' + p.top_rank + ',' + p.prize_amount + ',\'' + (p.prize_description || '').replace(/'/g, "\\'") + '\',\'' + (p.departments || '[]').replace(/'/g, "\\'") + '\')">🎖 Trao giải</button>';
+                }
             }
             html += '</div></div>';
         });
