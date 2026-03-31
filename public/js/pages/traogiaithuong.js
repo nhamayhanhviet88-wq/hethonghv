@@ -416,8 +416,8 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
     var teamOpts = '';
     if (isTeam) {
         try {
-            var tRes = await apiCall('/api/teams');
-            (tRes.teams || []).forEach(function(t) {
+            var tRes = await apiCall('/api/departments');
+            (tRes.departments || []).filter(function(d) { return d.status === 'active'; }).forEach(function(t) {
                 var sel = '';
                 if (expectedWinner && (t.id === expectedWinner.id || t.name === expectedName)) {
                     sel = ' selected';
