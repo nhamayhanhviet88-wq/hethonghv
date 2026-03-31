@@ -320,26 +320,19 @@ async function taskScheduleRoutes(fastify, options) {
         const usersWithTemplates = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'individual'");
         const userIds = usersWithTemplates.map(r => r.target_id);
 
-        if (['giam_doc', 'quan_ly', 'trinh'].includes(user.role)) {
+        if (['giam_doc'].includes(user.role)) {
             members = await db.all(
                 `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
                  FROM users u LEFT JOIN departments d ON u.department_id = d.id
                  WHERE u.status = 'active' AND u.role NOT IN ('giam_doc')
                  ORDER BY d.name, u.full_name`
             );
-        } else if (user.role === 'truong_phong') {
-            // Get all departments where this user is head + own department + children
-            const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = $1 AND status = $2', [user.id, 'active']);
-            const allDeptIds = new Set();
-            const queue = headDepts.map(d => d.id);
-            if (user.department_id) queue.push(user.department_id);
-            while (queue.length > 0) {
-                const dId = queue.shift();
-                if (allDeptIds.has(dId)) continue;
-                allDeptIds.add(dId);
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [dId, 'active']);
-                children.forEach(c => queue.push(c.id));
-            }
+        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(user.role)) {
+            // Get departments from task_approvers (flat, no recursive children)
+            const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
+            const allDeptIds = new Set(assigned.map(a => a.department_id));
+            // Also include own department
+            if (user.department_id) allDeptIds.add(user.department_id);
             if (allDeptIds.size > 0) {
                 const ids = [...allDeptIds];
                 const ph = ids.map((_, i) => `$${i + 1}`).join(',');
@@ -356,9 +349,27 @@ async function taskScheduleRoutes(fastify, options) {
         members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));
         
         // Include head_user_id users in their managed departments
-        const deptsWithHeads = await db.all(
-            "SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active'"
-        );
+        // For quan_ly/truong_phong/trinh: only add heads from departments in their task_approvers scope
+        let deptsWithHeads;
+        if (['quan_ly', 'truong_phong', 'trinh'].includes(user.role)) {
+            // Use task_approvers as the source of truth for scope
+            const approverDepts = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
+            const scopeDeptIds = new Set(approverDepts.map(a => a.department_id));
+            if (user.department_id) scopeDeptIds.add(user.department_id);
+            if (scopeDeptIds.size > 0) {
+                const ph = [...scopeDeptIds].map((_, i) => `$${i + 1}`).join(',');
+                deptsWithHeads = await db.all(
+                    `SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active' AND d.id IN (${ph})`,
+                    [...scopeDeptIds]
+                );
+            } else {
+                deptsWithHeads = [];
+            }
+        } else {
+            deptsWithHeads = await db.all(
+                "SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active'"
+            );
+        }
         for (const dept of deptsWithHeads) {
             const alreadyInDept = members.some(m => m.id === dept.head_user_id && m.dept_name === dept.name);
             if (!alreadyInDept) {
@@ -455,10 +466,22 @@ async function taskScheduleRoutes(fastify, options) {
         }
 
         // Only allow reporting for TODAY — managers/directors can bypass
+        // Also allow past dates if user has a valid support request
         const todayLocal = _localDateStr(new Date());
         const isManagerRole = ['giam_doc','quan_ly','truong_phong'].includes(request.user.role);
         if (report_date !== todayLocal && !isManagerRole) {
-            return reply.code(403).send({ error: 'Chỉ được phép báo cáo ngày hôm nay. Liên hệ Quản lý để được báo cáo bù.' });
+            // Check for support request that extends deadline
+            const sr = await db.get(
+                `SELECT id, deadline_at FROM task_support_requests
+                 WHERE user_id = $1 AND template_id = $2 AND task_date = $3
+                   AND status IN ('pending','supported') AND source_type IS DISTINCT FROM 'khoa'`,
+                [request.user.id, Number(template_id), report_date]
+            );
+            const now = new Date();
+            const srDeadline = sr ? new Date(sr.deadline_at) : null;
+            if (!sr || (srDeadline && now > srDeadline)) {
+                return reply.code(403).send({ error: 'Chỉ được phép báo cáo ngày hôm nay. Liên hệ Quản lý để được báo cáo bù.' });
+            }
         }
 
         const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
@@ -493,6 +516,15 @@ async function taskScheduleRoutes(fastify, options) {
                  report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10, approval_deadline = $11`,
                 [Number(template_id), request.user.id, report_date, report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, status, points, approvalDeadline]
             );
+
+            // Auto-resolve support request if NV submitted report (QL no longer penalized)
+            await db.run(
+                `UPDATE task_support_requests SET status = 'resolved'
+                 WHERE user_id = $1 AND template_id = $2 AND task_date = $3
+                   AND status IN ('pending','supported') AND source_type IS DISTINCT FROM 'khoa'`,
+                [request.user.id, Number(template_id), report_date]
+            );
+
             return { success: true, status, points_earned: points };
         } catch(e) {
             return reply.code(500).send({ error: e.message });
@@ -520,22 +552,15 @@ async function taskScheduleRoutes(fastify, options) {
         return { summary: rows };
     });
 
-    // ========== HELPER: Check if user can approve for a department (cascade up) ==========
+    // ========== HELPER: Check if user can approve for a department (direct only) ==========
     async function _canApproveForDept(userId, deptId) {
         // Giám đốc auto-approve all
         const u = await db.get('SELECT role FROM users WHERE id = $1', [userId]);
         if (u && u.role === 'giam_doc') return true;
 
-        // Check direct assignment
+        // Check direct assignment only (no cascade to parent)
         const direct = await db.get('SELECT id FROM task_approvers WHERE user_id = $1 AND department_id = $2', [userId, deptId]);
-        if (direct) return true;
-
-        // Check cascade: if assigned to parent department
-        const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [deptId]);
-        if (dept && dept.parent_id) {
-            return _canApproveForDept(userId, dept.parent_id);
-        }
-        return false;
+        return !!direct;
     }
 
     // ========== HELPER: Auto-expire overdue redo deadlines ==========
@@ -604,19 +629,9 @@ async function taskScheduleRoutes(fastify, options) {
             const allDepts = await db.all('SELECT id FROM departments');
             deptIds = allDepts.map(d => d.id);
         } else {
+            // Direct assignment only (no cascade to children)
             const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [userId]);
-            const directIds = assigned.map(a => a.department_id);
-            // Expand: include child departments (cascade)
-            for (const did of directIds) {
-                deptIds.push(did);
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [did]);
-                children.forEach(c => { if (!deptIds.includes(c.id)) deptIds.push(c.id); });
-                // 3rd level (grandchildren)
-                for (const child of children) {
-                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    grandchildren.forEach(gc => { if (!deptIds.includes(gc.id)) deptIds.push(gc.id); });
-                }
-            }
+            deptIds = assigned.map(a => a.department_id);
         }
 
         if (deptIds.length === 0) return { pending: [], redo: [] };
@@ -655,17 +670,9 @@ async function taskScheduleRoutes(fastify, options) {
             const allDepts = await db.all('SELECT id FROM departments');
             deptIds = allDepts.map(d => d.id);
         } else {
+            // Direct assignment only (no cascade to children)
             const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [userId]);
-            const directIds = assigned.map(a => a.department_id);
-            for (const did of directIds) {
-                deptIds.push(did);
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [did]);
-                children.forEach(c => { if (!deptIds.includes(c.id)) deptIds.push(c.id); });
-                for (const child of children) {
-                    const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    gc.forEach(g => { if (!deptIds.includes(g.id)) deptIds.push(g.id); });
-                }
-            }
+            deptIds = assigned.map(a => a.department_id);
         }
 
         if (deptIds.length === 0) return { count: 0 };
@@ -1084,7 +1091,9 @@ async function taskScheduleRoutes(fastify, options) {
 
             // Find expired pending requests
             const expired = await db.all(
-                `SELECT sr.id, sr.manager_id, sr.task_name, sr.template_id, sr.user_id, u.full_name as user_name
+                `SELECT sr.id, sr.manager_id, sr.task_name, sr.template_id, sr.user_id,
+                        sr.source_type, sr.lock_task_id, sr.task_date::text as task_date,
+                        u.full_name as user_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON sr.user_id = u.id
                  WHERE sr.status = 'pending' AND sr.deadline < $1`,
@@ -1108,6 +1117,26 @@ async function taskScheduleRoutes(fastify, options) {
                 // Lock manager account
                 await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [req.manager_id]);
                 console.log(`🔒 Auto-locked manager ${req.manager_id} for not supporting task "${req.task_name}" for ${req.user_name} — Fine: ${penaltyAmount.toLocaleString()}đ`);
+
+                // Check if NV submitted report — if not, lock NV too
+                let nvSubmitted = false;
+                if (req.source_type === 'khoa' && req.lock_task_id) {
+                    const comp = await db.get(
+                        `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
+                        [req.lock_task_id, req.user_id, req.task_date]
+                    );
+                    nvSubmitted = !!comp;
+                } else if (req.template_id) {
+                    const report = await db.get(
+                        'SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3',
+                        [req.template_id, req.user_id, req.task_date]
+                    );
+                    nvSubmitted = !!report;
+                }
+                if (!nvSubmitted) {
+                    await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [req.user_id]);
+                    console.log(`🔐 Auto-locked NV ${req.user_id} for not submitting "${req.task_name}" during support extension`);
+                }
             }
         } catch(e) {
             console.error('Auto-lock cron error:', e.message);

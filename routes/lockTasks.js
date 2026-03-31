@@ -296,6 +296,14 @@ async function lockTaskRoutes(fastify, options) {
             [taskId, userId, todayStr, redoCount, proofUrl, status]
         );
 
+        // Auto-resolve support request if NV submitted (QL no longer penalized)
+        await db.run(
+            `UPDATE task_support_requests SET status = 'resolved'
+             WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
+               AND status IN ('pending','supported') AND source_type = 'khoa'`,
+            [userId, taskId, todayStr]
+        );
+
         return { success: true, status, proofUrl, redo_count: redoCount };
     });
 

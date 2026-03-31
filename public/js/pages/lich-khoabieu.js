@@ -191,6 +191,12 @@ async function renderLichKhoaBieuPage(container) {
                 byDept[dn].push(u);
             });
 
+            // For quan_ly/truong_phong: only show depts that have members (their own team scope)
+            const memberDeptNames = new Set(Object.keys(byDept));
+            const filteredSortedDepts = ['quan_ly','truong_phong','trinh'].includes(currentUser.role)
+                ? sortedDepts.filter(d => memberDeptNames.has(d.name))
+                : sortedDepts;
+
             // Role priority: higher number = shown first
             const _kbRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
             const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
@@ -199,8 +205,8 @@ async function renderLichKhoaBieuPage(container) {
             // Build HTML with tree-walk order + STT
             let deptListHtml = '';
             let parentStt = 0, childStt = 0;
-            sortedDepts.forEach(dept => {
-                const isChild = activeDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
+            filteredSortedDepts.forEach(dept => {
+                const isChild = filteredSortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
                 const deptMembers = (byDept[dept.name] || [])
                     .sort((a, b) => {
                         const aHead = a._is_dept_head ? 10 : 0;
@@ -650,13 +656,13 @@ function _kbRenderGrid() {
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
-                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;">📝 Báo cáo</button>`;
+                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:3px 10px;font-size:10px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;">📝 Báo cáo</button>`;
                     } else if (dateStr < todayStr) {
                         // Check support request
                         const srKey = `${reportTemplateId}_${dateStr}`;
                         const sr = _kbSupportRequests[srKey];
                         if (sr && sr.status === 'pending') {
-                            actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ HT</span>`;
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
                             statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:2px 8px;font-size:9px;border:1px dashed ${c.badge};border-radius:4px;background:${c.tag};color:${c.badge};cursor:pointer;font-weight:600;">📝 Báo cáo</button></div>`;
                         } else if (sr && sr.status === 'supported') {
                             actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
@@ -672,7 +678,7 @@ function _kbRenderGrid() {
                         const srKey2 = `${reportTemplateId}_${dateStr}`;
                         const sr2 = _kbSupportRequests[srKey2];
                         if (sr2 && sr2.status === 'pending') {
-                            actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ HT</span>`;
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
                         } else if (sr2 && sr2.status === 'supported') {
                             actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr2.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
                         } else {
@@ -685,8 +691,6 @@ function _kbRenderGrid() {
                     }
                 }
 
-                const reqsHtml = '';
-
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -695,13 +699,12 @@ function _kbRenderGrid() {
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
                         </div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
-                        ${reqsHtml}
-                        <div style="display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px;">
                             ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:3px 6px;border-radius:4px;line-height:1;display:inline-flex;align-items:center;">📘 Hướng dẫn</a>` : ''}
                             ${actionBtn}
+                            ${isSelf && dateStr <= todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
                         </div>
                         ${statusBadge}
-                        ${isSelf && dateStr <= todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<div style="margin-top:4px;"><button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\'")}')" style="padding:2px 8px;font-size:9px;border:1px solid #fca5a5;border-radius:4px;background:linear-gradient(135deg,#fef2f2,#fecaca);color:#dc2626;cursor:pointer;font-weight:700;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">🆘 Sếp HT</button></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -778,7 +781,7 @@ function _kbRenderGrid() {
                 } else if (dateStr < todayStr) {
                     lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🚫 Không nộp</span>';
                 } else if (dateStr === todayStr) {
-                    lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chưa nộp</span>';
+                    lockStatusBadge = '';
                 } else {
                     lockStatusBadge = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">🔒 Sắp tới</span>';
                     lockBg = '#fafbfc'; lockBorder = '#e5e7eb';
@@ -793,10 +796,10 @@ function _kbRenderGrid() {
 
                 if (isSelf) {
                     if (dateStr === todayStr && !comp) {
-                        // Today, not submitted: show Nộp bài
+                        // Today, not submitted: show Báo cáo (for self)
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📤 Nộp bài</button>
-                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:#d97706;color:white;font-size:10px;font-weight:700;cursor:pointer;">🆘 Sếp HT</button>` : '<span style="font-size:9px;color:#d97706;">🆘 Đã gửi HT</span>'}
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
+                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>` : '<span style="font-size:9px;color:#d97706;">🆘 Đã gửi HT</span>'}
                         </div>`;
                     } else if (dateStr === todayStr && comp && comp.status === 'rejected') {
                         // Today, rejected: show Nộp lại
@@ -804,27 +807,51 @@ function _kbRenderGrid() {
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#ea580c;color:white;font-size:10px;font-weight:700;cursor:pointer;">🔄 Nộp lại</button>
                         </div>`;
                     } else if (dateStr < todayStr && !comp) {
-                        // Past, not submitted: show Sếp HT
-                        actionHtml = `<div style="margin-top:6px;">
-                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:#d97706;color:white;font-size:10px;font-weight:700;cursor:pointer;">🆘 Sếp HT</button>` : '<span style="font-size:9px;color:#d97706;">🆘 Đã gửi HT</span>'}
-                        </div>`;
+                        // Past, not submitted
+                        const srObj = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
+                        if (srObj && srObj.status === 'pending') {
+                            actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                <span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>
+                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
+                            </div>`;
+                        } else if (srObj && srObj.status === 'supported') {
+                            actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
+                                <span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">✅ Sếp đã HT</span>
+                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
+                            </div>`;
+                        } else {
+                            actionHtml = `<div style="margin-top:6px;">
+                                <button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>
+                            </div>`;
+                        }
                     } else if (comp && comp.status === 'pending' && comp.proof_url) {
                         // Pending with proof: show proof link
                         actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#d97706;text-decoration:none;">📎 Xem file đã nộp</a></div>`;
                     } else if (comp && comp.status === 'approved' && comp.proof_url) {
                         actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#059669;text-decoration:none;">📎 Xem file</a></div>`;
                     }
+                } else {
+                    // Manager viewing staff: show 'Chưa nộp' label for unsubmitted today tasks
+                    if (dateStr === todayStr && !comp) {
+                        actionHtml = `<div style="margin-top:6px;"><span style="padding:3px 10px;border-radius:5px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;border:1px solid #fecaca;">📭 Chưa nộp</span></div>`;
+                    } else if (dateStr < todayStr && !comp) {
+                        const srObj2 = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
+                        if (srObj2 && srObj2.status === 'pending') {
+                            actionHtml = `<div style="margin-top:6px;"><span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span></div>`;
+                        } else if (srObj2 && srObj2.status === 'supported') {
+                            actionHtml = `<div style="margin-top:6px;"><span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">✅ Sếp đã HT</span></div>`;
+                        } else {
+                            actionHtml = `<div style="margin-top:6px;"><span style="padding:3px 10px;border-radius:5px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;border:1px solid #fecaca;">📭 Chưa nộp</span></div>`;
+                        }
+                    }
                 }
 
                 html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">
                     <div style="background:${lockBg};border:2px solid ${lockBorder};border-left:4px solid #dc2626;border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
-                        <span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);">🔒 Khóa</span>
+                        ${lt.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s ease-in-out infinite;">CẦN DUYỆT</span>' : ''}
                         <div onclick="_kbShowLockTaskDetail(${lt.id})" style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${lt.task_name}</div>
-                        <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
-                            <span style="background:#dc2626;color:white;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:700;">${(lt.penalty_amount || 50000).toLocaleString()}đ phạt</span>
-                        </div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
-                        ${lt.guide_link ? `<a href="${lt.guide_link}" target="_blank" style="font-size:9px;color:#dc2626;text-decoration:none;background:#fef2f2;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">📖 Hướng dẫn</a>` : ''}
+                        ${lt.guide_link ? `<a href="${lt.guide_link}" target="_blank" style="font-size:10px;color:#be185d;text-decoration:none;background:#fce7f3;padding:3px 8px;border-radius:5px;display:inline-block;margin-top:4px;font-weight:700;border:1px solid #f9a8d4;">📖 Hướng dẫn</a>` : ''}
                         <div style="margin-top:6px;">${lockStatusBadge}</div>
                         ${actionHtml}
                     </div>
@@ -1697,29 +1724,180 @@ async function _kbSubmitSupport(requestId) {
 }
 
 // ========== CV KHÓA: Upload proof from calendar ==========
-function _kbLockSubmit(lockTaskId, dateStr) {
-    const inp = document.createElement('input');
-    inp.type = 'file';
-    inp.accept = 'image/*,.pdf,.doc,.docx,.xls,.xlsx';
-    inp.onchange = async () => {
-        if (!inp.files || !inp.files[0]) return;
-        const fd = new FormData();
-        fd.append('file', inp.files[0]);
-        try {
-            const res = await fetch(`/api/lock-tasks/${lockTaskId}/submit?date=${dateStr}`, {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: fd
-            });
-            const json = await res.json();
-            if (json.error) { showToast('❌ ' + json.error, 'error'); return; }
-            showToast('✅ Đã nộp báo cáo thành công!');
-            _kbLoadSchedule();
-        } catch(e) {
-            showToast('❌ Lỗi upload: ' + (e.message || ''), 'error');
-        }
+async function _kbLockSubmit(lockTaskId, dateStr) {
+    // Fetch task detail for the modal
+    let taskDetail = null;
+    try {
+        const res = await apiCall(`/api/lock-tasks/${lockTaskId}/detail`);
+        taskDetail = res.task;
+    } catch(e) {}
+
+    const taskName = taskDetail?.task_name || 'Công việc';
+    const guideLink = taskDetail?.guide_link || '';
+    const reqApproval = taskDetail?.requires_approval;
+    let inputReqs = [], outputReqs = [];
+    try { inputReqs = typeof taskDetail?.input_requirements === 'string' ? JSON.parse(taskDetail.input_requirements) : (taskDetail?.input_requirements || []); } catch(e) {}
+    try { outputReqs = typeof taskDetail?.output_requirements === 'string' ? JSON.parse(taskDetail.output_requirements) : (taskDetail?.output_requirements || []); } catch(e) {}
+
+    const reqHtml = (reqs, icon, color, title) => {
+        if (!reqs || reqs.length === 0) return '';
+        return `<div style="margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:5px;">${icon} ${title}</div>
+            <div style="padding:8px 10px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
+                ${reqs.map((r,i) => `<div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:3px;"><span style="min-width:18px;height:18px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${i+1}</span><span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span></div>`).join('')}
+            </div>
+        </div>`;
     };
-    inp.click();
+
+    const approvalWarn = reqApproval ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">🔒</span>
+        <span style="font-size:12px;color:#92400e;font-weight:600;">Công việc này cần Quản lý/TP duyệt mới được tính điểm</span>
+    </div>` : '';
+
+    const guideHtml = guideLink ? `<a href="${guideLink}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;text-decoration:none;margin-bottom:10px;">
+        <span style="font-size:22px;">📖</span>
+        <div style="flex:1;overflow:hidden;">
+            <div style="font-weight:700;font-size:12px;color:#991b1b;">Hướng dẫn công việc</div>
+            <div style="font-size:10px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${guideLink}</div>
+        </div>
+        <span>→</span>
+    </a>` : '';
+
+    // Remove existing modal
+    document.getElementById('kbLockReportModal')?.remove();
+    window._kbLockPastedFile = null;
+
+    const modal = document.createElement('div');
+    modal.id = 'kbLockReportModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
+        <div style="background:linear-gradient(135deg,#dc2626,#991b1b);padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📝 Báo cáo công việc</h3>
+                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">Nộp kết quả hoàn thành</div>
+            </div>
+            <button onclick="document.getElementById('kbLockReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:20px 22px;">
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#991b1b;font-weight:600;">
+                ⚠️ Không làm sẽ bị phạt và khóa tài khoản
+            </div>
+            ${approvalWarn}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
+                    <div style="font-size:14px;font-weight:700;color:#991b1b;">${taskName}</div>
+                </div>
+                <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📅 Ngày báo cáo</div>
+                    <div style="font-size:14px;font-weight:700;color:#991b1b;">${dateStr.split('-').reverse().join('/')}</div>
+                </div>
+            </div>
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-bottom:14px;">
+                ${guideHtml}
+                ${reqHtml(inputReqs, '📥', '#991b1b', 'Yêu cầu đầu vào')}
+                ${reqHtml(outputReqs, '📤', '#991b1b', 'Yêu cầu đầu ra')}
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành</label>
+                <textarea id="kbLockRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả</label>
+                <input id="kbLockRptLink" type="url" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
+                <div id="kbLockPasteZone" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafbfc;transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div>
+                    <div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
+                </div>
+                <div id="kbLockPastePreview" style="display:none;margin-top:8px;position:relative;">
+                    <img id="kbLockPasteImg" style="max-width:100%;max-height:150px;border-radius:6px;border:1px solid #e5e7eb;">
+                    <button onclick="_kbLockRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">×</button>
+                </div>
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-bottom:14px;background:#f9fafb;padding:8px 10px;border-radius:6px;border:1px solid #f3f4f6;">
+                💡 <b>Lưu ý:</b> Bắt buộc phải có ít nhất <b>link</b> hoặc <b>hình ảnh</b> để nộp báo cáo.
+            </div>
+            <input type="hidden" id="kbLockRptTaskId" value="${lockTaskId}">
+            <input type="hidden" id="kbLockRptDate" value="${dateStr}">
+            <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;">
+                <button onclick="document.getElementById('kbLockReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+                <button onclick="_kbLockSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(220,38,38,0.3);">📤 Nộp báo cáo</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    // Paste listener
+    const zone = document.getElementById('kbLockPasteZone');
+    zone.addEventListener('paste', _kbLockHandlePaste);
+    setTimeout(() => zone.focus(), 100);
+}
+
+function _kbLockHandlePaste(e) {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            window._kbLockPastedFile = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('kbLockPasteImg').src = ev.target.result;
+                document.getElementById('kbLockPastePreview').style.display = 'block';
+                const z = document.getElementById('kbLockPasteZone');
+                z.innerHTML = '<div style="font-size:14px;color:#059669;font-weight:600;">✅ Đã dán ảnh thành công!</div>';
+                z.style.borderColor = '#059669';
+                z.style.background = '#f0fdf4';
+            };
+            reader.readAsDataURL(window._kbLockPastedFile);
+            break;
+        }
+    }
+}
+
+function _kbLockRemovePaste() {
+    window._kbLockPastedFile = null;
+    document.getElementById('kbLockPastePreview').style.display = 'none';
+    const z = document.getElementById('kbLockPasteZone');
+    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div><div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>';
+    z.style.borderColor = '#d1d5db';
+    z.style.background = '#fafbfc';
+}
+
+async function _kbLockSubmitReport() {
+    const lockTaskId = document.getElementById('kbLockRptTaskId')?.value;
+    const dateStr = document.getElementById('kbLockRptDate')?.value;
+    const link = document.getElementById('kbLockRptLink')?.value?.trim();
+    const content = document.getElementById('kbLockRptContent')?.value?.trim();
+
+    if (!link && !window._kbLockPastedFile) {
+        showToast('Phải có ít nhất link hoặc hình ảnh!', 'error');
+        return;
+    }
+
+    const fd = new FormData();
+    if (window._kbLockPastedFile) fd.append('file', window._kbLockPastedFile);
+    if (link) fd.append('proof_url', link);
+    if (content) fd.append('content', content);
+
+    try {
+        const res = await fetch(`/api/lock-tasks/${lockTaskId}/submit?date=${dateStr}`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+            body: fd
+        });
+        const json = await res.json();
+        if (json.error) { showToast('❌ ' + json.error, 'error'); return; }
+        showToast('✅ Đã nộp báo cáo thành công!');
+        document.getElementById('kbLockReportModal')?.remove();
+        _kbLoadSchedule();
+    } catch(e) {
+        showToast('❌ Lỗi upload: ' + (e.message || ''), 'error');
+    }
 }
 
 // ========== CV KHÓA: Send support request ==========
@@ -1765,16 +1943,10 @@ async function _kbShowLockTaskDetail(lockTaskId) {
             </div>
             <div style="padding:20px 24px;">
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <div style="flex:1;text-align:center;padding:10px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">
-                        <div style="font-size:10px;color:#991b1b;font-weight:700;">MỨC PHẠT</div>
-                        <div style="font-size:22px;font-weight:800;color:#dc2626;">${(t.penalty_amount || 50000).toLocaleString()}đ</div>
+                    <div style="flex:1;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        ⚠️ Không làm sẽ bị phạt và khóa tài khoản
                     </div>
-                    <div style="flex:1;text-align:center;padding:10px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">
-                        <div style="font-size:10px;color:#991b1b;font-weight:700;">HẬU QUẢ</div>
-                        <div style="font-size:12px;font-weight:700;color:#dc2626;margin-top:4px;">🔒 Khóa TK</div>
-                        <div style="font-size:10px;color:#6b7280;">+ Nộp phạt</div>
-                    </div>
-                    <div style="flex:1;text-align:center;padding:10px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">
+                    <div style="flex-shrink:0;text-align:center;padding:10px 16px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">
                         <div style="font-size:10px;color:#991b1b;font-weight:700;">HẠN NỘP</div>
                         <div style="font-size:22px;font-weight:800;color:#dc2626;">24:00</div>
                     </div>

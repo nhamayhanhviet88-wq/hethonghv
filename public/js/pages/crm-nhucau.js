@@ -116,9 +116,6 @@ async function renderCRMNhuCauPage(container) {
             .crm-date-filter select { background:#0f172a; color:white; border:1px solid #475569; border-radius:6px; padding:5px 10px; font-size:13px; font-weight:600; cursor:pointer; }
             .crm-date-filter select:focus { border-color:#3b82f6; outline:none; }
             .crm-date-filter .df-label { color:#f59e0b; font-size:13px; font-weight:700; }
-            .crm-date-filter .btn-all { background:linear-gradient(135deg,#6366f1,#4f46e5); color:white; border:none; border-radius:6px; padding:5px 14px; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; }
-            .crm-date-filter .btn-all:hover { transform:scale(1.05); box-shadow:0 2px 8px rgba(99,102,241,.4); }
-            .crm-date-filter .btn-all.active { background:linear-gradient(135deg,#22c55e,#16a34a); }
             @keyframes crmSlideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
             .crm-section-header td { background:linear-gradient(135deg,#1e293b,#334155); color:white; font-weight:700; font-size:13px; padding:10px 16px !important; border:none; letter-spacing:.5px; }
             .crm-section-header td .section-icon { margin-right:8px; }
@@ -159,15 +156,15 @@ async function renderCRMNhuCauPage(container) {
         </div>
         <div class="crm-date-filter" id="crmDateFilter">
             <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
-            <button class="btn-all" id="crmDateAllBtn" onclick="_crmDateShowAll()">📋 Tất cả</button>
             <label>Ngày</label>
             <select id="crmDateDay" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
-                <option value="">-- Cả tháng --</option>
+                <option value="">Tất Cả</option>
                 ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
             </select>
             <label>Tháng</label>
             <select id="crmDateMonth" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
-                ${(() => { const now = new Date(); let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '"' + (m === now.getMonth()+1 ? ' selected' : '') + '>Tháng ' + m + '</option>'; return o; })()}
+                <option value="" selected>Tất Cả</option>
+                ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Tháng ' + m + '</option>'; return o; })()}
             </select>
             <label>Năm</label>
             <select id="crmDateYear" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
@@ -246,18 +243,13 @@ function _crmFilterByCat(cat) {
     // Show/hide date filter for cho_xu_ly and huy_khach
     const dateFilter = document.getElementById('crmDateFilter');
     const dateLabel = document.getElementById('crmDateFilterLabel');
-    // Reset 'Tất cả' button and day filter when switching cards
-    const allBtn = document.getElementById('crmDateAllBtn');
-    if (allBtn && allBtn.classList.contains('active')) {
-        allBtn.classList.remove('active');
-        allBtn.textContent = '📋 Tất cả';
-        const ms = document.getElementById('crmDateMonth');
-        const ys = document.getElementById('crmDateYear');
-        const ds = document.getElementById('crmDateDay');
-        if (ms) { ms.disabled = false; ms.value = new Date().getMonth() + 1; }
-        if (ys) { ys.disabled = false; ys.value = new Date().getFullYear(); }
-        if (ds) { ds.disabled = false; ds.value = ''; }
-    }
+    // Reset date filter to defaults (Tất Cả) when switching cards
+    const ms = document.getElementById('crmDateMonth');
+    const ys = document.getElementById('crmDateYear');
+    const ds = document.getElementById('crmDateDay');
+    if (ms) { ms.value = ''; }
+    if (ys) { ys.value = new Date().getFullYear(); }
+    if (ds) { ds.value = ''; }
     if (dateFilter) {
         if (_crmActiveCat === 'cho_xu_ly') {
             dateFilter.classList.add('visible');
@@ -304,14 +296,21 @@ function _crmUpdateDateFilterCounts() {
     const monthSel = document.getElementById('crmDateMonth');
     const yearSel = document.getElementById('crmDateYear');
     if (!monthSel || !yearSel) return;
-    const selYear = parseInt(yearSel.value);
+    const selYear = yearSel.value ? parseInt(yearSel.value) : new Date().getFullYear();
+
+    // Calculate total for 'Tất Cả' options
+    const totalCat = catCustomers.length;
+    let totalInYear = 0;
 
     for (const opt of monthSel.options) {
+        if (!opt.value) { opt.textContent = 'Tất Cả' + (totalCat > 0 ? ' (' + totalCat + ')' : ''); continue; }
         const m = parseInt(opt.value);
         const cnt = monthYearCounts[m + '_' + selYear] || 0;
         opt.textContent = 'Tháng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
+        totalInYear += cnt;
     }
     for (const opt of yearSel.options) {
+        if (!opt.value) { opt.textContent = 'Tất Cả'; continue; }
         const y = parseInt(opt.value);
         const cnt = yearCounts[y] || 0;
         opt.textContent = y + (cnt > 0 ? ' (' + cnt + ')' : '');
@@ -440,12 +439,14 @@ function _crmRenderFilteredTable() {
 
     // Apply date filter for cho_xu_ly and huy_khach (BEFORE consult type filter)
     const isDateCat = (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'huy_khach' || _crmActiveCat === 'xu_ly_tre');
-    const allBtn = document.getElementById('crmDateAllBtn');
-    if (isDateCat && !(allBtn && allBtn.classList.contains('active'))) {
+    if (isDateCat) {
         const selDay = document.getElementById('crmDateDay')?.value;
-        const selMonth = parseInt(document.getElementById('crmDateMonth')?.value);
-        const selYear = parseInt(document.getElementById('crmDateYear')?.value);
-        if (selMonth && selYear) {
+        const selMonth = document.getElementById('crmDateMonth')?.value;
+        const selYear = document.getElementById('crmDateYear')?.value;
+        const hasMonth = selMonth && parseInt(selMonth);
+        const hasYear = selYear && parseInt(selYear);
+        const hasDay = selDay && parseInt(selDay);
+        if (hasYear || hasMonth || hasDay) {
             filtered = filtered.filter(c => {
                 let dateField;
                 if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
@@ -455,9 +456,9 @@ function _crmRenderFilteredTable() {
                 }
                 if (!dateField) return false;
                 const d = new Date(dateField);
-                if (d.getFullYear() !== selYear) return false;
-                if (d.getMonth() + 1 !== selMonth) return false;
-                if (selDay && parseInt(selDay) && d.getDate() !== parseInt(selDay)) return false;
+                if (hasYear && d.getFullYear() !== parseInt(selYear)) return false;
+                if (hasMonth && d.getMonth() + 1 !== parseInt(selMonth)) return false;
+                if (hasDay && d.getDate() !== parseInt(selDay)) return false;
                 return true;
             });
         }
@@ -466,19 +467,7 @@ function _crmRenderFilteredTable() {
     // Update consult type dropdown AFTER date filter
     _crmUpdateConsultTypeDropdown(filtered);
 
-    // Update active card count to match date-filtered result
-    if (isDateCat && _crmActiveCat) {
-        const cardCountMap = {
-            cho_xu_ly: 'crmStatChoXuLy',
-            huy_khach: 'crmStatHuyKhach',
-            xu_ly_tre: 'crmStatXuLyTre'
-        };
-        const countId = cardCountMap[_crmActiveCat];
-        if (countId) {
-            const el = document.getElementById(countId);
-            if (el) el.textContent = filtered.length;
-        }
-    }
+    // Card counts always show TOTAL (not date-filtered)
 
     // Apply consult type filter
     const consultTypeVal = document.getElementById('crmFilterConsultType')?.value;
@@ -498,17 +487,21 @@ function _crmRenderFilteredTable() {
 
 
 
-    // Sort by date desc (newest first)
+    // Sort by appointment_date ASC (nearest appointment first)
     filtered = [...filtered].sort((a, b) => {
-        let dateA, dateB;
-        if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
-            dateA = a.appointment_date; dateB = b.appointment_date;
-        } else if (_crmActiveCat === 'huy_khach') {
-            dateA = a.cancel_approved_at || a.created_at; dateB = b.cancel_approved_at || b.created_at;
-        } else {
-            dateA = a.created_at; dateB = b.created_at;
+        if (_crmActiveCat === 'huy_khach') {
+            // Hủy khách: sort by cancel date desc
+            const dateA = a.cancel_approved_at || a.created_at;
+            const dateB = b.cancel_approved_at || b.created_at;
+            return new Date(dateB || 0) - new Date(dateA || 0);
         }
-        return new Date(dateB || 0) - new Date(dateA || 0);
+        // All other categories: nearest appointment_date first
+        const dateA = a.appointment_date;
+        const dateB = b.appointment_date;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateA) - new Date(dateB);
     });
 
     // Update count display
@@ -567,39 +560,7 @@ function _crmGoToPage(page) {
     document.getElementById('crmNhuCauTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function _crmDateShowAll() {
-    const allBtn = document.getElementById('crmDateAllBtn');
-    if (allBtn) {
-        if (allBtn.classList.contains('active')) {
-            // Deactivate: go back to monthly filter
-            allBtn.classList.remove('active');
-            allBtn.textContent = '📋 Tất cả';
-            // Reset to current month
-            const now = new Date();
-            const monthSel = document.getElementById('crmDateMonth');
-            const yearSel = document.getElementById('crmDateYear');
-            const daySel = document.getElementById('crmDateDay');
-            if (monthSel) monthSel.value = now.getMonth() + 1;
-            if (yearSel) yearSel.value = now.getFullYear();
-            if (daySel) daySel.value = '';
-            monthSel && (monthSel.disabled = false);
-            yearSel && (yearSel.disabled = false);
-            daySel && (daySel.disabled = false);
-        } else {
-            // Activate: show ALL
-            allBtn.classList.add('active');
-            allBtn.textContent = '✅ Đang hiện tất cả';
-            const monthSel = document.getElementById('crmDateMonth');
-            const yearSel = document.getElementById('crmDateYear');
-            const daySel = document.getElementById('crmDateDay');
-            monthSel && (monthSel.disabled = true);
-            yearSel && (yearSel.disabled = true);
-            daySel && (daySel.disabled = true);
-        }
-    }
-    _crmUpdateDateFilterCounts();
-    _crmRenderFilteredTable();
-}
+// _crmDateShowAll removed - filtering now uses dropdown values directly
 
 function _crmRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
@@ -741,33 +702,13 @@ async function loadCrmNhuCauData() {
     const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
     customers.forEach(c => { const cat = _crmGetCategory(c, stats); counts[cat]++; });
 
-    // For Chờ xử lý and Hủy khách: show current month count
-    const now = new Date();
-    const curMonth = now.getMonth() + 1;
-    const curYear = now.getFullYear();
-    let choXuLyMonthly = 0;
-    let huyKhachMonthly = 0;
-    customers.forEach(c => {
-        const cat = _crmGetCategory(c, stats);
-        if (cat === 'cho_xu_ly' && c.appointment_date) {
-            const d = new Date(c.appointment_date);
-            if (d.getMonth() + 1 === curMonth && d.getFullYear() === curYear) choXuLyMonthly++;
-        } else if (cat === 'huy_khach') {
-            const df = c.cancel_approved_at || c.created_at;
-            if (df) {
-                const d = new Date(df);
-                if (d.getMonth() + 1 === curMonth && d.getFullYear() === curYear) huyKhachMonthly++;
-            }
-        }
-    });
-
-    // Update stat cards
+    // Update stat cards - show TOTAL counts (not monthly filtered)
     const el = (id) => document.getElementById(id);
     if (el('crmStatPhaiXuLy')) el('crmStatPhaiXuLy').textContent = counts.phai_xu_ly + counts.moi_chuyen;
     if (el('crmStatDaXuLy')) el('crmStatDaXuLy').textContent = counts.da_xu_ly;
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
-    if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = choXuLyMonthly;
-    if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = huyKhachMonthly;
+    if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
+    if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));

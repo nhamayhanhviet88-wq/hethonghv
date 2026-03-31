@@ -118,6 +118,44 @@ async function runDeadlineCheck() {
         lockedCount++;
         penaltyCount++;
         console.log(`  🔒 Khóa quản lý id=${sr.manager_id} — Không hỗ trợ: ${sr.task_name} (phạt ${penaltyAmount}đ)`);
+
+        // ===== CHECK NV: Nếu NV cũng không nộp báo cáo → Khóa NV =====
+        let nvSubmitted = false;
+        if (sr.source_type === 'khoa' && sr.lock_task_id) {
+            // CV Khóa: check lock_task_completions
+            const comp = await db.get(
+                `SELECT id FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+                   AND status IN ('pending','approved')`,
+                [sr.lock_task_id, sr.user_id, sr.task_date]
+            );
+            nvSubmitted = !!comp;
+            if (!nvSubmitted) {
+                // Tạo expired completion record cho NV
+                try {
+                    await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
+                         VALUES ($1, $2, $3, 0, 'expired', $4, true)
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                        [sr.lock_task_id, sr.user_id, sr.task_date, penaltyAmount]
+                    );
+                } catch(e) {}
+            }
+        } else if (sr.template_id) {
+            // CV thường: check task_point_reports
+            const report = await db.get(
+                'SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3',
+                [sr.template_id, sr.user_id, sr.task_date]
+            );
+            nvSubmitted = !!report;
+        }
+
+        if (!nvSubmitted) {
+            // Khóa NV vì không nộp trong thời hạn gia hạn
+            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.user_id]);
+            lockedCount++;
+            console.log(`  🔐 Khóa NV id=${sr.user_id} — Không nộp báo cáo trong hạn hỗ trợ: ${sr.task_name}`);
+        }
     }
 
     // ========== 2. CHECK PENDING APPROVALS ==========
@@ -250,6 +288,18 @@ async function runDeadlineCheck() {
             if (completion && (completion.status === 'approved' || completion.status === 'pending')) {
                 // Đã nộp (hoặc chờ duyệt) → NV an toàn
                 continue;
+            }
+
+            // Check if NV has a pending/supported support request → skip (deadline extended)
+            const activeSR = await db.get(
+                `SELECT id, deadline_at FROM task_support_requests
+                 WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
+                   AND source_type = 'khoa' AND status IN ('pending','supported')`,
+                [la.user_id, la.task_id, yesterdayStr]
+            );
+            if (activeSR) {
+                console.log(`  ⏭️ [CV Khóa] Skip NV id=${la.user_id} — Có yêu cầu hỗ trợ cho ${la.task_name} (deadline: ${activeSR.deadline_at})`);
+                continue; // Deadline extended, will be checked when support expires
             }
 
             // NV CHƯA NỘP → Khóa TK + Phạt
