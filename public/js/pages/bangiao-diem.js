@@ -73,7 +73,7 @@ function _tpRebuildSidebar() {
             childStt++;
             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
         }
-        const deleteBtn = !isChild ? `<span onclick="_tpRemoveDept(${d.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
+        const deleteBtn = '';
         return `
         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
             ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
@@ -173,7 +173,7 @@ async function renderBanGiaoDiemPage(container) {
                             childStt++;
                             sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
                         }
-                        const deleteBtn = !isChild ? `<span onclick="_tpRemoveDept(${d.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
+                        const deleteBtn = '';
                         return `
                         <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
                             ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
@@ -181,10 +181,6 @@ async function renderBanGiaoDiemPage(container) {
                         <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
                     }).join(''); })()} 
 
-                </div>
-                <div style="padding:8px 10px;border-top:1px solid #e2e8f0;display:flex;gap:6px;">
-                    ${isManager ? `<button onclick="_tpShowCreateDeptModal()" id="tpCreateBtn" style="flex:1;padding:7px;border-radius:8px;border:1px dashed #16a34a;background:rgba(22,163,74,0.04);color:#16a34a;font-size:12px;cursor:pointer;font-weight:600;">＋ Tạo mới</button>` : ''}
-                    ${_tpIsDirector ? `<button onclick="_tpShowReorderModal()" style="padding:7px 10px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;" title="Sắp xếp thứ tự phòng ban">🔢 STT</button>` : ''}
                 </div>
             </div>
 

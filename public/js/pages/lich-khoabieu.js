@@ -143,10 +143,15 @@ function _kbViewReport(el) {
 function _kbFmtDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function _kbDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
+let _kbAllDepts = [];
+let _kbActiveDeptIds = [];
+
 async function renderLichKhoaBieuPage(container) {
     _kbWeekStart = null;
     _kbViewUserId = null;
     _kbColorMap = {};
+    _kbAllDepts = [];
+    _kbActiveDeptIds = [];
 
     const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
 
@@ -161,6 +166,8 @@ async function renderLichKhoaBieuPage(container) {
             const members = m.members || [];
             const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
             const activeDeptIds = new Set(dData.active_dept_ids || []);
+            _kbAllDepts = allDepts;
+            _kbActiveDeptIds = [...activeDeptIds];
 
             // Tree-walk sort: parents by display_order, children after parent
             const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
@@ -222,7 +229,8 @@ async function renderLichKhoaBieuPage(container) {
                     childStt++;
                     sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
                 }
-                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
+                const deleteBtn = (!isChild && currentUser.role === 'giam_doc') ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
+                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
                 deptMembers.forEach(u => {
                     const isDeptHead = u._is_dept_head;
                     const isLead = isDeptHead || _kbIsLeader(u.role);
@@ -269,6 +277,8 @@ async function renderLichKhoaBieuPage(container) {
             <div style="display:flex;align-items:center;gap:12px;">
                 <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">📋 Lịch Khóa Biểu Công Việc</h2>
                 ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">⚙️ Setup Người Duyệt</button>` : ''}
+                ${isGD ? `<button onclick="_kbShowCreateDeptModal()" style="padding:6px 14px;font-size:12px;border:1px dashed #16a34a;border-radius:8px;background:rgba(22,163,74,0.04);color:#16a34a;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='rgba(22,163,74,0.04)'">＋ Tạo mới</button>` : ''}
+                ${isGD ? `<button onclick="_kbShowReorderModal()" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🔢 STT</button>` : ''}
             </div>
             <div id="kbViewingLabel" style="font-size:13px;color:#6b7280;"></div>
         </div>
@@ -1981,5 +1991,165 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     } catch(e) {
         showToast('Lỗi: ' + (e.message || ''), 'error');
+    }
+}
+
+// ========== DEPT MANAGEMENT (GĐ only) — moved from Bàn Giao CV Điểm ==========
+
+// Show modal to add dept/team to sidebar
+function _kbShowCreateDeptModal() {
+    const modal = document.createElement('div');
+    modal.id = 'kbCreateDeptModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    const inactiveOpts = _kbAllDepts.filter(d => !_kbActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    modal.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:16px;color:#122546;">＋ Tạo lịch công việc</h3>
+            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
+            <select id="kbNewDeptSelect" onchange="_kbLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                ${inactiveOpts ? `<optgroup label="➕ Phòng chưa có lịch">${inactiveOpts}</optgroup>` : '<option value="">Tất cả phòng đã được thêm</option>'}
+            </select>
+        </div>
+        <div style="margin-bottom:6px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Nhân viên <span style="color:#9ca3af;font-weight:400;">(không chọn = lịch team)</span></label>
+            <select id="kbNewUserSelect" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                <option value="">— Toàn bộ Team —</option>
+            </select>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">💡 Để trống = lịch chung cho cả team. Chọn NV = lịch riêng cho người đó.</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_kbActivateDept()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Tạo</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    _kbLoadCreateUsers();
+}
+
+async function _kbLoadCreateUsers() {
+    const deptId = document.getElementById('kbNewDeptSelect')?.value;
+    const userSel = document.getElementById('kbNewUserSelect');
+    if (!deptId || !userSel) return;
+    try {
+        const u = await apiCall(`/api/task-points/users?department_id=${deptId}`);
+        const users = u.users || [];
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
+    } catch(e) {
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>';
+    }
+}
+
+async function _kbActivateDept() {
+    const deptSel = document.getElementById('kbNewDeptSelect');
+    if (!deptSel || !deptSel.value) return;
+    const deptId = Number(deptSel.value);
+    const deptName = deptSel.options[deptSel.selectedIndex]?.text;
+    document.getElementById('kbCreateDeptModal')?.remove();
+
+    // Activate in database
+    try {
+        await apiCall('/api/task-points/activate-team', 'POST', { team_id: deptId });
+        _kbActiveDeptIds.push(deptId);
+        showToast(`✅ Đã thêm ${deptName} vào sidebar`);
+        // Reload page
+        const content = document.getElementById('content') || document.querySelector('[id="content"]');
+        if (content) renderLichKhoaBieuPage(content);
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || ''), 'error');
+    }
+}
+
+async function _kbRemoveDept(deptId, event) {
+    if (event) event.stopPropagation();
+    const dept = _kbAllDepts.find(d => d.id === deptId);
+    const name = dept?.name || 'phòng này';
+    if (!confirm(`Xóa ${name} khỏi sidebar?\nDữ liệu công việc vẫn được giữ nguyên.\nCó thể thêm lại bất cứ lúc nào.`)) return;
+    try {
+        await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: deptId });
+        // Also remove children
+        const children = _kbAllDepts.filter(d => d.parent_id === deptId);
+        for (const child of children) {
+            await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: child.id });
+        }
+        showToast(`✅ Đã xóa ${name} khỏi sidebar`);
+        // Reload page
+        const content = document.getElementById('content') || document.querySelector('[id="content"]');
+        if (content) renderLichKhoaBieuPage(content);
+    } catch(e) {
+        showToast('Lỗi: ' + (e.message || ''), 'error');
+    }
+}
+
+function _kbShowReorderModal() {
+    const activeSet = new Set(_kbActiveDeptIds);
+    const activeDepts = _kbAllDepts.filter(d => activeSet.has(d.id));
+    const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    let rowsHtml = '';
+    let parentIdx = 0;
+    parents.forEach(p => {
+        parentIdx++;
+        rowsHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f3f4f6;background:#f8fafc;">
+                <input type="number" min="1" class="_kbSttInput" data-id="${p.id}" value="${p.display_order !== null && p.display_order !== undefined ? p.display_order + 1 : parentIdx}" style="width:50px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-weight:700;text-align:center;color:#2563eb;outline:none;" onfocus="this.style.borderColor='#2563eb';this.select()" onblur="this.style.borderColor='#d1d5db'">
+                <span style="font-weight:700;color:#122546;font-size:13px;">${p.name}</span>
+            </div>`;
+        const children = activeDepts.filter(c => c.parent_id === p.id)
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        children.forEach((c, ci) => {
+            rowsHtml += `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 36px;border-bottom:1px solid #f9fafb;">
+                <input type="number" min="1" class="_kbSttInput" data-id="${c.id}" value="${c.display_order !== null && c.display_order !== undefined ? c.display_order + 1 : ci + 1}" style="width:46px;padding:5px 6px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;text-align:center;color:#059669;outline:none;" onfocus="this.style.borderColor='#059669';this.select()" onblur="this.style.borderColor='#e5e7eb'">
+                <span style="color:#6b7280;font-size:12px;">└ ${c.name}</span>
+            </div>`;
+        });
+    });
+
+    const modal = document.createElement('div');
+    modal.id = '_kbReorderModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+    <div style="background:white;border-radius:12px;width:min(420px,90vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+        <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">🔢 Sắp xếp thứ tự phòng ban</h3>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Nhập số STT — số nhỏ hiển trước</div>
+            </div>
+            <button onclick="document.getElementById('_kbReorderModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;">
+            ${rowsHtml}
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="document.getElementById('_kbReorderModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_kbSaveReorder()" style="padding:8px 20px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Lưu thứ tự</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+async function _kbSaveReorder() {
+    const inputs = document.querySelectorAll('._kbSttInput');
+    const orders = [];
+    inputs.forEach(inp => {
+        const id = Number(inp.dataset.id);
+        const stt = Number(inp.value) || 0;
+        orders.push({ id, display_order: stt - 1 });
+    });
+    try {
+        await apiCall('/api/task-points/reorder-departments', 'PUT', { orders });
+        showToast('✅ Đã lưu thứ tự');
+        document.getElementById('_kbReorderModal')?.remove();
+        const content = document.getElementById('content') || document.querySelector('[id="content"]');
+        if (content) renderLichKhoaBieuPage(content);
+    } catch(e) {
+        showToast('Lỗi lưu thứ tự', 'error');
     }
 }

@@ -15,20 +15,114 @@ let _lkTreeData = null;
 async function renderBanGiaoKhoaPage(container) {
     const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
 
-    container.innerHTML = `
-    <div style="display:flex;height:calc(100vh - 60px);overflow:hidden;">
-        <!-- LEFT: ORG TREE -->
-        <div id="lkTreePanel" style="width:280px;min-width:280px;background:white;border-right:2px solid #e2e8f0;overflow-y:auto;padding:12px;">
-            <div style="font-weight:800;font-size:14px;color:#122546;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-                🏢 Cơ cấu tổ chức
-            </div>
-            <div id="lkTreeContainer" style="font-size:13px;">
-                <div style="text-align:center;color:#9ca3af;padding:20px;font-size:12px;">⏳ Đang tải...</div>
-            </div>
-        </div>
+    // Load departments + members using same data source as Lịch Khóa Biểu
+    let sidebarHtml = '';
+    try {
+        const [dData, treeData] = await Promise.all([
+            apiCall('/api/task-points/departments'),
+            apiCall('/api/lock-tasks/tree')
+        ]);
+        _lkTreeData = treeData;
+        const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
+        const activeDeptIds = new Set(dData.active_dept_ids || []);
+        const { users: allUsers, statusMap } = treeData;
 
+        // Tree-walk sort: parents by display_order, children after parent
+        const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
+        activeDepts.forEach(d => {
+            if (d.parent_id) {
+                const parent = allDepts.find(p => p.id === d.parent_id);
+                if (parent && !activeDeptIds.has(parent.id)) {
+                    activeDeptIds.add(parent.id);
+                    activeDepts.push(parent);
+                }
+            }
+        });
+        const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        const sortedDepts = [];
+        parents.forEach(p => {
+            sortedDepts.push(p);
+            const children = activeDepts.filter(c => c.parent_id === p.id)
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            sortedDepts.push(...children);
+        });
+
+        // Role priority for sorting
+        const _lkRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
+        const _lkRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
+        const _lkIsLeader = (role) => ['giam_doc', 'quan_ly', 'truong_phong'].includes(role);
+
+        // Build sidebar HTML matching Lịch Khóa Biểu style
+        let deptListHtml = '';
+        let parentStt = 0, childStt = 0;
+        sortedDepts.forEach(dept => {
+            const isChild = sortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
+            const deptUsers = (allUsers || []).filter(u => u.department_id === dept.id)
+                .sort((a, b) => {
+                    const aP = _lkRolePriority[a.role] || 0;
+                    const bP = _lkRolePriority[b.role] || 0;
+                    return bP - aP;
+                });
+
+            let sttLabel = '';
+            if (!isChild) {
+                parentStt++;
+                childStt = 0;
+                sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
+            } else {
+                childStt++;
+                sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
+            }
+
+            deptListHtml += `<div class="lk-dept-header" data-dept-id="${dept.id}" onclick="_lkSelectDept(${dept.id})" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
+
+            deptUsers.forEach(u => {
+                const st = statusMap ? statusMap[u.id] : null;
+                let statusBadge = '';
+                if (st && st.total > 0) {
+                    statusBadge = st.done >= st.total
+                        ? `<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ ${st.done}/${st.total}</span>`
+                        : `<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔴 ${st.done}/${st.total}</span>`;
+                }
+                const isLead = _lkIsLeader(u.role);
+                const roleTag = _lkRoleLabel[u.role] || u.role;
+                const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
+                deptListHtml += `
+                    <div class="lk-user-item" data-user-id="${u.id}" data-name="${(u.full_name || '').toLowerCase()}" onclick="_lkSelectUser(${u.id},'${(u.full_name || '').replace(/'/g, "\\'")}', event)" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
+                        onmouseover="if(!this.classList.contains('lk-selected'))this.style.background='#f8fafc'"
+                        onmouseout="if(!this.classList.contains('lk-selected'))this.style.background='white';else this.style.background='#059669'">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:${isLead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                            <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                        </div>
+                        ${statusBadge}
+                    </div>`;
+            });
+        });
+
+        sidebarHtml = `
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:250px;min-width:250px;overflow-y:auto;max-height:calc(100vh - 80px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+            <div style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;">
+                <input type="text" id="lkTreeSearch" placeholder="🔍 Tìm nhân viên..." 
+                       oninput="_lkFilterSidebar()" 
+                       style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;color:#1e293b;background:white;outline:none;" 
+                       onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'" 
+                       onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
+            </div>
+            <div id="lkTreeContainer">
+                ${deptListHtml}
+            </div>
+        </div>`;
+    } catch(e) {
+        sidebarHtml = '<div style="color:#dc2626;padding:20px;">Lỗi tải sidebar</div>';
+    }
+
+    container.innerHTML = `
+    <div style="display:flex;height:calc(100vh - 60px);overflow:hidden;gap:16px;padding:16px;">
+        ${sidebarHtml}
         <!-- RIGHT: TASK LIST -->
-        <div id="lkTaskPanel" style="flex:1;overflow-y:auto;padding:16px;background:#f8fafc;">
+        <div id="lkTaskPanel" style="flex:1;overflow-y:auto;padding:0;background:#f8fafc;border-radius:12px;">
             <div style="text-align:center;padding:60px;color:#9ca3af;">
                 <div style="font-size:48px;margin-bottom:12px;">👈</div>
                 <div style="font-size:14px;font-weight:600;">Chọn phòng ban hoặc nhân viên bên trái</div>
@@ -36,87 +130,44 @@ async function renderBanGiaoKhoaPage(container) {
             </div>
         </div>
     </div>`;
-
-    await _lkLoadTree();
 }
 
-// ===== ORG TREE =====
-async function _lkLoadTree() {
-    const treeEl = document.getElementById('lkTreeContainer');
-    if (!treeEl) return;
+// ===== SIDEBAR FILTER =====
+function _lkFilterSidebar() {
+    const q = (document.getElementById('lkTreeSearch')?.value || '').toLowerCase().trim();
 
-    try {
-        const data = await apiCall('/api/lock-tasks/tree');
-        _lkTreeData = data;
-        const { departments, users, statusMap } = data;
+    // Filter users
+    document.querySelectorAll('.lk-user-item').forEach(el => {
+        if (!q) { el.style.display = ''; return; }
+        const name = el.dataset.name || '';
+        el.style.display = name.includes(q) ? '' : 'none';
+    });
 
-        // Build tree
-        const roots = departments.filter(d => !d.parent_id);
-        let html = '';
-
-        roots.forEach(root => {
-            html += _lkRenderDeptNode(root, departments, users, statusMap, 0);
-        });
-
-        treeEl.innerHTML = html || '<div style="color:#9ca3af;text-align:center;padding:20px;">Không có dữ liệu</div>';
-    } catch(e) {
-        treeEl.innerHTML = `<div style="color:#dc2626;padding:10px;">Lỗi: ${e.message}</div>`;
-    }
-}
-
-function _lkRenderDeptNode(dept, allDepts, allUsers, statusMap, level) {
-    const children = allDepts.filter(d => d.parent_id === dept.id);
-    const deptUsers = allUsers.filter(u => u.department_id === dept.id);
-    const indent = level * 16;
-    const colors = ['#1e3a5f', '#2563eb', '#7c3aed', '#059669'];
-    const bgColors = ['linear-gradient(135deg,#1e3a5f,#2563eb)', 'linear-gradient(135deg,#3b82f6,#60a5fa)', '#f1f5f9', '#f8fafc'];
-
-    let html = '';
-
-    if (level === 0) {
-        // Root = system header
-        html += `<div style="margin-bottom:8px;">
-            <div onclick="_lkSelectDept(${dept.id})" style="background:${bgColors[0]};color:white;padding:8px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
-                <span>🏢 ${dept.name}</span>
-            </div>`;
-    } else if (level === 1) {
-        html += `<div style="margin-left:${indent}px;margin-bottom:4px;">
-            <div onclick="_lkSelectDept(${dept.id})" style="padding:6px 10px;border-radius:6px;font-weight:600;font-size:12px;color:#334155;cursor:pointer;background:#f1f5f9;margin-bottom:1px;display:flex;align-items:center;gap:4px;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                <span style="color:#6b7280;">┣</span> ${dept.name}
-            </div>`;
-    } else {
-        html += `<div style="margin-left:${indent}px;margin-bottom:2px;">
-            <div onclick="_lkSelectDept(${dept.id})" style="padding:5px 8px;border-radius:4px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <span style="color:#9ca3af;">┗</span> ${dept.name}
-            </div>`;
-    }
-
-    // Users in this dept
-    deptUsers.forEach(u => {
-        const st = statusMap[u.id];
-        let statusBadge = '';
-        if (st && st.total > 0) {
-            if (st.done >= st.total) {
-                statusBadge = `<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ ${st.done}/${st.total}</span>`;
-            } else {
-                statusBadge = `<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔴 ${st.done}/${st.total}</span>`;
+    // Filter dept headers
+    document.querySelectorAll('.lk-dept-header').forEach(el => {
+        if (!q) { el.style.display = ''; return; }
+        const deptName = (el.textContent || '').toLowerCase();
+        // Check if any visible members in this dept
+        const deptId = el.dataset.deptId;
+        let hasVisible = false;
+        let sibling = el.nextElementSibling;
+        while (sibling && sibling.classList.contains('lk-user-item')) {
+            if (sibling.style.display !== 'none') hasVisible = true;
+            sibling = sibling.nextElementSibling;
+        }
+        el.style.display = (deptName.includes(q) || hasVisible) ? '' : 'none';
+        // If dept name matches, show all its members
+        if (deptName.includes(q)) {
+            sibling = el.nextElementSibling;
+            while (sibling && sibling.classList.contains('lk-user-item')) {
+                sibling.style.display = '';
+                sibling = sibling.nextElementSibling;
             }
         }
-        html += `<div onclick="_lkSelectUser(${u.id},'${(u.full_name||'').replace(/'/g,"\\'")}', event)" data-user-id="${u.id}" style="margin-left:${indent + 16}px;padding:5px 8px;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:4px;" onmouseover="this.style.background='#eff6ff'" onmouseout="if(!this.classList.contains('lk-selected'))this.style.background='transparent'" class="lk-user-item">
-            <span>👤 ${u.full_name}</span>
-            ${statusBadge}
-        </div>`;
     });
-
-    // Recurse children
-    children.forEach(child => {
-        html += _lkRenderDeptNode(child, allDepts, allUsers, statusMap, level + 1);
-    });
-
-    html += '</div>';
-    return html;
 }
 
+// ===== SELECT DEPT =====
 function _lkSelectDept(deptId) {
     _lkSelectedDeptId = deptId;
     _lkSelectedUserId = null;
@@ -128,17 +179,22 @@ function _lkSelectDept(deptId) {
     _lkLoadDeptTasks(deptId);
 }
 
+// ===== SELECT USER =====
 async function _lkSelectUser(userId, userName, event) {
     if (event) event.stopPropagation();
     _lkSelectedUserId = userId;
     _lkSelectedDeptId = null;
     // Highlight selected
     document.querySelectorAll('.lk-user-item').forEach(el => {
-        el.classList.remove('lk-selected');
-        el.style.background = 'transparent';
+        const isActive = Number(el.dataset.userId) === userId;
+        el.classList.toggle('lk-selected', isActive);
+        el.style.background = isActive ? '#059669' : 'transparent';
+        el.style.color = isActive ? '#fff' : '#1e293b';
+        el.style.fontWeight = isActive ? '700' : '';
+        el.style.borderLeft = isActive ? '3px solid #047857' : '3px solid transparent';
+        if (isActive) el.style.borderRadius = '6px';
+        else el.style.borderRadius = '';
     });
-    const el = document.querySelector(`[data-user-id="${userId}"]`);
-    if (el) { el.classList.add('lk-selected'); el.style.background = '#dbeafe'; }
     _lkLoadUserTasks(userId, userName);
 }
 
@@ -157,7 +213,7 @@ async function _lkLoadDeptTasks(deptId) {
         const deptName = dept?.name || 'Phòng ban';
 
         let html = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px 16px 0;">
             <div>
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">🏢 ${deptName}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} công việc khóa</div>
@@ -166,12 +222,12 @@ async function _lkLoadDeptTasks(deptId) {
         </div>`;
 
         if (tasks.length === 0) {
-            html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;">
+            html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;margin:0 16px;">
                 <div style="font-size:40px;margin-bottom:8px;">📋</div>
                 <div style="color:#9ca3af;font-size:13px;">Chưa có công việc khóa nào</div>
             </div>`;
         } else {
-            html += _lkRenderTaskTable(tasks, true);
+            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true)}</div>`;
         }
 
         panel.innerHTML = html;
@@ -194,7 +250,7 @@ async function _lkLoadUserTasks(userId, userName) {
         const tasks = data.tasks || [];
 
         let html = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px 16px 0;">
             <div>
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">👤 ${userName || 'Nhân viên'}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} CV khóa hôm nay</div>
@@ -202,7 +258,7 @@ async function _lkLoadUserTasks(userId, userName) {
         </div>`;
 
         if (tasks.length === 0) {
-            html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;">
+            html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;margin:0 16px;">
                 <div style="font-size:40px;margin-bottom:8px;">✅</div>
                 <div style="color:#059669;font-size:13px;font-weight:600;">Không có công việc khóa nào</div>
             </div>`;
@@ -239,7 +295,7 @@ async function _lkLoadUserTasks(userId, userName) {
                 }
 
                 html += `
-                <div style="background:white;border:2px solid ${status === 'approved' ? '#a7f3d0' : status === 'pending' ? '#fde68a' : '#fecaca'};border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                <div style="background:white;border:2px solid ${status === 'approved' ? '#a7f3d0' : status === 'pending' ? '#fde68a' : '#fecaca'};border-radius:12px;padding:14px 16px;margin:0 16px 10px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="flex:1;">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -496,7 +552,9 @@ async function _lkSaveTask(taskId, deptId) {
         } else {
             _lkLoadDeptTasks(deptId);
         }
-        _lkLoadTree();
+        // Reload sidebar to update status badges
+        const content = document.getElementById('content') || document.querySelector('[id="content"]');
+        if (content) renderBanGiaoKhoaPage(content);
     } catch(e) {
         alert('Lỗi: ' + e.message);
     }
@@ -504,8 +562,8 @@ async function _lkSaveTask(taskId, deptId) {
 
 async function _lkEditTask(taskId) {
     try {
-        // Get task details with assigned users
-        const tasks = await apiCall(`/api/lock-tasks/dept/${_lkSelectedDeptId || 0}`);
+        const deptId = _lkSelectedDeptId || 0;
+        const tasks = await apiCall(`/api/lock-tasks/dept/${deptId}`);
         const task = (tasks.tasks || []).find(t => t.id === taskId);
         if (task) {
             _lkShowCreateModal(task.department_id, task);
@@ -523,7 +581,6 @@ async function _lkDeleteTask(taskId) {
         } else if (_lkSelectedDeptId) {
             _lkLoadDeptTasks(_lkSelectedDeptId);
         }
-        _lkLoadTree();
     } catch(e) { alert('Lỗi'); }
 }
 
@@ -550,7 +607,6 @@ function _lkUploadProof(taskId) {
             if (data.success) {
                 showToast('✅ Đã nộp bài!');
                 if (_lkSelectedUserId) _lkSelectUser(_lkSelectedUserId, '', null);
-                _lkLoadTree();
             } else {
                 alert(data.error || 'Lỗi');
             }
@@ -573,7 +629,6 @@ async function _lkReview(completionId, action) {
         await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action, reject_reason: reason });
         showToast(action === 'approve' ? '✅ Đã duyệt' : '❌ Đã từ chối');
         if (_lkSelectedUserId) _lkSelectUser(_lkSelectedUserId, '', null);
-        _lkLoadTree();
     } catch(e) {
         alert('Lỗi: ' + e.message);
     }
