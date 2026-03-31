@@ -114,36 +114,34 @@ async function khoaTKNVRoutes(fastify, options) {
         const lastDay = new Date(y, m, 0).getDate();
         const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
 
-        let whereClause = '';
-        let params = [monthStart, monthEnd];
+        // ===== SOURCE 1: task_support_requests (CV Điểm + Hỗ trợ NV) =====
+        let srWhere = '';
+        let srParams = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            // See all
-            whereClause = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2`;
+            srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2`;
         } else if (['quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
-            // See users in their dept scope
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user || !user.department_id) return { penalties: [], total: 0 };
-
-            // Get all depts under this user's dept
-            const deptIds = [user.department_id];
-            const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
-            children.forEach(c => deptIds.push(c.id));
-            for (const child of children) {
-                const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                grandchildren.forEach(gc => deptIds.push(gc.id));
+            if (!user || !user.department_id) {
+                srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND 1=0`;
+            } else {
+                const deptIds = [user.department_id];
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+                children.forEach(c => deptIds.push(c.id));
+                for (const child of children) {
+                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    grandchildren.forEach(gc => deptIds.push(gc.id));
+                }
+                const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
+                srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND sr.department_id IN (${placeholders})`;
+                srParams.push(...deptIds);
             }
-
-            const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
-            whereClause = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND sr.department_id IN (${placeholders})`;
-            params.push(...deptIds);
         } else {
-            // NV: only self (as manager who got locked, OR as user who requested)
-            whereClause = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND (sr.manager_id = $3 OR sr.user_id = $3)`;
-            params.push(userId);
+            srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND (sr.manager_id = $3 OR sr.user_id = $3)`;
+            srParams.push(userId);
         }
 
-        const penalties = await db.all(
+        const srPenalties = await db.all(
             `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
                     u.full_name as user_name, u.username,
                     m.full_name as manager_name, m.username as manager_username,
@@ -152,14 +150,88 @@ async function khoaTKNVRoutes(fastify, options) {
              LEFT JOIN users u ON sr.user_id = u.id
              LEFT JOIN users m ON sr.manager_id = m.id
              LEFT JOIN departments d ON sr.department_id = d.id
-             ${whereClause}
+             ${srWhere}
              ORDER BY sr.task_date DESC, m.full_name`,
-            params
+            srParams
         );
 
-        const total = penalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
+        // Tag source type
+        srPenalties.forEach(p => {
+            if (p.penalty_reason && p.penalty_reason.includes('Không duyệt')) {
+                p.source_type = 'diem';
+                p.source_label = '📊 CV Điểm — QL không duyệt';
+            } else {
+                p.source_type = 'support';
+                p.source_label = '🆘 Hỗ trợ NV — QL không hỗ trợ';
+            }
+            // For display: the person being penalized is the manager
+            p.penalized_user_id = p.manager_id;
+            p.penalized_name = p.manager_name;
+            p.penalized_username = p.manager_username;
+        });
 
-        return { penalties, total };
+        // ===== SOURCE 2: lock_task_completions (CV Khóa — NV không nộp) =====
+        let ltWhere = '';
+        let ltParams = [monthStart, monthEnd];
+
+        if (userRole === 'giam_doc') {
+            ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date`;
+        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            if (!user || !user.department_id) {
+                ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND 1=0`;
+            } else {
+                const deptIds = [user.department_id];
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+                children.forEach(c => deptIds.push(c.id));
+                for (const child of children) {
+                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    grandchildren.forEach(gc => deptIds.push(gc.id));
+                }
+                const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
+                ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND u.department_id IN (${placeholders})`;
+                ltParams.push(...deptIds);
+            }
+        } else {
+            ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND ltc.user_id = $3`;
+            ltParams.push(userId);
+        }
+
+        const ltPenalties = await db.all(
+            `SELECT ltc.id, ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as task_date, 
+                    ltc.penalty_amount, ltc.penalty_applied, ltc.created_at,
+                    lt.task_name, lt.department_id,
+                    u.full_name as user_name, u.username,
+                    d.name as dept_name
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             JOIN users u ON u.id = ltc.user_id
+             LEFT JOIN departments d ON u.department_id = d.id
+             ${ltWhere}
+             ORDER BY ltc.completion_date DESC`,
+            ltParams
+        );
+
+        // Tag and format
+        const ltFormatted = ltPenalties.map(p => ({
+            ...p,
+            source_type: 'khoa',
+            source_label: '🔒 CV Khóa — NV không nộp',
+            penalty_reason: 'Không nộp báo cáo: ' + p.task_name,
+            penalized_user_id: p.user_id,
+            penalized_name: p.user_name,
+            penalized_username: p.username,
+            manager_id: p.user_id,
+            manager_name: p.user_name,
+            manager_username: p.username,
+            acknowledged: (p.penalty_amount || 0) === 0 // acknowledged = penalty reset to 0
+        }));
+
+        // Combine all
+        const allPenalties = [...srPenalties, ...ltFormatted];
+        const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
+
+        return { penalties: allPenalties, total };
     });
 
     // GET: Phiếu phạt cho NV cụ thể

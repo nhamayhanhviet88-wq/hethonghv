@@ -97,9 +97,11 @@ async function authRoutes(fastify, options) {
                     diem: diemPenalties,
                     support: htPenalties
                 },
-                penalties: [...khoaPenalties, ...diemPenalties, ...htPenalties], // backward compat
+                penalties: [...khoaPenalties, ...diemPenalties, ...htPenalties],
                 totalFine,
-                userId: user.id
+                userId: user.id,
+                username: user.username,
+                fullName: user.full_name
             });
         }
 

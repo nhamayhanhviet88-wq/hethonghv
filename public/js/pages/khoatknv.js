@@ -183,13 +183,7 @@ async function _penaltyLoadStats() {
     body.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px;">⏳ Đang tải...</div>';
 
     try {
-        const data = await apiCall(`/api/penalty/list?month=${_penaltyMonth}`);
-        _penaltyData = data.penalties || [];
-        const total = data.total || 0;
-
-        if (badge) badge.textContent = total > 0 ? total.toLocaleString() + 'đ' : '0đ';
-
-        if (_penaltyData.length === 0) {
+        const data = await apiCall(`/api/penalty/lis        if (_penaltyData.length === 0) {
             body.innerHTML = `<div style="text-align:center;padding:40px;">
                 <div style="font-size:40px;margin-bottom:8px;">✅</div>
                 <div style="color:#059669;font-weight:700;font-size:14px;">Không có vi phạm nào trong tháng này</div>
@@ -197,23 +191,38 @@ async function _penaltyLoadStats() {
             return;
         }
 
-        // Group by manager
-        const byManager = {};
+        // Group by penalized person
+        const byPerson = {};
         _penaltyData.forEach(p => {
-            const key = p.manager_id;
-            if (!byManager[key]) byManager[key] = { name: p.manager_name, username: p.manager_username, dept: p.dept_name, items: [], total: 0 };
-            byManager[key].items.push(p);
-            byManager[key].total += (p.penalty_amount || 0);
+            const key = p.penalized_user_id || p.manager_id;
+            if (!byPerson[key]) byPerson[key] = {
+                name: p.penalized_name || p.manager_name,
+                username: p.penalized_username || p.manager_username,
+                dept: p.dept_name,
+                items: [],
+                total: 0
+            };
+            byPerson[key].items.push(p);
+            byPerson[key].total += (p.penalty_amount || 0);
         });
 
+        // Source type badge colors
+        const _srcBadge = (type) => {
+            if (type === 'khoa') return '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔒 CV Khóa</span>';
+            if (type === 'diem') return '<span style="background:#fffbeb;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">📊 CV Điểm</span>';
+            if (type === 'support') return '<span style="background:#eff6ff;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🆘 Hỗ trợ</span>';
+            return '';
+        };
+
         let html = '';
-        Object.keys(byManager).forEach(mId => {
-            const mg = byManager[mId];
-            let rows = mg.items.map((p, i) => `
+        Object.keys(byPerson).forEach(pId => {
+            const pg = byPerson[pId];
+            let rows = pg.items.map((p, i) => `
                 <tr style="border-bottom:1px solid #f1f5f9;${i % 2 ? 'background:#fafbfc;' : ''}">
                     <td style="padding:8px 12px;font-size:12px;color:#374151;font-weight:600;">${p.task_name}</td>
-                    <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${p.task_date.split('-').reverse().join('/')}</td>
+                    <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${p.task_date ? p.task_date.split('-').reverse().join('/') : '—'}</td>
                     <td style="padding:8px 12px;font-size:11px;color:#64748b;max-width:250px;overflow:hidden;text-overflow:ellipsis;" title="${(p.penalty_reason||'').replace(/"/g, '&quot;')}">${p.penalty_reason || '—'}</td>
+                    <td style="padding:8px 12px;font-size:11px;">${_srcBadge(p.source_type)}</td>
                     <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#dc2626;">${(p.penalty_amount || 0).toLocaleString()}đ</td>
                     <td style="padding:8px 12px;font-size:11px;">
                         ${p.acknowledged ? '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-weight:600;">✅ Đã XN</span>' : '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-weight:600;">⏳ Chưa XN</span>'}
@@ -225,12 +234,13 @@ async function _penaltyLoadStats() {
             <div style="margin-bottom:16px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
                 <div style="background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;">
                     <div>
-                        <span style="font-weight:700;color:#1e293b;font-size:14px;">👤 ${mg.name}</span>
-                        <span style="color:#6b7280;font-size:11px;margin-left:6px;">${mg.dept || ''}</span>
+                        <span style="font-weight:700;color:#1e293b;font-size:14px;">👤 ${pg.name || 'Không rõ'}</span>
+                        <span style="color:#9ca3af;font-size:11px;margin-left:4px;">(${pg.username || ''})</span>
+                        <span style="color:#6b7280;font-size:11px;margin-left:6px;">${pg.dept || ''}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="background:#fecaca;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;">${mg.total.toLocaleString()}đ</span>
-                        <button onclick="_penaltyShowSlip(${mId},'${_penaltyMonth}','${(mg.name||'').replace(/'/g,"\\'")}')" style="padding:4px 10px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu phạt</button>
+                        <span style="background:#fecaca;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;">${pg.total.toLocaleString()}đ</span>
+                        <button onclick="_penaltyShowSlip(${pId},'${_penaltyMonth}','${(pg.name||'').replace(/'/g,"\\\\'")}') " style="padding:4px 10px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu phạt</button>
                     </div>
                 </div>
                 <table style="width:100%;border-collapse:collapse;">
@@ -239,6 +249,7 @@ async function _penaltyLoadStats() {
                             <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Công việc</th>
                             <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Ngày</th>
                             <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Lý do</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Loại</th>
                             <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Số tiền</th>
                             <th style="padding:8px 12px;text-align:left;font-size:10px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Trạng thái</th>
                         </tr>
