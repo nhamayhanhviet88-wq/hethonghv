@@ -687,6 +687,7 @@ CREATE TABLE IF NOT EXISTS lock_task_completions (
 ALTER TABLE lock_tasks ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
 ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS redo_count INTEGER DEFAULT 0;
 ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN DEFAULT false;
 
 -- Drop old unique constraint and add new one (safe migration)
 DO $$ BEGIN

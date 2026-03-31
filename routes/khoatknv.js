@@ -199,7 +199,7 @@ async function khoaTKNVRoutes(fastify, options) {
 
         const ltPenalties = await db.all(
             `SELECT ltc.id, ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as task_date, 
-                    ltc.penalty_amount, ltc.penalty_applied, ltc.created_at,
+                    ltc.penalty_amount, ltc.penalty_applied, ltc.acknowledged, ltc.created_at,
                     lt.task_name, lt.department_id,
                     u.full_name as user_name, u.username,
                     d.name as dept_name
@@ -224,7 +224,7 @@ async function khoaTKNVRoutes(fastify, options) {
             manager_id: p.user_id,
             manager_name: p.user_name,
             manager_username: p.username,
-            acknowledged: (p.penalty_amount || 0) === 0 // acknowledged = penalty reset to 0
+            acknowledged: p.acknowledged || false
         }));
 
         // Combine all
@@ -309,10 +309,10 @@ async function khoaTKNVRoutes(fastify, options) {
             [user.id]
         );
 
-        // Acknowledge CV Khóa penalties (set penalty_amount to 0 so they won't show again)
+        // Acknowledge CV Khóa penalties
         await db.run(
-            `UPDATE lock_task_completions SET penalty_amount = 0
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND penalty_amount > 0`,
+            `UPDATE lock_task_completions SET acknowledged = true
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
             [user.id]
         );
 
@@ -338,8 +338,8 @@ async function khoaTKNVRoutes(fastify, options) {
 
         // Acknowledge CV Khóa penalties
         await db.run(
-            `UPDATE lock_task_completions SET penalty_amount = 0
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND penalty_amount > 0`,
+            `UPDATE lock_task_completions SET acknowledged = true
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
             [userId]
         );
 

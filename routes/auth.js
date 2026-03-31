@@ -47,7 +47,7 @@ async function authRoutes(fastify, options) {
                  FROM lock_task_completions ltc
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                  WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-                   AND ltc.penalty_amount > 0
+                   AND ltc.acknowledged = false
                  ORDER BY ltc.completion_date`,
                 [user.id]
             );
