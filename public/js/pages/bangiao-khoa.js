@@ -58,8 +58,17 @@ async function renderBanGiaoKhoaPage(container) {
         let parentStt = 0, childStt = 0;
         sortedDepts.forEach(dept => {
             const isChild = sortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
-            const deptUsers = (allUsers || []).filter(u => u.department_id === dept.id)
-                .sort((a, b) => {
+            // Include users with matching department_id + head_user if not already in list
+            let deptUsers = (allUsers || []).filter(u => u.department_id === dept.id);
+            // Add head_user if set and not already in list
+            if (dept.head_user_id) {
+                const headInList = deptUsers.some(u => u.id === dept.head_user_id);
+                if (!headInList) {
+                    const headUser = (allUsers || []).find(u => u.id === dept.head_user_id);
+                    if (headUser) deptUsers.unshift(headUser);
+                }
+            }
+            deptUsers.sort((a, b) => {
                     const aP = _lkRolePriority[a.role] || 0;
                     const bP = _lkRolePriority[b.role] || 0;
                     return bP - aP;

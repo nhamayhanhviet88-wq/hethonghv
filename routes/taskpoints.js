@@ -187,7 +187,7 @@ async function taskPointRoutes(fastify, options) {
 
     // GET departments list for dropdown (with template status)
     fastify.get('/api/task-points/departments', { preHandler: [authenticate] }, async (request, reply) => {
-        const depts = await db.all("SELECT id, name, parent_id, display_order FROM departments WHERE status = 'active' ORDER BY display_order, name");
+        const depts = await db.all("SELECT id, name, parent_id, display_order, head_user_id FROM departments WHERE status = 'active' ORDER BY display_order, name");
         const activeIds = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
         const registeredIds = await db.all("SELECT team_id FROM task_schedule_active_teams");
         const activeSet = new Set([...activeIds.map(r => r.target_id), ...registeredIds.map(r => r.team_id)]);
