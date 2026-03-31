@@ -26,6 +26,7 @@ async function renderBanGiaoKhoaPage(container) {
         const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
         const activeDeptIds = new Set(dData.active_dept_ids || []);
         const { users: allUsers, statusMap } = treeData;
+        const allApprovers = dData.approvers || [];
 
         // Tree-walk sort: parents by display_order, children after parent
         const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
@@ -58,21 +59,24 @@ async function renderBanGiaoKhoaPage(container) {
         let parentStt = 0, childStt = 0;
         sortedDepts.forEach(dept => {
             const isChild = sortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
-            // Include users with matching department_id + head_user if not already in list
             let deptUsers = (allUsers || []).filter(u => u.department_id === dept.id);
-            // Add head_user if set and not already in list
-            if (dept.head_user_id) {
-                const headInList = deptUsers.some(u => u.id === dept.head_user_id);
-                if (!headInList) {
-                    const headUser = (allUsers || []).find(u => u.id === dept.head_user_id);
-                    if (headUser) deptUsers.unshift(headUser);
+            // Add approvers for this dept (from task_approvers) if not already in list
+            const deptApprovers = allApprovers.filter(a => a.department_id === dept.id);
+            const approverIdSet = new Set();
+            deptApprovers.forEach(a => {
+                approverIdSet.add(a.user_id);
+                if (!deptUsers.some(u => u.id === a.user_id)) {
+                    deptUsers.push({ id: a.user_id, full_name: a.full_name, username: a.username, role: a.role, department_id: dept.id, _isApprover: true });
                 }
-            }
+            });
+            // Mark existing users as approvers too
+            deptUsers.forEach(u => { if (approverIdSet.has(u.id)) u._isApprover = true; });
+            // Sort: approvers first (priority 10), then by role
             deptUsers.sort((a, b) => {
-                    const aP = _lkRolePriority[a.role] || 0;
-                    const bP = _lkRolePriority[b.role] || 0;
-                    return bP - aP;
-                });
+                const aP = (a._isApprover ? 10 : 0) + (_lkRolePriority[a.role] || 0);
+                const bP = (b._isApprover ? 10 : 0) + (_lkRolePriority[b.role] || 0);
+                return bP - aP;
+            });
 
             let sttLabel = '';
             if (!isChild) {
@@ -94,16 +98,19 @@ async function renderBanGiaoKhoaPage(container) {
                         ? `<span style="background:#dcfce7;color:#059669;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ ${st.done}/${st.total}</span>`
                         : `<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔴 ${st.done}/${st.total}</span>`;
                 }
-                const isLead = _lkIsLeader(u.role);
-                const roleTag = _lkRoleLabel[u.role] || u.role;
-                const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
+                const isApprover = u._isApprover;
+                const isLead = _lkIsLeader(u.role) || isApprover;
+                const roleTag = isApprover ? '📋 Người duyệt' : (_lkRoleLabel[u.role] || u.role);
+                const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
+                const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${isLead ? '700' : '500'};`;
+                const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;font-size:10px;' : `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
                 deptListHtml += `
-                    <div class="lk-user-item" data-user-id="${u.id}" data-name="${(u.full_name || '').toLowerCase()}" onclick="_lkSelectUser(${u.id},'${(u.full_name || '').replace(/'/g, "\\'")}', event)" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
-                        onmouseover="if(!this.classList.contains('lk-selected'))this.style.background='#f8fafc'"
-                        onmouseout="if(!this.classList.contains('lk-selected'))this.style.background='white';else this.style.background='#059669'">
+                    <div class="lk-user-item" data-user-id="${u.id}" data-name="${(u.full_name || '').toLowerCase()}" onclick="_lkSelectUser(${u.id},'${(u.full_name || '').replace(/'/g, "\\'")}', event)" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;${approverBg}display:flex;align-items:center;gap:8px;"
+                        onmouseover="if(!this.classList.contains('lk-selected'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'"
+                        onmouseout="if(!this.classList.contains('lk-selected'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'white'}';else this.style.background='#059669'">
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:${isLead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
-                            <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                            <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                            <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
                         </div>
                         ${statusBadge}
                     </div>`;

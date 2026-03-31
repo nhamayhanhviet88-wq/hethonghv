@@ -353,14 +353,16 @@ async function _tpLoadDeptMembers(deptId) {
         _tpDeptMembers = u.users || [];
     } catch(e) { _tpDeptMembers = []; }
 
-    // Sort by role priority: leaders first, dept heads at top
+    // Sort by role priority: approvers first, leaders next, dept heads at top
     const _rolePri = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
     const _roleLabel = { giam_doc: '⭐ Quản lý', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
     const _isLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
     _tpDeptMembers.sort((a, b) => {
         const aHead = a._is_dept_head ? 10 : 0;
         const bHead = b._is_dept_head ? 10 : 0;
-        return (bHead + (_rolePri[b.role] || 0)) - (aHead + (_rolePri[a.role] || 0));
+        const aAppr = a._isApprover ? 10 : 0;
+        const bAppr = b._isApprover ? 10 : 0;
+        return (bHead + bAppr + (_rolePri[b.role] || 0)) - (aHead + aAppr + (_rolePri[a.role] || 0));
     });
 
     wrap.style.display = 'block';
@@ -368,18 +370,21 @@ async function _tpLoadDeptMembers(deptId) {
         <div id="tpMemberList_${deptId}">
             ${_tpDeptMembers.map(m => {
                 const isDeptHead = m._is_dept_head;
-                const lead = isDeptHead || _isLeader(m.role);
-                const roleTag = isDeptHead ? '⭐ Trưởng phòng' : (_roleLabel[m.role] || m.role);
-                const starStyle = lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
+                const isApprover = m._isApprover;
+                const lead = isDeptHead || _isLeader(m.role) || isApprover;
+                const roleTag = isApprover ? '📋 Người duyệt' : (isDeptHead ? '⭐ Trưởng phòng' : (_roleLabel[m.role] || m.role));
+                const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
+                const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${lead ? '700' : '500'};`;
+                const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;' : (lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;');
                 return `
                 <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
                      onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
-                     style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
-                     onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='#f8fafc'" 
-                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='';else this.style.background='#059669'">
+                     style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;${approverBg}display:flex;align-items:center;gap:8px;"
+                     onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'" 
+                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : ''}';else this.style.background='#059669'">
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:${lead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
-                        <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                        <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
+                        <div style="font-size:10px;${roleStyle}margin-top:1px;">${roleTag}</div>
                     </div>
                 </div>`;
             }).join('')}

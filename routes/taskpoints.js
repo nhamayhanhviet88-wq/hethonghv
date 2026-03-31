@@ -191,7 +191,15 @@ async function taskPointRoutes(fastify, options) {
         const activeIds = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
         const registeredIds = await db.all("SELECT team_id FROM task_schedule_active_teams");
         const activeSet = new Set([...activeIds.map(r => r.target_id), ...registeredIds.map(r => r.team_id)]);
-        return { departments: depts, active_dept_ids: [...activeSet] };
+        // Load approvers per department
+        const approvers = await db.all(`
+            SELECT ta.department_id, ta.user_id, u.full_name, u.username, u.role, u.status
+            FROM task_approvers ta
+            JOIN users u ON u.id = ta.user_id
+            WHERE u.status = 'active'
+            ORDER BY u.full_name
+        `);
+        return { departments: depts, active_dept_ids: [...activeSet], approvers };
     });
 
     // Register a team as active (persist even without tasks)
@@ -233,6 +241,23 @@ async function taskPointRoutes(fastify, options) {
                 }
             }
         }
+        // Include approvers from task_approvers table
+        const approvers = await db.all(
+            `SELECT u.id, u.full_name, u.username, u.role
+             FROM task_approvers ta JOIN users u ON u.id = ta.user_id
+             WHERE ta.department_id = ? AND u.status = 'active'`,
+            [Number(department_id)]
+        );
+        approvers.forEach(a => {
+            const exists = users.some(u => u.id === a.id);
+            if (!exists) {
+                a._isApprover = true;
+                users.unshift(a);
+            } else {
+                const existing = users.find(u => u.id === a.id);
+                if (existing) existing._isApprover = true;
+            }
+        });
         return { users };
     });
 

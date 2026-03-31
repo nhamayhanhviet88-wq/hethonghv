@@ -6,6 +6,7 @@ let _rhCurrentMonth = '';
 let _rhIsManager = false;
 let _rhTeamMembers = [];
 let _rhActiveDepts = [];
+let _rhApprovers = [];
 let _rhAllDepts = [];
 let _rhExpandedDepts = new Set();
 let _rhTaskGroups = [];
@@ -71,6 +72,7 @@ async function renderLichSuBaoCaoPage(container) {
         const raw = (deptRes.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
         const activeDeptIds = deptRes.active_dept_ids || [];
         _rhTeamMembers = memberRes.members || [];
+        _rhApprovers = deptRes.approvers || [];
 
         const activeSet = new Set(activeDeptIds);
         const activeDeptsList = raw.filter(d => activeSet.has(d.id));
@@ -162,16 +164,37 @@ function _renderRhEmployeeLayout(container) {
 }
 
 function _rhRenderDeptMembers(deptId, deptName) {
-    const members = _rhTeamMembers.filter(m => m.dept_name === deptName);
+    let members = _rhTeamMembers.filter(m => m.dept_name === deptName);
+    // Add approvers for this dept
+    const deptApprovers = (_rhApprovers || []).filter(a => a.department_id === deptId);
+    const approverIdSet = new Set();
+    deptApprovers.forEach(a => {
+        approverIdSet.add(a.user_id);
+        if (!members.some(m => m.id === a.user_id)) {
+            members.unshift({ id: a.user_id, full_name: a.full_name, username: a.username, role: a.role, dept_name: deptName, _isApprover: true });
+        }
+    });
+    members.forEach(m => { if (approverIdSet.has(m.id)) m._isApprover = true; });
+    // Sort: approvers first, then leaders
+    members.sort((a, b) => {
+        const aP = (a._isApprover ? 10 : 0) + (a._is_dept_head ? 5 : 0);
+        const bP = (b._isApprover ? 10 : 0) + (b._is_dept_head ? 5 : 0);
+        return bP - aP;
+    });
     if (members.length === 0) return '<div style="padding:8px 14px;font-size:11px;color:#9ca3af;">Chưa có nhân viên</div>';
     const isLeader = (role) => ['giam_doc', 'pho_giam_doc', 'quan_ly', 'truong_phong'].includes(role);
     return members.map(m => {
         const isHead = m._is_dept_head;
+        const isApprover = m._isApprover;
         const isSelected = _rhSelectedUser && _rhSelectedUser.id === m.id;
-        return `<div onclick="_rhSelectUser(${m.id}, '${(m.full_name || '').replace(/'/g, "\\'")}')" style="padding:6px 14px 6px 32px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;${isSelected ? 'background:#eff6ff;border-left:3px solid #2563eb;font-weight:700;color:#1e40af;' : 'border-left:3px solid transparent;'}" onmouseover="if(!${isSelected})this.style.background='#f8fafc'" onmouseout="if(!${isSelected})this.style.background='transparent'">
-            <span style="font-size:14px;">${isHead || isLeader(m.role) ? '⭐' : '👤'}</span>
-            <span style="flex:1;${isHead ? 'color:#d97706;font-weight:600;' : ''}">${m.full_name}</span>
-            ${isHead ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;">TP</span>' : ''}
+        const approverBg = isApprover && !isSelected ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : '';
+        const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : (isHead ? 'color:#d97706;font-weight:600;' : '');
+        const badge = isApprover ? '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:6px;font-weight:700;">📋 NDD</span>'
+            : (isHead ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;">TP</span>' : '');
+        return `<div onclick="_rhSelectUser(${m.id}, '${(m.full_name || '').replace(/'/g, "\\'")}')" style="padding:6px 14px 6px 32px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;${isSelected ? 'background:#eff6ff;border-left:3px solid #2563eb;font-weight:700;color:#1e40af;' : approverBg}" onmouseover="if(!${isSelected})this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'" onmouseout="if(!${isSelected})this.style.background='${isApprover && !isSelected ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'transparent'}'">
+            <span style="font-size:14px;">${isApprover ? '📋' : (isHead || isLeader(m.role) ? '⭐' : '👤')}</span>
+            <span style="flex:1;${nameStyle}">${m.full_name}</span>
+            ${badge}
         </div>`;
     }).join('');
 }

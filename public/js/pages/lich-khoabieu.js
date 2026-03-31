@@ -189,6 +189,7 @@ async function renderLichKhoaBieuPage(container) {
                     .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
                 sortedDepts.push(...children);
             });
+            const allApprovers = dData.approvers || [];
 
             // Group members by dept name for lookup
             const byDept = {};
@@ -214,10 +215,20 @@ async function renderLichKhoaBieuPage(container) {
             let parentStt = 0, childStt = 0;
             filteredSortedDepts.forEach(dept => {
                 const isChild = filteredSortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
-                const deptMembers = (byDept[dept.name] || [])
-                    .sort((a, b) => {
-                        const aHead = a._is_dept_head ? 10 : 0;
-                        const bHead = b._is_dept_head ? 10 : 0;
+                let deptMembers = (byDept[dept.name] || []).slice();
+                // Add approvers for this dept
+                const deptApprovers = allApprovers.filter(a => a.department_id === dept.id);
+                const approverIdSet = new Set();
+                deptApprovers.forEach(a => {
+                    approverIdSet.add(a.user_id);
+                    if (!deptMembers.some(m => m.id === a.user_id)) {
+                        deptMembers.push({ id: a.user_id, full_name: a.full_name, username: a.username, role: a.role, dept_name: dept.name, _isApprover: true });
+                    }
+                });
+                deptMembers.forEach(m => { if (approverIdSet.has(m.id)) m._isApprover = true; });
+                deptMembers.sort((a, b) => {
+                        const aHead = (a._isApprover ? 10 : 0) + (a._is_dept_head ? 10 : 0);
+                        const bHead = (b._isApprover ? 10 : 0) + (b._is_dept_head ? 10 : 0);
                         return (bHead + (_kbRolePriority[b.role] || 0)) - (aHead + (_kbRolePriority[a.role] || 0));
                     });
                 let sttLabel = '';
@@ -233,16 +244,19 @@ async function renderLichKhoaBieuPage(container) {
                 deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
                 deptMembers.forEach(u => {
                     const isDeptHead = u._is_dept_head;
-                    const isLead = isDeptHead || _kbIsLeader(u.role);
-                    const roleTag = isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role);
-                    const starStyle = isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
+                    const isApprover = u._isApprover;
+                    const isLead = isDeptHead || _kbIsLeader(u.role) || isApprover;
+                    const roleTag = isApprover ? '📋 Người duyệt' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
+                    const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
+                    const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${isLead ? '700' : '500'};`;
+                    const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;font-size:10px;' : `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
                     deptListHtml += `
-                        <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"
-                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
-                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white';else this.style.background='#059669'">
+                        <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;${approverBg}display:flex;align-items:center;gap:8px;"
+                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'"
+                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'white'}';else this.style.background='#059669'">
                             <div style="flex:1;min-width:0;">
-                                <div style="font-weight:${isLead ? '700' : '500'};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
-                                <div style="font-size:10px;${starStyle}margin-top:1px;">${roleTag}</div>
+                                <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                                <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
                             </div>
                         </div>`;
                 });
