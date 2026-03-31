@@ -183,79 +183,99 @@ async function runDeadlineCheck() {
     }
 
     // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
-    // Chạy vào 00:00 - 00:30: kiểm tra CV hôm qua chưa nộp → khóa NV + phạt
+    // Chỉ chạy vào 00:15 - 00:30: kiểm tra CV hôm qua chưa nộp → khóa NV + phạt
     const hour = now.getHours();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = toDateStr(yesterday);
-    const yesterdayDow = yesterday.getDay(); // 0=Sun, 1=Mon...
+    const minute = now.getMinutes();
+    const shouldCheckLockTasks = (hour === 0 && minute >= 15 && minute < 30);
 
-    const holidays = await getHolidays();
-    const isYesterdayHoliday = holidays.has(yesterdayStr);
-    const isYesterdaySunday = yesterdayDow === 0;
+    if (shouldCheckLockTasks) {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = toDateStr(yesterday);
+        const yesterdayDow = yesterday.getDay(); // 0=Sun, 1=Mon...
 
-    // Get all active lock tasks with assignments
-    const lockAssignments = await db.all(
-        `SELECT lt.id as task_id, lt.task_name, lt.recurrence_type, lt.recurrence_value,
-                lt.requires_approval, lt.penalty_amount, lt.department_id,
-                lta.user_id
-         FROM lock_task_assignments lta
-         JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
-    );
+        const holidays = await getHolidays();
+        const isYesterdayHoliday = holidays.has(yesterdayStr);
+        const isYesterdaySunday = yesterdayDow === 0;
 
-    for (const la of lockAssignments) {
-        // Check if task applies to yesterday based on recurrence
-        let applies = false;
-
-        if (la.recurrence_type === 'administrative') {
-            // T2-T7 (Mon-Sat), skip Sun + holidays
-            applies = yesterdayDow >= 1 && yesterdayDow <= 6 && !isYesterdayHoliday;
-        } else if (la.recurrence_type === 'daily') {
-            // T2-CN, only skip holidays (Sunday NOT skipped!)
-            applies = !isYesterdayHoliday;
-        } else if (la.recurrence_type === 'weekly') {
-            // Specific day of week
-            applies = yesterdayDow === Number(la.recurrence_value) && !isYesterdayHoliday;
-            if (isYesterdaySunday && la.recurrence_value !== '0') applies = false;
-        } else if (la.recurrence_type === 'monthly') {
-            // Specific day of month
-            applies = yesterday.getDate() === Number(la.recurrence_value) && !isYesterdayHoliday && !isYesterdaySunday;
-        } else if (la.recurrence_type === 'once') {
-            // Specific date
-            applies = yesterdayStr === la.recurrence_value && !isYesterdayHoliday && !isYesterdaySunday;
-        }
-
-        if (!applies) continue;
-
-        // Check if there's a completion
-        const completion = await db.get(
-            `SELECT id, status FROM lock_task_completions
-             WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3`,
-            [la.task_id, la.user_id, yesterdayStr]
+        // Get all active lock tasks with assignments
+        const lockAssignments = await db.all(
+            `SELECT lt.id as task_id, lt.task_name, lt.recurrence_type, lt.recurrence_value,
+                    lt.requires_approval, lt.penalty_amount, lt.department_id,
+                    lta.user_id
+             FROM lock_task_assignments lta
+             JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
         );
 
-        if (completion && (completion.status === 'approved' || completion.status === 'pending')) {
-            // Đã nộp (hoặc chờ duyệt) → NV an toàn
-            continue;
+        for (const la of lockAssignments) {
+            // Check if task applies to yesterday based on recurrence
+            let applies = false;
+
+            if (la.recurrence_type === 'administrative') {
+                // T2-T7 (Mon-Sat), skip Sun + holidays
+                applies = yesterdayDow >= 1 && yesterdayDow <= 6 && !isYesterdayHoliday;
+            } else if (la.recurrence_type === 'daily') {
+                // T2-CN, only skip holidays (Sunday NOT skipped!)
+                applies = !isYesterdayHoliday;
+            } else if (la.recurrence_type === 'weekly') {
+                // Specific day of week
+                applies = yesterdayDow === Number(la.recurrence_value) && !isYesterdayHoliday;
+                if (isYesterdaySunday && la.recurrence_value !== '0') applies = false;
+            } else if (la.recurrence_type === 'monthly') {
+                // Specific day of month
+                applies = yesterday.getDate() === Number(la.recurrence_value) && !isYesterdayHoliday && !isYesterdaySunday;
+            } else if (la.recurrence_type === 'once') {
+                // Specific date
+                applies = yesterdayStr === la.recurrence_value && !isYesterdayHoliday && !isYesterdaySunday;
+            }
+
+            if (!applies) continue;
+
+            // Check if already penalized for this task+date (don't re-lock after acknowledge)
+            const alreadyExpired = await db.get(
+                `SELECT id FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true`,
+                [la.task_id, la.user_id, yesterdayStr]
+            );
+            if (alreadyExpired) continue; // Already penalized, skip
+
+            // Check if there's a completion
+            const completion = await db.get(
+                `SELECT id, status FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+                 ORDER BY redo_count DESC LIMIT 1`,
+                [la.task_id, la.user_id, yesterdayStr]
+            );
+
+            if (completion && (completion.status === 'approved' || completion.status === 'pending')) {
+                // Đã nộp (hoặc chờ duyệt) → NV an toàn
+                continue;
+            }
+
+            // NV CHƯA NỘP → Khóa TK + Phạt
+            const penaltyAmount = la.penalty_amount || 50000;
+
+            // Tạo completion record với status expired (redo_count=0)
+            try {
+                await db.run(
+                    `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
+                     VALUES ($1, $2, $3, 0, 'expired', $4, true)
+                     ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                    [la.task_id, la.user_id, yesterdayStr, penaltyAmount]
+                );
+            } catch(e) {
+                console.error(`  ❌ Error creating expired record for task ${la.task_id}, user ${la.user_id}:`, e.message);
+            }
+
+            // Khóa tài khoản NV
+            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [la.user_id]);
+
+            lockedCount++;
+            penaltyCount++;
+            console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${yesterdayStr} (phạt ${penaltyAmount}đ)`);
         }
-
-        // NV CHƯA NỘP → Khóa TK + Phạt
-        const penaltyAmount = la.penalty_amount || 50000;
-
-        // Tạo completion record với status expired
-        await db.run(
-            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, status, penalty_amount, penalty_applied)
-             VALUES ($1, $2, $3, 'expired', $4, true)
-             ON CONFLICT (lock_task_id, user_id, completion_date) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
-            [la.task_id, la.user_id, yesterdayStr, penaltyAmount]
-        );
-
-        // Khóa tài khoản NV
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [la.user_id]);
-
-        lockedCount++;
-        penaltyCount++;
-        console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${yesterdayStr} (phạt ${penaltyAmount}đ)`);
+    } else {
+        console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 (hiện: ${hour}:${String(minute).padStart(2,'0')})`);
     }
 
     // ========== 3b. CHECK CV KHÓA - QL CHƯA DUYỆT ==========

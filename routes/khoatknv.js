@@ -230,9 +230,17 @@ async function khoaTKNVRoutes(fastify, options) {
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return reply.code(400).send({ error: 'Mật khẩu không đúng' });
 
+        // Acknowledge support request penalties (CV Điểm + Hỗ trợ NV)
         await db.run(
             `UPDATE task_support_requests SET acknowledged = true, acknowledged_at = NOW()
              WHERE manager_id = $1 AND status = 'expired' AND acknowledged = false`,
+            [user.id]
+        );
+
+        // Acknowledge CV Khóa penalties (set penalty_amount to 0 so they won't show again)
+        await db.run(
+            `UPDATE lock_task_completions SET penalty_amount = 0
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND penalty_amount > 0`,
             [user.id]
         );
 
@@ -249,9 +257,17 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.post('/api/penalty/acknowledge-self', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
 
+        // Acknowledge support request penalties (CV Điểm + Hỗ trợ NV)
         await db.run(
             `UPDATE task_support_requests SET acknowledged = true, acknowledged_at = NOW()
              WHERE manager_id = $1 AND status = 'expired' AND acknowledged = false`,
+            [userId]
+        );
+
+        // Acknowledge CV Khóa penalties
+        await db.run(
+            `UPDATE lock_task_completions SET penalty_amount = 0
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND penalty_amount > 0`,
             [userId]
         );
 

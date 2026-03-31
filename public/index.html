@@ -65,9 +65,9 @@
                 
                 if (data.success) {
                     window.location.href = data.user && data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
-                } else if (data.locked && data.penalties) {
+                } else if (data.locked && (data.penalties || data.penaltyGroups)) {
                     // Show penalty popup
-                    _showPenaltyPopup(data.penalties, data.totalFine, data.userId);
+                    _showPenaltyPopup(data.penalties, data.totalFine, data.userId, data.penaltyGroups);
                 } else {
                     errDiv.textContent = data.error;
                     errDiv.style.display = 'block';
@@ -81,39 +81,84 @@
             btn.disabled = false;
         });
 
-        function _showPenaltyPopup(penalties, totalFine, userId) {
+        function _showPenaltyPopup(penalties, totalFine, userId, penaltyGroups) {
             document.getElementById('penaltyLoginPopup')?.remove();
 
-            let itemsHtml = penalties.length > 0 ? penalties.map((p, i) => `
-                <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;${i > 0 ? 'border-top:1px solid #fecaca;' : ''}">
-                    <span style="background:#dc2626;color:white;min-width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${i + 1}</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:700;color:#1e293b;font-size:13px;">${p.task_name}</div>
-                        <div style="font-size:11px;color:#6b7280;margin-top:2px;">📅 ${p.task_date.split('-').reverse().join('/')}</div>
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${p.penalty_reason || 'Vi phạm quy định'}</div>
+            // Build grouped HTML
+            let groupsHtml = '';
+
+            // Helper: render items for a group
+            function renderItems(items, emptyMsg) {
+                if (!items || items.length === 0) return '';
+                return items.map((p, i) => `
+                    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.06);' : ''}">
+                        <span style="background:#dc2626;color:white;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i + 1}</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:700;color:#1e293b;font-size:13px;">${p.task_name || 'Không rõ'}</div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:2px;">📅 ${p.task_date ? p.task_date.split('-').reverse().join('/') : '---'}</div>
+                            ${p.employee_name ? '<div style="font-size:11px;color:#6b7280;">👤 NV: ' + p.employee_name + '</div>' : ''}
+                            <div style="font-size:11px;color:#64748b;margin-top:2px;">${p.reason || p.penalty_reason || 'Vi phạm quy định'}</div>
+                        </div>
+                        <span style="font-weight:700;color:#dc2626;font-size:13px;white-space:nowrap;">${(p.penalty_amount || 0).toLocaleString()}đ</span>
                     </div>
-                    <span style="font-weight:700;color:#dc2626;font-size:13px;white-space:nowrap;">${(p.penalty_amount || 0).toLocaleString()}đ</span>
-                </div>
-            `).join('') : '<div style="padding:14px;color:#6b7280;text-align:center;">Tài khoản bị khóa. Liên hệ quản lý.</div>';
+                `).join('');
+            }
+
+            const groups = penaltyGroups || {};
+            const khoa = groups.khoa || [];
+            const diem = groups.diem || [];
+            const support = groups.support || [];
+
+            // If no grouped data, fallback to flat penalties list
+            if (khoa.length === 0 && diem.length === 0 && support.length === 0 && penalties && penalties.length > 0) {
+                groupsHtml = `<div style="padding:4px 14px 2px;color:#991b1b;font-size:12px;font-weight:800;">📋 CHI TIẾT VI PHẠM</div>` + renderItems(penalties);
+            } else {
+                if (khoa.length > 0) {
+                    groupsHtml += `<div style="padding:10px 14px 4px;background:#fef2f2;border-bottom:1px solid #fecaca;">
+                        <div style="font-size:12px;font-weight:800;color:#991b1b;">🔒 CV KHÓA — Không nộp báo cáo</div>
+                    </div>
+                    <div style="background:#fef2f2;">${renderItems(khoa)}</div>`;
+                }
+                if (diem.length > 0) {
+                    groupsHtml += `<div style="padding:10px 14px 4px;background:#fffbeb;border-top:2px solid #fde68a;border-bottom:1px solid #fde68a;">
+                        <div style="font-size:12px;font-weight:800;color:#92400e;">📊 CV ĐIỂM — Quản lý không duyệt</div>
+                    </div>
+                    <div style="background:#fffbeb;">${renderItems(diem)}</div>`;
+                }
+                if (support.length > 0) {
+                    groupsHtml += `<div style="padding:10px 14px 4px;background:#eff6ff;border-top:2px solid #bfdbfe;border-bottom:1px solid #bfdbfe;">
+                        <div style="font-size:12px;font-weight:800;color:#1e3a5f;">🆘 HỖ TRỢ NHÂN SỰ — Không hỗ trợ</div>
+                    </div>
+                    <div style="background:#eff6ff;">${renderItems(support)}</div>`;
+                }
+            }
+
+            if (!groupsHtml) {
+                groupsHtml = '<div style="padding:14px;color:#6b7280;text-align:center;">Tài khoản bị khóa. Liên hệ quản lý.</div>';
+            }
 
             const popup = document.createElement('div');
             popup.id = 'penaltyLoginPopup';
             popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
             popup.innerHTML = `
-            <div style="background:white;border-radius:16px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.4);">
+            <div style="background:white;border-radius:16px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.4);">
                 <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:24px 28px;border-radius:16px 16px 0 0;text-align:center;">
                     <div style="font-size:40px;margin-bottom:8px;">🔒</div>
                     <div style="font-size:20px;color:white;font-weight:800;">Tài khoản bị khóa</div>
                     <div style="font-size:12px;color:#fca5a5;margin-top:4px;">Bạn đã vi phạm quy định công việc</div>
                 </div>
 
-                <div style="padding:16px 20px;max-height:300px;overflow-y:auto;background:#fef2f2;">
-                    ${itemsHtml}
+                <div style="max-height:350px;overflow-y:auto;">
+                    ${groupsHtml}
                 </div>
 
                 <div style="padding:16px 20px;background:#fff;border-top:2px solid #fecaca;display:flex;align-items:center;justify-content:space-between;">
                     <span style="font-size:14px;font-weight:600;color:#374151;">Tổng phạt:</span>
                     <span style="font-size:22px;font-weight:800;color:#dc2626;">${(totalFine || 0).toLocaleString()}đ</span>
+                </div>
+
+                <div style="padding:12px 20px;background:#fffbeb;border-top:1px solid #fde68a;text-align:center;">
+                    <div style="font-size:12px;color:#92400e;font-weight:600;">⚠️ Hãy hoàn thành các công việc chưa làm ngay để tránh bị khóa lại!</div>
                 </div>
 
                 <div style="padding:16px 20px;background:#f8fafc;border-radius:0 0 16px 16px;text-align:center;">
