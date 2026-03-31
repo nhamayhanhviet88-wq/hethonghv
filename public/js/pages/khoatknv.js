@@ -183,7 +183,13 @@ async function _penaltyLoadStats() {
     body.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px;">⏳ Đang tải...</div>';
 
     try {
-        const data = await apiCall(`/api/penalty/lis        if (_penaltyData.length === 0) {
+        const data = await apiCall(`/api/penalty/list?month=${_penaltyMonth}`);
+        _penaltyData = data.penalties || [];
+        const total = data.total || 0;
+
+        if (badge) badge.textContent = total > 0 ? total.toLocaleString() + 'đ' : '0đ';
+
+        if (_penaltyData.length === 0) {
             body.innerHTML = `<div style="text-align:center;padding:40px;">
                 <div style="font-size:40px;margin-bottom:8px;">✅</div>
                 <div style="color:#059669;font-weight:700;font-size:14px;">Không có vi phạm nào trong tháng này</div>
@@ -206,7 +212,7 @@ async function _penaltyLoadStats() {
             byPerson[key].total += (p.penalty_amount || 0);
         });
 
-        // Source type badge colors
+        // Source type badge
         const _srcBadge = (type) => {
             if (type === 'khoa') return '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔒 CV Khóa</span>';
             if (type === 'diem') return '<span style="background:#fffbeb;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">📊 CV Điểm</span>';
@@ -240,7 +246,7 @@ async function _penaltyLoadStats() {
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="background:#fecaca;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;">${pg.total.toLocaleString()}đ</span>
-                        <button onclick="_penaltyShowSlip(${pId},'${_penaltyMonth}','${(pg.name||'').replace(/'/g,"\\\\'")}') " style="padding:4px 10px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu phạt</button>
+                        <button onclick="_penaltyShowSlip(${pId},'${_penaltyMonth}','${(pg.name||'').replace(/'/g,"\\\\'")}')" style="padding:4px 10px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu phạt</button>
                     </div>
                 </div>
                 <table style="width:100%;border-collapse:collapse;">
