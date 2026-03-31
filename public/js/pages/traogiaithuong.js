@@ -426,16 +426,25 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
     var userOpts = '<option value="">-- Chọn nhân viên --</option>';
     var preSelectedName = expectedWinner ? expectedName : '';
     var matchedExpected = false;
+    // Get expected winner's user ID from leaderboard data
+    var expectedUserId = expectedWinner ? (expectedWinner.user_id || expectedWinner.manager_id || expectedWinner.id || null) : null;
     _tgDeptUsers.forEach(function(u) {
         var selected = '';
         if (expectedWinner && !matchedExpected) {
-            var eName = expectedName.toLowerCase().trim();
-            var uName = (u.full_name || '').toLowerCase().trim();
-            var uUsername = (u.username || '').toLowerCase().trim();
-            if (uName === eName || uUsername === eName || eName.includes(uName) || uName.includes(eName)) {
+            // Match by ID first (most reliable), then by name
+            if (expectedUserId && u.id === expectedUserId) {
                 selected = ' selected';
                 preSelectedName = u.full_name;
                 matchedExpected = true;
+            } else {
+                var eName = expectedName.toLowerCase().trim();
+                var uName = (u.full_name || '').toLowerCase().trim();
+                var uUsername = (u.username || '').toLowerCase().trim();
+                if (uName === eName || uUsername === eName || eName.includes(uName) || uName.includes(eName)) {
+                    selected = ' selected';
+                    preSelectedName = u.full_name;
+                    matchedExpected = true;
+                }
             }
         }
         userOpts += '<option value="' + u.id + '"' + selected + '>' + u.full_name + '</option>';
