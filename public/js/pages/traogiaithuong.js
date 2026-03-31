@@ -424,12 +424,19 @@ async function openTgAwardForm(boardKey, topRank, prizeAmount, prizeDesc, deptJs
 
     // Build user options, auto-select expected winner
     var userOpts = '<option value="">-- Chọn nhân viên --</option>';
-    var preSelectedName = '';
+    var preSelectedName = expectedWinner ? expectedName : '';
+    var matchedExpected = false;
     _tgDeptUsers.forEach(function(u) {
         var selected = '';
-        if (expectedWinner && (u.full_name === expectedName || u.username === expectedName)) {
-            selected = ' selected';
-            preSelectedName = u.full_name;
+        if (expectedWinner && !matchedExpected) {
+            var eName = expectedName.toLowerCase().trim();
+            var uName = (u.full_name || '').toLowerCase().trim();
+            var uUsername = (u.username || '').toLowerCase().trim();
+            if (uName === eName || uUsername === eName || eName.includes(uName) || uName.includes(eName)) {
+                selected = ' selected';
+                preSelectedName = u.full_name;
+                matchedExpected = true;
+            }
         }
         userOpts += '<option value="' + u.id + '"' + selected + '>' + u.full_name + '</option>';
     });
