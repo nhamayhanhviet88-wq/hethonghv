@@ -633,3 +633,49 @@ CREATE TABLE IF NOT EXISTS dept_penalty_config (
     penalty_amount INTEGER NOT NULL DEFAULT 50000,
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ========== BÀN GIAO CV KHÓA ==========
+-- Định nghĩa công việc khóa (QL/GĐ tạo)
+CREATE TABLE IF NOT EXISTS lock_tasks (
+    id SERIAL PRIMARY KEY,
+    task_name TEXT NOT NULL,
+    task_content TEXT,
+    guide_link TEXT,
+    input_requirements TEXT,
+    output_requirements TEXT,
+    recurrence_type TEXT NOT NULL DEFAULT 'administrative' CHECK (recurrence_type IN ('weekly','monthly','once','administrative','daily')),
+    recurrence_value TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    penalty_amount INTEGER DEFAULT 50000,
+    created_by INTEGER REFERENCES users(id),
+    department_id INTEGER REFERENCES departments(id),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Gán CV khóa cho NV cụ thể
+CREATE TABLE IF NOT EXISTS lock_task_assignments (
+    id SERIAL PRIMARY KEY,
+    lock_task_id INTEGER NOT NULL REFERENCES lock_tasks(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    assigned_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(lock_task_id, user_id)
+);
+
+-- NV nộp bài / hoàn thành hàng ngày
+CREATE TABLE IF NOT EXISTS lock_task_completions (
+    id SERIAL PRIMARY KEY,
+    lock_task_id INTEGER NOT NULL REFERENCES lock_tasks(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    completion_date DATE NOT NULL,
+    proof_url TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired')),
+    reviewed_by INTEGER REFERENCES users(id),
+    reviewed_at TIMESTAMP,
+    reject_reason TEXT,
+    penalty_amount INTEGER DEFAULT 0,
+    penalty_applied BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(lock_task_id, user_id, completion_date)
+);

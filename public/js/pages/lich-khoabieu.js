@@ -14,6 +14,7 @@ const _KB_COLORS = [
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbMonthlySummary = 0; // total approved points this month
+let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
 function _kbSaveSelection(sel) {
@@ -396,6 +397,20 @@ async function _kbLoadSchedule() {
         _kbSupportRequests = {};
     }
 
+    // Load CV Khóa tasks for this week
+    try {
+        const uid = _kbViewUserId || currentUser.id;
+        const ltData = await apiCall(`/api/lock-tasks/calendar?user_id=${uid}&week_start=${monStr}`);
+        _kbLockTasks = ltData.tasks || [];
+        _kbLockCompletions = {};
+        (ltData.completions || []).forEach(c => {
+            _kbLockCompletions[`${c.lock_task_id}_${c.completion_date.slice(0,10)}`] = c;
+        });
+        _kbLockHolidays = new Set(ltData.holidays || []);
+    } catch(e) {
+        _kbLockTasks = []; _kbLockCompletions = {}; _kbLockHolidays = new Set();
+    }
+
     _kbRenderStats();
     _kbRenderGrid();
 }
@@ -686,6 +701,99 @@ function _kbRenderGrid() {
             html += `</tr>`;
         });
     }
+
+    // ===== CV KHÓA ROWS =====
+    if (_kbLockTasks && _kbLockTasks.length > 0) {
+        // Section divider
+        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#991b1b,#dc2626);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">🔐 CV Khóa — Không hoàn thành = Khóa TK + Phạt tiền</td></tr>`;
+
+        const monDate2 = new Date(_kbWeekStart);
+        _kbLockTasks.forEach(lt => {
+            html += `<tr>`;
+            // Time slot column
+            html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
+                <div style="background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(153,27,27,0.2);min-width:70px;">
+                    <div style="font-weight:700;color:#fff;font-size:11px;">🔐 KHÓA</div>
+                    <div style="margin:2px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
+                    <div style="font-weight:700;color:#fca5a5;font-size:10px;">24:00</div>
+                </div>
+            </td>`;
+
+            for (let d = 1; d <= 7; d++) {
+                if (_kbHolidayMap[d]) {
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">🏖️</div></td>`;
+                    continue;
+                }
+
+                const colDate = new Date(monDate2); colDate.setDate(monDate2.getDate() + d - 1);
+                const dateStr = _kbDateStr(colDate);
+                const dayOfWeek = colDate.getDay(); // 0=Sun, 1=Mon...
+
+                // Check if this task applies to this day
+                let applies = false;
+                if (lt.recurrence_type === 'administrative') {
+                    applies = dayOfWeek >= 1 && dayOfWeek <= 6; // Mon-Sat
+                } else if (lt.recurrence_type === 'daily') {
+                    applies = !_kbLockHolidays.has(dateStr); // Every day except holidays
+                } else if (lt.recurrence_type === 'weekly') {
+                    applies = dayOfWeek === Number(lt.recurrence_value);
+                } else if (lt.recurrence_type === 'monthly') {
+                    applies = colDate.getDate() === Number(lt.recurrence_value);
+                } else if (lt.recurrence_type === 'once') {
+                    applies = dateStr === lt.recurrence_value;
+                }
+
+                // Skip holidays
+                if (_kbLockHolidays.has(dateStr)) applies = false;
+
+                if (!applies) {
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
+                    continue;
+                }
+
+                // Get completion status
+                const compKey = `${lt.id}_${dateStr}`;
+                const comp = _kbLockCompletions[compKey];
+                let lockStatusBadge = '';
+                let lockBg = '#fef2f2';
+                let lockBorder = '#fecaca';
+
+                if (comp) {
+                    if (comp.status === 'approved') {
+                        lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
+                        lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
+                    } else if (comp.status === 'pending') {
+                        lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>';
+                        lockBg = '#fffbeb'; lockBorder = '#fde68a';
+                    } else if (comp.status === 'rejected') {
+                        lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
+                    }
+                } else if (dateStr < todayStr) {
+                    lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🚫 Không nộp</span>';
+                } else if (dateStr === todayStr) {
+                    lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chưa nộp</span>';
+                } else {
+                    lockStatusBadge = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">🔒 Sắp tới</span>';
+                    lockBg = '#fafbfc'; lockBorder = '#e5e7eb';
+                }
+
+                html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">
+                    <div style="background:${lockBg};border:2px solid ${lockBorder};border-left:4px solid #dc2626;border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
+                        <span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);">🔒 Khóa</span>
+                        <div style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;">${lt.task_name}</div>
+                        <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
+                            <span style="background:#dc2626;color:white;padding:1px 8px;border-radius:8px;font-size:9px;font-weight:700;">${(lt.penalty_amount || 50000).toLocaleString()}đ phạt</span>
+                        </div>
+                        <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
+                        ${lt.guide_link ? `<a href="${lt.guide_link}" target="_blank" style="font-size:9px;color:#dc2626;text-decoration:none;background:#fef2f2;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;">📖 Hướng dẫn</a>` : ''}
+                        <div style="margin-top:6px;">${lockStatusBadge}</div>
+                    </div>
+                </td>`;
+            }
+            html += `</tr>`;
+        });
+    }
+
     html += `</tbody></table>`;
 
     wrap.innerHTML = html;

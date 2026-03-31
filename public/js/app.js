@@ -934,6 +934,7 @@ async function handleRoute() {
         case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
         case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
         case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
+        case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
         default: renderComingSoon(content); break;
     }
 }
