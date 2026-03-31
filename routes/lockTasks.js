@@ -11,8 +11,8 @@ async function lockTaskRoutes(fastify, options) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        // Get departments
-        const departments = await db.all('SELECT id, name, parent_id FROM departments ORDER BY name');
+        // Get departments (exclude affiliate system)
+        const departments = await db.all("SELECT id, name, parent_id FROM departments WHERE LOWER(name) NOT LIKE '%affiliate%' ORDER BY name");
 
         // Get users with their departments
         let usersQuery = '';
