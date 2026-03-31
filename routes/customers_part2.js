@@ -91,7 +91,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 `UPDATE customers SET cancel_approved = -1, cancel_approved_by = ?,
                  cancel_approved_at = NOW()::text,
                  cancel_reason = cancel_reason || ?,
-                 order_status = 'tu_van_lai', appointment_date = ?,
+                 order_status = 'dang_tu_van', appointment_date = ?,
                  updated_at = NOW() WHERE id = ?`,
                 [request.user.id, `\n❌ Từ chối: ${manager_note}`, nextBizDay, custId]
             );
