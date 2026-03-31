@@ -34,8 +34,9 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         if (['nhan_vien', 'truong_phong'].includes(request.user.role)) {
             await db.run(
-                `UPDATE customers SET cancel_requested = 1, cancel_reason = ?,
+                `UPDATE customers SET cancel_requested = 1, cancel_approved = 0, cancel_reason = ?,
                  cancel_requested_by = ?, cancel_requested_at = NOW()::text,
+                 cancel_approved_by = NULL, cancel_approved_at = NULL,
                  updated_at = NOW() WHERE id = ?`,
                 [reason, request.user.id, custId]
             );
