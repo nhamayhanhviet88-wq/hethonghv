@@ -359,11 +359,11 @@ async function _tpLoadDeptMembers(deptId) {
                 const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${lead ? '700' : '500'};`;
                 const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;' : (lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;');
                 return `
-                <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
+                <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}" data-approver="${isApprover ? '1' : '0'}" data-leader="${lead ? '1' : '0'}"
                      onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
                      style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;${approverBg}display:flex;align-items:center;gap:8px;"
                      onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'" 
-                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : ''}';else this.style.background='#059669'">
+                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : ''}';">
                     <div style="flex:1;min-width:0;">
                         <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
                         <div style="font-size:10px;${roleStyle}margin-top:1px;">${roleTag}</div>
@@ -407,24 +407,30 @@ function _tpSelectMember(deptId, userId, userName) {
     _tpViewMode = 'individual';
     _tpViewUserId = userId;
     _tpViewUserName = userName;
-    // Highlight member — green bg + white text
+    // Highlight member — gold for approvers/managers, blue for regular
     document.querySelectorAll('.tp-member-item').forEach(el => {
         const isActive = Number(el.dataset.uid) === userId;
         el.classList.toggle('tp-member-active', isActive);
-        el.style.background = isActive ? '#059669' : '';
-        el.style.color = isActive ? '#fff' : '#1e293b';
-        el.style.fontWeight = isActive ? '700' : '';
-        el.style.borderLeft = isActive ? '3px solid #047857' : '3px solid transparent';
-        if (isActive) el.style.borderRadius = '6px';
-        else el.style.borderRadius = '';
+        if (isActive) {
+            const isApproverOrLead = el.dataset.approver === '1' || el.dataset.leader === '1';
+            el.style.background = isApproverOrLead ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'linear-gradient(135deg,#2563eb,#1d4ed8)';
+            el.style.color = '#fff';
+            el.style.fontWeight = '700';
+            el.style.borderLeft = isApproverOrLead ? '3px solid #b45309' : '3px solid #1e40af';
+            el.style.borderRadius = '6px';
+            el.style.boxShadow = isApproverOrLead ? '0 2px 8px rgba(217,119,6,0.4)' : '0 2px 8px rgba(37,99,235,0.3)';
+        } else {
+            const isApprover = el.dataset.approver === '1';
+            el.style.background = isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : '';
+            el.style.color = '#1e293b';
+            el.style.fontWeight = '';
+            el.style.borderLeft = isApprover ? '3px solid #3b82f6' : '3px solid transparent';
+            el.style.borderRadius = '';
+            el.style.boxShadow = '';
+        }
     });
-    // Highlight dept header
-    document.querySelectorAll('.tp-dept-header').forEach(el => {
-        const isActive = Number(el.dataset.id) === deptId;
-        el.style.background = isActive ? '#eff6ff' : 'white';
-        el.style.color = isActive ? '#122546' : '#374151';
-        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
-    });
+    // Use _tpSelectItem to properly highlight dept headers (preserves styling)
+    _tpSelectItem('team', deptId);
     _tpTarget = { type: 'team', id: deptId, userId: userId };
     _tpSaveSelection({ type: 'member', deptId, userId, userName });
     _tpLoadTasks();
@@ -579,21 +585,9 @@ function _tpRenderGrid() {
 
     let html = '';
 
-    // View mode header
-    if (_tpViewMode === 'individual' && _tpViewUserName) {
-        html += `<div style="padding:10px 14px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;justify-content:space-between;border-radius:10px 10px 0 0;">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:18px;">👤</span>
-                <div>
-                    <div style="font-weight:700;color:#064e3b;font-size:14px;">Lịch cá nhân: ${_tpViewUserName}</div>
-                    <div style="font-size:11px;color:#059669;">📦 = Từ team (chỉ xem) &nbsp;|&nbsp; 👤 = Riêng (sửa/xóa được)</div>
-                </div>
-            </div>
-            <button onclick="_tpSelectDept(${_tpTarget.id})" style="padding:5px 12px;border:1px solid #a7f3d0;border-radius:6px;background:white;color:#059669;cursor:pointer;font-size:12px;font-weight:600;">← Về lịch team</button>
-        </div>`;
-    }
+    // Individual header removed — same layout for both team and individual views
 
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}flex-wrap:wrap;gap:8px;">
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;align-items:center;gap:6px;">
             <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
             <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
