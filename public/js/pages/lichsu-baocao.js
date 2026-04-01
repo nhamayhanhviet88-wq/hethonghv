@@ -440,7 +440,7 @@ function _rhRenderContent() {
     }
 
     // ===== CV KHÓA SECTION =====
-    if (lock_tasks.length > 0 || lock_completions.length > 0) {
+    if (lock_completions.length > 0) {
         // Group completions by task
         const lockGroupMap = new Map();
         lock_tasks.forEach(lt => {
@@ -465,7 +465,7 @@ function _rhRenderContent() {
             lockGroupMap.get(lc.task_name).completions.push(lc);
         });
 
-        const lockGroups = [...lockGroupMap.values()];
+        const lockGroups = [...lockGroupMap.values()].filter(g => g.completions.length > 0);
         let lockApproved = 0, lockPending = 0, lockRejected = 0;
         lock_completions.forEach(lc => {
             if (lc.status === 'approved') lockApproved++;
