@@ -772,7 +772,7 @@ function _kbRenderGrid() {
                         </div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px;">
-                            ${task.guide_url ? `<a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:3px 6px;border-radius:4px;line-height:1;display:inline-flex;align-items:center;">📘 Hướng dẫn</a>` : ''}
+
                             ${actionBtn}
                             ${isSelf && dateStr <= todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
                         </div>
@@ -938,7 +938,7 @@ function _kbRenderGrid() {
                         ${lt.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s ease-in-out infinite;">CẦN DUYỆT</span>' : ''}
                         <div onclick="_kbShowLockTaskDetail(${lt.id})" style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${lt.task_name}</div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
-                        ${lt.guide_link ? `<a href="${lt.guide_link}" target="_blank" style="font-size:10px;color:#be185d;text-decoration:none;background:#fce7f3;padding:3px 8px;border-radius:5px;display:inline-block;margin-top:4px;font-weight:700;border:1px solid #f9a8d4;">📖 Hướng dẫn</a>` : ''}
+
                         <div style="margin-top:6px;">${lockStatusBadge}</div>
                         ${actionHtml}
                     </div>
