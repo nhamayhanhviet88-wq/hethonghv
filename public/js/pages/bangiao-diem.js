@@ -13,6 +13,7 @@ let _tpHolidayMap = {};
 let _tpViewMode = 'team'; // 'team' | 'individual'
 let _tpViewUserId = null;
 let _tpViewUserName = '';
+let _tpViewDeptName = '';
 
 // ===== SELECTION PERSISTENCE (per user, localStorage) =====
 function _tpSaveSelection(sel) {
@@ -320,6 +321,7 @@ async function _tpSelectDept(deptId) {
     _tpViewMode = 'team';
     _tpViewUserId = null;
     _tpViewUserName = '';
+    _tpViewDeptName = '';
     _tpSelectItem('team', deptId);
     _tpSaveSelection({ type: 'dept', deptId });
     // Load and show members under this dept
@@ -406,7 +408,12 @@ function _tpSelectMember(deptId, userId, userName) {
     _tpViewMode = 'individual';
     _tpViewUserId = userId;
     _tpViewUserName = userName;
-    // Highlight member — light blue for selected, white for others
+    // Find dept name for header
+    const deptHeader = document.querySelector(`.tp-dept-header[data-id="${deptId}"]`);
+    _tpViewDeptName = deptHeader ? deptHeader.textContent.replace(/[0-9.└🏢►▶▼]/g, '').trim() : '';
+    // First: highlight dept header (this also clears member highlights)
+    _tpSelectItem('team', deptId);
+    // Then: re-apply member highlight AFTER _tpSelectItem cleared them
     document.querySelectorAll('.tp-member-item').forEach(el => {
         const isActive = Number(el.dataset.uid) === userId;
         el.classList.toggle('tp-member-active', isActive);
@@ -414,11 +421,7 @@ function _tpSelectMember(deptId, userId, userName) {
         el.style.color = isActive ? '#1e40af' : '#1e293b';
         el.style.fontWeight = isActive ? '700' : '';
         el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
-        el.style.borderRadius = '';
-        el.style.boxShadow = '';
     });
-    // Use _tpSelectItem to properly highlight dept headers (preserves styling)
-    _tpSelectItem('team', deptId);
     _tpTarget = { type: 'team', id: deptId, userId: userId };
     _tpSaveSelection({ type: 'member', deptId, userId, userName });
     _tpLoadTasks();
@@ -573,9 +576,18 @@ function _tpRenderGrid() {
 
     let html = '';
 
-    // Individual header removed — same layout for both team and individual views
+    // Show selected user header when viewing individual
+    if (_tpViewMode === 'individual' && _tpViewUserName) {
+        html += `<div style="padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;background:white;border-radius:10px 10px 0 0;">
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2563eb);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700;">${(_tpViewUserName || '?')[0].toUpperCase()}</div>
+            <div>
+                <div style="font-weight:700;color:#122546;font-size:15px;">${_tpViewUserName}</div>
+                <div style="font-size:11px;color:#6b7280;">${_tpViewDeptName || ''}</div>
+            </div>
+        </div>`;
+    }
 
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;flex-wrap:wrap;gap:8px;">
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}flex-wrap:wrap;gap:8px;">
         <div style="display:flex;align-items:center;gap:6px;">
             <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
             <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
