@@ -122,29 +122,53 @@ async function lockTaskRoutes(fastify, options) {
     fastify.get('/api/lock-tasks/dept/:deptId', { preHandler: [authenticate] }, async (request, reply) => {
         const deptId = Number(request.params.deptId);
 
-        const tasks = await db.all(
-            `SELECT lt.*, u.full_name as created_by_name,
-                    COUNT(DISTINCT lta.user_id) as assigned_count
-             FROM lock_tasks lt
-             LEFT JOIN users u ON u.id = lt.created_by
-             LEFT JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
-             WHERE lt.department_id = $1 AND lt.is_active = true
-             GROUP BY lt.id, u.full_name
-             ORDER BY lt.recurrence_type, lt.task_name`,
-            [deptId]
-        );
+        // Check if this is a sub-team (child of a parent dept)
+        const dept = await db.get('SELECT id, parent_id, name FROM departments WHERE id = $1', [deptId]);
+        const parentDept = dept?.parent_id ? await db.get('SELECT id, parent_id FROM departments WHERE id = $1', [dept.parent_id]) : null;
+        // A dept is a sub-team if its parent is NOT a system dept (system depts have their own parent or are top-level)
+        const isSubTeam = parentDept && parentDept.parent_id; // parent has a parent → this is a sub-team
 
-        // Get users assigned to each task
+        let tasks;
+        if (isSubTeam) {
+            // Sub-team: show tasks from parent dept where at least one assigned user belongs to this team
+            tasks = await db.all(
+                `SELECT DISTINCT lt.*, u.full_name as created_by_name,
+                        COUNT(DISTINCT lta.user_id) as assigned_count
+                 FROM lock_tasks lt
+                 LEFT JOIN users u ON u.id = lt.created_by
+                 LEFT JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                 LEFT JOIN users au ON au.id = lta.user_id
+                 WHERE lt.department_id = $1 AND lt.is_active = true AND au.department_id = $2
+                 GROUP BY lt.id, u.full_name
+                 ORDER BY lt.recurrence_type, lt.task_name`,
+                [dept.parent_id, deptId]
+            );
+        } else {
+            tasks = await db.all(
+                `SELECT lt.*, u.full_name as created_by_name,
+                        COUNT(DISTINCT lta.user_id) as assigned_count
+                 FROM lock_tasks lt
+                 LEFT JOIN users u ON u.id = lt.created_by
+                 LEFT JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                 WHERE lt.department_id = $1 AND lt.is_active = true
+                 GROUP BY lt.id, u.full_name
+                 ORDER BY lt.recurrence_type, lt.task_name`,
+                [deptId]
+            );
+        }
+
+        // Get users assigned to each task (with dept info)
         const taskIds = tasks.map(t => t.id);
         let assignedUsers = [];
         if (taskIds.length > 0) {
             const placeholders = taskIds.map((_, i) => `$${i + 1}`).join(',');
             assignedUsers = await db.all(
-                `SELECT lta.lock_task_id, u.id as user_id, u.full_name, u.username
+                `SELECT lta.lock_task_id, u.id as user_id, u.full_name, u.username, u.department_id as user_dept_id, d.name as user_dept_name
                  FROM lock_task_assignments lta
                  JOIN users u ON u.id = lta.user_id
+                 LEFT JOIN departments d ON d.id = u.department_id
                  WHERE lta.lock_task_id IN (${placeholders})
-                 ORDER BY u.full_name`,
+                 ORDER BY d.name, u.full_name`,
                 taskIds
             );
         }
@@ -153,7 +177,7 @@ async function lockTaskRoutes(fastify, options) {
         const userMap = {};
         assignedUsers.forEach(au => {
             if (!userMap[au.lock_task_id]) userMap[au.lock_task_id] = [];
-            userMap[au.lock_task_id].push({ id: au.user_id, name: au.full_name, username: au.username });
+            userMap[au.lock_task_id].push({ id: au.user_id, name: au.full_name, username: au.username, dept_name: au.user_dept_name, dept_id: au.user_dept_id });
         });
 
         tasks.forEach(t => { t.assigned_users = userMap[t.id] || []; });

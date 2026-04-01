@@ -278,7 +278,9 @@ async function _lkLoadDeptTasks(deptId) {
                 <div style="color:#9ca3af;font-size:13px;">Chưa có công việc khóa nào</div>
             </div>`;
         } else {
-            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, _lkIsParentDept)}</div>`;
+            // Check if this dept has sub-teams
+            const hasSubTeams = _lkIsParentDept && (_lkTreeData?.departments || []).some(d => d.parent_id === deptId);
+            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, _lkIsParentDept, hasSubTeams)}</div>`;
         }
 
         panel.innerHTML = html;
@@ -379,7 +381,7 @@ async function _lkLoadUserTasks(userId, userName) {
 }
 
 // ===== TASK TABLE (DEPT VIEW) =====
-function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true) {
+function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true, showTeamCol = false) {
     let html = `<div style="background:white;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <table style="width:100%;border-collapse:collapse;">
             <thead>
@@ -388,6 +390,7 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true) {
                     <th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Lặp lại</th>
                     <th style="padding:10px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">QL Duyệt</th>
                     <th style="padding:10px 12px;text-align:right;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Phạt</th>
+                    ${showTeamCol ? '<th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Team</th>' : ''}
                     ${showAssignees ? '<th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân viên</th>' : ''}
                     ${showEditBtns ? '<th style="padding:10px 12px;width:60px;"></th>' : ''}
                 </tr>
@@ -398,7 +401,18 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true) {
         const recLabel = _LK_RECURRENCE_LABELS[t.recurrence_type] || t.recurrence_type;
         const recDetail = t.recurrence_type === 'weekly' ? ` (${_LK_DAY_NAMES[Number(t.recurrence_value)] || ''})` :
                           t.recurrence_type === 'monthly' ? ` (ngày ${t.recurrence_value})` : '';
-        const userNames = (t.assigned_users || []).map(u => u.name).join(', ');
+
+        // Group users by team for team column
+        let teamColHtml = '';
+        if (showTeamCol) {
+            const teams = {};
+            (t.assigned_users || []).forEach(u => {
+                const tn = u.dept_name || 'Khác';
+                if (!teams[tn]) teams[tn] = [];
+                teams[tn].push(u.name);
+            });
+            teamColHtml = Object.keys(teams).map(tn => `<span style="display:inline-block;background:#f0f9ff;color:#0369a1;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px 2px;white-space:nowrap;">🏢 ${tn}</span>`).join('');
+        }
 
         html += `<tr style="border-bottom:1px solid #f1f5f9;${i % 2 ? 'background:#fafbfc;' : ''}">
             <td style="padding:10px 12px;">
@@ -408,8 +422,9 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true) {
             <td style="padding:10px 12px;font-size:11px;color:#6b7280;">${recLabel}${recDetail}</td>
             <td style="padding:10px 12px;text-align:center;font-size:11px;">${t.requires_approval ? '✅' : '—'}</td>
             <td style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#dc2626;">${(t.penalty_amount || 50000).toLocaleString()}đ</td>
+            ${showTeamCol ? `<td style="padding:10px 12px;">${teamColHtml || '<span style="color:#9ca3af;">—</span>'}</td>` : ''}
             ${showAssignees ? `<td style="padding:10px 12px;font-size:11px;color:#374151;max-width:200px;">
-                ${(t.assigned_users || []).map(u => `<span style="display:inline-block;background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px 2px;cursor:pointer;white-space:nowrap;" onclick="_lkSelectUser(${u.id},'${(u.name||'').replace(/'/g,"\\\\'")}',event)">👤 ${u.name}</span>`).join('') || '<span style="color:#9ca3af;">—</span>'}
+                ${(t.assigned_users || []).map(u => `<span style="display:inline-block;background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px 2px;cursor:pointer;white-space:nowrap;" onclick="_lkSelectUser(${u.id},'${(u.name||'').replace(/'/g,"\\'")}',event)">👤 ${u.name}</span>`).join('') || '<span style="color:#9ca3af;">—</span>'}
             </td>` : ''}
             ${showEditBtns ? `<td style="padding:10px 12px;text-align:center;">
                 <button onclick="_lkEditTask(${t.id})" style="padding:2px 6px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;background:white;color:#6b7280;cursor:pointer;">✏️</button>
