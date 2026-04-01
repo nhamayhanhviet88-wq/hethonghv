@@ -447,12 +447,12 @@ async function _lkShowCreateModal(deptId, editTask) {
                 <input id="lkf_name" type="text" value="${t.task_name || ''}" placeholder="VD: Báo cáo doanh thu" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Nội dung công việc</label>
+                <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Nội dung công việc *</label>
                 <textarea id="lkf_content" rows="2" placeholder="Mô tả chi tiết..." style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;">${t.task_content || ''}</textarea>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
                 <div>
-                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Link hướng dẫn</label>
+                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Link hướng dẫn *</label>
                     <input id="lkf_guide" type="url" value="${t.guide_link || ''}" placeholder="https://..." style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
                 </div>
                 <div>
@@ -460,15 +460,19 @@ async function _lkShowCreateModal(deptId, editTask) {
                     <input id="lkf_penalty" type="number" value="${t.penalty_amount || 50000}" min="0" step="10000" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
                 </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Yêu cầu đầu vào</label>
-                    <input id="lkf_input" type="text" value="${t.input_requirements || ''}" placeholder="VD: File Excel" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <label style="font-size:11px;font-weight:700;color:#991b1b;">📥 Yêu cầu đầu vào CV *</label>
+                    <button type="button" onclick="_lkAddReqItem('lkf_input_list')" style="padding:2px 10px;font-size:14px;border:1px solid #a7f3d0;border-radius:6px;background:#f0fdf4;color:#059669;cursor:pointer;font-weight:800;">＋</button>
                 </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Yêu cầu đầu ra</label>
-                    <input id="lkf_output" type="text" value="${t.output_requirements || ''}" placeholder="VD: Ảnh chụp màn hình" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                <div id="lkf_input_list">${_lkRenderReqItems(_lkParseReqs(t.input_requirements))}</div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <label style="font-size:11px;font-weight:700;color:#991b1b;">📤 Yêu cầu đầu ra CV *</label>
+                    <button type="button" onclick="_lkAddReqItem('lkf_output_list')" style="padding:2px 10px;font-size:14px;border:1px solid #a7f3d0;border-radius:6px;background:#f0fdf4;color:#059669;cursor:pointer;font-weight:800;">＋</button>
                 </div>
+                <div id="lkf_output_list">${_lkRenderReqItems(_lkParseReqs(t.output_requirements))}</div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
                 <div>
@@ -550,6 +554,59 @@ function _lkRecurrenceValueHTML(type, value) {
     return '<div style="padding-top:20px;font-size:11px;color:#9ca3af;">Không cần cấu hình thêm</div>';
 }
 
+// ========== LOCK TASK REQUIREMENT HELPERS ==========
+function _lkParseReqs(val) {
+    if (!val) return [''];
+    const raw = (typeof val === 'string') ? val.trim() : '';
+    if (!raw) return [''];
+    try { if (raw.startsWith('[')) { const arr = JSON.parse(raw); return arr.length ? arr : ['']; } } catch(e) {}
+    return [raw];
+}
+
+function _lkRenderReqItems(items) {
+    if (!items || items.length === 0) items = [''];
+    return items.map((item, i) => `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" class="lkReqRow">
+            <span style="font-size:11px;font-weight:700;color:#6b7280;min-width:20px;">${i + 1}.</span>
+            <input type="text" class="lkReqInput" value="${(item || '').replace(/"/g, '&quot;')}" placeholder="Nhập yêu cầu..." style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;box-sizing:border-box;">
+            <button type="button" onclick="_lkRemoveReqItem(this)" style="padding:2px 8px;font-size:12px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;" title="Xóa">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function _lkAddReqItem(containerId) {
+    const wrap = document.getElementById(containerId);
+    if (!wrap) return;
+    const count = wrap.querySelectorAll('.lkReqRow').length;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+    div.className = 'lkReqRow';
+    div.innerHTML = `
+        <span style="font-size:11px;font-weight:700;color:#6b7280;min-width:20px;">${count + 1}.</span>
+        <input type="text" class="lkReqInput" placeholder="Nhập yêu cầu..." style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;box-sizing:border-box;">
+        <button type="button" onclick="_lkRemoveReqItem(this)" style="padding:2px 8px;font-size:12px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;" title="Xóa">🗑️</button>
+    `;
+    wrap.appendChild(div);
+    div.querySelector('.lkReqInput').focus();
+}
+
+function _lkRemoveReqItem(btn) {
+    const row = btn.closest('.lkReqRow');
+    const wrap = row.parentElement;
+    if (wrap.querySelectorAll('.lkReqRow').length <= 1) { showToast('Phải có ít nhất 1 yêu cầu!', 'error'); return; }
+    row.remove();
+    wrap.querySelectorAll('.lkReqRow').forEach((r, i) => {
+        const num = r.querySelector('span');
+        if (num) num.textContent = (i + 1) + '.';
+    });
+}
+
+function _lkCollectReqItems(containerId) {
+    const wrap = document.getElementById(containerId);
+    if (!wrap) return [];
+    return [...wrap.querySelectorAll('.lkReqInput')].map(el => el.value.trim()).filter(v => v);
+}
+
 function _lkRecurrenceChanged() {
     const type = document.getElementById('lkf_recurrence')?.value;
     const wrap = document.getElementById('lkf_recurrence_value_wrap');
@@ -563,6 +620,14 @@ function _lkToggleAll(checked) {
 async function _lkSaveTask(taskId, deptId) {
     const name = document.getElementById('lkf_name')?.value?.trim();
     if (!name) { alert('Nhập tên công việc!'); return; }
+    const content = document.getElementById('lkf_content')?.value?.trim();
+    if (!content) { alert('Nhập nội dung công việc!'); return; }
+    const guideLink = document.getElementById('lkf_guide')?.value?.trim();
+    if (!guideLink) { alert('Nhập link hướng dẫn!'); return; }
+    const inputReqs = _lkCollectReqItems('lkf_input_list');
+    if (inputReqs.length === 0) { alert('Nhập ít nhất 1 yêu cầu đầu vào!'); return; }
+    const outputReqs = _lkCollectReqItems('lkf_output_list');
+    if (outputReqs.length === 0) { alert('Nhập ít nhất 1 yêu cầu đầu ra!'); return; }
 
     const userIds = [];
     document.querySelectorAll('.lkf-user-cb:checked').forEach(cb => userIds.push(Number(cb.value)));
@@ -570,10 +635,10 @@ async function _lkSaveTask(taskId, deptId) {
 
     const payload = {
         task_name: name,
-        task_content: document.getElementById('lkf_content')?.value?.trim() || '',
-        guide_link: document.getElementById('lkf_guide')?.value?.trim() || '',
-        input_requirements: document.getElementById('lkf_input')?.value?.trim() || '',
-        output_requirements: document.getElementById('lkf_output')?.value?.trim() || '',
+        task_content: content,
+        guide_link: guideLink,
+        input_requirements: JSON.stringify(inputReqs),
+        output_requirements: JSON.stringify(outputReqs),
         recurrence_type: document.getElementById('lkf_recurrence')?.value || 'administrative',
         recurrence_value: document.getElementById('lkf_recval')?.value || '',
         requires_approval: document.getElementById('lkf_approval')?.checked || false,

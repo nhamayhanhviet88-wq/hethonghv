@@ -2080,14 +2080,14 @@ async function _kbShowLockTaskDetail(lockTaskId) {
                 <div style="margin-bottom:12px;">
                     <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
                     <div style="padding:10px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
-                        ${inputReqs.map((r,i) => `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span><span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span></div>`).join('')}
+                        ${inputReqs.map((r,i) => { const isLink = /^https?:\/\//i.test(r); return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span>${isLink ? `<a href="${r}" target="_blank" style="font-size:12px;color:#2563eb;word-break:break-all;">${r}</a>` : `<span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span>`}</div>`; }).join('')}
                     </div>
                 </div>` : ''}
                 ${outputReqs.length > 0 ? `
                 <div style="margin-bottom:12px;">
                     <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
                     <div style="padding:10px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
-                        ${outputReqs.map((r,i) => `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span><span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span></div>`).join('')}
+                        ${outputReqs.map((r,i) => { const isLink = /^https?:\/\//i.test(r); return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span>${isLink ? `<a href="${r}" target="_blank" style="font-size:12px;color:#2563eb;word-break:break-all;">${r}</a>` : `<span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span>`}</div>`; }).join('')}
                     </div>
                 </div>` : ''}
             </div>
