@@ -912,10 +912,16 @@ function _kbRenderGrid() {
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
                         </div>`;
                     } else if (comp && comp.status === 'pending' && comp.proof_url) {
-                        // Pending with proof: show proof link
-                        actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a></div>`;
-                    } else if (comp && comp.status === 'approved' && comp.proof_url) {
-                        actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#059669;text-decoration:none;">📎 Xem file</a></div>`;
+                        // Pending with proof: show proof link + view content
+                        actionHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:3px;align-items:center;">
+                            <a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a>
+                            ${comp.content ? `<span onclick="_kbShowLockReport(${comp.id})" style="font-size:9px;color:#6b7280;cursor:pointer;text-decoration:underline;" title="${(comp.content||'').replace(/"/g,'&quot;')}">📄 Xem nội dung</span>` : ''}
+                        </div>`;
+                    } else if (comp && comp.status === 'approved') {
+                        actionHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:3px;align-items:center;">
+                            ${comp.proof_url ? `<a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file</a>` : ''}
+                            <span onclick="_kbShowLockReport(${comp.id})" style="font-size:9px;color:#059669;cursor:pointer;text-decoration:underline;font-weight:600;">📄 Xem báo cáo</span>
+                        </div>`;
                     }
                 } else {
                     // Manager viewing staff: show 'Chưa nộp' label for unsubmitted today tasks
@@ -2371,4 +2377,97 @@ async function _kbSaveReorder() {
     } catch(e) {
         showToast('Lỗi lưu thứ tự', 'error');
     }
+}
+
+// ========== VIEW LOCK TASK REPORT ==========
+function _kbShowLockReport(compId) {
+    // Find the completion from _kbLockCompletions map
+    let comp = null;
+    for (const key in _kbLockCompletions) {
+        if (_kbLockCompletions[key].id === compId) {
+            comp = _kbLockCompletions[key];
+            break;
+        }
+    }
+    if (!comp) { showToast('Không tìm thấy báo cáo', 'error'); return; }
+
+    // Find task name
+    const lt = _kbLockTasks.find(t => t.id === comp.lock_task_id);
+    const taskName = lt ? lt.task_name : 'Công việc khóa';
+
+    const statusMap = {
+        approved: { icon: '✅', label: 'Đã duyệt', color: '#16a34a', bg: '#dcfce7' },
+        pending: { icon: '⏳', label: 'Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { icon: '❌', label: 'Từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { icon: '🚫', label: 'Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
+    };
+    const st = statusMap[comp.status] || statusMap.pending;
+    const dateF = comp.completion_date ? comp.completion_date.split('-').reverse().join('/') : '';
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (!overlay || !titleEl || !body) return;
+
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) modalContainer.style.maxWidth = '600px';
+
+    titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${taskName}`;
+
+    let proofHtml = '';
+    if (comp.proof_url) {
+        if (comp.proof_url.startsWith('/uploads')) {
+            proofHtml = `
+            <div style="margin-top:12px;">
+                <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">🖼️ Hình ảnh báo cáo:</div>
+                <a href="${comp.proof_url}" target="_blank">
+                    <img src="${comp.proof_url}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onerror="this.style.display='none'" />
+                </a>
+            </div>`;
+        } else {
+            proofHtml = `
+            <div style="margin-top:12px;">
+                <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">🔗 Link báo cáo:</div>
+                <a href="${comp.proof_url}" target="_blank" style="color:#2563eb;word-break:break-all;font-size:12px;">${comp.proof_url}</a>
+            </div>`;
+        }
+    }
+
+    body.innerHTML = `
+    <div style="padding:20px;">
+        <!-- Status + Date -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <span style="background:${st.bg};color:${st.color};padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;">${st.icon} ${st.label}</span>
+            <span style="font-size:13px;color:#6b7280;font-weight:600;">📅 ${dateF}</span>
+        </div>
+
+        <!-- Content -->
+        ${comp.content ? `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;">
+            <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">📄 Nội dung báo cáo:</div>
+            <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${comp.content}</div>
+        </div>` : ''}
+
+        <!-- Proof -->
+        ${proofHtml}
+
+        <!-- Reject reason -->
+        ${comp.reject_reason ? `
+        <div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:12px;">
+            <div style="font-weight:700;color:#dc2626;font-size:12px;margin-bottom:4px;">💬 Lý do từ chối:</div>
+            <div style="font-size:12px;color:#7f1d1d;">${comp.reject_reason}</div>
+        </div>` : ''}
+
+        <!-- Redo count -->
+        ${comp.redo_count > 0 ? `
+        <div style="margin-top:10px;font-size:11px;color:#d97706;">🔄 Lần báo cáo: ${comp.redo_count}</div>` : ''}
+
+        <!-- Reviewed at -->
+        ${comp.reviewed_at ? `
+        <div style="margin-top:8px;font-size:10px;color:#9ca3af;">⏰ Duyệt lúc: ${new Date(comp.reviewed_at).toLocaleString('vi-VN')}</div>` : ''}
+    </div>`;
+
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    overlay.classList.add('show');
 }
