@@ -12,6 +12,7 @@ let _lkSelectedUserId = null;
 let _lkSelectedDeptId = null;
 let _lkTreeData = null;
 let _lkIsParentDept = false; // true if selected dept is a PHÒNG (not sub-team)
+let _lkIsSystemDept = false; // true if selected dept is HỆ THỐNG
 
 async function renderBanGiaoKhoaPage(container) {
     const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
@@ -215,11 +216,13 @@ function _lkFilterSidebar() {
 function _lkSelectDept(deptId) {
     _lkSelectedDeptId = deptId;
     _lkSelectedUserId = null;
-    // Determine if this is a parent dept (PHÒNG) or sub-team
+    // Determine if this is a parent dept (PHÒNG) or sub-team or system dept
     const dept = _lkTreeData?.departments?.find(d => d.id === deptId);
     const parentDept = dept?.parent_id ? _lkTreeData?.departments?.find(d => d.id === dept.parent_id) : null;
+    // Check if this is a HỆ THỐNG dept
+    _lkIsSystemDept = dept?.name?.startsWith('HỆ THỐNG') || false;
     // It's a parent dept if its parent is a system dept (code starts with 'SYS') or has no parent
-    _lkIsParentDept = !parentDept || (parentDept?.code?.startsWith('SYS') || parentDept?.name?.startsWith('HỆ THỐNG'));
+    _lkIsParentDept = _lkIsSystemDept || !parentDept || (parentDept?.code?.startsWith('SYS') || parentDept?.name?.startsWith('HỆ THỐNG'));
     // Remove selected styles
     document.querySelectorAll('.lk-user-item').forEach(el => {
         el.classList.remove('lk-selected');
@@ -254,6 +257,7 @@ async function _lkLoadDeptTasks(deptId) {
     const panel = document.getElementById('lkTaskPanel');
     if (!panel) return;
     const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
+    const isDirector = currentUser.role === 'giam_doc';
 
     panel.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
 
@@ -263,13 +267,16 @@ async function _lkLoadDeptTasks(deptId) {
         const dept = _lkTreeData?.departments?.find(d => d.id === deptId);
         const deptName = dept?.name || 'Phòng ban';
 
+        // Show Thêm button: at PHÒNG level for managers, at HỆ THỐNG level only for GĐ
+        const canAddTask = _lkIsSystemDept ? isDirector : (isManager && _lkIsParentDept);
+
         let html = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px 16px 0;">
             <div>
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">🏢 ${deptName}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} công việc khóa</div>
             </div>
-            ${isManager && _lkIsParentDept ? `<button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa</button>` : ''}
+            ${canAddTask ? `<button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa</button>` : ''}
         </div>`;
 
         if (tasks.length === 0) {
@@ -279,8 +286,9 @@ async function _lkLoadDeptTasks(deptId) {
             </div>`;
         } else {
             // Check if this dept has sub-teams
-            const hasSubTeams = _lkIsParentDept && (_lkTreeData?.departments || []).some(d => d.parent_id === deptId);
-            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, _lkIsParentDept, hasSubTeams)}</div>`;
+            const hasSubTeams = (_lkIsParentDept || _lkIsSystemDept) && (_lkTreeData?.departments || []).some(d => d.parent_id === deptId);
+            const showEdit = _lkIsSystemDept ? isDirector : _lkIsParentDept;
+            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, showEdit, hasSubTeams)}</div>`;
         }
 
         panel.innerHTML = html;
@@ -527,26 +535,48 @@ async function _lkShowCreateModal(deptId, editTask) {
                 </div>
                 <div id="lkf_userList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
                     ${(() => {
-                        // Group users by dept_name (team)
-                        const groups = {};
-                        deptUsers.forEach(u => {
-                            const key = u.dept_name || 'Khác';
-                            if (!groups[key]) groups[key] = [];
-                            groups[key].push(u);
-                        });
+                        // Group users by dept hierarchy
                         let userHtml = '';
-                        Object.keys(groups).forEach(grp => {
-                            if (Object.keys(groups).length > 1) {
-                                userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:4px;border-bottom:1px solid #e2e8f0;">🏢 ${grp}</div>`;
+                        if (_lkIsSystemDept) {
+                            // HỆ THỐNG: show QLCC first, then group by PHÒNG → Team
+                            const qlccUsers = deptUsers.filter(u => ['quan_ly'].includes(u.role) || u.department_id === deptId);
+                            const otherUsers = deptUsers.filter(u => !qlccUsers.some(q => q.id === u.id));
+                            if (qlccUsers.length > 0) {
+                                userHtml += `<div style="font-size:10px;font-weight:800;color:#dc2626;text-transform:uppercase;padding:6px 6px 2px;margin-top:2px;border-bottom:2px solid #fecaca;background:#fef2f2;border-radius:4px;">⭐ QUẢN LÝ CẤP CAO</div>`;
+                                qlccUsers.forEach(u => {
+                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#991b1b;font-weight:600;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ⭐ ${u.full_name}</label>`;
+                                });
                             }
-                            groups[grp].forEach(u => {
-                                userHtml += `
-                                    <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                        <input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;">
-                                        ${u.full_name}
-                                    </label>`;
+                            // Group remaining by PHÒNG
+                            const phongGroups = {};
+                            otherUsers.forEach(u => {
+                                const key = u.dept_name || 'Khác';
+                                if (!phongGroups[key]) phongGroups[key] = [];
+                                phongGroups[key].push(u);
                             });
-                        });
+                            Object.keys(phongGroups).forEach(grp => {
+                                userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:6px;border-bottom:1px solid #e2e8f0;">📂 ${grp}</div>`;
+                                phongGroups[grp].forEach(u => {
+                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ${u.full_name}</label>`;
+                                });
+                            });
+                        } else {
+                            // Normal PHÒNG: group by team
+                            const groups = {};
+                            deptUsers.forEach(u => {
+                                const key = u.dept_name || 'Khác';
+                                if (!groups[key]) groups[key] = [];
+                                groups[key].push(u);
+                            });
+                            Object.keys(groups).forEach(grp => {
+                                if (Object.keys(groups).length > 1) {
+                                    userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:4px;border-bottom:1px solid #e2e8f0;">🏢 ${grp}</div>`;
+                                }
+                                groups[grp].forEach(u => {
+                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ${u.full_name}</label>`;
+                                });
+                            });
+                        }
                         return userHtml;
                     })()}
                 </div>

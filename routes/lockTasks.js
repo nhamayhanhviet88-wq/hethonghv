@@ -565,7 +565,7 @@ async function lockTaskRoutes(fastify, options) {
 
         const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
         const users = await db.all(
-            `SELECT u.id, u.full_name, u.username, u.department_id, d.name as dept_name
+            `SELECT u.id, u.full_name, u.username, u.department_id, u.role, d.name as dept_name
              FROM users u
              LEFT JOIN departments d ON d.id = u.department_id
              WHERE u.department_id IN (${placeholders}) AND u.status = 'active'
