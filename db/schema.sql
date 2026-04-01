@@ -712,6 +712,8 @@ ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS max_redo_count INTEGER
 
 -- Add updated_at to lock_task_completions (for tracking stacking penalties)
 ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+-- Add content column for report text
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS content TEXT;
 
 -- Add 'resolved' status to task_support_requests
 DO $$ BEGIN

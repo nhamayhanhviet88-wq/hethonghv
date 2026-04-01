@@ -289,10 +289,46 @@ async function lockTaskRoutes(fastify, options) {
         const dd = String(today.getDate()).padStart(2, '0');
         const todayStr = `${yyyy}-${mm}-${dd}`;
 
-        // Handle multipart upload
-        const data = await request.file();
-        if (!data) {
-            return reply.code(400).send({ error: 'Vui lòng upload file chứng minh' });
+        // Handle multipart upload (file is optional if proof_url is provided)
+        let fileData = null;
+        let proofUrlField = '';
+        let contentField = '';
+
+        try {
+            const parts = request.parts();
+            for await (const part of parts) {
+                if (part.file) {
+                    // It's a file field
+                    const uploadsDir = path.join(__dirname, '..', 'uploads', 'lock-tasks');
+                    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+                    const ext = path.extname(part.filename) || '.jpg';
+                    const filename = `lt_${taskId}_${userId}_${todayStr}_r${redoCount || 0}${ext}`;
+                    const filePath = path.join(uploadsDir, filename);
+                    const writeStream = fs.createWriteStream(filePath);
+                    await part.file.pipe(writeStream);
+                    await new Promise((resolve, reject) => { writeStream.on('finish', resolve); writeStream.on('error', reject); });
+                    fileData = `/uploads/lock-tasks/${filename}`;
+                } else {
+                    // It's a regular field
+                    const val = part.value;
+                    if (part.fieldname === 'proof_url') proofUrlField = val || '';
+                    if (part.fieldname === 'content') contentField = val || '';
+                }
+            }
+        } catch(e) {
+            // If multipart parsing fails, try regular body
+            proofUrlField = request.body?.proof_url || '';
+            contentField = request.body?.content || '';
+        }
+
+        // Validate: content is required
+        if (!contentField.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập nội dung hoàn thành' });
+        }
+
+        // Validate: at least link or file
+        if (!proofUrlField.trim() && !fileData) {
+            return reply.code(400).send({ error: 'Phải có ít nhất link báo cáo hoặc hình ảnh' });
         }
 
         // Check redo count
@@ -319,25 +355,14 @@ async function lockTaskRoutes(fastify, options) {
             }
         }
 
-        // Save file
-        const uploadsDir = path.join(__dirname, '..', 'uploads', 'lock-tasks');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-        const ext = path.extname(data.filename) || '.jpg';
-        const filename = `lt_${taskId}_${userId}_${todayStr}_r${redoCount}${ext}`;
-        const filePath = path.join(uploadsDir, filename);
-        const writeStream = fs.createWriteStream(filePath);
-        await data.file.pipe(writeStream);
-        await new Promise((resolve, reject) => { writeStream.on('finish', resolve); writeStream.on('error', reject); });
-
-        const proofUrl = `/uploads/lock-tasks/${filename}`;
+        const proofUrl = fileData || proofUrlField.trim();
         const status = task?.requires_approval ? 'pending' : 'approved';
 
         await db.run(
-            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, status)
-             VALUES ($1,$2,$3,$4,$5,$6)
-             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, status=$6, created_at=NOW()`,
-            [taskId, userId, todayStr, redoCount, proofUrl, status]
+            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)
+             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, content=$6, status=$7, created_at=NOW()`,
+            [taskId, userId, todayStr, redoCount, proofUrl, contentField.trim(), status]
         );
 
         // Auto-resolve support request if NV submitted (QL no longer penalized)
