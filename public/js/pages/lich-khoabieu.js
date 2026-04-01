@@ -912,8 +912,9 @@ function _kbRenderGrid() {
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
                         </div>`;
                     } else if (comp && (comp.status === 'pending' || comp.status === 'approved')) {
+                        const btnColor = comp.status === 'approved' ? 'background:#059669;border:1px solid #047857;' : 'background:#2563eb;border:1px solid #1d4ed8;';
                         actionHtml = `<div style="margin-top:4px;text-align:center;">
-                            <span onclick="_kbShowLockReport(${comp.id})" style="font-size:10px;color:${comp.status === 'approved' ? '#059669' : '#1d4ed8'};cursor:pointer;text-decoration:underline;font-weight:600;">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;${btnColor}color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 } else {
