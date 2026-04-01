@@ -2457,7 +2457,11 @@ function _kbShowLockReport(compId) {
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;">
             <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">📄 Nội dung báo cáo:</div>
             <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${comp.content}</div>
-        </div>` : ''}
+        </div>` : (!proofHtml && !comp.reject_reason ? `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:6px;">📭</div>
+            <div style="font-size:12px;color:#9ca3af;">Chưa có nội dung báo cáo</div>
+        </div>` : '')}
 
         <!-- Proof -->
         ${proofHtml}

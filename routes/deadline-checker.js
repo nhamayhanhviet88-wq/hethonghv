@@ -136,7 +136,7 @@ async function runDeadlineCheck() {
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
                          VALUES ($1, $2, $3, 0, 'expired', $4, true)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)`,
                         [sr.lock_task_id, sr.user_id, sr.task_date, penaltyAmount]
                     );
                 } catch(e) {}
@@ -310,7 +310,7 @@ async function runDeadlineCheck() {
                 await db.run(
                     `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
                      VALUES ($1, $2, $3, 0, 'expired', $4, true)
-                     ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                     ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)`,
                     [la.task_id, la.user_id, yesterdayStr, penaltyAmount]
                 );
             } catch(e) {
