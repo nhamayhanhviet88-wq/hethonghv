@@ -98,7 +98,8 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
     systemDepts.forEach(sys => {
         let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeSet.has(d.id));
         childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-        if (childDepts.length === 0) return;
+        const hasSysApprovers = _rhApprovers.some(a => a.department_id === sys.id);
+        if (childDepts.length === 0 && !hasSysApprovers) return;
 
         // System header
         sidebarHtml += `<div class="rh-system-header" data-sys-id="${sys.id}" onclick="_rhToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">

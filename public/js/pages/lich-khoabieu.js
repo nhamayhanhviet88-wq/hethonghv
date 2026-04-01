@@ -243,7 +243,8 @@ async function renderLichKhoaBieuPage(container) {
                     }
                 });
                 childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                if (childDepts.length === 0 && currentUser.role !== 'giam_doc') return;
+                const hasSysApprovers = allApprovers.some(a => a.department_id === sys.id);
+                if (childDepts.length === 0 && !hasSysApprovers && currentUser.role !== 'giam_doc') return;
 
                 // System header with expand/collapse
                 deptListHtml += `<div class="kb-system-header" data-sys-id="${sys.id}" onclick="_kbToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
