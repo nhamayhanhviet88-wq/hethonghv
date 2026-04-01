@@ -911,16 +911,9 @@ function _kbRenderGrid() {
                         actionHtml = `<div style="margin-top:6px;">
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
                         </div>`;
-                    } else if (comp && comp.status === 'pending' && comp.proof_url) {
-                        // Pending with proof: show proof link + view content
-                        actionHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:3px;align-items:center;">
-                            <a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a>
-                            ${comp.content ? `<span onclick="_kbShowLockReport(${comp.id})" style="font-size:9px;color:#6b7280;cursor:pointer;text-decoration:underline;" title="${(comp.content||'').replace(/"/g,'&quot;')}">📄 Xem nội dung</span>` : ''}
-                        </div>`;
-                    } else if (comp && comp.status === 'approved') {
-                        actionHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:3px;align-items:center;">
-                            ${comp.proof_url ? `<a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file</a>` : ''}
-                            <span onclick="_kbShowLockReport(${comp.id})" style="font-size:9px;color:#059669;cursor:pointer;text-decoration:underline;font-weight:600;">📄 Xem báo cáo</span>
+                    } else if (comp && (comp.status === 'pending' || comp.status === 'approved')) {
+                        actionHtml = `<div style="margin-top:4px;text-align:center;">
+                            <span onclick="_kbShowLockReport(${comp.id})" style="font-size:10px;color:${comp.status === 'approved' ? '#059669' : '#1d4ed8'};cursor:pointer;text-decoration:underline;font-weight:600;">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 } else {
