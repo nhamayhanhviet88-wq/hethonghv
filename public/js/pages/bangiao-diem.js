@@ -56,6 +56,7 @@ async function _tpRemoveDept(deptId, event) {
     }
 }
 let _tpCachedActiveDepts = []; // cached for rebuild
+let _tpAllApprovers = []; // all approvers across depts
 function _tpRebuildSidebar() {
     const list = document.getElementById('tpDeptList');
     if (!list) return;
@@ -73,6 +74,20 @@ function _tpBuildDeptListHtml() {
         if (childDepts.length === 0) return;
         html += `<div class="tp-system-header" data-sys-id="${sys.id}" onclick="_tpToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;cursor:pointer;"><span style="font-size:15px;">🏛️</span><span style="flex:1;">${sys.name}</span><span class="tp-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span></div>`;
         html += `<div class="tp-sys-content" data-sys-id="${sys.id}">`;
+        // System-level approvers (quản lý cấp cao)
+        const sysApprovers = _tpAllApprovers.filter(a => a.department_id === sys.id);
+        sysApprovers.forEach(a => {
+            html += `<div class="tp-member-item" data-uid="${a.user_id}" data-name="${(a.full_name||'').toLowerCase()}" data-uname="${(a.username||'').toLowerCase()}"
+                 onclick="_tpSelectMember(${sys.id},${a.user_id},'${(a.full_name||'').replace(/'/g,"\\'")}')"
+                 style="padding:8px 14px 8px 18px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
+                 onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='#f8fafc'"
+                 onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='white'">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.full_name}</div>
+                    <div style="font-size:10px;color:#d97706;font-weight:700;margin-top:1px;">⭐ Quản lý cấp cao</div>
+                </div>
+            </div>`;
+        });
         let parentStt = 0, childStt = 0;
         childDepts.forEach(d => {
             const isChild = childDepts.some(p => p.id === d.parent_id);
@@ -129,7 +144,8 @@ async function renderBanGiaoDiemPage(container) {
         const raw = d.departments || [];
         _tpAllDepts = raw.filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
         _tpActiveDeptIds = d.active_dept_ids || [];
-    } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
+        _tpAllApprovers = d.approvers || [];
+    } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; _tpAllApprovers = []; }
 
     // Build flat list of active non-system depts for auto-select
     const activeSet = new Set(_tpActiveDeptIds);

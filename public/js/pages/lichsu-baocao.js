@@ -108,6 +108,17 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
         </div>`;
         sidebarHtml += `<div class="rh-sys-content" data-sys-id="${sys.id}">`;
 
+        // System-level approvers (quản lý cấp cao)
+        const sysApprovers = _rhApprovers.filter(a => a.department_id === sys.id);
+        sysApprovers.forEach(a => {
+            const isSelected = _rhSelectedUser && _rhSelectedUser.id === a.user_id;
+            sidebarHtml += `<div onclick="_rhSelectUser(${a.user_id}, '${(a.full_name || '').replace(/'/g, "\\'")}')" style="padding:6px 14px 6px 18px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;${isSelected ? 'background:#eff6ff;border-left:3px solid #2563eb;font-weight:700;color:#1e40af;' : 'background:white;border-left:3px solid transparent;'}" onmouseover="if(!${isSelected})this.style.background='#f8fafc'" onmouseout="if(!${isSelected})this.style.background='white'">
+                <span style="font-size:14px;">⭐</span>
+                <span style="flex:1;font-weight:700;">${a.full_name}</span>
+                <span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;font-weight:700;">⭐ Quản lý cấp cao</span>
+            </div>`;
+        });
+
         let parentStt = 0, childStt = 0;
         childDepts.forEach((d, i) => {
             const isChild = childDepts.some(p => p.id === d.parent_id);

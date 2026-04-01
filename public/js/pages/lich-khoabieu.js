@@ -254,6 +254,21 @@ async function renderLichKhoaBieuPage(container) {
 
                 // Collapsible content
                 deptListHtml += `<div class="kb-sys-content" data-sys-id="${sys.id}">`;
+
+                // System-level approvers (quản lý cấp cao)
+                const sysApprovers = allApprovers.filter(a => a.department_id === sys.id);
+                sysApprovers.forEach(a => {
+                    deptListHtml += `
+                        <div class="kb-member-item" data-uid="${a.user_id}" data-name="${a.full_name}" data-dept="${sys.name}" onclick="_kbSelectMember(${a.user_id})" style="padding:9px 14px 9px 18px;font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
+                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
+                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.full_name}</div>
+                                <div style="font-size:10px;color:#d97706;font-weight:700;margin-top:1px;">⭐ Quản lý cấp cao</div>
+                            </div>
+                        </div>`;
+                });
+
                 let parentStt = 0, childStt = 0;
                 childDepts.forEach(dept => {
                     const isSubTeam = childDepts.some(p => p.id === dept.parent_id);
