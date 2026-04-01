@@ -15,6 +15,7 @@ let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbMonthlySummary = 0; // total approved points this month
 let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
+let _kbViewUserName = ''; // Name of user currently being viewed
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
 function _kbSaveSelection(sel) {
@@ -371,6 +372,9 @@ function _kbSelectMember(userId) {
     _kbViewUserId = userId;
     _kbWeekStart = null;
     _kbColorMap = {};
+    // Get user name from sidebar element
+    const memberEl = userId ? document.querySelector(`.kb-member-item[data-uid="${userId}"]`) : null;
+    _kbViewUserName = memberEl?.dataset?.name || '';
     // Highlight — light blue for selected, white for others
     document.querySelectorAll('.kb-member-item').forEach(el => {
         const isActive = (el.dataset.uid === '' && userId === null) || (el.dataset.uid == userId);
@@ -382,8 +386,7 @@ function _kbSelectMember(userId) {
         el.style.borderRadius = '';
     });
     // Save selection
-    const memberEl = userId ? document.querySelector(`.kb-member-item[data-uid="${userId}"]`) : null;
-    _kbSaveSelection({ userId, userName: memberEl?.dataset?.name || '' });
+    _kbSaveSelection({ userId, userName: _kbViewUserName });
     _kbLoadSchedule();
 }
 
@@ -609,8 +612,18 @@ function _kbRenderGrid() {
     const canApprove = isManager && !isSelf;
     const todayStr = _kbDateStr(new Date()); // For date comparison
 
+    // User info header (when viewing someone else)
+    const viewingName = _kbViewUserName || (isSelf ? currentUser.full_name : '');
+    const userHeaderHtml = viewingName ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-bottom:2px solid #93c5fd;border-radius:10px 10px 0 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">${viewingName.charAt(0).toUpperCase()}</div>
+        <div>
+            <div style="font-weight:800;font-size:15px;color:#1e3a5f;">${viewingName}</div>
+            <div style="font-size:11px;color:#6b7280;">${isSelf ? '📋 Lịch của tôi' : '👤 Đang xem lịch nhân viên'}</div>
+        </div>
+    </div>` : '';
+
     // Week nav
-    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;">
+    let html = userHeaderHtml + `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${!viewingName ? 'border-radius:10px 10px 0 0;' : ''}">
         <button onclick="_kbChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
         <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_kbFmtDate(monDate)} — ${_kbFmtDate(sunDate2)}/${monDate.getFullYear()}</div>
         <button onclick="_kbChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
