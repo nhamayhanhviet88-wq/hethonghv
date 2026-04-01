@@ -820,6 +820,14 @@ function _kbRenderGrid() {
                     continue;
                 }
 
+                // CV Khóa: chỉ hiển thị hôm nay + tương lai (quá khứ không có comp thì skip)
+                const compKey2 = `${lt.id}_${dateStr}`;
+                const compPast = _kbLockCompletions[compKey2];
+                if (dateStr < todayStr && !compPast) {
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
+                    continue;
+                }
+
                 // Get completion status
                 const compKey = `${lt.id}_${dateStr}`;
                 const comp = _kbLockCompletions[compKey];
@@ -837,8 +845,7 @@ function _kbRenderGrid() {
                     } else if (comp.status === 'rejected') {
                         lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
                     } else if (comp.status === 'expired') {
-                        const penaltyStr = comp.penalty_amount ? `${(comp.penalty_amount/1000).toFixed(0)}k` : '';
-                        lockStatusBadge = `<span style="background:#991b1b;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🔒 Đã khóa${penaltyStr ? ' ('+penaltyStr+')' : ''}</span>`;
+                        lockStatusBadge = ''; // No badge — only "Báo cáo lại" button shown
                     }
                 } else if (dateStr < todayStr) {
                     lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🚫 Không nộp</span>';
