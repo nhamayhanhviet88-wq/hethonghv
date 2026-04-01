@@ -1492,13 +1492,19 @@ async function _kbLoadApprovalPanel() {
     if (!panel) return;
 
     try {
-        const data = await apiCall('/api/schedule/pending-approvals');
+        // Fetch both CV Diem and CV Khoa pending reports
+        const [data, lockData] = await Promise.all([
+            apiCall('/api/schedule/pending-approvals'),
+            apiCall('/api/lock-tasks/pending-reviews').catch(() => ({ reviews: [] }))
+        ]);
         const pending = data.pending || [];
+        const lockReviews = lockData.reviews || [];
+        const totalCount = pending.length + lockReviews.length;
 
         // Update sidebar badge
-        _kbUpdateSidebarBadge(pending.length);
+        _kbUpdateSidebarBadge(totalCount);
 
-        if (pending.length === 0) {
+        if (totalCount === 0) {
             panel.innerHTML = '';
             return;
         }
@@ -1534,11 +1540,39 @@ async function _kbLoadApprovalPanel() {
             </tr>`;
         });
 
+        // CV Khoa (lock task) pending rows
+        lockReviews.forEach(r => {
+            const isRedo = r.redo_count > 0;
+            const dateFormatted = r.completion_date.split('-').reverse().join('/');
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;background:#fef2f2;">
+                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;">
+                    <span style="color:#991b1b;font-weight:700;">${r.task_name}</span>
+                    <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">🔐 KHÓA</span>
+                    ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">🔄 Nộp lại</span>' : ''}
+                </td>
+                <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
+                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
+                <td style="padding:8px 12px;font-size:11px;">
+                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:#991b1b;text-decoration:none;">${r.proof_url.startsWith('/uploads') ? '🖼️ Ảnh' : '🔗 Link'}</a>` : ''}
+                    ${r.content ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;" title="${(r.content||'').replace(/"/g,'&quot;')}">📄</span>` : ''}
+                </td>
+                <td style="padding:8px 12px;text-align:center;"><span style="color:#9ca3af;">—</span></td>
+                <td style="padding:8px 12px;text-align:center;">
+                    <button onclick="_kbLockApprove(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
+                    <button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
+                </td>
+            </tr>`;
+        });
+
         panel.innerHTML = `
         <div style="background:white;border:2px solid #fde68a;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(217,119,6,0.1);">
             <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
                 <span style="color:white;font-weight:800;font-size:14px;">📋 CÔNG VIỆC CHỜ DUYỆT</span>
-                <span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>
+                <div style="display:flex;gap:6px;">
+                    ${pending.length > 0 ? `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">📊 ${pending.length}</span>` : ''}
+                    ${lockReviews.length > 0 ? `<span style="background:rgba(220,38,38,0.6);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">🔐 ${lockReviews.length}</span>` : ''}
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;">
@@ -1603,6 +1637,55 @@ async function _kbConfirmReject(reportId) {
     try {
         await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'reject', reject_reason: reason });
         document.getElementById('kbRejectModal')?.remove();
+        _kbLoadApprovalPanel();
+        _kbLoadSchedule();
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
+}
+
+// ===== Lock Task Approve/Reject from approval panel =====
+async function _kbLockApprove(completionId) {
+    try {
+        await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action: 'approve' });
+        showToast('✅ Đã duyệt CV Khóa');
+        _kbLoadApprovalPanel();
+        _kbLoadSchedule();
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
+}
+
+function _kbLockReject(completionId, taskName, userName) {
+    let modal = document.getElementById('kbRejectModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'kbRejectModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối CV Khóa</h3>
+        <div style="margin-bottom:12px;">
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — <span style="color:#991b1b;">${taskName}</span> <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔐 KHÓA</span></div>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbLockRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmLockReject(${completionId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('kbLockRejectReason')?.focus(), 100);
+}
+
+async function _kbConfirmLockReject(completionId) {
+    const reason = document.getElementById('kbLockRejectReason')?.value?.trim();
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
+    try {
+        await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action: 'reject', reject_reason: reason });
+        document.getElementById('kbRejectModal')?.remove();
+        showToast('✅ Đã từ chối CV Khóa');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
     } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }

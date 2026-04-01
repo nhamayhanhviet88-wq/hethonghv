@@ -674,7 +674,38 @@ async function taskScheduleRoutes(fastify, options) {
             );
         }
 
-        const total = Number(reportCount.c) + Number(supportCount.c);
+        // Count 3: Pending lock task completions (CV Khóa chờ duyệt)
+        let lockCount;
+        if (isGD) {
+            lockCount = await db.get(
+                `SELECT COUNT(*) as c FROM lock_task_completions ltc
+                 JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+                 WHERE ltc.status = 'pending' AND lt.requires_approval = true`
+            );
+        } else {
+            // QLCC/TP: see pending from their dept + children
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            const lockDeptIds = [user?.department_id].filter(Boolean);
+            if (user?.department_id) {
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+                children.forEach(c => lockDeptIds.push(c.id));
+            }
+            if (lockDeptIds.length > 0) {
+                const lkPh = lockDeptIds.map((_, i) => `$${i + 1}`).join(',');
+                lockCount = await db.get(
+                    `SELECT COUNT(*) as c FROM lock_task_completions ltc
+                     JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+                     JOIN users u ON u.id = ltc.user_id
+                     WHERE ltc.status = 'pending' AND lt.requires_approval = true
+                     AND u.department_id IN (${lkPh})`,
+                    lockDeptIds
+                );
+            } else {
+                lockCount = { c: 0 };
+            }
+        }
+
+        const total = Number(reportCount.c) + Number(supportCount.c) + Number(lockCount.c);
         return { count: total };
     });
 
