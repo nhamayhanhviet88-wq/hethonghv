@@ -282,7 +282,7 @@ function _rhRenderContent() {
     const wrap = document.getElementById('rhContent');
     if (!wrap || !_rhData) return;
 
-    const { templates = [], reports = [], snapshots = [], holidays = [], user_info = {}, from_date, to_date } = _rhData;
+    const { templates = [], reports = [], snapshots = [], holidays = [], lock_completions = [], lock_tasks = [], user_info = {}, from_date, to_date } = _rhData;
     const month = _rhData.month || _rhCurrentMonth;
     const [year, mon] = month.split('-').map(Number);
     const lastDay = new Date(year, mon, 0).getDate();
@@ -435,6 +435,108 @@ function _rhRenderContent() {
             </div>`;
         });
         html += '</div>';
+    }
+
+    // ===== CV KHÓA SECTION =====
+    if (lock_tasks.length > 0 || lock_completions.length > 0) {
+        // Group completions by task
+        const lockGroupMap = new Map();
+        lock_tasks.forEach(lt => {
+            if (!lockGroupMap.has(lt.task_name)) {
+                lockGroupMap.set(lt.task_name, {
+                    task_name: lt.task_name, lock_task_id: lt.id,
+                    guide_link: lt.guide_link, deadline_time: lt.deadline_time,
+                    requires_approval: lt.requires_approval,
+                    completions: []
+                });
+            }
+        });
+        lock_completions.forEach(lc => {
+            if (!lockGroupMap.has(lc.task_name)) {
+                lockGroupMap.set(lc.task_name, {
+                    task_name: lc.task_name, lock_task_id: lc.lock_task_id,
+                    guide_link: lc.guide_link, deadline_time: lc.deadline_time,
+                    requires_approval: lc.requires_approval,
+                    completions: []
+                });
+            }
+            lockGroupMap.get(lc.task_name).completions.push(lc);
+        });
+
+        const lockGroups = [...lockGroupMap.values()];
+        let lockApproved = 0, lockPending = 0, lockRejected = 0;
+        lock_completions.forEach(lc => {
+            if (lc.status === 'approved') lockApproved++;
+            else if (lc.status === 'pending') lockPending++;
+            else if (lc.status === 'rejected') lockRejected++;
+        });
+
+        html += `
+        <div style="margin-top:16px;border-top:3px solid #fecaca;padding-top:0;">
+            <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:18px;">🔐</span>
+                    <span style="font-weight:800;color:#991b1b;font-size:14px;">CV KHÓA</span>
+                    <span style="background:#991b1b;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${lock_completions.length} báo cáo</span>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    ${lockApproved > 0 ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">✅ ' + lockApproved + '</span>' : ''}
+                    ${lockPending > 0 ? '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">⏳ ' + lockPending + '</span>' : ''}
+                    ${lockRejected > 0 ? '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">❌ ' + lockRejected + '</span>' : ''}
+                </div>
+            </div>
+            <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
+
+        lockGroups.forEach(g => {
+            const approved = g.completions.filter(c => c.status === 'approved').length;
+            const pending = g.completions.filter(c => c.status === 'pending').length;
+            const rejected = g.completions.filter(c => c.status === 'rejected').length;
+            const total = g.completions.length;
+
+            html += `
+            <div style="border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;background:white;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;">
+                <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                        <div style="min-width:0;flex:1;">
+                            <div style="font-weight:700;color:#991b1b;font-size:14px;">${g.task_name}</div>
+                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">
+                                🔐 ${total} báo cáo
+                                ${approved > 0 ? ' · <span style="color:#16a34a;">' + approved + ' đạt</span>' : ''}
+                                ${pending > 0 ? ' · <span style="color:#d97706;">' + pending + ' chờ</span>' : ''}
+                                ${rejected > 0 ? ' · <span style="color:#dc2626;">' + rejected + ' từ chối</span>' : ''}
+                                ${g.deadline_time ? ' · ⏰ Hạn ' + g.deadline_time : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                        <span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">🔐</span>
+                        <span style="color:#9ca3af;font-size:14px;">▼</span>
+                    </div>
+                </div>
+                <div style="display:none;border-top:1px solid #fef2f2;">`;
+
+            if (g.completions.length === 0) {
+                html += '<div style="padding:12px 16px;font-size:12px;color:#9ca3af;text-align:center;">Chưa có báo cáo nào</div>';
+            } else {
+                g.completions.forEach(c => {
+                    const dateF = c.completion_date.split('-').reverse().join('/');
+                    const st = _RH_STATUS[c.status] || _RH_STATUS.pending;
+                    html += `
+                    <div style="padding:8px 16px;border-bottom:1px solid #fef2f2;display:flex;align-items:center;gap:10px;font-size:12px;">
+                        <span style="font-weight:600;color:#374151;min-width:70px;">${dateF}</span>
+                        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;">${st.icon} ${st.label}</span>
+                        ${c.proof_url ? `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:10px;">${c.proof_url.startsWith('/uploads') ? '🖼️ Ảnh' : '🔗 Link'}</a>` : ''}
+                        ${c.content ? `<span style="color:#6b7280;font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(c.content||'').replace(/"/g,'&quot;')}">📄 ${c.content}</span>` : ''}
+                        ${c.reject_reason ? `<span style="color:#dc2626;font-size:10px;">💬 ${c.reject_reason}</span>` : ''}
+                        ${c.redo_count > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;">🔄 Lần ${c.redo_count}</span>` : ''}
+                    </div>`;
+                });
+            }
+
+            html += '</div></div>';
+        });
+
+        html += '</div></div>';
     }
 
     wrap.innerHTML = html;

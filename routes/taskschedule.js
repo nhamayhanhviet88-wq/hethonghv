@@ -910,12 +910,40 @@ async function taskScheduleRoutes(fastify, options) {
             )
         ]);
 
+        // Lock task completions in this month
+        const lock_completions = await db.all(
+            `SELECT ltc.id, ltc.lock_task_id, ltc.completion_date::text as completion_date,
+                    ltc.redo_count, ltc.proof_url, ltc.content, ltc.status,
+                    ltc.reject_reason, ltc.reviewed_at, ltc.created_at,
+                    lt.task_name, lt.guide_link, lt.deadline_time,
+                    lt.input_requirements, lt.output_requirements, lt.requires_approval
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
+             ORDER BY ltc.completion_date DESC, ltc.created_at DESC`,
+            [userId, fromDate, toDate]
+        );
+
+        // Also get active lock tasks assigned to user (to detect missed ones)
+        const lock_tasks = await db.all(
+            `SELECT lt.id, lt.task_name, lt.guide_link, lt.deadline_time,
+                    lt.input_requirements, lt.output_requirements, lt.requires_approval,
+                    lta.user_id
+             FROM lock_task_assignments lta
+             JOIN lock_tasks lt ON lt.id = lta.lock_task_id
+             WHERE lta.user_id = $1 AND lt.is_active = true
+             ORDER BY lt.task_name`,
+            [userId]
+        );
+
         return {
             user_info: userInfo,
             templates,
             reports,
             snapshots,
             holidays,
+            lock_completions,
+            lock_tasks,
             month,
             from_date: fromDate,
             to_date: toDate
