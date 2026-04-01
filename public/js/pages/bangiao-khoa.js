@@ -371,7 +371,7 @@ async function _lkLoadUserTasks(userId, userName) {
                                 ${t.input_requirements ? `<span style="font-size:10px;background:#f0fdf4;color:#059669;padding:2px 8px;border-radius:4px;font-weight:600;">📥 ${t.input_requirements}</span>` : ''}
                                 ${t.output_requirements ? `<span style="font-size:10px;background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-weight:600;">📤 ${t.output_requirements}</span>` : ''}
                             </div>
-                            ${t.proof_url ? `<div style="margin-top:6px;"><a href="${t.proof_url}" target="_blank" style="font-size:10px;color:#6b7280;text-decoration:underline;">📎 Xem file đã nộp</a></div>` : ''}
+                            ${t.proof_url ? `<div style="margin-top:6px;"><a href="${t.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a></div>` : ''}
                             ${actionBtn}
                         </div>
                         <div style="flex-shrink:0;">

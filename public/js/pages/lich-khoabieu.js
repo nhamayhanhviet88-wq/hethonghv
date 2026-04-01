@@ -913,7 +913,7 @@ function _kbRenderGrid() {
                         </div>`;
                     } else if (comp && comp.status === 'pending' && comp.proof_url) {
                         // Pending with proof: show proof link
-                        actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#d97706;text-decoration:none;">📎 Xem file đã nộp</a></div>`;
+                        actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a></div>`;
                     } else if (comp && comp.status === 'approved' && comp.proof_url) {
                         actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#059669;text-decoration:none;">📎 Xem file</a></div>`;
                     }
