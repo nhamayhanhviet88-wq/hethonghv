@@ -602,9 +602,22 @@ function _tpRenderGrid() {
                 <div style="font-size:11px;color:#6b7280;">${_tpViewDeptName || ''}</div>
             </div>
         </div>`;
+    } else if (_tpViewMode === 'team' && _tpTarget.id) {
+        const _deptInfo = _tpAllDepts.find(d => d.id === Number(_tpTarget.id));
+        const _deptDisplayName = _deptInfo?.name || 'Phòng ban';
+        const _isParentDept = _tpAllDepts.some(d => d.parent_id === Number(_tpTarget.id));
+        const _deptIcon = _isParentDept ? '🏢' : '🏠';
+        const _deptLabel = _isParentDept ? 'Phòng ban' : 'Team';
+        html += `<div style="padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;background:white;">
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#122546,#1e3a5f);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;">${_deptIcon}</div>
+            <div>
+                <div style="font-weight:800;color:#122546;font-size:16px;">${_deptDisplayName}</div>
+                <div style="font-size:11px;color:#6b7280;">${_deptLabel} · ${_tpTasks.length} công việc</div>
+            </div>
+        </div>`;
     }
 
-    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${_tpViewMode !== 'individual' ? 'border-radius:10px 10px 0 0;' : ''}flex-wrap:wrap;gap:8px;">
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;align-items:center;gap:6px;">
             <button onclick="_tpChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
             <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_tpFormatDate(monDate)} — ${_tpFormatDate(sunDate)}/${monDate.getFullYear()}</div>
