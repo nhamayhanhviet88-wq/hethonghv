@@ -836,6 +836,9 @@ function _kbRenderGrid() {
                         lockBg = '#fffbeb'; lockBorder = '#fde68a';
                     } else if (comp.status === 'rejected') {
                         lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
+                    } else if (comp.status === 'expired') {
+                        const penaltyStr = comp.penalty_amount ? `${(comp.penalty_amount/1000).toFixed(0)}k` : '';
+                        lockStatusBadge = `<span style="background:#991b1b;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🔒 Đã khóa${penaltyStr ? ' ('+penaltyStr+')' : ''}</span>`;
                     }
                 } else if (dateStr < todayStr) {
                     lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🚫 Không nộp</span>';
@@ -883,6 +886,11 @@ function _kbRenderGrid() {
                                 <button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>
                             </div>`;
                         }
+                    } else if (comp && comp.status === 'expired') {
+                        // Expired/locked: show "Báo cáo lại" button for self
+                        actionHtml = `<div style="margin-top:6px;">
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
+                        </div>`;
                     } else if (comp && comp.status === 'pending' && comp.proof_url) {
                         // Pending with proof: show proof link
                         actionHtml = `<div style="margin-top:4px;"><a href="${comp.proof_url}" target="_blank" style="font-size:9px;color:#d97706;text-decoration:none;">📎 Xem file đã nộp</a></div>`;

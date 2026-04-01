@@ -324,6 +324,54 @@ async function runDeadlineCheck() {
             penaltyCount++;
             console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${yesterdayStr} (phạt ${penaltyAmount}đ)`);
         }
+
+        // ========== 3a. PHẠT CHỒNG PHẠT — Expired CV Khóa chưa báo cáo lại ==========
+        // Check all expired completions from the past 30 days that haven't been re-reported
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoStr = toDateStr(thirtyDaysAgo);
+
+        const unreportedExpired = await db.all(
+            `SELECT ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as completion_date,
+                    ltc.penalty_amount, ltc.updated_at, lt.task_name
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             WHERE ltc.status = 'expired' AND ltc.completion_date >= $1 AND ltc.completion_date < $2`,
+            [thirtyDaysAgoStr, yesterdayStr]
+        );
+
+        for (const exp of unreportedExpired) {
+            // Check if a newer completion (pending/approved) exists for same task+date
+            const resubmitted = await db.get(
+                `SELECT id FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+                   AND status IN ('pending','approved') AND redo_count > 0`,
+                [exp.lock_task_id, exp.user_id, exp.completion_date]
+            );
+            if (resubmitted) continue; // Already re-reported, skip
+
+            // Check if already penalized today for this specific task+date
+            const lastPenalty = exp.updated_at ? new Date(exp.updated_at) : null;
+            if (lastPenalty && toDateStr(lastPenalty) === toDateStr(now)) continue; // Already penalized today
+
+            // Stack penalty: increase penalty_amount
+            const extraPenalty = exp.penalty_amount || 50000;
+            try {
+                await db.run(
+                    `UPDATE lock_task_completions SET penalty_amount = penalty_amount + $1, updated_at = NOW()
+                     WHERE lock_task_id = $2 AND user_id = $3 AND completion_date = $4 AND status = 'expired'`,
+                    [extraPenalty, exp.lock_task_id, exp.user_id, exp.completion_date]
+                );
+            } catch(e) {
+                console.error(`  ❌ Error stacking penalty for task ${exp.lock_task_id}, user ${exp.user_id}:`, e.message);
+            }
+
+            // Lock account again (in case it was unlocked)
+            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
+
+            penaltyCount++;
+            console.log(`  🔄 [CV Khóa] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} ngày ${exp.completion_date} (thêm ${extraPenalty}đ)`);
+        }
     } else {
         console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 (hiện: ${hour}:${String(minute).padStart(2,'0')})`);
     }

@@ -710,3 +710,15 @@ ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS lock_task_id INTEGER 
 -- Add max_redo_count to task_point_templates (CV Điểm)
 ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
 
+-- Add updated_at to lock_task_completions (for tracking stacking penalties)
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+-- Add 'resolved' status to task_support_requests
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_support_requests_status_check') THEN
+        ALTER TABLE task_support_requests DROP CONSTRAINT task_support_requests_status_check;
+    END IF;
+    ALTER TABLE task_support_requests ADD CONSTRAINT task_support_requests_status_check
+        CHECK (status IN ('pending', 'supported', 'expired', 'resolved'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
