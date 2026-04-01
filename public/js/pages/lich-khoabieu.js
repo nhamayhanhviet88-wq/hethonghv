@@ -1903,15 +1903,15 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                 ${reqHtml(outputReqs, '📤', '#991b1b', 'Yêu cầu đầu ra')}
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành</label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành <span style="color:#dc2626;">*</span></label>
                 <textarea id="kbLockRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả</label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả <span style="color:#dc2626;">*</span></label>
                 <input id="kbLockRptLink" type="url" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="color:#dc2626;">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
                 <div id="kbLockPasteZone" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafbfc;transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
                     <div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div>
                     <div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
@@ -1977,8 +1977,14 @@ async function _kbLockSubmitReport() {
     const link = document.getElementById('kbLockRptLink')?.value?.trim();
     const content = document.getElementById('kbLockRptContent')?.value?.trim();
 
+    if (!content) {
+        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
+        document.getElementById('kbLockRptContent')?.focus();
+        return;
+    }
+
     if (!link && !window._kbLockPastedFile) {
-        showToast('Phải có ít nhất link hoặc hình ảnh!', 'error');
+        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
