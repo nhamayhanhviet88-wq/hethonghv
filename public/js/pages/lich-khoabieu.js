@@ -209,14 +209,13 @@ async function renderLichKhoaBieuPage(container) {
                     const isDeptHead = u._is_dept_head;
                     const isApprover = u._isApprover;
                     const isLead = isDeptHead || _kbIsLeader(u.role) || isApprover;
-                    const roleTag = isApprover ? '📋 Người duyệt' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
-                    const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
-                    const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${isLead ? '700' : '500'};`;
-                    const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;font-size:10px;' : `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
+                    const roleTag = isApprover ? '⭐ Quản Lý' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
+                    const nameStyle = `font-weight:${isLead ? '700' : '500'};`;
+                    const roleStyle = `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
                     html += `
-                        <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;${approverBg}display:flex;align-items:center;gap:8px;"
-                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'"
-                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'white'}';else this.style.background='#059669'">
+                        <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
+                            onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
+                            onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
                                 <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
                                 <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
@@ -356,16 +355,15 @@ function _kbSelectMember(userId) {
     _kbViewUserId = userId;
     _kbWeekStart = null;
     _kbColorMap = {};
-    // Highlight — green bg + white text
+    // Highlight — light blue for selected, white for others
     document.querySelectorAll('.kb-member-item').forEach(el => {
         const isActive = (el.dataset.uid === '' && userId === null) || (el.dataset.uid == userId);
         el.classList.toggle('kb-active', isActive);
-        el.style.background = isActive ? '#059669' : 'white';
-        el.style.color = isActive ? '#fff' : '#1e293b';
+        el.style.background = isActive ? '#eff6ff' : 'white';
+        el.style.color = isActive ? '#1e40af' : '#1e293b';
         el.style.fontWeight = isActive ? '700' : '400';
-        el.style.borderLeft = isActive ? '3px solid #047857' : '3px solid transparent';
-        if (isActive) el.style.borderRadius = '6px';
-        else el.style.borderRadius = '';
+        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+        el.style.borderRadius = '';
     });
     // Save selection
     const memberEl = userId ? document.querySelector(`.kb-member-item[data-uid="${userId}"]`) : null;

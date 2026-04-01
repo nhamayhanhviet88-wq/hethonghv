@@ -205,12 +205,11 @@ function _rhRenderDeptMembers(deptId, deptName) {
         const isHead = m._is_dept_head;
         const isApprover = m._isApprover;
         const isSelected = _rhSelectedUser && _rhSelectedUser.id === m.id;
-        const approverBg = isApprover && !isSelected ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : '';
-        const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : (isHead ? 'color:#d97706;font-weight:600;' : '');
-        const badge = isApprover ? '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:6px;font-weight:700;">📋 NDD</span>'
+        const nameStyle = (isHead || isApprover) ? 'font-weight:700;' : '';
+        const badge = isApprover ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;font-weight:700;">⭐ Quản Lý</span>'
             : (isHead ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;">TP</span>' : '');
-        return `<div onclick="_rhSelectUser(${m.id}, '${(m.full_name || '').replace(/'/g, "\\'")}')" style="padding:6px 14px 6px 32px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;${isSelected ? 'background:#eff6ff;border-left:3px solid #2563eb;font-weight:700;color:#1e40af;' : approverBg}" onmouseover="if(!${isSelected})this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'" onmouseout="if(!${isSelected})this.style.background='${isApprover && !isSelected ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'transparent'}'">
-            <span style="font-size:14px;">${isApprover ? '📋' : (isHead || isLeader(m.role) ? '⭐' : '👤')}</span>
+        return `<div onclick="_rhSelectUser(${m.id}, '${(m.full_name || '').replace(/'/g, "\\'")}')" style="padding:6px 14px 6px 32px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;${isSelected ? 'background:#eff6ff;border-left:3px solid #2563eb;font-weight:700;color:#1e40af;' : 'background:white;border-left:3px solid transparent;'}" onmouseover="if(!${isSelected})this.style.background='#f8fafc'" onmouseout="if(!${isSelected})this.style.background='white'">
+            <span style="font-size:14px;">${isApprover ? '⭐' : (isHead || isLeader(m.role) ? '⭐' : '👤')}</span>
             <span style="flex:1;${nameStyle}">${m.full_name}</span>
             ${badge}
         </div>`;

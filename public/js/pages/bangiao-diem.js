@@ -354,16 +354,15 @@ async function _tpLoadDeptMembers(deptId) {
                 const isDeptHead = m._is_dept_head;
                 const isApprover = m._isApprover;
                 const lead = isDeptHead || _isLeader(m.role) || isApprover;
-                const roleTag = isApprover ? '📋 Người duyệt' : (isDeptHead ? '⭐ Trưởng phòng' : (_roleLabel[m.role] || m.role));
-                const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
-                const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${lead ? '700' : '500'};`;
-                const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;' : (lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;');
+                const roleTag = isApprover ? '⭐ Quản Lý' : (isDeptHead ? '⭐ Trưởng phòng' : (_roleLabel[m.role] || m.role));
+                const nameStyle = `font-weight:${lead ? '700' : '500'};`;
+                const roleStyle = lead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;';
                 return `
-                <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}" data-approver="${isApprover ? '1' : '0'}" data-leader="${lead ? '1' : '0'}"
+                <div class="tp-member-item" data-uid="${m.id}" data-name="${(m.full_name||'').toLowerCase()}" data-uname="${(m.username||'').toLowerCase()}"
                      onclick="_tpSelectMember(${deptId},${m.id},'${(m.full_name||'').replace(/'/g,"\\'")}')" 
-                     style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;${approverBg}display:flex;align-items:center;gap:8px;"
-                     onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'" 
-                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : ''}';">
+                     style="padding:8px 14px 8px 24px;font-size:13px;color:#1e293b;cursor:pointer;transition:all .12s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
+                     onmouseover="if(!this.classList.contains('tp-member-active'))this.style.background='#f8fafc'" 
+                     onmouseout="if(!this.classList.contains('tp-member-active'))this.style.background='white'">
                     <div style="flex:1;min-width:0;">
                         <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</div>
                         <div style="font-size:10px;${roleStyle}margin-top:1px;">${roleTag}</div>
@@ -407,27 +406,16 @@ function _tpSelectMember(deptId, userId, userName) {
     _tpViewMode = 'individual';
     _tpViewUserId = userId;
     _tpViewUserName = userName;
-    // Highlight member — gold for approvers/managers, blue for regular
+    // Highlight member — light blue for selected, white for others
     document.querySelectorAll('.tp-member-item').forEach(el => {
         const isActive = Number(el.dataset.uid) === userId;
         el.classList.toggle('tp-member-active', isActive);
-        if (isActive) {
-            const isApproverOrLead = el.dataset.approver === '1' || el.dataset.leader === '1';
-            el.style.background = isApproverOrLead ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'linear-gradient(135deg,#2563eb,#1d4ed8)';
-            el.style.color = '#fff';
-            el.style.fontWeight = '700';
-            el.style.borderLeft = isApproverOrLead ? '3px solid #b45309' : '3px solid #1e40af';
-            el.style.borderRadius = '6px';
-            el.style.boxShadow = isApproverOrLead ? '0 2px 8px rgba(217,119,6,0.4)' : '0 2px 8px rgba(37,99,235,0.3)';
-        } else {
-            const isApprover = el.dataset.approver === '1';
-            el.style.background = isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : '';
-            el.style.color = '#1e293b';
-            el.style.fontWeight = '';
-            el.style.borderLeft = isApprover ? '3px solid #3b82f6' : '3px solid transparent';
-            el.style.borderRadius = '';
-            el.style.boxShadow = '';
-        }
+        el.style.background = isActive ? '#eff6ff' : 'white';
+        el.style.color = isActive ? '#1e40af' : '#1e293b';
+        el.style.fontWeight = isActive ? '700' : '';
+        el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
+        el.style.borderRadius = '';
+        el.style.boxShadow = '';
     });
     // Use _tpSelectItem to properly highlight dept headers (preserves styling)
     _tpSelectItem('team', deptId);
@@ -471,8 +459,8 @@ function _tpSelectItem(targetType, targetId) {
     // Clear member highlights
     document.querySelectorAll('.tp-member-item').forEach(el => {
         el.classList.remove('tp-member-active');
-        el.style.background = '';
-        el.style.color = '#6b7280';
+        el.style.background = 'white';
+        el.style.color = '#1e293b';
         el.style.fontWeight = '';
         el.style.borderLeft = '3px solid transparent';
     });
