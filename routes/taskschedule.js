@@ -348,47 +348,8 @@ async function taskScheduleRoutes(fastify, options) {
 
         members = members.filter(m => userIds.includes(m.id) || deptIds.includes(m.department_id));
         
-        // Include head_user_id users in their managed departments
-        // For quan_ly/truong_phong/trinh: only add heads from departments in their task_approvers scope
-        let deptsWithHeads;
-        if (['quan_ly', 'truong_phong', 'trinh'].includes(user.role)) {
-            // Use task_approvers as the source of truth for scope
-            const approverDepts = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
-            const scopeDeptIds = new Set(approverDepts.map(a => a.department_id));
-            if (user.department_id) scopeDeptIds.add(user.department_id);
-            if (scopeDeptIds.size > 0) {
-                const ph = [...scopeDeptIds].map((_, i) => `$${i + 1}`).join(',');
-                deptsWithHeads = await db.all(
-                    `SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active' AND d.id IN (${ph})`,
-                    [...scopeDeptIds]
-                );
-            } else {
-                deptsWithHeads = [];
-            }
-        } else {
-            deptsWithHeads = await db.all(
-                "SELECT d.id, d.name, d.head_user_id FROM departments d WHERE d.head_user_id IS NOT NULL AND d.status = 'active'"
-            );
-        }
-        for (const dept of deptsWithHeads) {
-            const alreadyInDept = members.some(m => m.id === dept.head_user_id && m.dept_name === dept.name);
-            if (!alreadyInDept) {
-                const headUser = await db.get(
-                    "SELECT id, full_name, role, department_id FROM users WHERE id = $1 AND status = 'active'",
-                    [dept.head_user_id]
-                );
-                if (headUser) {
-                    members.push({
-                        id: headUser.id,
-                        full_name: headUser.full_name,
-                        role: headUser.role,
-                        dept_name: dept.name,
-                        department_id: headUser.department_id,
-                        _is_dept_head: true
-                    });
-                }
-            }
-        }
+        // NOTE: head_user_id injection removed — only department_id + task_approvers control sidebar membership
+
         
         return { members };
     });
@@ -609,7 +570,16 @@ async function taskScheduleRoutes(fastify, options) {
     // DELETE remove approver
     fastify.delete('/api/schedule/approvers/:id', { preHandler: [authenticate] }, async (request, reply) => {
         if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được setup' });
+        // Get approver info before deleting
+        const approver = await db.get('SELECT user_id, department_id FROM task_approvers WHERE id = $1', [Number(request.params.id)]);
         await db.run('DELETE FROM task_approvers WHERE id = $1', [Number(request.params.id)]);
+        // Also clear head_user_id if this user was head of the department
+        if (approver) {
+            await db.run(
+                'UPDATE departments SET head_user_id = NULL WHERE id = $1 AND head_user_id = $2',
+                [approver.department_id, approver.user_id]
+            );
+        }
         return { success: true };
     });
 

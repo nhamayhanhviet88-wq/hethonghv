@@ -226,21 +226,7 @@ async function taskPointRoutes(fastify, options) {
             "SELECT id, full_name, username, role FROM users WHERE department_id = ? AND status = 'active' ORDER BY full_name",
             [Number(department_id)]
         );
-        // Include head_user if not already in list
-        const dept = await db.get('SELECT head_user_id FROM departments WHERE id = ?', [Number(department_id)]);
-        if (dept && dept.head_user_id) {
-            const headExists = users.some(u => u.id === dept.head_user_id);
-            if (!headExists) {
-                const headUser = await db.get(
-                    "SELECT id, full_name, username, role FROM users WHERE id = ? AND status = 'active'",
-                    [dept.head_user_id]
-                );
-                if (headUser) {
-                    headUser._is_dept_head = true;
-                    users.unshift(headUser); // Add to top
-                }
-            }
-        }
+        // NOTE: head_user_id injection removed — only department_id + task_approvers control membership
         // Include approvers from task_approvers table
         const approvers = await db.all(
             `SELECT u.id, u.full_name, u.username, u.role
