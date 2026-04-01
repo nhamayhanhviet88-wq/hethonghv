@@ -11,6 +11,7 @@ const _LK_DAY_NAMES = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 let _lkSelectedUserId = null;
 let _lkSelectedDeptId = null;
 let _lkTreeData = null;
+let _lkIsParentDept = false; // true if selected dept is a PHÒNG (not sub-team)
 
 async function renderBanGiaoKhoaPage(container) {
     const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
@@ -214,6 +215,11 @@ function _lkFilterSidebar() {
 function _lkSelectDept(deptId) {
     _lkSelectedDeptId = deptId;
     _lkSelectedUserId = null;
+    // Determine if this is a parent dept (PHÒNG) or sub-team
+    const dept = _lkTreeData?.departments?.find(d => d.id === deptId);
+    const parentDept = dept?.parent_id ? _lkTreeData?.departments?.find(d => d.id === dept.parent_id) : null;
+    // It's a parent dept if its parent is a system dept (code starts with 'SYS') or has no parent
+    _lkIsParentDept = !parentDept || (parentDept?.code?.startsWith('SYS') || parentDept?.name?.startsWith('HỆ THỐNG'));
     // Remove selected styles
     document.querySelectorAll('.lk-user-item').forEach(el => {
         el.classList.remove('lk-selected');
@@ -263,7 +269,7 @@ async function _lkLoadDeptTasks(deptId) {
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">🏢 ${deptName}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} công việc khóa</div>
             </div>
-            ${isManager ? `<button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa</button>` : ''}
+            ${isManager && _lkIsParentDept ? `<button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa</button>` : ''}
         </div>`;
 
         if (tasks.length === 0) {
@@ -272,7 +278,7 @@ async function _lkLoadDeptTasks(deptId) {
                 <div style="color:#9ca3af;font-size:13px;">Chưa có công việc khóa nào</div>
             </div>`;
         } else {
-            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true)}</div>`;
+            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, _lkIsParentDept)}</div>`;
         }
 
         panel.innerHTML = html;
@@ -360,7 +366,6 @@ async function _lkLoadUserTasks(userId, userName) {
                         </div>
                         <div style="flex-shrink:0;">
                             ${statusBadge}
-                            ${isManager && !isSelf ? `<div style="margin-top:6px;text-align:right;"><button onclick="_lkEditTask(${t.id})" style="padding:2px 8px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;background:white;color:#6b7280;cursor:pointer;">✏️</button> <button onclick="_lkDeleteTask(${t.id})" style="padding:2px 8px;font-size:10px;border:1px solid #fecaca;border-radius:4px;background:white;color:#dc2626;cursor:pointer;">🗑️</button></div>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -374,7 +379,7 @@ async function _lkLoadUserTasks(userId, userName) {
 }
 
 // ===== TASK TABLE (DEPT VIEW) =====
-function _lkRenderTaskTable(tasks, showAssignees) {
+function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true) {
     let html = `<div style="background:white;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <table style="width:100%;border-collapse:collapse;">
             <thead>
@@ -384,7 +389,7 @@ function _lkRenderTaskTable(tasks, showAssignees) {
                     <th style="padding:10px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">QL Duyệt</th>
                     <th style="padding:10px 12px;text-align:right;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Phạt</th>
                     ${showAssignees ? '<th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân viên</th>' : ''}
-                    <th style="padding:10px 12px;width:60px;"></th>
+                    ${showEditBtns ? '<th style="padding:10px 12px;width:60px;"></th>' : ''}
                 </tr>
             </thead>
             <tbody>`;
@@ -406,10 +411,10 @@ function _lkRenderTaskTable(tasks, showAssignees) {
             ${showAssignees ? `<td style="padding:10px 12px;font-size:11px;color:#374151;max-width:200px;">
                 ${(t.assigned_users || []).map(u => `<span style="display:inline-block;background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px 2px;cursor:pointer;white-space:nowrap;" onclick="_lkSelectUser(${u.id},'${(u.name||'').replace(/'/g,"\\\\'")}',event)">👤 ${u.name}</span>`).join('') || '<span style="color:#9ca3af;">—</span>'}
             </td>` : ''}
-            <td style="padding:10px 12px;text-align:center;">
+            ${showEditBtns ? `<td style="padding:10px 12px;text-align:center;">
                 <button onclick="_lkEditTask(${t.id})" style="padding:2px 6px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;background:white;color:#6b7280;cursor:pointer;">✏️</button>
                 <button onclick="_lkDeleteTask(${t.id})" style="padding:2px 6px;font-size:10px;border:1px solid #fecaca;border-radius:4px;background:white;color:#dc2626;cursor:pointer;">🗑️</button>
-            </td>
+            </td>` : ''}
         </tr>`;
     });
 
@@ -505,13 +510,30 @@ async function _lkShowCreateModal(deptId, editTask) {
                     <label style="font-size:11px;font-weight:700;color:#374151;">Gán cho nhân viên *</label>
                     <label style="font-size:10px;color:#6b7280;cursor:pointer;"><input type="checkbox" id="lkf_selectAll" onchange="_lkToggleAll(this.checked)" ${deptUsers.length === assignedIds.length && deptUsers.length > 0 ? 'checked' : ''}> Chọn tất cả</label>
                 </div>
-                <div id="lkf_userList" style="max-height:150px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
-                    ${deptUsers.map(u => `
-                        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                            <input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;">
-                            ${u.full_name} <span style="color:#9ca3af;font-size:10px;">(${u.dept_name || ''})</span>
-                        </label>
-                    `).join('')}
+                <div id="lkf_userList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
+                    ${(() => {
+                        // Group users by dept_name (team)
+                        const groups = {};
+                        deptUsers.forEach(u => {
+                            const key = u.dept_name || 'Khác';
+                            if (!groups[key]) groups[key] = [];
+                            groups[key].push(u);
+                        });
+                        let userHtml = '';
+                        Object.keys(groups).forEach(grp => {
+                            if (Object.keys(groups).length > 1) {
+                                userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:4px;border-bottom:1px solid #e2e8f0;">🏢 ${grp}</div>`;
+                            }
+                            groups[grp].forEach(u => {
+                                userHtml += `
+                                    <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                        <input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;">
+                                        ${u.full_name}
+                                    </label>`;
+                            });
+                        });
+                        return userHtml;
+                    })()}
                 </div>
             </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:10px;border-top:1px solid #e2e8f0;">
