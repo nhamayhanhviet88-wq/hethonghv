@@ -1833,8 +1833,14 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
     const guideLink = taskDetail?.guide_link || '';
     const reqApproval = taskDetail?.requires_approval;
     let inputReqs = [], outputReqs = [];
-    try { inputReqs = typeof taskDetail?.input_requirements === 'string' ? JSON.parse(taskDetail.input_requirements) : (taskDetail?.input_requirements || []); } catch(e) {}
-    try { outputReqs = typeof taskDetail?.output_requirements === 'string' ? JSON.parse(taskDetail.output_requirements) : (taskDetail?.output_requirements || []); } catch(e) {}
+    try {
+        const raw = taskDetail?.input_requirements?.trim?.();
+        if (raw) { if (raw.startsWith('[')) inputReqs = JSON.parse(raw); else inputReqs = [raw]; }
+    } catch(e) { if (taskDetail?.input_requirements) inputReqs = [taskDetail.input_requirements]; }
+    try {
+        const raw = taskDetail?.output_requirements?.trim?.();
+        if (raw) { if (raw.startsWith('[')) outputReqs = JSON.parse(raw); else outputReqs = [raw]; }
+    } catch(e) { if (taskDetail?.output_requirements) outputReqs = [taskDetail.output_requirements]; }
 
     const reqHtml = (reqs, icon, color, title) => {
         if (!reqs || reqs.length === 0) return '';
@@ -2020,10 +2026,22 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         const recLabels = { administrative: 'Hành chính (T2-T7)', daily: 'Hằng ngày', weekly: 'Hàng tuần', monthly: 'Hàng tháng', once: 'Một lần' };
         const recLabel = recLabels[t.recurrence_type] || t.recurrence_type;
 
-        // Parse requirements
+        // Parse requirements (could be JSON array, plain string/URL, or empty)
         let inputReqs = [], outputReqs = [];
-        try { inputReqs = typeof t.input_requirements === 'string' ? JSON.parse(t.input_requirements) : (t.input_requirements || []); } catch(e) {}
-        try { outputReqs = typeof t.output_requirements === 'string' ? JSON.parse(t.output_requirements) : (t.output_requirements || []); } catch(e) {}
+        try {
+            if (t.input_requirements) {
+                const raw = t.input_requirements.trim();
+                if (raw.startsWith('[')) inputReqs = JSON.parse(raw);
+                else inputReqs = [raw];
+            }
+        } catch(e) { inputReqs = [t.input_requirements]; }
+        try {
+            if (t.output_requirements) {
+                const raw = t.output_requirements.trim();
+                if (raw.startsWith('[')) outputReqs = JSON.parse(raw);
+                else outputReqs = [raw];
+            }
+        } catch(e) { outputReqs = [t.output_requirements]; }
 
         const modal = document.createElement('div');
         modal.id = 'kbLockDetailModal';
