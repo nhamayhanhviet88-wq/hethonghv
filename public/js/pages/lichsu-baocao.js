@@ -14,6 +14,8 @@ let _rhReportMap = {};
 let _rhWorkingDays = [];
 let _rhModalTaskIdx = null; // currently open task modal index
 let _rhModalMonth = ''; // month being viewed in modal
+let _rhLockGroups = []; // lock task groups for modal
+let _rhLockModalIdx = null; // currently open lock task modal index
 
 // Color palette for task cards (deterministic hash)
 const _rhColors = [
@@ -487,15 +489,17 @@ function _rhRenderContent() {
             </div>
             <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
 
-        lockGroups.forEach(g => {
+        _rhLockGroups = lockGroups; // store for modal
+
+        lockGroups.forEach((g, idx) => {
             const approved = g.completions.filter(c => c.status === 'approved').length;
             const pending = g.completions.filter(c => c.status === 'pending').length;
             const rejected = g.completions.filter(c => c.status === 'rejected').length;
             const total = g.completions.length;
 
             html += `
-            <div style="border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;background:white;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;">
-                <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+            <div onclick="_rhOpenLockModal(${idx})" style="border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;background:white;box-shadow:0 1px 4px rgba(0,0,0,0.04);cursor:pointer;transition:all .15s;overflow:hidden;" onmouseover="this.style.boxShadow='0 3px 12px rgba(0,0,0,0.1)';this.style.transform='translateY(-1px)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)';this.style.transform='none'">
+                <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
                     <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
                         <div style="min-width:0;flex:1;">
                             <div style="font-weight:700;color:#991b1b;font-size:14px;">${g.task_name}</div>
@@ -504,39 +508,19 @@ function _rhRenderContent() {
                                 ${approved > 0 ? ' · <span style="color:#16a34a;">' + approved + ' đạt</span>' : ''}
                                 ${pending > 0 ? ' · <span style="color:#d97706;">' + pending + ' chờ</span>' : ''}
                                 ${rejected > 0 ? ' · <span style="color:#dc2626;">' + rejected + ' từ chối</span>' : ''}
-
                             </div>
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
                         <span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">🔐</span>
-                        <span style="color:#9ca3af;font-size:14px;">▼</span>
+                        <span style="color:#9ca3af;font-size:14px;">▶</span>
                     </div>
                 </div>
-                <div style="display:none;border-top:1px solid #fef2f2;">`;
-
-            if (g.completions.length === 0) {
-                html += '<div style="padding:12px 16px;font-size:12px;color:#9ca3af;text-align:center;">Chưa có báo cáo nào</div>';
-            } else {
-                g.completions.forEach(c => {
-                    const dateF = c.completion_date.split('-').reverse().join('/');
-                    const st = _RH_STATUS[c.status] || _RH_STATUS.pending;
-                    html += `
-                    <div style="padding:8px 16px;border-bottom:1px solid #fef2f2;display:flex;align-items:center;gap:10px;font-size:12px;">
-                        <span style="font-weight:600;color:#374151;min-width:70px;">${dateF}</span>
-                        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;">${st.icon} ${st.label}</span>
-                        ${c.proof_url ? `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:10px;">${c.proof_url.startsWith('/uploads') ? '🖼️ Ảnh' : '🔗 Link'}</a>` : ''}
-                        ${c.content ? `<span style="color:#6b7280;font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(c.content||'').replace(/"/g,'&quot;')}">📄 ${c.content}</span>` : ''}
-                        ${c.reject_reason ? `<span style="color:#dc2626;font-size:10px;">💬 ${c.reject_reason}</span>` : ''}
-                        ${c.redo_count > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;">🔄 Lần ${c.redo_count}</span>` : ''}
-                    </div>`;
-                });
-            }
-
-            html += '</div></div>';
+            </div>`;
         });
 
         html += '</div></div>';
+
     }
 
     wrap.innerHTML = html;
@@ -735,6 +719,157 @@ function _rhModalChangeMonth(val) {
     if (!val) return;
     _rhModalMonth = val;
     _rhRenderTaskModal();
+}
+
+// ========== LOCK TASK MODAL ==========
+function _rhOpenLockModal(idx) {
+    _rhLockModalIdx = idx;
+    _rhModalMonth = _rhCurrentMonth;
+    _rhRenderLockModal();
+}
+
+async function _rhRenderLockModal() {
+    const idx = _rhLockModalIdx;
+    const g = _rhLockGroups[idx];
+    if (!g) return;
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (!overlay || !titleEl || !body) return;
+
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) modalContainer.style.maxWidth = '800px';
+
+    const [year, mon] = _rhModalMonth.split('-').map(Number);
+
+    // If modal month differs, fetch that month's data
+    let completions = g.completions;
+    if (_rhModalMonth !== (_rhData.month || _rhCurrentMonth)) {
+        titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${g.task_name}`;
+        body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải...</div>';
+        footer.innerHTML = '';
+        overlay.classList.add('show');
+        try {
+            const data = await apiCall(`/api/report-history/user/${_rhSelectedUser.id}?month=${_rhModalMonth}`);
+            completions = (data.lock_completions || []).filter(lc => lc.task_name === g.task_name);
+        } catch(e) {
+            body.innerHTML = '<div style="padding:40px;text-align:center;color:#dc2626;">❌ Lỗi tải dữ liệu</div>';
+            footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+            return;
+        }
+    }
+
+    // Stats
+    const total = completions.length;
+    const approved = completions.filter(c => c.status === 'approved').length;
+    const pending = completions.filter(c => c.status === 'pending').length;
+    const rejected = completions.filter(c => c.status === 'rejected').length;
+    const rate = total > 0 ? Math.round(approved / total * 100) : 0;
+
+    // Rows
+    let rows = '';
+    completions.sort((a, b) => a.completion_date.localeCompare(b.completion_date)).forEach(c => {
+        const dateF = c.completion_date.split('-').reverse().join('/');
+        const st = _RH_STATUS[c.status] || _RH_STATUS.pending;
+
+        let detailParts = [];
+        if (c.proof_url) {
+            detailParts.push(c.proof_url.startsWith('/uploads')
+                ? `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:11px;">🖼️ Ảnh</a>`
+                : `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:11px;">🔗 Link</a>`);
+        }
+        if (c.content) {
+            detailParts.push(`<span style="color:#6b7280;font-size:10px;" title="${(c.content||'').replace(/"/g,'&quot;')}">📄 ${c.content.substring(0,30)}${c.content.length>30?'...':''}</span>`);
+        }
+        if (c.reject_reason) {
+            detailParts.push(`<span style="color:#dc2626;font-size:10px;">💬 ${c.reject_reason}</span>`);
+        }
+        if (c.redo_count > 0) {
+            detailParts.push(`<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;">🔄 Lần ${c.redo_count}</span>`);
+        }
+
+        rows += `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px 12px;font-size:12px;color:#374151;white-space:nowrap;">${dateF}</td>
+            <td style="padding:8px 12px;text-align:center;">${`<span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;">${st.icon} ${st.label}</span>`}</td>
+            <td style="padding:8px 12px;font-size:11px;">${detailParts.join(' ')}</td>
+        </tr>`;
+    });
+
+    const contentHtml = `
+    <div style="padding:16px 20px;">
+        <!-- Month picker inside modal -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button onclick="_rhLockModalPrev()" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:white;cursor:pointer;font-size:14px;">◀</button>
+                <span style="font-weight:700;color:#1e293b;font-size:14px;">${_RH_MONTH_NAMES[mon]} ${year}</span>
+                <button onclick="_rhLockModalNext()" style="padding:4px 10px;border:1px solid #e5e7eb;border-radius:6px;background:white;cursor:pointer;font-size:14px;">▶</button>
+            </div>
+            <input type="month" value="${_rhModalMonth}" onchange="_rhLockModalChange(this.value)" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;color:#374151;background:white;cursor:pointer;" />
+        </div>
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#1e40af;">${total}</div>
+                <div style="font-size:10px;color:#3b82f6;font-weight:600;">Tổng</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#059669;">${approved} <span style="font-size:12px;color:#10b981;">(${rate}%)</span></div>
+                <div style="font-size:10px;color:#059669;font-weight:600;">Đạt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#d97706;">${pending}</div>
+                <div style="font-size:10px;color:#d97706;font-weight:600;">Chờ duyệt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#dc2626;">${rejected}</div>
+                <div style="font-size:10px;color:#dc2626;font-weight:600;">Từ chối</div>
+            </div>
+        </div>
+        <!-- Task info -->
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7f1d1d;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                <span>🔐 <b>CV Khóa</b></span>
+                ${g.requires_approval ? '<span>🔒 <b style="color:#d97706;">Cần duyệt</b></span>' : ''}
+                ${g.guide_link ? `<a href="${g.guide_link}" target="_blank" style="color:#2563eb;text-decoration:none;">📎 Hướng dẫn CV →</a>` : ''}
+            </div>
+        </div>
+        <!-- Table -->
+        <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#fef2f2;">
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Ngày</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Trạng Thái</th>
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Chi Tiết</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có báo cáo trong tháng này</td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${g.task_name}`;
+    body.innerHTML = contentHtml;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    overlay.classList.add('show');
+}
+
+function _rhLockModalPrev() {
+    const [y, m] = _rhModalMonth.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    _rhModalMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    _rhRenderLockModal();
+}
+function _rhLockModalNext() {
+    const [y, m] = _rhModalMonth.split('-').map(Number);
+    const d = new Date(y, m, 1);
+    _rhModalMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    _rhRenderLockModal();
+}
+function _rhLockModalChange(val) {
+    if (!val) return;
+    _rhModalMonth = val;
+    _rhRenderLockModal();
 }
 
 // ========== REPORT DETAIL (rich view with BACK button) ==========
