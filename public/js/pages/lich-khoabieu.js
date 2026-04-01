@@ -1547,7 +1547,7 @@ async function _kbLoadApprovalPanel() {
             rows += `<tr style="border-bottom:1px solid #f1f5f9;background:#fef2f2;">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
-                    <span style="color:#991b1b;font-weight:700;">${r.task_name}</span>
+                    <span onclick="_kbShowLockTaskDetail(${r.lock_task_id})" style="color:#991b1b;font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#7f1d1d'" onmouseout="this.style.color='#991b1b'">${r.task_name}</span>
                     <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">🔐 KHÓA</span>
                     ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">🔄 Nộp lại</span>' : ''}
                 </td>
