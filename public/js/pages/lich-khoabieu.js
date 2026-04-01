@@ -471,8 +471,14 @@ async function _kbLoadSchedule() {
         const ltData = await apiCall(`/api/lock-tasks/calendar?user_id=${uid}&week_start=${monStr}`);
         _kbLockTasks = ltData.tasks || [];
         _kbLockCompletions = {};
+        window._kbLockCompAllVersions = {};
         (ltData.completions || []).forEach(c => {
-            _kbLockCompletions[`${c.lock_task_id}_${c.completion_date.slice(0,10)}`] = c;
+            const key = `${c.lock_task_id}_${c.completion_date.slice(0,10)}`;
+            // Store latest (first in sorted list = highest redo_count) for grid display
+            if (!_kbLockCompletions[key]) _kbLockCompletions[key] = c;
+            // Store ALL versions for history modal
+            if (!window._kbLockCompAllVersions[key]) window._kbLockCompAllVersions[key] = [];
+            window._kbLockCompAllVersions[key].push(c);
         });
         _kbLockHolidays = new Set(ltData.holidays || []);
         // Store lock support requests
@@ -2393,15 +2399,23 @@ async function _kbSaveReorder() {
 function _kbShowLockReport(compId) {
     // Find the completion from _kbLockCompletions map
     let comp = null;
+    let compKey = null;
     for (const key in _kbLockCompletions) {
         if (_kbLockCompletions[key].id === compId) {
             comp = _kbLockCompletions[key];
+            compKey = key;
             break;
+        }
+    }
+    // Also check all versions
+    if (!comp) {
+        for (const key in window._kbLockCompAllVersions) {
+            const found = (window._kbLockCompAllVersions[key] || []).find(c => c.id === compId);
+            if (found) { comp = found; compKey = key; break; }
         }
     }
     if (!comp) { showToast('Không tìm thấy báo cáo', 'error'); return; }
 
-    // Find task name
     const lt = _kbLockTasks.find(t => t.id === comp.lock_task_id);
     const taskName = lt ? lt.task_name : 'Công việc khóa';
 
@@ -2411,7 +2425,6 @@ function _kbShowLockReport(compId) {
         rejected: { icon: '❌', label: 'Từ chối', color: '#dc2626', bg: '#fecaca' },
         expired: { icon: '🚫', label: 'Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
     };
-    const st = statusMap[comp.status] || statusMap.pending;
     const dateF = comp.completion_date ? comp.completion_date.split('-').reverse().join('/') : '';
 
     const overlay = document.getElementById('modalOverlay');
@@ -2421,65 +2434,70 @@ function _kbShowLockReport(compId) {
     if (!overlay || !titleEl || !body) return;
 
     const modalContainer = document.getElementById('modalContainer');
-    if (modalContainer) modalContainer.style.maxWidth = '600px';
+    if (modalContainer) modalContainer.style.maxWidth = '650px';
 
     titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${taskName}`;
 
-    let proofHtml = '';
-    if (comp.proof_url) {
-        if (comp.proof_url.startsWith('/uploads')) {
-            proofHtml = `
-            <div style="margin-top:12px;">
-                <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">🖼️ Hình ảnh báo cáo:</div>
-                <a href="${comp.proof_url}" target="_blank">
-                    <img src="${comp.proof_url}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onerror="this.style.display='none'" />
-                </a>
-            </div>`;
-        } else {
-            proofHtml = `
-            <div style="margin-top:12px;">
-                <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">🔗 Link báo cáo:</div>
-                <a href="${comp.proof_url}" target="_blank" style="color:#2563eb;word-break:break-all;font-size:12px;">${comp.proof_url}</a>
-            </div>`;
+    // Get ALL versions for this task+date
+    const allVersions = (window._kbLockCompAllVersions && compKey ? window._kbLockCompAllVersions[compKey] : [comp]) || [comp];
+    // Sort: latest first (highest redo_count)
+    allVersions.sort((a, b) => (b.redo_count || 0) - (a.redo_count || 0));
+
+    // Helper: render one version card
+    function renderVersion(v, isLatest) {
+        const st = statusMap[v.status] || statusMap.pending;
+        let proofHtml = '';
+        if (v.proof_url) {
+            if (v.proof_url.startsWith('/uploads')) {
+                proofHtml = `<div style="margin-top:8px;">
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">🖼️ Hình ảnh:</div>
+                    <a href="${v.proof_url}" target="_blank"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:6px;border:1px solid #e5e7eb;" onerror="this.style.display='none'" /></a>
+                </div>`;
+            } else {
+                proofHtml = `<div style="margin-top:8px;">
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">🔗 Link:</div>
+                    <a href="${v.proof_url}" target="_blank" style="color:#2563eb;word-break:break-all;font-size:11px;">${v.proof_url}</a>
+                </div>`;
+            }
         }
+
+        const borderColor = isLatest ? '#3b82f6' : '#e5e7eb';
+        const headerBg = isLatest ? '#eff6ff' : '#f9fafb';
+        const label = isLatest ? `📄 Lần ${(v.redo_count || 0) + 1} (Mới nhất)` : `📋 Lần ${(v.redo_count || 0) + 1}`;
+
+        return `<div style="border:2px solid ${borderColor};border-radius:10px;overflow:hidden;${!isLatest?'opacity:0.85;':''}">
+            <div style="background:${headerBg};padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${borderColor};">
+                <span style="font-weight:700;font-size:12px;color:#374151;">${label}</span>
+                <span style="background:${st.bg};color:${st.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${st.icon} ${st.label}</span>
+            </div>
+            <div style="padding:12px 14px;">
+                ${v.content ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;">
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">📄 Nội dung:</div>
+                    <div style="font-size:12px;color:#1e293b;line-height:1.5;white-space:pre-wrap;">${v.content}</div>
+                </div>` : '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">📭 Không có nội dung</div>'}
+                ${proofHtml}
+                ${v.reject_reason ? `<div style="margin-top:8px;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;border-radius:6px;padding:8px 10px;">
+                    <div style="font-weight:600;color:#dc2626;font-size:11px;margin-bottom:2px;">💬 Lý do từ chối:</div>
+                    <div style="font-size:11px;color:#7f1d1d;">${v.reject_reason}</div>
+                </div>` : ''}
+                ${v.reviewed_at ? `<div style="margin-top:6px;font-size:10px;color:#9ca3af;">⏰ ${new Date(v.reviewed_at).toLocaleString('vi-VN')}</div>` : ''}
+            </div>
+        </div>`;
     }
+
+    let versionsHtml = '';
+    allVersions.forEach((v, i) => {
+        versionsHtml += renderVersion(v, i === 0);
+        if (i < allVersions.length - 1) versionsHtml += '<div style="height:10px;"></div>';
+    });
 
     body.innerHTML = `
     <div style="padding:20px;">
-        <!-- Status + Date -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <span style="background:${st.bg};color:${st.color};padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;">${st.icon} ${st.label}</span>
             <span style="font-size:13px;color:#6b7280;font-weight:600;">📅 ${dateF}</span>
+            ${allVersions.length > 1 ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:4px;">📊 ${allVersions.length} lần báo cáo</span>` : ''}
         </div>
-
-        <!-- Content -->
-        ${comp.content ? `
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;">
-            <div style="font-weight:700;color:#374151;font-size:12px;margin-bottom:6px;">📄 Nội dung báo cáo:</div>
-            <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${comp.content}</div>
-        </div>` : (!proofHtml && !comp.reject_reason ? `
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;text-align:center;">
-            <div style="font-size:24px;margin-bottom:6px;">📭</div>
-            <div style="font-size:12px;color:#9ca3af;">Chưa có nội dung báo cáo</div>
-        </div>` : '')}
-
-        <!-- Proof -->
-        ${proofHtml}
-
-        <!-- Reject reason -->
-        ${comp.reject_reason ? `
-        <div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:12px;">
-            <div style="font-weight:700;color:#dc2626;font-size:12px;margin-bottom:4px;">💬 Lý do từ chối:</div>
-            <div style="font-size:12px;color:#7f1d1d;">${comp.reject_reason}</div>
-        </div>` : ''}
-
-        <!-- Redo count -->
-        ${comp.redo_count > 0 ? `
-        <div style="margin-top:10px;font-size:11px;color:#d97706;">🔄 Lần báo cáo: ${comp.redo_count}</div>` : ''}
-
-        <!-- Reviewed at -->
-        ${comp.reviewed_at ? `
-        <div style="margin-top:8px;font-size:10px;color:#9ca3af;">⏰ Duyệt lúc: ${new Date(comp.reviewed_at).toLocaleString('vi-VN')}</div>` : ''}
+        ${versionsHtml}
     </div>`;
 
     footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;

@@ -494,9 +494,9 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const weekEnd = dates[6];
-        // Get LATEST completion per task per day (highest redo_count)
+        // Get ALL completions per task per day (all redo versions for history)
         const completions = await db.all(
-            `SELECT DISTINCT ON (ltc.lock_task_id, ltc.completion_date) ltc.*, ltc.completion_date::text as completion_date
+            `SELECT ltc.*, ltc.completion_date::text as completion_date
              FROM lock_task_completions ltc
              WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
              ORDER BY ltc.lock_task_id, ltc.completion_date, ltc.redo_count DESC`,
