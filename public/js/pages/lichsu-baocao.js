@@ -445,7 +445,7 @@ function _rhRenderContent() {
             if (!lockGroupMap.has(lt.task_name)) {
                 lockGroupMap.set(lt.task_name, {
                     task_name: lt.task_name, lock_task_id: lt.id,
-                    guide_link: lt.guide_link, deadline_time: lt.deadline_time,
+                    guide_link: lt.guide_link,
                     requires_approval: lt.requires_approval,
                     completions: []
                 });
@@ -455,7 +455,7 @@ function _rhRenderContent() {
             if (!lockGroupMap.has(lc.task_name)) {
                 lockGroupMap.set(lc.task_name, {
                     task_name: lc.task_name, lock_task_id: lc.lock_task_id,
-                    guide_link: lc.guide_link, deadline_time: lc.deadline_time,
+                    guide_link: lc.guide_link,
                     requires_approval: lc.requires_approval,
                     completions: []
                 });
@@ -504,7 +504,7 @@ function _rhRenderContent() {
                                 ${approved > 0 ? ' · <span style="color:#16a34a;">' + approved + ' đạt</span>' : ''}
                                 ${pending > 0 ? ' · <span style="color:#d97706;">' + pending + ' chờ</span>' : ''}
                                 ${rejected > 0 ? ' · <span style="color:#dc2626;">' + rejected + ' từ chối</span>' : ''}
-                                ${g.deadline_time ? ' · ⏰ Hạn ' + g.deadline_time : ''}
+
                             </div>
                         </div>
                     </div>

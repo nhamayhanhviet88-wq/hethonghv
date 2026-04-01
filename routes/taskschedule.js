@@ -915,7 +915,7 @@ async function taskScheduleRoutes(fastify, options) {
             `SELECT ltc.id, ltc.lock_task_id, ltc.completion_date::text as completion_date,
                     ltc.redo_count, ltc.proof_url, ltc.content, ltc.status,
                     ltc.reject_reason, ltc.reviewed_at, ltc.created_at,
-                    lt.task_name, lt.guide_link, lt.deadline_time,
+                    lt.task_name, lt.guide_link,
                     lt.input_requirements, lt.output_requirements, lt.requires_approval
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
@@ -926,7 +926,7 @@ async function taskScheduleRoutes(fastify, options) {
 
         // Also get active lock tasks assigned to user (to detect missed ones)
         const lock_tasks = await db.all(
-            `SELECT lt.id, lt.task_name, lt.guide_link, lt.deadline_time,
+            `SELECT lt.id, lt.task_name, lt.guide_link,
                     lt.input_requirements, lt.output_requirements, lt.requires_approval,
                     lta.user_id
              FROM lock_task_assignments lta
