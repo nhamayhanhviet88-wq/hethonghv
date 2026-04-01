@@ -57,31 +57,48 @@ async function _tpRemoveDept(deptId, event) {
 let _tpCachedActiveDepts = []; // cached for rebuild
 function _tpRebuildSidebar() {
     const list = document.getElementById('tpDeptList');
-    if (!list || !_tpCachedActiveDepts.length) return;
-    const activeDepts = _tpCachedActiveDepts;
+    if (!list) return;
+    list.innerHTML = _tpBuildDeptListHtml();
+}
+function _tpBuildDeptListHtml() {
     const activeSet = new Set(_tpActiveDeptIds);
-    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
-    let parentStt = 0, childStt = 0;
-    let html = activeDepts.map((d, i) => {
-        const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
-        let sttLabel = '';
-        if (!isChild) {
-            parentStt++;
-            childStt = 0;
-            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
-        } else {
-            childStt++;
-            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
-        }
-        const deleteBtn = '';
-        return `
-        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
-            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
-        </div>
-        <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
-    }).join('');
-
-    list.innerHTML = html;
+    const systemDepts = _tpAllDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+    const nonSystemDepts = _tpAllDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
+    let html = '';
+    systemDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    systemDepts.forEach(sys => {
+        let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeSet.has(d.id));
+        childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        if (childDepts.length === 0) return;
+        html += `<div class="tp-system-header" data-sys-id="${sys.id}" onclick="_tpToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;cursor:pointer;"><span style="font-size:15px;">🏛️</span><span style="flex:1;">${sys.name}</span><span class="tp-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span></div>`;
+        html += `<div class="tp-sys-content" data-sys-id="${sys.id}">`;
+        let parentStt = 0, childStt = 0;
+        childDepts.forEach(d => {
+            const isChild = childDepts.some(p => p.id === d.parent_id);
+            const subTeams = nonSystemDepts.filter(sub => sub.parent_id === d.id && activeSet.has(sub.id))
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            if (!isChild) { parentStt++; childStt = 0; }
+            const sttLabel = !isChild
+                ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
+                : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
+            html += `<div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}</div><div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
+            subTeams.forEach(sub => {
+                childStt++;
+                html += `<div class="tp-dept-item tp-dept-header" data-id="${sub.id}" data-key="team-${sub.id}" data-type="team" onclick="_tpSelectDept(${sub.id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px 7px 28px;font-size:11px;color:#475569;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-left:3px solid #93c5fd;"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span></div><div id="tpMemberWrap_${sub.id}" style="display:none;"></div>`;
+            });
+        });
+        html += `</div>`;
+    });
+    return html;
+}
+function _tpToggleSystem(sysId) {
+    const content = document.querySelector(`.tp-sys-content[data-sys-id="${sysId}"]`);
+    const header = document.querySelector(`.tp-system-header[data-sys-id="${sysId}"]`);
+    if (!content) return;
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    const arrow = header?.querySelector('.tp-sys-arrow');
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 let _tpDeptMembers = []; // members of currently selected dept
 const _tpColorPalette = [
@@ -109,34 +126,16 @@ async function renderBanGiaoDiemPage(container) {
     try {
         const d = await apiCall('/api/task-points/departments');
         const raw = d.departments || [];
-        _tpAllDepts = raw.filter(d => !d.name.startsWith('HỆ THỐNG'));
+        _tpAllDepts = raw.filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
         _tpActiveDeptIds = d.active_dept_ids || [];
     } catch(e) { _tpAllDepts = []; _tpActiveDeptIds = []; }
 
-    // Filter active + sort hierarchically (tree-walk: parent → children immediately after)
+    // Build flat list of active non-system depts for auto-select
     const activeSet = new Set(_tpActiveDeptIds);
-    // Also include parent depts of active teams  
-    const activeDeptsList = _tpAllDepts.filter(d => activeSet.has(d.id));
-    activeDeptsList.forEach(d => {
-        if (d.parent_id) {
-            const parent = _tpAllDepts.find(p => p.id === d.parent_id);
-            if (parent && !activeSet.has(parent.id)) {
-                activeSet.add(parent.id);
-            }
-        }
-    });
-    // Tree-walk: parents sorted by display_order, each parent's children right after
-    const allActive = _tpAllDepts.filter(d => activeSet.has(d.id));
-    const parents = allActive.filter(d => !d.parent_id || !allActive.some(p => p.id === d.parent_id))
+    const nonSysDepts = _tpAllDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
+    const activeDepts = nonSysDepts.filter(d => activeSet.has(d.id))
         .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-    const activeDepts = [];
-    parents.forEach(p => {
-        activeDepts.push(p);
-        const children = allActive.filter(c => c.parent_id === p.id)
-            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-        activeDepts.push(...children);
-    });
-    _tpCachedActiveDepts = activeDepts; // cache for sidebar rebuild
+    _tpCachedActiveDepts = activeDepts;
 
     container.innerHTML = `
     <div style="margin:0 auto;padding:16px;">
@@ -162,24 +161,7 @@ async function renderBanGiaoDiemPage(container) {
                            onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
                 </div>
                 <div id="tpDeptList" style="max-height:calc(100vh - 250px);overflow-y:auto;">
-                    ${(() => { let parentStt = 0, childStt = 0; return activeDepts.map((d, i) => {
-                        const isChild = _tpAllDepts.some(p => p.id === d.parent_id && activeSet.has(p.id));
-                        let sttLabel = '';
-                        if (!isChild) {
-                            parentStt++;
-                            childStt = 0;
-                            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
-                        } else {
-                            childStt++;
-                            sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
-                        }
-                        const deleteBtn = '';
-                        return `
-                        <div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" data-parent-id="${d.parent_id || ''}" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}" onmouseover="this.style.opacity='0.9';this.style.transform='scale(1.01)'" onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
-                            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${deleteBtn}${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}
-                        </div>
-                        <div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
-                    }).join(''); })()} 
+                    ${_tpBuildDeptListHtml()} 
 
                 </div>
             </div>

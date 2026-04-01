@@ -23,44 +23,22 @@ async function renderBanGiaoKhoaPage(container) {
             apiCall('/api/lock-tasks/tree')
         ]);
         _lkTreeData = treeData;
-        const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
+        const rawDepts = (dData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
         const activeDeptIds = new Set(dData.active_dept_ids || []);
         const { users: allUsers, statusMap } = treeData;
         const allApprovers = dData.approvers || [];
 
-        // Tree-walk sort: parents by display_order, children after parent
-        const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
-        activeDepts.forEach(d => {
-            if (d.parent_id) {
-                const parent = allDepts.find(p => p.id === d.parent_id);
-                if (parent && !activeDeptIds.has(parent.id)) {
-                    activeDeptIds.add(parent.id);
-                    activeDepts.push(parent);
-                }
-            }
-        });
-        const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
-            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-        const sortedDepts = [];
-        parents.forEach(p => {
-            sortedDepts.push(p);
-            const children = activeDepts.filter(c => c.parent_id === p.id)
-                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-            sortedDepts.push(...children);
-        });
+        const systemDepts = rawDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+        const nonSystemDepts = rawDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
 
         // Role priority for sorting
         const _lkRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
         const _lkRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
         const _lkIsLeader = (role) => ['giam_doc', 'quan_ly', 'truong_phong'].includes(role);
 
-        // Build sidebar HTML matching Lịch Khóa Biểu style
-        let deptListHtml = '';
-        let parentStt = 0, childStt = 0;
-        sortedDepts.forEach(dept => {
-            const isChild = sortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
+        // Helper: render members for a dept
+        const renderDeptUsers = (dept, isChild) => {
             let deptUsers = (allUsers || []).filter(u => u.department_id === dept.id);
-            // Add approvers for this dept (from task_approvers) if not already in list
             const deptApprovers = allApprovers.filter(a => a.department_id === dept.id);
             const approverIdSet = new Set();
             deptApprovers.forEach(a => {
@@ -69,27 +47,13 @@ async function renderBanGiaoKhoaPage(container) {
                     deptUsers.push({ id: a.user_id, full_name: a.full_name, username: a.username, role: a.role, department_id: dept.id, _isApprover: true });
                 }
             });
-            // Mark existing users as approvers too
             deptUsers.forEach(u => { if (approverIdSet.has(u.id)) u._isApprover = true; });
-            // Sort: approvers first (priority 10), then by role
             deptUsers.sort((a, b) => {
                 const aP = (a._isApprover ? 10 : 0) + (_lkRolePriority[a.role] || 0);
                 const bP = (b._isApprover ? 10 : 0) + (_lkRolePriority[b.role] || 0);
                 return bP - aP;
             });
-
-            let sttLabel = '';
-            if (!isChild) {
-                parentStt++;
-                childStt = 0;
-                sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
-            } else {
-                childStt++;
-                sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
-            }
-
-            deptListHtml += `<div class="lk-dept-header" data-dept-id="${dept.id}" onclick="_lkSelectDept(${dept.id})" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
-
+            let html = '';
             deptUsers.forEach(u => {
                 const st = statusMap ? statusMap[u.id] : null;
                 let statusBadge = '';
@@ -104,7 +68,7 @@ async function renderBanGiaoKhoaPage(container) {
                 const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
                 const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${isLead ? '700' : '500'};`;
                 const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;font-size:10px;' : `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
-                deptListHtml += `
+                html += `
                     <div class="lk-user-item" data-user-id="${u.id}" data-name="${(u.full_name || '').toLowerCase()}" onclick="_lkSelectUser(${u.id},'${(u.full_name || '').replace(/'/g, "\\'")}', event)" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;${approverBg}display:flex;align-items:center;gap:8px;"
                         onmouseover="if(!this.classList.contains('lk-selected'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'"
                         onmouseout="if(!this.classList.contains('lk-selected'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'white'}';else this.style.background='#059669'">
@@ -115,6 +79,45 @@ async function renderBanGiaoKhoaPage(container) {
                         ${statusBadge}
                     </div>`;
             });
+            return html;
+        };
+
+        // Build sidebar grouped by HỆ THỐNG
+        let deptListHtml = '';
+        systemDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        systemDepts.forEach(sys => {
+            let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeDeptIds.has(d.id));
+            childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            if (childDepts.length === 0) return;
+
+            // System header
+            deptListHtml += `<div class="lk-system-header" data-sys-id="${sys.id}" onclick="_lkToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                <span style="font-size:15px;">🏛️</span>
+                <span style="flex:1;">${sys.name}</span>
+                <span class="lk-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span>
+            </div>`;
+            deptListHtml += `<div class="lk-sys-content" data-sys-id="${sys.id}">`;
+
+            let parentStt = 0, childStt = 0;
+            childDepts.forEach(dept => {
+                const isSubTeam = childDepts.some(p => p.id === dept.parent_id);
+                const subTeams = nonSystemDepts.filter(sub => sub.parent_id === dept.id && activeDeptIds.has(sub.id))
+                    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                if (!isSubTeam) { parentStt++; childStt = 0; }
+                const sttLabel = !isSubTeam
+                    ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
+                    : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
+
+                deptListHtml += `<div class="lk-dept-header" data-dept-id="${dept.id}" onclick="_lkSelectDept(${dept.id})" style="padding:${isSubTeam ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isSubTeam ? '11px' : '13px'};font-weight:900;color:${isSubTeam ? '#475569' : '#fff'};text-transform:uppercase;background:${isSubTeam ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isSubTeam ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isSubTeam ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isSubTeam ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isSubTeam ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span></div>`;
+                deptListHtml += renderDeptUsers(dept, isSubTeam);
+
+                subTeams.forEach(sub => {
+                    childStt++;
+                    deptListHtml += `<div class="lk-dept-header" data-dept-id="${sub.id}" onclick="_lkSelectDept(${sub.id})" style="padding:7px 14px 7px 28px;font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-bottom:1px solid #e2e8f0;border-left:3px solid #93c5fd;letter-spacing:0.3px;display:flex;align-items:center;gap:6px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span></div>`;
+                    deptListHtml += renderDeptUsers(sub, true);
+                });
+            });
+            deptListHtml += `</div>`;
         });
 
         sidebarHtml = `
@@ -149,6 +152,16 @@ async function renderBanGiaoKhoaPage(container) {
 }
 
 // ===== SIDEBAR FILTER =====
+function _lkToggleSystem(sysId) {
+    const content = document.querySelector(`.lk-sys-content[data-sys-id="${sysId}"]`);
+    const header = document.querySelector(`.lk-system-header[data-sys-id="${sysId}"]`);
+    if (!content) return;
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    const arrow = header?.querySelector('.lk-sys-arrow');
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+}
+
 function _lkFilterSidebar() {
     const q = (document.getElementById('lkTreeSearch')?.value || '').toLowerCase().trim();
 

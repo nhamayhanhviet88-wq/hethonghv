@@ -69,32 +69,21 @@ async function renderLichSuBaoCaoPage(container) {
             apiCall('/api/task-points/departments'),
             apiCall('/api/schedule/team-members')
         ]);
-        const raw = (deptRes.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
+        const raw = (deptRes.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
         const activeDeptIds = deptRes.active_dept_ids || [];
         _rhTeamMembers = memberRes.members || [];
         _rhApprovers = deptRes.approvers || [];
 
         const activeSet = new Set(activeDeptIds);
-        const activeDeptsList = raw.filter(d => activeSet.has(d.id));
-        activeDeptsList.forEach(d => {
-            if (d.parent_id) {
-                const parent = raw.find(p => p.id === d.parent_id);
-                if (parent && !activeSet.has(parent.id)) activeSet.add(parent.id);
-            }
-        });
-        const allActive = raw.filter(d => activeSet.has(d.id));
-        const parents = allActive.filter(d => !d.parent_id || !allActive.some(p => p.id === d.parent_id))
+        const systemDepts = raw.filter(d => d.name.startsWith('HỆ THỐNG'));
+        const nonSystemDepts = raw.filter(d => !d.name.startsWith('HỆ THỐNG'));
+
+        // Build flat list for auto-select
+        _rhActiveDepts = nonSystemDepts.filter(d => activeSet.has(d.id))
             .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-        _rhActiveDepts = [];
-        parents.forEach(p => {
-            _rhActiveDepts.push(p);
-            const children = allActive.filter(c => c.parent_id === p.id)
-                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-            _rhActiveDepts.push(...children);
-        });
         _rhAllDepts = raw;
         _rhExpandedDepts = new Set(_rhActiveDepts.map(d => d.id));
-        _renderRhManagerLayout(container);
+        _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSet);
     } else {
         _rhSelectedUser = { id: currentUser.id, name: currentUser.full_name };
         _renderRhEmployeeLayout(container);
@@ -102,25 +91,54 @@ async function renderLichSuBaoCaoPage(container) {
     }
 }
 
-function _renderRhManagerLayout(container) {
-    const activeDepts = _rhActiveDepts;
-    let parentStt = 0;
+function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSet) {
+    systemDepts = (systemDepts || []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    let sidebarHtml = '';
 
-    let sidebarHtml = activeDepts.map((d, i) => {
-        const isChild = _rhAllDepts.some(p => p.id === d.parent_id && _rhActiveDepts.some(a => a.id === p.id));
-        let sttLabel = '';
-        if (!isChild) {
-            parentStt++;
-            sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
-        }
-        return `
-        <div class="rh-dept-header" data-dept-id="${d.id}" onclick="_rhToggleDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:' + (i === 0 ? '0' : '4px') + ';box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}transition:all .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-            ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(d.id) ? '▼' : '▶'}</span>
-        </div>
-        <div id="rhMembers_${d.id}" style="display:${_rhExpandedDepts.has(d.id) ? 'block' : 'none'};">
-            ${_rhRenderDeptMembers(d.id, d.name)}
+    systemDepts.forEach(sys => {
+        let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeSet.has(d.id));
+        childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        if (childDepts.length === 0) return;
+
+        // System header
+        sidebarHtml += `<div class="rh-system-header" data-sys-id="${sys.id}" onclick="_rhToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            <span style="font-size:15px;">🏛️</span>
+            <span style="flex:1;">${sys.name}</span>
+            <span class="rh-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span>
         </div>`;
-    }).join('');
+        sidebarHtml += `<div class="rh-sys-content" data-sys-id="${sys.id}">`;
+
+        let parentStt = 0, childStt = 0;
+        childDepts.forEach((d, i) => {
+            const isChild = childDepts.some(p => p.id === d.parent_id);
+            const subTeams = nonSystemDepts.filter(sub => sub.parent_id === d.id && activeSet.has(sub.id))
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            if (!isChild) { parentStt++; childStt = 0; }
+            const sttLabel = !isChild
+                ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
+                : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
+
+            sidebarHtml += `
+            <div class="rh-dept-header" data-dept-id="${d.id}" onclick="_rhToggleDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}transition:all .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(d.id) ? '▼' : '▶'}</span>
+            </div>
+            <div id="rhMembers_${d.id}" style="display:${_rhExpandedDepts.has(d.id) ? 'block' : 'none'};">
+                ${_rhRenderDeptMembers(d.id, d.name)}
+            </div>`;
+
+            subTeams.forEach(sub => {
+                childStt++;
+                sidebarHtml += `
+                <div class="rh-dept-header" data-dept-id="${sub.id}" onclick="_rhToggleDept(${sub.id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px 7px 28px;font-size:11px;color:#475569;cursor:pointer;border-bottom:1px solid #e2e8f0;font-weight:900;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-left:3px solid #93c5fd;transition:all .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    <span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(sub.id) ? '▼' : '▶'}</span>
+                </div>
+                <div id="rhMembers_${sub.id}" style="display:${_rhExpandedDepts.has(sub.id) ? 'block' : 'none'};">
+                    ${_rhRenderDeptMembers(sub.id, sub.name)}
+                </div>`;
+            });
+        });
+        sidebarHtml += `</div>`;
+    });
 
     container.innerHTML = `
     <div style="margin:0 auto;padding:16px;">
@@ -197,6 +215,16 @@ function _rhRenderDeptMembers(deptId, deptName) {
             ${badge}
         </div>`;
     }).join('');
+}
+
+function _rhToggleSystem(sysId) {
+    const content = document.querySelector(`.rh-sys-content[data-sys-id="${sysId}"]`);
+    const header = document.querySelector(`.rh-system-header[data-sys-id="${sysId}"]`);
+    if (!content) return;
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    const arrow = header?.querySelector('.rh-sys-arrow');
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 function _rhToggleDept(deptId) {

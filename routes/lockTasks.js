@@ -23,24 +23,44 @@ async function lockTaskRoutes(fastify, options) {
                          FROM users u WHERE u.status = 'active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
                          ORDER BY u.full_name`;
         } else {
-            // QL/TP: only see users in their dept scope
-            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user || !user.department_id) return { departments: [], users: [] };
+            // Check if user is head_user of a HỆ THỐNG (system-level manager)
+            const systemDepts = await db.all(
+                "SELECT id FROM departments WHERE head_user_id = $1 AND name LIKE 'HỆ THỐNG%'",
+                [userId]
+            );
 
-            const deptIds = [user.department_id];
-            const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
-            children.forEach(c => deptIds.push(c.id));
-            for (const child of children) {
-                const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                gc.forEach(g => deptIds.push(g.id));
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            if (!user || (!user.department_id && systemDepts.length === 0)) return { departments: [], users: [] };
+
+            const deptIds = new Set();
+            // Add user's own dept + children
+            if (user.department_id) {
+                deptIds.add(user.department_id);
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+                children.forEach(c => { deptIds.add(c.id); });
+                for (const child of children) {
+                    const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc.forEach(g => deptIds.add(g.id));
+                }
+            }
+            // Add ALL depts under each HỆ THỐNG where user is head
+            for (const sys of systemDepts) {
+                deptIds.add(sys.id);
+                const sysChildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [sys.id]);
+                sysChildren.forEach(c => { deptIds.add(c.id); });
+                for (const child of sysChildren) {
+                    const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc.forEach(g => deptIds.add(g.id));
+                }
             }
 
-            const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            const deptIdsArr = [...deptIds];
+            const placeholders = deptIdsArr.map((_, i) => `$${i + 1}`).join(',');
             usersQuery = `SELECT u.id, u.full_name, u.username, u.role, u.department_id, u.status
                          FROM users u WHERE u.department_id IN (${placeholders}) AND u.status = 'active'
                          AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
                          ORDER BY u.full_name`;
-            usersParams = deptIds;
+            usersParams = deptIdsArr;
         }
 
         const users = await db.all(usersQuery, usersParams);

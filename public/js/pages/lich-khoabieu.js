@@ -164,34 +164,17 @@ async function renderLichKhoaBieuPage(container) {
                 apiCall('/api/task-points/departments')
             ]);
             const members = m.members || [];
-            const allDepts = (dData.departments || []).filter(d => !d.name.startsWith('HỆ THỐNG'));
+            const rawDepts = (dData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
             const activeDeptIds = new Set(dData.active_dept_ids || []);
-            _kbAllDepts = allDepts;
+            _kbAllDepts = rawDepts;
             _kbActiveDeptIds = [...activeDeptIds];
-
-            // Tree-walk sort: parents by display_order, children after parent
-            const activeDepts = allDepts.filter(d => activeDeptIds.has(d.id));
-            activeDepts.forEach(d => {
-                if (d.parent_id) {
-                    const parent = allDepts.find(p => p.id === d.parent_id);
-                    if (parent && !activeDeptIds.has(parent.id)) {
-                        activeDeptIds.add(parent.id);
-                        activeDepts.push(parent);
-                    }
-                }
-            });
-            const parents = activeDepts.filter(d => !d.parent_id || !activeDepts.some(p => p.id === d.parent_id))
-                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-            const sortedDepts = [];
-            parents.forEach(p => {
-                sortedDepts.push(p);
-                const children = activeDepts.filter(c => c.parent_id === p.id)
-                    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                sortedDepts.push(...children);
-            });
             const allApprovers = dData.approvers || [];
 
-            // Group members by dept name for lookup
+            // Identify system-level departments (HỆ THỐNG...)
+            const systemDepts = rawDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+            const nonSystemDepts = rawDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
+
+            // Group members by dept name
             const byDept = {};
             members.forEach(u => {
                 const dn = u.dept_name || 'Không phòng ban';
@@ -199,49 +182,29 @@ async function renderLichKhoaBieuPage(container) {
                 byDept[dn].push(u);
             });
 
-            // For quan_ly/truong_phong: only show depts that have members (their own team scope)
             const memberDeptNames = new Set(Object.keys(byDept));
-            const filteredSortedDepts = ['quan_ly','truong_phong','trinh'].includes(currentUser.role)
-                ? sortedDepts.filter(d => memberDeptNames.has(d.name))
-                : sortedDepts;
-
-            // Role priority: higher number = shown first
             const _kbRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
             const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
             const _kbIsLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
 
-            // Build HTML with tree-walk order + STT
-            let deptListHtml = '';
-            let parentStt = 0, childStt = 0;
-            filteredSortedDepts.forEach(dept => {
-                const isChild = filteredSortedDepts.some(p => p.id === dept.parent_id && activeDeptIds.has(p.id));
+            // Helper: render members for a dept
+            const renderDeptMembers = (dept, isChild) => {
                 let deptMembers = (byDept[dept.name] || []).slice();
-                // Add approvers for this dept
                 const deptApprovers = allApprovers.filter(a => a.department_id === dept.id);
                 const approverIdSet = new Set();
                 deptApprovers.forEach(a => {
                     approverIdSet.add(a.user_id);
-                    if (!deptMembers.some(m => m.id === a.user_id)) {
+                    if (!deptMembers.some(mm => mm.id === a.user_id)) {
                         deptMembers.push({ id: a.user_id, full_name: a.full_name, username: a.username, role: a.role, dept_name: dept.name, _isApprover: true });
                     }
                 });
-                deptMembers.forEach(m => { if (approverIdSet.has(m.id)) m._isApprover = true; });
+                deptMembers.forEach(mm => { if (approverIdSet.has(mm.id)) mm._isApprover = true; });
                 deptMembers.sort((a, b) => {
-                        const aHead = (a._isApprover ? 10 : 0) + (a._is_dept_head ? 10 : 0);
-                        const bHead = (b._isApprover ? 10 : 0) + (b._is_dept_head ? 10 : 0);
-                        return (bHead + (_kbRolePriority[b.role] || 0)) - (aHead + (_kbRolePriority[a.role] || 0));
-                    });
-                let sttLabel = '';
-                if (!isChild) {
-                    parentStt++;
-                    childStt = 0;
-                    sttLabel = `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`;
-                } else {
-                    childStt++;
-                    sttLabel = `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span>`;
-                }
-                const deleteBtn = (!isChild && currentUser.role === 'giam_doc') ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
-                deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};font-weight:900;color:${isChild ? '#475569' : '#fff'};text-transform:uppercase;background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isChild ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isChild ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
+                    const aP = (a._isApprover ? 10 : 0) + (a._is_dept_head ? 10 : 0) + (_kbRolePriority[a.role] || 0);
+                    const bP = (b._isApprover ? 10 : 0) + (b._is_dept_head ? 10 : 0) + (_kbRolePriority[b.role] || 0);
+                    return bP - aP;
+                });
+                let html = '';
                 deptMembers.forEach(u => {
                     const isDeptHead = u._is_dept_head;
                     const isApprover = u._isApprover;
@@ -250,7 +213,7 @@ async function renderLichKhoaBieuPage(container) {
                     const approverBg = isApprover ? 'background:linear-gradient(135deg,#eff6ff,#dbeafe);border-left:3px solid #3b82f6;' : 'border-left:3px solid transparent;';
                     const nameStyle = isApprover ? 'color:#1e40af;font-weight:800;' : `font-weight:${isLead ? '700' : '500'};`;
                     const roleStyle = isApprover ? 'color:#2563eb;font-weight:700;font-size:10px;' : `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
-                    deptListHtml += `
+                    html += `
                         <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;${approverBg}display:flex;align-items:center;gap:8px;"
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? '#dbeafe' : '#f8fafc'}'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='${isApprover ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'white'}';else this.style.background='#059669'">
@@ -260,6 +223,64 @@ async function renderLichKhoaBieuPage(container) {
                             </div>
                         </div>`;
                 });
+                return html;
+            };
+
+            // Build sidebar grouped by HỆ THỐNG
+            let deptListHtml = '';
+            systemDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+            systemDepts.forEach(sys => {
+                // Get active child depts under this system
+                let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeDeptIds.has(d.id));
+                // For non-giam_doc: filter depts that have members
+                if (['quan_ly','truong_phong','trinh'].includes(currentUser.role)) {
+                    childDepts = childDepts.filter(d => memberDeptNames.has(d.name) || nonSystemDepts.some(sub => sub.parent_id === d.id && memberDeptNames.has(sub.name)));
+                }
+                // Also add parent depts of active sub-teams
+                childDepts.forEach(d => {
+                    if (d.parent_id === sys.id) {
+                        const subTeams = nonSystemDepts.filter(sub => sub.parent_id === d.id && activeDeptIds.has(sub.id));
+                        if (subTeams.length > 0 && !childDepts.includes(d)) childDepts.push(d);
+                    }
+                });
+                childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                if (childDepts.length === 0 && currentUser.role !== 'giam_doc') return;
+
+                // System header with expand/collapse
+                deptListHtml += `<div class="kb-system-header" data-sys-id="${sys.id}" onclick="_kbToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    <span style="font-size:15px;">🏛️</span>
+                    <span style="flex:1;">${sys.name}</span>
+                    <span class="kb-sys-arrow" style="font-size:10px;opacity:0.7;transition:transform .2s;">▼</span>
+                </div>`;
+
+                // Collapsible content
+                deptListHtml += `<div class="kb-sys-content" data-sys-id="${sys.id}">`;
+                let parentStt = 0, childStt = 0;
+                childDepts.forEach(dept => {
+                    const isSubTeam = childDepts.some(p => p.id === dept.parent_id);
+                    // Get sub-teams of this dept
+                    const subTeams = nonSystemDepts.filter(sub => sub.parent_id === dept.id && activeDeptIds.has(sub.id))
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+                    if (!isSubTeam) {
+                        parentStt++;
+                        childStt = 0;
+                    }
+                    const sttLabel = !isSubTeam
+                        ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
+                        : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
+                    const deleteBtn = (!isSubTeam && currentUser.role === 'giam_doc') ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
+                    deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isSubTeam ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isSubTeam ? '11px' : '13px'};font-weight:900;color:${isSubTeam ? '#475569' : '#fff'};text-transform:uppercase;background:${isSubTeam ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isSubTeam ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isSubTeam ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isSubTeam ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isSubTeam ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
+                    deptListHtml += renderDeptMembers(dept, isSubTeam);
+
+                    // Render sub-teams
+                    subTeams.forEach(sub => {
+                        childStt++;
+                        deptListHtml += `<div class="kb-dept-header" data-dept="${sub.name}" data-dept-id="${sub.id}" style="padding:7px 14px 7px 28px;font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-bottom:1px solid #e2e8f0;border-left:3px solid #93c5fd;letter-spacing:0.3px;display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span></div>`;
+                        deptListHtml += renderDeptMembers(sub, true);
+                    });
+                });
+                deptListHtml += `</div>`;
             });
 
 
@@ -1235,6 +1256,16 @@ async function _kbApprove(reportId, action) {
     } catch(e) { showToast('Lỗi!', 'error'); }
 }
 
+function _kbToggleSystem(sysId) {
+    const content = document.querySelector(`.kb-sys-content[data-sys-id="${sysId}"]`);
+    const header = document.querySelector(`.kb-system-header[data-sys-id="${sysId}"]`);
+    if (!content) return;
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    const arrow = header?.querySelector('.kb-sys-arrow');
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+}
+
 function _kbFilterMembers() {
     const q = (document.getElementById('kbMemberSearch')?.value || '').toLowerCase().trim();
     const list = document.getElementById('kbMemberList');
@@ -2016,7 +2047,9 @@ function _kbShowCreateDeptModal() {
     modal.id = 'kbCreateDeptModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-    const inactiveOpts = _kbAllDepts.filter(d => !_kbActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    // Build system options
+    const systemDepts = _kbAllDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+    const sysOpts = systemDepts.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -2024,9 +2057,15 @@ function _kbShowCreateDeptModal() {
             <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
         </div>
         <div style="margin-bottom:14px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">🏛️ Hệ thống <span style="color:#dc2626;">*</span></label>
+            <select id="kbNewSysSelect" onchange="_kbFilterCreateDepts()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
+                ${sysOpts || '<option value="">Không có hệ thống</option>'}
+            </select>
+        </div>
+        <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="kbNewDeptSelect" onchange="_kbLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${inactiveOpts ? `<optgroup label="➕ Phòng chưa có lịch">${inactiveOpts}</optgroup>` : '<option value="">Tất cả phòng đã được thêm</option>'}
+                <option value="">— Chọn hệ thống trước —</option>
             </select>
         </div>
         <div style="margin-bottom:6px;">
@@ -2042,6 +2081,23 @@ function _kbShowCreateDeptModal() {
         </div>
     </div>`;
     document.body.appendChild(modal);
+    _kbFilterCreateDepts();
+}
+
+function _kbFilterCreateDepts() {
+    const sysId = Number(document.getElementById('kbNewSysSelect')?.value);
+    const deptSel = document.getElementById('kbNewDeptSelect');
+    if (!deptSel) return;
+    // Get non-system depts under this system that are NOT already active
+    const childDepts = _kbAllDepts.filter(d => d.parent_id === sysId && !d.name.startsWith('HỆ THỐNG') && !_kbActiveDeptIds.includes(d.id));
+    // Also get sub-teams of those depts
+    let opts = '';
+    childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).forEach(d => {
+        opts += `<option value="${d.id}">${d.name}</option>`;
+        const subTeams = _kbAllDepts.filter(sub => sub.parent_id === d.id && !_kbActiveDeptIds.includes(sub.id));
+        subTeams.forEach(sub => { opts += `<option value="${sub.id}">  └ ${sub.name}</option>`; });
+    });
+    deptSel.innerHTML = opts || '<option value="">Tất cả phòng đã được thêm</option>';
     _kbLoadCreateUsers();
 }
 
