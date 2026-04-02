@@ -896,9 +896,12 @@ async function handleRoute() {
     // Scroll content to top
     content.scrollTo(0, 0);
 
-    // Track current page for bangiao-khoa F5 detection
+    // Track current page for F5 detection (bangiao-khoa + lichsu-baocao)
     if (currentPage !== 'bangiao-khoa' && currentPage !== 'bangiaokhoa') {
         sessionStorage.setItem('_lk_lastPage', currentPage);
+    }
+    if (currentPage !== 'lich-su-bao-cao' && currentPage !== 'lichsubaocaocv') {
+        sessionStorage.setItem('_rh_lastPage', currentPage);
     }
 
     // Use setTimeout to let spinner render before heavy sync work

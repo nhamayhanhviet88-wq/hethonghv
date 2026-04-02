@@ -2,7 +2,10 @@
 
 let _rhData = null;
 let _rhSelectedUser = null;
-let _rhCurrentMonth = '';
+let _rhYear = new Date().getFullYear();
+let _rhFromMonth = new Date().getMonth() + 1;
+let _rhToMonth = 0; // 0 = not set (single month)
+let _rhCurrentMonth = ''; // computed from range
 let _rhIsManager = false;
 let _rhTeamMembers = [];
 let _rhActiveDepts = [];
@@ -59,17 +62,32 @@ window.addEventListener('popstate', function() {
 });
 
 async function renderLichSuBaoCaoPage(container) {
-    const now = new Date();
-    _rhCurrentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     _rhColorMap = {};
     _rhIsManager = ['giam_doc', 'pho_giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
-    // Restore saved state
-    try {
-        const saved = JSON.parse(localStorage.getItem('_rh_state') || '{}');
-        if (saved.month) _rhCurrentMonth = saved.month;
-        if (saved.userId && saved.userName) _rhSelectedUser = { id: saved.userId, name: saved.userName };
-    } catch(e) {}
+    // Detect F5 vs menu navigation
+    const lastPage = sessionStorage.getItem('_rh_lastPage');
+    const isReload = lastPage === 'lichsubaocaocv';
+    sessionStorage.setItem('_rh_lastPage', 'lichsubaocaocv');
+
+    if (isReload) {
+        // F5 → restore saved state
+        try {
+            const saved = JSON.parse(sessionStorage.getItem('_rh_state') || '{}');
+            if (saved.year) _rhYear = saved.year;
+            if (saved.fromMonth !== undefined) _rhFromMonth = saved.fromMonth;
+            if (saved.toMonth !== undefined) _rhToMonth = saved.toMonth;
+            if (saved.userId && saved.userName) _rhSelectedUser = { id: saved.userId, name: saved.userName };
+        } catch(e) {}
+    } else {
+        // From another menu → reset defaults
+        _rhYear = new Date().getFullYear();
+        _rhFromMonth = new Date().getMonth() + 1;
+        _rhToMonth = 0;
+        _rhSelectedUser = null;
+        sessionStorage.removeItem('_rh_state');
+    }
+    _rhCurrentMonth = `${_rhYear}-${String(_rhFromMonth || 1).padStart(2, '0')}`;
 
     container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af;"><div style="font-size:40px;margin-bottom:12px;">⏳</div>Đang tải trang...</div>`;
 
@@ -263,8 +281,7 @@ function _rhToggleDept(deptId) {
 
 async function _rhSelectUser(userId, userName) {
     _rhSelectedUser = { id: userId, name: userName };
-    // Save state
-    try { localStorage.setItem('_rh_state', JSON.stringify({ userId, userName, month: _rhCurrentMonth })); } catch(e) {}
+    _rhSaveState();
     const deptList = document.getElementById('rhDeptList');
     if (deptList) {
         _rhActiveDepts.forEach(d => {
@@ -275,6 +292,45 @@ async function _rhSelectUser(userId, userName) {
     await _rhLoadHistory();
 }
 
+function _rhGetMonthRange() {
+    if (_rhFromMonth === 0) {
+        const months = [];
+        for (let m = 1; m <= 12; m++) months.push(`${_rhYear}-${String(m).padStart(2, '0')}`);
+        return months;
+    }
+    const from = _rhFromMonth;
+    const to = _rhToMonth && _rhToMonth >= from ? _rhToMonth : from;
+    const months = [];
+    for (let m = from; m <= to; m++) months.push(`${_rhYear}-${String(m).padStart(2, '0')}`);
+    return months;
+}
+
+function _rhRangeLabel() {
+    if (_rhFromMonth === 0) return `Tất cả tháng / ${_rhYear}`;
+    if (!_rhToMonth || _rhToMonth <= _rhFromMonth) return `Tháng ${_rhFromMonth}/${_rhYear}`;
+    return `T${_rhFromMonth} → T${_rhToMonth}/${_rhYear}`;
+}
+
+function _rhBuildYearOptions() {
+    let html = '';
+    for (let y = 2026; y <= 2100; y++) html += `<option value="${y}" ${y === _rhYear ? 'selected' : ''}>${y}</option>`;
+    return html;
+}
+
+function _rhBuildFromOptions() {
+    const months = _RH_MONTH_NAMES;
+    let html = `<option value="0"${_rhFromMonth === 0 ? ' selected' : ''}>📊 Tất cả</option>`;
+    for (let m = 1; m <= 12; m++) html += `<option value="${m}" ${m === _rhFromMonth ? 'selected' : ''}>${months[m]}</option>`;
+    return html;
+}
+
+function _rhBuildToOptions() {
+    const months = _RH_MONTH_NAMES;
+    let html = `<option value="0"${_rhToMonth === 0 ? ' selected' : ''}>— Đến —</option>`;
+    for (let m = 1; m <= 12; m++) html += `<option value="${m}" ${m === _rhToMonth ? 'selected' : ''}>${months[m]}</option>`;
+    return html;
+}
+
 async function _rhLoadHistory() {
     if (!_rhSelectedUser) return;
     const wrap = document.getElementById('rhContent');
@@ -282,7 +338,31 @@ async function _rhLoadHistory() {
     wrap.innerHTML = '<div style="padding:50px;text-align:center;color:#9ca3af;"><div style="font-size:30px;margin-bottom:8px;">⏳</div>Đang tải lịch sử...</div>';
 
     try {
-        _rhData = await apiCall(`/api/report-history/user/${_rhSelectedUser.id}?month=${_rhCurrentMonth}`);
+        const monthList = _rhGetMonthRange();
+        const results = await Promise.all(monthList.map(m => apiCall(`/api/report-history/user/${_rhSelectedUser.id}?month=${m}`)));
+
+        // Merge data from all months
+        const merged = { templates: [], reports: [], snapshots: [], holidays: [], lock_completions: [], lock_tasks: [], user_info: {}, from_date: '', to_date: '', month: monthList[0] };
+        const lockTaskIdSet = new Set();
+        results.forEach(data => {
+            if (data.error) return;
+            (data.templates || []).forEach(t => merged.templates.push(t));
+            (data.reports || []).forEach(r => merged.reports.push(r));
+            (data.snapshots || []).forEach(s => merged.snapshots.push(s));
+            (data.holidays || []).forEach(h => {
+                if (!merged.holidays.some(eh => eh.holiday_date === h.holiday_date)) merged.holidays.push(h);
+            });
+            (data.lock_completions || []).forEach(c => merged.lock_completions.push(c));
+            (data.lock_tasks || []).forEach(t => {
+                if (!lockTaskIdSet.has(t.id)) { lockTaskIdSet.add(t.id); merged.lock_tasks.push(t); }
+            });
+            if (data.user_info) merged.user_info = data.user_info;
+            if (!merged.from_date || (data.from_date && data.from_date < merged.from_date)) merged.from_date = data.from_date;
+            if (!merged.to_date || (data.to_date && data.to_date > merged.to_date)) merged.to_date = data.to_date;
+        });
+
+        _rhData = merged;
+        _rhCurrentMonth = monthList[0];
         if (_rhData.error) {
             wrap.innerHTML = `<div style="padding:50px;text-align:center;color:#dc2626;"><div style="font-size:30px;margin-bottom:8px;">❌</div>Lỗi: ${_rhData.error}</div>`;
             return;
@@ -298,23 +378,25 @@ function _rhRenderContent() {
     if (!wrap || !_rhData) return;
 
     const { templates = [], reports = [], snapshots = [], holidays = [], lock_completions = [], lock_tasks = [], user_info = {}, from_date, to_date } = _rhData;
-    const month = _rhData.month || _rhCurrentMonth;
-    const [year, mon] = month.split('-').map(Number);
-    const lastDay = new Date(year, mon, 0).getDate();
+    const monthList = _rhGetMonthRange();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const holidaySet = new Set(holidays.map(h => h.holiday_date));
 
     const workingDays = [];
-    for (let d = 1; d <= lastDay; d++) {
-        const dateStr = `${month}-${String(d).padStart(2, '0')}`;
-        const dateObj = new Date(year, mon - 1, d);
-        const dayOfWeek = dateObj.getDay();
-        if (holidaySet.has(dateStr)) continue;
-        if (dateStr > todayStr) continue;
-        workingDays.push({ dateStr, dayOfWeek, dayNum: d });
-    }
+    monthList.forEach(month => {
+        const [year, mon] = month.split('-').map(Number);
+        const lastDay = new Date(year, mon, 0).getDate();
+        for (let d = 1; d <= lastDay; d++) {
+            const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+            const dateObj = new Date(year, mon - 1, d);
+            const dayOfWeek = dateObj.getDay();
+            if (holidaySet.has(dateStr)) continue;
+            if (dateStr > todayStr) continue;
+            workingDays.push({ dateStr, dayOfWeek, dayNum: d });
+        }
+    });
 
     // Group snapshots by TASK NAME
     const taskGroupMap = new Map();
@@ -385,16 +467,20 @@ function _rhRenderContent() {
     let html = '';
 
     // Header
-    html += `<div style="padding:14px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;">
+    const _rhSelStyle = 'padding:6px 10px;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;color:#064e3b;background:white;cursor:pointer;font-weight:600;';
+    html += `<div style="padding:14px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:22px;">👤</span>
             <div>
                 <div style="font-weight:700;color:#064e3b;font-size:15px;">${user_info.full_name}</div>
-                <div style="font-size:11px;color:#059669;">${user_info.dept_name || 'Chưa phân bổ'} · ${_RH_MONTH_NAMES[mon]} ${year}</div>
+                <div style="font-size:11px;color:#059669;">${user_info.dept_name || 'Chưa phân bổ'} · ${_rhRangeLabel()}</div>
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-            <input type="month" id="rhMonthPicker" value="${month}" onchange="_rhChangeMonth(this.value)" style="padding:5px 10px;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;color:#064e3b;background:white;cursor:pointer;" />
+        <div style="display:flex;align-items:center;gap:6px;">
+            <select onchange="_rhOnYearChange(this.value)" style="${_rhSelStyle}">${_rhBuildYearOptions()}</select>
+            <select onchange="_rhOnFromChange(this.value)" style="${_rhSelStyle}">${_rhBuildFromOptions()}</select>
+            ${_rhFromMonth !== 0 ? `<span style="font-size:11px;color:#9ca3af;font-weight:600;">→</span>
+            <select onchange="_rhOnToChange(this.value)" style="${_rhSelStyle}">${_rhBuildToOptions()}</select>` : ''}
         </div>
     </div>`;
 
@@ -1165,15 +1251,33 @@ function _rhShowLockDetail(groupIdx, completionIdx) {
     }
 }
 
-function _rhChangeMonth(val) {
-    _rhCurrentMonth = val;
-    // Save state
-    try {
-        const saved = JSON.parse(localStorage.getItem('_rh_state') || '{}');
-        saved.month = val;
-        localStorage.setItem('_rh_state', JSON.stringify(saved));
-    } catch(e) {}
+function _rhOnYearChange(val) {
+    _rhYear = Number(val);
+    _rhSaveState();
     _rhLoadHistory();
+}
+function _rhOnFromChange(val) {
+    _rhFromMonth = Number(val);
+    if (_rhFromMonth === 0) _rhToMonth = 0;
+    else if (_rhToMonth && _rhToMonth < _rhFromMonth) _rhToMonth = 0;
+    _rhSaveState();
+    _rhLoadHistory();
+}
+function _rhOnToChange(val) {
+    _rhToMonth = Number(val);
+    _rhSaveState();
+    _rhLoadHistory();
+}
+function _rhSaveState() {
+    try {
+        sessionStorage.setItem('_rh_state', JSON.stringify({
+            userId: _rhSelectedUser?.id,
+            userName: _rhSelectedUser?.name,
+            year: _rhYear,
+            fromMonth: _rhFromMonth,
+            toMonth: _rhToMonth
+        }));
+    } catch(e) {}
 }
 
 function _rhFilterSidebar() {
