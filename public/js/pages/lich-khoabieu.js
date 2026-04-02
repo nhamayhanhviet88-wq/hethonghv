@@ -739,14 +739,14 @@ function _kbRenderGrid() {
                             }
                         } else {
                             // Manager view: show warning badge
-                            actionBtn = `<span style="background:#fff7ed;color:#ea580c;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #fed7aa;">⚠️ Chờ NV nộp lại</span>`;
+                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
                             statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                         }
                     } else if (report.status === 'expired') {
                         if (isSelf) {
                             actionBtn = `<span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🚫 Hết hạn (0đ)</span>`;
                         } else {
-                            actionBtn = `<span style="background:#fef2f2;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #fecaca;">⚠️ Chưa báo cáo lại</span>`;
+                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
                         }
                         statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     }
@@ -947,13 +947,13 @@ function _kbRenderGrid() {
                     if (comp && comp.status === 'rejected') {
                         // Manager: show warning for rejected
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                            <span style="background:#fff7ed;color:#ea580c;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #fed7aa;">⚠️ Chờ NV nộp lại</span>
+                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
                             <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (comp && comp.status === 'expired') {
                         // Manager: show warning for expired
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                            <span style="background:#fef2f2;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #fecaca;">⚠️ Chưa báo cáo lại</span>
+                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
                             <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (dateStr === todayStr && !comp) {
