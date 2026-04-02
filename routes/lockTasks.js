@@ -521,7 +521,7 @@ async function lockTaskRoutes(fastify, options) {
 
         // Get CV Khóa support requests for this week
         const supportRequests = await db.all(
-            `SELECT * FROM task_support_requests
+            `SELECT *, task_date::text as task_date FROM task_support_requests
              WHERE user_id = $1 AND task_date BETWEEN $2 AND $3 AND source_type = 'khoa'`,
             [targetUserId, week_start, weekEnd]
         );

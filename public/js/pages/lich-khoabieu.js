@@ -752,7 +752,17 @@ function _kbRenderGrid() {
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
-                        actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button>`;
+                        const todaySrKey = `${reportTemplateId}_${dateStr}`;
+                        const todaySr = _kbSupportRequests[todaySrKey];
+                        if (todaySr && todaySr.status === 'pending') {
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
+                        } else if (todaySr && todaySr.status === 'supported') {
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;">✅ Sếp đã HT</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
+                        } else {
+                            actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button>`;
+                        }
                     } else if (dateStr < todayStr) {
                         // Check support request
                         const srKey = `${reportTemplateId}_${dateStr}`;
@@ -905,7 +915,7 @@ function _kbRenderGrid() {
                         // Today, not submitted: show Báo cáo (for self)
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
-                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>` : '<span style="font-size:9px;color:#d97706;">🆘 Đã gửi HT</span>'}
+                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>` : '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>'}
                         </div>`;
                     } else if (comp && comp.status === 'rejected') {
                         // Self: show Báo cáo lại + Xem báo cáo cũ
