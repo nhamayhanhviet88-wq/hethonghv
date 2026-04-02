@@ -408,9 +408,18 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
             <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
-            ${reqHtml}
-            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;">📄 Báo cáo nhân viên</div>
-            ${versionsHtml}
+            ${reqHtml ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+                <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
+                    <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
+                </div>
+                <div style="padding:14px;">${reqHtml}</div>
+            </div>` : ''}
+            <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
+                    <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
+                </div>
+                <div style="padding:14px;">${versionsHtml}</div>
+            </div>
             <div style="text-align:right;margin-top:8px;">
                 <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#991b1b;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
             </div>
