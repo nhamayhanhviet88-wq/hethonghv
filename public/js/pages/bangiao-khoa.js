@@ -849,10 +849,14 @@ async function _lkShowCreateModal(deptId, editTask) {
                 <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Nội dung công việc *</label>
                 <textarea id="lkf_content" rows="2" placeholder="Mô tả chi tiết..." style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;">${t.task_content || ''}</textarea>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
                 <div>
                     <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Link hướng dẫn *</label>
                     <input id="lkf_guide" type="url" value="${t.guide_link || ''}" placeholder="https://..." style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">SL tối thiểu *</label>
+                    <input id="lkf_min_qty" type="number" value="${t.min_quantity || 1}" min="1" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
                 </div>
                 <div>
                     <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Mức phạt (VNĐ)</label>
@@ -1082,6 +1086,7 @@ async function _lkSaveTask(taskId, deptId) {
         requires_approval: document.getElementById('lkf_approval')?.checked || false,
         max_redo_count: Number(document.getElementById('lkf_redo_max')?.value) || 3,
         penalty_amount: Number(document.getElementById('lkf_penalty')?.value) || 50000,
+        min_quantity: Number(document.getElementById('lkf_min_qty')?.value) || 1,
         department_id: deptId,
         user_ids: userIds
     };

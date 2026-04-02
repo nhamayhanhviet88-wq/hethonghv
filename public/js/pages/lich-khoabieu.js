@@ -2431,7 +2431,7 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                 }
                 return '';
             })()}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
                     <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
                     <div style="font-size:14px;font-weight:700;color:#991b1b;">${taskName}</div>
@@ -2440,11 +2440,19 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                     <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📅 Ngày báo cáo</div>
                     <div style="font-size:14px;font-weight:700;color:#991b1b;">${dateStr.split('-').reverse().join('/')}</div>
                 </div>
+                <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📊 SL tối thiểu</div>
+                    <div style="font-size:14px;font-weight:700;color:#dc2626;">${taskDetail?.min_quantity || 1} lần</div>
+                </div>
             </div>
             <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-bottom:14px;">
                 ${guideHtml}
                 ${reqHtml(inputReqs, '📥', '#991b1b', 'Yêu cầu đầu vào')}
                 ${reqHtml(outputReqs, '📤', '#991b1b', 'Yêu cầu đầu ra')}
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📊 Số lượng đã hoàn thành <span style="color:#dc2626;">*</span></label>
+                <input id="kbLockRptQty" type="number" min="0" value="${taskDetail?.min_quantity || 1}" placeholder="VD: 25" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành <span style="color:#dc2626;">*</span></label>
@@ -2521,9 +2529,17 @@ async function _kbLockSubmitReport() {
     const link = document.getElementById('kbLockRptLink')?.value?.trim();
     const content = document.getElementById('kbLockRptContent')?.value?.trim();
 
+    const qtyDone = Number(document.getElementById('kbLockRptQty')?.value) || 0;
+
     if (!content) {
         showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
         document.getElementById('kbLockRptContent')?.focus();
+        return;
+    }
+
+    if (qtyDone <= 0) {
+        showToast('Vui lòng nhập số lượng đã hoàn thành!', 'error');
+        document.getElementById('kbLockRptQty')?.focus();
         return;
     }
 
@@ -2536,6 +2552,7 @@ async function _kbLockSubmitReport() {
     if (window._kbLockPastedFile) fd.append('file', window._kbLockPastedFile);
     if (link) fd.append('proof_url', link);
     if (content) fd.append('content', content);
+    fd.append('quantity_done', String(qtyDone));
 
     try {
         const res = await fetch(`/api/lock-tasks/${lockTaskId}/submit?date=${dateStr}`, {

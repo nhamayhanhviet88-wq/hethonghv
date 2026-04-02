@@ -193,7 +193,7 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const { task_name, task_content, guide_link, input_requirements, output_requirements,
-                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count
+                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count, min_quantity
         } = request.body || {};
 
         if (!task_name || !recurrence_type) {
@@ -210,12 +210,12 @@ async function lockTaskRoutes(fastify, options) {
         const result = await db.get(
             `INSERT INTO lock_tasks (task_name, task_content, guide_link, input_requirements, output_requirements,
                                      recurrence_type, recurrence_value, requires_approval, max_redo_count, penalty_amount,
-                                     created_by, department_id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                                     created_by, department_id, min_quantity)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
              RETURNING id`,
             [task_name, task_content || null, guide_link || null, input_requirements || null, output_requirements || null,
              recurrence_type, recurrence_value || null, requires_approval || false, max_redo_count || 3, penalty_amount || 50000,
-             request.user.id, departmentId || null]
+             request.user.id, departmentId || null, min_quantity || 1]
         );
 
         // Assign users if provided
@@ -241,14 +241,14 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const { task_name, task_content, guide_link, input_requirements, output_requirements,
-                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count } = request.body || {};
+                recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count, min_quantity } = request.body || {};
 
         await db.run(
             `UPDATE lock_tasks SET task_name=$1, task_content=$2, guide_link=$3, input_requirements=$4,
-             output_requirements=$5, recurrence_type=$6, recurrence_value=$7, requires_approval=$8, penalty_amount=$9, max_redo_count=$10
-             WHERE id=$11`,
+             output_requirements=$5, recurrence_type=$6, recurrence_value=$7, requires_approval=$8, penalty_amount=$9, max_redo_count=$10, min_quantity=$11
+             WHERE id=$12`,
             [task_name, task_content, guide_link, input_requirements, output_requirements,
-             recurrence_type, recurrence_value, requires_approval || false, penalty_amount || 50000, max_redo_count || 3, taskId]
+             recurrence_type, recurrence_value, requires_approval || false, penalty_amount || 50000, max_redo_count || 3, min_quantity || 1, taskId]
         );
 
         // Update assignments if provided
@@ -293,6 +293,7 @@ async function lockTaskRoutes(fastify, options) {
         let fileData = null;
         let proofUrlField = '';
         let contentField = '';
+        let quantityDoneField = 0;
 
         try {
             const parts = request.parts();
@@ -313,12 +314,14 @@ async function lockTaskRoutes(fastify, options) {
                     const val = part.value;
                     if (part.fieldname === 'proof_url') proofUrlField = val || '';
                     if (part.fieldname === 'content') contentField = val || '';
+                    if (part.fieldname === 'quantity_done') quantityDoneField = parseInt(val) || 0;
                 }
             }
         } catch(e) {
             // If multipart parsing fails, try regular body
             proofUrlField = request.body?.proof_url || '';
             contentField = request.body?.content || '';
+            quantityDoneField = parseInt(request.body?.quantity_done) || 0;
         }
 
         // Validate: content is required
@@ -368,10 +371,10 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         await db.run(
-            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, approval_deadline)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, content=$6, status=$7, approval_deadline=$8, created_at=NOW()`,
-            [taskId, userId, todayStr, redoCount, proofUrl, contentField.trim(), status, approvalDeadline]
+            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, approval_deadline, quantity_done)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, content=$6, status=$7, approval_deadline=$8, quantity_done=$9, created_at=NOW()`,
+            [taskId, userId, todayStr, redoCount, proofUrl, contentField.trim(), status, approvalDeadline, quantityDoneField]
         );
 
         // Auto-resolve support request if NV submitted (QL no longer penalized)

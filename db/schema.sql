@@ -750,3 +750,7 @@ END $$;
 -- Add input/output requirements to CV Điểm templates (matching CV Khóa)
 ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS input_requirements TEXT;
 ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS output_requirements TEXT;
+
+-- ========== CV KHÓA: Quantity tracking ==========
+ALTER TABLE lock_tasks ADD COLUMN IF NOT EXISTS min_quantity INTEGER DEFAULT 1;
+ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS quantity_done INTEGER DEFAULT 0;
