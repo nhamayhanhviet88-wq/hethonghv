@@ -1612,7 +1612,10 @@ async function _kbLoadApprovalPanel() {
         lockReviews.forEach(r => {
             const isRedo = r.redo_count > 0;
             const dateFormatted = r.completion_date.split('-').reverse().join('/');
-            rows += `<tr style="border-bottom:1px solid #f1f5f9;background:#fef2f2;">
+            const lockDeadline = r.created_at ? new Date(new Date(r.created_at).getTime() + 24 * 3600000) : null;
+            const lockOverdue = lockDeadline && lockDeadline < new Date();
+            const lockUrgent = lockDeadline && (lockDeadline - new Date()) < 6 * 3600000;
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;${lockOverdue ? 'background:#fef2f2;' : lockUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
                     <span onclick="_kbShowLockTaskDetail(${r.lock_task_id})" style="color:#991b1b;font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#7f1d1d'" onmouseout="this.style.color='#991b1b'">${r.task_name}</span>
@@ -1625,7 +1628,14 @@ async function _kbLoadApprovalPanel() {
                     ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:#991b1b;text-decoration:none;">${r.proof_url.startsWith('/uploads') ? '🖼️ Ảnh' : '🔗 Link'}</a>` : ''}
                     ${r.content ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;" title="${(r.content||'').replace(/"/g,'&quot;')}">📄</span>` : ''}
                 </td>
-                <td style="padding:8px 12px;text-align:center;"><span style="color:#9ca3af;">—</span></td>
+                <td style="padding:8px 12px;text-align:center;">${(() => {
+                    // Calculate deadline as created_at + 24h
+                    if (r.created_at) {
+                        const deadline = new Date(new Date(r.created_at).getTime() + 24 * 3600000);
+                        return _kbFormatCountdown(deadline.toISOString());
+                    }
+                    return '<span style="color:#9ca3af;">—</span>';
+                })()}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbLockApprove(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
                     <button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
