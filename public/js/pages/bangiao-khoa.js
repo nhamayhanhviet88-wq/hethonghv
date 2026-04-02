@@ -165,6 +165,9 @@ async function renderBanGiaoKhoaPage(container) {
             </div>
         </div>
     </div>`;
+
+    // Restore state from sessionStorage on F5
+    _lkRestoreState();
 }
 
 // ===== SIDEBAR FILTER =====
@@ -239,6 +242,7 @@ async function _lkSelectUser(userId, userName, event) {
     if (event) event.stopPropagation();
     _lkSelectedUserId = userId;
     _lkSelectedDeptId = null;
+    _lkUserName = userName || _lkUserName;
     // Highlight selected — light blue
     document.querySelectorAll('.lk-user-item').forEach(el => {
         const isActive = Number(el.dataset.userId) === userId;
@@ -249,6 +253,7 @@ async function _lkSelectUser(userId, userName, event) {
         el.style.borderLeft = isActive ? '3px solid #2563eb' : '3px solid transparent';
         el.style.borderRadius = '';
     });
+    _lkSaveState();
     _lkLoadUserTasks(userId, userName);
 }
 
@@ -298,9 +303,9 @@ async function _lkLoadDeptTasks(deptId) {
 }
 
 // ===== USER TASKS (grouped by task, with year/month range picker + stats) =====
-let _lkYear = new Date().getFullYear();
-let _lkFromMonth = new Date().getMonth() + 1; // 1-12
-let _lkToMonth = 0; // 0 = not set (single month)
+let _lkYear = 2026;
+let _lkFromMonth = 1; // 1-12
+let _lkToMonth = 12; // 0 = not set (single month), default all months
 let _lkUserName = '';
 let _lkLockGroups = [];
 let _lkLockModalIdx = null;
@@ -483,17 +488,61 @@ async function _lkLoadUserTasks(userId, userName) {
 
 function _lkOnYearChange(val) {
     _lkYear = Number(val);
+    _lkSaveState();
     if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
 }
 function _lkOnFromChange(val) {
     _lkFromMonth = Number(val);
     // Reset "to" if it's less than "from"
     if (_lkToMonth && _lkToMonth < _lkFromMonth) _lkToMonth = 0;
+    _lkSaveState();
     if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
 }
 function _lkOnToChange(val) {
     _lkToMonth = Number(val);
+    _lkSaveState();
     if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+}
+
+// ===== SESSION PERSISTENCE =====
+function _lkSaveState() {
+    try {
+        sessionStorage.setItem('_lk_state', JSON.stringify({
+            userId: _lkSelectedUserId,
+            userName: _lkUserName,
+            year: _lkYear,
+            fromMonth: _lkFromMonth,
+            toMonth: _lkToMonth
+        }));
+    } catch(e) {}
+}
+
+function _lkRestoreState() {
+    try {
+        const raw = sessionStorage.getItem('_lk_state');
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.year) _lkYear = s.year;
+        if (s.fromMonth) _lkFromMonth = s.fromMonth;
+        if (s.toMonth !== undefined) _lkToMonth = s.toMonth;
+        if (s.userId) {
+            _lkSelectedUserId = s.userId;
+            _lkUserName = s.userName || '';
+            // Highlight user in sidebar
+            setTimeout(() => {
+                const el = document.querySelector(`.lk-user-item[data-user-id="${s.userId}"]`);
+                if (el) {
+                    el.classList.add('lk-selected');
+                    el.style.background = '#eff6ff';
+                    el.style.color = '#1e40af';
+                    el.style.fontWeight = '700';
+                    el.style.borderLeft = '3px solid #2563eb';
+                    el.scrollIntoView({ block: 'center', behavior: 'instant' });
+                }
+                _lkLoadUserTasks(s.userId, s.userName);
+            }, 100);
+        }
+    } catch(e) {}
 }
 
 // ===== GROUP MODAL (like Lịch Sử Báo Cáo) =====
