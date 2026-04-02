@@ -399,7 +399,7 @@ async function _lkLoadUserTasks(userId, userName) {
                 const total = g.completions.length;
 
                 html += `
-                <div style="background:white;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'">
+                <div onclick="_lkShowGroupModal(${idx})" style="background:white;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:700;color:#991b1b;font-size:14px;margin-bottom:4px;">${g.task_name}</div>
                         <div style="display:flex;gap:4px;flex-wrap:wrap;">
