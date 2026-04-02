@@ -850,7 +850,8 @@ async function taskScheduleRoutes(fastify, options) {
         const { template_id, report_date, user_id } = request.query;
         const uid = Number(user_id) || request.user.id;
         const rows = await db.all(
-            `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points
+            `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points,
+                    t.guide_url, t.input_requirements, t.output_requirements
              FROM task_point_reports r LEFT JOIN task_point_templates t ON r.template_id = t.id
              WHERE r.template_id = $1 AND r.user_id = $2 AND r.report_date = $3
              ORDER BY r.redo_count DESC`,

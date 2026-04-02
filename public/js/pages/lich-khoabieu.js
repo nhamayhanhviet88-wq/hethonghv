@@ -146,6 +146,29 @@ async function _kbViewReport(el) {
             <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
+            ${(() => {
+                const t = versions[0] || data;
+                let rq = '';
+                if (t.guide_url) {
+                    rq += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                        <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                        <a href="${t.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${t.guide_url} →</a>
+                    </div>`;
+                }
+                if (t.input_requirements) {
+                    rq += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
+                        <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
+                        <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(t.input_requirements)}</div>
+                    </div>`;
+                }
+                if (t.output_requirements) {
+                    rq += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
+                        <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
+                        <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(t.output_requirements)}</div>
+                    </div>`;
+                }
+                return rq;
+            })()}
             ${versionsHtml}
             <div style="text-align:right;margin-top:8px;">
                 <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
@@ -2872,12 +2895,36 @@ function _kbShowLockReport(compId) {
         if (i < allVersions.length - 1) versionsHtml += '<div style="height:10px;"></div>';
     });
 
+    // Build task requirements HTML
+    let reqHtml = '';
+    if (lt) {
+        if (lt.guide_link) {
+            reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                <a href="${lt.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${lt.guide_link} →</a>
+            </div>`;
+        }
+        if (lt.input_requirements) {
+            reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
+                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
+                <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(lt.input_requirements)}</div>
+            </div>`;
+        }
+        if (lt.output_requirements) {
+            reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
+                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
+                <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(lt.output_requirements)}</div>
+            </div>`;
+        }
+    }
+
     body.innerHTML = `
     <div style="padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <span style="font-size:13px;color:#6b7280;font-weight:600;">📅 ${dateF}</span>
             ${allVersions.length > 1 ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:4px;">📊 ${allVersions.length} lần báo cáo</span>` : ''}
         </div>
+        ${reqHtml}
         ${versionsHtml}
     </div>`;
 
