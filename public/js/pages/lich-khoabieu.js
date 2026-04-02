@@ -913,9 +913,9 @@ function _kbRenderGrid() {
                 if (isSelf) {
                     if (dateStr === todayStr && !comp) {
                         // Today, not submitted: show Báo cáo (for self)
-                        actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
+                        actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
                             ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>` : '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>'}
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                         </div>`;
                     } else if (comp && comp.status === 'rejected') {
                         // Self: show Báo cáo lại + Xem báo cáo cũ
