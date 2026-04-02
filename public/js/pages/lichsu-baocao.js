@@ -19,6 +19,10 @@ let _rhModalTaskIdx = null; // currently open task modal index
 let _rhModalMonth = ''; // month being viewed in modal
 let _rhLockGroups = []; // lock task groups for modal
 let _rhLockModalIdx = null; // currently open lock task modal index
+let _rhViewMode = 'user'; // 'user' or 'dept'
+let _rhViewDeptId = null;
+let _rhViewDeptName = '';
+let _rhViewIncludeChildren = false;
 
 // Color palette for task cards (deterministic hash)
 const _rhColors = [
@@ -78,6 +82,10 @@ async function renderLichSuBaoCaoPage(container) {
             if (saved.fromMonth !== undefined) _rhFromMonth = saved.fromMonth;
             if (saved.toMonth !== undefined) _rhToMonth = saved.toMonth;
             if (saved.userId && saved.userName) _rhSelectedUser = { id: saved.userId, name: saved.userName };
+            if (saved.viewMode) _rhViewMode = saved.viewMode;
+            if (saved.viewDeptId) _rhViewDeptId = saved.viewDeptId;
+            if (saved.viewDeptName) _rhViewDeptName = saved.viewDeptName;
+            if (saved.viewIncludeChildren !== undefined) _rhViewIncludeChildren = saved.viewIncludeChildren;
         } catch(e) {}
     } else {
         // From another menu → reset defaults
@@ -85,6 +93,10 @@ async function renderLichSuBaoCaoPage(container) {
         _rhFromMonth = new Date().getMonth() + 1;
         _rhToMonth = 0;
         _rhSelectedUser = null;
+        _rhViewMode = 'user';
+        _rhViewDeptId = null;
+        _rhViewDeptName = '';
+        _rhViewIncludeChildren = false;
         sessionStorage.removeItem('_rh_state');
     }
     _rhCurrentMonth = `${_rhYear}-${String(_rhFromMonth || 1).padStart(2, '0')}`;
@@ -111,8 +123,10 @@ async function renderLichSuBaoCaoPage(container) {
         _rhAllDepts = raw;
         _rhExpandedDepts = new Set(_rhActiveDepts.map(d => d.id));
         _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSet);
-        // Auto-load saved user
-        if (_rhSelectedUser) {
+        // Auto-load saved view
+        if (_rhViewMode === 'dept' && _rhViewDeptId) {
+            await _rhViewDept(_rhViewDeptId, _rhViewDeptName, _rhViewIncludeChildren);
+        } else if (_rhSelectedUser) {
             await _rhLoadHistory();
         }
     } else {
@@ -136,6 +150,7 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
         sidebarHtml += `<div class="rh-system-header" data-sys-id="${sys.id}" onclick="_rhToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
             <span style="font-size:15px;">🏛️</span>
             <span style="flex:1;">${sys.name}</span>
+            <span onclick="event.stopPropagation();_rhViewDept(${sys.id},'${sys.name.replace(/'/g,"\\'")}',true)" style="font-size:13px;cursor:pointer;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.15);transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'" title="Xem tổng hợp">👁</span>
             <span class="rh-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span>
         </div>`;
         sidebarHtml += `<div class="rh-sys-content" data-sys-id="${sys.id}">`;
@@ -163,7 +178,7 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
 
             sidebarHtml += `
             <div class="rh-dept-header" data-dept-id="${d.id}" onclick="_rhToggleDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}transition:all .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-                ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(d.id) ? '▼' : '▶'}</span>
+                ${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span><span onclick="event.stopPropagation();_rhViewDept(${d.id},'${d.name.replace(/'/g,"\\'")}',${!isChild})" style="font-size:${isChild ? '11px' : '13px'};cursor:pointer;padding:2px 5px;border-radius:4px;background:${isChild ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.15)'};transition:all .2s;" onmouseover="this.style.background='${isChild ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.35)'}';event.stopPropagation()" onmouseout="this.style.background='${isChild ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.15)'}';event.stopPropagation()" title="Xem tổng hợp">👁</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(d.id) ? '▼' : '▶'}</span>
             </div>
             <div id="rhMembers_${d.id}" style="display:${_rhExpandedDepts.has(d.id) ? 'block' : 'none'};">
                 ${_rhRenderDeptMembers(d.id, d.name)}
@@ -173,7 +188,7 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
                 childStt++;
                 sidebarHtml += `
                 <div class="rh-dept-header" data-dept-id="${sub.id}" onclick="_rhToggleDept(${sub.id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px 7px 28px;font-size:11px;color:#475569;cursor:pointer;border-bottom:1px solid #e2e8f0;font-weight:900;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-left:3px solid #93c5fd;transition:all .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-                    <span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(sub.id) ? '▼' : '▶'}</span>
+                    <span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span><span onclick="event.stopPropagation();_rhViewDept(${sub.id},'${sub.name.replace(/'/g,"\\'")}',false)" style="font-size:11px;cursor:pointer;padding:2px 5px;border-radius:4px;background:rgba(0,0,0,0.06);transition:all .2s;" onmouseover="this.style.background='rgba(0,0,0,0.12)';event.stopPropagation()" onmouseout="this.style.background='rgba(0,0,0,0.06)';event.stopPropagation()" title="Xem tổng hợp">👁</span><span style="font-size:10px;opacity:0.7;">${_rhExpandedDepts.has(sub.id) ? '▼' : '▶'}</span>
                 </div>
                 <div id="rhMembers_${sub.id}" style="display:${_rhExpandedDepts.has(sub.id) ? 'block' : 'none'};">
                     ${_rhRenderDeptMembers(sub.id, sub.name)}
@@ -281,6 +296,8 @@ function _rhToggleDept(deptId) {
 
 async function _rhSelectUser(userId, userName) {
     _rhSelectedUser = { id: userId, name: userName };
+    _rhViewMode = 'user';
+    _rhViewDeptId = null;
     _rhSaveState();
     const deptList = document.getElementById('rhDeptList');
     if (deptList) {
@@ -1251,22 +1268,29 @@ function _rhShowLockDetail(groupIdx, completionIdx) {
     }
 }
 
+function _rhReloadCurrentView() {
+    if (_rhViewMode === 'dept' && _rhViewDeptId) {
+        _rhViewDept(_rhViewDeptId, _rhViewDeptName, _rhViewIncludeChildren);
+    } else {
+        _rhLoadHistory();
+    }
+}
 function _rhOnYearChange(val) {
     _rhYear = Number(val);
     _rhSaveState();
-    _rhLoadHistory();
+    _rhReloadCurrentView();
 }
 function _rhOnFromChange(val) {
     _rhFromMonth = Number(val);
     if (_rhFromMonth === 0) _rhToMonth = 0;
     else if (_rhToMonth && _rhToMonth < _rhFromMonth) _rhToMonth = 0;
     _rhSaveState();
-    _rhLoadHistory();
+    _rhReloadCurrentView();
 }
 function _rhOnToChange(val) {
     _rhToMonth = Number(val);
     _rhSaveState();
-    _rhLoadHistory();
+    _rhReloadCurrentView();
 }
 function _rhSaveState() {
     try {
@@ -1275,7 +1299,11 @@ function _rhSaveState() {
             userName: _rhSelectedUser?.name,
             year: _rhYear,
             fromMonth: _rhFromMonth,
-            toMonth: _rhToMonth
+            toMonth: _rhToMonth,
+            viewMode: _rhViewMode,
+            viewDeptId: _rhViewDeptId,
+            viewDeptName: _rhViewDeptName,
+            viewIncludeChildren: _rhViewIncludeChildren
         }));
     } catch(e) {}
 }
@@ -1318,4 +1346,208 @@ function _rhFormatDate(dateStr) {
     const parts = dateStr.split('-');
     if (parts.length !== 3) return dateStr;
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// ===== DEPARTMENT VIEW =====
+async function _rhViewDept(deptId, deptName, includeChildren) {
+    _rhViewMode = 'dept';
+    _rhViewDeptId = deptId;
+    _rhViewDeptName = deptName;
+    _rhViewIncludeChildren = includeChildren;
+    _rhSelectedUser = null;
+    _rhSaveState();
+
+    // Clear user highlights in sidebar
+    document.querySelectorAll('#rhDeptList div[onclick^="_rhSelectUser"]').forEach(el => {
+        el.style.background = 'white';
+        el.style.borderLeft = '3px solid transparent';
+        el.style.fontWeight = '';
+        el.style.color = '';
+    });
+
+    const wrap = document.getElementById('rhContent');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="padding:50px;text-align:center;color:#9ca3af;"><div style="font-size:30px;margin-bottom:8px;">⏳</div>Đang tải tổng hợp phòng ban...</div>';
+
+    try {
+        const monthList = _rhGetMonthRange();
+        const ic = includeChildren ? '&include_children=true' : '';
+        const results = await Promise.all(monthList.map(m =>
+            apiCall(`/api/report-history/department/${deptId}?month=${m}${ic}`)
+        ));
+
+        // Merge results across months
+        const merged = {
+            dept_name: deptName,
+            member_count: 0,
+            point_tasks: [],
+            point_summary: { total: 0, completed: 0, points: 0, missed: 0, pending: 0 },
+            lock_tasks: [],
+            lock_summary: { total: 0, approved: 0, pending: 0, rejected: 0 }
+        };
+
+        const ptMap = new Map();
+        const ltMap = new Map();
+
+        results.forEach(data => {
+            if (data.error) return;
+            if (data.member_count > merged.member_count) merged.member_count = data.member_count;
+
+            (data.point_tasks || []).forEach(t => {
+                if (!ptMap.has(t.task_name)) ptMap.set(t.task_name, { task_name: t.task_name, total: 0, completed: 0, pending: 0, missed: 0, points: 0 });
+                const g = ptMap.get(t.task_name);
+                g.total += t.total; g.completed += t.completed; g.pending += t.pending; g.missed += t.missed; g.points += t.points;
+            });
+
+            (data.lock_tasks || []).forEach(t => {
+                if (!ltMap.has(t.task_name)) ltMap.set(t.task_name, { task_name: t.task_name, total: 0, approved: 0, pending: 0, rejected: 0 });
+                const g = ltMap.get(t.task_name);
+                g.total += t.total; g.approved += t.approved; g.pending += t.pending; g.rejected += t.rejected;
+            });
+        });
+
+        merged.point_tasks = [...ptMap.values()].sort((a, b) => a.task_name.localeCompare(b.task_name));
+        merged.point_tasks.forEach(t => {
+            merged.point_summary.total += t.total;
+            merged.point_summary.completed += t.completed;
+            merged.point_summary.points += t.points;
+            merged.point_summary.missed += t.missed;
+            merged.point_summary.pending += t.pending;
+        });
+
+        merged.lock_tasks = [...ltMap.values()].sort((a, b) => a.task_name.localeCompare(b.task_name));
+        merged.lock_tasks.forEach(t => {
+            merged.lock_summary.total += t.total;
+            merged.lock_summary.approved += t.approved;
+            merged.lock_summary.pending += t.pending;
+            merged.lock_summary.rejected += t.rejected;
+        });
+
+        _rhRenderDeptContent(wrap, merged);
+    } catch(e) {
+        wrap.innerHTML = `<div style="padding:50px;text-align:center;color:#dc2626;"><div style="font-size:30px;margin-bottom:8px;">❌</div>Lỗi: ${e.message}</div>`;
+    }
+}
+
+function _rhRenderDeptContent(wrap, data) {
+    const { dept_name, member_count, point_tasks, point_summary, lock_tasks, lock_summary } = data;
+    const ps = point_summary;
+    const ls = lock_summary;
+    const completionRate = ps.total > 0 ? Math.round(ps.completed / ps.total * 100) : 0;
+    const lockApprovalRate = ls.total > 0 ? Math.round(ls.approved / ls.total * 100) : 0;
+
+    const _rhSelStyle = 'padding:6px 10px;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;color:#064e3b;background:white;cursor:pointer;font-weight:600;';
+
+    let html = '';
+
+    // Header
+    html += `<div style="padding:14px 20px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">🏢</span>
+            <div>
+                <div style="font-weight:700;color:#064e3b;font-size:15px;">${dept_name}</div>
+                <div style="font-size:11px;color:#059669;">${member_count} nhân viên · ${_rhRangeLabel()}</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <select onchange="_rhOnYearChange(this.value)" style="${_rhSelStyle}">${_rhBuildYearOptions()}</select>
+            <select onchange="_rhOnFromChange(this.value)" style="${_rhSelStyle}">${_rhBuildFromOptions()}</select>
+            ${_rhFromMonth !== 0 ? `<span style="font-size:11px;color:#9ca3af;font-weight:600;">→</span>
+            <select onchange="_rhOnToChange(this.value)" style="${_rhSelStyle}">${_rhBuildToOptions()}</select>` : ''}
+        </div>
+    </div>`;
+
+    // ===== CV ĐIỂM =====
+    html += `<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 20px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">📊</span>
+        <span style="font-weight:800;color:white;font-size:14px;letter-spacing:0.5px;">CV ĐIỂM</span>
+        <span style="background:rgba(255,255,255,0.2);color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${ps.total} lượt giao</span>
+    </div>`;
+
+    html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#1e40af;">${ps.total}</div>
+            <div style="font-size:11px;color:#3b82f6;font-weight:600;">CV Được Giao</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#059669;">${ps.completed} <span style="font-size:14px;color:#10b981;">(${completionRate}%)</span></div>
+            <div style="font-size:11px;color:#059669;font-weight:600;">Hoàn Thành</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fdba74;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#ea580c;">${ps.points}đ</div>
+            <div style="font-size:11px;color:#ea580c;font-weight:600;">Tổng Điểm</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#dc2626;">${ps.missed}</div>
+            <div style="font-size:11px;color:#dc2626;font-weight:600;">Bỏ Lỡ / Từ Chối</div>
+        </div>
+    </div>`;
+
+    // Point task list
+    point_tasks.forEach(t => {
+        const c = _rhGetColor(t.task_name);
+        const rate = t.total > 0 ? Math.round(t.completed / t.total * 100) : 0;
+        const badges = [];
+        if (t.completed > 0) badges.push(`<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${t.completed} đạt (${rate}%)</span>`);
+        if (t.pending > 0) badges.push(`<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${t.pending} chờ</span>`);
+        if (t.missed > 0) badges.push(`<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${t.missed} bỏ lỡ</span>`);
+        html += `<div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;background:${c.bg};border-left:4px solid ${c.border};">
+            <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${t.task_name}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span style="color:#6b7280;font-size:11px;">📋 ${t.total} lượt · ${t.points}đ</span>
+                ${badges.join(' ')}
+            </div>
+        </div>`;
+    });
+    if (point_tasks.length === 0) {
+        html += '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có dữ liệu CV Điểm</div>';
+    }
+
+    // ===== CV KHÓA =====
+    html += `<div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:10px 20px;display:flex;align-items:center;gap:8px;margin-top:12px;">
+        <span style="font-size:16px;">🔒</span>
+        <span style="font-weight:800;color:white;font-size:14px;letter-spacing:0.5px;">CV KHÓA</span>
+        <span style="background:rgba(255,255,255,0.2);color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${ls.total} báo cáo</span>
+    </div>`;
+
+    html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#1e40af;">${ls.total}</div>
+            <div style="font-size:11px;color:#3b82f6;font-weight:600;">Tổng Báo Cáo</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#059669;">${ls.approved} <span style="font-size:14px;color:#10b981;">(${lockApprovalRate}%)</span></div>
+            <div style="font-size:11px;color:#059669;font-weight:600;">Đạt</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fdba74;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#ea580c;">${ls.pending}</div>
+            <div style="font-size:11px;color:#ea580c;font-weight:600;">Chờ Duyệt</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-size:24px;font-weight:800;color:#dc2626;">${ls.rejected}</div>
+            <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối</div>
+        </div>
+    </div>`;
+
+    // Lock task list
+    lock_tasks.forEach(t => {
+        const c = _rhGetColor(t.task_name);
+        const rate = t.total > 0 ? Math.round(t.approved / t.total * 100) : 0;
+        const badges = [];
+        if (t.approved > 0) badges.push(`<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${t.approved} đạt</span>`);
+        if (t.pending > 0) badges.push(`<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${t.pending} chờ</span>`);
+        if (t.rejected > 0) badges.push(`<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${t.rejected} từ chối</span>`);
+        html += `<div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;background:${c.bg};border-left:4px solid ${c.border};">
+            <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${t.task_name}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span style="color:#6b7280;font-size:11px;">📋 ${t.total} báo cáo</span>
+                ${badges.join(' ')}
+            </div>
+        </div>`;
+    });
+    if (lock_tasks.length === 0) {
+        html += '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có dữ liệu CV Khóa</div>';
+    }
+
+    wrap.innerHTML = html;
 }

@@ -1021,7 +1021,169 @@ async function taskScheduleRoutes(fastify, options) {
         };
     });
 
+    // ========== DEPARTMENT-LEVEL REPORT AGGREGATION ==========
+    fastify.get('/api/report-history/department/:deptId', { preHandler: [authenticate] }, async (request, reply) => {
+        const deptId = Number(request.params.deptId);
+        const month = request.query.month;
+        const includeChildren = request.query.include_children === 'true';
+        if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+            return reply.code(400).send({ error: 'Thiếu hoặc sai format month (YYYY-MM)' });
+        }
+
+        const [year, mon] = month.split('-').map(Number);
+        const lastDay = new Date(year, mon, 0).getDate();
+        const fromDate = `${month}-01`;
+        const toDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+        // Get department info
+        const dept = await db.get('SELECT id, name, parent_id FROM departments WHERE id = $1', [deptId]);
+        if (!dept) return reply.code(404).send({ error: 'Phòng ban không tồn tại' });
+
+        // Get all dept IDs to include
+        let deptIds = [deptId];
+        if (includeChildren) {
+            const children = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptId, 'active']);
+            children.forEach(c => deptIds.push(c.id));
+            // Also get grandchildren
+            if (children.length > 0) {
+                const childIds = children.map(c => c.id);
+                const ph = childIds.map((_, i) => `$${i + 1}`).join(',');
+                const grandchildren = await db.all(`SELECT id FROM departments WHERE parent_id IN (${ph}) AND status = $1`, [...childIds, 'active']);
+                grandchildren.forEach(c => deptIds.push(c.id));
+            }
+        }
+
+        // Get all user IDs in these departments
+        const deptPh = deptIds.map((_, i) => `$${i + 1}`).join(',');
+        const users = await db.all(
+            `SELECT id FROM users WHERE department_id IN (${deptPh}) AND status = 'active'`,
+            deptIds
+        );
+        const userIds = users.map(u => u.id);
+        if (userIds.length === 0) {
+            return {
+                dept_name: dept.name, member_count: 0,
+                point_tasks: [], point_summary: { total: 0, completed: 0, points: 0, missed: 0, pending: 0 },
+                lock_tasks: [], lock_summary: { total: 0, approved: 0, pending: 0, rejected: 0 },
+                month
+            };
+        }
+
+        const userPh = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const dateOffset = userIds.length + 1;
+
+        // Parallel queries — CV ĐIỂM
+        const [snapshots, reports, holidays] = await Promise.all([
+            db.all(
+                `SELECT task_name, points, snapshot_date::text as snapshot_date_str, user_id, template_id, requires_approval
+                 FROM daily_task_snapshots
+                 WHERE user_id IN (${userPh}) AND snapshot_date BETWEEN $${dateOffset} AND $${dateOffset + 1}
+                 ORDER BY task_name`,
+                [...userIds, fromDate, toDate]
+            ),
+            db.all(
+                `SELECT r.template_id, r.report_date::text as report_date, r.status, r.points_earned, r.user_id,
+                        t.task_name as template_task_name
+                 FROM task_point_reports r
+                 LEFT JOIN task_point_templates t ON r.template_id = t.id
+                 WHERE r.user_id IN (${userPh}) AND r.report_date BETWEEN $${dateOffset} AND $${dateOffset + 1}`,
+                [...userIds, fromDate, toDate]
+            ),
+            db.all(
+                "SELECT holiday_date::text as holiday_date FROM holidays WHERE holiday_date BETWEEN $1 AND $2",
+                [fromDate, toDate]
+            )
+        ]);
+
+        // Build working days (exclude holidays and future)
+        const holidaySet = new Set(holidays.map(h => h.holiday_date));
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const workingDaySet = new Set();
+        for (let d = 1; d <= lastDay; d++) {
+            const ds = `${month}-${String(d).padStart(2, '0')}`;
+            if (!holidaySet.has(ds) && ds <= todayStr) workingDaySet.add(ds);
+        }
+
+        // Build report lookup
+        const reportMap = {};
+        reports.forEach(r => { reportMap[`${r.user_id}_${r.template_id}_${r.report_date}`] = r; });
+
+        // Aggregate CV Điểm by task_name
+        const pointGroupMap = new Map();
+        snapshots.forEach(s => {
+            if (!workingDaySet.has(s.snapshot_date_str)) return;
+            const name = s.task_name;
+            if (!pointGroupMap.has(name)) {
+                pointGroupMap.set(name, { task_name: name, total: 0, completed: 0, pending: 0, missed: 0, points: 0 });
+            }
+            const g = pointGroupMap.get(name);
+            g.total++;
+            const rKey = `${s.user_id}_${s.template_id}_${s.snapshot_date_str}`;
+            const report = reportMap[rKey];
+            if (report) {
+                if (report.status === 'approved') { g.completed++; g.points += (report.points_earned || 0); }
+                else if (report.status === 'pending') { g.pending++; }
+                else { g.missed++; }
+            } else {
+                if (s.snapshot_date_str < todayStr) g.missed++;
+            }
+        });
+
+        const point_tasks = [...pointGroupMap.values()].sort((a, b) => a.task_name.localeCompare(b.task_name));
+        const point_summary = { total: 0, completed: 0, points: 0, missed: 0, pending: 0 };
+        point_tasks.forEach(t => {
+            point_summary.total += t.total;
+            point_summary.completed += t.completed;
+            point_summary.points += t.points;
+            point_summary.missed += t.missed;
+            point_summary.pending += t.pending;
+        });
+
+        // CV KHÓA — lock_task_completions
+        const lock_completions = await db.all(
+            `SELECT ltc.status, lt.task_name
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             WHERE ltc.user_id IN (${userPh}) AND ltc.completion_date BETWEEN $${dateOffset} AND $${dateOffset + 1}`,
+            [...userIds, fromDate, toDate]
+        );
+
+        const lockGroupMap = new Map();
+        lock_completions.forEach(c => {
+            const name = c.task_name;
+            if (!lockGroupMap.has(name)) {
+                lockGroupMap.set(name, { task_name: name, total: 0, approved: 0, pending: 0, rejected: 0 });
+            }
+            const g = lockGroupMap.get(name);
+            g.total++;
+            if (c.status === 'approved') g.approved++;
+            else if (c.status === 'pending') g.pending++;
+            else g.rejected++;
+        });
+
+        const lock_tasks_agg = [...lockGroupMap.values()].sort((a, b) => a.task_name.localeCompare(b.task_name));
+        const lock_summary = { total: 0, approved: 0, pending: 0, rejected: 0 };
+        lock_tasks_agg.forEach(t => {
+            lock_summary.total += t.total;
+            lock_summary.approved += t.approved;
+            lock_summary.pending += t.pending;
+            lock_summary.rejected += t.rejected;
+        });
+
+        return {
+            dept_name: dept.name,
+            member_count: userIds.length,
+            point_tasks,
+            point_summary,
+            lock_tasks: lock_tasks_agg,
+            lock_summary,
+            month
+        };
+    });
+
     // ========== SẾP HỖ TRỢ APIs ==========
+
 
     // NV: Gửi yêu cầu hỗ trợ
     fastify.post('/api/task-support/request', { preHandler: [authenticate] }, async (request, reply) => {
