@@ -2924,8 +2924,18 @@ function _kbShowLockReport(compId) {
             <span style="font-size:13px;color:#6b7280;font-weight:600;">📅 ${dateF}</span>
             ${allVersions.length > 1 ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:4px;">📊 ${allVersions.length} lần báo cáo</span>` : ''}
         </div>
-        ${reqHtml}
-        ${versionsHtml}
+        ${reqHtml ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+            <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
+                <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
+            </div>
+            <div style="padding:14px;">${reqHtml}</div>
+        </div>` : ''}
+        <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
+                <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
+            </div>
+            <div style="padding:14px;">${versionsHtml}</div>
+        </div>
     </div>`;
 
     footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
