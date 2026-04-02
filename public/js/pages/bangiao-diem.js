@@ -722,7 +722,7 @@ function _tpRenderGrid() {
                                 <span style="background:${c.tag};color:${c.text};padding:1px 6px;border-radius:4px;font-size:9px;">≥ ${task.min_quantity} lần</span>
                                 ${sourceBadge}
                             </div>
-                            ${task.guide_url ? `<div style="margin-top:6px;"><a href="${task.guide_url}" target="_blank" style="font-size:10px;color:${c.badge};text-decoration:none;background:${c.tag};padding:2px 6px;border-radius:4px;">📘 Hướng dẫn</a></div>` : ''}
+                            ${''}
 
                             ${canEdit ? `<div style="margin-top:6px;display:flex;justify-content:center;gap:4px;">
                                 <button onclick="_tpEditTask(${task.id})" style="padding:2px 8px;font-size:10px;border:1px solid ${c.border};border-radius:5px;background:white;color:${c.text};cursor:pointer;font-weight:500;">✏️ Sửa</button>
