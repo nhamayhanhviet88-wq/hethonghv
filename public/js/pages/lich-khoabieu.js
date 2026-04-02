@@ -169,9 +169,21 @@ async function _kbViewApprovalReport(el) {
     // Task requirements section
     let reqHtml = '';
     if (data.guide_url) {
-        reqHtml += `<div style="margin-bottom:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
-            <div style="font-weight:700;font-size:12px;color:#166534;margin-bottom:6px;">📋 Hướng dẫn công việc</div>
-            <a href="${data.guide_url}" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none;word-break:break-all;">${data.guide_url} →</a>
+        reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+            <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+            <a href="${data.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${data.guide_url} →</a>
+        </div>`;
+    }
+    if (data.input_requirements) {
+        reqHtml += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+            <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">📥 Yêu cầu đầu vào</div>
+            <div style="font-size:12px;color:#7f1d1d;white-space:pre-line;">${data.input_requirements}</div>
+        </div>`;
+    }
+    if (data.output_requirements) {
+        reqHtml += `<div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">
+            <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:2px;">📤 Yêu cầu đầu ra</div>
+            <div style="font-size:12px;color:#1e3a5f;white-space:pre-line;">${data.output_requirements}</div>
         </div>`;
     }
 
@@ -1829,7 +1841,8 @@ async function _kbLoadApprovalPanel() {
                 quantity: r.quantity || '', report_value: r.report_value || '', report_image: r.report_image || '',
                 report_date: r.report_date || '', content: r.content || '', reject_reason: r.reject_reason || '',
                 redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || '',
-                guide_url: r.guide_url || '', user_id: r.user_id
+                guide_url: r.guide_url || '', user_id: r.user_id,
+                input_requirements: r.input_requirements || '', output_requirements: r.output_requirements || ''
             }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
@@ -1891,7 +1904,7 @@ async function _kbLoadApprovalPanel() {
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Công việc</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Ngày</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Điểm</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Báo cáo</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Báo cáo</th>
                             <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
                             <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>

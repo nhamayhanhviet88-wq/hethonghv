@@ -746,3 +746,7 @@ DO $$ BEGIN
         CHECK (status IN ('pending', 'approved', 'rejected', 'expired'));
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- Add input/output requirements to CV Điểm templates (matching CV Khóa)
+ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS input_requirements TEXT;
+ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS output_requirements TEXT;
