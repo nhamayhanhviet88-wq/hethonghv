@@ -1122,6 +1122,30 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
     _kbPastedFile = null;
 
     const isRedo = !!redoReportId;
+    // Get rejection reason for redo
+    let rejectReason = '';
+    if (isRedo) {
+        // Find rejection reason from reports
+        const reportKey = `${templateId}_${reportDate}`;
+        const report = _kbReports[reportKey];
+        if (report && report.reject_reason) rejectReason = report.reject_reason;
+        // Also try by name
+        if (!rejectReason && fallbackName) {
+            const nameKey = `name_${fallbackName}_${reportDate}`;
+            const rpt2 = _kbReports[nameKey];
+            if (rpt2 && rpt2.reject_reason) rejectReason = rpt2.reject_reason;
+        }
+    }
+    const rejectBanner = isRedo && rejectReason ? `
+        <div style="background:linear-gradient(135deg,#fef2f2,#fff1f2);border:2px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">❌ LÝ DO TỪ CHỐI</span>
+            </div>
+            <div style="font-size:13px;color:#991b1b;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #fecaca;">
+                "${rejectReason.replace(/"/g, '&quot;')}"
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">📝 Hãy khắc phục và báo cáo lại bên dưới</div>
+        </div>` : '';
     const approvalWarn = needsApproval ? `
         <div style="padding:10px 12px;background:${isRedo ? '#fef2f2' : '#fef3c7'};border:1px solid ${isRedo ? '#fecaca' : '#fde68a'};border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
             <span style="font-size:18px;">${isRedo ? '🔄' : '🔒'}</span>
@@ -1167,6 +1191,7 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
             <button onclick="document.getElementById('kbReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:20px 22px;">
+            ${rejectBanner}
             ${approvalWarn}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
@@ -2033,6 +2058,23 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                 ⚠️ Không làm sẽ bị phạt và khóa tài khoản
             </div>
             ${approvalWarn}
+            ${(() => {
+                // Check for rejection reason
+                const compKey = `${lockTaskId}_${dateStr}`;
+                const comp = _kbLockCompletions && _kbLockCompletions[compKey];
+                if (comp && (comp.status === 'rejected' || comp.status === 'expired') && comp.reject_reason) {
+                    return `<div style="background:linear-gradient(135deg,#fef2f2,#fff1f2);border:2px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">❌ LÝ DO TỪ CHỐI</span>
+                        </div>
+                        <div style="font-size:13px;color:#991b1b;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #fecaca;">
+                            "${comp.reject_reason.replace(/"/g, '&quot;')}"
+                        </div>
+                        <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">📝 Hãy khắc phục và báo cáo lại bên dưới</div>
+                    </div>`;
+                }
+                return '';
+            })()}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
                     <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
