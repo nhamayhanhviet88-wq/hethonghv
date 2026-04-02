@@ -64,6 +64,13 @@ async function renderLichSuBaoCaoPage(container) {
     _rhColorMap = {};
     _rhIsManager = ['giam_doc', 'pho_giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
+    // Restore saved state
+    try {
+        const saved = JSON.parse(localStorage.getItem('_rh_state') || '{}');
+        if (saved.month) _rhCurrentMonth = saved.month;
+        if (saved.userId && saved.userName) _rhSelectedUser = { id: saved.userId, name: saved.userName };
+    } catch(e) {}
+
     container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af;"><div style="font-size:40px;margin-bottom:12px;">⏳</div>Đang tải trang...</div>`;
 
     if (_rhIsManager) {
@@ -86,6 +93,10 @@ async function renderLichSuBaoCaoPage(container) {
         _rhAllDepts = raw;
         _rhExpandedDepts = new Set(_rhActiveDepts.map(d => d.id));
         _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSet);
+        // Auto-load saved user
+        if (_rhSelectedUser) {
+            await _rhLoadHistory();
+        }
     } else {
         _rhSelectedUser = { id: currentUser.id, name: currentUser.full_name };
         _renderRhEmployeeLayout(container);
@@ -252,6 +263,8 @@ function _rhToggleDept(deptId) {
 
 async function _rhSelectUser(userId, userName) {
     _rhSelectedUser = { id: userId, name: userName };
+    // Save state
+    try { localStorage.setItem('_rh_state', JSON.stringify({ userId, userName, month: _rhCurrentMonth })); } catch(e) {}
     const deptList = document.getElementById('rhDeptList');
     if (deptList) {
         _rhActiveDepts.forEach(d => {
@@ -1154,6 +1167,12 @@ function _rhShowLockDetail(groupIdx, completionIdx) {
 
 function _rhChangeMonth(val) {
     _rhCurrentMonth = val;
+    // Save state
+    try {
+        const saved = JSON.parse(localStorage.getItem('_rh_state') || '{}');
+        saved.month = val;
+        localStorage.setItem('_rh_state', JSON.stringify(saved));
+    } catch(e) {}
     _rhLoadHistory();
 }
 
