@@ -298,15 +298,15 @@ async function lockTaskRoutes(fastify, options) {
             const parts = request.parts();
             for await (const part of parts) {
                 if (part.file) {
-                    // It's a file field
+                    // It's a file field - collect buffer
                     const uploadsDir = path.join(__dirname, '..', 'uploads', 'lock-tasks');
                     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
                     const ext = path.extname(part.filename) || '.jpg';
-                    const filename = `lt_${taskId}_${userId}_${todayStr}_r${redoCount || 0}${ext}`;
+                    const filename = `lt_${taskId}_${userId}_${todayStr}_${Date.now()}${ext}`;
                     const filePath = path.join(uploadsDir, filename);
-                    const writeStream = fs.createWriteStream(filePath);
-                    await part.file.pipe(writeStream);
-                    await new Promise((resolve, reject) => { writeStream.on('finish', resolve); writeStream.on('error', reject); });
+                    const chunks = [];
+                    for await (const chunk of part.file) { chunks.push(chunk); }
+                    fs.writeFileSync(filePath, Buffer.concat(chunks));
                     fileData = `/uploads/lock-tasks/${filename}`;
                 } else {
                     // It's a regular field
