@@ -1048,7 +1048,7 @@ async function taskScheduleRoutes(fastify, options) {
             if (children.length > 0) {
                 const childIds = children.map(c => c.id);
                 const ph = childIds.map((_, i) => `$${i + 1}`).join(',');
-                const grandchildren = await db.all(`SELECT id FROM departments WHERE parent_id IN (${ph}) AND status = $1`, [...childIds, 'active']);
+                const grandchildren = await db.all(`SELECT id FROM departments WHERE parent_id IN (${ph}) AND status = $${childIds.length + 1}`, [...childIds, 'active']);
                 grandchildren.forEach(c => deptIds.push(c.id));
             }
         }
