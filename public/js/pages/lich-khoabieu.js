@@ -156,6 +156,31 @@ async function _kbViewReport(el) {
     document.body.appendChild(modal);
 }
 
+// Helper: render requirements list (JSON array or plain text) with numbered badges & clickable URLs
+function _kbRenderReqList(rawValue) {
+    let items = [];
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) items = parsed;
+        else items = [String(rawValue)];
+    } catch(e) {
+        items = [String(rawValue)];
+    }
+    if (items.length === 0) return '';
+    return items.map((item, i) => {
+        const isUrl = /^https?:\/\//i.test(item);
+        const display = isUrl
+            ? `<a href="${item}" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;">${item}</a>`
+            : `<span>${item}</span>`;
+        const colors = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2'];
+        const c = colors[i % colors.length];
+        return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.06);' : ''}">
+            <span style="min-width:22px;height:22px;border-radius:50%;background:${c};color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i + 1}</span>
+            <div style="font-size:12px;color:#1e293b;line-height:1.5;padding-top:1px;">${display}</div>
+        </div>`;
+    }).join('');
+}
+
 // ===== Approval Report View (CV Điểm) — with task requirements =====
 async function _kbViewApprovalReport(el) {
     const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
@@ -175,15 +200,15 @@ async function _kbViewApprovalReport(el) {
         </div>`;
     }
     if (data.input_requirements) {
-        reqHtml += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-            <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">📥 Yêu cầu đầu vào</div>
-            <div style="font-size:12px;color:#7f1d1d;white-space:pre-line;">${data.input_requirements}</div>
+        reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
+            <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
+            <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(data.input_requirements)}</div>
         </div>`;
     }
     if (data.output_requirements) {
-        reqHtml += `<div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">
-            <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:2px;">📤 Yêu cầu đầu ra</div>
-            <div style="font-size:12px;color:#1e3a5f;white-space:pre-line;">${data.output_requirements}</div>
+        reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
+            <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
+            <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(data.output_requirements)}</div>
         </div>`;
     }
 
@@ -283,15 +308,15 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
             </div>`;
         }
         if (taskDetail.input_requirements) {
-            reqHtml += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">🔴 Yêu cầu đầu vào</div>
-                <div style="font-size:12px;color:#7f1d1d;white-space:pre-line;">${taskDetail.input_requirements}</div>
+            reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
+                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
+                <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(taskDetail.input_requirements)}</div>
             </div>`;
         }
         if (taskDetail.output_requirements) {
-            reqHtml += `<div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:2px;">🔵 Yêu cầu đầu ra</div>
-                <div style="font-size:12px;color:#1e3a5f;white-space:pre-line;">${taskDetail.output_requirements}</div>
+            reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
+                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
+                <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(taskDetail.output_requirements)}</div>
             </div>`;
         }
     }
