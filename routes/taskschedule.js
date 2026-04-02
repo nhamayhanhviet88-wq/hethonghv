@@ -631,7 +631,7 @@ async function taskScheduleRoutes(fastify, options) {
         const pending = await db.all(
             `SELECT r.id, r.template_id, r.user_id, r.report_date::text as report_date, r.report_type, r.report_value, r.report_image, r.quantity, r.content, r.status, r.redo_count,
                     r.approval_deadline, r.created_at,
-                    t.task_name, t.points as template_points, t.requires_approval,
+                    t.task_name, t.points as template_points, t.requires_approval, t.guide_url,
                     u.full_name as user_name, u.username
              FROM task_point_reports r
              JOIN task_point_templates t ON r.template_id = t.id

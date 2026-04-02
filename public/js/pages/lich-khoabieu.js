@@ -156,6 +156,191 @@ async function _kbViewReport(el) {
     document.body.appendChild(modal);
 }
 
+// ===== Approval Report View (CV Điểm) — with task requirements =====
+async function _kbViewApprovalReport(el) {
+    const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
+    const statusMap = {
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
+    };
+
+    // Task requirements section
+    let reqHtml = '';
+    if (data.guide_url) {
+        reqHtml += `<div style="margin-bottom:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+            <div style="font-weight:700;font-size:12px;color:#166534;margin-bottom:6px;">📋 Hướng dẫn công việc</div>
+            <a href="${data.guide_url}" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none;word-break:break-all;">${data.guide_url} →</a>
+        </div>`;
+    }
+
+    // Fetch report history
+    let versions = [];
+    if (data.template_id) {
+        try {
+            const res = await apiCall(`/api/schedule/report-history?template_id=${data.template_id}&report_date=${data.report_date}&user_id=${data.user_id || ''}`);
+            versions = res.history || [];
+        } catch(e) {}
+    }
+    if (versions.length === 0) versions = [data];
+
+    let versionsHtml = '';
+    versions.forEach((v, i) => {
+        const s = statusMap[v.status] || statusMap.pending;
+        const isLatest = i === 0;
+        const redoNum = (v.redo_count || 0) + 1;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
+        versionsHtml += `
+        <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
+                <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
+            </div>
+            ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
+                <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
+            </div>` : ''}
+            ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
+                <div style="font-size:12px;color:#1e293b;">${v.content}</div>
+            </div>` : ''}
+            ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
+                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
+            </div>` : ''}
+            ${v.report_image ? `<div style="margin-top:6px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div>
+                <img src="${v.report_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.report_image}','_blank')">
+            </div>` : ''}
+        </div>`;
+    });
+
+    let modal = document.getElementById('kbReportViewModal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'kbReportViewModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:500px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);">
+        <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:16px;font-weight:800;color:white;">📊 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📅 ${data.report_date.split('-').reverse().join('/')}</div>
+            </div>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:18px 22px;">
+            ${reqHtml}
+            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;">📄 Báo cáo nhân viên</div>
+            ${versionsHtml}
+            <div style="text-align:right;margin-top:8px;">
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
+            </div>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+}
+
+// ===== Approval Report View (CV Khóa) — with task requirements =====
+async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
+    const statusMap = {
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
+    };
+
+    // Fetch task detail + completions
+    let taskDetail = null, completions = [];
+    try {
+        const [tRes, cRes] = await Promise.all([
+            apiCall(`/api/lock-tasks/${lockTaskId}`),
+            apiCall(`/api/lock-tasks/${lockTaskId}/completions?user_id=${userId}&date=${completionDate}`)
+        ]);
+        taskDetail = tRes.task || tRes;
+        completions = cRes.completions || [];
+    } catch(e) {}
+
+    // Task requirements
+    let reqHtml = '';
+    if (taskDetail) {
+        if (taskDetail.guide_link) {
+            reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                <a href="${taskDetail.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${taskDetail.guide_link} →</a>
+            </div>`;
+        }
+        if (taskDetail.input_requirements) {
+            reqHtml += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">🔴 Yêu cầu đầu vào</div>
+                <div style="font-size:12px;color:#7f1d1d;white-space:pre-line;">${taskDetail.input_requirements}</div>
+            </div>`;
+        }
+        if (taskDetail.output_requirements) {
+            reqHtml += `<div style="padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:2px;">🔵 Yêu cầu đầu ra</div>
+                <div style="font-size:12px;color:#1e3a5f;white-space:pre-line;">${taskDetail.output_requirements}</div>
+            </div>`;
+        }
+    }
+
+    // Completions (versions)
+    let versionsHtml = '';
+    completions.forEach((v, i) => {
+        const s = statusMap[v.status] || statusMap.pending;
+        const isLatest = i === 0;
+        const redoNum = (v.redo_count || 0) + 1;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
+        versionsHtml += `
+        <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
+                <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
+            </div>
+            ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
+                <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
+            </div>` : ''}
+            ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
+                <div style="font-size:12px;color:#1e293b;">${v.content}</div>
+            </div>` : ''}
+            ${v.proof_url ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
+                ${v.proof_url.startsWith('/uploads') ? `<div style="margin-top:4px;"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.proof_url}','_blank')"></div>` : `<a href="${v.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link →</a>`}
+            </div>` : ''}
+        </div>`;
+    });
+
+    if (!versionsHtml) versionsHtml = '<div style="color:#9ca3af;text-align:center;padding:20px;">Không có dữ liệu báo cáo</div>';
+
+    const taskName = taskDetail?.task_name || 'Công việc khóa';
+
+    let modal = document.getElementById('kbReportViewModal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'kbReportViewModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:500px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);">
+        <div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:16px;font-weight:800;color:white;">🔐 ${taskName}</div>
+                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">📅 ${completionDate.split('-').reverse().join('/')}</div>
+            </div>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:18px 22px;">
+            ${reqHtml}
+            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;">📄 Báo cáo nhân viên</div>
+            ${versionsHtml}
+            <div style="text-align:right;margin-top:8px;">
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#991b1b;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
+            </div>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+}
+
 function _kbFmtDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function _kbDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
@@ -1640,19 +1825,19 @@ async function _kbLoadApprovalPanel() {
             const isOverdue = dlDate && dlDate < new Date();
             const isUrgent = dlDate && (dlDate - new Date()) < 6 * 3600000;
             const rData = JSON.stringify({
-                task_name: r.task_name, status: r.status || 'pending', points_earned: r.points_earned || 0,
+                template_id: r.template_id, task_name: r.task_name, status: r.status || 'pending', points_earned: r.points_earned || 0,
                 quantity: r.quantity || '', report_value: r.report_value || '', report_image: r.report_image || '',
                 report_date: r.report_date || '', content: r.content || '', reject_reason: r.reject_reason || '',
-                redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || ''
+                redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || '',
+                guide_url: r.guide_url || '', user_id: r.user_id
             }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span> ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔄 Nộp lại</span>' : ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${r.template_points}đ</td>
-                <td style="padding:8px 12px;font-size:11px;">
-                    ${r.report_value ? `<a href="${r.report_value}" target="_blank" style="color:#2563eb;text-decoration:none;">🔗 Link</a>` : ''}
-                    ${r.report_image ? `<a href="${r.report_image}" target="_blank" style="color:#2563eb;text-decoration:none;margin-left:4px;">🖼️</a>` : ''}
+                <td style="padding:8px 12px;text-align:center;">
+                    <span onclick="_kbViewApprovalReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${countdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
@@ -1678,9 +1863,8 @@ async function _kbLoadApprovalPanel() {
                 </td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
-                <td style="padding:8px 12px;font-size:11px;">
-                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="color:#991b1b;text-decoration:none;">${r.proof_url.startsWith('/uploads') ? '🖼️ Ảnh' : '🔗 Link'}</a>` : ''}
-                    ${r.content ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;" title="${(r.content||'').replace(/"/g,'&quot;')}">📄</span>` : ''}
+                <td style="padding:8px 12px;text-align:center;">
+                    <span onclick="_kbViewLockApprovalReport(${r.lock_task_id}, ${r.user_id}, '${r.completion_date}')" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">

@@ -550,7 +550,7 @@ async function lockTaskRoutes(fastify, options) {
             // GĐ sees all
             const reviews = await db.all(
                 `SELECT ltc.*, ltc.completion_date::text as completion_date,
-                        lt.task_name, lt.guide_link,
+                        lt.task_name, lt.guide_link, lt.input_requirements, lt.output_requirements,
                         u.full_name as user_name, u.username,
                         d.name as dept_name
                  FROM lock_task_completions ltc
@@ -568,7 +568,7 @@ async function lockTaskRoutes(fastify, options) {
         const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
         const reviews = await db.all(
             `SELECT ltc.*, ltc.completion_date::text as completion_date,
-                    lt.task_name, lt.guide_link,
+                    lt.task_name, lt.guide_link, lt.input_requirements, lt.output_requirements,
                     u.full_name as user_name, u.username,
                     d.name as dept_name
              FROM lock_task_completions ltc
@@ -609,6 +609,30 @@ async function lockTaskRoutes(fastify, options) {
         );
 
         return { users };
+    });
+
+    // ========== GET single lock task detail (for approval modal) ==========
+    fastify.get('/api/lock-tasks/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const task = await db.get('SELECT * FROM lock_tasks WHERE id = $1', [id]);
+        if (!task) return reply.code(404).send({ error: 'Not found' });
+        return { task };
+    });
+
+    // ========== GET completions history for a lock task (for approval modal) ==========
+    fastify.get('/api/lock-tasks/:id/completions', { preHandler: [authenticate] }, async (request, reply) => {
+        const lockTaskId = Number(request.params.id);
+        const { user_id, date } = request.query;
+        const uid = Number(user_id);
+        if (!uid || !date) return reply.code(400).send({ error: 'Missing user_id or date' });
+
+        const completions = await db.all(
+            `SELECT * FROM lock_task_completions
+             WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+             ORDER BY redo_count DESC`,
+            [lockTaskId, uid, date]
+        );
+        return { completions };
     });
 }
 
