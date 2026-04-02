@@ -721,10 +721,10 @@ function _kbRenderGrid() {
 
                     if (report.status === 'approved') {
                         actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">✅ +${report.points_earned}đ</span>`;
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     } else if (report.status === 'pending') {
                         actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ ${report.redo_count > 0 ? 'Chờ duyệt lại' : 'Chờ duyệt'}</span>`;
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     } else if (report.status === 'rejected') {
                         if (isSelf) {
                             actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">❌ Bị từ chối</span>`;
@@ -732,15 +732,15 @@ function _kbRenderGrid() {
                             if (report.redo_deadline && new Date(report.redo_deadline) > new Date()) {
                                 statusBadge = `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
                                     <button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo lại</button>
-                                    <span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                                    <span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                                 </div>`;
                             } else {
-                                statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                                statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                             }
                         } else {
                             // Manager view: show warning badge
                             actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                            statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                         }
                     } else if (report.status === 'expired') {
                         if (isSelf) {
@@ -748,7 +748,7 @@ function _kbRenderGrid() {
                         } else {
                             actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
                         }
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
@@ -911,7 +911,7 @@ function _kbRenderGrid() {
                         // Self: show Báo cáo lại + Xem báo cáo cũ
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (dateStr < todayStr && !comp) {
                         // Past, not submitted
@@ -934,12 +934,12 @@ function _kbRenderGrid() {
                         // Self: show "Báo cáo lại"
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (comp) {
-                        const btnColor = comp.status === 'approved' ? 'background:#059669;border:1px solid #047857;' : 'background:#059669;border:1px solid #047857;';
+                        const btnColor = 'background:white;border:1px solid #d1d5db;';
                         actionHtml = `<div style="margin-top:4px;text-align:center;">
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;${btnColor}color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;${btnColor}color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 } else {
@@ -948,13 +948,13 @@ function _kbRenderGrid() {
                         // Manager: show warning for rejected
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
                             <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (comp && comp.status === 'expired') {
                         // Manager: show warning for expired
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
                             <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (dateStr === todayStr && !comp) {
                         actionHtml = `<div style="margin-top:6px;"><span style="padding:3px 10px;border-radius:5px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;border:1px solid #fecaca;">📭 Chưa nộp</span></div>`;
@@ -971,7 +971,7 @@ function _kbRenderGrid() {
                     // Manager: show Xem báo cáo if comp exists and not already shown above
                     if (comp && comp.status !== 'rejected' && comp.status !== 'expired') {
                         actionHtml += `<div style="margin-top:4px;text-align:center;">
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#059669;border:1px solid #047857;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 }
