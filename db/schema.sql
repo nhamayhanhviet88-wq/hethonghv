@@ -724,3 +724,25 @@ DO $$ BEGIN
         CHECK (status IN ('pending', 'supported', 'expired', 'resolved'));
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- ========== CV ĐIỂM: Multi-row redo history (like CV Khóa) ==========
+-- Change unique constraint: (template_id, user_id, report_date) → (template_id, user_id, report_date, redo_count)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_point_reports_template_id_user_id_report_date_key') THEN
+        ALTER TABLE task_point_reports DROP CONSTRAINT task_point_reports_template_id_user_id_report_date_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_point_reports_template_user_date_redo_key') THEN
+        ALTER TABLE task_point_reports ADD CONSTRAINT task_point_reports_template_user_date_redo_key
+            UNIQUE(template_id, user_id, report_date, redo_count);
+    END IF;
+END $$;
+
+-- Add 'expired' to task_point_reports status check
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_point_reports_status_check') THEN
+        ALTER TABLE task_point_reports DROP CONSTRAINT task_point_reports_status_check;
+    END IF;
+    ALTER TABLE task_point_reports ADD CONSTRAINT task_point_reports_status_check
+        CHECK (status IN ('pending', 'approved', 'rejected', 'expired'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;

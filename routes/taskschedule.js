@@ -175,24 +175,32 @@ async function taskScheduleRoutes(fastify, options) {
         const templates = await _getTemplatesForUser(uid, week_start);
 
         const [reportsResult, weeklySummary, monthlySummary, weekHolidays, yearHolidays] = await Promise.all([
-            // Reports
+            // Reports — latest redo per task+date
             db.all(
-                `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points, t.requires_approval
+                `SELECT DISTINCT ON (r.template_id, r.report_date)
+                     r.*, r.report_date::text as report_date, t.task_name, t.points as template_points, t.requires_approval
                  FROM task_point_reports r LEFT JOIN task_point_templates t ON r.template_id = t.id
-                 WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3 ORDER BY r.report_date`,
+                 WHERE r.user_id = $1 AND r.report_date BETWEEN $2 AND $3
+                 ORDER BY r.template_id, r.report_date, r.redo_count DESC`,
                 [uid, monStr, sunStr]
             ),
             // Weekly summary
             db.all(
-                `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
-                 FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
+                `SELECT report_date, SUM(points_earned) as total_points, COUNT(*) as report_count FROM (
+                    SELECT DISTINCT ON (template_id, report_date) report_date::text as report_date, points_earned
+                    FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3
+                    ORDER BY template_id, report_date, redo_count DESC
+                 ) latest WHERE latest.points_earned > 0
                  GROUP BY report_date ORDER BY report_date`,
                 [uid, monStr, sunStr]
             ),
             // Monthly summary
             db.all(
-                `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
-                 FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
+                `SELECT report_date, SUM(points_earned) as total_points, COUNT(*) as report_count FROM (
+                    SELECT DISTINCT ON (template_id, report_date) report_date::text as report_date, points_earned
+                    FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3
+                    ORDER BY template_id, report_date, redo_count DESC
+                 ) latest WHERE latest.points_earned > 0
                  GROUP BY report_date ORDER BY report_date`,
                 [uid, monthStart, monthEnd]
             ),
@@ -462,6 +470,17 @@ async function taskScheduleRoutes(fastify, options) {
         const points = template.requires_approval ? 0 : (template.points || 0);
 
         try {
+            // Check if already submitted (prevent duplicates)
+            const existing = await db.get(
+                `SELECT id, status, redo_count FROM task_point_reports
+                 WHERE template_id = $1 AND user_id = $2 AND report_date = $3
+                 ORDER BY redo_count DESC LIMIT 1`,
+                [Number(template_id), request.user.id, report_date]
+            );
+            if (existing && (existing.status === 'pending' || existing.status === 'approved')) {
+                return reply.code(400).send({ error: 'Đã nộp báo cáo rồi, đang chờ duyệt hoặc đã duyệt' });
+            }
+
             // Calculate approval deadline if pending
             let approvalDeadline = null;
             if (status === 'pending') {
@@ -470,12 +489,12 @@ async function taskScheduleRoutes(fastify, options) {
                 } catch(e2) { /* fallback: no deadline */ }
             }
 
+            const redoCount = existing ? existing.redo_count + 1 : 0;
+
             await db.run(
-                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned, approval_deadline)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                 ON CONFLICT (template_id, user_id, report_date) DO UPDATE SET
-                 report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10, approval_deadline = $11`,
-                [Number(template_id), request.user.id, report_date, report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', status, points, approvalDeadline]
+                `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned, approval_deadline, redo_count)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                [Number(template_id), request.user.id, report_date, report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', status, points, approvalDeadline, redoCount]
             );
 
             // Auto-resolve support request if NV submitted report (QL no longer penalized)
@@ -794,10 +813,19 @@ async function taskScheduleRoutes(fastify, options) {
         if (!hasLink && !hasImage) return reply.code(400).send({ error: 'Phải có link hoặc hình ảnh' });
 
         const report_type = hasLink && hasImage ? 'both' : (hasLink ? 'link' : 'image');
+        const newRedoCount = (report.redo_count || 0) + 1;
 
+        // Calculate approval deadline
+        let approvalDeadline = null;
+        try {
+            approvalDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+        } catch(e2) {}
+
+        // Insert NEW row (preserve history)
         await db.run(
-            `UPDATE task_point_reports SET status = 'pending', report_type = $1, report_value = $2, report_image = $3, quantity = $4, content = $5, redo_count = redo_count + 1, reject_reason = NULL WHERE id = $6`,
-            [report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', id]
+            `INSERT INTO task_point_reports (template_id, user_id, report_date, report_type, report_value, report_image, quantity, content, status, points_earned, redo_count, approval_deadline)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 0, $9, $10)`,
+            [report.template_id, report.user_id, report.report_date, report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', newRedoCount, approvalDeadline]
         );
 
         return { success: true, status: 'pending' };
@@ -815,6 +843,20 @@ async function taskScheduleRoutes(fastify, options) {
             [request.user.id]
         );
         return { rejected: rows };
+    });
+
+    // ========== GET report history (all versions) for a task+date ==========
+    fastify.get('/api/schedule/report-history', { preHandler: [authenticate] }, async (request, reply) => {
+        const { template_id, report_date, user_id } = request.query;
+        const uid = Number(user_id) || request.user.id;
+        const rows = await db.all(
+            `SELECT r.*, r.report_date::text as report_date, t.task_name, t.points as template_points
+             FROM task_point_reports r LEFT JOIN task_point_templates t ON r.template_id = t.id
+             WHERE r.template_id = $1 AND r.user_id = $2 AND r.report_date = $3
+             ORDER BY r.redo_count DESC`,
+            [Number(template_id), uid, report_date]
+        );
+        return { history: rows };
     });
 
     // ========== CONFIG: redo limit ==========

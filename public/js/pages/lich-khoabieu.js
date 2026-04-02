@@ -75,7 +75,7 @@ function _kbGetColor(name) {
 }
 
 // View report detail modal
-function _kbViewReport(el) {
+async function _kbViewReport(el) {
     const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
     const statusMap = {
         approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
@@ -83,48 +83,52 @@ function _kbViewReport(el) {
         rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
         expired: { label: '🚫 Hết hạn làm lại', color: '#6b7280', bg: '#f3f4f6' }
     };
-    const s = statusMap[data.status] || statusMap.pending;
 
-    let detailHtml = `
-        <div style="text-align:center;margin-bottom:16px;">
-            <div style="font-size:20px;font-weight:800;color:#1e293b;">${data.task_name}</div>
-            <div style="font-size:12px;color:#64748b;margin-top:4px;">📅 ${data.report_date}</div>
-        </div>
-        <div style="background:${s.bg};border-radius:10px;padding:12px;text-align:center;margin-bottom:14px;">
-            <span style="font-size:16px;font-weight:800;color:${s.color};">${s.label}</span>
-            ${data.points_earned ? `<span style="margin-left:8px;font-size:14px;font-weight:700;color:${s.color};">+${data.points_earned}đ</span>` : ''}
-        </div>`;
-
-    // Show reject reason
-    if (data.reject_reason) {
-        detailHtml += `<div style="padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-            <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:4px;">💬 Lý do từ chối:</div>
-            <div style="font-size:13px;color:#7f1d1d;">${data.reject_reason}</div>
-        </div>`;
+    // Fetch report history
+    let versions = [];
+    if (data.template_id) {
+        try {
+            const uid = _kbViewUserId || currentUser.id;
+            const res = await apiCall(`/api/schedule/report-history?template_id=${data.template_id}&report_date=${data.report_date}&user_id=${uid}`);
+            versions = res.history || [];
+        } catch(e) {}
     }
 
-    if (data.quantity) {
-        detailHtml += `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;color:#64748b;">📊 Số lượng</span>
-            <span style="font-size:14px;font-weight:700;color:#1e293b;">${data.quantity}</span>
-        </div>`;
+    // Fallback: if no history API or no versions, show single report
+    if (versions.length === 0) {
+        versions = [data];
     }
-    if (data.content) {
-        detailHtml += `<div style="padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;">
-            <div style="font-size:11px;color:#64748b;margin-bottom:4px;">📝 Nội dung</div>
-            <div style="font-size:13px;color:#1e293b;">${data.content}</div>
+
+    let versionsHtml = '';
+    versions.forEach((v, i) => {
+        const s = statusMap[v.status] || statusMap.pending;
+        const isLatest = i === 0;
+        const redoNum = (v.redo_count || 0) + 1;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
+
+        versionsHtml += `
+        <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
+                <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
+            </div>
+            ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
+                <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
+            </div>` : ''}
+            ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
+                <div style="font-size:12px;color:#1e293b;">${v.content}</div>
+            </div>` : ''}
+            ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
+                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
+            </div>` : ''}
+            ${v.report_image ? `<div style="margin-top:6px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div>
+                <img src="${v.report_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.report_image}','_blank')">
+            </div>` : ''}
         </div>`;
-    }
-    if (data.report_value) {
-        detailHtml += `<div style="padding:8px 12px;background:#eff6ff;border-radius:8px;margin-bottom:8px;">
-            <a href="${data.report_value}" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
-        </div>`;
-    }
-    if (data.report_image) {
-        detailHtml += `<div style="text-align:center;margin-top:8px;">
-            <img src="${data.report_image}" style="max-width:100%;max-height:300px;border-radius:10px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${data.report_image}','_blank')">
-        </div>`;
-    }
+    });
 
     // Remove old modal
     let modal = document.getElementById('kbReportViewModal');
@@ -133,9 +137,20 @@ function _kbViewReport(el) {
     modal = document.createElement('div');
     modal.id = 'kbReportViewModal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;';
-    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
-        <button onclick="document.getElementById('kbReportViewModal').remove()" style="position:absolute;top:12px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">✕</button>
-        ${detailHtml}
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
+        <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:16px;font-weight:800;color:white;">📊 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📅 ${data.report_date.split('-').reverse().join('/')}</div>
+            </div>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:18px 22px;">
+            ${versionsHtml}
+            <div style="text-align:right;margin-top:8px;">
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
+            </div>
+        </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     document.body.appendChild(modal);
@@ -713,7 +728,7 @@ function _kbRenderGrid() {
                 if (report) {
                     // HAS REPORT — make it clickable to view details
                     const rData = JSON.stringify({
-                        task_name: task.task_name, status: report.status, points_earned: report.points_earned,
+                        template_id: reportTemplateId, task_name: task.task_name, status: report.status, points_earned: report.points_earned,
                         quantity: report.quantity, report_value: report.report_value || '', report_image: report.report_image || '',
                         report_date: dateStr, content: report.content || '', reject_reason: report.reject_reason || '',
                         redo_count: report.redo_count || 0, redo_deadline: report.redo_deadline || ''
