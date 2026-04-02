@@ -1056,10 +1056,11 @@ async function taskScheduleRoutes(fastify, options) {
         // Get all user IDs in these departments
         const deptPh = deptIds.map((_, i) => `$${i + 1}`).join(',');
         const users = await db.all(
-            `SELECT id FROM users WHERE department_id IN (${deptPh}) AND status = 'active'`,
+            `SELECT id, department_id FROM users WHERE department_id IN (${deptPh}) AND status = 'active'`,
             deptIds
         );
         const userIds = users.map(u => u.id);
+        const userDeptMap = new Map(users.map(u => [u.id, u.department_id]));
         if (userIds.length === 0) {
             return {
                 dept_name: dept.name, member_count: 0,
@@ -1148,9 +1149,9 @@ async function taskScheduleRoutes(fastify, options) {
                 [todayDow, ...userIds, ...deptIds]
             );
             todayTemplates.forEach(t => {
-                // For team tasks, inject for each user in the matching dept
+                // For team tasks, inject ONLY for users in the matching dept
                 const affectedUsers = t.target_type === 'team'
-                    ? userIds
+                    ? userIds.filter(uid => userDeptMap.get(uid) === t.target_id)
                     : [t.target_id];
                 affectedUsers.forEach(uid => {
                     const key = `${uid}_${t.id}`;
