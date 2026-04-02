@@ -304,8 +304,8 @@ async function _lkLoadDeptTasks(deptId) {
 
 // ===== USER TASKS (grouped by task, with year/month range picker + stats) =====
 let _lkYear = 2026;
-let _lkFromMonth = 1; // 1-12
-let _lkToMonth = 12; // 0 = not set (single month), default all months
+let _lkFromMonth = 0; // 0 = Tất cả (T1-T12)
+let _lkToMonth = 0; // 0 = not set
 let _lkUserName = '';
 let _lkLockGroups = [];
 let _lkLockModalIdx = null;
@@ -327,14 +327,29 @@ function _lkBuildYearOptions() {
 
 function _lkBuildMonthOptions(selected, allowEmpty, emptyLabel) {
     const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-    let html = allowEmpty ? `<option value="0">${emptyLabel || '—'}</option>` : '';
+    let html = allowEmpty ? `<option value="0"${selected === 0 ? ' selected' : ''}>${emptyLabel || '—'}</option>` : '';
     for (let m = 1; m <= 12; m++) {
         html += `<option value="${m}" ${m === selected ? 'selected' : ''}>${months[m]}</option>`;
     }
     return html;
 }
 
+function _lkBuildFromOptions() {
+    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    let html = `<option value="0"${_lkFromMonth === 0 ? ' selected' : ''}>📊 Tất cả</option>`;
+    for (let m = 1; m <= 12; m++) {
+        html += `<option value="${m}" ${m === _lkFromMonth ? 'selected' : ''}>${months[m]}</option>`;
+    }
+    return html;
+}
+
 function _lkGetMonthRange() {
+    if (_lkFromMonth === 0) {
+        // "Tất cả" — all 12 months
+        const months = [];
+        for (let m = 1; m <= 12; m++) months.push(`${_lkYear}-${String(m).padStart(2, '0')}`);
+        return months;
+    }
     const from = _lkFromMonth;
     const to = _lkToMonth && _lkToMonth >= from ? _lkToMonth : from;
     const months = [];
@@ -345,6 +360,7 @@ function _lkGetMonthRange() {
 }
 
 function _lkRangeLabel() {
+    if (_lkFromMonth === 0) return `Tất cả tháng / ${_lkYear}`;
     if (!_lkToMonth || _lkToMonth <= _lkFromMonth) {
         return `Tháng ${_lkFromMonth}/${_lkYear}`;
     }
@@ -419,12 +435,12 @@ async function _lkLoadUserTasks(userId, userName) {
                         ${_lkBuildYearOptions()}
                     </select>
                     <select onchange="_lkOnFromChange(this.value)" style="${selectStyle}">
-                        ${_lkBuildMonthOptions(_lkFromMonth, false)}
+                        ${_lkBuildFromOptions()}
                     </select>
-                    <span style="font-size:11px;color:#9ca3af;font-weight:600;">→</span>
+                    ${_lkFromMonth !== 0 ? `<span style="font-size:11px;color:#9ca3af;font-weight:600;">→</span>
                     <select onchange="_lkOnToChange(this.value)" style="${selectStyle}">
                         ${_lkBuildMonthOptions(_lkToMonth, true, '— Đến —')}
-                    </select>
+                    </select>` : ''}
                 </div>
             </div>
         </div>
@@ -493,8 +509,11 @@ function _lkOnYearChange(val) {
 }
 function _lkOnFromChange(val) {
     _lkFromMonth = Number(val);
-    // Reset "to" if it's less than "from"
-    if (_lkToMonth && _lkToMonth < _lkFromMonth) _lkToMonth = 0;
+    if (_lkFromMonth === 0) {
+        _lkToMonth = 0; // "Tất cả" doesn't need "To"
+    } else if (_lkToMonth && _lkToMonth < _lkFromMonth) {
+        _lkToMonth = 0;
+    }
     _lkSaveState();
     if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
 }
