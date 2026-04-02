@@ -166,8 +166,23 @@ async function renderBanGiaoKhoaPage(container) {
         </div>
     </div>`;
 
-    // Restore state from sessionStorage on F5
-    _lkRestoreState();
+    // Detect F5 vs menu navigation
+    const lastPage = sessionStorage.getItem('_lk_lastPage');
+    const isReload = lastPage === 'bangiao-khoa';
+    sessionStorage.setItem('_lk_lastPage', 'bangiao-khoa');
+
+    if (isReload) {
+        // F5 on same page → restore previous state
+        _lkRestoreState();
+    } else {
+        // Coming from another menu → reset to defaults
+        _lkYear = new Date().getFullYear();
+        _lkFromMonth = 0; // Tất cả
+        _lkToMonth = 0;
+        _lkSelectedUserId = null;
+        _lkUserName = '';
+        sessionStorage.removeItem('_lk_state');
+    }
 }
 
 // ===== SIDEBAR FILTER =====
@@ -303,7 +318,7 @@ async function _lkLoadDeptTasks(deptId) {
 }
 
 // ===== USER TASKS (grouped by task, with year/month range picker + stats) =====
-let _lkYear = 2026;
+let _lkYear = new Date().getFullYear();
 let _lkFromMonth = 0; // 0 = Tất cả (T1-T12)
 let _lkToMonth = 0; // 0 = not set
 let _lkUserName = '';

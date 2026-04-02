@@ -896,6 +896,11 @@ async function handleRoute() {
     // Scroll content to top
     content.scrollTo(0, 0);
 
+    // Track current page for bangiao-khoa F5 detection
+    if (currentPage !== 'bangiao-khoa' && currentPage !== 'bangiaokhoa') {
+        sessionStorage.setItem('_lk_lastPage', currentPage);
+    }
+
     // Use setTimeout to let spinner render before heavy sync work
     await new Promise(r => setTimeout(r, 10));
 
