@@ -770,30 +770,16 @@ async function _rhRenderLockModal() {
 
     // Rows
     let rows = '';
-    completions.sort((a, b) => a.completion_date.localeCompare(b.completion_date)).forEach(c => {
+    completions.sort((a, b) => a.completion_date.localeCompare(b.completion_date)).forEach((c, ci) => {
         const dateF = c.completion_date.split('-').reverse().join('/');
         const st = _RH_STATUS[c.status] || _RH_STATUS.pending;
-
-        let detailParts = [];
-        if (c.proof_url) {
-            detailParts.push(c.proof_url.startsWith('/uploads')
-                ? `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:11px;">🖼️ Ảnh</a>`
-                : `<a href="${c.proof_url}" target="_blank" style="color:#2563eb;text-decoration:none;font-size:11px;">🔗 Link</a>`);
-        }
-        if (c.content) {
-            detailParts.push(`<span style="color:#6b7280;font-size:10px;" title="${(c.content||'').replace(/"/g,'&quot;')}">📄 ${c.content.substring(0,30)}${c.content.length>30?'...':''}</span>`);
-        }
-        if (c.reject_reason) {
-            detailParts.push(`<span style="color:#dc2626;font-size:10px;">💬 ${c.reject_reason}</span>`);
-        }
-        if (c.redo_count > 0) {
-            detailParts.push(`<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:600;">🔄 Lần ${c.redo_count}</span>`);
-        }
+        const statusHtml = `<span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;">${st.icon} ${st.label}</span>`;
+        const detailBtn = `<button onclick="event.stopPropagation();_rhShowLockDetail(${idx},${ci})" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">👁️ Xem</button>`;
 
         rows += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:8px 12px;font-size:12px;color:#374151;white-space:nowrap;">${dateF}</td>
-            <td style="padding:8px 12px;text-align:center;">${`<span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;">${st.icon} ${st.label}</span>`}</td>
-            <td style="padding:8px 12px;font-size:11px;">${detailParts.join(' ')}</td>
+            <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
+            <td style="padding:8px 12px;text-align:center;">${detailBtn}</td>
         </tr>`;
     });
 
@@ -841,7 +827,7 @@ async function _rhRenderLockModal() {
                 <thead><tr style="background:#fef2f2;">
                     <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Ngày</th>
                     <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Trạng Thái</th>
-                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Chi Tiết</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;width:90px;">Chi Tiết</th>
                 </tr></thead>
                 <tbody>${rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có báo cáo trong tháng này</td></tr>'}</tbody>
             </table>
@@ -1023,6 +1009,128 @@ function _rhShowDetail(reportId) {
 function _rhBackToTaskModal() {
     if (_rhModalTaskIdx !== null) {
         _rhRenderTaskModal();
+    }
+}
+
+// Back from lock detail to lock task modal
+function _rhBackToLockModal() {
+    if (_rhLockModalIdx !== null) {
+        _rhRenderLockModal();
+    }
+}
+
+// ========== LOCK TASK REPORT DETAIL ==========
+function _rhShowLockDetail(groupIdx, completionIdx) {
+    const g = _rhLockGroups[groupIdx];
+    if (!g) return;
+    const c_item = g.completions.sort((a, b) => a.completion_date.localeCompare(b.completion_date))[completionIdx];
+    if (!c_item) return;
+
+    const st = _RH_STATUS[c_item.status] || _RH_STATUS.pending;
+    const dateF = _rhFormatDate(c_item.completion_date);
+
+    // Parse requirements
+    const parseReqs = (val) => {
+        if (!val) return '';
+        try {
+            const arr = JSON.parse(val);
+            if (Array.isArray(arr)) return arr.map((r, i) => `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;"><span style="background:#e0e7ff;color:#4f46e5;padding:1px 7px;border-radius:50%;font-size:10px;font-weight:700;">${i + 1}</span> <span>${r}</span></div>`).join('');
+        } catch (e) {}
+        return `<div>${val}</div>`;
+    };
+
+    // Get lock task detail for requirements
+    const lockTask = (_rhData.lock_tasks || []).find(lt => lt.id === g.lock_task_id || lt.task_name === g.task_name) || {};
+    const guideLink = lockTask.guide_link || g.guide_link || '';
+    const inputReqs = lockTask.input_requirements || '';
+    const outputReqs = lockTask.output_requirements || '';
+
+    let contentHtml = `
+    <div style="padding:20px;">
+        <!-- Task info header -->
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="font-weight:700;color:#991b1b;font-size:16px;">${g.task_name}</div>
+                <span style="background:${st.bg};color:${st.color};padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;">${st.icon} ${st.label}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div style="background:white;border:1px solid #fecaca;border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:14px;">📅</span>
+                    <span style="font-size:12px;color:#374151;font-weight:600;">${dateF}</span>
+                </div>
+                <div style="background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(220,38,38,0.3);">
+                    <span style="font-size:14px;">🔐</span>
+                    <span style="font-size:12px;color:white;font-weight:700;">CV Khóa</span>
+                </div>
+                ${g.requires_approval ? `<div style="background:linear-gradient(135deg,#d97706,#f59e0b);border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(217,119,6,0.3);">
+                    <span style="font-size:14px;">🔒</span>
+                    <span style="font-size:12px;color:white;font-weight:700;">Cần duyệt</span>
+                </div>` : ''}
+            </div>
+        </div>
+
+        <!-- Guide URL -->
+        ${guideLink ? `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">📎</span>
+            <div>
+                <div style="font-size:11px;color:#6b7280;font-weight:600;">Hướng dẫn công việc:</div>
+                <a href="${guideLink}" target="_blank" style="color:#2563eb;font-size:12px;word-break:break-all;">${guideLink}</a>
+            </div>
+        </div>` : ''}
+
+        <!-- Requirements -->
+        ${inputReqs ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;">🔽 Yêu cầu đầu vào</div>
+            <div style="font-size:12px;color:#374151;">${parseReqs(inputReqs)}</div>
+        </div>` : ''}
+        ${outputReqs ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:#854d0e;font-weight:700;margin-bottom:6px;">🔼 Yêu cầu đầu ra</div>
+            <div style="font-size:12px;color:#374151;">${parseReqs(outputReqs)}</div>
+        </div>` : ''}
+
+        <!-- Report content -->
+        <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-top:16px;">
+            <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 16px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:15px;">📝</span>
+                <span style="color:white;font-size:13px;font-weight:700;letter-spacing:0.5px;">NỘI DUNG BÁO CÁO NHÂN VIÊN</span>
+            </div>
+            <div style="padding:16px;">
+                ${c_item.proof_url ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">📎 Link báo cáo</div>
+                    <a href="${c_item.proof_url}" target="_blank" style="color:#2563eb;font-size:13px;word-break:break-all;font-weight:500;">${c_item.proof_url}</a>
+                </div>` : ''}
+
+                ${c_item.content ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">📝 Nội dung báo cáo</div>
+                    <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${c_item.content}</div>
+                </div>` : ''}
+
+                ${c_item.reject_reason ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-top:10px;">
+                    <div style="font-size:10px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">❌ Lý do từ chối</div>
+                    <div style="font-size:13px;color:#dc2626;line-height:1.5;">${c_item.reject_reason}</div>
+                </div>` : ''}
+
+                ${c_item.redo_count > 0 ? `<div style="margin-top:8px;font-size:11px;color:#6b7280;text-align:right;">🔄 Đã nộp lại: <b>${c_item.redo_count}</b> lần</div>` : ''}
+
+                ${!c_item.proof_url && !c_item.content ? `<div style="text-align:center;color:#9ca3af;font-size:13px;padding:24px;">
+                    <div style="font-size:30px;margin-bottom:8px;">📭</div>
+                    Nhân viên chưa nộp nội dung báo cáo
+                </div>` : ''}
+            </div>
+        </div>
+    </div>`;
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (overlay && titleEl && body) {
+        titleEl.textContent = '📋 Chi Tiết Báo Cáo';
+        body.innerHTML = contentHtml;
+        footer.innerHTML = `
+            <button class="btn btn-secondary" onclick="_rhBackToLockModal()" style="margin-right:auto;">← Quay lại</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+        overlay.classList.add('show');
     }
 }
 
