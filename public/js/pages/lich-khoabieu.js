@@ -807,8 +807,8 @@ function _kbRenderGrid() {
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px;">
 
-                            ${actionBtn}
                             ${isSelf && dateStr === todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
+                            ${actionBtn}
                         </div>
                         ${statusBadge}
                     </div>
