@@ -731,7 +731,7 @@ function _kbRenderGrid() {
                             // Show redo button for self
                             if (report.redo_deadline && new Date(report.redo_deadline) > new Date()) {
                                 statusBadge = `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                                    <button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:2px 8px;font-size:10px;border:1px dashed #d97706;border-radius:4px;background:#fef3c7;color:#d97706;cursor:pointer;font-weight:600;">📝 Báo cáo lại</button>
+                                    <button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo lại</button>
                                     <span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                                 </div>`;
                             } else {
