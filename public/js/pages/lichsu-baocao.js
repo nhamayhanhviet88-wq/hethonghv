@@ -663,7 +663,10 @@ function _rhRenderContent() {
 // ========== TASK HISTORY MODAL ==========
 function _rhOpenTaskModal(idx) {
     _rhModalTaskIdx = idx;
-    _rhModalMonth = _rhCurrentMonth; // start with page's current month
+    const now = new Date();
+    const realMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthList = _rhGetMonthRange();
+    _rhModalMonth = monthList.includes(realMonth) ? realMonth : monthList[monthList.length - 1];
     _rhRenderTaskModal();
 }
 
@@ -858,7 +861,10 @@ function _rhModalChangeMonth(val) {
 // ========== LOCK TASK MODAL ==========
 function _rhOpenLockModal(idx) {
     _rhLockModalIdx = idx;
-    _rhModalMonth = _rhCurrentMonth;
+    const now = new Date();
+    const realMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthList = _rhGetMonthRange();
+    _rhModalMonth = monthList.includes(realMonth) ? realMonth : monthList[monthList.length - 1];
     _rhRenderLockModal();
 }
 
