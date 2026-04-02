@@ -1328,8 +1328,14 @@ async function _kbSubmitReport() {
     const content = document.getElementById('kbRptContent')?.value?.trim();
     const redoId = document.getElementById('kbRptRedoId')?.value;
 
+    if (!content) {
+        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
+        document.getElementById('kbRptContent')?.focus();
+        return;
+    }
+
     if (!link && !_kbPastedFile) {
-        showToast('Phải có ít nhất link hoặc hình ảnh!', 'error');
+        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
@@ -2220,9 +2226,14 @@ async function _kbLockSubmitReport() {
     const link = document.getElementById('kbLockRptLink')?.value?.trim();
     const content = document.getElementById('kbLockRptContent')?.value?.trim();
 
-    if (!content && !link && !window._kbLockPastedFile) {
-        showToast('Phải có ít nhất nội dung, link hoặc hình ảnh báo cáo!', 'error');
+    if (!content) {
+        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
         document.getElementById('kbLockRptContent')?.focus();
+        return;
+    }
+
+    if (!link && !window._kbLockPastedFile) {
+        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
