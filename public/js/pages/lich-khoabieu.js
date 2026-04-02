@@ -936,12 +936,19 @@ function _kbRenderGrid() {
             const pct = cappedTotal > 0 ? Math.min(Math.round(cappedEarned/cappedTotal*100),100) : 0;
             const barColor = cappedEarned >= cappedTotal && cappedTotal > 0 ? '#16a34a' : cappedEarned > 0 ? '#d97706' : '#e5e7eb';
             const overCap = total > 100;
-            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#f8fafc;">
-                <div style="font-weight:700;color:#122546;font-size:13px;">${_KB_DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
-                <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
-                    <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width .3s;"></div>
+            const isToday = _kbDateStr(colDate) === _kbDateStr(new Date());
+            const thBg = isToday ? 'background:linear-gradient(135deg,#1e40af,#2563eb);' : 'background:#f8fafc;';
+            const nameColor = isToday ? 'color:white;' : 'color:#122546;';
+            const dateColor = isToday ? 'color:#bfdbfe;' : 'color:#9ca3af;';
+            const scoreColor = isToday ? `color:white;` : `color:${barColor};`;
+            const barBg = isToday ? 'background:rgba(255,255,255,0.3);' : 'background:#e5e7eb;';
+            const todayBadge = isToday ? '<span style="display:inline-block;background:#fbbf24;color:#1e3a5f;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">HÔM NAY</span>' : '';
+            html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid ${isToday ? '#2563eb' : '#e5e7eb'};min-width:150px;${thBg}${isToday ? 'box-shadow:0 4px 12px rgba(37,99,235,0.3);position:relative;' : ''}">
+                <div style="font-weight:700;${nameColor}font-size:13px;">${_KB_DAY_NAMES[d]} <span style="font-size:10px;${dateColor}">${dateLabel}</span>${todayBadge}</div>
+                <div style="margin-top:6px;height:4px;${barBg}border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:${isToday ? 'white' : barColor};border-radius:2px;transition:width .3s;"></div>
                 </div>
-                <div style="font-size:10px;margin-top:3px;color:${barColor};font-weight:600;">${cappedEarned}/${cappedTotal}đ${overCap ? ' <span style="color:#dc2626;" title="Tổng CV = ' + total + 'đ, chỉ tính tối đa 100đ">(max 100)</span>' : ''}</div>
+                <div style="font-size:10px;margin-top:3px;${scoreColor}font-weight:600;">${cappedEarned}/${cappedTotal}đ${overCap ? ' <span style="color:#fecaca;" title="Tổng CV = ' + total + 'đ, chỉ tính tối đa 100đ">(max 100)</span>' : ''}</div>
             </th>`;
         }
     }
