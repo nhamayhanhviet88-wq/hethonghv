@@ -1130,6 +1130,49 @@ async function taskScheduleRoutes(fastify, options) {
             }
         });
 
+        // Inject today's templates that don't have snapshots yet (matching frontend logic)
+        if (workingDaySet.has(todayStr)) {
+            const todayDow = today.getDay() === 0 ? 7 : today.getDay();
+            const snapshotTodayKeys = new Set(
+                snapshots.filter(s => s.snapshot_date_str === todayStr).map(s => `${s.user_id}_${s.template_id}`)
+            );
+            // Get all active templates for these users (team + individual)
+            const tUserPh = userIds.map((_, i) => `$${i + 2}`).join(',');
+            const tDeptPh = deptIds.map((_, i) => `$${i + 2 + userIds.length}`).join(',');
+            const todayTemplates = await db.all(
+                `SELECT id, task_name, points, target_type, target_id, day_of_week
+                 FROM task_point_templates
+                 WHERE day_of_week = $1 AND week_only IS NULL
+                 AND ((target_type = 'individual' AND target_id IN (${tUserPh}))
+                   OR (target_type = 'team' AND target_id IN (${tDeptPh})))`,
+                [todayDow, ...userIds, ...deptIds]
+            );
+            todayTemplates.forEach(t => {
+                // For team tasks, inject for each user in the matching dept
+                const affectedUsers = t.target_type === 'team'
+                    ? userIds
+                    : [t.target_id];
+                affectedUsers.forEach(uid => {
+                    const key = `${uid}_${t.id}`;
+                    if (!snapshotTodayKeys.has(key)) {
+                        snapshotTodayKeys.add(key);
+                        const name = t.task_name;
+                        if (!pointGroupMap.has(name)) {
+                            pointGroupMap.set(name, { task_name: name, total: 0, completed: 0, pending: 0, missed: 0, points: 0 });
+                        }
+                        const g = pointGroupMap.get(name);
+                        g.total++;
+                        const rKey = `${uid}_${t.id}_${todayStr}`;
+                        const report = reportMap[rKey];
+                        if (report) {
+                            if (report.status === 'approved') { g.completed++; g.points += (report.points_earned || 0); }
+                            else if (report.status === 'pending') { g.pending++; }
+                        }
+                    }
+                });
+            });
+        }
+
         const point_tasks = [...pointGroupMap.values()].sort((a, b) => a.task_name.localeCompare(b.task_name));
         const point_summary = { total: 0, completed: 0, points: 0, missed: 0, pending: 0 };
         point_tasks.forEach(t => {
