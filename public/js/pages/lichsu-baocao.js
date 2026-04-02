@@ -385,6 +385,13 @@ function _rhRenderContent() {
         </div>
     </div>`;
 
+    // CV ĐIỂM Header
+    html += `<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 20px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">📊</span>
+        <span style="font-weight:800;color:white;font-size:14px;letter-spacing:0.5px;">CV ĐIỂM</span>
+        <span style="background:rgba(255,255,255,0.2);color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${totalAssigned} công việc</span>
+    </div>`;
+
     // Stats cards
     html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
         <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;text-align:center;">
@@ -475,16 +482,27 @@ function _rhRenderContent() {
 
         html += `
         <div style="margin-top:16px;border-top:3px solid #fecaca;padding-top:0;">
-            <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:18px;">🔐</span>
-                    <span style="font-weight:800;color:#991b1b;font-size:14px;">CV KHÓA</span>
-                    <span style="background:#991b1b;color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${lock_completions.length} báo cáo</span>
+            <div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:10px 20px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">🔐</span>
+                <span style="font-weight:800;color:white;font-size:14px;letter-spacing:0.5px;">CV KHÓA</span>
+                <span style="background:rgba(255,255,255,0.2);color:white;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${lock_completions.length} báo cáo</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid #fecaca;">
+                <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:#1e40af;">${lock_completions.length}</div>
+                    <div style="font-size:11px;color:#3b82f6;font-weight:600;">Tổng Báo Cáo</div>
                 </div>
-                <div style="display:flex;gap:6px;">
-                    ${lockApproved > 0 ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">✅ ' + lockApproved + '</span>' : ''}
-                    ${lockPending > 0 ? '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">⏳ ' + lockPending + '</span>' : ''}
-                    ${lockRejected > 0 ? '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">❌ ' + lockRejected + '</span>' : ''}
+                <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:#059669;">${lockApproved} <span style="font-size:14px;color:#10b981;">(${lock_completions.length > 0 ? Math.round(lockApproved/lock_completions.length*100) : 0}%)</span></div>
+                    <div style="font-size:11px;color:#059669;font-weight:600;">Đạt</div>
+                </div>
+                <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:#d97706;">${lockPending}</div>
+                    <div style="font-size:11px;color:#d97706;font-weight:600;">Chờ Duyệt</div>
+                </div>
+                <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:#dc2626;">${lockRejected}</div>
+                    <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối</div>
                 </div>
             </div>
             <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
