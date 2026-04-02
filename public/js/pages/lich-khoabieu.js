@@ -1741,8 +1741,20 @@ async function _kbCheckRejectedPopup() {
         const rejected = data.rejected || [];
         if (rejected.length === 0) return;
 
+        // Check localStorage for already-dismissed rejections
+        const dismissKey = `kb_rejected_dismissed_${window._currentUser?.id || 'default'}`;
+        let dismissed = [];
+        try { dismissed = JSON.parse(localStorage.getItem(dismissKey)) || []; } catch {}
+
+        // Filter: only show rejections not yet dismissed
+        const newRejected = rejected.filter(r => {
+            const id = `${r.id}_${r.report_date}`;
+            return !dismissed.includes(id);
+        });
+        if (newRejected.length === 0) return;
+
         let items = '';
-        rejected.forEach((r, i) => {
+        newRejected.forEach((r, i) => {
             const dateF = r.report_date.split('-').reverse().join('/');
             const deadlineDate = new Date(r.redo_deadline);
             const deadlineStr = `${String(deadlineDate.getDate()).padStart(2,'0')}/${String(deadlineDate.getMonth()+1).padStart(2,'0')}`;
@@ -1765,11 +1777,19 @@ async function _kbCheckRejectedPopup() {
             </div>
             ${items}
             <div style="text-align:center;margin-top:16px;">
-                <button onclick="document.getElementById('kbRejectedPopup').remove()" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Đã hiểu ✓</button>
+                <button id="kbRejectedDismissBtn" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Đã hiểu ✓</button>
             </div>
         </div>`;
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
         document.body.appendChild(modal);
+
+        // On dismiss: save all current rejected IDs to localStorage
+        document.getElementById('kbRejectedDismissBtn').onclick = () => {
+            const ids = newRejected.map(r => `${r.id}_${r.report_date}`);
+            const updated = [...new Set([...dismissed, ...ids])];
+            try { localStorage.setItem(dismissKey, JSON.stringify(updated)); } catch {}
+            modal.remove();
+        };
     } catch(e) {}
 }
 
