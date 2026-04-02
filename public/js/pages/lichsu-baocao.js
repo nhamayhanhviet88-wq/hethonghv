@@ -593,7 +593,7 @@ function _rhRenderContent() {
         lock_completions.forEach(lc => {
             if (lc.status === 'approved') lockApproved++;
             else if (lc.status === 'pending') lockPending++;
-            else if (lc.status === 'rejected') lockRejected++;
+            else lockRejected++;
         });
 
         html += `
@@ -618,7 +618,7 @@ function _rhRenderContent() {
                 </div>
                 <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
                     <div style="font-size:24px;font-weight:800;color:#dc2626;">${lockRejected}</div>
-                    <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối</div>
+                    <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối / Hết Hạn</div>
                 </div>
             </div>
             <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
@@ -628,7 +628,7 @@ function _rhRenderContent() {
         lockGroups.forEach((g, idx) => {
             const approved = g.completions.filter(c => c.status === 'approved').length;
             const pending = g.completions.filter(c => c.status === 'pending').length;
-            const rejected = g.completions.filter(c => c.status === 'rejected').length;
+            const rejected = g.completions.filter(c => c.status !== 'approved' && c.status !== 'pending').length;
             const total = g.completions.length;
 
             html += `
@@ -641,7 +641,7 @@ function _rhRenderContent() {
                                 🔐 ${total} báo cáo
                                 ${approved > 0 ? ' · <span style="color:#16a34a;">' + approved + ' đạt</span>' : ''}
                                 ${pending > 0 ? ' · <span style="color:#d97706;">' + pending + ' chờ</span>' : ''}
-                                ${rejected > 0 ? ' · <span style="color:#dc2626;">' + rejected + ' từ chối</span>' : ''}
+                                ${rejected > 0 ? ' · <span style="color:#dc2626;">' + rejected + ' từ chối/hết hạn</span>' : ''}
                             </div>
                         </div>
                     </div>
@@ -1525,7 +1525,7 @@ function _rhRenderDeptContent(wrap, data) {
         </div>
         <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
             <div style="font-size:24px;font-weight:800;color:#dc2626;">${ls.rejected}</div>
-            <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối</div>
+            <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối / Hết Hạn</div>
         </div>
     </div>`;
 
@@ -1536,7 +1536,7 @@ function _rhRenderDeptContent(wrap, data) {
         const badges = [];
         if (t.approved > 0) badges.push(`<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${t.approved} đạt</span>`);
         if (t.pending > 0) badges.push(`<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${t.pending} chờ</span>`);
-        if (t.rejected > 0) badges.push(`<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${t.rejected} từ chối</span>`);
+        if (t.rejected > 0) badges.push(`<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${t.rejected} từ chối/hết hạn</span>`);
         html += `<div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;background:${c.bg};border-left:4px solid ${c.border};">
             <div style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;">${t.task_name}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
