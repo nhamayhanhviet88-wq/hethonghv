@@ -297,8 +297,10 @@ async function _lkLoadDeptTasks(deptId) {
     }
 }
 
-// ===== USER TASKS (grouped by task, with month picker + stats) =====
-let _lkMonth = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; })();
+// ===== USER TASKS (grouped by task, with year/month range picker + stats) =====
+let _lkYear = new Date().getFullYear();
+let _lkFromMonth = new Date().getMonth() + 1; // 1-12
+let _lkToMonth = 0; // 0 = not set (single month)
 let _lkUserName = '';
 let _lkLockGroups = [];
 let _lkLockModalIdx = null;
@@ -310,6 +312,40 @@ const _LK_STATUS = {
     missed: { icon:'🔴', label:'Bỏ lỡ', bg:'#fef2f2', color:'#dc2626' }
 };
 
+function _lkBuildYearOptions() {
+    let html = '';
+    for (let y = 2026; y <= 2100; y++) {
+        html += `<option value="${y}" ${y === _lkYear ? 'selected' : ''}>${y}</option>`;
+    }
+    return html;
+}
+
+function _lkBuildMonthOptions(selected, allowEmpty, emptyLabel) {
+    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    let html = allowEmpty ? `<option value="0">${emptyLabel || '—'}</option>` : '';
+    for (let m = 1; m <= 12; m++) {
+        html += `<option value="${m}" ${m === selected ? 'selected' : ''}>${months[m]}</option>`;
+    }
+    return html;
+}
+
+function _lkGetMonthRange() {
+    const from = _lkFromMonth;
+    const to = _lkToMonth && _lkToMonth >= from ? _lkToMonth : from;
+    const months = [];
+    for (let m = from; m <= to; m++) {
+        months.push(`${_lkYear}-${String(m).padStart(2, '0')}`);
+    }
+    return months;
+}
+
+function _lkRangeLabel() {
+    if (!_lkToMonth || _lkToMonth <= _lkFromMonth) {
+        return `Tháng ${_lkFromMonth}/${_lkYear}`;
+    }
+    return `T${_lkFromMonth} → T${_lkToMonth}/${_lkYear}`;
+}
+
 async function _lkLoadUserTasks(userId, userName) {
     const panel = document.getElementById('lkTaskPanel');
     if (!panel) return;
@@ -318,9 +354,20 @@ async function _lkLoadUserTasks(userId, userName) {
     panel.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
 
     try {
-        const data = await apiCall(`/api/report-history/user/${userId}?month=${_lkMonth}`);
-        const lock_completions = data.lock_completions || [];
-        const lock_tasks = data.lock_tasks || [];
+        // Fetch all months in range in parallel
+        const monthList = _lkGetMonthRange();
+        const results = await Promise.all(monthList.map(m => apiCall(`/api/report-history/user/${userId}?month=${m}`)));
+
+        // Merge lock_completions and lock_tasks
+        let lock_completions = [];
+        let lock_tasks = [];
+        const taskIdSet = new Set();
+        results.forEach(data => {
+            (data.lock_completions || []).forEach(c => lock_completions.push(c));
+            (data.lock_tasks || []).forEach(t => {
+                if (!taskIdSet.has(t.id)) { taskIdSet.add(t.id); lock_tasks.push(t); }
+            });
+        });
 
         // Group by task_name
         const groupMap = new Map();
@@ -353,14 +400,27 @@ async function _lkLoadUserTasks(userId, userName) {
         const totalAll = lock_completions.length;
         const rate = totalAll > 0 ? Math.round(totalApproved / totalAll * 100) : 0;
 
+        const selectStyle = 'padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;color:#374151;background:white;cursor:pointer;font-weight:600;';
+
         let html = `
         <div style="padding:16px 20px 0;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
                 <div>
                     <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">👤 ${_lkUserName || 'Nhân viên'}</h3>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">🔐 CV Khóa • Tháng ${_lkMonth.split('-')[1]}/${_lkMonth.split('-')[0]}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">🔐 CV Khóa • ${_lkRangeLabel()}</div>
                 </div>
-                <input type="month" value="${_lkMonth}" onchange="_lkChangeMonth(this.value)" style="padding:5px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;color:#374151;background:white;cursor:pointer;" />
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <select onchange="_lkOnYearChange(this.value)" style="${selectStyle}">
+                        ${_lkBuildYearOptions()}
+                    </select>
+                    <select onchange="_lkOnFromChange(this.value)" style="${selectStyle}">
+                        ${_lkBuildMonthOptions(_lkFromMonth, false)}
+                    </select>
+                    <span style="font-size:11px;color:#9ca3af;font-weight:600;">→</span>
+                    <select onchange="_lkOnToChange(this.value)" style="${selectStyle}">
+                        ${_lkBuildMonthOptions(_lkToMonth, true, '— Đến —')}
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -388,7 +448,7 @@ async function _lkLoadUserTasks(userId, userName) {
         if (lockGroups.length === 0) {
             html += `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:14px;">
                 <div style="font-size:40px;margin-bottom:8px;">📭</div>
-                Không có báo cáo CV Khóa trong tháng này
+                Không có báo cáo CV Khóa trong khoảng thời gian này
             </div>`;
         } else {
             html += `<div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
@@ -409,7 +469,7 @@ async function _lkLoadUserTasks(userId, userName) {
                             ${rejected > 0 ? `<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${rejected}</span>` : ''}
                         </div>
                     </div>
-                    <button onclick="_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
+                    <button onclick="event.stopPropagation();_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
                 </div>`;
             });
             html += `</div>`;
@@ -421,9 +481,18 @@ async function _lkLoadUserTasks(userId, userName) {
     }
 }
 
-function _lkChangeMonth(val) {
-    if (!val) return;
-    _lkMonth = val;
+function _lkOnYearChange(val) {
+    _lkYear = Number(val);
+    if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+}
+function _lkOnFromChange(val) {
+    _lkFromMonth = Number(val);
+    // Reset "to" if it's less than "from"
+    if (_lkToMonth && _lkToMonth < _lkFromMonth) _lkToMonth = 0;
+    if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+}
+function _lkOnToChange(val) {
+    _lkToMonth = Number(val);
     if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
 }
 
