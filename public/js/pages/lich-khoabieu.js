@@ -913,8 +913,16 @@ function _kbRenderGrid() {
                 if (isSelf) {
                     if (dateStr === todayStr && !comp) {
                         // Today, not submitted: show Báo cáo (for self)
+                        let srBadge = '';
+                        if (!hasSR) {
+                            srBadge = `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>`;
+                        } else if (hasSR.status === 'supported') {
+                            srBadge = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;" title="${(hasSR.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
+                        } else {
+                            srBadge = '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>';
+                        }
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                            ${!hasSR ? `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>` : '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>'}
+                            ${srBadge}
                             <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                         </div>`;
                     } else if (comp && comp.status === 'rejected') {
@@ -2084,6 +2092,22 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                             "${comp.reject_reason.replace(/"/g, '&quot;')}"
                         </div>
                         <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">📝 Hãy khắc phục và báo cáo lại bên dưới</div>
+                    </div>`;
+                }
+                return '';
+            })()}
+            ${(() => {
+                // Check for manager support note
+                const srKey2 = `${lockTaskId}_${dateStr}`;
+                const srObj = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey2];
+                if (srObj && srObj.status === 'supported' && srObj.manager_note) {
+                    return `<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #059669;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">✅ SẾP ĐÃ HỖ TRỢ</span>
+                        </div>
+                        <div style="font-size:13px;color:#065f46;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #a7f3d0;">
+                            "${srObj.manager_note.replace(/"/g, '&quot;')}"
+                        </div>
                     </div>`;
                 }
                 return '';
