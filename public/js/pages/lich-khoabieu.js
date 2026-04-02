@@ -2220,14 +2220,9 @@ async function _kbLockSubmitReport() {
     const link = document.getElementById('kbLockRptLink')?.value?.trim();
     const content = document.getElementById('kbLockRptContent')?.value?.trim();
 
-    if (!content) {
-        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
+    if (!content && !link && !window._kbLockPastedFile) {
+        showToast('Phải có ít nhất nội dung, link hoặc hình ảnh báo cáo!', 'error');
         document.getElementById('kbLockRptContent')?.focus();
-        return;
-    }
-
-    if (!link && !window._kbLockPastedFile) {
-        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
