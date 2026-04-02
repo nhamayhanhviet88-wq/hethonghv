@@ -475,7 +475,7 @@ async function taskScheduleRoutes(fastify, options) {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  ON CONFLICT (template_id, user_id, report_date) DO UPDATE SET
                  report_type = $4, report_value = $5, report_image = $6, quantity = $7, content = $8, status = $9, points_earned = $10, approval_deadline = $11`,
-                [Number(template_id), request.user.id, report_date, report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, status, points, approvalDeadline]
+                [Number(template_id), request.user.id, report_date, report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', status, points, approvalDeadline]
             );
 
             // Auto-resolve support request if NV submitted report (QL no longer penalized)
@@ -797,7 +797,7 @@ async function taskScheduleRoutes(fastify, options) {
 
         await db.run(
             `UPDATE task_point_reports SET status = 'pending', report_type = $1, report_value = $2, report_image = $3, quantity = $4, content = $5, redo_count = redo_count + 1, reject_reason = NULL WHERE id = $6`,
-            [report_type, report_value || null, report_image || null, Number(quantity) || 0, content || null, id]
+            [report_type, report_value || '', report_image || '', Number(quantity) || 0, content || '', id]
         );
 
         return { success: true, status: 'pending' };
