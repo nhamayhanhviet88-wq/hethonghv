@@ -297,94 +297,313 @@ async function _lkLoadDeptTasks(deptId) {
     }
 }
 
-// ===== USER TASKS =====
+// ===== USER TASKS (grouped by task, with month picker + stats) =====
+let _lkMonth = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; })();
+let _lkUserName = '';
+let _lkLockGroups = [];
+let _lkLockModalIdx = null;
+const _LK_STATUS = {
+    approved: { icon:'✅', label:'Đạt', bg:'#dcfce7', color:'#059669' },
+    pending: { icon:'⏳', label:'Chờ duyệt', bg:'#fef3c7', color:'#d97706' },
+    rejected: { icon:'❌', label:'Từ chối', bg:'#fef2f2', color:'#dc2626' },
+    expired: { icon:'💀', label:'Quá hạn', bg:'#fef2f2', color:'#991b1b' },
+    missed: { icon:'🔴', label:'Bỏ lỡ', bg:'#fef2f2', color:'#dc2626' }
+};
+
 async function _lkLoadUserTasks(userId, userName) {
     const panel = document.getElementById('lkTaskPanel');
     if (!panel) return;
-    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
-    const isSelf = userId === currentUser.id;
+    _lkUserName = userName || _lkUserName;
 
     panel.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
 
     try {
-        const data = await apiCall(`/api/lock-tasks/user/${userId}`);
-        const tasks = data.tasks || [];
+        const data = await apiCall(`/api/report-history/user/${userId}?month=${_lkMonth}`);
+        const lock_completions = data.lock_completions || [];
+        const lock_tasks = data.lock_tasks || [];
+
+        // Group by task_name
+        const groupMap = new Map();
+        lock_completions.forEach(c => {
+            const key = c.task_name || 'Unknown';
+            if (!groupMap.has(key)) {
+                const lt = lock_tasks.find(t => t.id === c.lock_task_id || t.task_name === key) || {};
+                groupMap.set(key, {
+                    task_name: key,
+                    lock_task_id: c.lock_task_id,
+                    guide_link: lt.guide_link || '',
+                    input_requirements: lt.input_requirements || '',
+                    output_requirements: lt.output_requirements || '',
+                    requires_approval: lt.requires_approval || false,
+                    completions: []
+                });
+            }
+            groupMap.get(key).completions.push(c);
+        });
+        const lockGroups = [...groupMap.values()].filter(g => g.completions.length > 0);
+        _lkLockGroups = lockGroups;
+
+        // Stats
+        let totalApproved = 0, totalPending = 0, totalRejected = 0;
+        lock_completions.forEach(c => {
+            if (c.status === 'approved') totalApproved++;
+            else if (c.status === 'pending') totalPending++;
+            else if (c.status === 'rejected') totalRejected++;
+        });
+        const totalAll = lock_completions.length;
+        const rate = totalAll > 0 ? Math.round(totalApproved / totalAll * 100) : 0;
 
         let html = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px 16px 0;">
-            <div>
-                <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">👤 ${userName || 'Nhân viên'}</h3>
-                <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} CV khóa hôm nay</div>
+        <div style="padding:16px 20px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">👤 ${_lkUserName || 'Nhân viên'}</h3>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">🔐 CV Khóa • Tháng ${_lkMonth.split('-')[1]}/${_lkMonth.split('-')[0]}</div>
+                </div>
+                <input type="month" value="${_lkMonth}" onchange="_lkChangeMonth(this.value)" style="padding:5px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;color:#374151;background:white;cursor:pointer;" />
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 20px 16px;border-bottom:1px solid #fecaca;">
+            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:24px;font-weight:800;color:#1e40af;">${totalAll}</div>
+                <div style="font-size:11px;color:#3b82f6;font-weight:600;">Tổng Báo Cáo</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:24px;font-weight:800;color:#059669;">${totalApproved} <span style="font-size:14px;color:#10b981;">(${rate}%)</span></div>
+                <div style="font-size:11px;color:#059669;font-weight:600;">Đạt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:24px;font-weight:800;color:#d97706;">${totalPending}</div>
+                <div style="font-size:11px;color:#d97706;font-weight:600;">Chờ Duyệt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:24px;font-weight:800;color:#dc2626;">${totalRejected}</div>
+                <div style="font-size:11px;color:#dc2626;font-weight:600;">Từ Chối</div>
             </div>
         </div>`;
 
-        if (tasks.length === 0) {
-            html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;margin:0 16px;">
-                <div style="font-size:40px;margin-bottom:8px;">✅</div>
-                <div style="color:#059669;font-size:13px;font-weight:600;">Không có công việc khóa nào</div>
+        // Task groups
+        if (lockGroups.length === 0) {
+            html += `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:14px;">
+                <div style="font-size:40px;margin-bottom:8px;">📭</div>
+                Không có báo cáo CV Khóa trong tháng này
             </div>`;
         } else {
-            tasks.forEach(t => {
-                const recLabel = _LK_RECURRENCE_LABELS[t.recurrence_type] || t.recurrence_type;
-                const recDetail = t.recurrence_type === 'weekly' ? ` (${_LK_DAY_NAMES[Number(t.recurrence_value)] || t.recurrence_value})` :
-                                  t.recurrence_type === 'monthly' ? ` (ngày ${t.recurrence_value})` :
-                                  t.recurrence_type === 'once' ? ` (${t.recurrence_value})` : '';
-                const status = t.completion_status;
-
-                let statusBadge = '';
-                let actionBtn = '';
-                if (status === 'approved') {
-                    statusBadge = '<span style="background:#dcfce7;color:#059669;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">✅ Đã duyệt</span>';
-                } else if (status === 'pending') {
-                    statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">⏳ Chờ duyệt</span>';
-                    if (isManager && !isSelf) {
-                        actionBtn = `<div style="display:flex;gap:4px;margin-top:6px;">
-                            <button onclick="_lkReview(${t.completion_id},'approve')" style="padding:4px 12px;font-size:11px;border:none;border-radius:4px;background:#059669;color:white;cursor:pointer;font-weight:600;">✅ Duyệt</button>
-                            <button onclick="_lkReview(${t.completion_id},'reject')" style="padding:4px 12px;font-size:11px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;font-weight:600;">❌ Từ chối</button>
-                        </div>`;
-                    }
-                } else if (status === 'rejected') {
-                    statusBadge = `<span style="background:#fef2f2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">❌ Từ chối${t.reject_reason ? ': ' + t.reject_reason : ''}</span>`;
-                    if (isSelf) {
-                        actionBtn = `<button onclick="_lkUploadProof(${t.id})" style="padding:4px 12px;font-size:11px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;margin-top:6px;">📤 Nộp lại</button>`;
-                    }
-                } else {
-                    statusBadge = '<span style="background:#fef2f2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">🔴 Chưa nộp</span>';
-                    if (isSelf) {
-                        actionBtn = `<button onclick="_lkUploadProof(${t.id})" style="padding:6px 16px;font-size:12px;border:none;border-radius:6px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:700;margin-top:6px;">📤 Nộp bài</button>`;
-                    }
-                }
+            html += `<div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
+            lockGroups.forEach((g, idx) => {
+                const approved = g.completions.filter(c => c.status === 'approved').length;
+                const pending = g.completions.filter(c => c.status === 'pending').length;
+                const rejected = g.completions.filter(c => c.status === 'rejected').length;
+                const total = g.completions.length;
 
                 html += `
-                <div style="background:white;border:2px solid ${status === 'approved' ? '#a7f3d0' : status === 'pending' ? '#fde68a' : '#fecaca'};border-radius:12px;padding:14px 16px;margin:0 16px 10px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                        <div style="flex:1;">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                                <span style="font-size:15px;font-weight:800;color:#1e293b;">${t.task_name}</span>
-                                <span style="background:#dc2626;color:white;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔒 KHÓA</span>
-                                ${t.requires_approval ? '<span style="background:#7c3aed;color:white;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">QL DUYỆT</span>' : ''}
-                            </div>
-                            <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${recLabel}${recDetail} • Phạt: ${(t.penalty_amount || 50000).toLocaleString()}đ</div>
-                            ${t.task_content ? `<div style="font-size:12px;color:#475569;margin-bottom:4px;">${t.task_content}</div>` : ''}
-                            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-                                ${t.guide_link ? `<a href="${t.guide_link}" target="_blank" style="font-size:10px;background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;text-decoration:none;font-weight:600;">📖 Hướng dẫn</a>` : ''}
-                                ${t.input_requirements ? `<span style="font-size:10px;background:#f0fdf4;color:#059669;padding:2px 8px;border-radius:4px;font-weight:600;">📥 ${t.input_requirements}</span>` : ''}
-                                ${t.output_requirements ? `<span style="font-size:10px;background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-weight:600;">📤 ${t.output_requirements}</span>` : ''}
-                            </div>
-                            ${t.proof_url ? `<div style="margin-top:6px;"><a href="${t.proof_url}" target="_blank" style="display:inline-block;font-size:10px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;">📎 Xem file đã nộp</a></div>` : ''}
-                            ${actionBtn}
-                        </div>
-                        <div style="flex-shrink:0;">
-                            ${statusBadge}
+                <div style="background:white;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:#991b1b;font-size:14px;margin-bottom:4px;">${g.task_name}</div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">📊 ${total} báo cáo</span>
+                            ${approved > 0 ? `<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${approved}</span>` : ''}
+                            ${pending > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${pending}</span>` : ''}
+                            ${rejected > 0 ? `<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${rejected}</span>` : ''}
                         </div>
                     </div>
+                    <button onclick="_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
                 </div>`;
             });
+            html += `</div>`;
         }
 
         panel.innerHTML = html;
     } catch(e) {
         panel.innerHTML = `<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`;
+    }
+}
+
+function _lkChangeMonth(val) {
+    if (!val) return;
+    _lkMonth = val;
+    if (_lkSelectedUserId) _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+}
+
+// ===== GROUP MODAL (like Lịch Sử Báo Cáo) =====
+function _lkShowGroupModal(idx) {
+    _lkLockModalIdx = idx;
+    _lkRenderGroupModal();
+}
+
+function _lkRenderGroupModal() {
+    const g = _lkLockGroups[_lkLockModalIdx];
+    if (!g) return;
+
+    const completions = g.completions;
+    let approved = 0, pending = 0, rejected = 0;
+    completions.forEach(c => {
+        if (c.status === 'approved') approved++;
+        else if (c.status === 'pending') pending++;
+        else if (c.status === 'rejected') rejected++;
+    });
+    const total = completions.length;
+    const rate = total > 0 ? Math.round(approved / total * 100) : 0;
+
+    let rows = '';
+    completions.sort((a, b) => (a.completion_date || '').localeCompare(b.completion_date || '')).forEach((c, ci) => {
+        const dateF = (c.completion_date || '').split('-').reverse().join('/');
+        const st = _LK_STATUS[c.status] || _LK_STATUS.missed;
+        const statusHtml = `<span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;">${st.icon} ${st.label}</span>`;
+        const detailBtn = `<button onclick="event.stopPropagation();_lkShowCompletionDetail(${_lkLockModalIdx},${ci})" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">👁️ Xem</button>`;
+        rows += `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px 12px;font-size:12px;color:#374151;white-space:nowrap;">${dateF}</td>
+            <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
+            <td style="padding:8px 12px;text-align:center;">${detailBtn}</td>
+        </tr>`;
+    });
+
+    const contentHtml = `
+    <div style="padding:16px 20px;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#1e40af;">${total}</div>
+                <div style="font-size:10px;color:#3b82f6;font-weight:600;">Tổng</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#059669;">${approved} <span style="font-size:12px;color:#10b981;">(${rate}%)</span></div>
+                <div style="font-size:10px;color:#059669;font-weight:600;">Đạt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#d97706;">${pending}</div>
+                <div style="font-size:10px;color:#d97706;font-weight:600;">Chờ duyệt</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#fef2f2,#fecaca);border:1px solid #fca5a5;border-radius:8px;padding:10px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#dc2626;">${rejected}</div>
+                <div style="font-size:10px;color:#dc2626;font-weight:600;">Từ chối</div>
+            </div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#7f1d1d;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                <span>🔐 <b>${g.task_name}</b></span>
+                ${g.requires_approval ? '<span>🔒 <b style="color:#d97706;">Cần duyệt</b></span>' : ''}
+                ${g.guide_link ? `<a href="${g.guide_link}" target="_blank" style="color:#2563eb;text-decoration:none;">📎 Hướng dẫn CV →</a>` : ''}
+            </div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#fef2f2;">
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Ngày</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Trạng Thái</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;width:90px;">Chi Tiết</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có báo cáo</td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (overlay && titleEl && body) {
+        titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${g.task_name}`;
+        body.innerHTML = contentHtml;
+        footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+        overlay.classList.add('show');
+    }
+}
+
+// ===== COMPLETION DETAIL (like Lịch Sử Báo Cáo lock detail) =====
+function _lkShowCompletionDetail(groupIdx, compIdx) {
+    const g = _lkLockGroups[groupIdx];
+    if (!g) return;
+    const c = g.completions.sort((a, b) => (a.completion_date || '').localeCompare(b.completion_date || ''))[compIdx];
+    if (!c) return;
+
+    const st = _LK_STATUS[c.status] || _LK_STATUS.missed;
+    const dateF = (c.completion_date || '').split('-').reverse().join('/');
+
+    const parseReqs = (val) => {
+        if (!val) return '';
+        try {
+            const arr = JSON.parse(val);
+            if (Array.isArray(arr)) return arr.map((r, i) => `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;"><span style="background:#e0e7ff;color:#4f46e5;padding:1px 7px;border-radius:50%;font-size:10px;font-weight:700;">${i+1}</span> <span>${r}</span></div>`).join('');
+        } catch(e) {}
+        return `<div>${val}</div>`;
+    };
+
+    let contentHtml = `
+    <div style="padding:20px;">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="font-weight:700;color:#991b1b;font-size:16px;">${g.task_name}</div>
+                <span style="background:${st.bg};color:${st.color};padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;">${st.icon} ${st.label}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div style="background:white;border:1px solid #fecaca;border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:14px;">📅</span>
+                    <span style="font-size:12px;color:#374151;font-weight:600;">${dateF}</span>
+                </div>
+                <div style="background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(220,38,38,0.3);">
+                    <span style="font-size:14px;">🔐</span>
+                    <span style="font-size:12px;color:white;font-weight:700;">CV Khóa</span>
+                </div>
+            </div>
+        </div>
+
+        ${g.guide_link ? `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">📎</span>
+            <div>
+                <div style="font-size:11px;color:#6b7280;font-weight:600;">Hướng dẫn công việc:</div>
+                <a href="${g.guide_link}" target="_blank" style="color:#2563eb;font-size:12px;word-break:break-all;">${g.guide_link}</a>
+            </div>
+        </div>` : ''}
+
+        ${g.input_requirements ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;">🔽 Yêu cầu đầu vào</div>
+            <div style="font-size:12px;color:#374151;">${parseReqs(g.input_requirements)}</div>
+        </div>` : ''}
+        ${g.output_requirements ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:#854d0e;font-weight:700;margin-bottom:6px;">🔼 Yêu cầu đầu ra</div>
+            <div style="font-size:12px;color:#374151;">${parseReqs(g.output_requirements)}</div>
+        </div>` : ''}
+
+        <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-top:16px;">
+            <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 16px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:15px;">📝</span>
+                <span style="color:white;font-size:13px;font-weight:700;letter-spacing:0.5px;">NỘI DUNG BÁO CÁO</span>
+            </div>
+            <div style="padding:16px;">
+                ${c.proof_url ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">📎 Link báo cáo</div>
+                    <a href="${c.proof_url}" target="_blank" style="color:#2563eb;font-size:13px;word-break:break-all;font-weight:500;">${c.proof_url}</a>
+                </div>` : ''}
+                ${c.content ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">📝 Nội dung báo cáo</div>
+                    <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${c.content}</div>
+                </div>` : ''}
+                ${c.reject_reason ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-top:10px;">
+                    <div style="font-size:10px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">❌ Lý do từ chối</div>
+                    <div style="font-size:13px;color:#dc2626;line-height:1.5;">${c.reject_reason}</div>
+                </div>` : ''}
+                ${c.redo_count > 0 ? `<div style="margin-top:8px;font-size:11px;color:#6b7280;text-align:right;">🔄 Đã nộp lại: <b>${c.redo_count}</b> lần</div>` : ''}
+                ${!c.proof_url && !c.content ? `<div style="text-align:center;color:#9ca3af;font-size:13px;padding:24px;">
+                    <div style="font-size:30px;margin-bottom:8px;">📭</div>
+                    Nhân viên chưa nộp nội dung báo cáo
+                </div>` : ''}
+            </div>
+        </div>
+    </div>`;
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (overlay && titleEl && body) {
+        titleEl.textContent = '📋 Chi Tiết Báo Cáo';
+        body.innerHTML = contentHtml;
+        footer.innerHTML = `
+            <button class="btn btn-secondary" onclick="_lkShowGroupModal(${groupIdx})" style="margin-right:auto;">← Quay lại</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+        overlay.classList.add('show');
     }
 }
 
