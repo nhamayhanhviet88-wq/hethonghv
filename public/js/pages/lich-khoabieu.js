@@ -1701,8 +1701,10 @@ async function _kbLoadApprovalPanel() {
 }
 
 async function _kbApproveReport(reportId) {
+    if (!confirm('✅ Xác nhận DUYỆT báo cáo này?')) return;
     try {
         await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'approve' });
+        showToast('✅ Đã duyệt báo cáo');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
     } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
@@ -1748,6 +1750,7 @@ async function _kbConfirmReject(reportId) {
 
 // ===== Lock Task Approve/Reject from approval panel =====
 async function _kbLockApprove(completionId) {
+    if (!confirm('✅ Xác nhận DUYỆT báo cáo CV Khóa này?')) return;
     try {
         await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action: 'approve' });
         showToast('✅ Đã duyệt CV Khóa');
