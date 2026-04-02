@@ -358,11 +358,20 @@ async function lockTaskRoutes(fastify, options) {
         const proofUrl = fileData || proofUrlField.trim();
         const status = task?.requires_approval ? 'pending' : 'approved';
 
+        // Calculate approval deadline if requires_approval
+        let approvalDeadline = null;
+        if (status === 'pending') {
+            try {
+                const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+                approvalDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+            } catch(e2) { /* fallback: no deadline */ }
+        }
+
         await db.run(
-            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)
-             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, content=$6, status=$7, created_at=NOW()`,
-            [taskId, userId, todayStr, redoCount, proofUrl, contentField.trim(), status]
+            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, approval_deadline)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET proof_url=$5, content=$6, status=$7, approval_deadline=$8, created_at=NOW()`,
+            [taskId, userId, todayStr, redoCount, proofUrl, contentField.trim(), status, approvalDeadline]
         );
 
         // Auto-resolve support request if NV submitted (QL no longer penalized)
