@@ -532,7 +532,7 @@ function _rhRenderContent() {
     if (taskGroups.length === 0) {
         html += `<div style="padding:50px;text-align:center;color:#9ca3af;font-size:14px;">
             <div style="font-size:40px;margin-bottom:12px;">📭</div>
-            Chưa có công việc nào được bàn giao trong ${_RH_MONTH_NAMES[mon]} ${year}
+            Chưa có công việc nào được bàn giao trong ${_rhRangeLabel()}
         </div>`;
     } else {
         html += '<div style="padding:16px 20px;display:flex;flex-direction:column;gap:8px;">';
