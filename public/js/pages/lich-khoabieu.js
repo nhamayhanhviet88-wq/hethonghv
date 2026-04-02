@@ -1210,6 +1210,21 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
         </div>
         <div style="padding:20px 22px;">
             ${rejectBanner}
+            ${(() => {
+                const srKey = `${templateId}_${reportDate}`;
+                const srObj = _kbSupportRequests && _kbSupportRequests[srKey];
+                if (srObj && srObj.status === 'supported' && srObj.manager_note) {
+                    return `<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #059669;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">✅ SẾP ĐÃ HỖ TRỢ</span>
+                        </div>
+                        <div style="font-size:13px;color:#065f46;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #a7f3d0;">
+                            "${srObj.manager_note.replace(/"/g, '&quot;')}"
+                        </div>
+                    </div>`;
+                }
+                return '';
+            })()}
             ${approvalWarn}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
