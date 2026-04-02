@@ -807,7 +807,35 @@ async function taskScheduleRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Đã quá hạn nộp lại' });
         }
 
-        const { report_value, report_image, quantity, content } = request.body;
+        const contentType = request.headers['content-type'] || '';
+        let report_value, report_image, quantity, content;
+
+        if (contentType.includes('multipart')) {
+            const parts = request.parts();
+            let fileBuffer = null, fileExt = '.png';
+            for await (const part of parts) {
+                if (part.type === 'file' && part.fieldname === 'report_image') {
+                    const chunks = [];
+                    for await (const chunk of part.file) chunks.push(chunk);
+                    fileBuffer = Buffer.concat(chunks);
+                    fileExt = path.extname(part.filename) || '.png';
+                } else if (part.type === 'field') {
+                    if (part.fieldname === 'report_value') report_value = part.value;
+                    if (part.fieldname === 'quantity') quantity = part.value;
+                    if (part.fieldname === 'content') content = part.value;
+                }
+            }
+            if (fileBuffer && fileBuffer.length > 0) {
+                const fileName = `redo_${request.user.id}_${Date.now()}${fileExt}`;
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'reports');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
+                report_image = `/uploads/reports/${fileName}`;
+            }
+        } else {
+            ({ report_value, report_image, quantity, content } = request.body || {});
+        }
+
         const hasLink = report_value && report_value.trim();
         const hasImage = !!report_image;
         if (!hasLink && !hasImage) return reply.code(400).send({ error: 'Phải có link hoặc hình ảnh' });

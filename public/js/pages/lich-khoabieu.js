@@ -1637,32 +1637,26 @@ async function _kbSubmitReport() {
     try {
         // Check if this is a redo submission
         if (redoId) {
-            let imageUrl = '';
-            if (_kbPastedFile) {
-                // Upload image first
-                const imgForm = new FormData();
-                imgForm.append('report_image', _kbPastedFile, 'paste.png');
-                const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
-                const imgResp = await fetch('/api/schedule/upload-image', {
-                    method: 'POST', body: imgForm,
-                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-                });
-                const imgData = await imgResp.json();
-                imageUrl = imgData.url || '';
-            }
+            const formData = new FormData();
+            formData.append('quantity', qty);
+            if (content) formData.append('content', content);
+            if (link) formData.append('report_value', link);
+            if (_kbPastedFile) formData.append('report_image', _kbPastedFile, 'paste.png');
 
-            const redoData = {
-                report_value: link || '',
-                report_image: imageUrl || '',
-                quantity: Number(qty),
-                content: content || ''
-            };
-            const result = await apiCall(`/api/schedule/report/${redoId}/redo`, 'PUT', redoData);
+            const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+            const resp = await fetch(`/api/schedule/report/${redoId}/redo`, {
+                method: 'PUT',
+                body: formData,
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const result = await resp.json();
             if (result.success) {
                 showToast('🔄 Đã nộp lại! ⏳ Chờ duyệt');
                 document.getElementById('kbReportModal')?.remove();
                 _kbLoadSchedule();
                 if (typeof _kbLoadApprovalPanel === 'function') _kbLoadApprovalPanel();
+            } else {
+                showToast('Lỗi: ' + (result.error || 'Không thể nộp lại'), 'error');
             }
             return;
         }
