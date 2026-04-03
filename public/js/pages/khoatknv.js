@@ -324,12 +324,12 @@ async function _penaltyLoadStats() {
                 <div onclick="document.getElementById('${rootId}').style.display = document.getElementById('${rootId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.chevron').textContent = document.getElementById('${rootId}').style.display === 'none' ? '▶' : '▼';"
                      style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <span class="chevron" style="color:#93c5fd;font-size:12px;">▶</span>
+                        <span class="chevron" style="color:#93c5fd;font-size:12px;">▼</span>
                         <span style="color:white;font-weight:800;font-size:14px;">📂 ${root.name}</span>
                     </div>
                     <span style="background:rgba(220,38,38,0.3);color:#fca5a5;padding:3px 12px;border-radius:8px;font-size:13px;font-weight:800;">${rootTotal.toLocaleString()}đ</span>
                 </div>
-                <div id="${rootId}" style="display:none;">`;
+                <div id="${rootId}" style="display:block;">`;
 
             // Sub-departments (level 2)
             const subDepts = departments.filter(d => d.parent_id === root.id);
@@ -342,12 +342,12 @@ async function _penaltyLoadStats() {
                     <div onclick="document.getElementById('${subId}').style.display = document.getElementById('${subId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.chevron').textContent = document.getElementById('${subId}').style.display === 'none' ? '▶' : '▼';"
                          style="background:#f1f5f9;padding:10px 16px 10px 32px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid #e2e8f0;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="chevron" style="color:#64748b;font-size:11px;">▶</span>
+                            <span class="chevron" style="color:#64748b;font-size:11px;">▼</span>
                             <span style="color:#334155;font-weight:700;font-size:13px;">📁 ${sub.name}</span>
                         </div>
                         <span style="background:#fecaca;color:#dc2626;padding:2px 10px;border-radius:6px;font-size:12px;font-weight:700;">${subTotal.toLocaleString()}đ</span>
                     </div>
-                    <div id="${subId}" style="display:none;">`;
+                    <div id="${subId}" style="display:block;">`;
 
                 // Department-level users (QL/Trưởng đơn vị) — render BEFORE teams
                 const directUsers = getDeptUsers(sub.id);
@@ -366,12 +366,12 @@ async function _penaltyLoadStats() {
                         <div onclick="document.getElementById('${teamId}').style.display = document.getElementById('${teamId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.chevron').textContent = document.getElementById('${teamId}').style.display === 'none' ? '▶' : '▼';"
                              style="background:#f8fafc;padding:8px 16px 8px 52px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
                             <div style="display:flex;align-items:center;gap:8px;">
-                                <span class="chevron" style="color:#94a3b8;font-size:10px;">▶</span>
+                                <span class="chevron" style="color:#94a3b8;font-size:10px;">▼</span>
                                 <span style="color:#475569;font-weight:600;font-size:12px;">📁 ${team.name}</span>
                             </div>
                             <span style="background:#fed7aa;color:#ea580c;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${teamTotal.toLocaleString()}đ</span>
                         </div>
-                        <div id="${teamId}" style="display:none;">`;
+                        <div id="${teamId}" style="display:block;">`;
 
                     // Users in this team
                     const teamUsers = getDeptUsers(team.id);
