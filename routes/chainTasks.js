@@ -465,6 +465,7 @@ async function chainTaskRoutes(fastify, options) {
                 } else {
                     if (part.fieldname === 'content') content = part.value;
                     if (part.fieldname === 'quantity_done') quantityDone = parseInt(part.value) || 0;
+                    if (part.fieldname === 'proof_url' && !proofUrl) proofUrl = part.value || '';
                 }
             }
         } else {
