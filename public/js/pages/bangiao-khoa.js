@@ -2422,7 +2422,7 @@ async function _ctEditTemplate(templateId) {
         </div>`;
 
         footer.innerHTML = `
-            <button onclick="_ctShowManageTemplates()" class="btn btn-secondary">← Quay lại</button>
+            <button onclick="_ctShowDeployModal(_ctDeployDeptId)" class="btn btn-secondary">← Quay lại</button>
             <button onclick="_ctSaveEditTemplate(${templateId})" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;">💾 Lưu</button>`;
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
@@ -2504,7 +2504,7 @@ async function _ctSaveEditTemplate(templateId) {
             chain_name: chainName, description, execution_mode: executionMode, items
         });
         showToast('💾 Đã lưu mẫu chuỗi!');
-        _ctShowManageTemplates();
+        _ctShowDeployModal(_ctDeployDeptId);
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
