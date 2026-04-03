@@ -2282,11 +2282,7 @@ function _ctAddNewItem() {
             <label style="font-size:10px;color:#6b7280;">🔗 Link hướng dẫn CV <span style="color:#dc2626;">*</span></label>
             <input type="url" class="ct-item-guide" placeholder="https://..." required style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
-            <div>
-                <label style="font-size:10px;color:#6b7280;">📅 Deadline</label>
-                <input type="date" class="ct-item-deadline" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
-            </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:6px;">
             <div>
                 <label style="font-size:10px;color:#6b7280;">SL CV Tối thiểu <span style="color:#dc2626;">*</span></label>
                 <input type="number" class="ct-item-qty" value="1" min="1" required style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
