@@ -2174,8 +2174,9 @@ async function _ctOnTemplateSelect() {
     const tmplId = document.getElementById('ctDeployTemplate')?.value;
     const preview = document.getElementById('ctTemplatePreview');
     if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; _ctSelectedTemplateId = null; _ctTemplateEdited = false; return; }
+    // Only reset edited flag if user switched to a different template
+    if (_ctSelectedTemplateId !== tmplId) _ctTemplateEdited = false;
     _ctSelectedTemplateId = tmplId;
-    _ctTemplateEdited = false;
 
     try {
         const tmpl = await apiCall(`/api/chain-tasks/templates/${tmplId}`);
@@ -2186,9 +2187,10 @@ async function _ctOnTemplateSelect() {
                 ${currentUser.role === 'giam_doc' ? `<button onclick="_ctEditTemplate(${tmplId}, 'deploy')" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa mẫu</button>` : ''}
             </div>`;
         (tmpl.items || []).forEach((it, i) => {
+            const dlStr = it.deadline ? _ctFmtDate(it.deadline) : '';
             html += `<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;display:flex;justify-content:space-between;">
                 <span><b>${it.item_order}.</b> ${it.task_name}</span>
-                <span style="color:#9ca3af;">${it.requires_approval ? '🔒 QL duyệt' : ''}</span>
+                <span style="color:#6b7280;">${dlStr ? '📅 '+dlStr+' ' : ''}${it.requires_approval ? '🔒 QL duyệt' : ''}</span>
             </div>`;
         });
         html += '</div>';
