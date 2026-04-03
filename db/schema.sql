@@ -1026,3 +1026,24 @@ BEGIN
     SELECT id INTO pos_id FROM positions WHERE name = 'NV Part-Time';
     UPDATE users SET position_id = pos_id WHERE role = 'part_time' AND position_id IS NULL;
 END $$;
+
+-- ========== GLOBAL PENALTY CONFIG (mức phạt chung cho toàn hệ thống) ==========
+CREATE TABLE IF NOT EXISTS global_penalty_config (
+    key TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    amount INTEGER NOT NULL DEFAULT 50000,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed defaults
+INSERT INTO global_penalty_config (key, label, amount) VALUES
+    ('cv_diem_ql_khong_duyet',    'CV Điểm — QL/QLCC không duyệt', 50000),
+    ('cv_diem_ql_khong_ho_tro',   'CV Điểm — QL/QLCC không hỗ trợ NV', 50000),
+    ('cv_khoa_khong_nop',         'CV Khóa — NV/TP/QL/QLCC không nộp báo cáo', 50000),
+    ('cv_khoa_ql_khong_duyet',    'CV Khóa — QL/QLCC không duyệt', 50000),
+    ('cv_khoa_ql_khong_ho_tro',   'CV Khóa — QL/QLCC không hỗ trợ NV', 50000),
+    ('cv_chuoi_khong_nop',        'CV Chuỗi — NV/TP/QL/QLCC không nộp báo cáo', 50000),
+    ('cv_chuoi_ql_khong_duyet',   'CV Chuỗi — QL/QLCC không duyệt', 50000),
+    ('cap_cuu_ql_khong_xu_ly',    'Cấp cứu sếp — QL/QLCC không xử lý', 50000),
+    ('kh_chua_xu_ly_hom_nay',     'KH chưa xử lý hôm nay — Toàn bộ NV', 100000)
+ON CONFLICT (key) DO NOTHING;

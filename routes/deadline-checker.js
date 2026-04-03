@@ -85,6 +85,21 @@ async function runDeadlineCheck() {
 
     const nowLocal = toLocalTimestamp(now);
 
+    // Load global penalty config
+    const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
+    const GPC = {};
+    _gpcRows.forEach(r => { GPC[r.key] = Number(r.amount) || 0; });
+    // Defaults if not in DB
+    if (!GPC.cv_diem_ql_khong_duyet) GPC.cv_diem_ql_khong_duyet = 50000;
+    if (!GPC.cv_diem_ql_khong_ho_tro) GPC.cv_diem_ql_khong_ho_tro = 50000;
+    if (!GPC.cv_khoa_khong_nop) GPC.cv_khoa_khong_nop = 50000;
+    if (!GPC.cv_khoa_ql_khong_duyet) GPC.cv_khoa_ql_khong_duyet = 50000;
+    if (!GPC.cv_khoa_ql_khong_ho_tro) GPC.cv_khoa_ql_khong_ho_tro = 50000;
+    if (!GPC.cv_chuoi_khong_nop) GPC.cv_chuoi_khong_nop = 50000;
+    if (!GPC.cv_chuoi_ql_khong_duyet) GPC.cv_chuoi_ql_khong_duyet = 50000;
+    if (!GPC.cap_cuu_ql_khong_xu_ly) GPC.cap_cuu_ql_khong_xu_ly = 50000;
+    if (!GPC.kh_chua_xu_ly_hom_nay) GPC.kh_chua_xu_ly_hom_nay = 100000;
+
     // ========== 1. CHECK SUPPORT REQUESTS ==========
     const pendingSupport = await db.all(
         "SELECT * FROM task_support_requests WHERE status = 'pending' AND deadline_at IS NOT NULL AND deadline_at < $1",
@@ -98,13 +113,10 @@ async function runDeadlineCheck() {
         const realDeadline = await calculateRealDeadline(sr.created_at, sr.manager_id);
         if (now < realDeadline) continue; // Chưa hết hạn thực
         
-        // Lấy mức phạt
-        let penaltyAmount = 50000; // default 50k
-        const config = await db.get(
-            "SELECT penalty_amount FROM task_penalty_config WHERE task_name = $1 AND penalty_amount > 0",
-            [sr.task_name]
-        );
-        if (config) penaltyAmount = config.penalty_amount;
+        // Lấy mức phạt từ global config
+        const penaltyAmount = sr.source_type === 'khoa'
+            ? GPC.cv_khoa_ql_khong_ho_tro
+            : GPC.cv_diem_ql_khong_ho_tro;
         
         // Ghi phạt vào support request
         await db.run(
@@ -191,13 +203,8 @@ async function runDeadlineCheck() {
         const realDeadline = await calculateRealDeadline(report.created_at, managerId);
         if (now < realDeadline) continue;
         
-        // Lấy mức phạt
-        let penaltyAmount = 50000;
-        const config = await db.get(
-            "SELECT penalty_amount FROM task_penalty_config WHERE task_name = $1 AND penalty_amount > 0",
-            [report.task_name]
-        );
-        if (config) penaltyAmount = config.penalty_amount;
+        // Lấy mức phạt từ global config
+        const penaltyAmount = GPC.cv_diem_ql_khong_duyet;
         
         // Auto-approve (vì quản lý không duyệt, để NV không bị ảnh hưởng)
         // Giữ pending để quản lý phải xử lý khi unlock
@@ -307,7 +314,7 @@ async function runDeadlineCheck() {
                 }
 
                 // NV CHƯA NỘP + HẾT HẠN → Khóa TK + Phạt
-                const penaltyAmount = la.penalty_amount || 50000;
+                const penaltyAmount = GPC.cv_khoa_khong_nop;
 
                 try {
                     await db.run(
@@ -362,7 +369,7 @@ async function runDeadlineCheck() {
             const onLeaveToday = await isUserOnLeave(exp.user_id, todayStr);
             if (onLeaveToday) continue;
 
-            const extraPenalty = exp.penalty_amount || 50000;
+            const extraPenalty = GPC.cv_khoa_khong_nop;
             try {
                 await db.run(
                     `UPDATE lock_task_completions SET penalty_amount = penalty_amount + $1, updated_at = NOW()
@@ -418,7 +425,7 @@ async function runDeadlineCheck() {
         if (now < realDeadline) continue; // Chưa hết hạn
 
         // QL quá hạn → Phạt + Khóa QL
-        const penaltyAmount = pr.penalty_amount || 50000;
+        const penaltyAmount = GPC.cv_khoa_ql_khong_duyet;
 
         // Auto-approve NV's completion (để NV không bị ảnh hưởng)
         await db.run(
@@ -481,7 +488,7 @@ async function runDeadlineCheck() {
         if (now < realDeadline) continue; // Chưa hết hạn
 
         // QL quá hạn → Phạt + Khóa QL
-        const penaltyAmount = pr.chain_penalty || 50000;
+        const penaltyAmount = GPC.cv_chuoi_ql_khong_duyet;
 
         // Auto-approve completion (để NV không bị ảnh hưởng)
         await db.run(
@@ -566,7 +573,7 @@ async function runDeadlineCheck() {
             }
 
             // Mức phạt: ưu tiên item_penalty > chain_penalty > 50000
-            const penaltyAmount = (oci.item_penalty && oci.item_penalty > 0) ? oci.item_penalty : (oci.chain_penalty || 50000);
+            const penaltyAmount = GPC.cv_chuoi_khong_nop;
 
             try {
                 await db.run(
@@ -624,7 +631,7 @@ async function runDeadlineCheck() {
             if (onLeaveToday5a) continue;
 
             // Stack penalty
-            const extraPenalty = exp.penalty_amount || 50000;
+            const extraPenalty = GPC.cv_chuoi_khong_nop;
             try {
                 await db.run(
                     `UPDATE chain_task_completions SET penalty_amount = penalty_amount + $1, created_at = NOW()
@@ -685,16 +692,8 @@ async function runDeadlineCheck() {
         // Skip nếu đã phạt hôm nay rồi
         if (em.last_penalty_at && toDateStr(new Date(em.last_penalty_at)) === todayStr6) continue;
 
-        // Lấy mức phạt từ config theo department của handler
-        const handlerUser = await db.get('SELECT department_id FROM users WHERE id = $1', [handlerId]);
-        let penaltyAmount = 50000;
-        if (handlerUser && handlerUser.department_id) {
-            const config = await db.get(
-                'SELECT emergency_penalty_amount FROM dept_penalty_config WHERE department_id = $1',
-                [handlerUser.department_id]
-            );
-            if (config && config.emergency_penalty_amount > 0) penaltyAmount = config.emergency_penalty_amount;
-        }
+        // Lấy mức phạt từ global config
+        const penaltyAmount = GPC.cap_cuu_ql_khong_xu_ly;
 
         // Áp dụng phạt (lần đầu hoặc phạt chồng)
         if (!em.penalty_applied) {
@@ -805,16 +804,8 @@ async function runDeadlineCheck() {
                         continue;
                     }
 
-                    // Lấy mức phạt từ dept_penalty_config
-                    const userDept = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-                    let penaltyAmt = 100000; // default
-                    if (userDept && userDept.department_id) {
-                        const dpc = await db.get(
-                            'SELECT customer_penalty_amount FROM dept_penalty_config WHERE department_id = $1',
-                            [userDept.department_id]
-                        );
-                        if (dpc && dpc.customer_penalty_amount) penaltyAmt = dpc.customer_penalty_amount;
-                    }
+                    // Lấy mức phạt từ global config
+                    const penaltyAmt = GPC.kh_chua_xu_ly_hom_nay;
 
                     // Insert penalty record (UNIQUE constraint tránh trùng)
                     try {

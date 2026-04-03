@@ -25,16 +25,16 @@ async function renderKhoaTKNVPage(container) {
         </div>
 
         ${isGD ? `
-        <!-- SECTION 1: CẤU HÌNH MỨC PHẠT THEO PHÒNG BAN -->
+        <!-- SECTION 1: CẤU HÌNH MỨC PHẠT -->
         <div style="background:white;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
             <div onclick="_penaltyToggleConfig()" style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-                <span style="color:white;font-weight:800;font-size:15px;">⚙️ CẤU HÌNH MỨC PHẠT THEO PHÒNG BAN</span>
+                <span style="color:white;font-weight:800;font-size:15px;">⚙️ CẤU HÌNH MỨC PHẠT</span>
                 <span id="penaltyConfigToggle" style="color:white;font-size:18px;transition:transform .2s;">▼</span>
             </div>
             <div id="penaltyConfigBody" style="display:none;padding:16px;">
                 <div style="margin-bottom:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
-                    <div style="font-size:12px;color:#1e40af;font-weight:600;">ℹ️ Quy tắc phạt</div>
-                    <div style="font-size:11px;color:#3b82f6;margin-top:4px;">Áp dụng cho <strong>📋 CV Điểm</strong>, <strong>🆘 Hỗ trợ NV</strong>, <strong>🚨 Cấp cứu</strong> và <strong>❌ KH chưa xử lý</strong>. Khi không xử lý trước deadline → tự động bị khóa TK + phạt số tiền đã cấu hình.</div>
+                    <div style="font-size:12px;color:#1e40af;font-weight:600;">ℹ️ Quy tắc phạt chung</div>
+                    <div style="font-size:11px;color:#3b82f6;margin-top:4px;">Áp dụng cho <strong>toàn bộ hệ thống</strong>. Khi không xử lý trước deadline (tính theo <code>calculateRealDeadline</code> — tự động bỏ qua CN, lễ, ngày nghỉ) → khóa TK + phạt số tiền bên dưới.</div>
                 </div>
                 <div id="penaltyConfigList" style="margin-bottom:12px;">Đang tải...</div>
                 <div style="text-align:right;">
@@ -84,88 +84,47 @@ async function _penaltyLoadConfig() {
         const configs = data.configs || [];
 
         if (configs.length === 0) {
-            list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:10px;">Chưa có phòng ban nào</div>';
+            list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:10px;">Chưa có cấu hình</div>';
             return;
         }
 
-        const roots = configs.filter(c => !c.parent_id);
-        const children = configs.filter(c => c.parent_id);
+        // Group by category
+        const groups = [
+            { title: '📊 Công Việc Điểm', icon: '📊', keys: ['cv_diem_ql_khong_duyet', 'cv_diem_ql_khong_ho_tro'] },
+            { title: '🔒 Công Việc Khóa', icon: '🔒', keys: ['cv_khoa_khong_nop', 'cv_khoa_ql_khong_duyet', 'cv_khoa_ql_khong_ho_tro'] },
+            { title: '🔗 Công Việc Chuỗi', icon: '🔗', keys: ['cv_chuoi_khong_nop', 'cv_chuoi_ql_khong_duyet'] },
+            { title: '🚨 Cấp Cứu Sếp', icon: '🚨', keys: ['cap_cuu_ql_khong_xu_ly'] },
+            { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay'] }
+        ];
 
-        let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+        const configMap = {};
+        configs.forEach(c => { configMap[c.key] = c; });
 
-        // Header
-        html += `<div style="display:flex;padding:8px 14px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:8px;border:1px solid #e2e8f0;">
-            <div style="flex:2;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;">📋 Phòng ban</div>
-            <div style="flex:1;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;text-align:center;">Người chịu TN</div>
-            <div style="flex:1;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;text-align:center;">Mức phạt / việc</div>
-            <div style="flex:1;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;text-align:center;">🚨 Phạt cấp cứu</div>
-            <div style="flex:1;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;text-align:center;">❌ Phạt KH</div>
-        </div>`;
+        let html = '';
+        groups.forEach((g, gi) => {
+            html += `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;${gi > 0 ? 'margin-top:10px;' : ''}">
+                <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 16px;color:white;font-weight:800;font-size:13px;">${g.title}</div>`;
 
-        roots.forEach(root => {
-            const subs = children.filter(c => c.parent_id === root.department_id);
-
-            html += `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:10px 14px;display:flex;align-items:center;">
-                    <div style="flex:2;color:white;font-weight:800;font-size:14px;">🏢 ${root.department_name}</div>
-                    <div style="flex:1;text-align:center;color:#93c5fd;font-size:12px;font-weight:600;">
-                        ${root.approver ? `👤 ${root.approver.name}` : '<span style="color:#fca5a5;">Chưa setup</span>'}
-                    </div>
-                    <div style="flex:1;text-align:center;">
-                        <input type="number" class="dept-penalty-input" data-dept="${root.department_id}" value="${root.penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:13px;font-weight:700;text-align:right;background:rgba(255,255,255,0.15);color:white;">
-                    </div>
-                    <div style="flex:1;text-align:center;">
-                        <input type="number" class="dept-em-penalty-input" data-dept="${root.department_id}" value="${root.emergency_penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:13px;font-weight:700;text-align:right;background:rgba(220,38,38,0.3);color:white;">
-                    </div>
-                    <div style="flex:1;text-align:center;">
-                        <input type="number" class="dept-cust-penalty-input" data-dept="${root.department_id}" value="${root.customer_penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:13px;font-weight:700;text-align:right;background:rgba(245,158,11,0.3);color:white;">
+            g.keys.forEach(key => {
+                const cfg = configMap[key];
+                if (!cfg) return;
+                // Short label (remove category prefix)
+                const shortLabel = cfg.label.replace(/^[^—]+—\s*/, '');
+                html += `<div style="display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9;background:white;gap:12px;">
+                    <div style="flex:1;font-size:13px;color:#334155;font-weight:600;">${shortLabel}</div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="number" class="gpc-input" data-key="${key}" value="${cfg.amount}" min="0" step="10000"
+                               style="width:110px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;text-align:right;color:#dc2626;"
+                               onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'"
+                               onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+                        <span style="font-size:12px;color:#9ca3af;font-weight:600;">đ</span>
                     </div>
                 </div>`;
-
-            if (subs.length > 0) {
-                subs.forEach(sub => {
-                    html += `<div style="display:flex;align-items:center;padding:9px 14px 9px 28px;border-bottom:1px solid #f1f5f9;background:white;">
-                        <div style="flex:2;font-size:13px;font-weight:600;color:#334155;">┣ ${sub.department_name}</div>
-                        <div style="flex:1;text-align:center;font-size:12px;color:#6b7280;">
-                            ${sub.approver ? `👤 ${sub.approver.name}` : '<span style="color:#f97316;">Chưa setup</span>'}
-                        </div>
-                        <div style="flex:1;text-align:center;">
-                            <input type="number" class="dept-penalty-input" data-dept="${sub.department_id}" value="${sub.penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;text-align:right;">
-                        </div>
-                        <div style="flex:1;text-align:center;">
-                            <input type="number" class="dept-em-penalty-input" data-dept="${sub.department_id}" value="${sub.emergency_penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid #fca5a5;border-radius:6px;font-size:13px;font-weight:600;text-align:right;">
-                        </div>
-                        <div style="flex:1;text-align:center;">
-                            <input type="number" class="dept-cust-penalty-input" data-dept="${sub.department_id}" value="${sub.customer_penalty_amount}" min="0" step="10000" style="width:90px;padding:5px 8px;border:1px solid #fde68a;border-radius:6px;font-size:13px;font-weight:600;text-align:right;">
-                        </div>
-                    </div>`;
-
-                    // Sub-sub departments (teams)
-                    const subSubDepts = configs.filter(c => c.parent_id === sub.department_id);
-                    subSubDepts.forEach(ss => {
-                        html += `<div style="display:flex;align-items:center;padding:7px 14px 7px 48px;border-bottom:1px solid #f8fafc;background:#fafbfc;">
-                            <div style="flex:2;font-size:12px;color:#64748b;font-weight:500;">┗ ${ss.department_name}</div>
-                            <div style="flex:1;text-align:center;font-size:11px;color:#9ca3af;">
-                                ${ss.approver ? `👤 ${ss.approver.name}` : '—'}
-                            </div>
-                            <div style="flex:1;text-align:center;">
-                                <input type="number" class="dept-penalty-input" data-dept="${ss.department_id}" value="${ss.penalty_amount}" min="0" step="10000" style="width:85px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right;">
-                            </div>
-                            <div style="flex:1;text-align:center;">
-                                <input type="number" class="dept-em-penalty-input" data-dept="${ss.department_id}" value="${ss.emergency_penalty_amount}" min="0" step="10000" style="width:85px;padding:4px 6px;border:1px solid #fca5a5;border-radius:6px;font-size:12px;text-align:right;">
-                            </div>
-                            <div style="flex:1;text-align:center;">
-                                <input type="number" class="dept-cust-penalty-input" data-dept="${ss.department_id}" value="${ss.customer_penalty_amount}" min="0" step="10000" style="width:85px;padding:4px 6px;border:1px solid #fde68a;border-radius:6px;font-size:12px;text-align:right;">
-                            </div>
-                        </div>`;
-                    });
-                });
-            }
+            });
 
             html += '</div>';
         });
 
-        html += '</div>';
         list.innerHTML = html;
     } catch(e) {
         list.innerHTML = '<div style="color:#dc2626;">Lỗi tải cấu hình</div>';
@@ -173,26 +132,11 @@ async function _penaltyLoadConfig() {
 }
 
 async function _penaltySaveConfig() {
-    const inputs = document.querySelectorAll('.dept-penalty-input');
-    const emInputs = document.querySelectorAll('.dept-em-penalty-input');
-    const custInputs = document.querySelectorAll('.dept-cust-penalty-input');
-    const configMap = {};
+    const inputs = document.querySelectorAll('.gpc-input');
+    const configs = [];
     inputs.forEach(inp => {
-        const deptId = Number(inp.dataset.dept);
-        if (!configMap[deptId]) configMap[deptId] = { department_id: deptId };
-        configMap[deptId].penalty_amount = Number(inp.value) || 50000;
+        configs.push({ key: inp.dataset.key, amount: Number(inp.value) || 0 });
     });
-    emInputs.forEach(inp => {
-        const deptId = Number(inp.dataset.dept);
-        if (!configMap[deptId]) configMap[deptId] = { department_id: deptId };
-        configMap[deptId].emergency_penalty_amount = Number(inp.value) || 50000;
-    });
-    custInputs.forEach(inp => {
-        const deptId = Number(inp.dataset.dept);
-        if (!configMap[deptId]) configMap[deptId] = { department_id: deptId };
-        configMap[deptId].customer_penalty_amount = Number(inp.value) || 100000;
-    });
-    const configs = Object.values(configMap);
 
     try {
         const res = await apiCall('/api/penalty/config', 'POST', { configs });

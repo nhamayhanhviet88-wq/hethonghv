@@ -5,47 +5,13 @@ async function khoaTKNVRoutes(fastify, options) {
 
     // ========== PENALTY CONFIG ==========
 
-    // GET: Lấy cấu hình phạt theo phòng ban + người chịu trách nhiệm
+    // GET: Lấy cấu hình phạt chung (global)
     fastify.get('/api/penalty/config', { preHandler: [authenticate] }, async (request, reply) => {
-        // Get all departments that have active teams
-        const departments = await db.all(
-            `SELECT d.id, d.name, d.parent_id,
-                    COALESCE(pc.penalty_amount, 50000) as penalty_amount,
-                    COALESCE(pc.emergency_penalty_amount, 50000) as emergency_penalty_amount,
-                    COALESCE(pc.customer_penalty_amount, 100000) as customer_penalty_amount
-             FROM departments d
-             LEFT JOIN dept_penalty_config pc ON pc.department_id = d.id
-             ORDER BY d.name`
-        );
-
-        // Get approvers for each department
-        const approvers = await db.all(
-            `SELECT ta.department_id, ta.user_id as approver_id, u.full_name, u.username
-             FROM task_approvers ta
-             JOIN users u ON u.id = ta.user_id
-             ORDER BY ta.department_id`
-        );
-
-        // Map approvers by dept
-        const approverMap = {};
-        approvers.forEach(a => {
-            approverMap[a.department_id] = { id: a.approver_id, name: a.full_name, username: a.username };
-        });
-
-        const configs = departments.map(d => ({
-            department_id: d.id,
-            department_name: d.name,
-            parent_id: d.parent_id,
-            penalty_amount: d.penalty_amount,
-            emergency_penalty_amount: d.emergency_penalty_amount,
-            customer_penalty_amount: d.customer_penalty_amount,
-            approver: approverMap[d.id] || null
-        }));
-
+        const configs = await db.all('SELECT key, label, amount FROM global_penalty_config ORDER BY key');
         return { configs };
     });
 
-    // POST: Set/update mức phạt theo phòng ban
+    // POST: Cập nhật mức phạt chung (chỉ GĐ)
     fastify.post('/api/penalty/config', { preHandler: [authenticate] }, async (request, reply) => {
         if (request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ giám đốc được cấu hình mức phạt' });
@@ -57,12 +23,10 @@ async function khoaTKNVRoutes(fastify, options) {
         }
 
         for (const cfg of configs) {
-            if (!cfg.department_id) continue;
+            if (!cfg.key) continue;
             await db.run(
-                `INSERT INTO dept_penalty_config (department_id, penalty_amount, emergency_penalty_amount, customer_penalty_amount, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW())
-                 ON CONFLICT (department_id) DO UPDATE SET penalty_amount = $2, emergency_penalty_amount = $3, customer_penalty_amount = $4, updated_at = NOW()`,
-                [cfg.department_id, Number(cfg.penalty_amount) || 50000, Number(cfg.emergency_penalty_amount) || 50000, Number(cfg.customer_penalty_amount) || 100000]
+                `UPDATE global_penalty_config SET amount = $1, updated_at = NOW() WHERE key = $2`,
+                [Number(cfg.amount) || 0, cfg.key]
             );
         }
 
