@@ -757,14 +757,19 @@ async function showEditAccountModal(userId) {
                     ${editPosOptionsHTML}
                 </select>
             </div>
-        <div class="form-row">
             <div class="form-group">
                 <label>Họ tên</label>
                 <input type="text" id="editFullName" class="form-control" value="${user.full_name}">
             </div>
+        </div>
+        <div class="form-row">
             <div class="form-group">
                 <label>🎂 Sinh nhật</label>
                 <input type="date" id="editBirthDate" class="form-control" value="${user.birth_date ? user.birth_date.split('T')[0] : ''}">
+            </div>
+            <div class="form-group">
+                <label>Ngày vào làm</label>
+                <input type="date" id="editStartDate" class="form-control" value="${user.start_date ? user.start_date.split('T')[0] : ''}">
             </div>
         </div>
         <div class="form-row" ${isEditAff ? 'style="display:none;"' : ''}>
@@ -773,13 +778,9 @@ async function showEditAccountModal(userId) {
                 <input type="text" id="editTelegram" class="form-control" value="${user.telegram_group_id || ''}">
             </div>
             <div class="form-group">
-                <label>Ngày vào làm</label>
-                <input type="date" id="editStartDate" class="form-control" value="${user.start_date ? user.start_date.split('T')[0] : ''}">
+                <label>Mã Đơn KD <small style="color:var(--gray-500);">(VD: VTT, duy nhất mỗi NV)</small></label>
+                <input type="text" id="editOrderCodePrefix" class="form-control" value="${user.order_code_prefix || ''}" maxlength="10" style="text-transform:uppercase;">
             </div>
-        </div>
-        <div class="form-group" ${isEditAff ? 'style="display:none;"' : ''} id="editMaDonKDGroup">
-            <label>Mã Đơn KD <small style="color:var(--gray-500);">(VD: VTT, duy nhất mỗi NV)</small></label>
-            <input type="text" id="editOrderCodePrefix" class="form-control" value="${user.order_code_prefix || ''}" maxlength="10" style="text-transform:uppercase;">
         </div>
         <div class="form-group">
             <label>Đơn vị / Phòng ban</label>
