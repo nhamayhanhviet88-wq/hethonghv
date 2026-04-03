@@ -1492,8 +1492,8 @@ function _ctRenderDetailContent(data) {
             actionHtml = _ctGetActionBtn(item, data, isManager);
         }
 
-        // Report column: show per-user reports for assigned users, all reports for managers
-        const displayComps = (isAssigned || !isManager) ? myComps : completions;
+        // Report column: chain tasks are collaborative — show all reports to everyone
+        const displayComps = completions;
 
         html += `<tr style="border-bottom:1px solid #f3f4f6;${isOverdue ? 'background:#fff5f5;' : ''}">
             <td style="padding:8px 12px;text-align:center;font-size:12px;font-weight:700;color:#6b7280;">${item.item_order}</td>
