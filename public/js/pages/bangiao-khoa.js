@@ -2098,11 +2098,14 @@ async function _ctShowDeployModal(deptId) {
     overlay.classList.add('show');
 
     try {
-        _ctTemplates = await apiCall('/api/chain-tasks/templates');
-        const usersData = await apiCall(`/api/lock-tasks/dept-users/${deptId}`);
-        // Get dept name from sidebar
-        const deptEl = document.querySelector(`[data-dept-id="${deptId}"] .dept-name, [onclick*="_lkLoadDeptTasks(${deptId})"]`);
-        _ctDeployDeptName = deptEl?.textContent?.trim() || `Phòng #${deptId}`;
+        const [templates, usersData, deptData] = await Promise.all([
+            apiCall('/api/chain-tasks/templates'),
+            apiCall(`/api/lock-tasks/dept-users/${deptId}`),
+            apiCall('/api/task-points/departments')
+        ]);
+        _ctTemplates = templates;
+        const dept = (deptData.departments || []).find(d => d.id === deptId);
+        _ctDeployDeptName = dept?.name || `Phòng #${deptId}`;
         _ctRenderDeployForm(usersData.users || usersData || []);
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
