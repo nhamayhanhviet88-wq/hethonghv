@@ -2284,8 +2284,8 @@ function _ctAddNewItem() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
             <div>
-                <label style="font-size:10px;color:#6b7280;">📅 Deadline <span style="color:#dc2626;">*</span></label>
-                <input type="date" class="ct-item-deadline" required style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
+                <label style="font-size:10px;color:#6b7280;">📅 Deadline</label>
+                <input type="date" class="ct-item-deadline" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
             </div>
             <div>
                 <label style="font-size:10px;color:#6b7280;">SL CV Tối thiểu <span style="color:#dc2626;">*</span></label>
@@ -2294,7 +2294,7 @@ function _ctAddNewItem() {
         </div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <span style="font-size:10px;color:#059669;font-weight:600;">📝 Bắt buộc nộp báo cáo</span>
-            <label style="font-size:10px;color:#6b7280;cursor:pointer;" title="Quản lý phải duyệt báo cáo trước khi task con được tính hoàn thành"><input type="checkbox" class="ct-item-approval" /> ✅ Cần QL duyệt</label>
+            <label style="font-size:10px;color:#6b7280;cursor:pointer;" title="Quản lý phải duyệt báo cáo trước khi task con được tính hoàn thành"><input type="checkbox" class="ct-item-approval" checked /> ✅ Cần QL duyệt</label>
             <label style="font-size:10px;color:#6b7280;" title="Số lần nhân viên được nộp lại khi bị từ chối">🔄 Số lần nộp lại: <input type="number" class="ct-item-max-redo" value="3" min="1" max="10" style="width:48px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" /></label>
         </div>`;
     container.appendChild(div);
@@ -2321,16 +2321,13 @@ async function _ctSaveNewTemplate() {
         const guide = el.querySelector('.ct-item-guide')?.value?.trim();
 
         if (!name) { alert(`⚠️ Task con #${idx+1}: Vui lòng nhập tên`); hasError = true; return; }
-        if (!deadline) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng chọn deadline`); hasError = true; return; }
-        if (!qty || qty < 1) { alert(`⚠️ Task con #${idx+1} "${name}": SL CV tối thiểu phải >= 1`); hasError = true; return; }
-        if (!guide) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng nhập link hướng dẫn CV`); hasError = true; return; }
 
         items.push({
             task_name: name,
-            deadline: deadline,
+            deadline: deadline || null,
             relative_days: 0,
-            min_quantity: qty,
-            guide_link: guide,
+            min_quantity: qty || 1,
+            guide_link: guide || '',
             requires_report: true,
             requires_approval: el.querySelector('.ct-item-approval')?.checked || false,
             max_redo_count: parseInt(el.querySelector('.ct-item-max-redo')?.value) || 3
