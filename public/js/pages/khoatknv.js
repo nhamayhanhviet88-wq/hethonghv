@@ -214,10 +214,9 @@ async function _penaltyLoadStats() {
     body.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px;">⏳ Đang tải...</div>';
 
     try {
-        const [penaltyData, deptData, usersData] = await Promise.all([
+        const [penaltyData, deptData] = await Promise.all([
             apiCall(`/api/penalty/list?month=${_penaltyMonth}`),
-            apiCall('/api/departments'),
-            apiCall('/api/users/dropdown')
+            apiCall('/api/departments')
         ]);
 
         _penaltyData = penaltyData.penalties || [];
@@ -233,32 +232,31 @@ async function _penaltyLoadStats() {
         }
 
         const departments = deptData.departments || [];
-        const allUsers = (usersData.users || []).filter(u => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'].includes(u.role) && u.status !== 'resigned');
 
-        // Group penalties by penalized user
+        // Build head_user_id map from departments
+        const deptHeadMap = {};
+        departments.forEach(d => {
+            if (d.head_user_id) deptHeadMap[d.head_user_id] = d.id;
+        });
+
+        // Group penalties by penalized user — use penalized_dept_id & penalized_role from backend
         const userPenalties = {};
         _penaltyData.forEach(p => {
             const uid = p.penalized_user_id || p.manager_id;
-            if (!userPenalties[uid]) userPenalties[uid] = { items: [], total: 0, name: '', username: '', dept_id: null };
+            if (!userPenalties[uid]) userPenalties[uid] = { items: [], total: 0, name: '', username: '', dept_id: null, role: 'nhan_vien' };
             userPenalties[uid].items.push(p);
             userPenalties[uid].total += (p.penalty_amount || 0);
             userPenalties[uid].name = p.penalized_name || p.manager_name || '';
             userPenalties[uid].username = p.penalized_username || p.manager_username || '';
-        });
-
-        // Enrich with user department info
-        allUsers.forEach(u => {
-            if (userPenalties[u.id]) {
-                userPenalties[u.id].dept_id = u.department_id;
-                userPenalties[u.id].role = u.role;
-                if (!userPenalties[u.id].name) userPenalties[u.id].name = u.full_name;
-                if (!userPenalties[u.id].username) userPenalties[u.id].username = u.username;
-            }
+            // Use penalized_dept_id and penalized_role from backend (works even if user is locked)
+            if (p.penalized_dept_id) userPenalties[uid].dept_id = p.penalized_dept_id;
+            if (p.penalized_role) userPenalties[uid].role = p.penalized_role;
         });
 
         // Build department tree
         const rootDepts = departments.filter(d => !d.parent_id);
         const ROLE_SHORT = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
+        const ROLE_PRIORITY = { giam_doc: 0, quan_ly_cap_cao: 1, quan_ly: 2, truong_phong: 3, nhan_vien: 4, part_time: 5 };
 
         // Get all dept IDs (recursive) under a dept
         function getChildDeptIds(parentId) {
@@ -282,14 +280,26 @@ async function _penaltyLoadStats() {
         }
 
         // Get users with penalties in this specific dept (not children)
+        // Sort: QL/QLCC first (dept heads), then TP, then NV
         function getDeptUsers(deptId) {
             const result = [];
             Object.keys(userPenalties).forEach(uid => {
                 if (userPenalties[uid].dept_id === deptId) {
-                    result.push({ id: Number(uid), ...userPenalties[uid] });
+                    const u = { id: Number(uid), ...userPenalties[uid] };
+                    // Check if user is dept head
+                    u.isDeptHead = deptHeadMap[u.id] === deptId;
+                    result.push(u);
                 }
             });
-            return result.sort((a, b) => b.total - a.total);
+            // Sort: dept heads first, then by role priority, then by total desc
+            return result.sort((a, b) => {
+                if (a.isDeptHead && !b.isDeptHead) return -1;
+                if (!a.isDeptHead && b.isDeptHead) return 1;
+                const pa = ROLE_PRIORITY[a.role] ?? 4;
+                const pb = ROLE_PRIORITY[b.role] ?? 4;
+                if (pa !== pb) return pa - pb;
+                return b.total - a.total;
+            });
         }
 
         // Source type config
@@ -339,7 +349,13 @@ async function _penaltyLoadStats() {
                     </div>
                     <div id="${subId}" style="display:none;">`;
 
-                // Teams (level 3) + direct users
+                // Department-level users (QL/Trưởng đơn vị) — render BEFORE teams
+                const directUsers = getDeptUsers(sub.id);
+                directUsers.forEach(u => {
+                    html += _renderUserNode(u, SRC, ROLE_SHORT, 52);
+                });
+
+                // Teams (level 3)
                 const teams = departments.filter(d => d.parent_id === sub.id);
                 teams.forEach(team => {
                     const teamTotal = getDeptTotal(team.id);
@@ -364,12 +380,6 @@ async function _penaltyLoadStats() {
                     });
 
                     html += '</div></div>';
-                });
-
-                // Direct users in sub-dept (not in any team)
-                const directUsers = getDeptUsers(sub.id);
-                directUsers.forEach(u => {
-                    html += _renderUserNode(u, SRC, ROLE_SHORT, 52);
                 });
 
                 html += '</div></div>';
@@ -469,15 +479,33 @@ function _renderUserNode(u, SRC, ROLE_SHORT, paddingLeft) {
         }
     });
 
+    // Determine leader badge — role takes priority
+    const isTP = u.role === 'truong_phong';
+    const isLeader = !isTP && (u.isDeptHead || ['quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+    let leaderBadge = '';
+    if (isLeader) {
+        leaderBadge = '<span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:1px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:4px;">⭐ Trưởng đơn vị</span>';
+    } else if (isTP) {
+        leaderBadge = '<span style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:1px 8px;border-radius:4px;font-size:9px;font-weight:800;margin-left:4px;">⭐ Trưởng phòng</span>';
+    }
+
+    // Role badge color
+    const roleBadgeStyle = isLeader
+        ? 'background:#fef3c7;color:#92400e;'
+        : isTP
+        ? 'background:#ede9fe;color:#6d28d9;'
+        : 'background:#e0f2fe;color:#0369a1;';
+
     return `<div style="border-bottom:1px solid #f1f5f9;">
         <div onclick="document.getElementById('${userNodeId}').style.display = document.getElementById('${userNodeId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.chevron').textContent = document.getElementById('${userNodeId}').style.display === 'none' ? '▶' : '▼';"
-             style="padding:8px 16px 8px ${paddingLeft}px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:white;">
-            <div style="display:flex;align-items:center;gap:6px;">
+             style="padding:8px 16px 8px ${paddingLeft}px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:${isLeader ? '#fffbeb' : isTP ? '#f5f3ff' : 'white'};">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 <span class="chevron" style="color:#94a3b8;font-size:10px;">▶</span>
-                <span style="font-size:13px;">👤</span>
+                <span style="font-size:13px;">${isLeader ? '⭐' : isTP ? '⭐' : '👤'}</span>
                 <span style="font-size:13px;font-weight:700;color:#1e293b;">${u.name || 'Unknown'}</span>
                 <span style="font-size:10px;color:#9ca3af;">(${u.username || ''})</span>
-                <span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">${ROLE_SHORT[u.role] || u.role || 'NV'}</span>
+                <span style="${roleBadgeStyle}padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">${ROLE_SHORT[u.role] || u.role || 'NV'}</span>
+                ${leaderBadge}
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">${u.total.toLocaleString()}đ</span>

@@ -149,6 +149,7 @@ async function khoaTKNVRoutes(fastify, options) {
             `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
                     u.full_name as user_name, u.username,
                     m.full_name as manager_name, m.username as manager_username,
+                    m.department_id as manager_dept_id, m.role as manager_role,
                     d.name as dept_name
              FROM task_support_requests sr
              LEFT JOIN users u ON sr.user_id = u.id
@@ -172,6 +173,8 @@ async function khoaTKNVRoutes(fastify, options) {
             p.penalized_user_id = p.manager_id;
             p.penalized_name = p.manager_name;
             p.penalized_username = p.manager_username;
+            p.penalized_dept_id = p.manager_dept_id;
+            p.penalized_role = p.manager_role;
         });
 
         // ===== SOURCE 2: lock_task_completions (CV Khóa — NV không nộp) =====
@@ -205,7 +208,7 @@ async function khoaTKNVRoutes(fastify, options) {
             `SELECT ltc.id, ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as task_date, 
                     ltc.penalty_amount, ltc.penalty_applied, ltc.acknowledged, ltc.created_at,
                     lt.task_name, lt.department_id,
-                    u.full_name as user_name, u.username,
+                    u.full_name as user_name, u.username, u.department_id as user_dept_id, u.role as user_role,
                     d.name as dept_name
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
@@ -225,6 +228,8 @@ async function khoaTKNVRoutes(fastify, options) {
             penalized_user_id: p.user_id,
             penalized_name: p.user_name,
             penalized_username: p.username,
+            penalized_dept_id: p.user_dept_id,
+            penalized_role: p.user_role,
             manager_id: p.user_id,
             manager_name: p.user_name,
             manager_username: p.username,
@@ -262,7 +267,7 @@ async function khoaTKNVRoutes(fastify, options) {
             `SELECT cc.id, cc.chain_item_id, cc.user_id, ci.deadline::text as task_date,
                     cc.penalty_amount, cc.penalty_applied, cc.acknowledged, cc.content as penalty_reason,
                     ci.task_name, cins.chain_name, cins.department_id,
-                    u.full_name as user_name, u.username,
+                    u.full_name as user_name, u.username, u.department_id as user_dept_id, u.role as user_role,
                     d.name as dept_name
              FROM chain_task_completions cc
              JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
@@ -283,6 +288,8 @@ async function khoaTKNVRoutes(fastify, options) {
             penalized_user_id: p.user_id,
             penalized_name: p.user_name,
             penalized_username: p.username,
+            penalized_dept_id: p.user_dept_id,
+            penalized_role: p.user_role,
             manager_id: p.user_id,
             manager_name: p.user_name,
             manager_username: p.username,
@@ -307,7 +314,8 @@ async function khoaTKNVRoutes(fastify, options) {
                     e.created_at::text as created_at, e.penalty_amount, e.acknowledged,
                     e.created_at::date::text as task_date,
                     c.customer_name, c.phone as customer_phone,
-                    COALESCE(hu.full_name, '') as handler_name, COALESCE(hu.username, '') as handler_username
+                    COALESCE(hu.full_name, '') as handler_name, COALESCE(hu.username, '') as handler_username,
+                    hu.department_id as handler_dept_id, hu.role as handler_role
              FROM emergencies e
              LEFT JOIN customers c ON c.id = e.customer_id
              LEFT JOIN users hu ON hu.id = COALESCE(e.handover_to, e.handler_id)
@@ -325,6 +333,8 @@ async function khoaTKNVRoutes(fastify, options) {
             penalized_user_id: p.handover_to || p.handler_id,
             penalized_name: p.handler_name,
             penalized_username: p.handler_username,
+            penalized_dept_id: p.handler_dept_id,
+            penalized_role: p.handler_role,
             manager_id: p.handover_to || p.handler_id,
             manager_name: p.handler_name,
             manager_username: p.handler_username,
@@ -361,7 +371,7 @@ async function khoaTKNVRoutes(fastify, options) {
         const cpPenalties = await db.all(
             `SELECT cpr.id, cpr.user_id, cpr.penalty_date::text as task_date, cpr.crm_type,
                     cpr.unhandled_count, cpr.penalty_amount, cpr.acknowledged,
-                    u.full_name as user_name, u.username, u.department_id,
+                    u.full_name as user_name, u.username, u.department_id, u.role,
                     d.name as dept_name
              FROM customer_penalty_records cpr
              JOIN users u ON u.id = cpr.user_id
@@ -380,6 +390,8 @@ async function khoaTKNVRoutes(fastify, options) {
             penalized_user_id: p.user_id,
             penalized_name: p.user_name,
             penalized_username: p.username,
+            penalized_dept_id: p.department_id,
+            penalized_role: p.role || 'nhan_vien',
             manager_id: p.user_id,
             manager_name: p.user_name,
             manager_username: p.username,
