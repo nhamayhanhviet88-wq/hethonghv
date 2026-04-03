@@ -297,12 +297,9 @@ async function _lkLoadDeptTasks(deptId) {
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">🏢 ${deptName}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} công việc khóa</div>
             </div>
-            ${canAddTask ? `<div style="position:relative;display:inline-block;" id="lkAddDropdown_${deptId}">
-                <button onclick="_lkToggleAddDropdown(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa ▼</button>
-                <div id="lkAddMenu_${deptId}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:1px solid #e5e7eb;z-index:100;min-width:200px;overflow:hidden;">
-                    <div onclick="_lkShowCreateModal(${deptId});_lkCloseAddMenus()" style="padding:10px 16px;cursor:pointer;font-size:13px;color:#374151;font-weight:600;border-bottom:1px solid #f3f4f6;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">📝 Thêm CV Đơn lẻ</div>
-                    <div onclick="_ctShowDeployModal(${deptId});_lkCloseAddMenus()" style="padding:10px 16px;cursor:pointer;font-size:13px;color:#374151;font-weight:600;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">🔗 Thêm CV Chuỗi</div>
-                </div>
+            ${canAddTask ? `<div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="_ctShowDeployModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#1e40af,#2563eb);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(37,99,235,0.3)'">🔗 Thêm CV Chuỗi</button>
+                <button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(220,38,38,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(220,38,38,0.3)'">🔐 Thêm CV Khóa</button>
             </div>` : ''}
         </div>`;
 
