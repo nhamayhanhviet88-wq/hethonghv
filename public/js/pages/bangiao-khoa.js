@@ -1510,8 +1510,9 @@ function _ctRenderDetailContent(data) {
         if (currentUser.role === 'giam_doc' && data.status === 'completed') {
             footerHtml += `<button onclick="_ctEditInstance(${data.id})" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa chuỗi</button>`;
         }
-        footerHtml += `<button onclick="_ctShowPostponeUI()" style="padding:6px 14px;font-size:12px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>`;
-        footerHtml += `<button onclick="_ctDeleteChain(${data.id})" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Hủy chuỗi</button>`;
+        if (currentUser.role === 'giam_doc') {
+            footerHtml += `<button onclick="_ctShowPostponeUI()" style="padding:6px 14px;font-size:12px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>`;
+        }
     }
     footerHtml += `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
     footer.innerHTML = footerHtml;
