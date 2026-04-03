@@ -1322,6 +1322,7 @@ function _ctRenderDetailContent(data) {
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Deadline</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân Viên</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Trạng Thái</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:70px;">Báo Cáo</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:90px;">Hành Động</th>
                 </tr></thead>
                 <tbody>`;
@@ -1333,6 +1334,7 @@ function _ctRenderDetailContent(data) {
             ? users.map(u => `<span style="background:#eff6ff;color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">${u.full_name}</span>`).join(' ')
             : '<span style="color:#9ca3af;font-size:10px;">—</span>';
 
+        const completions = item.completions || [];
         let statusHtml = '', actionHtml = '';
         const isOverdue = new Date(item.deadline) < new Date() && item.status !== 'completed';
 
@@ -1346,10 +1348,14 @@ function _ctRenderDetailContent(data) {
             statusHtml = '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">💀 Quá hạn</span>';
             actionHtml = _ctGetActionBtn(item, data, isManager);
         } else {
-            // in_progress or parallel pending
-            const completions = item.completions || [];
             const pendingComps = completions.filter(c => c.status === 'pending');
-            if (pendingComps.length > 0) {
+            const approvedComps = completions.filter(c => c.status === 'approved');
+            const totalAssigned = users.length || 1;
+            if (approvedComps.length >= totalAssigned) {
+                statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Đã duyệt hết</span>';
+            } else if (approvedComps.length > 0) {
+                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedComps.length}/${totalAssigned}</span>`;
+            } else if (pendingComps.length > 0) {
                 statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
             } else {
                 statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
@@ -1367,6 +1373,7 @@ function _ctRenderDetailContent(data) {
             <td style="padding:8px 12px;text-align:center;font-size:11px;color:${isOverdue ? '#dc2626' : '#374151'};font-weight:${isOverdue ? '700' : '500'};white-space:nowrap;">${deadlineStr}</td>
             <td style="padding:8px 12px;text-align:center;">${usersHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
+            <td style="padding:8px 12px;text-align:center;">${completions.length > 0 ? `<button onclick="event.stopPropagation();_ctShowReportHistory(${item.id})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;white-space:nowrap;">📄 ${completions.length}</button>` : '<span style="color:#d1d5db;">—</span>'}</td>
             <td style="padding:8px 12px;text-align:center;">${actionHtml}</td>
         </tr>`;
     });
@@ -1381,6 +1388,59 @@ function _ctRenderDetailContent(data) {
     }
     footerHtml += `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
     footer.innerHTML = footerHtml;
+}
+
+// Show report history for a chain task item
+function _ctShowReportHistory(itemId) {
+    const chainData = window._ctCurrentChainData;
+    if (!chainData) return;
+    const item = (chainData.items || []).find(i => i.id === itemId);
+    if (!item) return;
+
+    const completions = item.completions || [];
+    const body = document.getElementById('modalBody');
+    const titleEl = document.getElementById('modalTitle');
+    const footer = document.getElementById('modalFooter');
+
+    titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:3px 10px;border-radius:6px;font-size:12px;">📄</span> Lịch sử báo cáo — ${item.task_name}`;
+
+    let html = `<div style="padding:16px 20px;">`;
+
+    if (completions.length === 0) {
+        html += `<div style="text-align:center;color:#9ca3af;padding:30px;">Chưa có báo cáo nào</div>`;
+    } else {
+        completions.forEach((comp, idx) => {
+            const date = comp.created_at ? new Date(comp.created_at).toLocaleString('vi-VN') : '';
+            let statusBadge = '';
+            if (comp.status === 'approved') statusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
+            else if (comp.status === 'pending') statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>';
+            else if (comp.status === 'rejected') statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
+
+            const borderColor = comp.status === 'approved' ? '#a7f3d0' : comp.status === 'rejected' ? '#fecaca' : '#fde68a';
+            const bgColor = comp.status === 'approved' ? '#f0fdf4' : comp.status === 'rejected' ? '#fef2f2' : '#fffbeb';
+
+            html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:12px 16px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-weight:700;color:#1e293b;font-size:12px;">📝 Lần ${idx + 1}</span>
+                        <span style="font-size:10px;color:#6b7280;">👤 ${comp.reporter_name || '—'}</span>
+                        <span style="font-size:10px;color:#6b7280;">🕐 ${date}</span>
+                    </div>
+                    ${statusBadge}
+                </div>
+                <div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">📊 SL:</span> <span style="color:#1e293b;font-weight:700;">${comp.quantity_done || '—'}</span></div>
+                ${comp.content ? `<div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">📄 Nội dung:</span> <span style="color:#374151;">${comp.content}</span></div>` : ''}
+                ${comp.proof_url ? `<div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">🔗 Link:</span> <a href="${comp.proof_url}" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;">${comp.proof_url.length > 60 ? comp.proof_url.substring(0,60)+'...' : comp.proof_url}</a></div>` : ''}
+                ${comp.proof_url && comp.proof_url.match(/\.(jpg|jpeg|png|gif|webp)/i) ? `<div style="margin-top:6px;"><img src="${comp.proof_url}" style="max-height:120px;border-radius:6px;border:1px solid #d1d5db;" /></div>` : ''}
+                ${comp.reject_reason ? `<div style="margin-top:6px;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:4px 8px;font-size:10px;"><span style="color:#dc2626;font-weight:700;">❌ Lý do từ chối:</span> <span style="color:#991b1b;">${comp.reject_reason}</span></div>` : ''}
+                ${comp.reviewer_name ? `<div style="margin-top:4px;font-size:10px;color:#6b7280;">👤 Duyệt bởi: ${comp.reviewer_name}</div>` : ''}
+            </div>`;
+        });
+    }
+
+    html += `</div>`;
+    body.innerHTML = html;
+    footer.innerHTML = `<button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:8px 20px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:white;font-weight:700;cursor:pointer;">← Quay lại</button>`;
 }
 
 function _ctGetActionBtn(item, chain, isManager) {
