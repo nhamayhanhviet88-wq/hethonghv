@@ -1335,6 +1335,8 @@ function _ctRenderDetailContent(data) {
             : '<span style="color:#9ca3af;font-size:10px;">—</span>';
 
         const completions = item.completions || [];
+        const myComps = completions.filter(c => c.user_id === currentUser.id);
+        const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
         let statusHtml = '', actionHtml = '';
         const isOverdue = new Date(item.deadline) < new Date() && item.status !== 'completed';
 
@@ -1348,20 +1350,42 @@ function _ctRenderDetailContent(data) {
             statusHtml = '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">💀 Quá hạn</span>';
             actionHtml = _ctGetActionBtn(item, data, isManager);
         } else {
-            const pendingComps = completions.filter(c => c.status === 'pending');
-            const approvedCount = completions.filter(c => c.status === 'approved').length;
+            // Per-user status
+            const myApproved = myComps.filter(c => c.status === 'approved').length;
+            const myPending = myComps.filter(c => c.status === 'pending').length;
+            const myRejected = myComps.filter(c => c.status === 'rejected').length;
             const minQty = item.min_quantity || 1;
-            if (approvedCount >= minQty) {
-                statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedCount}/${minQty} BC</span>`;
-            } else if (approvedCount > 0) {
-                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedCount}/${minQty} BC</span>`;
-            } else if (pendingComps.length > 0) {
-                statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
+
+            if (isAssigned || !isManager) {
+                // Assigned user: show personal status
+                if (myApproved >= minQty) {
+                    statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${myApproved}/${minQty} BC</span>`;
+                } else if (myApproved > 0) {
+                    statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${myApproved}/${minQty} BC</span>`;
+                } else if (myPending > 0) {
+                    statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
+                } else if (myRejected > 0) {
+                    statusHtml = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">❌ Bị từ chối</span>';
+                } else {
+                    statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
+                }
             } else {
-                statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
+                // Manager (not assigned): show total count
+                const totalApproved = completions.filter(c => c.status === 'approved').length;
+                const totalPending = completions.filter(c => c.status === 'pending').length;
+                if (totalApproved >= minQty) {
+                    statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${totalApproved}/${minQty} BC</span>`;
+                } else if (totalPending > 0) {
+                    statusHtml = `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ ${totalPending} chờ duyệt</span>`;
+                } else {
+                    statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
+                }
             }
             actionHtml = _ctGetActionBtn(item, data, isManager);
         }
+
+        // Report column: show per-user reports for assigned users, all reports for managers
+        const displayComps = (isAssigned || !isManager) ? myComps : completions;
 
         html += `<tr style="border-bottom:1px solid #f3f4f6;${isOverdue ? 'background:#fff5f5;' : ''}">
             <td style="padding:8px 12px;text-align:center;font-size:12px;font-weight:700;color:#6b7280;">${item.item_order}</td>
@@ -1373,7 +1397,7 @@ function _ctRenderDetailContent(data) {
             <td style="padding:8px 12px;text-align:center;font-size:11px;color:${isOverdue ? '#dc2626' : '#374151'};font-weight:${isOverdue ? '700' : '500'};white-space:nowrap;">${deadlineStr}</td>
             <td style="padding:8px 12px;text-align:center;">${usersHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
-            <td style="padding:8px 12px;text-align:center;">${completions.length > 0 ? `<button onclick="event.stopPropagation();_ctShowReportHistory(${item.id})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;white-space:nowrap;">📄 ${completions.length}</button>` : '<span style="color:#d1d5db;">—</span>'}</td>
+            <td style="padding:8px 12px;text-align:center;">${displayComps.length > 0 ? `<button onclick="event.stopPropagation();_ctShowReportHistory(${item.id})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;white-space:nowrap;">📄 ${displayComps.length}</button>` : '<span style="color:#d1d5db;">—</span>'}</td>
             <td style="padding:8px 12px;text-align:center;">${actionHtml}</td>
         </tr>`;
     });
@@ -1397,7 +1421,10 @@ function _ctShowReportHistory(itemId) {
     const item = (chainData.items || []).find(i => i.id === itemId);
     if (!item) return;
 
-    const completions = item.completions || [];
+    const allCompletions = item.completions || [];
+    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
+    const completions = (isAssigned || !isManager) ? allCompletions.filter(c => c.user_id === currentUser.id) : allCompletions;
     const body = document.getElementById('modalBody');
     const titleEl = document.getElementById('modalTitle');
     const footer = document.getElementById('modalFooter');
