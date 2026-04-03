@@ -34,9 +34,9 @@ async function renderBanGiaoKhoaPage(container) {
         const nonSystemDepts = rawDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
 
         // Role priority for sorting
-        const _lkRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
-        const _lkRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
-        const _lkIsLeader = (role) => ['giam_doc', 'quan_ly', 'truong_phong'].includes(role);
+        const _lkRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
+        const _lkRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
+        const _lkIsLeader = (role) => ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(role);
 
         // Helper: render members for a dept
         const renderDeptUsers = (dept, isChild) => {
@@ -1242,8 +1242,8 @@ function _ctRenderChainRows(chains) {
 
     Object.keys(grouped).forEach(chainName => {
         const instances = grouped[chainName];
-        const totalAll = instances.reduce((s, c) => s + (c.total_items || 0), 0);
-        const doneAll = instances.reduce((s, c) => s + (c.completed_items || 0), 0);
+        const totalAll = instances.reduce((s, c) => s + Number(c.total_items || 0), 0);
+        const doneAll = instances.reduce((s, c) => s + Number(c.completed_items || 0), 0);
         const pctAll = totalAll > 0 ? Math.round(doneAll / totalAll * 100) : 0;
         const allDone = instances.every(c => c.status === 'completed');
         const statusColor = allDone ? '#059669' : '#2563eb';
@@ -1274,6 +1274,7 @@ function _ctShowChainInstancesModal(chainName) {
     const allChains = window._ctChainsList || [];
     const instances = allChains.filter(c => (c.chain_name || '') === chainName);
     if (instances.length === 0) return;
+    _ctCurrentChainName = chainName;
 
     const overlay = document.getElementById('modalOverlay');
     const titleEl = document.getElementById('modalTitle');
@@ -1311,7 +1312,7 @@ function _ctShowChainInstancesModal(chainName) {
             <tbody>`;
 
     instances.forEach((c, idx) => {
-        const pct = c.total_items > 0 ? Math.round(c.completed_items / c.total_items * 100) : 0;
+        const pct = Number(c.total_items) > 0 ? Math.round(Number(c.completed_items) / Number(c.total_items) * 100) : 0;
         const sc = c.status === 'completed' ? '#059669' : '#2563eb';
         const startStr = c.start_date ? _ctFmtDate(c.start_date) : '—';
         const endStr = c.end_date ? _ctFmtDate(c.end_date) : '—';
@@ -1351,6 +1352,7 @@ function _ctShowChainInstancesModal(chainName) {
 
 // ========== CHAIN DETAIL MODAL ==========
 let _ctCurrentChainId = null;
+let _ctCurrentChainName = null;
 
 async function _ctShowDetailModal(instanceId) {
     _ctCurrentChainId = instanceId;
@@ -1524,6 +1526,14 @@ function _ctRenderDetailContent(data) {
         }
     }
     footerHtml += `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    let footerLeft = '';
+    if (_ctCurrentChainName) {
+        footerLeft = `<button onclick="_ctShowChainInstancesModal(_ctCurrentChainName)" style="padding:6px 14px;font-size:12px;border:1px solid #6b7280;border-radius:6px;background:white;color:#374151;cursor:pointer;font-weight:600;">⬅ Quay lại</button>`;
+    }
+    footerHtml = `<div style="display:flex;justify-content:space-between;width:100%;">
+        <div>${footerLeft}</div>
+        <div style="display:flex;gap:8px;">${footerHtml}</div>
+    </div>`;
     footer.innerHTML = footerHtml;
 }
 

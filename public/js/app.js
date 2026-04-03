@@ -1014,7 +1014,7 @@ async function renderDashboardPage(container) {
                 </div>
             </div>
         </div>
-        ${['giam_doc','quan_ly'].includes(currentUser.role) ? `
+        ${['giam_doc','quan_ly_cap_cao','quan_ly'].includes(currentUser.role) ? `
         <div id="pendingArea" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;"></div>
         ` : ''}
         <div class="card">
@@ -1268,12 +1268,10 @@ async function checkBirthdayToday() {
 
 function showBirthdayPopup(birthdayUsers) {
     const ROLE_LABELS_BD = {
-        giam_doc: 'Giám Đốc', pho_giam_doc: 'Phó Giám Đốc', quan_ly: 'Quản Lý',
-        truong_phong: 'Trưởng Phòng', trinh: 'quan_ly_cap_cao', nhan_vien: 'Nhân Viên',
-        to_truong: 'Tổ Trưởng', kcs_hang: 'KCS Hàng', ky_thuat: 'Kỹ Thuật',
-        nhan_vien_parttime: 'NV Part-Time', hoa_hong: 'Hoa Hồng', ctv: 'CTV',
-        nuoi_duong: 'Nuôi Dưỡng', sinh_vien: 'Sinh Viên', ke_toan: 'Kế Toán',
-        nhan_su: 'Nhân Sự', thu_quy: 'Thủ Quỹ', thu_kho: 'Thủ Kho', thu_ky: 'Thư Ký'
+        giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý',
+        truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên',
+        part_time: 'Part Time', hoa_hong: 'Hoa Hồng', ctv: 'CTV',
+        tkaffiliate: 'TK Affiliate'
     };
 
     const usersHTML = birthdayUsers.map(u => {

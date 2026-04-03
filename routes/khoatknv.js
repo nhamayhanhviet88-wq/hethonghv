@@ -10,7 +10,9 @@ async function khoaTKNVRoutes(fastify, options) {
         // Get all departments that have active teams
         const departments = await db.all(
             `SELECT d.id, d.name, d.parent_id,
-                    COALESCE(pc.penalty_amount, 50000) as penalty_amount
+                    COALESCE(pc.penalty_amount, 50000) as penalty_amount,
+                    COALESCE(pc.emergency_penalty_amount, 50000) as emergency_penalty_amount,
+                    COALESCE(pc.customer_penalty_amount, 100000) as customer_penalty_amount
              FROM departments d
              LEFT JOIN dept_penalty_config pc ON pc.department_id = d.id
              ORDER BY d.name`
@@ -35,6 +37,8 @@ async function khoaTKNVRoutes(fastify, options) {
             department_name: d.name,
             parent_id: d.parent_id,
             penalty_amount: d.penalty_amount,
+            emergency_penalty_amount: d.emergency_penalty_amount,
+            customer_penalty_amount: d.customer_penalty_amount,
             approver: approverMap[d.id] || null
         }));
 
@@ -55,10 +59,10 @@ async function khoaTKNVRoutes(fastify, options) {
         for (const cfg of configs) {
             if (!cfg.department_id) continue;
             await db.run(
-                `INSERT INTO dept_penalty_config (department_id, penalty_amount, updated_at)
-                 VALUES ($1, $2, NOW())
-                 ON CONFLICT (department_id) DO UPDATE SET penalty_amount = $2, updated_at = NOW()`,
-                [cfg.department_id, Number(cfg.penalty_amount) || 50000]
+                `INSERT INTO dept_penalty_config (department_id, penalty_amount, emergency_penalty_amount, customer_penalty_amount, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW())
+                 ON CONFLICT (department_id) DO UPDATE SET penalty_amount = $2, emergency_penalty_amount = $3, customer_penalty_amount = $4, updated_at = NOW()`,
+                [cfg.department_id, Number(cfg.penalty_amount) || 50000, Number(cfg.emergency_penalty_amount) || 50000, Number(cfg.customer_penalty_amount) || 100000]
             );
         }
 
@@ -227,8 +231,163 @@ async function khoaTKNVRoutes(fastify, options) {
             acknowledged: p.acknowledged || false
         }));
 
+        // ===== SOURCE 3: chain_task_completions (CV Chuỗi — NV/QL phạt) =====
+        let ctWhere = '';
+        let ctParams = [monthStart, monthEnd];
+
+        if (userRole === 'giam_doc') {
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date`;
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
+            const user3 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            if (!user3 || !user3.department_id) {
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND 1=0`;
+            } else {
+                const deptIds3 = [user3.department_id];
+                const children3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user3.department_id]);
+                children3.forEach(c => deptIds3.push(c.id));
+                for (const child of children3) {
+                    const gc3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc3.forEach(gc => deptIds3.push(gc.id));
+                }
+                const ph3 = deptIds3.map((_, i) => `$${i + 3}`).join(',');
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND cins.department_id IN (${ph3})`;
+                ctParams.push(...deptIds3);
+            }
+        } else {
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND cc.user_id = $3`;
+            ctParams.push(userId);
+        }
+
+        const ctPenalties = await db.all(
+            `SELECT cc.id, cc.chain_item_id, cc.user_id, ci.deadline::text as task_date,
+                    cc.penalty_amount, cc.penalty_applied, cc.acknowledged, cc.content as penalty_reason,
+                    ci.task_name, cins.chain_name, cins.department_id,
+                    u.full_name as user_name, u.username,
+                    d.name as dept_name
+             FROM chain_task_completions cc
+             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+             JOIN users u ON u.id = cc.user_id
+             LEFT JOIN departments d ON cins.department_id = d.id
+             ${ctWhere}
+             ORDER BY ci.deadline DESC`,
+            ctParams
+        );
+
+        const ctFormatted = ctPenalties.map(p => ({
+            ...p,
+            source_type: 'chuoi',
+            source_label: '🔗 CV Chuỗi',
+            task_name: p.task_name + (p.chain_name ? ` (${p.chain_name})` : ''),
+            penalty_reason: p.penalty_reason || 'Không nộp báo cáo CV chuỗi: ' + p.task_name,
+            penalized_user_id: p.user_id,
+            penalized_name: p.user_name,
+            penalized_username: p.username,
+            manager_id: p.user_id,
+            manager_name: p.user_name,
+            manager_username: p.username,
+            acknowledged: p.acknowledged || false
+        }));
+
+        // ===== SOURCE 4: emergencies (Cấp cứu sếp — QL không xử lý) =====
+        let emWhere = '';
+        let emParams = [monthStart, monthEnd];
+
+        if (userRole === 'giam_doc') {
+            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date`;
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
+            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date AND (e.handler_id = $3 OR e.handover_to = $3)`;
+            emParams.push(userId);
+        } else {
+            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date AND 1=0`;
+        }
+
+        const emPenalties = await db.all(
+            `SELECT e.id, e.customer_id, e.handler_id, e.handover_to, e.reason,
+                    e.created_at::text as created_at, e.penalty_amount, e.acknowledged,
+                    e.created_at::date::text as task_date,
+                    c.customer_name, c.phone as customer_phone,
+                    COALESCE(hu.full_name, '') as handler_name, COALESCE(hu.username, '') as handler_username
+             FROM emergencies e
+             LEFT JOIN customers c ON c.id = e.customer_id
+             LEFT JOIN users hu ON hu.id = COALESCE(e.handover_to, e.handler_id)
+             ${emWhere}
+             ORDER BY e.created_at DESC`,
+            emParams
+        );
+
+        const emFormatted = emPenalties.map(p => ({
+            ...p,
+            source_type: 'emergency',
+            source_label: '🚨 Cấp cứu sếp — QL không xử lý',
+            task_name: `Cấp cứu: ${p.customer_name || 'Khách hàng'}`,
+            penalty_reason: `Không xử lý cấp cứu: ${p.reason}`,
+            penalized_user_id: p.handover_to || p.handler_id,
+            penalized_name: p.handler_name,
+            penalized_username: p.handler_username,
+            manager_id: p.handover_to || p.handler_id,
+            manager_name: p.handler_name,
+            manager_username: p.handler_username,
+            acknowledged: p.acknowledged || false
+        }));
+
+        // ===== SOURCE 5: customer_penalty_records (KH chưa xử lý hôm nay) =====
+        let cpWhere = '';
+        let cpParams = [monthStart, monthEnd];
+
+        if (userRole === 'giam_doc') {
+            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date`;
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
+            const user5 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            if (!user5 || !user5.department_id) {
+                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND 1=0`;
+            } else {
+                const deptIds5 = [user5.department_id];
+                const children5 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user5.department_id]);
+                children5.forEach(c => deptIds5.push(c.id));
+                for (const child of children5) {
+                    const gc5 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc5.forEach(gc => deptIds5.push(gc.id));
+                }
+                const ph5 = deptIds5.map((_, i) => `$${i + 3}`).join(',');
+                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.department_id IN (${ph5})`;
+                cpParams.push(...deptIds5);
+            }
+        } else {
+            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND cpr.user_id = $3`;
+            cpParams.push(userId);
+        }
+
+        const cpPenalties = await db.all(
+            `SELECT cpr.id, cpr.user_id, cpr.penalty_date::text as task_date, cpr.crm_type,
+                    cpr.unhandled_count, cpr.penalty_amount, cpr.acknowledged,
+                    u.full_name as user_name, u.username, u.department_id,
+                    d.name as dept_name
+             FROM customer_penalty_records cpr
+             JOIN users u ON u.id = cpr.user_id
+             LEFT JOIN departments d ON u.department_id = d.id
+             ${cpWhere}
+             ORDER BY cpr.penalty_date DESC`,
+            cpParams
+        );
+
+        const cpFormatted = cpPenalties.map(p => ({
+            ...p,
+            source_type: 'customer_unhandled',
+            source_label: '❌ KH Chưa XL — Không xử lý KH phải XL hôm nay',
+            task_name: `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
+            penalty_reason: `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${p.crm_type})`,
+            penalized_user_id: p.user_id,
+            penalized_name: p.user_name,
+            penalized_username: p.username,
+            manager_id: p.user_id,
+            manager_name: p.user_name,
+            manager_username: p.username,
+            acknowledged: p.acknowledged || false
+        }));
+
         // Combine all
-        const allPenalties = [...srPenalties, ...ltFormatted];
+        const allPenalties = [...srPenalties, ...ltFormatted, ...ctFormatted, ...emFormatted, ...cpFormatted];
         const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
 
         return { penalties: allPenalties, total };
@@ -278,7 +437,57 @@ async function khoaTKNVRoutes(fastify, options) {
             item.penalty_reason = 'Không nộp báo cáo';
         });
 
-        const items = [...srItems, ...ltItems];
+        // Source 3: chain_task_completions (CV Chuỗi)
+        const ctItems = await db.all(
+            `SELECT ci.task_name, ci.deadline::text as task_date, cc.penalty_amount, cc.acknowledged,
+                    cins.chain_name, cc.content as penalty_reason
+             FROM chain_task_completions cc
+             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+             WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
+               AND ci.deadline BETWEEN $2::date AND $3::date
+             ORDER BY ci.deadline`,
+            [managerId, monthStart, monthEnd]
+        );
+        ctItems.forEach(item => {
+            item.source_type = 'chuoi';
+            item.task_name = item.task_name + (item.chain_name ? ` (${item.chain_name})` : '');
+            item.penalty_reason = item.penalty_reason || 'Không nộp báo cáo CV chuỗi';
+        });
+
+        // Source 4: emergencies (Cấp cứu sếp)
+        const emItems = await db.all(
+            `SELECT e.reason as task_name, e.created_at::date::text as task_date, e.penalty_amount, e.acknowledged,
+                    c.customer_name
+             FROM emergencies e
+             LEFT JOIN customers c ON c.id = e.customer_id
+             WHERE COALESCE(e.handover_to, e.handler_id) = $1 AND e.penalty_applied = true
+               AND e.created_at::date BETWEEN $2::date AND $3::date
+             ORDER BY e.created_at`,
+            [managerId, monthStart, monthEnd]
+        );
+        emItems.forEach(item => {
+            item.source_type = 'emergency';
+            item.task_name = `Cấp cứu: ${item.customer_name || 'Khách hàng'}`;
+            item.penalty_reason = `Không xử lý cấp cứu: ${item.task_name}`;
+        });
+
+        // Source 5: customer_penalty_records (KH chưa xử lý)
+        const cpItems = await db.all(
+            `SELECT cpr.crm_type as task_name, cpr.penalty_date::text as task_date, cpr.penalty_amount, cpr.acknowledged,
+                    cpr.unhandled_count, cpr.crm_type
+             FROM customer_penalty_records cpr
+             WHERE cpr.user_id = $1 AND cpr.penalty_date BETWEEN $2::date AND $3::date
+             ORDER BY cpr.penalty_date`,
+            [managerId, monthStart, monthEnd]
+        );
+        cpItems.forEach(item => {
+            item.source_type = 'customer_unhandled';
+            item.task_name = `KH chưa XL: ${item.crm_type} (${item.unhandled_count} KH)`;
+            item.penalty_reason = `Không xử lý ${item.unhandled_count} khách phải xử lý hôm nay`;
+        });
+
+        const items = [...srItems, ...ltItems, ...ctItems, ...emItems, ...cpItems];
         const total = items.reduce((s, i) => s + (i.penalty_amount || 0), 0);
 
         return {
@@ -336,6 +545,27 @@ async function khoaTKNVRoutes(fastify, options) {
             [user.id]
         );
 
+        // Acknowledge CV Chuỗi penalties
+        await db.run(
+            `UPDATE chain_task_completions SET acknowledged = true
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
+            [user.id]
+        );
+
+        // Acknowledge Cấp cứu sếp penalties
+        await db.run(
+            `UPDATE emergencies SET acknowledged = true
+             WHERE (handler_id = $1 OR handover_to = $1) AND penalty_applied = true AND acknowledged = false`,
+            [user.id]
+        );
+
+        // Acknowledge KH chưa xử lý penalties
+        await db.run(
+            `UPDATE customer_penalty_records SET acknowledged = true
+             WHERE user_id = $1 AND acknowledged = false`,
+            [user.id]
+        );
+
         // Unlock account
         await db.run(
             "UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked'",
@@ -360,6 +590,27 @@ async function khoaTKNVRoutes(fastify, options) {
         await db.run(
             `UPDATE lock_task_completions SET acknowledged = true
              WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
+            [userId]
+        );
+
+        // Acknowledge CV Chuỗi penalties
+        await db.run(
+            `UPDATE chain_task_completions SET acknowledged = true
+             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
+            [userId]
+        );
+
+        // Acknowledge Cấp cứu sếp penalties
+        await db.run(
+            `UPDATE emergencies SET acknowledged = true
+             WHERE (handler_id = $1 OR handover_to = $1) AND penalty_applied = true AND acknowledged = false`,
+            [userId]
+        );
+
+        // Acknowledge KH chưa xử lý penalties
+        await db.run(
+            `UPDATE customer_penalty_records SET acknowledged = true
+             WHERE user_id = $1 AND acknowledged = false`,
             [userId]
         );
 

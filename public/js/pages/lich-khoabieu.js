@@ -476,9 +476,9 @@ async function renderLichKhoaBieuPage(container) {
             });
 
             const memberDeptNames = new Set(Object.keys(byDept));
-            const _kbRolePriority = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
-            const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
-            const _kbIsLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
+            const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
+            const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
+            const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
 
             // Helper: render members for a dept
             const renderDeptMembers = (dept, isChild) => {
@@ -1337,17 +1337,30 @@ function _kbRenderGrid() {
             chainGroups[item.chain_instance_id].items.push(item);
         });
 
+        // Color palette for distinguishing chains — [gradientDark, gradientLight, borderLeft, textAccent, badgeBg]
+        const _chainColors = [
+            { gd:'#1e40af', gl:'#2563eb', border:'#2563eb', text:'#1e40af', badge:'#93c5fd' },  // Blue
+            { gd:'#b45309', gl:'#d97706', border:'#d97706', text:'#92400e', badge:'#fcd34d' },  // Amber
+            { gd:'#7c3aed', gl:'#8b5cf6', border:'#8b5cf6', text:'#6d28d9', badge:'#c4b5fd' },  // Violet
+            { gd:'#be185d', gl:'#e11d48', border:'#e11d48', text:'#9f1239', badge:'#fda4af' },  // Rose
+            { gd:'#047857', gl:'#059669', border:'#059669', text:'#065f46', badge:'#6ee7b7' },  // Emerald
+            { gd:'#0e7490', gl:'#0891b2', border:'#0891b2', text:'#155e75', badge:'#67e8f9' },  // Cyan
+            { gd:'#c2410c', gl:'#ea580c', border:'#ea580c', text:'#9a3412', badge:'#fdba74' },  // Orange
+            { gd:'#4338ca', gl:'#6366f1', border:'#6366f1', text:'#3730a3', badge:'#a5b4fc' },  // Indigo
+        ];
+
         const monDate3 = new Date(_kbWeekStart);
         const todayStr3 = new Date().toISOString().split('T')[0];
 
-        Object.values(chainGroups).forEach(chain => {
+        Object.values(chainGroups).forEach((chain, chainIdx) => {
+            const cc = _chainColors[chainIdx % _chainColors.length];
             html += `<tr>`;
-            // Time slot column — blue chain badge
+            // Time slot column — colored chain badge
             html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
-                <div style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(30,64,175,0.2);min-width:70px;cursor:pointer;" onclick="_kbOpenChainDetail(${chain.chain_instance_id})">
+                <div style="background:linear-gradient(135deg,${cc.gd},${cc.gl});border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px ${cc.gd}33;min-width:70px;cursor:pointer;" onclick="_kbOpenChainDetail(${chain.chain_instance_id})">
                     <div style="font-weight:700;color:#fff;font-size:10px;">🔗 CHUỖI</div>
                     <div style="margin:2px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
-                    <div style="font-weight:700;color:#93c5fd;font-size:9px;">${chain.completed_items}/${chain.total_items}</div>
+                    <div style="font-weight:700;color:${cc.badge};font-size:9px;">${Number(chain.completed_items)||0}/${Number(chain.total_items)||0}</div>
                 </div>
             </td>`;
 
@@ -1371,7 +1384,9 @@ function _kbRenderGrid() {
                 html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">`;
                 dayItems.forEach(item => {
                     const isPending = item.status === 'pending';
-                    const isCompleted = item.status === 'completed';
+                    const minQty = Number(item.min_quantity) || 1;
+                    const approvedCount = Number(item.approved_count) || 0;
+                    const isCompleted = item.status === 'completed' || approvedCount >= minQty;
                     const isOverdue = !isCompleted && dateStr < todayStr3;
 
                     let itemBg, itemBorder, nameColor, opacity;
@@ -1382,7 +1397,7 @@ function _kbRenderGrid() {
                     } else if (isOverdue) {
                         itemBg = '#fff5f5'; itemBorder = '#fecaca'; nameColor = '#dc2626'; opacity = '1';
                     } else {
-                        itemBg = '#eff6ff'; itemBorder = '#bfdbfe'; nameColor = '#1e40af'; opacity = '1';
+                        itemBg = '#eff6ff'; itemBorder = '#bfdbfe'; nameColor = cc.text; opacity = '1';
                     }
 
                     // Status badge
@@ -1408,16 +1423,16 @@ function _kbRenderGrid() {
                         }
                     }
 
-                    // Action button
+                    // Action button — uses chain color
                     let actionBtn = '';
                     if (!isCompleted && !isPending) {
-                        actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:#2563eb;color:white;font-size:9px;font-weight:700;cursor:pointer;">📋 Xem chuỗi</span></div>`;
+                        actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:${cc.gl};color:white;font-size:9px;font-weight:700;cursor:pointer;">📋 Xem chuỗi</span></div>`;
                     }
 
-                    html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid #2563eb;border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;">
+                    html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid ${cc.border};border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;">
                         <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">🔗 ${item.task_name}</div>
-                        <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${chain.total_items})</div>
-                        ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:#2563eb;text-decoration:underline;">🔗 HD</a>` : ''}
+                        <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${Number(chain.total_items)||0})</div>
+                        ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:${cc.text};text-decoration:underline;">🔗 HD</a>` : ''}
                         <div style="margin-top:4px;">${statusBadge}</div>
                         ${actionBtn}
                     </div>`;

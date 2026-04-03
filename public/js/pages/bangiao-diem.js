@@ -355,9 +355,9 @@ async function _tpLoadDeptMembers(deptId) {
     } catch(e) { _tpDeptMembers = []; }
 
     // Sort by role priority: approvers first, leaders next, dept heads at top
-    const _rolePri = { giam_doc: 5, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
-    const _roleLabel = { giam_doc: '⭐ Quản lý', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', trinh: 'Trình', nhan_vien: 'Nhân viên' };
-    const _isLeader = (role) => ['giam_doc','quan_ly','truong_phong'].includes(role);
+    const _rolePri = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
+    const _roleLabel = { giam_doc: '⭐ Quản lý', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
+    const _isLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
     _tpDeptMembers.sort((a, b) => {
         const aHead = a._is_dept_head ? 10 : 0;
         const bHead = b._is_dept_head ? 10 : 0;

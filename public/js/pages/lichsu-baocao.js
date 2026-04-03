@@ -252,7 +252,7 @@ function _rhRenderDeptMembers(deptId, deptName) {
     });
     members.forEach(m => { if (approverIdSet.has(m.id)) m._isApprover = true; });
     // Sort: approvers first, then leaders by role priority, then regular
-    const _rhRolePri = { giam_doc: 5, pho_giam_doc: 4, quan_ly: 4, truong_phong: 3, trinh: 2, nhan_vien: 1 };
+    const _rhRolePri = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
     members.sort((a, b) => {
         const aP = (a._isApprover ? 20 : 0) + (a._is_dept_head ? 10 : 0) + (_rhRolePri[a.role] || 0);
         const bP = (b._isApprover ? 20 : 0) + (b._is_dept_head ? 10 : 0) + (_rhRolePri[b.role] || 0);

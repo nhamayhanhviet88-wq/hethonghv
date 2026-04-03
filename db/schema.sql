@@ -873,6 +873,36 @@ ALTER TABLE chain_task_template_items ADD COLUMN IF NOT EXISTS max_redo_count IN
 ALTER TABLE chain_task_instance_items ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
 ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS approval_deadline TIMESTAMP;
 ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;
+ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN DEFAULT false;
+
+-- Per-item penalty amount (mức phạt riêng cho mỗi task con)
+ALTER TABLE chain_task_template_items ADD COLUMN IF NOT EXISTS penalty_amount INTEGER DEFAULT 0;
+ALTER TABLE chain_task_instance_items ADD COLUMN IF NOT EXISTS penalty_amount INTEGER DEFAULT 0;
+
+-- Emergency penalty tracking
+ALTER TABLE emergencies ADD COLUMN IF NOT EXISTS penalty_amount INTEGER DEFAULT 0;
+ALTER TABLE emergencies ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT false;
+ALTER TABLE emergencies ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN DEFAULT false;
+ALTER TABLE emergencies ADD COLUMN IF NOT EXISTS last_penalty_at TIMESTAMP;
+
+-- Emergency penalty config per department
+ALTER TABLE dept_penalty_config ADD COLUMN IF NOT EXISTS emergency_penalty_amount INTEGER DEFAULT 50000;
+
+-- Customer unhandled penalty config per department
+ALTER TABLE dept_penalty_config ADD COLUMN IF NOT EXISTS customer_penalty_amount INTEGER DEFAULT 100000;
+
+-- Bảng lưu kết quả phạt KH chưa xử lý hôm nay
+CREATE TABLE IF NOT EXISTS customer_penalty_records (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    penalty_date DATE NOT NULL,
+    crm_type TEXT NOT NULL,
+    unhandled_count INTEGER DEFAULT 0,
+    penalty_amount INTEGER NOT NULL DEFAULT 100000,
+    acknowledged BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, penalty_date, crm_type)
+);
 
 -- ========== POSITIONS & ROLES SYSTEM ==========
 

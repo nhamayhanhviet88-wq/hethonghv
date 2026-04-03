@@ -368,6 +368,7 @@ async function chainTaskRoutes(fastify, options) {
                     WHERE cii_done.chain_instance_id = ci.id
                     AND (cii_done.status = 'completed' OR (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii_done.id AND status = 'approved') >= COALESCE(cii_done.min_quantity, 1))
                    ) as completed_items,
+                   (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii.id AND status = 'approved') as approved_count,
                    (SELECT json_agg(json_build_object('id', cc2.id, 'user_id', cc2.user_id, 'status', cc2.status, 'content', cc2.content))
                     FROM chain_task_completions cc2 WHERE cc2.chain_item_id = cii.id AND cc2.user_id = $1) as my_completions
             FROM chain_task_instance_items cii

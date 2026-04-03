@@ -138,7 +138,7 @@ async function loadAccounts() {
                 const rc = {
                     giam_doc:['#fef3c7','#fde68a','#92400e','#fcd34d'], quan_ly_cap_cao:['#fff7ed','#fed7aa','#c2410c','#fdba74'],
                     quan_ly:['#dbeafe','#bfdbfe','#1e40af','#93c5fd'],
-                    truong_phong:['#d1fae5','#a7f3d0','#065f46','#6ee7b7'], nhan_vien:['#e5e7eb','#d1d5db','#374151','#9ca3af'],
+                    truong_phong:['#d1fae5','#a7f3d0','#065f46','#6ee7b7'], nhan_vien:['#e0f2fe','#bae6fd','#0c4a6e','#7dd3fc'],
                     part_time:['#f0fdf4','#dcfce7','#15803d','#86efac']
                 };
                 const c = rc[user.role] || ['#e5e7eb','#d1d5db','#374151','#9ca3af'];
@@ -1433,7 +1433,7 @@ async function showHandoverModal(userId, managed) {
     const managers = (staffList.users || []).filter(u => 
         !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role) && u.id !== userId
     );
-    const ROLE_MAP = { nhan_vien:'Nhân Viên', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', giam_doc:'Giám Đốc', trinh:'quan_ly_cap_cao', nhan_vien_parttime:'NV Parttime' };
+    const ROLE_MAP = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time' };
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_MAP[e.role] || e.role})</option>`).join('');
 
     const custList = managed.customers.map(c => 

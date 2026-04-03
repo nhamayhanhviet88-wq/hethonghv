@@ -20,11 +20,11 @@ async function getHolidays() {
     return _holidayCache;
 }
 
-// Kiểm tra quản lý có nghỉ ngày X không
-async function isManagerOnLeave(managerId, dateStr) {
+// Kiểm tra user (NV/TP/QL) có nghỉ ngày X không
+async function isUserOnLeave(userId, dateStr) {
     const leave = await db.get(
         "SELECT id FROM leave_requests WHERE user_id = $1 AND status = 'active' AND date_from <= $2 AND date_to >= $2",
-        [managerId, dateStr]
+        [userId, dateStr]
     );
     return !!leave;
 }
@@ -52,21 +52,21 @@ async function isDayOff(dateStr) {
  * - Base: 23:59 ngày làm việc tiếp theo sau created_at
  * - Kéo dài nếu Chủ nhật/lễ/quản lý nghỉ
  */
-async function calculateRealDeadline(createdAt, managerId) {
+async function calculateRealDeadline(createdAt, userId) {
     const created = new Date(createdAt);
     
     // Bắt đầu từ ngày sau created_at
     let deadline = new Date(created);
     deadline.setDate(deadline.getDate() + 1);
     
-    // Kéo dài qua Chủ nhật, lễ, và ngày quản lý nghỉ
+    // Kéo dài qua Chủ nhật, lễ, và ngày user nghỉ
     let maxIterations = 30; // safety limit
     while (maxIterations-- > 0) {
         const ds = toDateStr(deadline);
         const dayOff = await isDayOff(ds);
-        const onLeave = managerId ? await isManagerOnLeave(managerId, ds) : false;
+        const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
         
-        if (!dayOff && !onLeave) break; // Ngày làm việc + quản lý không nghỉ → OK
+        if (!dayOff && !onLeave) break; // Ngày làm việc + không nghỉ → OK
         deadline.setDate(deadline.getDate() + 1); // Kéo thêm 1 ngày
     }
     
@@ -221,20 +221,14 @@ async function runDeadlineCheck() {
     }
 
     // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
-    // Chỉ chạy vào 00:15 - 00:30: kiểm tra CV hôm qua chưa nộp → khóa NV + phạt
+    // Chỉ chạy vào 00:15 - 00:30: kiểm tra 14 ngày qua chưa nộp → khóa NV + phạt
+    // Mở rộng 14 ngày để bắt lại task bị hoãn do nghỉ phép
     const hour = now.getHours();
     const minute = now.getMinutes();
     const shouldCheckLockTasks = (hour === 0 && minute >= 15 && minute < 30);
 
     if (shouldCheckLockTasks) {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = toDateStr(yesterday);
-        const yesterdayDow = yesterday.getDay(); // 0=Sun, 1=Mon...
-
         const holidays = await getHolidays();
-        const isYesterdayHoliday = holidays.has(yesterdayStr);
-        const isYesterdaySunday = yesterdayDow === 0;
 
         // Get all active lock tasks with assignments
         const lockAssignments = await db.all(
@@ -245,88 +239,98 @@ async function runDeadlineCheck() {
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
         );
 
-        for (const la of lockAssignments) {
-            // Check if task applies to yesterday based on recurrence
-            let applies = false;
+        // Check past 14 days (to handle long leave periods)
+        for (let daysBack = 1; daysBack <= 14; daysBack++) {
+            const checkDate = new Date(now);
+            checkDate.setDate(checkDate.getDate() - daysBack);
+            const checkDateStr = toDateStr(checkDate);
+            const checkDow = checkDate.getDay();
+            const isCheckHoliday = holidays.has(checkDateStr);
+            const isCheckSunday = checkDow === 0;
 
-            if (la.recurrence_type === 'administrative') {
-                // T2-T7 (Mon-Sat), skip Sun + holidays
-                applies = yesterdayDow >= 1 && yesterdayDow <= 6 && !isYesterdayHoliday;
-            } else if (la.recurrence_type === 'daily') {
-                // T2-CN, only skip holidays (Sunday NOT skipped!)
-                applies = !isYesterdayHoliday;
-            } else if (la.recurrence_type === 'weekly') {
-                // Specific day of week
-                applies = yesterdayDow === Number(la.recurrence_value) && !isYesterdayHoliday;
-                if (isYesterdaySunday && la.recurrence_value !== '0') applies = false;
-            } else if (la.recurrence_type === 'monthly') {
-                // Specific day of month
-                applies = yesterday.getDate() === Number(la.recurrence_value) && !isYesterdayHoliday && !isYesterdaySunday;
-            } else if (la.recurrence_type === 'once') {
-                // Specific date
-                applies = yesterdayStr === la.recurrence_value && !isYesterdayHoliday && !isYesterdaySunday;
-            }
+            for (const la of lockAssignments) {
+                // Check if task applies to this date based on recurrence
+                let applies = false;
 
-            if (!applies) continue;
+                if (la.recurrence_type === 'administrative') {
+                    applies = checkDow >= 1 && checkDow <= 6 && !isCheckHoliday;
+                } else if (la.recurrence_type === 'daily') {
+                    applies = !isCheckHoliday;
+                } else if (la.recurrence_type === 'weekly') {
+                    applies = checkDow === Number(la.recurrence_value) && !isCheckHoliday;
+                    if (isCheckSunday && la.recurrence_value !== '0') applies = false;
+                } else if (la.recurrence_type === 'monthly') {
+                    applies = checkDate.getDate() === Number(la.recurrence_value) && !isCheckHoliday && !isCheckSunday;
+                } else if (la.recurrence_type === 'once') {
+                    applies = checkDateStr === la.recurrence_value && !isCheckHoliday && !isCheckSunday;
+                }
 
-            // Check if already penalized for this task+date (don't re-lock after acknowledge)
-            const alreadyExpired = await db.get(
-                `SELECT id FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true`,
-                [la.task_id, la.user_id, yesterdayStr]
-            );
-            if (alreadyExpired) continue; // Already penalized, skip
+                if (!applies) continue;
 
-            // Check if there's a completion
-            const completion = await db.get(
-                `SELECT id, status FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
-                 ORDER BY redo_count DESC LIMIT 1`,
-                [la.task_id, la.user_id, yesterdayStr]
-            );
-
-            if (completion && (completion.status === 'approved' || completion.status === 'pending')) {
-                // Đã nộp (hoặc chờ duyệt) → NV an toàn
-                continue;
-            }
-
-            // Check if NV has a pending/supported support request → skip (deadline extended)
-            const activeSR = await db.get(
-                `SELECT id, deadline_at FROM task_support_requests
-                 WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
-                   AND source_type = 'khoa' AND status IN ('pending','supported')`,
-                [la.user_id, la.task_id, yesterdayStr]
-            );
-            if (activeSR) {
-                console.log(`  ⏭️ [CV Khóa] Skip NV id=${la.user_id} — Có yêu cầu hỗ trợ cho ${la.task_name} (deadline: ${activeSR.deadline_at})`);
-                continue; // Deadline extended, will be checked when support expires
-            }
-
-            // NV CHƯA NỘP → Khóa TK + Phạt
-            const penaltyAmount = la.penalty_amount || 50000;
-
-            // Tạo completion record với status expired (redo_count=0)
-            try {
-                await db.run(
-                    `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
-                     VALUES ($1, $2, $3, 0, 'expired', $4, true)
-                     ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)`,
-                    [la.task_id, la.user_id, yesterdayStr, penaltyAmount]
+                // Check if already penalized for this task+date
+                const alreadyExpired = await db.get(
+                    `SELECT id FROM lock_task_completions
+                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true`,
+                    [la.task_id, la.user_id, checkDateStr]
                 );
-            } catch(e) {
-                console.error(`  ❌ Error creating expired record for task ${la.task_id}, user ${la.user_id}:`, e.message);
+                if (alreadyExpired) continue;
+
+                // Check if there's a completion
+                const completion = await db.get(
+                    `SELECT id, status FROM lock_task_completions
+                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+                     ORDER BY redo_count DESC LIMIT 1`,
+                    [la.task_id, la.user_id, checkDateStr]
+                );
+                if (completion && (completion.status === 'approved' || completion.status === 'pending')) continue;
+
+                // Check if NV has a pending/supported support request
+                const activeSR = await db.get(
+                    `SELECT id FROM task_support_requests
+                     WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
+                       AND source_type = 'khoa' AND status IN ('pending','supported')`,
+                    [la.user_id, la.task_id, checkDateStr]
+                );
+                if (activeSR) continue;
+
+                // ★ CHECK NGHỈ PHÉP: Nếu NV nghỉ ngày đó → tính deadline kéo dài
+                const userOnLeave = await isUserOnLeave(la.user_id, checkDateStr);
+                if (userOnLeave) {
+                    // Tính real deadline: ngày đi làm tiếp theo sau ngày nghỉ
+                    const taskDate = new Date(checkDateStr + 'T00:00:00');
+                    const realDeadline = await calculateRealDeadline(taskDate, la.user_id);
+                    if (now < realDeadline) {
+                        // Chưa hết hạn kéo dài → skip, sẽ check lại đêm sau
+                        continue;
+                    }
+                    // Đã hết hạn kéo dài mà vẫn chưa nộp → phạt bên dưới
+                }
+
+                // NV CHƯA NỘP + HẾT HẠN → Khóa TK + Phạt
+                const penaltyAmount = la.penalty_amount || 50000;
+
+                try {
+                    await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
+                         VALUES ($1, $2, $3, 0, 'expired', $4, true)
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                        [la.task_id, la.user_id, checkDateStr, penaltyAmount]
+                    );
+                } catch(e) {
+                    console.error(`  ❌ Error creating expired record for task ${la.task_id}, user ${la.user_id}:`, e.message);
+                }
+
+                await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [la.user_id]);
+                lockedCount++;
+                penaltyCount++;
+                console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${checkDateStr} (phạt ${penaltyAmount}đ)`);
             }
-
-            // Khóa tài khoản NV
-            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [la.user_id]);
-
-            lockedCount++;
-            penaltyCount++;
-            console.log(`  🔐 [CV Khóa] Khóa NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${yesterdayStr} (phạt ${penaltyAmount}đ)`);
         }
 
         // ========== 3a. PHẠT CHỒNG PHẠT — Expired CV Khóa chưa báo cáo lại ==========
-        // Check all expired completions from the past 30 days that haven't been re-reported
+        const yesterdayForStack = new Date(now);
+        yesterdayForStack.setDate(yesterdayForStack.getDate() - 1);
+        const yesterdayStrForStack = toDateStr(yesterdayForStack);
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const thirtyDaysAgoStr = toDateStr(thirtyDaysAgo);
@@ -336,25 +340,28 @@ async function runDeadlineCheck() {
                     ltc.penalty_amount, ltc.updated_at, lt.task_name
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-             WHERE ltc.status = 'expired' AND ltc.completion_date >= $1 AND ltc.completion_date < $2`,
-            [thirtyDaysAgoStr, yesterdayStr]
+             WHERE ltc.status = 'expired' AND ltc.redo_count >= 0
+               AND ltc.completion_date >= $1 AND ltc.completion_date < $2`,
+            [thirtyDaysAgoStr, yesterdayStrForStack]
         );
 
         for (const exp of unreportedExpired) {
-            // Check if a newer completion (pending/approved) exists for same task+date
             const resubmitted = await db.get(
                 `SELECT id FROM lock_task_completions
                  WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
                    AND status IN ('pending','approved') AND redo_count > 0`,
                 [exp.lock_task_id, exp.user_id, exp.completion_date]
             );
-            if (resubmitted) continue; // Already re-reported, skip
+            if (resubmitted) continue;
 
-            // Check if already penalized today for this specific task+date
             const lastPenalty = exp.updated_at ? new Date(exp.updated_at) : null;
-            if (lastPenalty && toDateStr(lastPenalty) === toDateStr(now)) continue; // Already penalized today
+            if (lastPenalty && toDateStr(lastPenalty) === toDateStr(now)) continue;
 
-            // Stack penalty: increase penalty_amount
+            // ★ CHECK NGHỈ PHÉP: Skip phạt chồng nếu NV đang nghỉ hôm nay
+            const todayStr = toDateStr(now);
+            const onLeaveToday = await isUserOnLeave(exp.user_id, todayStr);
+            if (onLeaveToday) continue;
+
             const extraPenalty = exp.penalty_amount || 50000;
             try {
                 await db.run(
@@ -366,9 +373,7 @@ async function runDeadlineCheck() {
                 console.error(`  ❌ Error stacking penalty for task ${exp.lock_task_id}, user ${exp.user_id}:`, e.message);
             }
 
-            // Lock account again (in case it was unlocked)
             await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
-
             penaltyCount++;
             console.log(`  🔄 [CV Khóa] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} ngày ${exp.completion_date} (thêm ${extraPenalty}đ)`);
         }
@@ -412,9 +417,26 @@ async function runDeadlineCheck() {
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
         if (now < realDeadline) continue; // Chưa hết hạn
 
-        // QL quá hạn → Khóa QL
+        // QL quá hạn → Phạt + Khóa QL
         const penaltyAmount = pr.penalty_amount || 50000;
 
+        // Auto-approve NV's completion (để NV không bị ảnh hưởng)
+        await db.run(
+            `UPDATE lock_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
+            [managerId, pr.id]
+        );
+
+        // Create penalty record for the MANAGER (redo_count=-1 to distinguish)
+        try {
+            await db.run(
+                `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content)
+                 VALUES ($1, $2, $3, -1, 'expired', $4, true, $5)
+                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                [pr.lock_task_id, managerId, pr.completion_date, penaltyAmount, `QL không duyệt CV Khóa: ${pr.task_name}`]
+            );
+        } catch(e) {}
+
+        // Khóa tài khoản QL
         await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
 
         lockedCount++;
@@ -425,7 +447,7 @@ async function runDeadlineCheck() {
     // ========== 4. CHECK CV CHUỖI — QL CHƯA DUYỆT ==========
     const pendingChainReviews = await db.all(
         `SELECT cc.*, ci.task_name, ci.chain_instance_id,
-                cins.department_id, u.department_id as user_dept_id
+                cins.department_id, cins.penalty_amount as chain_penalty, u.department_id as user_dept_id
          FROM chain_task_completions cc
          JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
          JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
@@ -458,14 +480,380 @@ async function runDeadlineCheck() {
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
         if (now < realDeadline) continue; // Chưa hết hạn
 
-        // QL quá hạn → Khóa QL
-        const penaltyAmount = 50000;
+        // QL quá hạn → Phạt + Khóa QL
+        const penaltyAmount = pr.chain_penalty || 50000;
 
+        // Auto-approve completion (để NV không bị ảnh hưởng)
+        await db.run(
+            `UPDATE chain_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
+            [managerId, pr.id]
+        );
+
+        // Mark the completion as penalty for the MANAGER
+        // Create a separate expired record for the manager penalty tracking
+        try {
+            await db.run(
+                `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count)
+                 VALUES ($1, $2, 'expired', $3, true, $4, -1)
+                 ON CONFLICT DO NOTHING`,
+                [pr.chain_item_id, managerId, penaltyAmount, `QL không duyệt CV chuỗi: ${pr.task_name}`]
+            );
+        } catch(e) {}
+
+        // Khóa tài khoản QL
         await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
 
         lockedCount++;
         penaltyCount++;
         console.log(`  🔐 [CV Chuỗi] Khóa QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+    }
+
+    // ========== 5. CHECK CV CHUỖI — NV KHÔNG NỘP ==========
+    // Chạy cùng 00:15-00:30: kiểm tra chain items quá deadline
+    if (shouldCheckLockTasks) {
+        const yesterday2 = new Date(now);
+        yesterday2.setDate(yesterday2.getDate() - 1);
+        const yesterdayStr2 = toDateStr(yesterday2);
+
+        // Get all chain items with deadline = yesterday that are not completed
+        const overdueChainItems = await db.all(
+            `SELECT cii.id as item_id, cii.task_name, cii.deadline::text as deadline, cii.status as item_status,
+                    cii.min_quantity, cii.penalty_amount as item_penalty,
+                    ci.id as chain_instance_id, ci.chain_name, ci.penalty_amount as chain_penalty, ci.department_id,
+                    ca.user_id
+             FROM chain_task_instance_items cii
+             JOIN chain_task_instances ci ON ci.id = cii.chain_instance_id AND ci.status != 'cancelled'
+             JOIN chain_task_assignments ca ON ca.chain_item_id = cii.id
+             WHERE cii.deadline::text <= $1
+               AND cii.status NOT IN ('completed')`,
+            [yesterdayStr2]
+        );
+
+        for (const oci of overdueChainItems) {
+            // Check if effectively completed (approved >= min_quantity)
+            const approvedCount = await db.get(
+                `SELECT COUNT(*) as cnt FROM chain_task_completions WHERE chain_item_id = $1 AND status = 'approved'`,
+                [oci.item_id]
+            );
+            const minQty = oci.min_quantity || 1;
+            if (approvedCount && Number(approvedCount.cnt) >= minQty) continue; // Effectively completed
+
+            // Check if this user already has an approved/pending submission
+            const userComp = await db.get(
+                `SELECT id, status FROM chain_task_completions
+                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved')`,
+                [oci.item_id, oci.user_id]
+            );
+            if (userComp) continue; // NV đã nộp
+
+            // Check if already penalized (don't double-penalize)
+            const alreadyPenalized = await db.get(
+                `SELECT id FROM chain_task_completions
+                 WHERE chain_item_id = $1 AND user_id = $2 AND status = 'expired' AND penalty_applied = true`,
+                [oci.item_id, oci.user_id]
+            );
+            if (alreadyPenalized) continue;
+
+            // Skip pending items in sequential mode (not yet unlocked)
+            if (oci.item_status === 'pending') continue;
+
+            // ★ CHECK NGHỈ PHÉP: Nếu NV nghỉ ngày deadline → tính deadline kéo dài
+            const userOnLeaveChain = await isUserOnLeave(oci.user_id, oci.deadline);
+            if (userOnLeaveChain) {
+                const deadlineDate = new Date(oci.deadline + 'T00:00:00');
+                const realDeadlineChain = await calculateRealDeadline(deadlineDate, oci.user_id);
+                if (now < realDeadlineChain) continue; // Chưa hết hạn kéo dài
+            }
+
+            // Mức phạt: ưu tiên item_penalty > chain_penalty > 50000
+            const penaltyAmount = (oci.item_penalty && oci.item_penalty > 0) ? oci.item_penalty : (oci.chain_penalty || 50000);
+
+            try {
+                await db.run(
+                    `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count, created_at)
+                     VALUES ($1, $2, 'expired', $3, true, $4, 0, NOW())`,
+                    [oci.item_id, oci.user_id, penaltyAmount,
+                     `Không nộp báo cáo CV chuỗi: ${oci.task_name} (${oci.chain_name})`]
+                );
+            } catch(e) {
+                console.error(`  ❌ Error creating chain penalty for item ${oci.item_id}, user ${oci.user_id}:`, e.message);
+                continue;
+            }
+
+            // Khóa tài khoản NV
+            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [oci.user_id]);
+
+            lockedCount++;
+            penaltyCount++;
+            console.log(`  🔐 [CV Chuỗi] Khóa NV id=${oci.user_id} — Không nộp: ${oci.task_name} (${oci.chain_name}) deadline ${oci.deadline} (phạt ${penaltyAmount}đ)`);
+        }
+
+        // ========== 5a. PHẠT CHỒNG PHẠT — Expired CV Chuỗi chưa báo cáo lại ==========
+        const thirtyDaysAgo2 = new Date(now);
+        thirtyDaysAgo2.setDate(thirtyDaysAgo2.getDate() - 30);
+        const thirtyDaysAgoStr2 = toDateStr(thirtyDaysAgo2);
+
+        const unreportedChainExpired = await db.all(
+            `SELECT cc.id, cc.chain_item_id, cc.user_id, cc.penalty_amount, cc.created_at,
+                    ci.task_name, ci.deadline::text as deadline,
+                    cins.chain_name
+             FROM chain_task_completions cc
+             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+             WHERE cc.status = 'expired' AND cc.penalty_applied = true AND cc.redo_count >= 0
+               AND ci.deadline >= $1::date AND ci.deadline < $2::date`,
+            [thirtyDaysAgoStr2, yesterdayStr2]
+        );
+
+        for (const exp of unreportedChainExpired) {
+            // Check if user has re-submitted (pending/approved with higher redo_count)
+            const resubmitted = await db.get(
+                `SELECT id FROM chain_task_completions
+                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved') AND redo_count > 0`,
+                [exp.chain_item_id, exp.user_id]
+            );
+            if (resubmitted) continue;
+
+            // Check if already stacked today
+            const lastUpdate = exp.created_at ? new Date(exp.created_at) : null;
+            if (lastUpdate && toDateStr(lastUpdate) === toDateStr(now)) continue;
+
+            // ★ CHECK NGHỈ PHÉP: Skip phạt chồng nếu NV đang nghỉ hôm nay
+            const todayStr5a = toDateStr(now);
+            const onLeaveToday5a = await isUserOnLeave(exp.user_id, todayStr5a);
+            if (onLeaveToday5a) continue;
+
+            // Stack penalty
+            const extraPenalty = exp.penalty_amount || 50000;
+            try {
+                await db.run(
+                    `UPDATE chain_task_completions SET penalty_amount = penalty_amount + $1, created_at = NOW()
+                     WHERE id = $2`,
+                    [extraPenalty, exp.id]
+                );
+            } catch(e) {
+                console.error(`  ❌ Error stacking chain penalty for id ${exp.id}:`, e.message);
+            }
+
+            // Lock account again
+            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
+
+            penaltyCount++;
+            console.log(`  🔄 [CV Chuỗi] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} (${exp.chain_name}) (thêm ${extraPenalty}đ)`);
+        }
+    }
+
+    // ========== 6. CHECK CẤP CỨU SẾP — QL KHÔNG XỬ LÝ ==========
+    // Deadline: 12h trưa ngày làm việc tiếp theo (skip CN + lễ)
+    // Phạt handler hiện tại (hoặc handover_to nếu đã bàn giao)
+    // Phạt chồng mỗi ngày nếu vẫn chưa xử lý
+    const pendingEmergencies = await db.all(
+        `SELECT e.id, e.customer_id, e.handler_id, e.handover_to, e.reason,
+                e.created_at, e.penalty_amount, e.penalty_applied, e.last_penalty_at,
+                c.customer_name, c.phone as customer_phone,
+                COALESCE(e.handover_to, e.handler_id) as current_handler_id
+         FROM emergencies e
+         LEFT JOIN customers c ON c.id = e.customer_id
+         WHERE e.status = 'pending'`
+    );
+
+    for (const em of pendingEmergencies) {
+        const handlerId = em.current_handler_id;
+        if (!handlerId) continue;
+
+        // Tính deadline: 12h trưa ngày làm việc tiếp theo sau khi tạo
+        const createdAt = new Date(em.created_at);
+        let deadlineDay = new Date(createdAt);
+        deadlineDay.setDate(deadlineDay.getDate() + 1);
+
+        // Skip CN + lễ (không skip nghỉ phép handler — deadline cố định)
+        let maxIter = 30;
+        while (maxIter-- > 0) {
+            const ds = toDateStr(deadlineDay);
+            const off = await isDayOff(ds);
+            if (!off) break;
+            deadlineDay.setDate(deadlineDay.getDate() + 1);
+        }
+        deadlineDay.setHours(12, 0, 0, 0); // 12h trưa
+
+        if (now < deadlineDay) continue; // Chưa hết hạn
+
+        // Skip nếu handler đang nghỉ phép hôm nay
+        const todayStr6 = toDateStr(now);
+        if (await isUserOnLeave(handlerId, todayStr6)) continue;
+
+        // Skip nếu đã phạt hôm nay rồi
+        if (em.last_penalty_at && toDateStr(new Date(em.last_penalty_at)) === todayStr6) continue;
+
+        // Lấy mức phạt từ config theo department của handler
+        const handlerUser = await db.get('SELECT department_id FROM users WHERE id = $1', [handlerId]);
+        let penaltyAmount = 50000;
+        if (handlerUser && handlerUser.department_id) {
+            const config = await db.get(
+                'SELECT emergency_penalty_amount FROM dept_penalty_config WHERE department_id = $1',
+                [handlerUser.department_id]
+            );
+            if (config && config.emergency_penalty_amount > 0) penaltyAmount = config.emergency_penalty_amount;
+        }
+
+        // Áp dụng phạt (lần đầu hoặc phạt chồng)
+        if (!em.penalty_applied) {
+            await db.run(
+                `UPDATE emergencies SET penalty_amount = $1, penalty_applied = true, last_penalty_at = NOW() WHERE id = $2`,
+                [penaltyAmount, em.id]
+            );
+            console.log(`  🚨 [Cấp cứu] Phạt QL id=${handlerId} — Không xử lý cấp cứu: ${em.customer_name || em.reason} (phạt ${penaltyAmount}đ)`);
+        } else {
+            await db.run(
+                `UPDATE emergencies SET penalty_amount = penalty_amount + $1, last_penalty_at = NOW() WHERE id = $2`,
+                [penaltyAmount, em.id]
+            );
+            console.log(`  🔄 [Cấp cứu] Phạt chồng QL id=${handlerId} — Vẫn chưa xử lý cấp cứu: ${em.customer_name || em.reason} (thêm ${penaltyAmount}đ)`);
+        }
+
+        // Khóa tài khoản handler
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [handlerId]);
+        lockedCount++;
+        penaltyCount++;
+    }
+
+    // ========== 7. AUTO-REVERT HỦY KHÁCH QUÁ 24H ==========
+    // Chuyển từ API thủ công sang cron tự động
+    try {
+        const expiredCancels = await db.all(
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id FROM customers
+             WHERE cancel_requested = 1 AND cancel_approved = 0
+             AND cancel_requested_at IS NOT NULL
+             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'`
+        );
+
+        if (expiredCancels.length > 0) {
+            // Tính ngày làm việc tiếp theo (skip CN + lễ + nghỉ phép NV)
+            for (const c of expiredCancels) {
+                let nextBizDay = new Date(now);
+                nextBizDay.setDate(nextBizDay.getDate() + 1);
+                let maxIter2 = 30;
+                while (maxIter2-- > 0) {
+                    const ds2 = toDateStr(nextBizDay);
+                    const off2 = await isDayOff(ds2);
+                    const nvLeave = c.assigned_to_id ? await isUserOnLeave(c.assigned_to_id, ds2) : false;
+                    if (!off2 && !nvLeave) break;
+                    nextBizDay.setDate(nextBizDay.getDate() + 1);
+                }
+                const nextBizDayStr = toDateStr(nextBizDay);
+
+                await db.run(
+                    `UPDATE customers SET cancel_approved = -2,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'dang_tu_van', appointment_date = $2,
+                     updated_at = NOW() WHERE id = $3`,
+                    ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDayStr, c.id]
+                );
+            }
+            console.log(`  ⏰ [Hủy khách] Auto-revert ${expiredCancels.length} yêu cầu quá 24h`);
+        }
+    } catch(e) {
+        console.error('  ❌ Error auto-reverting cancels:', e.message);
+    }
+
+    // ========== 8. PHẠT KH CHƯA XỬ LÝ HÔM NAY ==========
+    // Chỉ chạy sau 23:30 — check khách phải xử lý hôm nay mà không có consultation_logs
+    try {
+        const hour = now.getHours();
+        if (hour >= 23) {
+            const today = toDateStr(now);
+            const todayOff = await isDayOff(today);
+
+            if (!todayOff) {
+                console.log('  📋 [KH Chưa XL] Kiểm tra khách phải xử lý hôm nay...');
+
+                // Lấy tất cả khách có appointment_date = hôm nay, nhóm theo user + crm_type
+                const unhandledGroups = await db.all(
+                    `SELECT c.assigned_to_id as user_id, c.crm_type, 
+                            COUNT(*) as total_customers,
+                            COUNT(*) FILTER (WHERE NOT EXISTS (
+                                SELECT 1 FROM consultation_logs cl 
+                                WHERE cl.customer_id = c.id 
+                                AND cl.logged_by = c.assigned_to_id
+                                AND cl.created_at::date = $1::date
+                            )) as unhandled_count
+                     FROM customers c
+                     WHERE c.appointment_date = $1
+                     AND c.assigned_to_id IS NOT NULL
+                     AND c.cancel_approved != 1
+                     AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
+                     GROUP BY c.assigned_to_id, c.crm_type
+                     HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
+                         SELECT 1 FROM consultation_logs cl 
+                         WHERE cl.customer_id = c.id 
+                         AND cl.logged_by = c.assigned_to_id
+                         AND cl.created_at::date = $1::date
+                     )) > 0`,
+                    [today]
+                );
+
+                let custPenaltyCount = 0;
+                for (const group of unhandledGroups) {
+                    const userId = group.user_id;
+                    const crmType = group.crm_type;
+                    const unhandled = group.unhandled_count;
+
+                    // Skip nếu user đang nghỉ phép
+                    const onLeave = await isUserOnLeave(userId, today);
+                    if (onLeave) {
+                        console.log(`  ⏭️ [KH Chưa XL] Skip user=${userId} (đang nghỉ phép)`);
+                        continue;
+                    }
+
+                    // Lấy mức phạt từ dept_penalty_config
+                    const userDept = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+                    let penaltyAmt = 100000; // default
+                    if (userDept && userDept.department_id) {
+                        const dpc = await db.get(
+                            'SELECT customer_penalty_amount FROM dept_penalty_config WHERE department_id = $1',
+                            [userDept.department_id]
+                        );
+                        if (dpc && dpc.customer_penalty_amount) penaltyAmt = dpc.customer_penalty_amount;
+                    }
+
+                    // Insert penalty record (UNIQUE constraint tránh trùng)
+                    try {
+                        await db.run(
+                            `INSERT INTO customer_penalty_records (user_id, penalty_date, crm_type, unhandled_count, penalty_amount)
+                             VALUES ($1, $2, $3, $4, $5)
+                             ON CONFLICT (user_id, penalty_date, crm_type) DO NOTHING`,
+                            [userId, today, crmType, unhandled, penaltyAmt]
+                        );
+
+                        // Check nếu đã insert (không bị conflict)
+                        const inserted = await db.get(
+                            `SELECT id FROM customer_penalty_records 
+                             WHERE user_id = $1 AND penalty_date = $2 AND crm_type = $3 AND acknowledged = false`,
+                            [userId, today, crmType]
+                        );
+
+                        if (inserted) {
+                            // Khóa TK
+                            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [userId]);
+                            lockedCount++;
+                            penaltyCount++;
+                            custPenaltyCount++;
+                            console.log(`  ❌ [KH Chưa XL] Phạt user=${userId} — menu ${crmType} (${unhandled} KH chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
+                        }
+                    } catch (insertErr) {
+                        // Conflict = already penalized today for this menu
+                    }
+                }
+
+                if (custPenaltyCount > 0) {
+                    console.log(`  📋 [KH Chưa XL] Tổng: ${custPenaltyCount} vi phạm`);
+                } else if (unhandledGroups.length === 0) {
+                    console.log('  ✅ [KH Chưa XL] Không có vi phạm');
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ Error checking customer penalties:', e.message);
     }
 
     if (lockedCount > 0) {
