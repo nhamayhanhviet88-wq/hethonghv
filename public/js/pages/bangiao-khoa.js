@@ -1616,8 +1616,8 @@ async function _ctShowDeployModal(deptId) {
 
     try {
         _ctTemplates = await apiCall('/api/chain-tasks/templates');
-        const users = await apiCall(`/api/lock-tasks/dept-users/${deptId}`);
-        _ctRenderDeployForm(users);
+        const usersData = await apiCall(`/api/lock-tasks/dept-users/${deptId}`);
+        _ctRenderDeployForm(usersData.users || usersData || []);
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
     }
@@ -1685,9 +1685,14 @@ async function _ctOnTemplateSelect() {
         let html = `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <div style="background:#eff6ff;padding:8px 12px;font-size:11px;font-weight:700;color:#1e40af;">📋 Preview: ${tmpl.chain_name} (${tmpl.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'})</div>`;
         (tmpl.items || []).forEach((it, i) => {
-            const d = new Date(startDate);
-            d.setDate(d.getDate() + (it.relative_days || 0));
-            const deadlineStr = _ctFmtDate(d.toISOString().split('T')[0]);
+            let deadlineStr;
+            if (it.deadline) {
+                deadlineStr = _ctFmtDate(it.deadline);
+            } else {
+                const d = new Date(startDate);
+                d.setDate(d.getDate() + (it.relative_days || 0));
+                deadlineStr = _ctFmtDate(d.toISOString().split('T')[0]);
+            }
             html += `<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;display:flex;justify-content:space-between;">
                 <span><b>${it.item_order}.</b> ${it.task_name}</span>
                 <span style="color:#6b7280;">📅 ${deadlineStr} ${it.requires_report ? '📝' : '✅'} ${it.requires_approval ? '🔒' : ''}</span>
@@ -1782,19 +1787,19 @@ function _ctAddNewItem() {
             <input type="text" class="ct-item-name" placeholder="Tên task con" style="flex:1;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
             <button onclick="this.closest('[id^=ctItem_]').remove()" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#fecaca;color:#dc2626;cursor:pointer;">✕</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
             <div>
-                <label style="font-size:10px;color:#6b7280;">Ngày +N (từ ngày BĐ):</label>
-                <input type="number" class="ct-item-days" value="0" min="0" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
+                <label style="font-size:10px;color:#6b7280;">📅 Deadline:</label>
+                <input type="date" class="ct-item-deadline" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
             </div>
             <div>
                 <label style="font-size:10px;color:#6b7280;">SL tối thiểu:</label>
                 <input type="number" class="ct-item-qty" value="1" min="1" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
             </div>
-            <div style="display:flex;gap:8px;align-items:end;">
-                <label style="font-size:10px;color:#6b7280;"><input type="checkbox" class="ct-item-report" checked /> Cần BC</label>
-                <label style="font-size:10px;color:#6b7280;"><input type="checkbox" class="ct-item-approval" /> Cần duyệt</label>
-            </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+            <label style="font-size:10px;color:#6b7280;cursor:pointer;" title="Nhân viên phải nộp ảnh/file chứng minh khi hoàn thành"><input type="checkbox" class="ct-item-report" checked /> 📝 Cần nộp báo cáo</label>
+            <label style="font-size:10px;color:#6b7280;cursor:pointer;" title="Quản lý phải duyệt báo cáo trước khi task con được tính hoàn thành"><input type="checkbox" class="ct-item-approval" /> ✅ Cần QL duyệt</label>
         </div>`;
     container.appendChild(div);
 }
@@ -1813,7 +1818,8 @@ async function _ctSaveNewTemplate() {
         if (!name) return;
         items.push({
             task_name: name,
-            relative_days: parseInt(el.querySelector('.ct-item-days')?.value) || 0,
+            deadline: el.querySelector('.ct-item-deadline')?.value || new Date().toISOString().split('T')[0],
+            relative_days: 0,
             min_quantity: parseInt(el.querySelector('.ct-item-qty')?.value) || 1,
             requires_report: el.querySelector('.ct-item-report')?.checked !== false,
             requires_approval: el.querySelector('.ct-item-approval')?.checked || false

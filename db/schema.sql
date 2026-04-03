@@ -782,6 +782,7 @@ CREATE TABLE IF NOT EXISTS chain_task_template_items (
     requires_report BOOLEAN DEFAULT true,
     min_quantity INTEGER DEFAULT 1,
     relative_days INTEGER DEFAULT 0,
+    deadline DATE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

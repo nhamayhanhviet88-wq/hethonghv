@@ -64,12 +64,12 @@ async function chainTaskRoutes(fastify, options) {
                 `INSERT INTO chain_task_template_items 
                  (chain_template_id, item_order, task_name, task_content, guide_link, 
                   input_requirements, output_requirements, requires_approval, requires_report, 
-                  min_quantity, relative_days)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                  min_quantity, relative_days, deadline)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
                 [template.id, i + 1, item.task_name, item.task_content || '',
                  item.guide_link || '', item.input_requirements || '', item.output_requirements || '',
                  item.requires_approval || false, item.requires_report !== false,
-                 item.min_quantity || 1, item.relative_days || 0]
+                 item.min_quantity || 1, item.relative_days || 0, item.deadline || null]
             );
         }
 
@@ -99,12 +99,12 @@ async function chainTaskRoutes(fastify, options) {
                     `INSERT INTO chain_task_template_items 
                      (chain_template_id, item_order, task_name, task_content, guide_link,
                       input_requirements, output_requirements, requires_approval, requires_report,
-                      min_quantity, relative_days)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                      min_quantity, relative_days, deadline)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
                     [id, i + 1, item.task_name, item.task_content || '',
                      item.guide_link || '', item.input_requirements || '', item.output_requirements || '',
                      item.requires_approval || false, item.requires_report !== false,
-                     item.min_quantity || 1, item.relative_days || 0]
+                     item.min_quantity || 1, item.relative_days || 0, item.deadline || null]
                 );
             }
         }
@@ -181,6 +181,8 @@ async function chainTaskRoutes(fastify, options) {
             let deadline;
             if (override && override.deadline) {
                 deadline = override.deadline;
+            } else if (ti.deadline) {
+                deadline = ti.deadline;
             } else {
                 const d = new Date(startD);
                 d.setDate(d.getDate() + (ti.relative_days || 0));
