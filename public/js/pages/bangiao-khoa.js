@@ -1301,8 +1301,7 @@ function _ctShowChainInstancesModal(chainName) {
                 <tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
                     <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">📅 Thời gian</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Task con</th>
-                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt/con</th>
-                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt/con (HT)</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Mức phạt</th>
                     <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">👤 Nhân viên</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Tiến độ</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Trạng thái</th>
@@ -1326,7 +1325,6 @@ function _ctShowChainInstancesModal(chainName) {
         html += `<tr style="border-bottom:1px solid #f3f4f6;" onmouseover="this.style.background='#fafbfc'" onmouseout="this.style.background='white'">
             <td style="padding:8px 10px;white-space:nowrap;"><b>#${idx+1}</b> ${startStr} → ${endStr}</td>
             <td style="padding:8px 10px;text-align:center;font-weight:700;">${c.completed_items}/${c.total_items}</td>
-            <td style="padding:8px 10px;text-align:center;color:#dc2626;font-weight:600;">${penaltyItem}</td>
             <td style="padding:8px 10px;text-align:center;color:#9333ea;font-weight:600;font-size:10px;">⚙️ theo HT</td>
             <td style="padding:8px 10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${users}</td>
             <td style="padding:8px 10px;text-align:center;">
