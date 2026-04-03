@@ -434,7 +434,22 @@ async function _lkLoadUserTasks(userId, userName) {
             }
             groupMap.get(key).completions.push(c);
         });
-        const lockGroups = [...groupMap.values()].filter(g => g.completions.length > 0);
+        // Also add assigned tasks that have no completions yet
+        lock_tasks.forEach(t => {
+            if (!groupMap.has(t.task_name)) {
+                groupMap.set(t.task_name, {
+                    task_name: t.task_name,
+                    lock_task_id: t.id,
+                    guide_link: t.guide_link || '',
+                    input_requirements: t.input_requirements || '',
+                    output_requirements: t.output_requirements || '',
+                    requires_approval: t.requires_approval || false,
+                    min_quantity: t.min_quantity || 1,
+                    completions: []
+                });
+            }
+        });
+        const lockGroups = [...groupMap.values()];
         _lkLockGroups = lockGroups;
 
         // Stats
