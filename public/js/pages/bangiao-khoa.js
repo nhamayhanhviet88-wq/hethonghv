@@ -2116,7 +2116,21 @@ async function _ctPostponeTypeChange() {
     if (type === 'item') {
         try {
             const data = await apiCall(`/api/chain-tasks/instances/${_ctCurrentChainId}`);
-            const items = (data.items || []).filter(i => i.status !== 'completed');
+            const items = (data.items || []).filter(i => {
+                if (i.status === 'completed') return false;
+                // Also hide if all assigned users have enough approved completions
+                const completions = i.completions || [];
+                const assignedUsers = i.assigned_users || [];
+                if (assignedUsers.length > 0) {
+                    const minQty = i.min_quantity || 1;
+                    const allDone = assignedUsers.every(u => {
+                        const approved = completions.filter(c => c.user_id === u.user_id && c.status === 'approved').length;
+                        return approved >= minQty;
+                    });
+                    if (allDone) return false;
+                }
+                return true;
+            });
             let opts = items.map(i => `<option value="${i.id}" data-order="${i.item_order}" data-deadline="${i.deadline}">${i.item_order}. ${i.task_name} (${_ctFmtDate(i.deadline)})</option>`).join('');
             itemDiv.innerHTML = `<label style="font-size:12px;font-weight:600;color:#374151;">Chọn task con:</label>
                 <select id="ctPostponeItemId" onchange="_ctUpdateCascadePreview();_ctUpdateOldDeadline()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">${opts}</select>`;
