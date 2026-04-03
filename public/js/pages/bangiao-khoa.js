@@ -2163,7 +2163,10 @@ async function _ctOnTemplateSelect() {
         const tmpl = await apiCall(`/api/chain-tasks/templates/${tmplId}`);
         const startDate = document.getElementById('ctDeployStartDate')?.value || new Date().toISOString().split('T')[0];
         let html = `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-            <div style="background:#eff6ff;padding:8px 12px;font-size:11px;font-weight:700;color:#1e40af;">📋 Preview: ${tmpl.chain_name} (${tmpl.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'})</div>`;
+            <div style="background:#eff6ff;padding:8px 12px;font-size:11px;font-weight:700;color:#1e40af;display:flex;justify-content:space-between;align-items:center;">
+                <span>📋 Preview: ${tmpl.chain_name} (${tmpl.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'})</span>
+                ${currentUser.role === 'giam_doc' ? `<button onclick="_ctEditTemplate(${tmplId})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa mẫu</button>` : ''}
+            </div>`;
         (tmpl.items || []).forEach((it, i) => {
             let deadlineStr;
             if (it.deadline) {
