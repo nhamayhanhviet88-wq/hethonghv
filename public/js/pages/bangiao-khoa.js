@@ -2076,6 +2076,7 @@ async function _ctDoPostpone() {
 
 // ========== DEPLOY MODAL (Thêm CV Chuỗi) ==========
 let _ctDeployDeptId = null;
+let _ctDeployDeptName = '';
 let _ctTemplates = [];
 let _ctSelectedTemplateId = null;
 let _ctTemplateEdited = false;
@@ -2099,6 +2100,9 @@ async function _ctShowDeployModal(deptId) {
     try {
         _ctTemplates = await apiCall('/api/chain-tasks/templates');
         const usersData = await apiCall(`/api/lock-tasks/dept-users/${deptId}`);
+        // Get dept name from sidebar
+        const deptEl = document.querySelector(`[data-dept-id="${deptId}"] .dept-name, [onclick*="_lkLoadDeptTasks(${deptId})"]`);
+        _ctDeployDeptName = deptEl?.textContent?.trim() || `Phòng #${deptId}`;
         _ctRenderDeployForm(usersData.users || usersData || []);
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
@@ -2121,6 +2125,7 @@ function _ctRenderDeployForm(users) {
     ).join(' ');
 
     body.innerHTML = `<div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;padding:8px 14px;background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:8px;color:white;font-weight:700;font-size:14px;">🏢 ${_ctDeployDeptName}</div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Chọn mẫu chuỗi từ kho:</label>
             <select id="ctDeployTemplate" onchange="_ctOnTemplateSelect()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">
