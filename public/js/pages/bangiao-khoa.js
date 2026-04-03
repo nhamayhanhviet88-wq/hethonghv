@@ -1558,21 +1558,35 @@ function _ctShowReportHistory(itemId) {
             const borderColor = comp.status === 'approved' ? '#a7f3d0' : comp.status === 'rejected' ? '#fecaca' : '#fde68a';
             const bgColor = comp.status === 'approved' ? '#f0fdf4' : comp.status === 'rejected' ? '#fef2f2' : '#fffbeb';
 
-            html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:12px 16px;margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            // Detect if proof_url is an image
+            const isImage = comp.proof_url && comp.proof_url.match(/\.(jpg|jpeg|png|gif|webp)/i);
+            // Detect links in content
+            const contentHtml = comp.content ? comp.content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;">$1</a>') : '';
+
+            html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:10px;padding:14px 18px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span style="font-weight:700;color:#1e293b;font-size:12px;">📝 Lần ${idx + 1}</span>
-                        <span style="font-size:10px;color:#6b7280;">👤 ${comp.reporter_name || '—'}</span>
+                        <span style="font-weight:700;color:#1e293b;font-size:13px;">📝 Lần ${idx + 1}</span>
+                        <span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">👤 ${comp.reporter_name || '—'}</span>
                         <span style="font-size:10px;color:#6b7280;">🕐 ${date}</span>
                     </div>
                     ${statusBadge}
                 </div>
-                <div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">📊 SL:</span> <span style="color:#1e293b;font-weight:700;">${comp.quantity_done || '—'}</span></div>
-                ${comp.content ? `<div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">📄 Nội dung:</span> <span style="color:#374151;">${comp.content}</span></div>` : ''}
-                ${comp.proof_url ? `<div style="font-size:11px;margin-bottom:4px;"><span style="color:#6b7280;font-weight:600;">🔗 Link:</span> <a href="${comp.proof_url}" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;">${comp.proof_url.length > 60 ? comp.proof_url.substring(0,60)+'...' : comp.proof_url}</a></div>` : ''}
-                ${comp.proof_url && comp.proof_url.match(/\.(jpg|jpeg|png|gif|webp)/i) ? `<div style="margin-top:6px;"><img src="${comp.proof_url}" style="max-height:120px;border-radius:6px;border:1px solid #d1d5db;" /></div>` : ''}
-                ${comp.reject_reason ? `<div style="margin-top:6px;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:4px 8px;font-size:10px;"><span style="color:#dc2626;font-weight:700;">❌ Lý do từ chối:</span> <span style="color:#991b1b;">${comp.reject_reason}</span></div>` : ''}
-                ${comp.reviewer_name ? `<div style="margin-top:4px;font-size:10px;color:#6b7280;">👤 Duyệt bởi: ${comp.reviewer_name}</div>` : ''}
+                <div style="font-size:12px;margin-bottom:6px;"><span style="color:#6b7280;font-weight:600;">📊 Số lượng:</span> <span style="color:#1e293b;font-weight:700;font-size:13px;">${comp.quantity_done || '—'}</span></div>
+                ${contentHtml ? `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:600;margin-bottom:4px;">📄 NỘI DUNG:</div>
+                    <div style="font-size:13px;color:#1e293b;font-weight:500;line-height:1.5;white-space:pre-wrap;">${contentHtml}</div>
+                </div>` : ''}
+                ${comp.proof_url && !isImage ? `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:600;margin-bottom:4px;">🔗 LINK ĐÍNH KÈM:</div>
+                    <a href="${comp.proof_url}" target="_blank" style="color:#2563eb;font-size:13px;font-weight:600;text-decoration:underline;word-break:break-all;">${comp.proof_url}</a>
+                </div>` : ''}
+                ${isImage ? `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;text-align:center;">
+                    <div style="font-size:10px;color:#6b7280;font-weight:600;margin-bottom:6px;">📷 ẢNH ĐÍNH KÈM:</div>
+                    <a href="${comp.proof_url}" target="_blank"><img src="${comp.proof_url}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #d1d5db;cursor:pointer;" /></a>
+                </div>` : ''}
+                ${comp.reject_reason ? `<div style="margin-top:6px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:6px 10px;font-size:11px;"><span style="color:#dc2626;font-weight:700;">❌ Lý do từ chối:</span> <span style="color:#991b1b;">${comp.reject_reason}</span></div>` : ''}
+                ${comp.reviewer_name ? `<div style="margin-top:4px;font-size:10px;color:#6b7280;">👤 Duyệt bởi: <b>${comp.reviewer_name}</b></div>` : ''}
             </div>`;
         });
     }
