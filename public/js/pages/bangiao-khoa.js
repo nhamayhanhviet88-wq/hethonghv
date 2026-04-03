@@ -1275,6 +1275,7 @@ async function _ctShowDetailModal(instanceId) {
 
     try {
         const data = await apiCall(`/api/chain-tasks/instances/${instanceId}`);
+        window._ctCurrentChainData = data;
         _ctRenderDetailContent(data);
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ Lỗi: ${e.message}</div>`;
@@ -1407,41 +1408,197 @@ function _ctGetActionBtn(item, chain, isManager) {
     return '<span style="color:#d1d5db;">—</span>';
 }
 
-// Submit report for chain item
+// Submit report for chain item — full modal form
+let _ctReportImageFile = null;
 function _ctSubmitReport(itemId) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,.pdf,.doc,.docx';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const content = prompt('Nội dung báo cáo (không bắt buộc):') || '';
-        const qtyDone = prompt('Số lượng hoàn thành:', '1') || '1';
+    // Find item data from current chain detail
+    const chainData = window._ctCurrentChainData;
+    const item = chainData ? (chainData.items || []).find(i => i.id === itemId) : null;
+    const taskName = item ? item.task_name : 'CV Chuỗi';
+    const minQty = item ? (item.min_quantity || 1) : 1;
+    const guideLink = item ? (item.guide_link || '') : '';
+    const inputReq = item ? (item.input_requirements || '') : '';
+    const outputReq = item ? (item.output_requirements || '') : '';
+    const deadlineStr = item && item.deadline ? new Date(item.deadline).toLocaleDateString('vi-VN') : '';
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('content', content);
-        formData.append('quantity_done', qtyDone);
+    _ctReportImageFile = null;
 
-        try {
-            const token = document.cookie.split('token=')[1]?.split(';')[0];
-            const res = await fetch(`/api/chain-tasks/items/${itemId}/report`, {
-                method: 'POST',
-                headers: { 'Cookie': `token=${token}` },
-                body: formData
-            });
-            const data = await res.json();
-            if (data.success) {
-                showToast('✅ Đã nộp báo cáo!');
-                _ctShowDetailModal(_ctCurrentChainId);
-            } else {
-                alert(data.error || 'Lỗi');
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+
+    titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:3px 10px;border-radius:6px;font-size:12px;">📝</span> Báo cáo công việc`;
+
+    let html = `<div style="padding:16px 20px;font-size:12px;">
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:#d97706;">⚠️ Không làm sẽ bị phạt và khóa tài khoản</div>
+        </div>
+
+        <!-- Task info cards -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;">
+                <div style="font-size:9px;color:#6b7280;">📋 TÊN CÔNG VIỆC</div>
+                <div style="font-weight:700;color:#1e293b;font-size:12px;">${taskName}</div>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;">
+                <div style="font-size:9px;color:#6b7280;">📅 DEADLINE</div>
+                <div style="font-weight:700;color:#1e293b;font-size:12px;">${deadlineStr}</div>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 12px;">
+                <div style="font-size:9px;color:#6b7280;">📊 SL TỐI THIỂU</div>
+                <div style="font-weight:700;color:#1e293b;font-size:12px;">${minQty} lần</div>
+            </div>
+        </div>`;
+
+    // Guide link
+    if (guideLink) {
+        html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+                <div style="font-size:10px;color:#2563eb;font-weight:700;">📘 Hướng dẫn công việc</div>
+                <a href="${guideLink}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:underline;word-break:break-all;">${guideLink.length > 60 ? guideLink.substring(0,60)+'...' : guideLink}</a>
+            </div>
+            <a href="${guideLink}" target="_blank" style="font-size:14px;text-decoration:none;">→</a>
+        </div>`;
+    }
+
+    // Input/Output requirements
+    if (inputReq) {
+        html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
+            <div style="font-size:10px;font-weight:700;color:#991b1b;">📋 Yêu cầu đầu vào</div>
+            <div style="font-size:11px;color:#dc2626;margin-top:2px;">${inputReq}</div>
+        </div>`;
+    }
+    if (outputReq) {
+        html += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+            <div style="font-size:10px;font-weight:700;color:#991b1b;">📋 Yêu cầu đầu ra</div>
+            <div style="font-size:11px;color:#dc2626;margin-top:2px;">${outputReq}</div>
+        </div>`;
+    }
+
+    // Form fields
+    html += `<hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0;">
+
+        <div style="margin-bottom:10px;">
+            <label style="font-weight:700;color:#374151;">📊 Số lượng đã hoàn thành <span style="color:#dc2626;">*</span></label>
+            <input type="number" id="ctReportQty" value="${minQty}" min="1" required style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <label style="font-weight:700;color:#374151;">📄 Nội dung hoàn thành <span style="color:#dc2626;">*</span></label>
+            <textarea id="ctReportContent" rows="3" required placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;"></textarea>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <label style="font-weight:700;color:#374151;">🔗 Link báo cáo kết quả <span style="color:#dc2626;" id="ctReportLinkStar">*</span></label>
+            <input type="url" id="ctReportLink" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" oninput="_ctReportCheckRequired()" />
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <label style="font-weight:700;color:#374151;">🖼️ Hình ảnh báo cáo <span style="color:#dc2626;" id="ctReportImgStar">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
+            <div id="ctReportPasteArea" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;margin-top:4px;cursor:pointer;background:#fafbfc;min-height:60px;outline:none;transition:border-color 0.2s;" 
+                 onclick="document.getElementById('ctReportFileInput').click()"
+                 onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#d1d5db'">
+                <div style="color:#9ca3af;font-size:11px;">📷<br>Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
+            </div>
+            <input type="file" id="ctReportFileInput" accept="image/*" style="display:none;" onchange="_ctReportFileSelected(this)" />
+            <div id="ctReportImgPreview" style="margin-top:6px;"></div>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;font-size:10px;color:#d97706;">
+            💡 Lưu ý: Bắt buộc phải có ít nhất <b>link</b> hoặc <b>hình ảnh</b> để nộp báo cáo.
+        </div>
+    </div>`;
+
+    body.innerHTML = html;
+
+    // Paste event listener
+    const pasteArea = document.getElementById('ctReportPasteArea');
+    pasteArea.addEventListener('paste', (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                _ctReportImageFile = items[i].getAsFile();
+                _ctReportShowPreview(_ctReportImageFile);
+                _ctReportCheckRequired();
+                break;
             }
-        } catch(err) {
-            alert('Lỗi: ' + err.message);
         }
+    });
+
+    footer.innerHTML = `
+        <button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:8px 20px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;font-weight:600;cursor:pointer;">Hủy</button>
+        <button onclick="_ctDoSubmitReport(${itemId})" style="padding:8px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(220,38,38,0.3);">📝 Nộp báo cáo</button>
+    `;
+}
+
+function _ctReportFileSelected(input) {
+    if (input.files && input.files[0]) {
+        _ctReportImageFile = input.files[0];
+        _ctReportShowPreview(_ctReportImageFile);
+        _ctReportCheckRequired();
+    }
+}
+
+function _ctReportShowPreview(file) {
+    const preview = document.getElementById('ctReportImgPreview');
+    if (!preview) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        preview.innerHTML = `<div style="position:relative;display:inline-block;">
+            <img src="${e.target.result}" style="max-height:120px;border-radius:6px;border:1px solid #d1d5db;" />
+            <button onclick="event.stopPropagation();_ctReportImageFile=null;this.parentElement.remove();_ctReportCheckRequired()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:none;background:#dc2626;color:white;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>`;
     };
-    input.click();
+    reader.readAsDataURL(file);
+    // Update paste area text
+    const pasteArea = document.getElementById('ctReportPasteArea');
+    if (pasteArea) pasteArea.innerHTML = `<div style="color:#059669;font-size:11px;">✅ Đã chọn ảnh: ${file.name}</div>`;
+}
+
+function _ctReportCheckRequired() {
+    const link = document.getElementById('ctReportLink')?.value?.trim();
+    const hasImage = !!_ctReportImageFile;
+    const linkStar = document.getElementById('ctReportLinkStar');
+    const imgStar = document.getElementById('ctReportImgStar');
+    if (linkStar) linkStar.style.display = hasImage ? 'none' : '';
+    if (imgStar) imgStar.style.display = link ? 'none' : '';
+}
+
+async function _ctDoSubmitReport(itemId) {
+    const qty = parseInt(document.getElementById('ctReportQty')?.value);
+    const content = document.getElementById('ctReportContent')?.value?.trim();
+    const link = document.getElementById('ctReportLink')?.value?.trim();
+    const hasImage = !!_ctReportImageFile;
+
+    if (!qty || qty < 1) { alert('⚠️ Vui lòng nhập số lượng hoàn thành'); return; }
+    if (!content) { alert('⚠️ Vui lòng nhập nội dung hoàn thành'); return; }
+    if (!link && !hasImage) { alert('⚠️ Cần ít nhất link báo cáo hoặc hình ảnh'); return; }
+
+    const formData = new FormData();
+    formData.append('content', content);
+    formData.append('quantity_done', qty.toString());
+    if (link) formData.append('proof_url', link);
+    if (hasImage) formData.append('file', _ctReportImageFile);
+
+    try {
+        const token = document.cookie.split('token=')[1]?.split(';')[0];
+        const res = await fetch(`/api/chain-tasks/items/${itemId}/report`, {
+            method: 'POST',
+            headers: { 'Cookie': `token=${token}` },
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✅ Đã nộp báo cáo!');
+            _ctShowDetailModal(_ctCurrentChainId);
+        } else {
+            alert(data.error || 'Lỗi');
+        }
+    } catch(err) {
+        alert('Lỗi: ' + err.message);
+    }
 }
 
 // Mark done (no report required)
