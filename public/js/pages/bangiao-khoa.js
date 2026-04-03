@@ -2471,16 +2471,20 @@ function _ctEditTemplateItemRow(item, idx, mode) {
 
     if (isDeploy) {
         // Deploy mode: show name as read-only, only deadline editable
-        return `<div class="ct-edit-item" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#fafbfc;">
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;align-items:center;">
+        return `<div class="ct-edit-item" style="border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;background:#fafbfc;">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;align-items:start;">
                 <div>
-                    <span style="font-weight:700;font-size:12px;color:#1e293b;">${item?.task_name || ''}</span>
-                    ${item?.guide_link ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;">🔗 ${item.guide_link.length > 40 ? item.guide_link.substring(0,40)+'...' : item.guide_link}</div>` : ''}
-                    <div style="font-size:10px;color:#9ca3af;margin-top:2px;">SL: ${item?.min_quantity || 1} • Nộp lại: ${item?.max_redo_count || 3} lần ${item?.requires_approval ? '• 🔒 QL duyệt' : ''}</div>
+                    <div style="font-weight:700;font-size:14px;color:#1e293b;margin-bottom:6px;">📋 ${item?.task_name || ''}</div>
+                    ${item?.guide_link ? `<a href="${item.guide_link}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#2563eb;font-size:12px;font-weight:600;text-decoration:none;margin-bottom:6px;word-break:break-all;">🔗 ${item.guide_link}</a>` : '<div style="padding:4px 10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:11px;font-weight:600;margin-bottom:6px;">⚠️ Chưa có link hướng dẫn</div>'}
+                    <div style="display:flex;gap:12px;font-size:12px;color:#374151;margin-top:4px;">
+                        <span style="background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 8px;border-radius:4px;">📦 SL: <b>${item?.min_quantity || 1}</b></span>
+                        <span style="background:#fefce8;border:1px solid #fde68a;padding:2px 8px;border-radius:4px;">🔄 Nộp lại: <b>${item?.max_redo_count || 3}</b> lần</span>
+                        ${item?.requires_approval ? '<span style="background:#fef3c7;border:1px solid #fcd34d;padding:2px 8px;border-radius:4px;">🔒 <b>QL duyệt</b></span>' : ''}
+                    </div>
                 </div>
                 <div>
-                    <label style="font-size:10px;color:#6b7280;">📅 Deadline <span style="color:#dc2626;">*</span></label>
-                    <input type="date" class="ct-edit-item-deadline" value="${item?.deadline?.split('T')[0] || ''}" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                    <label style="font-size:11px;font-weight:700;color:#374151;">📅 Deadline <span style="color:#dc2626;">*</span></label>
+                    <input type="date" class="ct-edit-item-deadline" value="${item?.deadline?.split('T')[0] || ''}" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;margin-top:4px;" />
                 </div>
             </div>
             <input type="hidden" class="ct-edit-item-name" value="${item?.task_name || ''}" />
