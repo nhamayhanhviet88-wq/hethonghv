@@ -613,7 +613,7 @@ async function chainTaskRoutes(fastify, options) {
             SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
                    cc.status, cc.created_at, cc.redo_count,
                    ci.task_name, ci.deadline, ci.min_quantity,
-                   cti.name as chain_name,
+                   cti.chain_name as chain_name,
                    u.full_name as user_name, u.username
             FROM chain_task_completions cc
             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
