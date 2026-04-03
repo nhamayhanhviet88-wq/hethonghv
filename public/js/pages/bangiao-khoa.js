@@ -1225,6 +1225,46 @@ document.addEventListener('click', (e) => {
 // Render chain rows for dept view
 function _ctRenderChainRows(chains) {
     if (!chains || chains.length === 0) return '';
+    // Store for popup
+    window._ctChainsList = chains;
+
+    // Group to count unique chains
+    const grouped = {};
+    chains.forEach(c => {
+        const key = c.chain_name || 'Không tên';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(c);
+    });
+    const uniqueCount = Object.keys(grouped).length;
+    const totalInstances = chains.length;
+    const totalDone = chains.filter(c => c.status === 'completed').length;
+
+    return `<div style="margin-top:8px;">
+        <div onclick="_ctShowChainOverviewModal()" style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:opacity 0.15s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            <span>🔗 CÔNG VIỆC CHUỖI</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:12px;font-size:10px;">${uniqueCount} chuỗi • ${totalInstances} lần triển khai</span>
+                <span style="font-size:10px;opacity:0.8;">${totalDone}/${totalInstances} hoàn thành</span>
+                <span style="font-size:14px;">▶</span>
+            </div>
+        </div>
+    </div>`;
+}
+
+function _ctShowChainOverviewModal() {
+    const chains = window._ctChainsList || [];
+    if (chains.length === 0) return;
+
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (!overlay || !titleEl || !body) return;
+
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) modalContainer.style.maxWidth = '950px';
+
+    titleEl.innerHTML = '🔗 Tổng quan Công Việc Chuỗi';
 
     // Group by chain_name
     const grouped = {};
@@ -1234,9 +1274,7 @@ function _ctRenderChainRows(chains) {
         grouped[key].push(c);
     });
 
-    let html = `<div style="margin-top:8px;">
-        <div style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔗 CÔNG VIỆC CHUỖI</div>
-        <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">`;
+    let html = '<div style="padding:12px 16px;">';
 
     Object.keys(grouped).forEach(chainName => {
         const instances = grouped[chainName];
@@ -1247,38 +1285,38 @@ function _ctRenderChainRows(chains) {
         const statusColor = allDone ? '#059669' : '#2563eb';
         const deployCount = instances.length;
         const modeLabel = instances[0].execution_mode === 'sequential' ? 'Tuần tự' : 'Song song';
-        const groupId = 'ctGroup_' + instances[0].id;
+        const groupId = 'ctOvGroup_' + instances[0].id;
 
-        // Main row
-        html += `<div onclick="document.getElementById('${groupId}').style.display = document.getElementById('${groupId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.ct-arrow').textContent = document.getElementById('${groupId}').style.display === 'none' ? '▶' : '▼'" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='white'">
-            <div style="flex:1;display:flex;align-items:center;gap:10px;">
-                <span class="ct-arrow" style="font-size:10px;color:#9ca3af;width:14px;">▶</span>
+        // Group header
+        html += `<div onclick="const el=document.getElementById('${groupId}');el.style.display=el.style.display==='none'?'block':'none';this.querySelector('.ct-ov-arrow').textContent=el.style.display==='none'?'▶':'▼'" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:2px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e5e7eb'">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="ct-ov-arrow" style="font-size:11px;color:#6b7280;width:14px;">▶</span>
                 <div>
                     <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${chainName}</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:2px;">📋 ${modeLabel} • ${instances[0].total_items || 0} task con</div>
+                    <div style="font-size:10px;color:#6b7280;margin-top:2px;">📋 ${modeLabel} • ${instances[0].total_items || 0} task con</div>
                 </div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-                <span style="padding:2px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:10px;font-weight:700;color:#2563eb;">${deployCount} lần triển khai</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="padding:2px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:10px;font-weight:700;color:#2563eb;">${deployCount} lần</span>
                 <div style="width:60px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
-                    <div style="width:${pctAll}%;height:100%;background:${statusColor};border-radius:3px;transition:width 0.3s;"></div>
+                    <div style="width:${pctAll}%;height:100%;background:${statusColor};border-radius:3px;"></div>
                 </div>
-                <span style="font-size:11px;font-weight:600;color:${statusColor};white-space:nowrap;">${allDone ? '✅' : `${doneAll}/${totalAll}`}</span>
+                <span style="font-size:11px;font-weight:600;color:${statusColor};">${allDone ? '✅' : doneAll+'/'+totalAll}</span>
             </div>
         </div>`;
 
-        // Expanded detail table (hidden by default)
-        html += `<div id="${groupId}" style="display:none;background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+        // Instance table
+        html += `<div id="${groupId}" style="display:none;margin:0 0 8px 0;border:1px solid #e5e7eb;border-radius:0 0 8px 8px;overflow:hidden;">
             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                 <thead>
                     <tr style="background:#eef2ff;">
-                        <th style="padding:6px 10px;text-align:left;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Thời gian</th>
-                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Task con</th>
-                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Phạt/con</th>
-                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Phạt chuỗi</th>
-                        <th style="padding:6px 10px;text-align:left;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Nhân viên</th>
-                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;">Tiến độ</th>
-                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;border-bottom:1px solid #e5e7eb;"></th>
+                        <th style="padding:6px 10px;text-align:left;color:#4b5563;font-weight:700;">📅 Thời gian</th>
+                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;">Task con</th>
+                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;">Phạt/con</th>
+                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;">Phạt chuỗi</th>
+                        <th style="padding:6px 10px;text-align:left;color:#4b5563;font-weight:700;">👤 Nhân viên</th>
+                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;">Tiến độ</th>
+                        <th style="padding:6px 10px;text-align:center;color:#4b5563;font-weight:700;"></th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1292,12 +1330,12 @@ function _ctRenderChainRows(chains) {
             const penaltyChain = c.chain_penalty_amount ? Number(c.chain_penalty_amount).toLocaleString('vi-VN') + 'đ' : '—';
             const users = c.assigned_users_str || '—';
 
-            html += `<tr style="border-bottom:1px solid #f3f4f6;" onmouseover="this.style.background='#fff'" onmouseout="this.style.background='transparent'">
-                <td style="padding:8px 10px;white-space:nowrap;">📅 ${startStr} → ${endStr}</td>
+            html += `<tr style="border-bottom:1px solid #f3f4f6;" onmouseover="this.style.background='#fafbfc'" onmouseout="this.style.background='white'">
+                <td style="padding:8px 10px;white-space:nowrap;">${startStr} → ${endStr}</td>
                 <td style="padding:8px 10px;text-align:center;font-weight:700;">${c.completed_items}/${c.total_items}</td>
                 <td style="padding:8px 10px;text-align:center;color:#dc2626;font-weight:600;">${penaltyItem}</td>
                 <td style="padding:8px 10px;text-align:center;color:#dc2626;font-weight:600;">${penaltyChain}</td>
-                <td style="padding:8px 10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;">👤 ${users}</td>
+                <td style="padding:8px 10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${users}</td>
                 <td style="padding:8px 10px;text-align:center;">
                     <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
                         <div style="width:50px;height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
@@ -1307,7 +1345,7 @@ function _ctRenderChainRows(chains) {
                     </div>
                 </td>
                 <td style="padding:8px 10px;text-align:center;">
-                    <button onclick="event.stopPropagation();_ctShowDetailModal(${c.id})" style="padding:3px 10px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📊 Xem</button>
+                    <button onclick="_ctShowDetailModal(${c.id})" style="padding:3px 10px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📊 Xem</button>
                 </td>
             </tr>`;
         });
@@ -1315,8 +1353,10 @@ function _ctRenderChainRows(chains) {
         html += `</tbody></table></div>`;
     });
 
-    html += `</div></div>`;
-    return html;
+    html += '</div>';
+    body.innerHTML = html;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    overlay.classList.add('show');
 }
 
 // ========== CHAIN DETAIL MODAL ==========
