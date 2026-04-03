@@ -1349,12 +1349,12 @@ function _ctRenderDetailContent(data) {
             actionHtml = _ctGetActionBtn(item, data, isManager);
         } else {
             const pendingComps = completions.filter(c => c.status === 'pending');
-            const approvedComps = completions.filter(c => c.status === 'approved');
+            const approvedUserIds = [...new Set(completions.filter(c => c.status === 'approved').map(c => c.user_id))];
             const totalAssigned = users.length || 1;
-            if (approvedComps.length >= totalAssigned) {
+            if (approvedUserIds.length >= totalAssigned) {
                 statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Đã duyệt hết</span>';
-            } else if (approvedComps.length > 0) {
-                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedComps.length}/${totalAssigned}</span>`;
+            } else if (approvedUserIds.length > 0) {
+                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedUserIds.length}/${totalAssigned}</span>`;
             } else if (pendingComps.length > 0) {
                 statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
             } else {

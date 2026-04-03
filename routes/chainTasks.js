@@ -367,7 +367,7 @@ async function chainTaskRoutes(fastify, options) {
             const parts = request.parts();
             for await (const part of parts) {
                 if (part.file) {
-                    const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'chain-tasks');
+                    const uploadDir = path.join(__dirname, '..', 'uploads', 'chain-tasks');
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                     const filename = `${Date.now()}_${part.filename}`;
                     const filepath = path.join(uploadDir, filename);
