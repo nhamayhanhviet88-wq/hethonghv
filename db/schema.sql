@@ -754,3 +754,111 @@ ALTER TABLE task_point_templates ADD COLUMN IF NOT EXISTS output_requirements TE
 -- ========== CV KHÓA: Quantity tracking ==========
 ALTER TABLE lock_tasks ADD COLUMN IF NOT EXISTS min_quantity INTEGER DEFAULT 1;
 ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS quantity_done INTEGER DEFAULT 0;
+
+-- ========== CÔNG VIỆC CHUỖI (Chain Tasks) ==========
+
+-- 1. Kho mẫu chuỗi (Giám đốc tạo, toàn hệ thống dùng)
+CREATE TABLE IF NOT EXISTS chain_task_templates (
+    id SERIAL PRIMARY KEY,
+    chain_name TEXT NOT NULL,
+    description TEXT,
+    execution_mode TEXT DEFAULT 'sequential' CHECK (execution_mode IN ('sequential','parallel')),
+    created_by INTEGER REFERENCES users(id),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 2. Task con mẫu trong kho
+CREATE TABLE IF NOT EXISTS chain_task_template_items (
+    id SERIAL PRIMARY KEY,
+    chain_template_id INTEGER NOT NULL REFERENCES chain_task_templates(id) ON DELETE CASCADE,
+    item_order INTEGER NOT NULL,
+    task_name TEXT NOT NULL,
+    task_content TEXT,
+    guide_link TEXT,
+    input_requirements TEXT,
+    output_requirements TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    requires_report BOOLEAN DEFAULT true,
+    min_quantity INTEGER DEFAULT 1,
+    relative_days INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 3. Instance: khi triển khai chuỗi cho phòng ban
+CREATE TABLE IF NOT EXISTS chain_task_instances (
+    id SERIAL PRIMARY KEY,
+    chain_template_id INTEGER REFERENCES chain_task_templates(id),
+    chain_name TEXT NOT NULL,
+    execution_mode TEXT DEFAULT 'sequential',
+    department_id INTEGER REFERENCES departments(id),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    status TEXT DEFAULT 'in_progress' CHECK (status IN ('in_progress','completed','cancelled')),
+    penalty_amount INTEGER DEFAULT 50000,
+    chain_penalty_amount INTEGER DEFAULT 100000,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 4. Task con thực tế (đã triển khai)
+CREATE TABLE IF NOT EXISTS chain_task_instance_items (
+    id SERIAL PRIMARY KEY,
+    chain_instance_id INTEGER NOT NULL REFERENCES chain_task_instances(id) ON DELETE CASCADE,
+    template_item_id INTEGER REFERENCES chain_task_template_items(id),
+    item_order INTEGER NOT NULL,
+    task_name TEXT NOT NULL,
+    task_content TEXT,
+    guide_link TEXT,
+    input_requirements TEXT,
+    output_requirements TEXT,
+    requires_approval BOOLEAN DEFAULT false,
+    requires_report BOOLEAN DEFAULT true,
+    min_quantity INTEGER DEFAULT 1,
+    deadline DATE NOT NULL,
+    deadline_time TIME,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending','in_progress','completed','overdue')),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 5. Gán người cho task con
+CREATE TABLE IF NOT EXISTS chain_task_assignments (
+    id SERIAL PRIMARY KEY,
+    chain_item_id INTEGER NOT NULL REFERENCES chain_task_instance_items(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    assigned_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(chain_item_id, user_id)
+);
+
+-- 6. Báo cáo / hoàn thành task con
+CREATE TABLE IF NOT EXISTS chain_task_completions (
+    id SERIAL PRIMARY KEY,
+    chain_item_id INTEGER NOT NULL REFERENCES chain_task_instance_items(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    proof_url TEXT,
+    content TEXT,
+    quantity_done INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired')),
+    reviewed_by INTEGER REFERENCES users(id),
+    reviewed_at TIMESTAMP,
+    reject_reason TEXT,
+    redo_count INTEGER DEFAULT 0,
+    penalty_amount INTEGER DEFAULT 0,
+    penalty_applied BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 7. Lịch sử lùi lịch
+CREATE TABLE IF NOT EXISTS chain_task_postponements (
+    id SERIAL PRIMARY KEY,
+    chain_instance_id INTEGER REFERENCES chain_task_instances(id),
+    chain_item_id INTEGER REFERENCES chain_task_instance_items(id),
+    old_deadline DATE NOT NULL,
+    new_deadline DATE NOT NULL,
+    reason TEXT,
+    cascade_applied BOOLEAN DEFAULT false,
+    postponed_by INTEGER REFERENCES users(id),
+    postponed_for INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);

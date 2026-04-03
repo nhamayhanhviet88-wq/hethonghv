@@ -182,7 +182,18 @@ async function lockTaskRoutes(fastify, options) {
 
         tasks.forEach(t => { t.assigned_users = userMap[t.id] || []; });
 
-        return { tasks };
+        // Also fetch chain task instances for this dept
+        const chain_instances = await db.all(`
+            SELECT ci.*, u.full_name as creator_name,
+                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
+                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items
+            FROM chain_task_instances ci
+            LEFT JOIN users u ON u.id = ci.created_by
+            WHERE ci.department_id = $1 AND ci.status != 'cancelled'
+            ORDER BY ci.created_at DESC
+        `, [deptId]);
+
+        return { tasks, chain_instances };
     });
 
     // POST: Tạo CV khóa mới

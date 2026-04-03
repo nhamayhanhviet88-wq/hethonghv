@@ -296,10 +296,16 @@ async function _lkLoadDeptTasks(deptId) {
                 <h3 style="margin:0;font-size:18px;color:#122546;font-weight:800;">🏢 ${deptName}</h3>
                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">${tasks.length} công việc khóa</div>
             </div>
-            ${canAddTask ? `<button onclick="_lkShowCreateModal(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa</button>` : ''}
+            ${canAddTask ? `<div style="position:relative;display:inline-block;" id="lkAddDropdown_${deptId}">
+                <button onclick="_lkToggleAddDropdown(${deptId})" style="padding:8px 18px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(220,38,38,0.3);">🔐 Thêm CV Khóa ▼</button>
+                <div id="lkAddMenu_${deptId}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:1px solid #e5e7eb;z-index:100;min-width:200px;overflow:hidden;">
+                    <div onclick="_lkShowCreateModal(${deptId});_lkCloseAddMenus()" style="padding:10px 16px;cursor:pointer;font-size:13px;color:#374151;font-weight:600;border-bottom:1px solid #f3f4f6;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">📝 Thêm CV Đơn lẻ</div>
+                    <div onclick="_ctShowDeployModal(${deptId});_lkCloseAddMenus()" style="padding:10px 16px;cursor:pointer;font-size:13px;color:#374151;font-weight:600;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">🔗 Thêm CV Chuỗi</div>
+                </div>
+            </div>` : ''}
         </div>`;
 
-        if (tasks.length === 0) {
+        if (tasks.length === 0 && (!data.chain_instances || data.chain_instances.length === 0)) {
             html += `<div style="text-align:center;padding:60px;background:white;border-radius:12px;border:2px solid #e2e8f0;margin:0 16px;">
                 <div style="font-size:40px;margin-bottom:8px;">📋</div>
                 <div style="color:#9ca3af;font-size:13px;">Chưa có công việc khóa nào</div>
@@ -308,7 +314,13 @@ async function _lkLoadDeptTasks(deptId) {
             // Check if this dept has sub-teams
             const hasSubTeams = (_lkIsParentDept || _lkIsSystemDept) && (_lkTreeData?.departments || []).some(d => d.parent_id === deptId);
             const showEdit = _lkIsSystemDept ? isDirector : _lkIsParentDept;
-            html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, showEdit, hasSubTeams)}</div>`;
+            if (tasks.length > 0) html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, showEdit, hasSubTeams)}</div>`;
+
+            // Chain task instances
+            const chains = data.chain_instances || [];
+            if (chains.length > 0) {
+                html += `<div style="padding:0 16px;margin-top:12px;">${_ctRenderChainRows(chains)}</div>`;
+            }
         }
 
         panel.innerHTML = html;
@@ -1194,3 +1206,681 @@ async function _lkReview(completionId, action) {
         alert('Lỗi: ' + e.message);
     }
 }
+
+// ==================== CÔNG VIỆC CHUỖI (Chain Tasks) ====================
+
+// Dropdown toggle
+function _lkToggleAddDropdown(deptId) {
+    _lkCloseAddMenus();
+    const menu = document.getElementById(`lkAddMenu_${deptId}`);
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+function _lkCloseAddMenus() {
+    document.querySelectorAll('[id^="lkAddMenu_"]').forEach(el => el.style.display = 'none');
+}
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('[id^="lkAddDropdown_"]')) _lkCloseAddMenus();
+});
+
+// Render chain rows for dept view
+function _ctRenderChainRows(chains) {
+    if (!chains || chains.length === 0) return '';
+    let html = `<div style="margin-top:8px;">
+        <div style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔗 CÔNG VIỆC CHUỖI</div>
+        <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">`;
+
+    chains.forEach(c => {
+        const pct = c.total_items > 0 ? Math.round(c.completed_items / c.total_items * 100) : 0;
+        const statusColor = c.status === 'completed' ? '#059669' : '#2563eb';
+        const statusLabel = c.status === 'completed' ? '✅ Hoàn thành' : `⏳ ${c.completed_items}/${c.total_items}`;
+        const modeLabel = c.execution_mode === 'sequential' ? '📋 Tuần tự' : '🔄 Song song';
+
+        html += `<div onclick="_ctShowDetailModal(${c.id})" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            <div style="flex:1;">
+                <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${c.chain_name}</div>
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${modeLabel} • ${c.total_items} task con • ${c.creator_name || ''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:80px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                    <div style="width:${pct}%;height:100%;background:${statusColor};border-radius:3px;transition:width 0.3s;"></div>
+                </div>
+                <span style="font-size:11px;font-weight:600;color:${statusColor};white-space:nowrap;">${statusLabel}</span>
+                <button style="padding:4px 12px;font-size:11px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-weight:600;">Xem</button>
+            </div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+    return html;
+}
+
+// ========== CHAIN DETAIL MODAL ==========
+let _ctCurrentChainId = null;
+
+async function _ctShowDetailModal(instanceId) {
+    _ctCurrentChainId = instanceId;
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (!overlay || !titleEl || !body) return;
+
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) modalContainer.style.maxWidth = '900px';
+
+    titleEl.innerHTML = '🔗 Đang tải...';
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải chi tiết chuỗi...</div>';
+    footer.innerHTML = '';
+    overlay.classList.add('show');
+
+    try {
+        const data = await apiCall(`/api/chain-tasks/instances/${instanceId}`);
+        _ctRenderDetailContent(data);
+    } catch(e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ Lỗi: ${e.message}</div>`;
+        footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    }
+}
+
+function _ctRenderDetailContent(data) {
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+
+    const items = data.items || [];
+    const completedCount = items.filter(i => i.status === 'completed').length;
+    const pct = items.length > 0 ? Math.round(completedCount / items.length * 100) : 0;
+    const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '🔄 Song song';
+    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+
+    titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:2px 10px;border-radius:6px;font-size:12px;margin-right:8px;">🔗</span> ${data.chain_name}`;
+
+    let html = `<div style="padding:16px 20px;">
+        <!-- Info bar -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:#6b7280;">${modeLabel}</span>
+            <span style="font-size:12px;color:#6b7280;">📅 ${_ctFmtDate(data.start_date)} → ${_ctFmtDate(data.end_date)}</span>
+            <span style="font-size:12px;color:#6b7280;">👤 ${data.creator_name || '—'}</span>
+        </div>
+        <!-- Progress bar -->
+        <div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:12px;font-weight:700;color:#1e293b;">Tiến độ</span>
+                <span style="font-size:12px;font-weight:700;color:${pct === 100 ? '#059669' : '#2563eb'};">${completedCount}/${items.length} (${pct}%)</span>
+            </div>
+            <div style="width:100%;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${pct === 100 ? '#059669' : 'linear-gradient(90deg,#2563eb,#3b82f6)'};border-radius:4px;transition:width 0.3s;"></div>
+            </div>
+        </div>
+        <!-- Items table -->
+        <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:30px;">#</th>
+                    <th style="padding:8px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Task Con</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Deadline</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân Viên</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Trạng Thái</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:90px;">Hành Động</th>
+                </tr></thead>
+                <tbody>`;
+
+    items.forEach((item, idx) => {
+        const deadlineStr = _ctFmtDate(item.deadline);
+        const users = item.assigned_users || [];
+        const usersHtml = users.length > 0
+            ? users.map(u => `<span style="background:#eff6ff;color:#2563eb;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">${u.full_name}</span>`).join(' ')
+            : '<span style="color:#9ca3af;font-size:10px;">—</span>';
+
+        let statusHtml = '', actionHtml = '';
+        const isOverdue = new Date(item.deadline) < new Date() && item.status !== 'completed';
+
+        if (item.status === 'completed') {
+            statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Xong</span>';
+            actionHtml = '<span style="color:#d1d5db;">—</span>';
+        } else if (item.status === 'pending' && data.execution_mode === 'sequential') {
+            statusHtml = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔒 Chờ</span>';
+            actionHtml = '<span style="color:#d1d5db;">—</span>';
+        } else if (item.status === 'overdue' || isOverdue) {
+            statusHtml = '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">💀 Quá hạn</span>';
+            actionHtml = _ctGetActionBtn(item, data, isManager);
+        } else {
+            // in_progress or parallel pending
+            const completions = item.completions || [];
+            const pendingComps = completions.filter(c => c.status === 'pending');
+            if (pendingComps.length > 0) {
+                statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
+            } else {
+                statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
+            }
+            actionHtml = _ctGetActionBtn(item, data, isManager);
+        }
+
+        html += `<tr style="border-bottom:1px solid #f3f4f6;${isOverdue ? 'background:#fff5f5;' : ''}">
+            <td style="padding:8px 12px;text-align:center;font-size:12px;font-weight:700;color:#6b7280;">${item.item_order}</td>
+            <td style="padding:8px 12px;">
+                <div style="font-size:12px;font-weight:600;color:#1e293b;">${item.task_name}</div>
+                ${item.task_content ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;">${item.task_content.substring(0,60)}</div>` : ''}
+            </td>
+            <td style="padding:8px 12px;text-align:center;font-size:11px;color:${isOverdue ? '#dc2626' : '#374151'};font-weight:${isOverdue ? '700' : '500'};white-space:nowrap;">${deadlineStr}</td>
+            <td style="padding:8px 12px;text-align:center;">${usersHtml}</td>
+            <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
+            <td style="padding:8px 12px;text-align:center;">${actionHtml}</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+    body.innerHTML = html;
+
+    let footerHtml = '';
+    if (isManager) {
+        footerHtml += `<button onclick="_ctShowPostponeUI()" style="padding:6px 14px;font-size:12px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>`;
+        footerHtml += `<button onclick="_ctDeleteChain(${data.id})" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Hủy chuỗi</button>`;
+    }
+    footerHtml += `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+    footer.innerHTML = footerHtml;
+}
+
+function _ctGetActionBtn(item, chain, isManager) {
+    const completions = item.completions || [];
+    const pendingComps = completions.filter(c => c.status === 'pending');
+    const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
+
+    if (isManager && pendingComps.length > 0) {
+        // Show approve/reject
+        const pc = pendingComps[0];
+        return `<div style="display:flex;gap:4px;justify-content:center;">
+            <button onclick="event.stopPropagation();_ctApprove(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#059669;color:white;cursor:pointer;font-weight:600;" title="Duyệt">✅</button>
+            <button onclick="event.stopPropagation();_ctReject(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;font-weight:600;" title="Từ chối">❌</button>
+        </div>`;
+    }
+
+    if (isAssigned || isManager) {
+        if (item.requires_report) {
+            return `<button onclick="event.stopPropagation();_ctSubmitReport(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:600;">📝 Nộp</button>`;
+        } else {
+            return `<button onclick="event.stopPropagation();_ctMarkDone(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:600;">✅ Xong</button>`;
+        }
+    }
+
+    return '<span style="color:#d1d5db;">—</span>';
+}
+
+// Submit report for chain item
+function _ctSubmitReport(itemId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.pdf,.doc,.docx';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const content = prompt('Nội dung báo cáo (không bắt buộc):') || '';
+        const qtyDone = prompt('Số lượng hoàn thành:', '1') || '1';
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('content', content);
+        formData.append('quantity_done', qtyDone);
+
+        try {
+            const token = document.cookie.split('token=')[1]?.split(';')[0];
+            const res = await fetch(`/api/chain-tasks/items/${itemId}/report`, {
+                method: 'POST',
+                headers: { 'Cookie': `token=${token}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Đã nộp báo cáo!');
+                _ctShowDetailModal(_ctCurrentChainId);
+            } else {
+                alert(data.error || 'Lỗi');
+            }
+        } catch(err) {
+            alert('Lỗi: ' + err.message);
+        }
+    };
+    input.click();
+}
+
+// Mark done (no report required)
+async function _ctMarkDone(itemId) {
+    try {
+        await apiCall(`/api/chain-tasks/items/${itemId}/report`, 'POST', { content: 'Hoàn thành', quantity_done: 1 });
+        showToast('✅ Đã hoàn thành!');
+        _ctShowDetailModal(_ctCurrentChainId);
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
+}
+
+// Approve / Reject
+async function _ctApprove(itemId, completionId) {
+    try {
+        await apiCall(`/api/chain-tasks/items/${itemId}/approve`, 'POST', { completion_id: completionId });
+        showToast('✅ Đã duyệt!');
+        _ctShowDetailModal(_ctCurrentChainId);
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+async function _ctReject(itemId, completionId) {
+    const reason = prompt('Lý do từ chối:');
+    if (reason === null) return;
+    try {
+        await apiCall(`/api/chain-tasks/items/${itemId}/reject`, 'POST', { completion_id: completionId, reject_reason: reason });
+        showToast('❌ Đã từ chối!');
+        _ctShowDetailModal(_ctCurrentChainId);
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// Delete chain
+async function _ctDeleteChain(instanceId) {
+    if (!confirm('Bạn có chắc muốn hủy chuỗi công việc này?')) return;
+    try {
+        await apiCall(`/api/chain-tasks/instances/${instanceId}`, 'DELETE');
+        showToast('🗑️ Đã hủy chuỗi!');
+        document.getElementById('modalOverlay').classList.remove('show');
+        if (_lkSelectedDeptId) _lkLoadDeptTasks(_lkSelectedDeptId);
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// ========== POSTPONE UI ==========
+function _ctShowPostponeUI() {
+    const body = document.getElementById('modalBody');
+    if (!body) return;
+
+    body.innerHTML = `<div style="padding:20px;">
+        <h4 style="margin:0 0 14px;color:#1e293b;font-size:15px;">⏪ Lùi lịch chuỗi</h4>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;">Lùi cho:</label>
+            <select id="ctPostponeType" onchange="_ctPostponeTypeChange()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">
+                <option value="item">Từng task con</option>
+                <option value="all">Toàn bộ chuỗi</option>
+            </select>
+        </div>
+        <div id="ctPostponeItemSelect" style="margin-bottom:12px;"></div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;">Deadline mới:</label>
+            <input type="date" id="ctNewDeadline" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;">Lý do:</label>
+            <textarea id="ctPostponeReason" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;" placeholder="Lý do lùi lịch..."></textarea>
+        </div>
+        <div id="ctCascadeOption" style="margin-bottom:12px;display:none;">
+            <label style="font-size:12px;color:#d97706;font-weight:600;">
+                <input type="checkbox" id="ctCascadeCheck" checked /> Tự động lùi các task con phía sau
+            </label>
+            <div id="ctCascadePreview" style="margin-top:6px;font-size:11px;color:#6b7280;"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:6px 14px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;">← Quay lại</button>
+            <button onclick="_ctDoPostpone()" style="padding:6px 14px;font-size:12px;border:none;border-radius:6px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>
+        </div>
+    </div>`;
+    _ctPostponeTypeChange();
+}
+
+async function _ctPostponeTypeChange() {
+    const type = document.getElementById('ctPostponeType')?.value;
+    const itemDiv = document.getElementById('ctPostponeItemSelect');
+    const cascadeDiv = document.getElementById('ctCascadeOption');
+    if (!itemDiv) return;
+
+    if (type === 'item') {
+        try {
+            const data = await apiCall(`/api/chain-tasks/instances/${_ctCurrentChainId}`);
+            const items = (data.items || []).filter(i => i.status !== 'completed');
+            let opts = items.map(i => `<option value="${i.id}" data-order="${i.item_order}" data-deadline="${i.deadline}">${i.item_order}. ${i.task_name} (${_ctFmtDate(i.deadline)})</option>`).join('');
+            itemDiv.innerHTML = `<label style="font-size:12px;font-weight:600;color:#374151;">Chọn task con:</label>
+                <select id="ctPostponeItemId" onchange="_ctUpdateCascadePreview()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">${opts}</select>`;
+            cascadeDiv.style.display = 'block';
+            window._ctPostponeItems = data.items;
+        } catch(e) {
+            itemDiv.innerHTML = '<div style="color:#dc2626;font-size:11px;">Lỗi tải dữ liệu</div>';
+        }
+    } else {
+        itemDiv.innerHTML = '';
+        cascadeDiv.style.display = 'none';
+    }
+}
+
+function _ctUpdateCascadePreview() {
+    const sel = document.getElementById('ctPostponeItemId');
+    const newDate = document.getElementById('ctNewDeadline')?.value;
+    const preview = document.getElementById('ctCascadePreview');
+    if (!sel || !preview || !newDate) return;
+
+    const selectedOrder = parseInt(sel.options[sel.selectedIndex]?.dataset?.order);
+    const oldDeadline = sel.options[sel.selectedIndex]?.dataset?.deadline;
+    if (!oldDeadline || !selectedOrder) return;
+
+    const daysDiff = Math.round((new Date(newDate) - new Date(oldDeadline)) / (86400000));
+    if (daysDiff <= 0) { preview.innerHTML = ''; return; }
+
+    const following = (window._ctPostponeItems || []).filter(i => i.item_order > selectedOrder && i.status !== 'completed');
+    if (following.length === 0) { preview.innerHTML = '<em>Không có task con nào phía sau</em>'; return; }
+
+    preview.innerHTML = following.map(f => {
+        const newD = new Date(f.deadline);
+        newD.setDate(newD.getDate() + daysDiff);
+        return `${f.item_order}. ${f.task_name}: ${_ctFmtDate(f.deadline)} → <b>${_ctFmtDate(newD.toISOString().split('T')[0])}</b> (+${daysDiff}d)`;
+    }).join('<br>');
+}
+
+async function _ctDoPostpone() {
+    const type = document.getElementById('ctPostponeType')?.value;
+    const newDeadline = document.getElementById('ctNewDeadline')?.value;
+    const reason = document.getElementById('ctPostponeReason')?.value || '';
+    const cascade = document.getElementById('ctCascadeCheck')?.checked || false;
+
+    if (!newDeadline) { alert('Vui lòng chọn deadline mới'); return; }
+
+    const payload = {
+        chain_instance_id: _ctCurrentChainId,
+        new_deadline: newDeadline,
+        reason,
+        cascade
+    };
+
+    if (type === 'item') {
+        payload.chain_item_id = parseInt(document.getElementById('ctPostponeItemId')?.value);
+        if (!payload.chain_item_id) { alert('Chọn task con'); return; }
+    }
+
+    try {
+        await apiCall('/api/chain-tasks/postpone', 'POST', payload);
+        showToast('⏪ Đã lùi lịch!');
+        _ctShowDetailModal(_ctCurrentChainId);
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// ========== DEPLOY MODAL (Thêm CV Chuỗi) ==========
+let _ctDeployDeptId = null;
+let _ctTemplates = [];
+
+async function _ctShowDeployModal(deptId) {
+    _ctDeployDeptId = deptId;
+    const overlay = document.getElementById('modalOverlay');
+    const titleEl = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    if (!overlay || !titleEl || !body) return;
+
+    const modalContainer = document.getElementById('modalContainer');
+    if (modalContainer) modalContainer.style.maxWidth = '800px';
+
+    titleEl.innerHTML = '🔗 Triển khai Công Việc Chuỗi';
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải kho chuỗi...</div>';
+    footer.innerHTML = '';
+    overlay.classList.add('show');
+
+    try {
+        _ctTemplates = await apiCall('/api/chain-tasks/templates');
+        const users = await apiCall(`/api/lock-tasks/dept-users/${deptId}`);
+        _ctRenderDeployForm(users);
+    } catch(e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
+    }
+}
+
+function _ctRenderDeployForm(users) {
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+
+    const isDirector = currentUser.role === 'giam_doc';
+    const tmplOptions = _ctTemplates.map(t =>
+        `<option value="${t.id}">${t.chain_name} (${t.item_count} task con, ${t.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'})</option>`
+    ).join('');
+
+    const userCheckboxes = (users || []).map(u =>
+        `<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;cursor:pointer;">
+            <input type="checkbox" name="ct_user" value="${u.id}" /> ${u.full_name}
+        </label>`
+    ).join(' ');
+
+    body.innerHTML = `<div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Chọn mẫu chuỗi từ kho:</label>
+            <select id="ctDeployTemplate" onchange="_ctOnTemplateSelect()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">
+                <option value="">-- Chọn mẫu --</option>
+                ${tmplOptions}
+            </select>
+            ${isDirector ? `<button onclick="_ctShowNewTemplateUI()" style="margin-top:6px;padding:4px 12px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">➕ Tạo mẫu mới</button>
+            <button onclick="_ctShowManageTemplates()" style="margin-top:6px;margin-left:6px;padding:4px 12px;font-size:11px;border:1px solid #6b7280;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-weight:600;">📚 Quản lý kho</button>` : ''}
+        </div>
+        <div id="ctTemplatePreview" style="margin-bottom:12px;"></div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Ngày bắt đầu:</label>
+            <input type="date" id="ctDeployStartDate" value="${new Date().toISOString().split('T')[0]}" onchange="_ctOnTemplateSelect()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Gán nhân viên (tất cả task con):</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${userCheckboxes || '<span style="color:#9ca3af;font-size:11px;">Không có nhân viên</span>'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+                <label style="font-size:12px;font-weight:700;color:#374151;">Phạt task con (đ):</label>
+                <input type="number" id="ctPenaltyItem" value="50000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:700;color:#374151;">Phạt toàn chuỗi (đ):</label>
+                <input type="number" id="ctPenaltyChain" value="100000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+            </div>
+        </div>
+    </div>`;
+
+    footer.innerHTML = `
+        <button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Hủy</button>
+        <button onclick="_ctDoDeploy()" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;">🚀 Triển khai</button>`;
+}
+
+async function _ctOnTemplateSelect() {
+    const tmplId = document.getElementById('ctDeployTemplate')?.value;
+    const preview = document.getElementById('ctTemplatePreview');
+    if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; return; }
+
+    try {
+        const tmpl = await apiCall(`/api/chain-tasks/templates/${tmplId}`);
+        const startDate = document.getElementById('ctDeployStartDate')?.value || new Date().toISOString().split('T')[0];
+        let html = `<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <div style="background:#eff6ff;padding:8px 12px;font-size:11px;font-weight:700;color:#1e40af;">📋 Preview: ${tmpl.chain_name} (${tmpl.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'})</div>`;
+        (tmpl.items || []).forEach((it, i) => {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + (it.relative_days || 0));
+            const deadlineStr = _ctFmtDate(d.toISOString().split('T')[0]);
+            html += `<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;display:flex;justify-content:space-between;">
+                <span><b>${it.item_order}.</b> ${it.task_name}</span>
+                <span style="color:#6b7280;">📅 ${deadlineStr} ${it.requires_report ? '📝' : '✅'} ${it.requires_approval ? '🔒' : ''}</span>
+            </div>`;
+        });
+        html += '</div>';
+        preview.innerHTML = html;
+    } catch(e) {
+        preview.innerHTML = `<div style="color:#dc2626;font-size:11px;">Lỗi: ${e.message}</div>`;
+    }
+}
+
+async function _ctDoDeploy() {
+    const templateId = document.getElementById('ctDeployTemplate')?.value;
+    if (!templateId) { alert('Vui lòng chọn mẫu chuỗi'); return; }
+
+    const startDate = document.getElementById('ctDeployStartDate')?.value;
+    if (!startDate) { alert('Vui lòng chọn ngày bắt đầu'); return; }
+
+    const userIds = Array.from(document.querySelectorAll('input[name="ct_user"]:checked')).map(cb => parseInt(cb.value));
+    if (userIds.length === 0) { alert('Vui lòng chọn ít nhất 1 nhân viên'); return; }
+
+    const payload = {
+        template_id: parseInt(templateId),
+        department_id: _ctDeployDeptId,
+        start_date: startDate,
+        user_ids: userIds,
+        penalty_amount: parseInt(document.getElementById('ctPenaltyItem')?.value) || 50000,
+        chain_penalty_amount: parseInt(document.getElementById('ctPenaltyChain')?.value) || 100000
+    };
+
+    try {
+        await apiCall('/api/chain-tasks/deploy', 'POST', payload);
+        showToast('🚀 Đã triển khai chuỗi!');
+        document.getElementById('modalOverlay').classList.remove('show');
+        if (_lkSelectedDeptId) _lkLoadDeptTasks(_lkSelectedDeptId);
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
+}
+
+// ========== TEMPLATE MANAGEMENT (GĐ) ==========
+function _ctShowNewTemplateUI() {
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+
+    body.innerHTML = `<div style="padding:16px 20px;">
+        <h4 style="margin:0 0 14px;color:#1e293b;">➕ Tạo mẫu chuỗi mới</h4>
+        <div style="margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Tên chuỗi:</label>
+            <input type="text" id="ctNewName" placeholder="VD: Chụp hình sản phẩm" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Mô tả:</label>
+            <textarea id="ctNewDesc" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;" placeholder="Mô tả chuỗi..."></textarea>
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Chế độ thực hiện:</label>
+            <select id="ctNewMode" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">
+                <option value="sequential">📋 Tuần tự (task 1 xong → mở task 2)</option>
+                <option value="parallel">🔄 Song song (tất cả cùng lúc)</option>
+            </select>
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Các task con:</label>
+            <div id="ctNewItems" style="margin-top:6px;"></div>
+            <button onclick="_ctAddNewItem()" style="margin-top:6px;padding:4px 12px;font-size:11px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">+ Thêm task con</button>
+        </div>
+    </div>`;
+
+    footer.innerHTML = `
+        <button onclick="_ctShowDeployModal(_ctDeployDeptId)" class="btn btn-secondary">← Quay lại</button>
+        <button onclick="_ctSaveNewTemplate()" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;">💾 Lưu mẫu</button>`;
+
+    // Add 2 default items
+    _ctAddNewItem();
+    _ctAddNewItem();
+}
+
+let _ctItemCounter = 0;
+function _ctAddNewItem() {
+    _ctItemCounter++;
+    const container = document.getElementById('ctNewItems');
+    if (!container) return;
+
+    const div = document.createElement('div');
+    div.id = `ctItem_${_ctItemCounter}`;
+    div.style.cssText = 'background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;';
+    div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-weight:700;color:#374151;font-size:12px;">#${container.children.length + 1}</span>
+            <input type="text" class="ct-item-name" placeholder="Tên task con" style="flex:1;padding:6px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
+            <button onclick="this.closest('[id^=ctItem_]').remove()" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#fecaca;color:#dc2626;cursor:pointer;">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Ngày +N (từ ngày BĐ):</label>
+                <input type="number" class="ct-item-days" value="0" min="0" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">SL tối thiểu:</label>
+                <input type="number" class="ct-item-qty" value="1" min="1" style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
+            </div>
+            <div style="display:flex;gap:8px;align-items:end;">
+                <label style="font-size:10px;color:#6b7280;"><input type="checkbox" class="ct-item-report" checked /> Cần BC</label>
+                <label style="font-size:10px;color:#6b7280;"><input type="checkbox" class="ct-item-approval" /> Cần duyệt</label>
+            </div>
+        </div>`;
+    container.appendChild(div);
+}
+
+async function _ctSaveNewTemplate() {
+    const chainName = document.getElementById('ctNewName')?.value?.trim();
+    if (!chainName) { alert('Vui lòng nhập tên chuỗi'); return; }
+
+    const description = document.getElementById('ctNewDesc')?.value || '';
+    const executionMode = document.getElementById('ctNewMode')?.value || 'sequential';
+
+    const itemEls = document.querySelectorAll('#ctNewItems > div');
+    const items = [];
+    itemEls.forEach(el => {
+        const name = el.querySelector('.ct-item-name')?.value?.trim();
+        if (!name) return;
+        items.push({
+            task_name: name,
+            relative_days: parseInt(el.querySelector('.ct-item-days')?.value) || 0,
+            min_quantity: parseInt(el.querySelector('.ct-item-qty')?.value) || 1,
+            requires_report: el.querySelector('.ct-item-report')?.checked !== false,
+            requires_approval: el.querySelector('.ct-item-approval')?.checked || false
+        });
+    });
+
+    if (items.length === 0) { alert('Cần ít nhất 1 task con'); return; }
+
+    try {
+        await apiCall('/api/chain-tasks/templates', 'POST', {
+            chain_name: chainName,
+            description,
+            execution_mode: executionMode,
+            items
+        });
+        showToast('💾 Đã lưu mẫu chuỗi!');
+        _ctShowDeployModal(_ctDeployDeptId);
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
+}
+
+// Manage templates
+async function _ctShowManageTemplates() {
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải...</div>';
+
+    try {
+        const templates = await apiCall('/api/chain-tasks/templates');
+        let html = `<div style="padding:16px 20px;">
+            <h4 style="margin:0 0 14px;color:#1e293b;">📚 Quản lý kho mẫu chuỗi</h4>`;
+
+        if (templates.length === 0) {
+            html += '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có mẫu chuỗi nào</div>';
+        } else {
+            templates.forEach(t => {
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${t.chain_name}</div>
+                        <div style="font-size:11px;color:#6b7280;">${t.item_count} task con • ${t.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'} • ${t.creator_name || ''}</div>
+                    </div>
+                    <button onclick="_ctDeleteTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Xóa</button>
+                </div>`;
+            });
+        }
+        html += '</div>';
+        body.innerHTML = html;
+        footer.innerHTML = `<button onclick="_ctShowDeployModal(_ctDeployDeptId)" class="btn btn-secondary">← Quay lại</button>`;
+    } catch(e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
+    }
+}
+
+async function _ctDeleteTemplate(templateId) {
+    if (!confirm('Xóa mẫu chuỗi này?')) return;
+    try {
+        await apiCall(`/api/chain-tasks/templates/${templateId}`, 'DELETE');
+        showToast('🗑️ Đã xóa mẫu!');
+        _ctShowManageTemplates();
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
+// Utility
+function _ctFmtDate(dateStr) {
+    if (!dateStr) return '—';
+    const parts = dateStr.split('T')[0].split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
