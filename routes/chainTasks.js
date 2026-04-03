@@ -287,9 +287,11 @@ async function chainTaskRoutes(fastify, options) {
         const { id } = request.params;
         
         const instance = await db.get(`
-            SELECT ci.*, ci.start_date::text as start_date, ci.end_date::text as end_date, u.full_name as creator_name
+            SELECT ci.*, ci.start_date::text as start_date, ci.end_date::text as end_date,
+                   u.full_name as creator_name, ct.description as chain_description
             FROM chain_task_instances ci
             LEFT JOIN users u ON u.id = ci.created_by
+            LEFT JOIN chain_task_templates ct ON ct.id = ci.chain_template_id
             WHERE ci.id = $1
         `, [id]);
         if (!instance) return reply.code(404).send({ error: 'Instance not found' });

@@ -1464,6 +1464,10 @@ async function _kbOpenChainDetail(instanceId) {
                 <span>📅 ${startStr} → ${endStr}</span>
                 <span>👤 ${data.creator_name || ''}</span>
             </div>
+            ${data.chain_description ? `<div style="margin-bottom:12px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
+                <div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:4px;text-transform:uppercase;">📝 Mô tả công việc chuỗi</div>
+                <div style="font-size:12px;color:#1e293b;white-space:pre-wrap;">${data.chain_description}</div>
+            </div>` : ''}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <span style="font-size:12px;color:#374151;">Tiến độ</span>
                 <span style="font-size:12px;font-weight:700;color:${pct===100?'#059669':'#dc2626'};">${completedCount}/${totalCount} (${pct}%)</span>
