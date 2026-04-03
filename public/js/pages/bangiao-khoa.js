@@ -1388,8 +1388,8 @@ function _ctGetActionBtn(item, chain, isManager) {
     const pendingComps = completions.filter(c => c.status === 'pending');
     const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
 
+    // Manager: show approve/reject for pending completions
     if (isManager && pendingComps.length > 0) {
-        // Show approve/reject
         const pc = pendingComps[0];
         return `<div style="display:flex;gap:4px;justify-content:center;">
             <button onclick="event.stopPropagation();_ctApprove(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#059669;color:white;cursor:pointer;font-weight:600;" title="Duyệt">✅</button>
@@ -1397,11 +1397,26 @@ function _ctGetActionBtn(item, chain, isManager) {
         </div>`;
     }
 
+    // Assigned user: check existing completions
     if (isAssigned) {
-        if (item.requires_report) {
-            return `<button onclick="event.stopPropagation();_ctSubmitReport(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:600;">📝 Nộp</button>`;
-        } else {
-            return `<button onclick="event.stopPropagation();_ctMarkDone(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:600;">✅ Xong</button>`;
+        const myComps = completions.filter(c => c.user_id === currentUser.id);
+        if (myComps.length > 0) {
+            const latest = myComps[myComps.length - 1];
+            if (latest.status === 'pending') {
+                return `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>`;
+            } else if (latest.status === 'approved') {
+                return `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>`;
+            } else if (latest.status === 'rejected') {
+                return `<button onclick="event.stopPropagation();_ctSubmitReport(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:600;">🔄 Nộp lại</button>`;
+            }
+        }
+
+        if (item.status !== 'completed') {
+            if (item.requires_report) {
+                return `<button onclick="event.stopPropagation();_ctSubmitReport(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:600;">📝 Nộp</button>`;
+            } else {
+                return `<button onclick="event.stopPropagation();_ctMarkDone(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:600;">✅ Xong</button>`;
+            }
         }
     }
 
