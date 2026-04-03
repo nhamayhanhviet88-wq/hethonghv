@@ -1412,6 +1412,9 @@ function _ctRenderDetailContent(data) {
 
     let footerHtml = '';
     if (isManager) {
+        if (currentUser.role === 'giam_doc') {
+            footerHtml += `<button onclick="_ctEditInstance(${data.id})" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:6px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa chuỗi</button>`;
+        }
         footerHtml += `<button onclick="_ctShowPostponeUI()" style="padding:6px 14px;font-size:12px;border:1px solid #d97706;border-radius:6px;background:white;color:#d97706;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>`;
         footerHtml += `<button onclick="_ctDeleteChain(${data.id})" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Hủy chuỗi</button>`;
     }
@@ -1748,7 +1751,219 @@ async function _ctDeleteChain(instanceId) {
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
-// ========== POSTPONE UI ==========
+// ========== EDIT INSTANCE ==========
+async function _ctEditInstance(instanceId) {
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    const titleEl = document.getElementById('modalTitle');
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải...</div>';
+
+    try {
+        const data = await apiCall(`/api/chain-tasks/instances/${instanceId}`);
+        // Fetch dept users for assignment
+        const usersData = data.department_id ? await apiCall(`/api/lock-tasks/dept-users/${data.department_id}`) : { users: [] };
+        const deptUsers = usersData.users || usersData || [];
+
+        titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#059669,#047857);color:white;padding:2px 10px;border-radius:6px;font-size:12px;margin-right:8px;">✏️</span> Sửa chuỗi — ${data.chain_name}`;
+
+        let html = `<div style="padding:16px 20px;">
+            <div style="margin-bottom:12px;">
+                <label style="font-size:11px;font-weight:700;color:#374151;">Tên chuỗi</label>
+                <input id="ctInstEditName" value="${data.chain_name || ''}" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;" />
+            </div>
+            <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <label style="font-size:11px;font-weight:700;color:#374151;">📋 Công việc con</label>
+                <button onclick="_ctInstEditAddItem()" style="padding:3px 10px;font-size:10px;border:1px solid #059669;border-radius:4px;background:white;color:#059669;cursor:pointer;font-weight:600;">➕ Thêm mới</button>
+            </div>
+            <div id="ctInstEditItems" style="display:flex;flex-direction:column;gap:8px;">`;
+
+        const items = data.items || [];
+        items.forEach((item) => {
+            const isPending = item.status === 'pending';
+            const assignedIds = (item.assigned_users || []).map(u => u.user_id);
+
+            if (isPending) {
+                // Editable item
+                const userChecks = deptUsers.map(u =>
+                    `<label style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:4px;font-size:10px;cursor:pointer;">
+                        <input type="checkbox" class="ct-inst-item-user" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} /> ${u.full_name}
+                    </label>`
+                ).join(' ');
+
+                html += `<div class="ct-inst-edit-item" data-item-id="${item.id}" data-is-new="false" style="border:1px solid #2563eb;border-radius:8px;padding:10px 12px;background:#f0f9ff;position:relative;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:10px;font-weight:700;color:#2563eb;">⏳ Pending — có thể sửa</span>
+                        <button onclick="this.closest('.ct-inst-edit-item').setAttribute('data-deleted','true');this.closest('.ct-inst-edit-item').style.display='none'" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;" title="Xóa">🗑️</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:6px;">
+                        <div>
+                            <label style="font-size:10px;color:#6b7280;">Tên</label>
+                            <input class="ct-inst-item-name" value="${item.task_name || ''}" style="width:100%;padding:4px 8px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:#6b7280;">Deadline</label>
+                            <input type="date" class="ct-inst-item-deadline" value="${item.deadline?.split('T')[0] || ''}" style="width:100%;padding:4px 8px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+                        <div>
+                            <label style="font-size:10px;color:#6b7280;">Link HD</label>
+                            <input class="ct-inst-item-guide" value="${item.guide_link || ''}" style="width:100%;padding:4px 8px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:#6b7280;">SL tối thiểu</label>
+                            <input type="number" class="ct-inst-item-qty" value="${item.min_quantity || 1}" min="1" style="width:100%;padding:4px 8px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:#6b7280;">Lần nộp lại</label>
+                            <input type="number" class="ct-inst-item-redo" value="${item.max_redo_count || 3}" min="1" max="10" style="width:100%;padding:4px 8px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+                        </div>
+                    </div>
+                    <div style="margin-bottom:6px;">
+                        <label style="font-size:10px;color:#6b7280;cursor:pointer;"><input type="checkbox" class="ct-inst-item-approval" ${item.requires_approval ? 'checked' : ''} /> ✅ Cần QL duyệt</label>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;color:#6b7280;">👥 Nhân viên:</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${userChecks}</div>
+                    </div>
+                </div>`;
+            } else {
+                // Non-editable item (completed/in_progress)
+                const statusLabel = item.status === 'completed' ? '✅ Hoàn thành' : '🔄 Đang làm';
+                const statusColor = item.status === 'completed' ? '#059669' : '#d97706';
+                const usersStr = (item.assigned_users || []).map(u => u.full_name).join(', ');
+                html += `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#f3f4f6;opacity:0.7;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span style="font-weight:700;font-size:12px;color:#1e293b;">${item.task_name}</span>
+                            <span style="background:${statusColor}22;color:${statusColor};padding:1px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;">${statusLabel}</span>
+                        </div>
+                        <span style="font-size:10px;color:#6b7280;">🔒 Không thể sửa</span>
+                    </div>
+                    <div style="font-size:10px;color:#6b7280;margin-top:4px;">📅 ${_ctFmtDate(item.deadline)} • 👥 ${usersStr || '—'}</div>
+                </div>`;
+            }
+        });
+
+        html += '</div></div>';
+        body.innerHTML = html;
+
+        // Store dept users for adding new items
+        window._ctInstEditDeptUsers = deptUsers;
+
+        footer.innerHTML = `
+            <button onclick="_ctOpenChainDetail(${instanceId})" class="btn btn-secondary">← Quay lại</button>
+            <button onclick="_ctSaveEditInstance(${instanceId})" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;">💾 Lưu</button>`;
+    } catch(e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
+    }
+}
+
+function _ctInstEditAddItem() {
+    const container = document.getElementById('ctInstEditItems');
+    if (!container) return;
+    const deptUsers = window._ctInstEditDeptUsers || [];
+    const userChecks = deptUsers.map(u =>
+        `<label style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:4px;font-size:10px;cursor:pointer;">
+            <input type="checkbox" class="ct-inst-item-user" value="${u.id}" /> ${u.full_name}
+        </label>`
+    ).join(' ');
+
+    container.insertAdjacentHTML('beforeend', `<div class="ct-inst-edit-item" data-item-id="" data-is-new="true" style="border:2px dashed #059669;border-radius:8px;padding:10px 12px;background:#f0fdf4;position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10px;font-weight:700;color:#059669;">🆕 Task con mới</span>
+            <button onclick="this.closest('.ct-inst-edit-item').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Tên <span style="color:#dc2626;">*</span></label>
+                <input class="ct-inst-item-name" style="width:100%;padding:4px 8px;border:1px solid #86efac;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Deadline <span style="color:#dc2626;">*</span></label>
+                <input type="date" class="ct-inst-item-deadline" style="width:100%;padding:4px 8px;border:1px solid #86efac;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Link HD</label>
+                <input class="ct-inst-item-guide" style="width:100%;padding:4px 8px;border:1px solid #86efac;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">SL tối thiểu</label>
+                <input type="number" class="ct-inst-item-qty" value="1" min="1" style="width:100%;padding:4px 8px;border:1px solid #86efac;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Lần nộp lại</label>
+                <input type="number" class="ct-inst-item-redo" value="3" min="1" max="10" style="width:100%;padding:4px 8px;border:1px solid #86efac;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+        </div>
+        <div style="margin-bottom:6px;">
+            <label style="font-size:10px;color:#6b7280;cursor:pointer;"><input type="checkbox" class="ct-inst-item-approval" /> ✅ Cần QL duyệt</label>
+        </div>
+        <div>
+            <label style="font-size:10px;color:#6b7280;">👥 Nhân viên:</label>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${userChecks}</div>
+        </div>
+    </div>`);
+}
+
+async function _ctSaveEditInstance(instanceId) {
+    const chainName = document.getElementById('ctInstEditName')?.value?.trim();
+    const allItems = document.querySelectorAll('#ctInstEditItems > .ct-inst-edit-item');
+
+    const items_update = [];
+    const items_add = [];
+    const items_delete = [];
+    let hasError = false;
+
+    allItems.forEach((el, idx) => {
+        if (hasError) return;
+        const isDeleted = el.getAttribute('data-deleted') === 'true';
+        const isNew = el.getAttribute('data-is-new') === 'true';
+        const itemId = parseInt(el.getAttribute('data-item-id'));
+
+        if (isDeleted && !isNew && itemId) {
+            items_delete.push(itemId);
+            return;
+        }
+        if (isDeleted) return;
+
+        const name = el.querySelector('.ct-inst-item-name')?.value?.trim();
+        const deadline = el.querySelector('.ct-inst-item-deadline')?.value;
+        if (!name) { alert(`⚠️ Item #${idx+1}: Vui lòng nhập tên`); hasError = true; return; }
+        if (!deadline) { alert(`⚠️ Item #${idx+1}: Vui lòng chọn deadline`); hasError = true; return; }
+
+        const userIds = Array.from(el.querySelectorAll('.ct-inst-item-user:checked')).map(cb => parseInt(cb.value));
+
+        const itemData = {
+            task_name: name, deadline,
+            guide_link: el.querySelector('.ct-inst-item-guide')?.value?.trim() || '',
+            min_quantity: parseInt(el.querySelector('.ct-inst-item-qty')?.value) || 1,
+            max_redo_count: parseInt(el.querySelector('.ct-inst-item-redo')?.value) || 3,
+            requires_approval: el.querySelector('.ct-inst-item-approval')?.checked || false,
+            user_ids: userIds
+        };
+
+        if (isNew) {
+            items_add.push(itemData);
+        } else if (itemId) {
+            itemData.id = itemId;
+            items_update.push(itemData);
+        }
+    });
+
+    if (hasError) return;
+
+    try {
+        await apiCall(`/api/chain-tasks/instances/${instanceId}`, 'PUT', {
+            chain_name: chainName, items_update, items_add, items_delete
+        });
+        showToast('💾 Đã lưu chuỗi!');
+        _ctOpenChainDetail(instanceId);
+    } catch(e) { alert('Lỗi: ' + e.message); }
+}
+
 function _ctShowPostponeUI() {
     const body = document.getElementById('modalBody');
     if (!body) return;
@@ -2148,7 +2363,10 @@ async function _ctShowManageTemplates() {
                         <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${t.chain_name}</div>
                         <div style="font-size:11px;color:#6b7280;">${t.item_count} task con • ${t.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'} • ${t.creator_name || ''}</div>
                     </div>
-                    <button onclick="_ctDeleteTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Xóa</button>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="_ctEditTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa</button>
+                        <button onclick="_ctDeleteTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Xóa</button>
+                    </div>
                 </div>`;
             });
         }
@@ -2158,6 +2376,133 @@ async function _ctShowManageTemplates() {
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
     }
+}
+
+async function _ctEditTemplate(templateId) {
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    const titleEl = document.getElementById('modalTitle');
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải...</div>';
+
+    try {
+        const tmpl = await apiCall(`/api/chain-tasks/templates/${templateId}`);
+        titleEl.innerHTML = '✏️ Sửa mẫu chuỗi';
+
+        let itemsHtml = '';
+        (tmpl.items || []).forEach((it, idx) => {
+            itemsHtml += _ctEditTemplateItemRow(it, idx);
+        });
+
+        body.innerHTML = `<div style="padding:16px 20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#374151;">Tên chuỗi <span style="color:#dc2626;">*</span></label>
+                    <input id="ctEditName" value="${tmpl.chain_name || ''}" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;" />
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:700;color:#374151;">Chế độ</label>
+                    <select id="ctEditMode" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
+                        <option value="sequential" ${tmpl.execution_mode === 'sequential' ? 'selected' : ''}>Tuần tự</option>
+                        <option value="parallel" ${tmpl.execution_mode === 'parallel' ? 'selected' : ''}>Song song</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:11px;font-weight:700;color:#374151;">Mô tả</label>
+                <textarea id="ctEditDesc" rows="2" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;resize:vertical;">${tmpl.description || ''}</textarea>
+            </div>
+            <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <label style="font-size:11px;font-weight:700;color:#374151;">📋 Công việc con</label>
+                <button onclick="_ctEditTemplateAddItem()" style="padding:3px 10px;font-size:10px;border:1px solid #059669;border-radius:4px;background:white;color:#059669;cursor:pointer;font-weight:600;">➕ Thêm</button>
+            </div>
+            <div id="ctEditItems" style="display:flex;flex-direction:column;gap:8px;">${itemsHtml}</div>
+        </div>`;
+
+        footer.innerHTML = `
+            <button onclick="_ctShowManageTemplates()" class="btn btn-secondary">← Quay lại</button>
+            <button onclick="_ctSaveEditTemplate(${templateId})" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;">💾 Lưu</button>`;
+    } catch(e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
+    }
+}
+
+function _ctEditTemplateItemRow(item, idx) {
+    return `<div class="ct-edit-item" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#fafbfc;position:relative;">
+        <button onclick="this.closest('.ct-edit-item').remove()" style="position:absolute;top:4px;right:6px;background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;" title="Xóa">×</button>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Tên task con <span style="color:#dc2626;">*</span></label>
+                <input class="ct-edit-item-name" value="${item?.task_name || ''}" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Deadline <span style="color:#dc2626;">*</span></label>
+                <input type="date" class="ct-edit-item-deadline" value="${item?.deadline?.split('T')[0] || ''}" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Link hướng dẫn</label>
+                <input class="ct-edit-item-guide" value="${item?.guide_link || ''}" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">SL tối thiểu</label>
+                <input type="number" class="ct-edit-item-qty" value="${item?.min_quantity || 1}" min="1" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+            <div>
+                <label style="font-size:10px;color:#6b7280;">Số lần nộp lại</label>
+                <input type="number" class="ct-edit-item-redo" value="${item?.max_redo_count || 3}" min="1" max="10" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
+            </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+            <label style="font-size:10px;color:#6b7280;cursor:pointer;"><input type="checkbox" class="ct-edit-item-approval" ${item?.requires_approval ? 'checked' : ''} /> ✅ Cần QL duyệt</label>
+        </div>
+    </div>`;
+}
+
+function _ctEditTemplateAddItem() {
+    const container = document.getElementById('ctEditItems');
+    if (!container) return;
+    container.insertAdjacentHTML('beforeend', _ctEditTemplateItemRow(null, container.children.length));
+}
+
+async function _ctSaveEditTemplate(templateId) {
+    const chainName = document.getElementById('ctEditName')?.value?.trim();
+    if (!chainName) { alert('⚠️ Vui lòng nhập tên chuỗi'); return; }
+
+    const description = document.getElementById('ctEditDesc')?.value?.trim() || '';
+    const executionMode = document.getElementById('ctEditMode')?.value || 'sequential';
+
+    const itemEls = document.querySelectorAll('#ctEditItems > .ct-edit-item');
+    const items = [];
+    let hasError = false;
+
+    itemEls.forEach((el, idx) => {
+        if (hasError) return;
+        const name = el.querySelector('.ct-edit-item-name')?.value?.trim();
+        const deadline = el.querySelector('.ct-edit-item-deadline')?.value;
+        const qty = parseInt(el.querySelector('.ct-edit-item-qty')?.value);
+        const guide = el.querySelector('.ct-edit-item-guide')?.value?.trim();
+
+        if (!name) { alert(`⚠️ Task con #${idx+1}: Vui lòng nhập tên`); hasError = true; return; }
+        if (!deadline) { alert(`⚠️ Task con #${idx+1}: Vui lòng chọn deadline`); hasError = true; return; }
+
+        items.push({
+            task_name: name, deadline, min_quantity: qty || 1, guide_link: guide || '',
+            requires_approval: el.querySelector('.ct-edit-item-approval')?.checked || false,
+            max_redo_count: parseInt(el.querySelector('.ct-edit-item-redo')?.value) || 3
+        });
+    });
+
+    if (hasError) return;
+    if (items.length === 0) { alert('⚠️ Cần ít nhất 1 task con'); return; }
+
+    try {
+        await apiCall(`/api/chain-tasks/templates/${templateId}`, 'PUT', {
+            chain_name: chainName, description, execution_mode: executionMode, items
+        });
+        showToast('💾 Đã lưu mẫu chuỗi!');
+        _ctShowManageTemplates();
+    } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
 async function _ctDeleteTemplate(templateId) {

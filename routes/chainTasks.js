@@ -100,14 +100,106 @@ async function chainTaskRoutes(fastify, options) {
                     `INSERT INTO chain_task_template_items 
                      (chain_template_id, item_order, task_name, task_content, guide_link,
                       input_requirements, output_requirements, requires_approval, requires_report,
-                      min_quantity, relative_days, deadline)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+                      min_quantity, relative_days, deadline, max_redo_count)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
                     [id, i + 1, item.task_name, item.task_content || '',
                      item.guide_link || '', item.input_requirements || '', item.output_requirements || '',
                      item.requires_approval || false, item.requires_report !== false,
-                     item.min_quantity || 1, item.relative_days || 0, item.deadline || null]
+                     item.min_quantity || 1, item.relative_days || 0, item.deadline || null, item.max_redo_count || 3]
                 );
             }
+        }
+
+        return { success: true };
+    });
+
+    // PUT: Update chain instance (GĐ only) — only pending items can be modified
+    fastify.put('/api/chain-tasks/instances/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isDirector(request.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc mới được sửa chuỗi' });
+        }
+
+        const { id } = request.params;
+        const { chain_name, items_update, items_add, items_delete } = request.body;
+
+        // Update chain name
+        if (chain_name) {
+            await db.run('UPDATE chain_task_instances SET chain_name=$1 WHERE id=$2', [chain_name, id]);
+        }
+
+        // Update existing pending items
+        if (items_update && items_update.length > 0) {
+            for (const item of items_update) {
+                // Only allow updating pending items
+                const existing = await db.get('SELECT status FROM chain_task_instance_items WHERE id=$1 AND chain_instance_id=$2', [item.id, id]);
+                if (!existing || existing.status !== 'pending') continue;
+
+                await db.run(
+                    `UPDATE chain_task_instance_items SET 
+                     task_name=$1, task_content=$2, guide_link=$3, deadline=$4, deadline_time=$5,
+                     requires_approval=$6, min_quantity=$7, max_redo_count=$8
+                     WHERE id=$9 AND chain_instance_id=$10`,
+                    [item.task_name, item.task_content || '', item.guide_link || '',
+                     item.deadline, item.deadline_time || null,
+                     item.requires_approval || false, item.min_quantity || 1, item.max_redo_count || 3,
+                     item.id, id]
+                );
+
+                // Update assignments if provided
+                if (item.user_ids) {
+                    await db.run('DELETE FROM chain_task_assignments WHERE chain_item_id=$1', [item.id]);
+                    for (const uid of item.user_ids) {
+                        await db.run(
+                            'INSERT INTO chain_task_assignments (chain_item_id, user_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+                            [item.id, uid, request.user.id]
+                        );
+                    }
+                }
+            }
+        }
+
+        // Add new items
+        if (items_add && items_add.length > 0) {
+            const maxOrder = await db.get('SELECT MAX(item_order) as mo FROM chain_task_instance_items WHERE chain_instance_id=$1', [id]);
+            let nextOrder = (maxOrder?.mo || 0) + 1;
+
+            for (const item of items_add) {
+                const newItem = await db.get(
+                    `INSERT INTO chain_task_instance_items 
+                     (chain_instance_id, item_order, task_name, task_content, guide_link,
+                      requires_approval, requires_report, min_quantity, max_redo_count,
+                      deadline, deadline_time, status)
+                     VALUES ($1,$2,$3,$4,$5,$6,true,$7,$8,$9,$10,'pending') RETURNING id`,
+                    [id, nextOrder++, item.task_name, item.task_content || '', item.guide_link || '',
+                     item.requires_approval || false, item.min_quantity || 1, item.max_redo_count || 3,
+                     item.deadline, item.deadline_time || null]
+                );
+
+                // Assign users
+                if (item.user_ids && newItem) {
+                    for (const uid of item.user_ids) {
+                        await db.run(
+                            'INSERT INTO chain_task_assignments (chain_item_id, user_id, assigned_by) VALUES ($1,$2,$3)',
+                            [newItem.id, uid, request.user.id]
+                        );
+                    }
+                }
+            }
+        }
+
+        // Delete pending items
+        if (items_delete && items_delete.length > 0) {
+            for (const itemId of items_delete) {
+                const existing = await db.get('SELECT status FROM chain_task_instance_items WHERE id=$1 AND chain_instance_id=$2', [itemId, id]);
+                if (!existing || existing.status !== 'pending') continue;
+                await db.run('DELETE FROM chain_task_instance_items WHERE id=$1', [itemId]);
+            }
+        }
+
+        // Recalculate end_date
+        const maxDl = await db.get("SELECT MAX(deadline) as max_dl FROM chain_task_instance_items WHERE chain_instance_id=$1", [id]);
+        if (maxDl?.max_dl) {
+            await db.run('UPDATE chain_task_instances SET end_date=$1 WHERE id=$2', [maxDl.max_dl, id]);
         }
 
         return { success: true };
