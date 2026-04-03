@@ -2599,11 +2599,11 @@ async function _ctShowManageTemplates() {
                         <div style="font-size:11px;color:#6b7280;">${t.item_count} task con • ${t.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'} • ${t.creator_name || ''}</div>
                     </div>
                     <div style="display:flex;gap:6px;align-items:center;">
-                        <select id="ctCopyDept_${t.id}" style="padding:3px 6px;font-size:10px;border:1px solid #d1d5db;border-radius:4px;">
+                        <select id="ctCopyDept_${t.id}" onchange="_ctToggleCopyBtn(${t.id})" style="padding:4px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;">
                             <option value="">📋 Copy sang...</option>
                             ${copyOptions}
                         </select>
-                        <button onclick="_ctCopyTemplate(${t.id})" style="padding:4px 8px;font-size:10px;border:1px solid #059669;border-radius:4px;background:white;color:#059669;cursor:pointer;font-weight:600;">📋</button>
+                        <button id="ctCopyBtn_${t.id}" onclick="_ctCopyTemplate(${t.id})" style="display:none;padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(5,150,105,0.3);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📋 Copy sang</button>
                         <button onclick="_ctEditTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa</button>
                         <button onclick="_ctDeleteTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Xóa</button>
                     </div>
@@ -2623,16 +2623,33 @@ async function _ctCopyTemplate(templateId) {
     const targetDeptId = sel?.value;
     if (!targetDeptId) { alert('Chọn phòng ban đích trước!'); return; }
 
-    if (!confirm('Copy mẫu chuỗi sang phòng ban đã chọn?')) return;
+    const deptName = sel.options[sel.selectedIndex]?.text || '';
+    if (!confirm(`📋 Xác nhận copy mẫu chuỗi sang "${deptName}"?`)) return;
 
     try {
         await apiCall(`/api/chain-tasks/templates/${templateId}/copy`, 'POST', {
             target_department_id: parseInt(targetDeptId)
         });
-        showToast('📋 Đã copy mẫu chuỗi thành công!');
-        _ctShowManageTemplates(); // Refresh
+        showToast(`📋 Đã copy thành công sang ${deptName}!`);
+        // Reset dropdown & hide button
+        sel.value = '';
+        const btn = document.getElementById(`ctCopyBtn_${templateId}`);
+        if (btn) btn.style.display = 'none';
     } catch(e) {
         alert('Lỗi: ' + e.message);
+    }
+}
+
+function _ctToggleCopyBtn(templateId) {
+    const sel = document.getElementById(`ctCopyDept_${templateId}`);
+    const btn = document.getElementById(`ctCopyBtn_${templateId}`);
+    if (!btn) return;
+    if (sel?.value) {
+        const deptName = sel.options[sel.selectedIndex]?.text || '';
+        btn.textContent = `📋 Copy → ${deptName}`;
+        btn.style.display = 'inline-block';
+    } else {
+        btn.style.display = 'none';
     }
 }
 
