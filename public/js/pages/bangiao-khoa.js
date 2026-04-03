@@ -1349,12 +1349,12 @@ function _ctRenderDetailContent(data) {
             actionHtml = _ctGetActionBtn(item, data, isManager);
         } else {
             const pendingComps = completions.filter(c => c.status === 'pending');
-            const approvedUserIds = [...new Set(completions.filter(c => c.status === 'approved').map(c => c.user_id))];
-            const totalAssigned = users.length || 1;
-            if (approvedUserIds.length >= totalAssigned) {
-                statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Hoàn thành</span>';
-            } else if (approvedUserIds.length > 0) {
-                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedUserIds.length}/${totalAssigned} NV</span>`;
+            const approvedCount = completions.filter(c => c.status === 'approved').length;
+            const minQty = item.min_quantity || 1;
+            if (approvedCount >= minQty) {
+                statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedCount}/${minQty} BC</span>`;
+            } else if (approvedCount > 0) {
+                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedCount}/${minQty} BC</span>`;
             } else if (pendingComps.length > 0) {
                 statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
             } else {

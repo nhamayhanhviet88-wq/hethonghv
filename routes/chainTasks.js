@@ -578,17 +578,15 @@ async function chainTaskRoutes(fastify, options) {
         const item = await db.get('SELECT * FROM chain_task_instance_items WHERE id = $1', [itemId]);
         if (!item) return;
 
-        // Check if all assigned users have approved completions
-        const assignedCount = await db.get(
-            'SELECT COUNT(*) as cnt FROM chain_task_assignments WHERE chain_item_id = $1', [itemId]
-        );
+        // Check if approved completions meet min_quantity
         const approvedCount = await db.get(
-            `SELECT COUNT(DISTINCT user_id) as cnt FROM chain_task_completions 
+            `SELECT COUNT(*) as cnt FROM chain_task_completions 
              WHERE chain_item_id = $1 AND status = 'approved'`, [itemId]
         );
+        const minQty = item.min_quantity || 1;
 
-        // If no assignments or all assigned users completed → mark as completed
-        if (assignedCount.cnt === 0 || approvedCount.cnt >= assignedCount.cnt) {
+        // If approved reports >= min_quantity → mark as completed
+        if (approvedCount.cnt >= minQty) {
             await db.run("UPDATE chain_task_instance_items SET status = 'completed' WHERE id = $1", [itemId]);
 
             // Auto-unlock next item (sequential mode)
