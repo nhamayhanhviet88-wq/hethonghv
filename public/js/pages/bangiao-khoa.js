@@ -1384,7 +1384,12 @@ function _ctRenderDetailContent(data) {
     const footer = document.getElementById('modalFooter');
 
     const items = data.items || [];
-    const completedCount = items.filter(i => i.status === 'completed').length;
+    const completedCount = items.filter(i => {
+        if (i.status === 'completed') return true;
+        const comps = i.completions || [];
+        const minQty = i.min_quantity || 1;
+        return comps.filter(c => c.status === 'approved').length >= minQty;
+    }).length;
     const pct = items.length > 0 ? Math.round(completedCount / items.length * 100) : 0;
     const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '🔄 Song song';
     const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
@@ -1423,6 +1428,7 @@ function _ctRenderDetailContent(data) {
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân Viên</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Trạng Thái</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:70px;">Báo Cáo</th>
+                    <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Người BC</th>
                     <th style="padding:8px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;width:90px;">Hành Động</th>
                 </tr></thead>
                 <tbody>`;
@@ -1439,8 +1445,19 @@ function _ctRenderDetailContent(data) {
         const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
         let statusHtml = '', actionHtml = '';
         const isOverdue = new Date(item.deadline) < new Date() && item.status !== 'completed';
+        const minQty = item.min_quantity || 1;
+        const totalApproved = completions.filter(c => c.status === 'approved').length;
+        // "First to finish" — any user approved enough = item done for everyone
+        const isEffectivelyCompleted = item.status === 'completed' || totalApproved >= minQty;
 
-        if (item.status === 'completed') {
+        // Find reporter(s) who completed
+        const approvedComps = completions.filter(c => c.status === 'approved');
+        const reporterNames = [...new Set(approvedComps.map(c => c.reporter_name || c.user_name || ''))].filter(n => n);
+        const reporterHtml = reporterNames.length > 0
+            ? reporterNames.map(n => `<span style="background:#f0fdf4;color:#059669;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">${n}</span>`).join(' ')
+            : '<span style="color:#d1d5db;font-size:10px;">—</span>';
+
+        if (isEffectivelyCompleted) {
             statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Xong</span>';
             actionHtml = '<span style="color:#d1d5db;">—</span>';
         } else if (item.status === 'pending' && data.execution_mode === 'sequential') {
@@ -1450,18 +1467,14 @@ function _ctRenderDetailContent(data) {
             statusHtml = '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">💀 Quá hạn</span>';
             actionHtml = _ctGetActionBtn(item, data, isManager);
         } else {
-            // Per-user status
             const myApproved = myComps.filter(c => c.status === 'approved').length;
             const myPending = myComps.filter(c => c.status === 'pending').length;
             const myRejected = myComps.filter(c => c.status === 'rejected').length;
-            const minQty = item.min_quantity || 1;
+            const totalPending = completions.filter(c => c.status === 'pending').length;
 
             if (isAssigned || !isManager) {
-                // Assigned user: show personal status
                 if (myApproved >= minQty) {
                     statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${myApproved}/${minQty} BC</span>`;
-                } else if (myApproved > 0) {
-                    statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${myApproved}/${minQty} BC</span>`;
                 } else if (myPending > 0) {
                     statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
                 } else if (myRejected > 0) {
@@ -1470,12 +1483,7 @@ function _ctRenderDetailContent(data) {
                     statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
                 }
             } else {
-                // Manager (not assigned): show total count
-                const totalApproved = completions.filter(c => c.status === 'approved').length;
-                const totalPending = completions.filter(c => c.status === 'pending').length;
-                if (totalApproved >= minQty) {
-                    statusHtml = `<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${totalApproved}/${minQty} BC</span>`;
-                } else if (totalPending > 0) {
+                if (totalPending > 0) {
                     statusHtml = `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ ${totalPending} chờ duyệt</span>`;
                 } else {
                     statusHtml = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔵 Đang làm</span>';
@@ -1498,6 +1506,7 @@ function _ctRenderDetailContent(data) {
             <td style="padding:8px 12px;text-align:center;">${usersHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${displayComps.length > 0 ? `<button onclick="event.stopPropagation();_ctShowReportHistory(${item.id})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;white-space:nowrap;">📄 ${displayComps.length}</button>` : '<span style="color:#d1d5db;">—</span>'}</td>
+            <td style="padding:8px 12px;text-align:center;">${reporterHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${actionHtml}</td>
         </tr>`;
     });
