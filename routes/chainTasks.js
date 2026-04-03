@@ -250,6 +250,37 @@ async function chainTaskRoutes(fastify, options) {
         return instances;
     });
 
+    // GET: Chain task items for calendar view (by user + week)
+    fastify.get('/api/chain-tasks/calendar', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = parseInt(request.query.user_id) || request.user.id;
+        const weekStart = request.query.week_start; // YYYY-MM-DD (Monday)
+        if (!weekStart) return reply.code(400).send({ error: 'week_start required' });
+
+        // Calculate week end (Sunday)
+        const startD = new Date(weekStart);
+        const endD = new Date(startD);
+        endD.setDate(endD.getDate() + 6);
+        const weekEnd = endD.toISOString().split('T')[0];
+
+        // Get all chain items assigned to this user with deadline in this week range
+        const items = await db.all(`
+            SELECT cii.*, ci.chain_name, ci.execution_mode, ci.status as chain_status,
+                   ci.department_id, ci.id as chain_instance_id,
+                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
+                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items,
+                   (SELECT json_agg(json_build_object('id', cc2.id, 'user_id', cc2.user_id, 'status', cc2.status, 'content', cc2.content))
+                    FROM chain_task_completions cc2 WHERE cc2.chain_item_id = cii.id AND cc2.user_id = $1) as my_completions
+            FROM chain_task_instance_items cii
+            JOIN chain_task_instances ci ON ci.id = cii.chain_instance_id
+            JOIN chain_task_assignments ca ON ca.chain_item_id = cii.id AND ca.user_id = $1
+            WHERE ci.status != 'cancelled'
+              AND cii.deadline >= $2 AND cii.deadline <= $3
+            ORDER BY cii.deadline, cii.item_order
+        `, [userId, weekStart, weekEnd]);
+
+        return { items };
+    });
+
     // GET: Single instance with all detail
     fastify.get('/api/chain-tasks/instances/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params;

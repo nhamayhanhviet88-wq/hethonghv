@@ -15,6 +15,7 @@ let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
 let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbMonthlySummary = 0; // total approved points this month
 let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
+let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
@@ -782,6 +783,14 @@ async function _kbLoadSchedule() {
         _kbLockTasks = []; _kbLockCompletions = {}; _kbLockHolidays = new Set();
         window._kbLockSupportRequests = {};
     }
+    // Load CV Chuỗi (chain task items) for this week
+    try {
+        const uid2 = _kbViewUserId || currentUser.id;
+        const chainData = await apiCall(`/api/chain-tasks/calendar?user_id=${uid2}&week_start=${monStr}`);
+        _kbChainItems = chainData.items || [];
+    } catch(e) {
+        _kbChainItems = [];
+    }
 
     _kbRenderStats();
     _kbRenderGrid();
@@ -1307,9 +1316,196 @@ function _kbRenderGrid() {
         });
     }
 
+    // ===== CV CHUỖI ROWS =====
+    if (_kbChainItems && _kbChainItems.length > 0) {
+        // Section divider — blue banner
+        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#1e40af,#2563eb);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">🔗 CV Chuỗi — Công việc chuỗi liên kết</td></tr>`;
+
+        // Group items by chain_instance_id
+        const chainGroups = {};
+        _kbChainItems.forEach(item => {
+            if (!chainGroups[item.chain_instance_id]) {
+                chainGroups[item.chain_instance_id] = {
+                    chain_name: item.chain_name,
+                    chain_instance_id: item.chain_instance_id,
+                    execution_mode: item.execution_mode,
+                    total_items: item.total_items,
+                    completed_items: item.completed_items,
+                    items: []
+                };
+            }
+            chainGroups[item.chain_instance_id].items.push(item);
+        });
+
+        const monDate3 = new Date(_kbWeekStart);
+        const todayStr3 = new Date().toISOString().split('T')[0];
+
+        Object.values(chainGroups).forEach(chain => {
+            html += `<tr>`;
+            // Time slot column — blue chain badge
+            html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
+                <div style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(30,64,175,0.2);min-width:70px;cursor:pointer;" onclick="_kbOpenChainDetail(${chain.chain_instance_id})">
+                    <div style="font-weight:700;color:#fff;font-size:10px;">🔗 CHUỖI</div>
+                    <div style="margin:2px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
+                    <div style="font-weight:700;color:#93c5fd;font-size:9px;">${chain.completed_items}/${chain.total_items}</div>
+                </div>
+            </td>`;
+
+            // Render each day of the week
+            for (let d = 0; d < 7; d++) {
+                const dayDate = new Date(monDate3);
+                dayDate.setDate(dayDate.getDate() + d);
+                const dateStr = dayDate.toISOString().split('T')[0];
+
+                // Find chain items with deadline on this day
+                const dayItems = chain.items.filter(it => {
+                    const itDeadline = (it.deadline || '').slice(0, 10);
+                    return itDeadline === dateStr;
+                });
+
+                if (dayItems.length === 0) {
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
+                    continue;
+                }
+
+                html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">`;
+                dayItems.forEach(item => {
+                    const isPending = item.status === 'pending';
+                    const isCompleted = item.status === 'completed';
+                    const isOverdue = !isCompleted && dateStr < todayStr3;
+
+                    let itemBg, itemBorder, nameColor, opacity;
+                    if (isCompleted) {
+                        itemBg = '#f0fdf4'; itemBorder = '#a7f3d0'; nameColor = '#059669'; opacity = '1';
+                    } else if (isPending) {
+                        itemBg = '#f8fafc'; itemBorder = '#e2e8f0'; nameColor = '#94a3b8'; opacity = '0.55';
+                    } else if (isOverdue) {
+                        itemBg = '#fff5f5'; itemBorder = '#fecaca'; nameColor = '#dc2626'; opacity = '1';
+                    } else {
+                        itemBg = '#eff6ff'; itemBorder = '#bfdbfe'; nameColor = '#1e40af'; opacity = '1';
+                    }
+
+                    // Status badge
+                    let statusBadge = '';
+                    if (isCompleted) {
+                        statusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ Xong</span>';
+                    } else if (isPending) {
+                        statusBadge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;">🔒 Chờ</span>';
+                    } else if (isOverdue) {
+                        statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">⚠️ Trễ hạn</span>';
+                    } else {
+                        // Check if user has submitted
+                        const myComp = item.my_completions;
+                        if (myComp && myComp.length > 0) {
+                            const lastComp = myComp[myComp.length - 1];
+                            if (lastComp.status === 'pending') {
+                                statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">⏳ Chờ duyệt</span>';
+                            } else if (lastComp.status === 'rejected') {
+                                statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">❌ Từ chối</span>';
+                            }
+                        } else {
+                            statusBadge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔵 Đang làm</span>';
+                        }
+                    }
+
+                    // Action button
+                    let actionBtn = '';
+                    if (!isCompleted && !isPending) {
+                        actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:#2563eb;color:white;font-size:9px;font-weight:700;cursor:pointer;">📋 Xem chuỗi</span></div>`;
+                    }
+
+                    html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid #2563eb;border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;">
+                        <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">🔗 ${item.task_name}</div>
+                        <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${chain.total_items})</div>
+                        ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:#2563eb;text-decoration:underline;">🔗 HD</a>` : ''}
+                        <div style="margin-top:4px;">${statusBadge}</div>
+                        ${actionBtn}
+                    </div>`;
+                });
+                html += `</td>`;
+            }
+            html += `</tr>`;
+        });
+    }
+
+
     html += `</tbody></table>`;
 
     wrap.innerHTML = html;
+}
+
+// ========== CV CHUỖI: Open chain detail modal ==========
+async function _kbOpenChainDetail(instanceId) {
+    // Reuse the chain detail modal from bangiao-khoa.js if available
+    if (typeof _ctShowDetailModal === 'function') {
+        _ctShowDetailModal(instanceId);
+        return;
+    }
+
+    // Fallback: build a standalone modal
+    try {
+        const data = await apiCall(`/api/chain-tasks/instances/${instanceId}`);
+        const overlay = document.getElementById('modalOverlay');
+        const title = document.getElementById('modalTitle');
+        const body = document.getElementById('modalBody');
+        const footer = document.getElementById('modalFooter');
+
+        title.textContent = `🔗 ${data.chain_name}`;
+        const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '⚡ Song song';
+        const startStr = data.start_date ? new Date(data.start_date).toLocaleDateString('vi-VN') : '';
+        const endStr = data.end_date ? new Date(data.end_date).toLocaleDateString('vi-VN') : '';
+        const completedCount = (data.items || []).filter(i => i.status === 'completed').length;
+        const totalCount = (data.items || []).length;
+        const pct = totalCount > 0 ? Math.round(completedCount / totalCount * 100) : 0;
+
+        let html = `<div style="padding:16px 20px;">
+            <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:12px;color:#6b7280;">
+                <span>${modeLabel}</span>
+                <span>📅 ${startStr} → ${endStr}</span>
+                <span>👤 ${data.creator_name || ''}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:12px;color:#374151;">Tiến độ</span>
+                <span style="font-size:12px;font-weight:700;color:${pct===100?'#059669':'#dc2626'};">${completedCount}/${totalCount} (${pct}%)</span>
+            </div>
+            <div style="background:#e5e7eb;border-radius:6px;height:6px;margin-bottom:16px;">
+                <div style="background:linear-gradient(90deg,#2563eb,#059669);height:100%;border-radius:6px;width:${pct}%;transition:width 0.3s;"></div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">#</th>
+                    <th style="padding:8px;text-align:left;color:#6b7280;font-weight:700;">TASK CON</th>
+                    <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">DEADLINE</th>
+                    <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">TRẠNG THÁI</th>
+                </tr></thead><tbody>`;
+
+        (data.items || []).forEach(item => {
+            const deadlineStr = item.deadline ? new Date(item.deadline).toLocaleDateString('vi-VN') : '';
+            const isOver = item.status !== 'completed' && item.deadline && new Date(item.deadline) < new Date();
+            let badge = '';
+            if (item.status === 'completed') badge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Xong</span>';
+            else if (item.status === 'pending') badge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">🔒 Chờ</span>';
+            else if (isOver) badge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⚠️ Trễ</span>';
+            else badge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🔵 Đang làm</span>';
+
+            html += `<tr style="border-bottom:1px solid #f3f4f6;${isOver?'background:#fff5f5;':''}">
+                <td style="padding:8px;text-align:center;font-weight:700;color:#6b7280;">${item.item_order}</td>
+                <td style="padding:8px;">
+                    <div style="font-weight:600;color:#1e293b;">${item.task_name}</div>
+                    ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:underline;">🔗 Hướng dẫn CV</a>` : ''}
+                </td>
+                <td style="padding:8px;text-align:center;font-size:11px;color:${isOver?'#dc2626':'#374151'};font-weight:${isOver?'700':'500'};">${deadlineStr}</td>
+                <td style="padding:8px;text-align:center;">${badge}</td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        body.innerHTML = html;
+        footer.innerHTML = `<button onclick="document.getElementById('modalOverlay').classList.remove('show')" style="padding:8px 24px;border-radius:8px;border:1px solid #1e293b;background:#1e293b;color:white;font-weight:700;cursor:pointer;">Đóng</button>`;
+        overlay.classList.add('show');
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
 }
 
 // Premium task detail modal (same design as Bàn Giao CV Điểm)

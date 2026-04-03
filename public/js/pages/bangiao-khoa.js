@@ -1743,11 +1743,11 @@ function _ctShowNewTemplateUI() {
     body.innerHTML = `<div style="padding:16px 20px;">
         <h4 style="margin:0 0 14px;color:#1e293b;">➕ Tạo mẫu chuỗi mới</h4>
         <div style="margin-bottom:10px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Tên chuỗi:</label>
+            <label style="font-size:12px;font-weight:700;color:#374151;">Tên chuỗi: <span style="color:#dc2626;">*</span></label>
             <input type="text" id="ctNewName" placeholder="VD: Chụp hình sản phẩm" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
         </div>
         <div style="margin-bottom:10px;">
-            <label style="font-size:12px;font-weight:700;color:#374151;">Mô tả:</label>
+            <label style="font-size:12px;font-weight:700;color:#374151;">Mô tả: <span style="color:#dc2626;">*</span></label>
             <textarea id="ctNewDesc" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;" placeholder="Mô tả chuỗi..."></textarea>
         </div>
         <div style="margin-bottom:10px;">
