@@ -2078,6 +2078,7 @@ async function _ctDoPostpone() {
 let _ctDeployDeptId = null;
 let _ctTemplates = [];
 let _ctSelectedTemplateId = null;
+let _ctTemplateEdited = false;
 
 async function _ctShowDeployModal(deptId) {
     _ctDeployDeptId = deptId;
@@ -2164,8 +2165,9 @@ function _ctRenderDeployForm(users) {
 async function _ctOnTemplateSelect() {
     const tmplId = document.getElementById('ctDeployTemplate')?.value;
     const preview = document.getElementById('ctTemplatePreview');
-    if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; _ctSelectedTemplateId = null; return; }
+    if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; _ctSelectedTemplateId = null; _ctTemplateEdited = false; return; }
     _ctSelectedTemplateId = tmplId;
+    _ctTemplateEdited = false;
 
     try {
         const tmpl = await apiCall(`/api/chain-tasks/templates/${tmplId}`);
@@ -2197,6 +2199,12 @@ async function _ctDoDeploy() {
 
     const userIds = Array.from(document.querySelectorAll('input[name="ct_user"]:checked')).map(cb => parseInt(cb.value));
     if (userIds.length === 0) { alert('Vui lòng chọn ít nhất 1 nhân viên'); return; }
+
+    // Must edit template before deploy
+    if (!_ctTemplateEdited) {
+        alert('⚠️ Vui lòng bấm "✏️ Sửa mẫu" để cập nhật thông tin (deadline, link HD...) trước khi triển khai.');
+        return;
+    }
 
     // Check all items have deadlines
     try {
@@ -2516,6 +2524,7 @@ async function _ctSaveEditTemplate(templateId) {
             chain_name: chainName, description, execution_mode: executionMode, items
         });
         showToast('💾 Đã lưu mẫu chuỗi!');
+        _ctTemplateEdited = true;
         _ctShowDeployModal(_ctDeployDeptId);
     } catch(e) { alert('Lỗi: ' + e.message); }
 }
