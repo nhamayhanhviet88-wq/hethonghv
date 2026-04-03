@@ -528,11 +528,26 @@ async function _lkLoadUserTasks(userId, userName) {
         // ===== CHAIN TASKS FOR THIS USER =====
         try {
             const userChains = await apiCall(`/api/chain-tasks/user/${userId}`);
-            if (userChains && userChains.length > 0) {
+            // Filter chains by selected date range
+            const monthRange = _lkGetMonthRange();
+            const rangeStart = monthRange[0] + '-01'; // e.g. "2026-01-01"
+            const lastMonth = monthRange[monthRange.length - 1];
+            const lastMonthParts = lastMonth.split('-');
+            const rangeEnd = new Date(parseInt(lastMonthParts[0]), parseInt(lastMonthParts[1]), 0); // last day of month
+            const rangeEndStr = rangeEnd.toISOString().split('T')[0];
+
+            const filteredChains = (userChains || []).filter(c => {
+                const cStart = c.start_date || '';
+                const cEnd = c.end_date || cStart;
+                // Chain overlaps with range if chain_start <= rangeEnd AND chain_end >= rangeStart
+                return cStart <= rangeEndStr && cEnd >= rangeStart;
+            });
+
+            if (filteredChains.length > 0) {
                 html += `<div style="margin-top:8px;padding:0 20px 12px;">
                     <div style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔗 CÔNG VIỆC CHUỖI</div>
                     <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">`;
-                userChains.forEach(c => {
+                filteredChains.forEach(c => {
                     const total = Number(c.total_items || 0);
                     const done = Number(c.completed_items || 0);
                     const pct = total > 0 ? Math.round(done / total * 100) : 0;
