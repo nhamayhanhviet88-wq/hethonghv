@@ -1337,16 +1337,16 @@ function _kbRenderGrid() {
             chainGroups[item.chain_instance_id].items.push(item);
         });
 
-        // Color palette for distinguishing chains — [gradientDark, gradientLight, borderLeft, textAccent, badgeBg]
+        // Color palette for distinguishing chains — includes subtle background tints
         const _chainColors = [
-            { gd:'#1e40af', gl:'#2563eb', border:'#2563eb', text:'#1e40af', badge:'#93c5fd' },  // Blue
-            { gd:'#b45309', gl:'#d97706', border:'#d97706', text:'#92400e', badge:'#fcd34d' },  // Amber
-            { gd:'#7c3aed', gl:'#8b5cf6', border:'#8b5cf6', text:'#6d28d9', badge:'#c4b5fd' },  // Violet
-            { gd:'#be185d', gl:'#e11d48', border:'#e11d48', text:'#9f1239', badge:'#fda4af' },  // Rose
-            { gd:'#047857', gl:'#059669', border:'#059669', text:'#065f46', badge:'#6ee7b7' },  // Emerald
-            { gd:'#0e7490', gl:'#0891b2', border:'#0891b2', text:'#155e75', badge:'#67e8f9' },  // Cyan
-            { gd:'#c2410c', gl:'#ea580c', border:'#ea580c', text:'#9a3412', badge:'#fdba74' },  // Orange
-            { gd:'#4338ca', gl:'#6366f1', border:'#6366f1', text:'#3730a3', badge:'#a5b4fc' },  // Indigo
+            { gd:'#1e40af', gl:'#2563eb', border:'#2563eb', text:'#1e40af', badge:'#93c5fd', tint:'#eff6ff', tintBorder:'#bfdbfe' },  // Blue
+            { gd:'#b45309', gl:'#d97706', border:'#d97706', text:'#92400e', badge:'#fcd34d', tint:'#fffbeb', tintBorder:'#fde68a' },  // Amber
+            { gd:'#7c3aed', gl:'#8b5cf6', border:'#8b5cf6', text:'#6d28d9', badge:'#c4b5fd', tint:'#f5f3ff', tintBorder:'#ddd6fe' },  // Violet
+            { gd:'#be185d', gl:'#e11d48', border:'#e11d48', text:'#9f1239', badge:'#fda4af', tint:'#fff1f2', tintBorder:'#fecdd3' },  // Rose
+            { gd:'#047857', gl:'#059669', border:'#059669', text:'#065f46', badge:'#6ee7b7', tint:'#ecfdf5', tintBorder:'#a7f3d0' },  // Emerald
+            { gd:'#0e7490', gl:'#0891b2', border:'#0891b2', text:'#155e75', badge:'#67e8f9', tint:'#ecfeff', tintBorder:'#a5f3fc' },  // Cyan
+            { gd:'#c2410c', gl:'#ea580c', border:'#ea580c', text:'#9a3412', badge:'#fdba74', tint:'#fff7ed', tintBorder:'#fed7aa' },  // Orange
+            { gd:'#4338ca', gl:'#6366f1', border:'#6366f1', text:'#3730a3', badge:'#a5b4fc', tint:'#eef2ff', tintBorder:'#c7d2fe' },  // Indigo
         ];
 
         const monDate3 = new Date(_kbWeekStart);
@@ -1377,11 +1377,11 @@ function _kbRenderGrid() {
                 });
 
                 if (dayItems.length === 0) {
-                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#d1d5db;font-size:20px;background:${cc.tint};">—</td>`;
                     continue;
                 }
 
-                html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">`;
+                html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;background:${cc.tint};">`;
                 dayItems.forEach(item => {
                     const isPending = item.status === 'pending';
                     const minQty = Number(item.min_quantity) || 1;
@@ -1389,6 +1389,7 @@ function _kbRenderGrid() {
                     const isCompleted = item.status === 'completed' || approvedCount >= minQty;
                     const isOverdue = !isCompleted && dateStr < todayStr3;
 
+                    // Use chain-tinted background for active items
                     let itemBg, itemBorder, nameColor, opacity;
                     if (isCompleted) {
                         itemBg = '#f0fdf4'; itemBorder = '#a7f3d0'; nameColor = '#059669'; opacity = '1';
@@ -1397,7 +1398,8 @@ function _kbRenderGrid() {
                     } else if (isOverdue) {
                         itemBg = '#fff5f5'; itemBorder = '#fecaca'; nameColor = '#dc2626'; opacity = '1';
                     } else {
-                        itemBg = '#eff6ff'; itemBorder = '#bfdbfe'; nameColor = cc.text; opacity = '1';
+                        // Active: use chain-specific tint color
+                        itemBg = cc.tint; itemBorder = cc.tintBorder; nameColor = cc.text; opacity = '1';
                     }
 
                     // Status badge
