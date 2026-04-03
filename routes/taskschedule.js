@@ -3,6 +3,7 @@ const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
 const { calculateRealDeadline, toDateStr, toLocalTimestamp } = require('./deadline-checker');
+const { canApproveByRole, isAutoApproveRole } = require('../utils/approvalHierarchy');
 
 async function taskScheduleRoutes(fastify, options) {
 
@@ -466,8 +467,10 @@ async function taskScheduleRoutes(fastify, options) {
             }
         }
 
-        const status = template.requires_approval ? 'pending' : 'approved';
-        const points = template.requires_approval ? 0 : (template.points || 0);
+        // Giám đốc auto-approve regardless of requires_approval
+        const shouldAutoApprove = !template.requires_approval || isAutoApproveRole(request.user.role);
+        const status = shouldAutoApprove ? 'approved' : 'pending';
+        const points = shouldAutoApprove ? (template.points || 0) : 0;
 
         try {
             // Check if already submitted (prevent duplicates)
@@ -749,9 +752,15 @@ async function taskScheduleRoutes(fastify, options) {
         );
         if (!report) return reply.code(404).send({ error: 'Report not found' });
 
-        // Check permission
-        const canApprove = await _canApproveForDept(request.user.id, report.department_id);
-        if (!canApprove) return reply.code(403).send({ error: 'Bạn không có quyền duyệt phòng này' });
+        // Check department permission
+        const canApproveDept = await _canApproveForDept(request.user.id, report.department_id);
+        if (!canApproveDept) return reply.code(403).send({ error: 'Bạn không có quyền duyệt phòng này' });
+
+        // Check approval hierarchy: get reporter's role
+        const reporterUser = await db.get('SELECT role FROM users WHERE id = $1', [report.user_id]);
+        if (reporterUser && !canApproveByRole(request.user.role, reporterUser.role)) {
+            return reply.code(403).send({ error: 'Bạn không đủ cấp bậc để duyệt báo cáo của người này' });
+        }
 
         if (action === 'approve') {
             const pts = report.template_points || 0;

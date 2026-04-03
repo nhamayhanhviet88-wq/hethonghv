@@ -2,6 +2,7 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
+const { canApproveByRole } = require('../utils/approvalHierarchy');
 
 async function lockTaskRoutes(fastify, options) {
 
@@ -414,6 +415,16 @@ async function lockTaskRoutes(fastify, options) {
 
         if (!['approve', 'reject'].includes(action)) {
             return reply.code(400).send({ error: 'Action phải là approve hoặc reject' });
+        }
+
+        // Check approval hierarchy
+        const completion = await db.get(
+            `SELECT ltc.user_id, u.role as reporter_role FROM lock_task_completions ltc
+             JOIN users u ON u.id = ltc.user_id WHERE ltc.id = $1`, [completionId]
+        );
+        if (!completion) return reply.code(404).send({ error: 'Completion not found' });
+        if (!canApproveByRole(request.user.role, completion.reporter_role)) {
+            return reply.code(403).send({ error: 'Bạn không đủ cấp bậc để duyệt báo cáo này' });
         }
 
         const status = action === 'approve' ? 'approved' : 'rejected';

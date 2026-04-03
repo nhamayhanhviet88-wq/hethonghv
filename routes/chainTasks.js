@@ -3,6 +3,7 @@ const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
 const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+const { canApproveByRole, isAutoApproveRole } = require('../utils/approvalHierarchy');
 
 // Helper: check if user has manager-level access
 function isManager(role) {
@@ -406,7 +407,7 @@ async function chainTaskRoutes(fastify, options) {
                         'status', cc.status, 'reviewed_by', cc.reviewed_by,
                         'reject_reason', cc.reject_reason, 'redo_count', cc.redo_count,
                         'created_at', cc.created_at, 'reviewer_name', u3.full_name,
-                        'reporter_name', u4.full_name))
+                        'reporter_name', u4.full_name, 'reporter_role', u4.role))
                     FROM chain_task_completions cc
                     LEFT JOIN users u3 ON u3.id = cc.reviewed_by
                     LEFT JOIN users u4 ON u4.id = cc.user_id
@@ -488,7 +489,10 @@ async function chainTaskRoutes(fastify, options) {
         );
         const redoCount = existing?.max_redo != null ? existing.max_redo + 1 : 0;
 
-        const initialStatus = item.requires_approval ? 'pending' : 'approved';
+        // Giám đốc auto-approve regardless of requires_approval
+        const reporter = await db.get('SELECT role FROM users WHERE id = $1', [userId]);
+        const shouldAutoApprove = !item.requires_approval || (reporter && isAutoApproveRole(reporter.role));
+        const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
 
         // Calculate approval deadline if pending
         let approvalDeadline = null;
@@ -505,8 +509,8 @@ async function chainTaskRoutes(fastify, options) {
             [itemId, userId, proofUrl, content, quantityDone, initialStatus, redoCount, approvalDeadline]
         );
 
-        // If auto-approved (no approval required), mark item as completed
-        if (!item.requires_approval) {
+        // If auto-approved, mark item as completed
+        if (shouldAutoApprove) {
             await _markItemCompleted(itemId);
         }
 
@@ -522,13 +526,22 @@ async function chainTaskRoutes(fastify, options) {
         const { completion_id } = request.body;
         if (!completion_id) return reply.code(400).send({ error: 'completion_id required' });
 
+        // Check approval hierarchy: get reporter's role
+        const comp = await db.get(
+            `SELECT cc.*, u.role as reporter_role FROM chain_task_completions cc
+             JOIN users u ON u.id = cc.user_id WHERE cc.id = $1`, [completion_id]
+        );
+        if (!comp) return reply.code(404).send({ error: 'Completion not found' });
+        if (!canApproveByRole(request.user.role, comp.reporter_role)) {
+            return reply.code(403).send({ error: 'Bạn không đủ cấp bậc để duyệt báo cáo này' });
+        }
+
         await db.run(
             `UPDATE chain_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
             [request.user.id, completion_id]
         );
 
         // Get the item and mark completed
-        const comp = await db.get('SELECT chain_item_id FROM chain_task_completions WHERE id = $1', [completion_id]);
         if (comp) {
             await _markItemCompleted(comp.chain_item_id);
         }
@@ -545,13 +558,17 @@ async function chainTaskRoutes(fastify, options) {
         const { completion_id, reject_reason } = request.body;
         if (!completion_id) return reply.code(400).send({ error: 'completion_id required' });
 
-        // Get completion and item info for redo check
+        // Check approval hierarchy
         const comp = await db.get(
-            `SELECT cc.*, ci.max_redo_count FROM chain_task_completions cc
+            `SELECT cc.*, ci.max_redo_count, u.role as reporter_role FROM chain_task_completions cc
              JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             JOIN users u ON u.id = cc.user_id
              WHERE cc.id = $1`, [completion_id]
         );
         if (!comp) return reply.code(404).send({ error: 'Completion not found' });
+        if (!canApproveByRole(request.user.role, comp.reporter_role)) {
+            return reply.code(403).send({ error: 'Bạn không đủ cấp bậc để từ chối báo cáo này' });
+        }
 
         const maxRedo = comp.max_redo_count || 3;
         const currentRedo = comp.redo_count || 0;

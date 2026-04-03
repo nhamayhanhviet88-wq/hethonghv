@@ -1596,18 +1596,28 @@ function _ctShowReportHistory(itemId) {
     footer.innerHTML = `<button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:8px 20px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:white;font-weight:700;cursor:pointer;">← Quay lại</button>`;
 }
 
+// Frontend approval hierarchy (mirrors utils/approvalHierarchy.js)
+const _ROLE_LEVEL = { nhan_vien: 1, truong_phong: 2, quan_ly: 3, pho_giam_doc: 4, trinh: 4, giam_doc: 5 };
+function _canApproveRole(approverRole, reporterRole) {
+    return (_ROLE_LEVEL[approverRole] || 0) > (_ROLE_LEVEL[reporterRole] || 0);
+}
+
 function _ctGetActionBtn(item, chain, isManager) {
     const completions = item.completions || [];
     const pendingComps = completions.filter(c => c.status === 'pending');
     const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
 
-    // Manager: show approve/reject for pending completions
+    // Manager: show approve/reject only if user outranks the reporter
     if (isManager && pendingComps.length > 0) {
         const pc = pendingComps[0];
-        return `<div style="display:flex;gap:4px;justify-content:center;">
-            <button onclick="event.stopPropagation();_ctApprove(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#059669;color:white;cursor:pointer;font-weight:600;" title="Duyệt">✅</button>
-            <button onclick="event.stopPropagation();_ctReject(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;font-weight:600;" title="Từ chối">❌</button>
-        </div>`;
+        if (_canApproveRole(currentUser.role, pc.reporter_role)) {
+            return `<div style="display:flex;gap:4px;justify-content:center;">
+                <button onclick="event.stopPropagation();_ctApprove(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#059669;color:white;cursor:pointer;font-weight:600;" title="Duyệt">✅</button>
+                <button onclick="event.stopPropagation();_ctReject(${item.id},${pc.id})" style="padding:2px 8px;font-size:10px;border:none;border-radius:4px;background:#dc2626;color:white;cursor:pointer;font-weight:600;" title="Từ chối">❌</button>
+            </div>`;
+        }
+        // User doesn't outrank — just show "Chờ duyệt" status
+        return `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>`;
     }
 
     // Assigned user: check existing completions
