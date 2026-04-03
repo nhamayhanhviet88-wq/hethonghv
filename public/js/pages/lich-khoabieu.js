@@ -1431,7 +1431,8 @@ function _kbRenderGrid() {
                         actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:${cc.gl};color:white;font-size:9px;font-weight:700;cursor:pointer;">📋 Xem chuỗi</span></div>`;
                     }
 
-                    html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid ${cc.border};border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;">
+                    html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid ${cc.border};border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;position:relative;">
+                        ${item.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
                         <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">🔗 ${item.task_name}</div>
                         <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${Number(chain.total_items)||0})</div>
                         ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:${cc.text};text-decoration:underline;">🔗 HD</a>` : ''}
