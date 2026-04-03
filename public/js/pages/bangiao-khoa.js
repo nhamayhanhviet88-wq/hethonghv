@@ -879,8 +879,8 @@ async function _lkShowCreateModal(deptId, editTask) {
                     <input id="lkf_min_qty" type="number" value="${t.min_quantity || 1}" min="1" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Mức phạt (VNĐ)</label>
-                    <input id="lkf_penalty" type="number" value="${t.penalty_amount || 50000}" min="0" step="10000" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                    <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Mức phạt</label>
+                    <div style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;background:#f8fafc;color:#64748b;font-weight:600;">⚙️ Theo cấu hình hệ thống</div>
                 </div>
             </div>
             <div style="margin-bottom:14px;">
@@ -1105,7 +1105,7 @@ async function _lkSaveTask(taskId, deptId) {
         recurrence_value: document.getElementById('lkf_recval')?.value || '',
         requires_approval: document.getElementById('lkf_approval')?.checked || false,
         max_redo_count: Number(document.getElementById('lkf_redo_max')?.value) || 3,
-        penalty_amount: Number(document.getElementById('lkf_penalty')?.value) || 50000,
+        penalty_amount: 50000,
         min_quantity: Number(document.getElementById('lkf_min_qty')?.value) || 1,
         department_id: deptId,
         user_ids: userIds
@@ -1302,7 +1302,7 @@ function _ctShowChainInstancesModal(chainName) {
                     <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">📅 Thời gian</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Task con</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt/con</th>
-                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt chuỗi</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt/con (HT)</th>
                     <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">👤 Nhân viên</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Tiến độ</th>
                     <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Trạng thái</th>
@@ -1327,7 +1327,7 @@ function _ctShowChainInstancesModal(chainName) {
             <td style="padding:8px 10px;white-space:nowrap;"><b>#${idx+1}</b> ${startStr} → ${endStr}</td>
             <td style="padding:8px 10px;text-align:center;font-weight:700;">${c.completed_items}/${c.total_items}</td>
             <td style="padding:8px 10px;text-align:center;color:#dc2626;font-weight:600;">${penaltyItem}</td>
-            <td style="padding:8px 10px;text-align:center;color:#dc2626;font-weight:600;">${penaltyChain}</td>
+            <td style="padding:8px 10px;text-align:center;color:#9333ea;font-weight:600;font-size:10px;">⚙️ theo HT</td>
             <td style="padding:8px 10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${users}</td>
             <td style="padding:8px 10px;text-align:center;">
                 <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
@@ -2327,15 +2327,9 @@ function _ctRenderDeployForm(users) {
             <label style="font-size:12px;font-weight:700;color:#374151;">Gán nhân viên (tất cả task con):</label>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${userCheckboxes || '<span style="color:#9ca3af;font-size:11px;">Không có nhân viên</span>'}</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;">Phạt task con (đ):</label>
-                <input type="number" id="ctPenaltyItem" value="50000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
-            </div>
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;">Phạt toàn chuỗi (đ):</label>
-                <input type="number" id="ctPenaltyChain" value="100000" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
-            </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#374151;">Mức phạt:</label>
+            <div style="padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;background:#f8fafc;color:#64748b;font-weight:600;">⚙️ Theo cấu hình hệ thống (Phạt Khóa TK NV)</div>
         </div>
     </div>`;
 
@@ -2411,8 +2405,8 @@ async function _ctDoDeploy() {
         department_id: _ctDeployDeptId,
         start_date: startDate,
         user_ids: userIds,
-        penalty_amount: parseInt(document.getElementById('ctPenaltyItem')?.value) || 50000,
-        chain_penalty_amount: parseInt(document.getElementById('ctPenaltyChain')?.value) || 100000
+        penalty_amount: 50000,
+        chain_penalty_amount: 0
     };
 
     try {
