@@ -833,7 +833,7 @@ async function _rhRenderTaskModal() {
                 <thead><tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
                     <th style="padding:10px 12px;text-align:left;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Ngày</th>
                     <th style="padding:10px 12px;text-align:left;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Khung Giờ</th>
-                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Số Lượng</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">SL Công Việc</th>
                     <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Trạng Thái</th>
                     <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;width:90px;">Chi Tiết</th>
                 </tr></thead>
