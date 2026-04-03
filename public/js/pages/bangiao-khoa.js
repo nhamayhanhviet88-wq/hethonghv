@@ -1297,15 +1297,15 @@ function _ctShowChainInstancesModal(chainName) {
         </div>
         <table style="width:100%;font-size:11px;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <thead>
-                <tr style="background:#eef2ff;">
-                    <th style="padding:8px 10px;text-align:left;color:#4b5563;font-weight:700;">📅 Thời gian</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;">Task con</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;">Phạt/con</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;">Phạt chuỗi</th>
-                    <th style="padding:8px 10px;text-align:left;color:#4b5563;font-weight:700;">👤 Nhân viên</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;">Tiến độ</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;">Trạng thái</th>
-                    <th style="padding:8px 10px;text-align:center;color:#4b5563;font-weight:700;"></th>
+                <tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
+                    <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">📅 Thời gian</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Task con</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt/con</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Phạt chuỗi</th>
+                    <th style="padding:8px 10px;text-align:left;color:white;font-weight:700;">👤 Nhân viên</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Tiến độ</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;">Trạng thái</th>
+                    <th style="padding:8px 10px;text-align:center;color:white;font-weight:700;"></th>
                 </tr>
             </thead>
             <tbody>`;
