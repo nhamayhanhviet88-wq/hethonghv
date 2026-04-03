@@ -602,6 +602,30 @@ async function chainTaskRoutes(fastify, options) {
             }
         }
     }
+
+    // ========== PENDING REVIEWS (for approval panel) ==========
+    fastify.get('/api/chain-tasks/pending-reviews', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isManager(request.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+
+        const reviews = await db.all(`
+            SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
+                   cc.status, cc.created_at, cc.redo_count,
+                   ci.task_name, ci.deadline, ci.min_quantity,
+                   cti.name as chain_name,
+                   u.full_name as user_name, u.username
+            FROM chain_task_completions cc
+            JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+            JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+            JOIN chain_task_templates cti ON cti.id = cins.chain_template_id
+            JOIN users u ON u.id = cc.user_id
+            WHERE cc.status = 'pending'
+            ORDER BY cc.created_at ASC
+        `);
+
+        return { reviews };
+    });
 }
 
 module.exports = chainTaskRoutes;
