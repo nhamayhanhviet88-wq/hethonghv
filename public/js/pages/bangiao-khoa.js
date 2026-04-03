@@ -2176,17 +2176,11 @@ async function _ctOnTemplateSelect() {
                 ${currentUser.role === 'giam_doc' ? `<button onclick="_ctEditTemplate(${tmplId})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa mẫu</button>` : ''}
             </div>`;
         (tmpl.items || []).forEach((it, i) => {
-            let deadlineStr;
-            if (it.deadline) {
-                deadlineStr = _ctFmtDate(it.deadline);
-            } else {
-                const d = new Date(startDate);
-                d.setDate(d.getDate() + (it.relative_days || 0));
-                deadlineStr = _ctFmtDate(d.toISOString().split('T')[0]);
-            }
+            const deadlineStr = it.deadline ? _ctFmtDate(it.deadline) : '—';
+            const dlColor = it.deadline ? '#6b7280' : '#dc2626';
             html += `<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;display:flex;justify-content:space-between;">
                 <span><b>${it.item_order}.</b> ${it.task_name}</span>
-                <span style="color:#6b7280;">📅 ${deadlineStr} ${it.requires_report ? '📝' : '✅'} ${it.requires_approval ? '🔒' : ''}</span>
+                <span style="color:${dlColor};">📅 ${deadlineStr} ${it.requires_report ? '📝' : '✅'} ${it.requires_approval ? '🔒' : ''}</span>
             </div>`;
         });
         html += '</div>';
@@ -2227,6 +2221,14 @@ async function _ctDoDeploy() {
 
     try {
         await apiCall('/api/chain-tasks/deploy', 'POST', payload);
+        // Clear template deadlines so next deploy starts fresh
+        const tmplDetail = await apiCall(`/api/chain-tasks/templates/${templateId}`);
+        const cleanItems = (tmplDetail.items || []).map(it => ({ ...it, deadline: null }));
+        await apiCall(`/api/chain-tasks/templates/${templateId}`, 'PUT', {
+            chain_name: tmplDetail.chain_name, description: tmplDetail.description || '',
+            execution_mode: tmplDetail.execution_mode, items: cleanItems
+        });
+        _ctSelectedTemplateId = null;
         showToast('🚀 Đã triển khai chuỗi!');
         document.getElementById('modalOverlay').classList.remove('show');
         if (_lkSelectedDeptId) _lkLoadDeptTasks(_lkSelectedDeptId);
