@@ -186,7 +186,10 @@ async function lockTaskRoutes(fastify, options) {
         const chain_instances = await db.all(`
             SELECT ci.*, u.full_name as creator_name,
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
-                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items,
+                   (SELECT COUNT(*) FROM chain_task_instance_items cii_done
+                    WHERE cii_done.chain_instance_id = ci.id
+                    AND (cii_done.status = 'completed' OR (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii_done.id AND status = 'approved') >= COALESCE(cii_done.min_quantity, 1))
+                   ) as completed_items,
                    (SELECT string_agg(DISTINCT u2.full_name, ', ' ORDER BY u2.full_name)
                     FROM chain_task_instance_items cii2
                     JOIN chain_task_assignments cta2 ON cta2.chain_item_id = cii2.id

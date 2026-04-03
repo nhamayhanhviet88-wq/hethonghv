@@ -333,7 +333,10 @@ async function chainTaskRoutes(fastify, options) {
         const instances = await db.all(`
             SELECT ci.*, u.full_name as creator_name,
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
-                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items
+                   (SELECT COUNT(*) FROM chain_task_instance_items cii_done
+                    WHERE cii_done.chain_instance_id = ci.id
+                    AND (cii_done.status = 'completed' OR (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii_done.id AND status = 'approved') >= COALESCE(cii_done.min_quantity, 1))
+                   ) as completed_items
             FROM chain_task_instances ci
             LEFT JOIN users u ON u.id = ci.created_by
             WHERE ci.department_id = $1 AND ci.status != 'cancelled'
@@ -360,7 +363,10 @@ async function chainTaskRoutes(fastify, options) {
             SELECT cii.*, cii.deadline::text as deadline, ci.chain_name, ci.execution_mode, ci.status as chain_status,
                    ci.department_id, ci.id as chain_instance_id,
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
-                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items,
+                   (SELECT COUNT(*) FROM chain_task_instance_items cii_done
+                    WHERE cii_done.chain_instance_id = ci.id
+                    AND (cii_done.status = 'completed' OR (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii_done.id AND status = 'approved') >= COALESCE(cii_done.min_quantity, 1))
+                   ) as completed_items,
                    (SELECT json_agg(json_build_object('id', cc2.id, 'user_id', cc2.user_id, 'status', cc2.status, 'content', cc2.content))
                     FROM chain_task_completions cc2 WHERE cc2.chain_item_id = cii.id AND cc2.user_id = $1) as my_completions
             FROM chain_task_instance_items cii
