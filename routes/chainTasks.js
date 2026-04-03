@@ -17,16 +17,23 @@ async function chainTaskRoutes(fastify, options) {
 
     // ========== TEMPLATE CRUD ==========
 
-    // GET: List all active chain templates
+    // GET: List active chain templates (optionally filtered by department)
     fastify.get('/api/chain-tasks/templates', { preHandler: [authenticate] }, async (request, reply) => {
-        const templates = await db.all(`
-            SELECT ct.*, u.full_name as creator_name,
+        const deptId = request.query.department_id;
+        let query = `
+            SELECT ct.*, u.full_name as creator_name, d.name as department_name,
                    (SELECT COUNT(*) FROM chain_task_template_items WHERE chain_template_id = ct.id) as item_count
             FROM chain_task_templates ct
             LEFT JOIN users u ON u.id = ct.created_by
-            WHERE ct.is_active = true
-            ORDER BY ct.created_at DESC
-        `);
+            LEFT JOIN departments d ON d.id = ct.department_id
+            WHERE ct.is_active = true`;
+        const params = [];
+        if (deptId) {
+            params.push(deptId);
+            query += ` AND ct.department_id = $${params.length}`;
+        }
+        query += ' ORDER BY ct.created_at DESC';
+        const templates = await db.all(query, params);
         return templates;
     });
 
@@ -49,15 +56,18 @@ async function chainTaskRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Chỉ Giám đốc mới được tạo mẫu chuỗi' });
         }
 
-        const { chain_name, description, execution_mode, items } = request.body;
+        const { chain_name, description, execution_mode, items, department_id } = request.body;
         if (!chain_name || !items || items.length === 0) {
             return reply.code(400).send({ error: 'Tên chuỗi và ít nhất 1 task con là bắt buộc' });
         }
+        if (!department_id) {
+            return reply.code(400).send({ error: 'Phòng ban là bắt buộc' });
+        }
 
         const template = await db.get(
-            `INSERT INTO chain_task_templates (chain_name, description, execution_mode, created_by)
-             VALUES ($1, $2, $3, $4) RETURNING *`,
-            [chain_name, description || '', execution_mode || 'sequential', request.user.id]
+            `INSERT INTO chain_task_templates (chain_name, description, execution_mode, department_id, created_by)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [chain_name, description || '', execution_mode || 'sequential', department_id, request.user.id]
         );
 
         for (let i = 0; i < items.length; i++) {
@@ -213,6 +223,54 @@ async function chainTaskRoutes(fastify, options) {
         }
         await db.run('UPDATE chain_task_templates SET is_active = false WHERE id = $1', [request.params.id]);
         return { success: true };
+    });
+
+    // POST: Copy template to another department (GĐ only)
+    fastify.post('/api/chain-tasks/templates/:id/copy', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isDirector(request.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ Giám đốc mới được copy mẫu chuỗi' });
+        }
+        const { id } = request.params;
+        const { target_department_id } = request.body;
+        if (!target_department_id) return reply.code(400).send({ error: 'Phòng ban đích là bắt buộc' });
+
+        // Get source template
+        const source = await db.get('SELECT * FROM chain_task_templates WHERE id = $1', [id]);
+        if (!source) return reply.code(404).send({ error: 'Mẫu chuỗi không tồn tại' });
+
+        // Check if same name already exists in target dept
+        const exists = await db.get(
+            'SELECT id FROM chain_task_templates WHERE chain_name = $1 AND department_id = $2 AND is_active = true',
+            [source.chain_name, target_department_id]
+        );
+        if (exists) return reply.code(400).send({ error: `Mẫu "${source.chain_name}" đã tồn tại ở phòng ban đích` });
+
+        // Create copy
+        const newTemplate = await db.get(
+            `INSERT INTO chain_task_templates (chain_name, description, execution_mode, department_id, created_by)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [source.chain_name, source.description || '', source.execution_mode, target_department_id, request.user.id]
+        );
+
+        // Copy items
+        const sourceItems = await db.all(
+            'SELECT * FROM chain_task_template_items WHERE chain_template_id = $1 ORDER BY item_order', [id]
+        );
+        for (const item of sourceItems) {
+            await db.run(
+                `INSERT INTO chain_task_template_items 
+                 (chain_template_id, item_order, task_name, task_content, guide_link,
+                  input_requirements, output_requirements, requires_approval, requires_report,
+                  min_quantity, relative_days, deadline, max_redo_count)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                [newTemplate.id, item.item_order, item.task_name, item.task_content || '',
+                 item.guide_link || '', item.input_requirements || '', item.output_requirements || '',
+                 item.requires_approval || false, item.requires_report !== false,
+                 item.min_quantity || 1, item.relative_days || 0, item.deadline || null, item.max_redo_count || 3]
+            );
+        }
+
+        return { success: true, template: newTemplate };
     });
 
     // ========== DEPLOY CHAIN TO TEAM ==========

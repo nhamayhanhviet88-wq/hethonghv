@@ -2298,7 +2298,7 @@ async function _ctShowDeployModal(deptId) {
 
     try {
         const [templates, usersData, deptData] = await Promise.all([
-            apiCall('/api/chain-tasks/templates'),
+            apiCall(`/api/chain-tasks/templates?department_id=${deptId}`),
             apiCall(`/api/lock-tasks/dept-users/${deptId}`),
             apiCall('/api/task-points/departments')
         ]);
@@ -2559,6 +2559,7 @@ async function _ctSaveNewTemplate() {
             chain_name: chainName,
             description,
             execution_mode: executionMode,
+            department_id: _ctDeployDeptId,
             items
         });
         showToast('💾 Đã lưu mẫu chuỗi!');
@@ -2575,20 +2576,34 @@ async function _ctShowManageTemplates() {
     body.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">⏳ Đang tải...</div>';
 
     try {
-        const templates = await apiCall('/api/chain-tasks/templates');
+        const [templates, deptData] = await Promise.all([
+            apiCall(`/api/chain-tasks/templates?department_id=${_ctDeployDeptId}`),
+            apiCall('/api/task-points/departments')
+        ]);
+        const allDepts = (deptData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE') && !d.name.startsWith('HỆ THỐNG'));
+
         let html = `<div style="padding:16px 20px;">
-            <h4 style="margin:0 0 14px;color:#1e293b;">📚 Quản lý kho mẫu chuỗi</h4>`;
+            <h4 style="margin:0 0 14px;color:#1e293b;">📚 Kho mẫu chuỗi — ${_ctDeployDeptName || ''}</h4>`;
 
         if (templates.length === 0) {
-            html += '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có mẫu chuỗi nào</div>';
+            html += '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có mẫu chuỗi nào cho phòng ban này</div>';
         } else {
             templates.forEach(t => {
+                // Build copy dropdown options
+                const otherDepts = allDepts.filter(d => d.id !== _ctDeployDeptId);
+                const copyOptions = otherDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
                 html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
                     <div>
                         <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${t.chain_name}</div>
                         <div style="font-size:11px;color:#6b7280;">${t.item_count} task con • ${t.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'} • ${t.creator_name || ''}</div>
                     </div>
-                    <div style="display:flex;gap:6px;">
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <select id="ctCopyDept_${t.id}" style="padding:3px 6px;font-size:10px;border:1px solid #d1d5db;border-radius:4px;">
+                            <option value="">📋 Copy sang...</option>
+                            ${copyOptions}
+                        </select>
+                        <button onclick="_ctCopyTemplate(${t.id})" style="padding:4px 8px;font-size:10px;border:1px solid #059669;border-radius:4px;background:white;color:#059669;cursor:pointer;font-weight:600;">📋</button>
                         <button onclick="_ctEditTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa</button>
                         <button onclick="_ctDeleteTemplate(${t.id})" style="padding:4px 10px;font-size:10px;border:1px solid #dc2626;border-radius:4px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">🗑️ Xóa</button>
                     </div>
@@ -2600,6 +2615,24 @@ async function _ctShowManageTemplates() {
         footer.innerHTML = `<button onclick="_ctShowDeployModal(_ctDeployDeptId)" class="btn btn-secondary">← Quay lại</button>`;
     } catch(e) {
         body.innerHTML = `<div style="padding:40px;text-align:center;color:#dc2626;">❌ ${e.message}</div>`;
+    }
+}
+
+async function _ctCopyTemplate(templateId) {
+    const sel = document.getElementById(`ctCopyDept_${templateId}`);
+    const targetDeptId = sel?.value;
+    if (!targetDeptId) { alert('Chọn phòng ban đích trước!'); return; }
+
+    if (!confirm('Copy mẫu chuỗi sang phòng ban đã chọn?')) return;
+
+    try {
+        await apiCall(`/api/chain-tasks/templates/${templateId}/copy`, 'POST', {
+            target_department_id: parseInt(targetDeptId)
+        });
+        showToast('📋 Đã copy mẫu chuỗi thành công!');
+        _ctShowManageTemplates(); // Refresh
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
     }
 }
 

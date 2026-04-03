@@ -757,16 +757,25 @@ ALTER TABLE lock_task_completions ADD COLUMN IF NOT EXISTS quantity_done INTEGER
 
 -- ========== CÔNG VIỆC CHUỖI (Chain Tasks) ==========
 
--- 1. Kho mẫu chuỗi (Giám đốc tạo, toàn hệ thống dùng)
+-- 1. Kho mẫu chuỗi (Giám đốc tạo, theo phòng ban)
 CREATE TABLE IF NOT EXISTS chain_task_templates (
     id SERIAL PRIMARY KEY,
     chain_name TEXT NOT NULL,
     description TEXT,
     execution_mode TEXT DEFAULT 'sequential' CHECK (execution_mode IN ('sequential','parallel')),
+    department_id INTEGER REFERENCES departments(id),
     created_by INTEGER REFERENCES users(id),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
+-- Migration: add department_id if missing
+DO $$ BEGIN
+    ALTER TABLE chain_task_templates ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id);
+    -- Assign existing templates to first non-system dept (PHÒNG KINH DOANH)
+    UPDATE chain_task_templates SET department_id = (
+        SELECT id FROM departments WHERE name ILIKE '%kinh doanh%' AND parent_id IS NOT NULL LIMIT 1
+    ) WHERE department_id IS NULL;
+END $$;
 
 -- 2. Task con mẫu trong kho
 CREATE TABLE IF NOT EXISTS chain_task_template_items (
