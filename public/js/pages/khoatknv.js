@@ -1,6 +1,8 @@
 // ========== PHẠT KHÓA TÀI KHOẢN NV ==========
 
-let _penaltyMonth = '';
+let _penYear = new Date().getFullYear();
+let _penFromMonth = new Date().getMonth() + 1; // current month
+let _penToMonth = 0; // 0 = not set (single month)
 let _penaltyData = [];
 
 const _CRM_LABELS = {
@@ -13,7 +15,8 @@ const _CRM_LABELS = {
 async function renderKhoaTKNVPage(container) {
     const isGD = currentUser.role === 'giam_doc';
     const now = new Date();
-    _penaltyMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    _penYear = now.getFullYear();
+    _penFromMonth = now.getMonth() + 1;
 
     container.innerHTML = `
     <div style="max-width:1400px;margin:0 auto;padding:16px;">
@@ -46,8 +49,8 @@ async function renderKhoaTKNVPage(container) {
             <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
                 <span style="color:white;font-weight:800;font-size:15px;">📊 THỐNG KÊ PHẠT NHÂN SỰ</span>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="month" id="penaltyMonthPicker" value="${_penaltyMonth}" onchange="_penaltyChangeMonth(this.value)" style="padding:4px 8px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:12px;background:rgba(255,255,255,0.15);color:white;font-weight:600;">
-                    <span id="penaltyTotalBadge" style="background:rgba(255,255,255,0.3);color:white;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">0đ</span>
+                <div style="display:flex;align-items:center;gap:6px;" id="penaltyFilterBar">
+                </div>
                 </div>
             </div>
             <div id="penaltyStatsBody" style="padding:16px;">
@@ -57,6 +60,7 @@ async function renderKhoaTKNVPage(container) {
     </div>`;
 
     if (isGD) _penaltyLoadConfig();
+    _penRenderFilterBar();
     _penaltyLoadStats();
 }
 
@@ -201,8 +205,80 @@ async function _penaltySaveConfig() {
 }
 
 // ===== STATS — CÂY PHÒNG BAN =====
-function _penaltyChangeMonth(val) {
-    _penaltyMonth = val;
+
+// Filter helpers
+function _penBuildYearOptions() {
+    let html = '';
+    for (let y = 2025; y <= 2100; y++) {
+        html += `<option value="${y}" ${y === _penYear ? 'selected' : ''}>${y}</option>`;
+    }
+    return html;
+}
+
+function _penBuildFromOptions() {
+    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    let html = `<option value="0"${_penFromMonth === 0 ? ' selected' : ''}>📊 Tất cả</option>`;
+    for (let m = 1; m <= 12; m++) {
+        html += `<option value="${m}" ${m === _penFromMonth ? 'selected' : ''}>${months[m]}</option>`;
+    }
+    return html;
+}
+
+function _penBuildToOptions() {
+    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    let html = `<option value="0"${_penToMonth === 0 ? ' selected' : ''}>— Đến —</option>`;
+    for (let m = 1; m <= 12; m++) {
+        html += `<option value="${m}" ${m === _penToMonth ? 'selected' : ''}>${months[m]}</option>`;
+    }
+    return html;
+}
+
+function _penRangeLabel() {
+    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+    if (_penFromMonth === 0) return `Tất cả tháng / ${_penYear}`;
+    if (!_penToMonth || _penToMonth <= _penFromMonth) return `${months[_penFromMonth]} / ${_penYear}`;
+    return `T${_penFromMonth} → T${_penToMonth} / ${_penYear}`;
+}
+
+function _penGetApiUrl() {
+    if (_penFromMonth === 0) {
+        // All months of year
+        return `/api/penalty/list?monthFrom=${_penYear}-01&monthTo=${_penYear}-12`;
+    }
+    const from = `${_penYear}-${String(_penFromMonth).padStart(2, '0')}`;
+    const to = _penToMonth && _penToMonth >= _penFromMonth
+        ? `${_penYear}-${String(_penToMonth).padStart(2, '0')}`
+        : from;
+    return `/api/penalty/list?monthFrom=${from}&monthTo=${to}`;
+}
+
+function _penRenderFilterBar() {
+    const bar = document.getElementById('penaltyFilterBar');
+    if (!bar) return;
+    const ss = 'padding:5px 10px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:12px;background:rgba(255,255,255,0.15);color:white;font-weight:600;cursor:pointer;outline:none;';
+    bar.innerHTML = `
+        <select onchange="_penOnYearChange(this.value)" style="${ss}">${_penBuildYearOptions()}</select>
+        <select onchange="_penOnFromChange(this.value)" style="${ss}">${_penBuildFromOptions()}</select>
+        ${_penFromMonth !== 0 ? `<span style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;">→</span>
+        <select onchange="_penOnToChange(this.value)" style="${ss}">${_penBuildToOptions()}</select>` : ''}
+        <span id="penaltyTotalBadge" style="background:rgba(255,255,255,0.3);color:white;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">0đ</span>
+    `;
+}
+
+function _penOnYearChange(val) {
+    _penYear = Number(val);
+    _penRenderFilterBar();
+    _penaltyLoadStats();
+}
+function _penOnFromChange(val) {
+    _penFromMonth = Number(val);
+    if (_penFromMonth === 0) _penToMonth = 0;
+    else if (_penToMonth && _penToMonth < _penFromMonth) _penToMonth = 0;
+    _penRenderFilterBar();
+    _penaltyLoadStats();
+}
+function _penOnToChange(val) {
+    _penToMonth = Number(val);
     _penaltyLoadStats();
 }
 
@@ -215,7 +291,7 @@ async function _penaltyLoadStats() {
 
     try {
         const [penaltyData, deptData] = await Promise.all([
-            apiCall(`/api/penalty/list?month=${_penaltyMonth}`),
+            apiCall(_penGetApiUrl()),
             apiCall('/api/departments')
         ]);
 
@@ -509,7 +585,7 @@ function _renderUserNode(u, SRC, ROLE_SHORT, paddingLeft) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">${u.total.toLocaleString()}đ</span>
-                <button onclick="event.stopPropagation();_penaltyShowSlip(${userId},'${_penaltyMonth}','${(u.name || '').replace(/'/g, "\\\\'")}')" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu</button>
+                <button onclick="event.stopPropagation();_penaltyShowSlip(${userId},'${_penYear}-${String(_penFromMonth || 1).padStart(2, '0')}','${(u.name || '').replace(/'/g, "\\\\'")}')" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu</button>
             </div>
         </div>
         <div id="${userNodeId}" style="display:none;padding-bottom:6px;">

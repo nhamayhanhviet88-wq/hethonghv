@@ -107,16 +107,25 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.get('/api/penalty/list', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
-        const month = request.query.month; // YYYY-MM format
-
-        if (!month) {
-            return reply.code(400).send({ error: 'Thiếu tháng (month=YYYY-MM)' });
+        // Support both single month and range: ?month=YYYY-MM or ?monthFrom=YYYY-MM&monthTo=YYYY-MM
+        let monthStart, monthEnd;
+        if (request.query.monthFrom) {
+            const mFrom = request.query.monthFrom; // YYYY-MM
+            const mTo = request.query.monthTo || mFrom;
+            monthStart = `${mFrom}-01`;
+            const [yTo, mToNum] = mTo.split('-').map(Number);
+            const lastDay = new Date(yTo, mToNum, 0).getDate();
+            monthEnd = `${mTo}-${String(lastDay).padStart(2, '0')}`;
+        } else {
+            const month = request.query.month;
+            if (!month) {
+                return reply.code(400).send({ error: 'Thiếu tháng (month=YYYY-MM)' });
+            }
+            monthStart = `${month}-01`;
+            const [y, m] = month.split('-').map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
         }
-
-        const monthStart = `${month}-01`;
-        const [y, m] = month.split('-').map(Number);
-        const lastDay = new Date(y, m, 0).getDate();
-        const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
 
         // ===== SOURCE 1: task_support_requests (CV Điểm + Hỗ trợ NV) =====
         let srWhere = '';
