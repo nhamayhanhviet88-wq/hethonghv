@@ -555,6 +555,9 @@ async function _lkLoadUserTasks(userId, userName) {
                 return cStart <= rangeEndStr && cEnd >= rangeStart;
             });
 
+            // Store for chain popup modal
+            window._ctChainsList = filteredChains;
+
             if (filteredChains.length > 0) {
                 html += `<div style="margin-top:8px;padding:0 20px 12px;">
                     <div style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔗 CÔNG VIỆC CHUỖI</div>
