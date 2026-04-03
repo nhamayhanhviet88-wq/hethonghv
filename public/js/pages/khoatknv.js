@@ -201,10 +201,11 @@ function _penRenderFilterBar() {
     if (!bar) return;
     const ss = 'padding:5px 10px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:12px;background:rgba(255,255,255,0.15);color:white;font-weight:600;cursor:pointer;outline:none;';
     bar.innerHTML = `
-        <select onchange="_penOnYearChange(this.value)" style="${ss}">${_penBuildYearOptions()}</select>
-        <select onchange="_penOnFromChange(this.value)" style="${ss}">${_penBuildFromOptions()}</select>
+        <style>.pen-filter-sel option { color:#1e293b; background:white; }</style>
+        <select class="pen-filter-sel" onchange="_penOnYearChange(this.value)" style="${ss}">${_penBuildYearOptions()}</select>
+        <select class="pen-filter-sel" onchange="_penOnFromChange(this.value)" style="${ss}">${_penBuildFromOptions()}</select>
         ${_penFromMonth !== 0 ? `<span style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;">→</span>
-        <select onchange="_penOnToChange(this.value)" style="${ss}">${_penBuildToOptions()}</select>` : ''}
+        <select class="pen-filter-sel" onchange="_penOnToChange(this.value)" style="${ss}">${_penBuildToOptions()}</select>` : ''}
         <span id="penaltyTotalBadge" style="background:rgba(255,255,255,0.3);color:white;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">0đ</span>
     `;
 }
