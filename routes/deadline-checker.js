@@ -49,10 +49,13 @@ async function isDayOff(dateStr) {
 
 /**
  * Tính deadline thực tế cho một task
- * - Base: 23:59 ngày làm việc tiếp theo sau created_at
- * - Kéo dài nếu Chủ nhật/lễ/quản lý nghỉ
+ * - Base: ngày làm việc tiếp theo sau created_at
+ * - Kéo dài nếu Chủ nhật/lễ/user nghỉ phép
+ * @param {Date|string} createdAt - Thời gian tạo
+ * @param {number|null} userId - User cần check nghỉ phép (null = không check)
+ * @param {number} deadlineHour - Giờ deadline (23 = 23:59, 12 = 12:00)
  */
-async function calculateRealDeadline(createdAt, userId) {
+async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
     const created = new Date(createdAt);
     
     // Bắt đầu từ ngày sau created_at
@@ -70,8 +73,12 @@ async function calculateRealDeadline(createdAt, userId) {
         deadline.setDate(deadline.getDate() + 1); // Kéo thêm 1 ngày
     }
     
-    // Set 23:59:59
-    deadline.setHours(23, 59, 59, 0);
+    // Set deadline hour
+    if (deadlineHour === 12) {
+        deadline.setHours(12, 0, 0, 0);
+    } else {
+        deadline.setHours(23, 59, 59, 0);
+    }
     return deadline;
 }
 
@@ -143,13 +150,14 @@ async function runDeadlineCheck() {
             );
             nvSubmitted = !!comp;
             if (!nvSubmitted) {
-                // Tạo expired completion record cho NV
+                // Tạo expired completion record cho NV (dùng GPC NV, không dùng nhầm QL)
+                const nvPenalty = GPC.cv_khoa_khong_nop;
                 try {
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
                          VALUES ($1, $2, $3, 0, 'expired', $4, true)
                          ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)`,
-                        [sr.lock_task_id, sr.user_id, sr.task_date, penaltyAmount]
+                        [sr.lock_task_id, sr.user_id, sr.task_date, nvPenalty]
                     );
                 } catch(e) {}
             }
@@ -668,28 +676,13 @@ async function runDeadlineCheck() {
         const handlerId = em.current_handler_id;
         if (!handlerId) continue;
 
-        // Tính deadline: 12h trưa ngày làm việc tiếp theo sau khi tạo
-        const createdAt = new Date(em.created_at);
-        let deadlineDay = new Date(createdAt);
-        deadlineDay.setDate(deadlineDay.getDate() + 1);
-
-        // Skip CN + lễ (không skip nghỉ phép handler — deadline cố định)
-        let maxIter = 30;
-        while (maxIter-- > 0) {
-            const ds = toDateStr(deadlineDay);
-            const off = await isDayOff(ds);
-            if (!off) break;
-            deadlineDay.setDate(deadlineDay.getDate() + 1);
-        }
-        deadlineDay.setHours(12, 0, 0, 0); // 12h trưa
+        // Tính deadline: 12h trưa ngày làm việc tiếp theo (skip CN/lễ/nghỉ phép handler)
+        const deadlineDay = await calculateRealDeadline(em.created_at, handlerId, 12);
 
         if (now < deadlineDay) continue; // Chưa hết hạn
 
-        // Skip nếu handler đang nghỉ phép hôm nay
-        const todayStr6 = toDateStr(now);
-        if (await isUserOnLeave(handlerId, todayStr6)) continue;
-
         // Skip nếu đã phạt hôm nay rồi
+        const todayStr6 = toDateStr(now);
         if (em.last_penalty_at && toDateStr(new Date(em.last_penalty_at)) === todayStr6) continue;
 
         // Lấy mức phạt từ global config
