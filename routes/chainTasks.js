@@ -405,6 +405,34 @@ async function chainTaskRoutes(fastify, options) {
         return instances;
     });
 
+    // GET: Chain instances assigned to a specific user
+    fastify.get('/api/chain-tasks/user/:userId', { preHandler: [authenticate] }, async (request, reply) => {
+        const { userId } = request.params;
+
+        const instances = await db.all(`
+            SELECT DISTINCT ci.*, ci.start_date::text as start_date, ci.end_date::text as end_date,
+                   u.full_name as creator_name, ci.chain_name,
+                   (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
+                   (SELECT COUNT(*) FROM chain_task_instance_items cii_done
+                    WHERE cii_done.chain_instance_id = ci.id
+                    AND (cii_done.status = 'completed' OR (SELECT COUNT(*) FROM chain_task_completions WHERE chain_item_id = cii_done.id AND status = 'approved') >= COALESCE(cii_done.min_quantity, 1))
+                   ) as completed_items,
+                   (SELECT string_agg(DISTINCT u2.username, ', ')
+                    FROM chain_task_assignments ca2
+                    JOIN chain_task_instance_items cii2 ON cii2.id = ca2.chain_item_id
+                    JOIN users u2 ON u2.id = ca2.user_id
+                    WHERE cii2.chain_instance_id = ci.id) as assigned_users_str
+            FROM chain_task_instances ci
+            LEFT JOIN users u ON u.id = ci.created_by
+            JOIN chain_task_instance_items cii ON cii.chain_instance_id = ci.id
+            JOIN chain_task_assignments ca ON ca.chain_item_id = cii.id AND ca.user_id = $1
+            WHERE ci.status != 'cancelled'
+            ORDER BY ci.created_at DESC
+        `, [userId]);
+
+        return instances;
+    });
+
     // GET: Chain task items for calendar view (by user + week)
     fastify.get('/api/chain-tasks/calendar', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = parseInt(request.query.user_id) || request.user.id;

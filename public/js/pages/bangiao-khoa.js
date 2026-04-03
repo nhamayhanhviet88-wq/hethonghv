@@ -525,6 +525,38 @@ async function _lkLoadUserTasks(userId, userName) {
             html += `</div>`;
         }
 
+        // ===== CHAIN TASKS FOR THIS USER =====
+        try {
+            const userChains = await apiCall(`/api/chain-tasks/user/${userId}`);
+            if (userChains && userChains.length > 0) {
+                html += `<div style="margin-top:8px;padding:0 20px 12px;">
+                    <div style="background:linear-gradient(135deg,#1e3a5f,#122546);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔗 CÔNG VIỆC CHUỖI</div>
+                    <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">`;
+                userChains.forEach(c => {
+                    const total = Number(c.total_items || 0);
+                    const done = Number(c.completed_items || 0);
+                    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+                    const allDone = c.status === 'completed';
+                    const statusColor = allDone ? '#059669' : '#2563eb';
+                    const escapedName = (c.chain_name || '').replace(/'/g, "\\'");
+
+                    html += `<div onclick="_ctShowChainInstancesModal('${escapedName}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='white'">
+                        <div style="flex:1;">
+                            <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${c.chain_name}</div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:2px;">📋 ${c.execution_mode === 'sequential' ? 'Tuần tự' : 'Song song'} • ${total} task con • ${c.creator_name || ''}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:60px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                                <div style="width:${pct}%;height:100%;background:${statusColor};border-radius:3px;"></div>
+                            </div>
+                            <span style="font-size:11px;font-weight:600;color:${statusColor};white-space:nowrap;">${allDone ? '✅' : done+'/'+total}</span>
+                        </div>
+                    </div>`;
+                });
+                html += `</div></div>`;
+            }
+        } catch(e2) { /* chain load failed, ok */ }
+
         panel.innerHTML = html;
     } catch(e) {
         panel.innerHTML = `<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`;
