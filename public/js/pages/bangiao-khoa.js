@@ -2077,6 +2077,7 @@ async function _ctDoPostpone() {
 // ========== DEPLOY MODAL (Thêm CV Chuỗi) ==========
 let _ctDeployDeptId = null;
 let _ctTemplates = [];
+let _ctSelectedTemplateId = null;
 
 async function _ctShowDeployModal(deptId) {
     _ctDeployDeptId = deptId;
@@ -2152,12 +2153,19 @@ function _ctRenderDeployForm(users) {
     footer.innerHTML = `
         <button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Hủy</button>
         <button onclick="_ctDoDeploy()" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;">🚀 Triển khai</button>`;
+
+    // Auto-select previously chosen template
+    if (_ctSelectedTemplateId) {
+        const sel = document.getElementById('ctDeployTemplate');
+        if (sel) { sel.value = _ctSelectedTemplateId; _ctOnTemplateSelect(); }
+    }
 }
 
 async function _ctOnTemplateSelect() {
     const tmplId = document.getElementById('ctDeployTemplate')?.value;
     const preview = document.getElementById('ctTemplatePreview');
-    if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; return; }
+    if (!preview || !tmplId) { if(preview) preview.innerHTML = ''; _ctSelectedTemplateId = null; return; }
+    _ctSelectedTemplateId = tmplId;
 
     try {
         const tmpl = await apiCall(`/api/chain-tasks/templates/${tmplId}`);
