@@ -1802,7 +1802,7 @@ async function _ctDoSubmitReport(itemId) {
 
     if (!qty || qty < 1) { alert('⚠️ Vui lòng nhập số lượng hoàn thành'); return; }
     if (!content) { alert('⚠️ Vui lòng nhập nội dung hoàn thành'); return; }
-    if (!link && !hasImage) { alert('⚠️ Cần ít nhất link báo cáo hoặc hình ảnh'); return; }
+    if (!link && !hasImage) { /* link/image optional, content is enough */ }
 
     const formData = new FormData();
     formData.append('content', content);
