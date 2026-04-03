@@ -1355,7 +1355,7 @@ function _kbRenderGrid() {
             for (let d = 0; d < 7; d++) {
                 const dayDate = new Date(monDate3);
                 dayDate.setDate(dayDate.getDate() + d);
-                const dateStr = dayDate.toISOString().split('T')[0];
+                const dateStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,'0')}-${String(dayDate.getDate()).padStart(2,'0')}`;
 
                 // Find chain items with deadline on this day
                 const dayItems = chain.items.filter(it => {
