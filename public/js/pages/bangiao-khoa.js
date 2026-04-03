@@ -492,55 +492,34 @@ async function _lkLoadUserTasks(userId, userName) {
         </div>`;
 
          // Task groups
-        if (lockGroups.length === 0 && lock_tasks.length === 0) {
+        if (lockGroups.length === 0) {
             html += `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:14px;">
                 <div style="font-size:40px;margin-bottom:8px;">📭</div>
                 Không có báo cáo CV Khóa trong khoảng thời gian này
             </div>`;
         } else {
-            // ===== ASSIGNED LOCK TASKS LIST =====
-            if (lock_tasks.length > 0) {
-                html += `<div style="margin:12px 20px 0;">
-                    <div style="background:linear-gradient(135deg,#991b1b,#dc2626);color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-size:12px;font-weight:700;">🔐 CÔNG VIỆC KHÓA ĐANG NHẬN (${lock_tasks.length})</div>
-                    <div style="border:1px solid #fecaca;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">`;
-                lock_tasks.forEach(t => {
-                    const recLabel = _LK_RECURRENCE_LABELS[t.recurrence_type] || t.recurrence_type || '';
-                    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #fef2f2;background:white;">
-                        <div>
-                            <div style="font-weight:700;color:#1e293b;font-size:13px;">🔒 ${t.task_name}</div>
-                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">${recLabel} ${t.requires_approval ? '• ✅ Cần duyệt' : ''}</div>
-                        </div>
-                        ${t.guide_link ? `<a href="${t.guide_link}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:none;" onclick="event.stopPropagation()">📖 HD</a>` : ''}
-                    </div>`;
-                });
-                html += `</div></div>`;
-            }
+            html += `<div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
+            lockGroups.forEach((g, idx) => {
+                const approved = g.completions.filter(c => c.status === 'approved').length;
+                const pending = g.completions.filter(c => c.status === 'pending').length;
+                const rejected = g.completions.filter(c => c.status === 'rejected').length;
+                const total = g.completions.length;
 
-            // ===== COMPLETION REPORTS =====
-            if (lockGroups.length > 0) {
-                html += `<div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">`;
-                lockGroups.forEach((g, idx) => {
-                    const approved = g.completions.filter(c => c.status === 'approved').length;
-                    const pending = g.completions.filter(c => c.status === 'pending').length;
-                    const rejected = g.completions.filter(c => c.status === 'rejected').length;
-                    const total = g.completions.length;
-
-                    html += `
-                    <div onclick="_lkShowGroupModal(${idx})" style="background:white;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;color:#991b1b;font-size:14px;margin-bottom:4px;">${g.task_name}</div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                                <span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">📊 ${total} báo cáo</span>
-                                ${approved > 0 ? `<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${approved}</span>` : ''}
-                                ${pending > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${pending}</span>` : ''}
-                                ${rejected > 0 ? `<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${rejected}</span>` : ''}
-                            </div>
+                html += `
+                <div onclick="_lkShowGroupModal(${idx})" style="background:white;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,0.04);" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,38,38,0.15)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:#991b1b;font-size:14px;margin-bottom:4px;">${g.task_name}</div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">📊 ${total} báo cáo</span>
+                            ${approved > 0 ? `<span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">✅ ${approved}</span>` : ''}
+                            ${pending > 0 ? `<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⏳ ${pending}</span>` : ''}
+                            ${rejected > 0 ? `<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${rejected}</span>` : ''}
                         </div>
-                        <button onclick="event.stopPropagation();_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
-                    </div>`;
-                });
-                html += `</div>`;
-            }
+                    </div>
+                    <button onclick="event.stopPropagation();_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
+                </div>`;
+            });
+            html += `</div>`;
         }
 
         // ===== CHAIN TASKS FOR THIS USER =====
