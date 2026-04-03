@@ -833,7 +833,9 @@ function _lkShowCompletionDetail(groupIdx, compIdx) {
 }
 
 // ===== TASK TABLE (DEPT VIEW) =====
+let _lkCopyDepts = []; // cached dept list for copy dropdown
 function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true, showTeamCol = false) {
+    const isGD = currentUser.role === 'giam_doc';
     let html = `<div style="background:white;border:2px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <table style="width:100%;border-collapse:collapse;">
             <thead>
@@ -845,6 +847,7 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true, showTeamC
                     ${showTeamCol ? '<th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Team</th>' : ''}
                     ${showAssignees ? '<th style="padding:10px 12px;text-align:left;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Nhân viên</th>' : ''}
                     ${showEditBtns ? '<th style="padding:10px 12px;width:60px;"></th>' : ''}
+                    ${isGD ? '<th style="padding:10px 12px;text-align:center;font-size:10px;color:white;font-weight:700;text-transform:uppercase;">Copy</th>' : ''}
                 </tr>
             </thead>
             <tbody>`;
@@ -882,11 +885,68 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true, showTeamC
                 <button onclick="_lkEditTask(${t.id})" style="padding:2px 6px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;background:white;color:#6b7280;cursor:pointer;">✏️</button>
                 <button onclick="_lkDeleteTask(${t.id})" style="padding:2px 6px;font-size:10px;border:1px solid #fecaca;border-radius:4px;background:white;color:#dc2626;cursor:pointer;">🗑️</button>
             </td>` : ''}
+            ${isGD ? `<td style="padding:10px 12px;text-align:center;">
+                <div style="display:flex;gap:4px;align-items:center;justify-content:center;">
+                    <select id="lkCopyDept_${t.id}" onchange="_lkToggleCopyBtn(${t.id})" style="padding:3px 6px;font-size:10px;border:1px solid #d1d5db;border-radius:5px;cursor:pointer;max-width:130px;">
+                        <option value="">Copy sang...</option>
+                    </select>
+                    <button id="lkCopyBtn_${t.id}" onclick="_lkCopyTask(${t.id})" style="display:none;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(5,150,105,0.3);">📋 Copy</button>
+                </div>
+            </td>` : ''}
         </tr>`;
     });
 
     html += '</tbody></table></div>';
+
+    // Load copy dept options async (if GĐ)
+    if (currentUser.role === 'giam_doc') {
+        setTimeout(() => _lkLoadCopyDeptOptions(), 100);
+    }
+
     return html;
+}
+
+// Load dept options for lock task copy dropdowns
+async function _lkLoadCopyDeptOptions() {
+    if (_lkCopyDepts.length === 0) {
+        try {
+            const d = await apiCall('/api/task-points/departments');
+            _lkCopyDepts = (d.departments || []).filter(dep => !dep.name.toUpperCase().includes('AFFILIATE'));
+        } catch(e) { return; }
+    }
+    document.querySelectorAll('[id^="lkCopyDept_"]').forEach(sel => {
+        const taskId = sel.id.replace('lkCopyDept_', '');
+        const currentDeptId = _lkSelectedDeptId;
+        const opts = _lkCopyDepts.filter(d => d.id !== currentDeptId)
+            .map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        sel.innerHTML = `<option value="">Copy sang...</option>${opts}`;
+    });
+}
+
+function _lkToggleCopyBtn(taskId) {
+    const sel = document.getElementById(`lkCopyDept_${taskId}`);
+    const btn = document.getElementById(`lkCopyBtn_${taskId}`);
+    if (btn) btn.style.display = sel?.value ? 'inline-block' : 'none';
+}
+
+async function _lkCopyTask(taskId) {
+    const sel = document.getElementById(`lkCopyDept_${taskId}`);
+    const targetDeptId = Number(sel?.value);
+    if (!targetDeptId) return;
+
+    const targetName = sel.options[sel.selectedIndex]?.text || '';
+    if (!confirm(`Copy CV Khóa này sang "${targetName}"?`)) return;
+
+    try {
+        const res = await apiCall(`/api/lock-tasks/${taskId}/copy`, 'POST', { target_department_id: targetDeptId });
+        if (res.error) { alert(res.error); return; }
+        showToast(`✅ Đã copy sang ${targetName}`);
+        // Reset dropdown
+        sel.value = '';
+        _lkToggleCopyBtn(taskId);
+    } catch(e) {
+        alert('Lỗi: ' + e.message);
+    }
 }
 
 // ===== CREATE/EDIT MODAL =====

@@ -667,6 +667,38 @@ async function lockTaskRoutes(fastify, options) {
         );
         return { completions };
     });
+    // ========== COPY lock task to another department ==========
+    fastify.post('/api/lock-tasks/:id/copy', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc được copy công việc' });
+        }
+        const sourceId = Number(request.params.id);
+        const targetDeptId = Number(request.body?.target_department_id);
+        if (!targetDeptId) return reply.code(400).send({ error: 'Thiếu phòng ban đích' });
+
+        const source = await db.get('SELECT * FROM lock_tasks WHERE id = $1', [sourceId]);
+        if (!source) return reply.code(404).send({ error: 'Không tìm thấy công việc gốc' });
+
+        // Check if same task name already exists in target dept
+        const existing = await db.get(
+            'SELECT id FROM lock_tasks WHERE task_name = $1 AND department_id = $2 AND is_active = true',
+            [source.task_name, targetDeptId]
+        );
+        if (existing) return reply.code(400).send({ error: `CV "${source.task_name}" đã tồn tại ở phòng ban đích` });
+
+        const result = await db.get(
+            `INSERT INTO lock_tasks (task_name, task_content, guide_link, input_requirements, output_requirements,
+                                     recurrence_type, recurrence_value, requires_approval, max_redo_count, penalty_amount,
+                                     created_by, department_id, min_quantity)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             RETURNING id`,
+            [source.task_name, source.task_content, source.guide_link, source.input_requirements, source.output_requirements,
+             source.recurrence_type, source.recurrence_value, source.requires_approval, source.max_redo_count, source.penalty_amount,
+             request.user.id, targetDeptId, source.min_quantity || 1]
+        );
+
+        return { success: true, new_task_id: result.id };
+    });
 }
 
 module.exports = lockTaskRoutes;
