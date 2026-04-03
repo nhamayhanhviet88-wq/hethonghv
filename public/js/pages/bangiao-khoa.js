@@ -1397,7 +1397,7 @@ function _ctGetActionBtn(item, chain, isManager) {
         </div>`;
     }
 
-    if (isAssigned || isManager) {
+    if (isAssigned) {
         if (item.requires_report) {
             return `<button onclick="event.stopPropagation();_ctSubmitReport(${item.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:600;">📝 Nộp</button>`;
         } else {
