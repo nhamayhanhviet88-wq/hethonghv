@@ -342,19 +342,8 @@ async function chainTaskRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Task con đã hoàn thành' });
         }
         if (item.status === 'pending') {
-            // Check if sequential and previous not done
-            const instance = await db.get('SELECT * FROM chain_task_instances WHERE id = $1', [item.chain_instance_id]);
-            if (instance && instance.execution_mode === 'sequential') {
-                const prevItem = await db.get(
-                    `SELECT * FROM chain_task_instance_items 
-                     WHERE chain_instance_id = $1 AND item_order < $2 AND status != 'completed'
-                     ORDER BY item_order DESC LIMIT 1`,
-                    [item.chain_instance_id, item.item_order]
-                );
-                if (prevItem) {
-                    return reply.code(400).send({ error: `Cần hoàn thành "${prevItem.task_name}" trước` });
-                }
-            }
+            // Allow early submission even in sequential mode
+            // Items stay pending visually but employees can submit reports early
         }
 
         // Handle multipart for proof upload

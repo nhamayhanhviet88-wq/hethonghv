@@ -1344,8 +1344,8 @@ function _ctRenderDetailContent(data) {
             statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Xong</span>';
             actionHtml = '<span style="color:#d1d5db;">—</span>';
         } else if (item.status === 'pending' && data.execution_mode === 'sequential') {
-            statusHtml = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">🔒 Chờ</span>';
-            actionHtml = '<span style="color:#d1d5db;">—</span>';
+            statusHtml = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Sắp tới</span>';
+            actionHtml = _ctGetActionBtn(item, data, isManager);
         } else if (item.status === 'overdue' || isOverdue) {
             statusHtml = '<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">💀 Quá hạn</span>';
             actionHtml = _ctGetActionBtn(item, data, isManager);
