@@ -1352,9 +1352,9 @@ function _ctRenderDetailContent(data) {
             const approvedUserIds = [...new Set(completions.filter(c => c.status === 'approved').map(c => c.user_id))];
             const totalAssigned = users.length || 1;
             if (approvedUserIds.length >= totalAssigned) {
-                statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Đã duyệt hết</span>';
+                statusHtml = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ Hoàn thành</span>';
             } else if (approvedUserIds.length > 0) {
-                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedUserIds.length}/${totalAssigned}</span>`;
+                statusHtml = `<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">✅ ${approvedUserIds.length}/${totalAssigned} NV</span>`;
             } else if (pendingComps.length > 0) {
                 statusHtml = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;">⏳ Chờ duyệt</span>';
             } else {
