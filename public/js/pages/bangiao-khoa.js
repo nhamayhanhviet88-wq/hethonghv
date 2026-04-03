@@ -250,6 +250,7 @@ function _lkSelectDept(deptId) {
         el.style.borderLeft = '3px solid transparent';
     });
     _lkLoadDeptTasks(deptId);
+    _lkSaveState();
 }
 
 // ===== SELECT USER =====
@@ -557,6 +558,7 @@ function _lkSaveState() {
         sessionStorage.setItem('_lk_state', JSON.stringify({
             userId: _lkSelectedUserId,
             userName: _lkUserName,
+            deptId: _lkSelectedDeptId,
             year: _lkYear,
             fromMonth: _lkFromMonth,
             toMonth: _lkToMonth
@@ -587,6 +589,13 @@ function _lkRestoreState() {
                     el.scrollIntoView({ block: 'center', behavior: 'instant' });
                 }
                 _lkLoadUserTasks(s.userId, s.userName);
+            }, 100);
+        } else if (s.deptId) {
+            setTimeout(() => {
+                _lkSelectDept(s.deptId);
+                // Scroll dept header into view
+                const deptEl = document.querySelector(`.lk-dept-header[data-dept-id="${s.deptId}"]`);
+                if (deptEl) deptEl.scrollIntoView({ block: 'center', behavior: 'instant' });
             }, 100);
         }
     } catch(e) {}
