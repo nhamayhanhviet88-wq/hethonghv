@@ -1251,12 +1251,24 @@ function _ctRenderChainRows(chains) {
         const modeLabel = instances[0].execution_mode === 'sequential' ? 'Tuần tự' : 'Song song';
         const escapedName = chainName.replace(/'/g, "\\'");
 
+        // Collect unique users across all instances
+        const allUsersSet = new Set();
+        instances.forEach(c => {
+            if (c.assigned_users_str) {
+                c.assigned_users_str.split(', ').forEach(u => allUsersSet.add(u.trim()));
+            }
+        });
+        const uniqueUsers = [...allUsersSet];
+
         html += `<div onclick="_ctShowChainInstancesModal('${escapedName}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='white'">
             <div style="flex:1;">
                 <div style="font-weight:700;color:#1e293b;font-size:13px;">🔗 ${chainName}</div>
                 <div style="font-size:11px;color:#6b7280;margin-top:2px;">📋 ${modeLabel} • ${instances[0].total_items || 0} task con • ${instances[0].creator_name || ''}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:300px;justify-content:flex-end;">
+                ${uniqueUsers.map(u => `<span style="padding:1px 6px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;font-size:10px;color:#1d4ed8;font-weight:600;white-space:nowrap;">👤 ${u}</span>`).join('')}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-left:10px;">
                 <span style="padding:2px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:10px;font-weight:700;color:#2563eb;">${deployCount} lần triển khai</span>
                 <div style="width:60px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
                     <div style="width:${pctAll}%;height:100%;background:${statusColor};border-radius:3px;"></div>
