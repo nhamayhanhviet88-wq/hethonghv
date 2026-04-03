@@ -93,10 +93,10 @@ async function renderBanGiaoKhoaPage(container) {
             if (childDepts.length === 0 && !hasSysApprovers) return;
 
             // System header
-            deptListHtml += `<div class="lk-system-header" data-sys-id="${sys.id}" onclick="_lkToggleSystem(${sys.id});_lkSelectDept(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            deptListHtml += `<div class="lk-system-header" data-sys-id="${sys.id}" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;">
                 <span style="font-size:15px;">🏛️</span>
-                <span style="flex:1;">${sys.name}</span>
-                <span class="lk-sys-arrow" style="font-size:10px;opacity:0.7;">▼</span>
+                <span onclick="_lkSelectDept(${sys.id})" style="flex:1;cursor:pointer;opacity:1;transition:opacity .15s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">${sys.name}</span>
+                <span class="lk-sys-arrow" onclick="event.stopPropagation();_lkToggleSystem(${sys.id})" style="font-size:10px;opacity:0.7;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='transparent'">▼</span>
             </div>`;
             deptListHtml += `<div class="lk-sys-content" data-sys-id="${sys.id}">`;
 
