@@ -134,7 +134,7 @@ let _tpTaskColorMap = {};
 let _tpExemptedTasks = []; // permanently exempted team tasks
 
 async function renderBanGiaoDiemPage(container) {
-    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
     _tpIsDirector = currentUser.role === 'giam_doc';
     _tpIsReadonly = !isManager;
     _tpCurrentWeekStart = null; // Always reset to current week on page load

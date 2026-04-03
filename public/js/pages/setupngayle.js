@@ -1,7 +1,7 @@
 // ========== SETUP NGÀY LỄ ==========
 
 async function renderSetupNgayLePage(container) {
-    const isAllowed = ['giam_doc', 'trinh'].includes(currentUser.role);
+    const isAllowed = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
     if (!isAllowed) {
         container.innerHTML = '<div style="text-align:center;padding:60px;color:#dc2626;font-size:16px;font-weight:700;">⛔ Bạn không có quyền truy cập trang này</div>';
         return;

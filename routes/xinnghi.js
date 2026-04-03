@@ -172,7 +172,7 @@ async function xinnghiRoutes(fastify, options) {
 
         if (userRole === 'giam_doc') {
             // See all
-        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user || !user.department_id) return { stats: [], departments: [] };
 

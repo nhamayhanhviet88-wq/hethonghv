@@ -1,5 +1,5 @@
 // ========== HỆ THỐNG CHUYỂN SỐ ==========
-const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', trinh: 'Trinh', hoa_hong: 'Hoa Hồng', tkaffiliate: 'TK Affiliate' };
+const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', trinh: 'quan_ly_cap_cao', hoa_hong: 'Hoa Hồng', tkaffiliate: 'TK Affiliate' };
 
 async function renderChuyenSoPage(container) {
     // Load dropdowns + departments + allowed depts config
@@ -43,7 +43,7 @@ async function renderChuyenSoPage(container) {
 
     // Filter users: GĐ always visible, others only if their dept (or root dept) is in allowed list
     const allUsers = (users.users || []).filter(u =>
-        ['giam_doc', 'quan_ly', 'truong_phong', 'nhan_vien', 'trinh'].includes(u.role)
+        ['giam_doc', 'quan_ly', 'truong_phong', 'nhan_vien', 'quan_ly_cap_cao'].includes(u.role)
     );
 
     let receiverUsers = allUsers;

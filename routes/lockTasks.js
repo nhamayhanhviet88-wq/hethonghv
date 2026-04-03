@@ -19,7 +19,7 @@ async function lockTaskRoutes(fastify, options) {
         let usersQuery = '';
         let usersParams = [];
 
-        if (userRole === 'giam_doc' || userRole === 'trinh') {
+        if (userRole === 'giam_doc' || userRole === 'quan_ly_cap_cao') {
             usersQuery = `SELECT u.id, u.full_name, u.username, u.role, u.department_id, u.status
                          FROM users u WHERE u.status = 'active' AND u.role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')
                          ORDER BY u.full_name`;
@@ -208,7 +208,7 @@ async function lockTaskRoutes(fastify, options) {
     // POST: Tạo CV khóa mới
     fastify.post('/api/lock-tasks', { preHandler: [authenticate] }, async (request, reply) => {
         const userRole = request.user.role;
-        if (!['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        if (!['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             return reply.code(403).send({ error: 'Không có quyền tạo công việc' });
         }
 
@@ -256,7 +256,7 @@ async function lockTaskRoutes(fastify, options) {
     fastify.put('/api/lock-tasks/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const taskId = Number(request.params.id);
         const userRole = request.user.role;
-        if (!['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        if (!['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
 
@@ -567,7 +567,7 @@ async function lockTaskRoutes(fastify, options) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        if (!['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        if (!['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             return { reviews: [] };
         }
 

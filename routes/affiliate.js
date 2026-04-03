@@ -68,7 +68,7 @@ async function affiliateRoutes(fastify) {
         const employees = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.department_id, u.status
             FROM users u
-            WHERE u.role IN ('nhan_vien','truong_phong','quan_ly','nhan_vien_parttime','trinh')
+            WHERE u.role IN ('nhan_vien','truong_phong','quan_ly','nhan_vien_parttime','quan_ly_cap_cao')
             AND u.status = 'active'
             ORDER BY u.full_name
         `);
@@ -176,7 +176,7 @@ async function affiliateRoutes(fastify) {
         return { departments, employees, affiliates };
     });
 
-    fastify.get('/api/affiliate/customers-for-assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/customers-for-assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { q, employee_id } = request.query;
         if (!employee_id) return { customers: [] };
 
@@ -192,7 +192,7 @@ async function affiliateRoutes(fastify) {
         return { customers: await db.all(query, params) };
     });
 
-    fastify.post('/api/affiliate/assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/affiliate/assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { affiliate_user_id, employee_user_id } = request.body || {};
         if (!affiliate_user_id || !employee_user_id) return reply.code(400).send({ error: 'Thiếu thông tin' });
 
@@ -207,14 +207,14 @@ async function affiliateRoutes(fastify) {
         return { success: true, message: 'Đã gán affiliate cho nhân viên' };
     });
 
-    fastify.post('/api/affiliate/unassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/affiliate/unassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { affiliate_user_id } = request.body || {};
         if (!affiliate_user_id) return reply.code(400).send({ error: 'Thiếu thông tin' });
         await db.run('UPDATE users SET managed_by_user_id = NULL WHERE id = ?', [Number(affiliate_user_id)]);
         return { success: true, message: 'Đã bỏ gán affiliate' };
     });
 
-    fastify.get('/api/affiliate/unassigned', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/unassigned', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const affiliates = await db.all(`
             SELECT id, full_name, phone, role, created_at
             FROM users
@@ -418,7 +418,7 @@ async function affiliateRoutes(fastify) {
     });
 
     // Admin: Get all affiliate stats for dashboard
-    fastify.get('/api/affiliate/stats-all', { preHandler: [authenticate, requireRole('giam_doc', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/stats-all', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         try {
             const { dateFrom, dateTo } = request.query;
             const affiliates = await db.all(`SELECT id, full_name, phone, commission_tier_id FROM users WHERE role = 'tkaffiliate'`);
@@ -519,7 +519,7 @@ async function affiliateRoutes(fastify) {
     });
 
     // Admin: Get commission orders for a specific affiliate
-    fastify.get('/api/affiliate/:id/commission-orders', { preHandler: [authenticate, requireRole('giam_doc', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/:id/commission-orders', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const affId = Number(request.params.id);
         const aff = await db.get('SELECT id, full_name, commission_tier_id FROM users WHERE id = ?', [affId]);
         if (!aff) return reply.code(404).send({ error: 'Không tìm thấy' });
@@ -581,7 +581,7 @@ async function affiliateRoutes(fastify) {
 
         // Check role access
         const configRow = await db.get("SELECT value FROM app_config WHERE key = 'leaderboard_allowed_roles'");
-        const allowedRoles = configRow ? JSON.parse(configRow.value) : ['giam_doc','quan_ly','trinh'];
+        const allowedRoles = configRow ? JSON.parse(configRow.value) : ['giam_doc','quan_ly','quan_ly_cap_cao'];
         if (!allowedRoles.includes(request.user.role)) {
             return reply.code(403).send({ error: 'Bạn không có quyền xem trang này' });
         }
@@ -1035,7 +1035,7 @@ async function affiliateRoutes(fastify) {
 
     // Create award (with photo upload)
     fastify.post('/api/affiliate/awards', { preHandler: [authenticate] }, async (request, reply) => {
-        if (!['giam_doc','quan_ly','trinh'].includes(request.user.role)) {
+        if (!['giam_doc','quan_ly','quan_ly_cap_cao'].includes(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
 
@@ -1097,7 +1097,7 @@ async function affiliateRoutes(fastify) {
 
     // Delete award
     fastify.delete('/api/affiliate/awards/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        if (!['giam_doc','quan_ly','trinh'].includes(request.user.role)) {
+        if (!['giam_doc','quan_ly','quan_ly_cap_cao'].includes(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
         const id = parseInt(request.params.id);
@@ -1106,7 +1106,7 @@ async function affiliateRoutes(fastify) {
     });
 
     // Get users by department IDs (for winner selection) - admin only
-    fastify.get('/api/affiliate/awards/users-by-dept', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request) => {
+    fastify.get('/api/affiliate/awards/users-by-dept', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request) => {
         const { dept_ids } = request.query; // comma-separated
         if (!dept_ids) return { users: [] };
         const ids = dept_ids.split(',').map(d => parseInt(d)).filter(d => d);

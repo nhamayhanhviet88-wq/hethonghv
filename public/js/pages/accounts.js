@@ -6,20 +6,11 @@ async function renderAccountsPage(container) {
             <div class="toolbar-filters">
                 <select class="form-control" id="filterRole" onchange="loadAccounts()">
                     <option value="">Tất cả vai trò</option>
-                    <option value="pho_giam_doc">Phó Giám Đốc</option>
+                    <option value="quan_ly_cap_cao">Quản Lý Cấp Cao</option>
                     <option value="quan_ly">Quản Lý</option>
                     <option value="truong_phong">Trưởng Phòng</option>
-                    <option value="trinh">Trinh</option>
-                    <option value="thu_quy">Thủ Quỹ</option>
-                    <option value="ke_toan">Kế Toán</option>
-                    <option value="thu_kho">Thủ Kho</option>
-                    <option value="nhan_su">Nhân Sự</option>
-                    <option value="thu_ky">Thư Ký</option>
                     <option value="nhan_vien">Nhân Viên</option>
-                    <option value="to_truong">Tổ Trưởng</option>
-                    <option value="kcs_hang">KCS Hàng</option>
-                    <option value="ky_thuat">Kỹ Thuật</option>
-                    <option value="nhan_vien_parttime">NV Part-Time</option>
+                    <option value="part_time">Part Time</option>
                 </select>
                 <select class="form-control" id="filterStatus" onchange="loadAccounts()">
                     <option value="">Tất cả trạng thái</option>
@@ -49,6 +40,7 @@ async function renderAccountsPage(container) {
                             <th>Họ tên</th>
                             <th>Tài khoản</th>
                             <th>Vai trò</th>
+                            <th>Vị trí</th>
 
                             <th>SĐT</th>
                             <th>Trạng thái</th>
@@ -79,7 +71,7 @@ async function loadAccounts() {
     if (status) url += `status=${status}&`;
 
     const data = await apiCall(url);
-    let users = (data.users || []).filter(u => !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role));
+    let users = (data.users || []).filter(u => !['tkaffiliate'].includes(u.role));
 
     // Client-side CRM filter
     if (crmFilter) {
@@ -100,7 +92,7 @@ async function loadAccounts() {
         return;
     }
     // Sort by role order, then by work days descending
-    const ROLE_ORDER = ['pho_giam_doc','quan_ly','truong_phong','trinh','thu_quy','ke_toan','thu_kho','nhan_su','thu_ky','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'];
+    const ROLE_ORDER = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'];
     users.sort((a, b) => {
         const ai = ROLE_ORDER.indexOf(a.role);
         const bi = ROLE_ORDER.indexOf(b.role);
@@ -144,22 +136,17 @@ async function loadAccounts() {
         <tr>
             <td>${(() => {
                 const rc = {
-                    giam_doc:['#fef3c7','#fde68a','#92400e','#fcd34d'], quan_ly:['#dbeafe','#bfdbfe','#1e40af','#93c5fd'],
+                    giam_doc:['#fef3c7','#fde68a','#92400e','#fcd34d'], quan_ly_cap_cao:['#fff7ed','#fed7aa','#c2410c','#fdba74'],
+                    quan_ly:['#dbeafe','#bfdbfe','#1e40af','#93c5fd'],
                     truong_phong:['#d1fae5','#a7f3d0','#065f46','#6ee7b7'], nhan_vien:['#e5e7eb','#d1d5db','#374151','#9ca3af'],
-                    hoa_hong:['#ffedd5','#fed7aa','#9a3412','#fdba74'], ctv:['#ede9fe','#ddd6fe','#5b21b6','#c4b5fd'],
-                    nuoi_duong:['#fce7f3','#fbcfe8','#9d174d','#f9a8d4'], sinh_vien:['#cffafe','#a5f3fc','#155e75','#67e8f9'],
-                    ke_toan:['#fef9c3','#fef08a','#854d0e','#fde047'], nhan_su:['#e0e7ff','#c7d2fe','#3730a3','#a5b4fc'],
-                    thu_quy:['#dcfce7','#bbf7d0','#166534','#86efac'], thu_kho:['#f3e8ff','#e9d5ff','#6b21a8','#c084fc'],
-                    pho_giam_doc:['#fff7ed','#fed7aa','#c2410c','#fdba74'], thu_ky:['#f1f5f9','#e2e8f0','#475569','#94a3b8'],
-                    trinh:['#fdf2f8','#fce7f3','#be185d','#f9a8d4'], nhan_vien_parttime:['#f0fdf4','#dcfce7','#15803d','#86efac'],
-                    to_truong:['#e5e7eb','#d1d5db','#374151','#9ca3af'], kcs_hang:['#e5e7eb','#d1d5db','#374151','#9ca3af'],
-                    ky_thuat:['#e5e7eb','#d1d5db','#374151','#9ca3af']
+                    part_time:['#f0fdf4','#dcfce7','#15803d','#86efac']
                 };
                 const c = rc[user.role] || ['#e5e7eb','#d1d5db','#374151','#9ca3af'];
                 return `<span style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,${c[0]},${c[1]});color:${c[2]};padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid ${c[3]};transition:all 0.2s;" onclick="showAccountDetail(${user.id})" onmouseover="this.style.boxShadow='0 2px 8px ${c[3]}66'" onmouseout="this.style.boxShadow='none'">${user.full_name}</span>`;
             })()}</td>
             <td>${user.username}</td>
-            <td><span class="role-badge role-${user.role}">${ROLE_LABELS[user.role]}</span></td>
+            <td><span class="role-badge role-${user.role}">${ROLE_LABELS[user.role] || user.role}</span></td>
+            <td style="font-size:12px;color:#6b7280;">${user.position_name || '-'}</td>
             <td>${user.phone || '-'}</td>
             <td><span class="badge badge-${user.status}" style="cursor:pointer;" onclick="event.stopPropagation();showUserStatusModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}', '${user.status}')" title="Ấn để đổi trạng thái">${user.status === 'active' ? 'Đang làm' : user.status === 'locked' ? '🔒 Bị khóa' : 'Nghỉ việc'}</span></td>
             <td style="white-space:nowrap;">${(() => {
@@ -223,13 +210,20 @@ function buildAccDeptOptions(depts, selectedId) {
 }
 
 async function showCreateAccountModal() {
-    const [tiers, staffList, deptData] = await Promise.all([
+    const [tiers, staffList, deptData, rpData] = await Promise.all([
         apiCall('/api/settings/commission-tiers'),
         apiCall('/api/users/dropdown'),
-        apiCall('/api/departments')
+        apiCall('/api/departments'),
+        apiCall('/api/roles-positions')
     ]);
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAccDeptOptions(depts);
+    const sysRoles = rpData.roles || [];
+    const positions = rpData.positions || [];
+    const roleOptionsHTML = sysRoles
+        .filter(r => r.slug !== 'giam_doc' || currentUser.role === 'giam_doc')
+        .map(r => `<option value="${r.slug}">${r.name}</option>`).join('');
+    const posOptionsHTML = positions.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     const bodyHTML = `
         <div class="form-row">
@@ -251,20 +245,16 @@ async function showCreateAccountModal() {
                 <label>Vai trò <span style="color:var(--danger)">*</span></label>
                 <select id="accRole" class="form-control" onchange="onRoleChange()">
                     <option value="">Chọn vai trò</option>
-                    ${currentUser.role === 'giam_doc' ? '<option value="pho_giam_doc">Phó Giám Đốc</option>' : ''}
-                    ${currentUser.role === 'giam_doc' ? '<option value="quan_ly">Quản Lý</option>' : ''}
-                    <option value="truong_phong">Trưởng Phòng</option>
-                    <option value="trinh">Trinh</option>
-                    <option value="thu_quy">Thủ Quỹ</option>
-                    <option value="ke_toan">Kế Toán</option>
-                    <option value="thu_kho">Thủ Kho</option>
-                    <option value="nhan_su">Nhân Sự</option>
-                    <option value="thu_ky">Thư Ký</option>
-                    <option value="nhan_vien">Nhân Viên</option>
-                    <option value="to_truong">Tổ Trưởng</option>
-                    <option value="kcs_hang">KCS Hàng</option>
-                    <option value="ky_thuat">Kỹ Thuật</option>
-                    <option value="nhan_vien_parttime">NV Part-Time</option>
+                    ${roleOptionsHTML}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Vị trí <span style="color:var(--danger)">*</span></label>
+                <select id="accPosition" class="form-control">
+                    <option value="">Chọn vị trí</option>
+                    ${posOptionsHTML}
                 </select>
             </div>
         </div>
@@ -645,10 +635,15 @@ async function submitCreateAccount() {
         source_customer_id: document.getElementById('accSourceCustomerId')?.value || null,
         province: document.getElementById('accProvince')?.value || null,
         source_crm_type: document.getElementById('accSourceCrmType')?.value || null,
+        position_id: document.getElementById('accPosition')?.value || null,
     };
 
     if (!body.username || !body.password || !body.full_name || !body.role) {
         showToast('Vui lòng điền đầy đủ thông tin bắt buộc (*)', 'error');
+        return;
+    }
+    if (!body.position_id) {
+        showToast('Vui lòng chọn Vị trí', 'error');
         return;
     }
     // Non-affiliate: require phone, address, province, birthday, department
@@ -715,13 +710,14 @@ async function submitCreateAccount() {
 }
 
 async function showEditAccountModal(userId) {
-    const [userData, tiers, staffList, deptData, socialData, toolData] = await Promise.all([
+    const [userData, tiers, staffList, deptData, socialData, toolData, rpData] = await Promise.all([
         apiCall(`/api/users/${userId}`),
         apiCall('/api/settings/commission-tiers'),
         apiCall('/api/users/dropdown'),
         apiCall('/api/departments'),
         apiCall(`/api/users/${userId}/social-handovers`),
-        apiCall(`/api/users/${userId}/tool-handovers`)
+        apiCall(`/api/users/${userId}/tool-handovers`),
+        apiCall('/api/roles-positions')
     ]);
     const user = userData.user;
     if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
@@ -732,6 +728,13 @@ async function showEditAccountModal(userId) {
 
     const EDIT_AFF_ROLES = ['hoa_hong','ctv','nuoi_duong','sinh_vien'];
     const isEditAff = EDIT_AFF_ROLES.includes(user.role);
+    const editSysRoles = rpData.roles || [];
+    const editPositions = rpData.positions || [];
+    const editRoleOptionsHTML = editSysRoles
+        .filter(r => r.slug !== 'giam_doc' || currentUser.role === 'giam_doc')
+        .map(r => `<option value="${r.slug}" ${user.role === r.slug ? 'selected' : ''}>${r.name}</option>`).join('');
+    const editPosOptionsHTML = editPositions
+        .map(p => `<option value="${p.id}" ${user.position_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
 
     const bodyHTML = `
         <div class="form-row">
@@ -742,23 +745,18 @@ async function showEditAccountModal(userId) {
             <div class="form-group">
                 <label>Vai trò</label>
                 <select id="editRole" class="form-control" onchange="onEditRoleChange()">
-                    ${currentUser.role === 'giam_doc' ? `<option value="pho_giam_doc" ${user.role==='pho_giam_doc'?'selected':''}>Phó Giám Đốc</option>` : ''}
-                    ${currentUser.role === 'giam_doc' ? `<option value="quan_ly" ${user.role==='quan_ly'?'selected':''}>Quản Lý</option>` : ''}
-                    <option value="truong_phong" ${user.role==='truong_phong'?'selected':''}>Trưởng Phòng</option>
-                    <option value="trinh" ${user.role==='trinh'?'selected':''}>Trinh</option>
-                    <option value="thu_quy" ${user.role==='thu_quy'?'selected':''}>Thủ Quỹ</option>
-                    <option value="ke_toan" ${user.role==='ke_toan'?'selected':''}>Kế Toán</option>
-                    <option value="thu_kho" ${user.role==='thu_kho'?'selected':''}>Thủ Kho</option>
-                    <option value="nhan_su" ${user.role==='nhan_su'?'selected':''}>Nhân Sự</option>
-                    <option value="thu_ky" ${user.role==='thu_ky'?'selected':''}>Thư Ký</option>
-                    <option value="nhan_vien" ${user.role==='nhan_vien'?'selected':''}>Nhân Viên</option>
-                    <option value="to_truong" ${user.role==='to_truong'?'selected':''}>Tổ Trưởng</option>
-                    <option value="kcs_hang" ${user.role==='kcs_hang'?'selected':''}>KCS Hàng</option>
-                    <option value="ky_thuat" ${user.role==='ky_thuat'?'selected':''}>Kỹ Thuật</option>
-                    <option value="nhan_vien_parttime" ${user.role==='nhan_vien_parttime'?'selected':''}>NV Part-Time</option>
+                    ${editRoleOptionsHTML}
                 </select>
             </div>
         </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Vị trí</label>
+                <select id="editPosition" class="form-control">
+                    <option value="">Chọn vị trí</option>
+                    ${editPosOptionsHTML}
+                </select>
+            </div>
         <div class="form-row">
             <div class="form-group">
                 <label>Họ tên</label>
@@ -1119,6 +1117,7 @@ async function submitEditAccount(userId) {
         managed_by_user_id: document.getElementById('editManagedBy')?.value || null,
         source_customer_id: document.getElementById('editSourceCustomerId')?.value || null,
         source_crm_type: document.getElementById('editSourceCrmType')?.value || null,
+        position_id: document.getElementById('editPosition')?.value || null,
     };
 
     const data = await apiCall(`/api/users/${userId}`, 'PUT', body);
@@ -1433,7 +1432,7 @@ async function showHandoverModal(userId, managed) {
     const managers = (staffList.users || []).filter(u => 
         !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role) && u.id !== userId
     );
-    const ROLE_MAP = { nhan_vien:'Nhân Viên', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', giam_doc:'Giám Đốc', trinh:'Trinh', nhan_vien_parttime:'NV Parttime' };
+    const ROLE_MAP = { nhan_vien:'Nhân Viên', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', giam_doc:'Giám Đốc', trinh:'quan_ly_cap_cao', nhan_vien_parttime:'NV Parttime' };
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_MAP[e.role] || e.role})</option>`).join('');
 
     const custList = managed.customers.map(c => 

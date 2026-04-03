@@ -75,7 +75,7 @@ async function khoaTKNVRoutes(fastify, options) {
 
     // POST: Thêm ngày lễ (GĐ + trinh)
     fastify.post('/api/penalty/holidays', { preHandler: [authenticate] }, async (request, reply) => {
-        if (!['giam_doc','trinh'].includes(request.user.role)) {
+        if (!['giam_doc','quan_ly_cap_cao'].includes(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
         const { holiday_date, holiday_name } = request.body || {};
@@ -90,7 +90,7 @@ async function khoaTKNVRoutes(fastify, options) {
 
     // DELETE: Xóa ngày lễ (GĐ + trinh)
     fastify.delete('/api/penalty/holidays/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        if (!['giam_doc','trinh'].includes(request.user.role)) {
+        if (!['giam_doc','quan_ly_cap_cao'].includes(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
         await db.run('DELETE FROM holidays WHERE id = $1', [Number(request.params.id)]);
@@ -120,7 +120,7 @@ async function khoaTKNVRoutes(fastify, options) {
 
         if (userRole === 'giam_doc') {
             srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2`;
-        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user || !user.department_id) {
                 srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND 1=0`;
@@ -176,7 +176,7 @@ async function khoaTKNVRoutes(fastify, options) {
 
         if (userRole === 'giam_doc') {
             ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date`;
-        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(userRole)) {
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user || !user.department_id) {
                 ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND 1=0`;

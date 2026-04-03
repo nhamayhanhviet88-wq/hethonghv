@@ -89,7 +89,7 @@ async function teamsRoutes(fastify, options) {
         return { department: dept, members };
     });
 
-    fastify.post('/api/departments', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/departments', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { name, code, parent_id, status } = request.body || {};
         if (!name || !code) return reply.code(400).send({ error: 'Tên đơn vị và mã đơn vị là bắt buộc' });
 
@@ -103,7 +103,7 @@ async function teamsRoutes(fastify, options) {
         return { success: true, id: Number(result.lastInsertRowid), message: 'Tạo đơn vị thành công' };
     });
 
-    fastify.put('/api/departments/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/departments/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { name, code, parent_id, head_user_id, status, display_order } = request.body || {};
         const id = Number(request.params.id);
 
@@ -154,7 +154,7 @@ async function teamsRoutes(fastify, options) {
         return { success: true, message: 'Cập nhật đơn vị thành công' };
     });
 
-    fastify.delete('/api/departments/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.delete('/api/departments/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const id = Number(request.params.id);
         await db.run('UPDATE departments SET parent_id = NULL WHERE parent_id = ?', [id]);
         await db.run('UPDATE users SET department_id = NULL WHERE department_id = ?', [id]);
@@ -162,7 +162,7 @@ async function teamsRoutes(fastify, options) {
         return { success: true, message: 'Xóa đơn vị thành công' };
     });
 
-    fastify.post('/api/departments/:id/assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/departments/:id/assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { user_id } = request.body || {};
         if (!user_id) return reply.code(400).send({ error: 'Chọn nhân viên' });
         const deptId = Number(request.params.id);
@@ -180,7 +180,7 @@ async function teamsRoutes(fastify, options) {
         return { success: true, message: 'Đã gán nhân viên vào đơn vị' };
     });
 
-    fastify.post('/api/departments/:id/unassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/departments/:id/unassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { user_id } = request.body || {};
         if (!user_id) return reply.code(400).send({ error: 'Chọn nhân viên' });
         await db.run('UPDATE users SET department_id = NULL WHERE id = ? AND department_id = ?', [Number(user_id), Number(request.params.id)]);
@@ -219,7 +219,7 @@ async function teamsRoutes(fastify, options) {
 
     // ========== PERMISSIONS API ==========
 
-    fastify.get('/api/permissions/org-tree', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/permissions/org-tree', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const departments = await db.all(`
             SELECT d.id, d.name, d.code, d.parent_id, d.head_user_id
             FROM departments d ORDER BY d.parent_id IS NULL DESC, d.parent_id, d.name
@@ -232,7 +232,7 @@ async function teamsRoutes(fastify, options) {
         return { departments, users };
     });
 
-    fastify.get('/api/permissions/:targetType/:targetId', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/permissions/:targetType/:targetId', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { targetType, targetId } = request.params;
         const perms = await db.all(
             'SELECT * FROM permissions WHERE target_type = ? AND target_id = ?',
@@ -241,7 +241,7 @@ async function teamsRoutes(fastify, options) {
         return { permissions: perms };
     });
 
-    fastify.post('/api/permissions/:targetType/:targetId', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/permissions/:targetType/:targetId', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { targetType, targetId } = request.params;
         const { permissions } = request.body || {};
         if (!permissions || !Array.isArray(permissions)) {

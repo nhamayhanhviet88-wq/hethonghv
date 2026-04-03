@@ -336,7 +336,7 @@ async function taskScheduleRoutes(fastify, options) {
                  WHERE u.status = 'active' AND u.role NOT IN ('giam_doc')
                  ORDER BY d.name, u.full_name`
             );
-        } else if (['quan_ly', 'truong_phong', 'trinh'].includes(user.role)) {
+        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(user.role)) {
             // Get departments from task_approvers (flat, no recursive children)
             const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
             const allDeptIds = new Set(assigned.map(a => a.department_id));

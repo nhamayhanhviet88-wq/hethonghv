@@ -5,7 +5,7 @@ let _penaltyData = [];
 
 async function renderKhoaTKNVPage(container) {
     const isGD = currentUser.role === 'giam_doc';
-    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(currentUser.role);
 
     // Default to current month
     const now = new Date();

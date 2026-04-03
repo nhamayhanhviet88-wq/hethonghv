@@ -2,19 +2,20 @@
  * Approval Hierarchy for the entire system
  * 
  * Rules:
- * - nhan_vien, truong_phong → approved by quan_ly, pho_giam_doc, trinh, giam_doc
- * - quan_ly → approved by pho_giam_doc, trinh, giam_doc
- * - pho_giam_doc, trinh (QLCC) → approved by giam_doc only
+ * - part_time, nhan_vien → approved by truong_phong, quan_ly, quan_ly_cap_cao, giam_doc
+ * - truong_phong → approved by quan_ly, quan_ly_cap_cao, giam_doc
+ * - quan_ly → approved by quan_ly_cap_cao, giam_doc
+ * - quan_ly_cap_cao → approved by giam_doc only
  * - giam_doc → auto-approve (no approval needed)
  */
 
 // Role levels (higher = more authority)
 const ROLE_LEVEL = {
+    part_time: 0,
     nhan_vien: 1,
     truong_phong: 2,
     quan_ly: 3,
-    pho_giam_doc: 4,
-    trinh: 4,        // Same level as pho_giam_doc (QLCC)
+    quan_ly_cap_cao: 4,
     giam_doc: 5
 };
 

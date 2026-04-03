@@ -450,7 +450,7 @@ function affRenderTree() {
                 const headRevenue = headAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
                 const isHeadExpanded = _affExpandedEmps[headEmp.id] === true;
                 const headIcon = !dept.parent_id ? '👑' : '⭐';
-                const ROLE_LABEL = { quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', trinh: 'Trinh', ke_toan: 'Kế Toán', nhan_su: 'Nhân Sự', thu_quy: 'Thủ Quỹ', thu_kho: 'Thủ Kho', thu_ky: 'Thư Ký', giam_doc: 'Giám Đốc', pho_giam_doc: 'Phó Giám Đốc', to_truong: 'Tổ Trưởng', kcs_hang: 'KCS Hàng', ky_thuat: 'Kỹ Thuật', nhan_vien_parttime: 'NV Part-Time' };
+                const ROLE_LABEL = { quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', trinh: 'quan_ly_cap_cao', ke_toan: 'Kế Toán', nhan_su: 'Nhân Sự', thu_quy: 'Thủ Quỹ', thu_kho: 'Thủ Kho', thu_ky: 'Thư Ký', giam_doc: 'Giám Đốc', pho_giam_doc: 'Phó Giám Đốc', to_truong: 'Tổ Trưởng', kcs_hang: 'KCS Hàng', ky_thuat: 'Kỹ Thuật', nhan_vien_parttime: 'NV Part-Time' };
 
                 html += `
                 <div class="emp-row" onclick="affToggleEmp(${headEmp.id})" style="background:#fffbeb;border-left:3px solid #f59e0b;">

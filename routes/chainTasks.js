@@ -7,7 +7,7 @@ const { canApproveByRole, isAutoApproveRole } = require('../utils/approvalHierar
 
 // Helper: check if user has manager-level access
 function isManager(role) {
-    return ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(role);
+    return ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao'].includes(role);
 }
 function isDirector(role) {
     return role === 'giam_doc';

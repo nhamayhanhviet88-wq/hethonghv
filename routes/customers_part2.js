@@ -59,7 +59,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         return reply.code(403).send({ error: 'Không có quyền hủy' });
     });
 
-    fastify.post('/api/customers/:id/approve-cancel', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/customers/:id/approve-cancel', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { approve, manager_note } = request.body || {};
         const custId = Number(request.params.id);
         if (!manager_note) return reply.code(400).send({ error: 'Vui lòng nhập lý do!' });
@@ -463,7 +463,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         return { withdrawals: await db.all(query, params) };
     });
 
-    fastify.put('/api/withdrawals/:id/approve', { preHandler: [authenticate, requireRole('giam_doc', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/withdrawals/:id/approve', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { approve, transfer_image, reject_reason } = request.body || {};
         const wId = Number(request.params.id);
         const w = await db.get('SELECT w.*, u.full_name, u.username FROM withdrawal_requests w LEFT JOIN users u ON w.user_id = u.id WHERE w.id = ?', [wId]);
@@ -484,7 +484,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
     });
 
     // Polling endpoint for GĐ/Trinh to check new pending withdrawals
-    fastify.get('/api/withdrawals/pending-alert', { preHandler: [authenticate, requireRole('giam_doc', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/withdrawals/pending-alert', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const result = await db.get(`SELECT COUNT(*) as count FROM withdrawal_requests WHERE status = 'pending'`);
         const latest = await db.get(`
             SELECT w.amount, w.bank_account, w.bank_name, u.full_name as user_name
@@ -494,7 +494,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         return { count: result?.count || 0, latest };
     });
 
-    fastify.put('/api/users/:id/reassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/reassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { assigned_to_user_id } = request.body || {};
         const userId = Number(request.params.id);
         const user = await db.get('SELECT * FROM users WHERE id = ? AND role = ?', [userId, 'hoa_hong']);

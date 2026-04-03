@@ -7,13 +7,14 @@ const fs = require('fs');
 
 async function usersRoutes(fastify, options) {
     // Danh sách users
-    fastify.get('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { role, status } = request.query;
         let query = `SELECT u.id, u.username, u.full_name, u.phone, u.address, u.role, u.status,
                      u.contract_info, u.start_date, u.birth_date, u.id_card_front, u.id_card_back,
                      u.telegram_group_id, u.commission_tier_id, u.assigned_to_user_id, u.managed_by_user_id,
                      u.balance, u.bank_name, u.bank_account, u.bank_holder, u.order_code_prefix,
-                     u.contract_file, u.rules_file, u.source_crm_type,
+                     u.contract_file, u.rules_file, u.source_crm_type, u.position_id,
+                     p.name as position_name,
                      u.created_at, u.updated_at,
                      ct.name as tier_name, ct.percentage as tier_percentage, ct.parent_percentage as tier_parent_percentage,
                      au.full_name as assigned_to_name,
@@ -22,6 +23,7 @@ async function usersRoutes(fastify, options) {
                      LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id
                      LEFT JOIN users au ON u.assigned_to_user_id = au.id
                      LEFT JOIN users mgr ON u.managed_by_user_id = mgr.id
+                     LEFT JOIN positions p ON u.position_id = p.id
                      WHERE 1=1`;
         const params = [];
 
@@ -71,7 +73,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // Chi tiết user
-    fastify.get('/api/users/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
+    fastify.get('/api/users/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const user = await db.get(
             `SELECT u.*, ct.name as tier_name, ct.percentage as tier_percentage, ct.parent_percentage as tier_parent_percentage,
              au.full_name as assigned_to_name,
@@ -94,11 +96,11 @@ async function usersRoutes(fastify, options) {
     });
 
     // Tạo tài khoản
-    fastify.post('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/users', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { username, password, full_name, phone, address, role, contract_info,
                 start_date, telegram_group_id, commission_tier_id, assigned_to_user_id,
                 bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-                managed_by_user_id, source_customer_id, province, source_crm_type } = request.body || {};
+                managed_by_user_id, source_customer_id, province, source_crm_type, position_id } = request.body || {};
 
         if (!username || !password || !full_name || !role) {
             return reply.code(400).send({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
@@ -135,8 +137,8 @@ async function usersRoutes(fastify, options) {
              `INSERT INTO users (username, password_hash, full_name, phone, address, role,
              contract_info, start_date, telegram_group_id, commission_tier_id,
              assigned_to_user_id, bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-             managed_by_user_id, source_customer_id, province, source_crm_type)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             managed_by_user_id, source_customer_id, province, source_crm_type, position_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [username, hash, full_name, phone || null, address || null, role,
              contract_info || null, start_date || null, telegram_group_id || null,
              commission_tier_id ? Number(commission_tier_id) : null,
@@ -148,7 +150,8 @@ async function usersRoutes(fastify, options) {
              managed_by_user_id ? Number(managed_by_user_id) : null,
              source_customer_id ? Number(source_customer_id) : null,
              province || null,
-             source_crm_type || null]
+             source_crm_type || null,
+             position_id ? Number(position_id) : null]
         );
 
         // Sync phone/address/province/birthday to source customer (affiliate = same person)
@@ -177,11 +180,11 @@ async function usersRoutes(fastify, options) {
     });
 
     // Sửa tài khoản
-    fastify.put('/api/users/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { full_name, phone, address, role, status, contract_info,
                 start_date, telegram_group_id, commission_tier_id, assigned_to_user_id,
                 bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-                managed_by_user_id, source_customer_id, source_crm_type, province } = request.body || {};
+                managed_by_user_id, source_customer_id, source_crm_type, province, position_id } = request.body || {};
 
         const userId = Number(request.params.id);
         const target = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
@@ -227,6 +230,7 @@ async function usersRoutes(fastify, options) {
              source_customer_id = ?,
              source_crm_type = COALESCE(?, source_crm_type),
              province = COALESCE(?, province),
+             position_id = COALESCE(?, position_id),
              updated_at = NOW()
              WHERE id = ?`,
             [full_name || null, phone || null, address || null, role || null, status || null,
@@ -241,6 +245,7 @@ async function usersRoutes(fastify, options) {
              source_customer_id ? Number(source_customer_id) : null,
              source_crm_type || null,
              province || null,
+             position_id ? Number(position_id) : null,
              userId]
         );
 
@@ -266,7 +271,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // Đổi mật khẩu cho user khác
-    fastify.put('/api/users/:id/change-password', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/change-password', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { newPassword } = request.body || {};
         if (!newPassword || newPassword.length < 4) {
             return reply.code(400).send({ error: 'Mật khẩu mới phải ít nhất 4 ký tự' });
@@ -293,7 +298,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // Upload CCCD
-    fastify.post('/api/users/:id/upload-idcard', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/users/:id/upload-idcard', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const parts = request.parts();
         const userId = Number(request.params.id);
         const uploadDir = path.join(__dirname, '..', 'uploads', 'idcards');
@@ -336,7 +341,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // Đổi trạng thái
-    fastify.put('/api/users/:id/status', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/status', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { status } = request.body || {};
         if (!['active', 'resigned', 'locked'].includes(status)) {
             return reply.code(400).send({ error: 'Trạng thái không hợp lệ' });
@@ -373,7 +378,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // Upload hợp đồng PDF
-    fastify.post('/api/users/:id/upload-contract', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/users/:id/upload-contract', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const parts = request.parts();
         const userId = Number(request.params.id);
         const uploadDir = path.join(__dirname, '..', 'uploads', 'contracts');
@@ -400,12 +405,12 @@ async function usersRoutes(fastify, options) {
     });
 
     // ========== HANDOVER CRUD ==========
-    fastify.get('/api/users/:id/social-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/users/:id/social-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const items = await db.all('SELECT * FROM social_handovers WHERE user_id = ? ORDER BY id', [Number(request.params.id)]);
         return { items };
     });
 
-    fastify.put('/api/users/:id/social-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/social-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const userId = Number(request.params.id);
         const { items } = request.body || {};
         await db.run('DELETE FROM social_handovers WHERE user_id = ?', [userId]);
@@ -420,12 +425,12 @@ async function usersRoutes(fastify, options) {
         return { success: true, message: 'Lưu bàn giao MXH thành công' };
     });
 
-    fastify.get('/api/users/:id/tool-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.get('/api/users/:id/tool-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const items = await db.all('SELECT * FROM tool_handovers WHERE user_id = ? ORDER BY id', [Number(request.params.id)]);
         return { items };
     });
 
-    fastify.put('/api/users/:id/tool-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/tool-handovers', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const userId = Number(request.params.id);
         const { items } = request.body || {};
         await db.run('DELETE FROM tool_handovers WHERE user_id = ?', [userId]);
@@ -451,7 +456,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // 1A: Single transfer - transfer one affiliate or customer to new manager
-    fastify.put('/api/users/:id/transfer', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh', 'truong_phong')] }, async (request, reply) => {
+    fastify.put('/api/users/:id/transfer', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong')] }, async (request, reply) => {
         const userId = Number(request.params.id);
         const { newManagerId, type } = request.body || {};
         if (!newManagerId) return reply.code(400).send({ error: 'Chưa chọn nhân viên nhận' });
@@ -468,7 +473,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // 1B: Bulk handover - transfer ALL customers + affiliates from one user to another
-    fastify.post('/api/users/:id/handover', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/users/:id/handover', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const fromUserId = Number(request.params.id);
         const { newManagerId } = request.body || {};
         if (!newManagerId) return reply.code(400).send({ error: 'Chưa chọn nhân viên nhận' });
@@ -484,7 +489,7 @@ async function usersRoutes(fastify, options) {
     });
 
     // 1C: Selective handover - transfer specific items to specific managers
-    fastify.post('/api/users/:id/handover-selective', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'trinh')] }, async (request, reply) => {
+    fastify.post('/api/users/:id/handover-selective', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { transfers } = request.body || {};
         if (!transfers || !Array.isArray(transfers) || transfers.length === 0) {
             return reply.code(400).send({ error: 'Không có mục nào để chuyển' });

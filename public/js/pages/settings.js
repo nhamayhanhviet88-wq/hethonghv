@@ -18,6 +18,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="job-titles" onclick="switchSettingTab('job-titles', this)">👔 Chức Danh</div>
                     <div class="tab" data-tab="leaderboard-roles" onclick="switchSettingTab('leaderboard-roles', this)">🏆 BXH Affiliate</div>
                     <div class="tab" data-tab="prize-popup" onclick="switchSettingTab('prize-popup', this)">🎉 Giải Thưởng</div>
+                    <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -48,6 +49,8 @@ function switchSettingTab(tab, el) {
         loadLeaderboardRolesSettings();
     } else if (tab === 'prize-popup') {
         loadPrizePopupSettings();
+    } else if (tab === 'roles-positions') {
+        loadRolesPositionsSettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -348,31 +351,21 @@ async function deleteJobTitle(id) {
 // ========== LEADERBOARD ROLES SETTINGS ==========
 const ALL_ROLES_BXH = [
     { value: 'giam_doc', label: 'Giám Đốc' },
-    { value: 'pho_giam_doc', label: 'Phó Giám Đốc' },
+    { value: 'quan_ly_cap_cao', label: 'Quản Lý Cấp Cao' },
     { value: 'quan_ly', label: 'Quản Lý' },
     { value: 'truong_phong', label: 'Trưởng Phòng' },
-    { value: 'trinh', label: 'Trinh' },
     { value: 'nhan_vien', label: 'Nhân Viên' },
-    { value: 'to_truong', label: 'Tổ Trưởng' },
-    { value: 'kcs_hang', label: 'KCS Hàng' },
-    { value: 'ky_thuat', label: 'Kỹ Thuật' },
-    { value: 'nhan_vien_parttime', label: 'NV Parttime' },
-    { value: 'ke_toan', label: 'Kế Toán' },
-    { value: 'nhan_su', label: 'Nhân Sự' },
-    { value: 'thu_quy', label: 'Thủ Quỹ' },
-    { value: 'thu_kho', label: 'Thủ Kho' },
-    { value: 'thu_ky', label: 'Thư Ký' },
-    { value: 'hoa_hong', label: 'Hoa Hồng' },
+    { value: 'part_time', label: 'Part Time' },
     { value: 'tkaffiliate', label: 'TK Affiliate' },
 ];
 
 const BXH_PAGES = [
-    { key: 'leaderboard_allowed_roles', label: '🏆 BXH Affiliate', defaults: ['giam_doc','quan_ly','trinh'] },
-    { key: 'bxh_kinhdoanh_allowed_roles', label: '📊 BXH Kinh Doanh', defaults: ['giam_doc','quan_ly','trinh'] },
-    { key: 'bxh_sale_allowed_roles', label: '💼 BXH Sale', defaults: ['giam_doc','quan_ly','trinh'] },
-    { key: 'bxh_ctv_allowed_roles', label: '🤝 BXH CTV', defaults: ['giam_doc','quan_ly','trinh'] },
-    { key: 'bxh_sanxuat_allowed_roles', label: '🏭 BXH Khối Sản Xuất', defaults: ['giam_doc','quan_ly','trinh'] },
-    { key: 'bxh_vanphong_allowed_roles', label: '🏢 BXH Khối Văn Phòng', defaults: ['giam_doc','quan_ly','trinh'] },
+    { key: 'leaderboard_allowed_roles', label: '🏆 BXH Affiliate', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'bxh_kinhdoanh_allowed_roles', label: '📊 BXH Kinh Doanh', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'bxh_sale_allowed_roles', label: '💼 BXH Sale', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'bxh_ctv_allowed_roles', label: '🤝 BXH CTV', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'bxh_sanxuat_allowed_roles', label: '🏭 BXH Khối Sản Xuất', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'bxh_vanphong_allowed_roles', label: '🏢 BXH Khối Văn Phòng', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
 ];
 
 async function loadLeaderboardRolesSettings() {
@@ -488,4 +481,122 @@ async function savePrizePopupSettings() {
     ]);
 
     showToast('✅ Đã lưu cài đặt pop-up giải thưởng!');
+}
+
+// ========== ROLES & POSITIONS SETTINGS ==========
+async function loadRolesPositionsSettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const data = await apiCall('/api/roles-positions');
+    const roles = data.roles || [];
+    const positions = data.positions || [];
+
+    const CORE_ROLES = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'];
+
+    el.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+            <!-- VAI TRÒ -->
+            <div style="border:1px solid var(--gray-200);border-radius:14px;overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:16px 20px;color:white;">
+                    <h4 style="margin:0;font-size:15px;">🛡️ Vai Trò (System Roles)</h4>
+                    <p style="margin:4px 0 0;font-size:11px;opacity:0.7;">Quyền hạn hệ thống — quyết định chức năng truy cập</p>
+                </div>
+                <div style="padding:16px;">
+                    <ul class="setting-list" style="margin-bottom:12px;">
+                        ${roles.map(r => `
+                            <li class="setting-item" style="padding:10px 14px;border-radius:10px;border:1px solid ${CORE_ROLES.includes(r.slug)?'#dbeafe':'var(--gray-200)'};background:${CORE_ROLES.includes(r.slug)?'#eff6ff':'white'};margin-bottom:8px;">
+                                <div class="item-info" style="flex:1;">
+                                    <span class="fw-600" style="color:var(--navy);">${r.name}</span>
+                                    <span style="font-size:11px;color:var(--gray-400);margin-left:8px;">slug: ${r.slug}</span>
+                                    <span class="badge" style="margin-left:8px;background:#dbeafe;color:#1e40af;font-size:10px;">Level ${r.level}</span>
+                                    ${CORE_ROLES.includes(r.slug) ? '<span style="font-size:10px;color:#6b7280;margin-left:6px;">🔒 Mặc định</span>' : ''}
+                                </div>
+                                <div class="item-actions">
+                                    ${!CORE_ROLES.includes(r.slug) ? `<button class="btn btn-xs btn-danger" onclick="deleteSystemRole(${r.id}, '${r.name.replace(/'/g,"\\\\'")}')">🗑️</button>` : ''}
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                    <div style="border-top:1px solid var(--gray-200);padding-top:12px;">
+                        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">➕ Thêm Vai Trò Mới</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <input type="text" id="newRoleName" placeholder="Tên vai trò" class="form-control" style="flex:1;min-width:120px;">
+                            <input type="text" id="newRoleSlug" placeholder="slug_key" class="form-control" style="width:120px;">
+                            <input type="number" id="newRoleLevel" placeholder="Level" class="form-control" style="width:80px;" value="1">
+                            <button class="btn btn-sm btn-success" onclick="addSystemRole()">➕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VỊ TRÍ -->
+            <div style="border:1px solid var(--gray-200);border-radius:14px;overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#059669,#047857);padding:16px 20px;color:white;">
+                    <h4 style="margin:0;font-size:15px;">📋 Vị Trí (Positions)</h4>
+                    <p style="margin:4px 0 0;font-size:11px;opacity:0.7;">Chức danh công việc — tên vị trí thực tế trong công ty</p>
+                </div>
+                <div style="padding:16px;">
+                    <ul class="setting-list" style="margin-bottom:12px;">
+                        ${positions.length === 0 ? '<li class="setting-item"><div class="text-muted" style="padding:16px;text-align:center;width:100%;">Chưa có vị trí nào</div></li>' : positions.map(p => `
+                            <li class="setting-item" style="padding:10px 14px;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:8px;">
+                                <div class="item-info"><span class="fw-600" style="color:var(--navy);">${p.name}</span></div>
+                                <div class="item-actions">
+                                    <button class="btn btn-xs btn-danger" onclick="deletePosition(${p.id}, '${p.name.replace(/'/g,"\\\\'")}')" title="Xóa">🗑️</button>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                    <div style="border-top:1px solid var(--gray-200);padding-top:12px;">
+                        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">➕ Thêm Vị Trí Mới</div>
+                        <div class="setting-add" style="margin:0;">
+                            <input type="text" id="newPositionName" placeholder="Tên vị trí mới..." onkeypress="if(event.key==='Enter') addPosition()">
+                            <button class="btn btn-sm btn-success" onclick="addPosition()">➕ Thêm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:20px;padding:14px;background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;font-size:12px;color:#92400e;">
+            <strong>📌 Lưu ý:</strong>
+            <ul style="margin:6px 0 0;padding-left:20px;line-height:1.8;">
+                <li><strong>Vai trò</strong> = quyền hạn trên hệ thống (VD: Quản Lý Cấp Cao có level 4, được duyệt công việc của Trưởng Phòng level 2)</li>
+                <li><strong>Vị trí</strong> = chức danh công việc (VD: Kế Toán, Kinh Doanh, Thủ Kho)</li>
+                <li>Khi tạo tài khoản, bắt buộc chọn <strong>cả Vai trò VÀ Vị trí</strong></li>
+                <li>Vai trò mặc định (🔒) không thể xóa</li>
+            </ul>
+        </div>
+    `;
+}
+
+async function addSystemRole() {
+    const name = document.getElementById('newRoleName')?.value?.trim();
+    const slug = document.getElementById('newRoleSlug')?.value?.trim();
+    const level = parseInt(document.getElementById('newRoleLevel')?.value) || 1;
+    if (!name || !slug) { showToast('Vui lòng nhập tên và slug', 'error'); return; }
+    const data = await apiCall('/api/system-roles', 'POST', { name, slug, level });
+    if (data.success) { showToast('Đã thêm vai trò!'); await loadRolesPositionsSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function deleteSystemRole(id, name) {
+    if (!confirm(`Xóa vai trò "${name}"? Hành động này không thể hoàn tác.`)) return;
+    const data = await apiCall(`/api/system-roles/${id}`, 'DELETE');
+    if (data.success) { showToast('Đã xóa vai trò!'); await loadRolesPositionsSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function addPosition() {
+    const name = document.getElementById('newPositionName')?.value?.trim();
+    if (!name) { showToast('Vui lòng nhập tên vị trí', 'error'); return; }
+    const data = await apiCall('/api/positions', 'POST', { name });
+    if (data.success) { showToast('Đã thêm vị trí!'); await loadRolesPositionsSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function deletePosition(id, name) {
+    if (!confirm(`Xóa vị trí "${name}"?`)) return;
+    const data = await apiCall(`/api/positions/${id}`, 'DELETE');
+    if (data.success) { showToast('Đã xóa vị trí!'); await loadRolesPositionsSettings(); }
+    else showToast(data.error, 'error');
 }

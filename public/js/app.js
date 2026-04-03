@@ -7,24 +7,11 @@ let _configCache = {}; // Cache for app-config values
 // ========== ROLE CONFIG ==========
 const ROLE_LABELS = {
     giam_doc: 'Giám Đốc',
-    pho_giam_doc: 'Phó Giám Đốc',
+    quan_ly_cap_cao: 'Quản Lý Cấp Cao',
     quan_ly: 'Quản Lý',
     truong_phong: 'Trưởng Phòng',
-    trinh: 'Trinh',
-    thu_quy: 'Thủ Quỹ',
-    ke_toan: 'Kế Toán',
-    thu_kho: 'Thủ Kho',
-    nhan_su: 'Nhân Sự',
-    thu_ky: 'Thư Ký',
     nhan_vien: 'Nhân Viên',
-    to_truong: 'Tổ Trưởng',
-    kcs_hang: 'KCS Hàng',
-    ky_thuat: 'Kỹ Thuật',
-    nhan_vien_parttime: 'NV Part-Time',
-    hoa_hong: 'Hoa Hồng',
-    ctv: 'CTV',
-    nuoi_duong: 'Nuôi Dưỡng',
-    sinh_vien: 'Sinh Viên',
+    part_time: 'Part Time',
     tkaffiliate: 'TK Affiliate'
 };
 
@@ -49,54 +36,54 @@ const CRM_LABELS = {
 };
 
 const MENU_CONFIG = [
-    { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','ke_toan','nhan_su','thu_quy','thu_kho','thu_ky'], section: 'TỔNG QUAN' },
-    { id: 'goidien', label: 'Gọi Điện Telesale', icon: '📞', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH TELESALE', href: '/goidien' },
-    { id: 'hethonggoidien', label: 'Hệ Thống Phân Chia Gọi Điện', icon: '📡', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH TELESALE', href: '/hethonggoidien' },
-    { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CHĂM SÓC' },
-    { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CHĂM SÓC' },
-    { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
-    { id: 'crm-hoa-hong', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên', icon: '🌹', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-nuoi-duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng', icon: '🌱', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-sinh-vien', label: 'CRM Thể Thao/Thời Trang Local', icon: '👟', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-koc-tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa', icon: '🎵', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
-    { id: 'crm-gioi-thieu', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch', icon: '🎁', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-affiliate-hv', label: 'CRM Người Thân/Bạn Bè', icon: '👨‍👩‍👧‍👦', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/crmaffiliate' },
-    { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/affiliate' },
-    { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ AFFILIATE' },
-    { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ AFFILIATE' },
-    { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
-    { id: 'bang-xep-hang-kinh-doanh', label: 'Bảng Xếp Hạng Kinh Doanh', icon: '📊', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangkinhdoanh', dynamicRoles: 'bxh_kinhdoanh_allowed_roles' },
-    { id: 'bang-xep-hang-sale', label: 'Bảng Xếp Hạng Sale', icon: '💼', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangsale', dynamicRoles: 'bxh_sale_allowed_roles' },
-    { id: 'bang-xep-hang-ctv', label: 'Bảng Xếp Hạng CTV', icon: '🤝', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangctv', dynamicRoles: 'bxh_ctv_allowed_roles' },
-    { id: 'bxh-san-xuat', label: 'BXH Khối Sản Xuất', icon: '🏭', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bxhsanxuat', dynamicRoles: 'bxh_sanxuat_allowed_roles' },
-    { id: 'bxh-van-phong', label: 'BXH Khối Văn Phòng', icon: '🏢', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/bxhvanphong', dynamicRoles: 'bxh_vanphong_allowed_roles' },
+    { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'TỔNG QUAN' },
+    { id: 'goidien', label: 'Gọi Điện Telesale', icon: '📞', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH TELESALE', href: '/goidien' },
+    { id: 'hethonggoidien', label: 'Hệ Thống Phân Chia Gọi Điện', icon: '📡', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH TELESALE', href: '/hethonggoidien' },
+    { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
+    { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
+    { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
+    { id: 'crm-hoa-hong', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-nuoi-duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-sinh-vien', label: 'CRM Thể Thao/Thời Trang Local', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-koc-tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
+    { id: 'crm-gioi-thieu', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-affiliate-hv', label: 'CRM Người Thân/Bạn Bè', icon: '👨‍👩‍👧‍👦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/crmaffiliate' },
+    { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/affiliate' },
+    { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
+    { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
+    { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
+    { id: 'bang-xep-hang-kinh-doanh', label: 'Bảng Xếp Hạng Kinh Doanh', icon: '📊', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangkinhdoanh', dynamicRoles: 'bxh_kinhdoanh_allowed_roles' },
+    { id: 'bang-xep-hang-sale', label: 'Bảng Xếp Hạng Sale', icon: '💼', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangsale', dynamicRoles: 'bxh_sale_allowed_roles' },
+    { id: 'bang-xep-hang-ctv', label: 'Bảng Xếp Hạng CTV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangctv', dynamicRoles: 'bxh_ctv_allowed_roles' },
+    { id: 'bxh-san-xuat', label: 'BXH Khối Sản Xuất', icon: '🏭', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bxhsanxuat', dynamicRoles: 'bxh_sanxuat_allowed_roles' },
+    { id: 'bxh-van-phong', label: 'BXH Khối Văn Phòng', icon: '🏢', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bxhvanphong', dynamicRoles: 'bxh_vanphong_allowed_roles' },
     { id: 'giai-thuong-game', label: 'Setup Giải Thưởng Game', icon: '🎮', roles: ['giam_doc'], section: 'BXH & GIẢI THƯỞNG', href: '/giaithuonggame' },
-    { id: 'trao-giai-thuong', label: 'Trao Giải Thưởng', icon: '🏆', roles: ['giam_doc','quan_ly','trinh'], section: 'BXH & GIẢI THƯỞNG', href: '/traogiaithuong' },
-    { id: 'withdraw-manage', label: 'Duyệt Rút Tiền', icon: '🏦', roles: ['giam_doc','trinh'], section: 'QUẢN LÝ AFFILIATE' },
-    { id: 'cap-cuu-sep', label: 'Cấp Cứu Sếp', icon: '🚨', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
-    { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','trinh'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
-    { id: 'chuyen-so', label: 'Hệ Thống Chuyển Số', icon: '📱', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
-    { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
-    // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
-    { id: 'teams', label: 'Cơ Cấu Tổ Chức', icon: '🏢', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
-    { id: 'permissions', label: 'Phân Quyền', icon: '🔐', roles: ['giam_doc','quan_ly','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
-    { id: 'khoa-tk-nv', label: 'Phạt Khóa TK NV', icon: '🔒', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','ke_toan','nhan_su','thu_quy','thu_kho','thu_ky'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/khoatknv' },
-    { id: 'xin-nghi-nv', label: 'Xin Nghỉ NV', icon: '📋', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime','ke_toan','nhan_su','thu_quy','thu_kho','thu_ky'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/xinnghinhanvien' },
-    { id: 'setup-ngay-le', label: 'Setup Ngày Lễ', icon: '📅', roles: ['giam_doc','trinh'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/setupngayle' },
+    { id: 'trao-giai-thuong', label: 'Trao Giải Thưởng', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/traogiaithuong' },
+    { id: 'withdraw-manage', label: 'Duyệt Rút Tiền', icon: '🏦', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
+    { id: 'cap-cuu-sep', label: 'Cấp Cứu Sếp', icon: '🚨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
+    { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
+    { id: 'chuyen-so', label: 'Hệ Thống Chuyển Số', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV' },
+    { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
+    // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
+    { id: 'teams', label: 'Cơ Cấu Tổ Chức', icon: '🏢', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
+    { id: 'permissions', label: 'Phân Quyền', icon: '🔐', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
+    { id: 'khoa-tk-nv', label: 'Phạt Khóa TK NV', icon: '🔒', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/khoatknv' },
+    { id: 'xin-nghi-nv', label: 'Xin Nghỉ NV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/xinnghinhanvien' },
+    { id: 'setup-ngay-le', label: 'Setup Ngày Lễ', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/setupngayle' },
     { id: 'settings', label: 'Cài Đặt Phân Tầng', icon: '⚙️', roles: ['giam_doc'], section: 'HỆ THỐNG' },
     { id: 'my-customers', label: 'Khách Hàng Của Tôi', icon: '👤', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'bao-cao-hoa-hong', label: 'Báo Cáo Hoa Hồng', icon: '💰', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     // ========== QUẢN LÝ CÔNG VIỆC ==========
-    { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu' },
-    { id: 'lich-su-bao-cao', label: 'Lịch Sử Báo Cáo CV', icon: '📊', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichsubaocaocv' },
-    { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm', icon: '🏪', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
-    { id: 'bangiao-khoa', label: 'Bàn Giao CV Khóa', icon: '🔐', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaokhoa' },
-    { id: 'don-khach-sll', label: 'Đơn Khách SLL', icon: '📦', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachsll' },
-    { id: 'don-khach-nhieu-lan', label: 'Đơn Khách Nhiều Lần', icon: '🔄', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachnhieulan' },
-    { id: 'don-khach-moi', label: 'Đơn Khách Mới', icon: '🆕', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachmoi' },
-    { id: 'don-quan-he', label: 'Đơn Quan Hệ', icon: '🤝', roles: ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh','nhan_vien','to_truong','kcs_hang','ky_thuat','nhan_vien_parttime'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donquanhe' },
+    { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu' },
+    { id: 'lich-su-bao-cao', label: 'Lịch Sử Báo Cáo CV', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichsubaocaocv' },
+    { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm', icon: '🏪', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
+    { id: 'bangiao-khoa', label: 'Bàn Giao CV Khóa', icon: '🔐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaokhoa' },
+    { id: 'don-khach-sll', label: 'Đơn Khách SLL', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachsll' },
+    { id: 'don-khach-nhieu-lan', label: 'Đơn Khách Nhiều Lần', icon: '🔄', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachnhieulan' },
+    { id: 'don-khach-moi', label: 'Đơn Khách Mới', icon: '🆕', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donkhachmoi' },
+    { id: 'don-quan-he', label: 'Đơn Quan Hệ', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao','nhan_vien','part_time'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH', href: '/donquanhe' },
 ];
 
 // Map menu IDs to permission feature keys
@@ -181,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Withdrawal request polling for GĐ/Trinh
-    if (currentUser && ['giam_doc', 'trinh'].includes(currentUser.role)) {
+    if (currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role)) {
         window._wdLastPendingCount = -1;
         wdPollPending();
         setInterval(wdPollPending, 15000);
@@ -711,7 +698,7 @@ function renderUserInfo() {
 }
 
 function showProfilePopup() {
-    const ROLE_MAP = { giam_doc:'Giám Đốc', pho_giam_doc:'Phó Giám Đốc', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', trinh:'Trinh', nhan_vien:'Nhân Viên', nhan_vien_parttime:'NV Parttime', to_truong:'Tổ Trưởng', kcs_hang:'KCS Hàng', ky_thuat:'Kỹ Thuật', ke_toan:'Kế Toán', nhan_su:'Nhân Sự', thu_quy:'Thủ Quỹ', thu_kho:'Thủ Kho', thu_ky:'Thư Ký', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
+    const ROLE_MAP = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time', tkaffiliate:'TK Affiliate' };
     const u = currentUser;
     const overlay = document.createElement('div');
     overlay.id = 'profileOverlay';
@@ -977,7 +964,7 @@ function _setBadge(menuText, count) {
 }
 
 async function _globalRefreshBadges() {
-    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser?.role);
+    const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
     if (!isManager) return;
     try {
         const [scheduleRes, cancelRes, emergencyRes] = await Promise.all([
@@ -1282,7 +1269,7 @@ async function checkBirthdayToday() {
 function showBirthdayPopup(birthdayUsers) {
     const ROLE_LABELS_BD = {
         giam_doc: 'Giám Đốc', pho_giam_doc: 'Phó Giám Đốc', quan_ly: 'Quản Lý',
-        truong_phong: 'Trưởng Phòng', trinh: 'Trinh', nhan_vien: 'Nhân Viên',
+        truong_phong: 'Trưởng Phòng', trinh: 'quan_ly_cap_cao', nhan_vien: 'Nhân Viên',
         to_truong: 'Tổ Trưởng', kcs_hang: 'KCS Hàng', ky_thuat: 'Kỹ Thuật',
         nhan_vien_parttime: 'NV Part-Time', hoa_hong: 'Hoa Hồng', ctv: 'CTV',
         nuoi_duong: 'Nuôi Dưỡng', sinh_vien: 'Sinh Viên', ke_toan: 'Kế Toán',

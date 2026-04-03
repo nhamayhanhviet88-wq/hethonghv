@@ -446,7 +446,7 @@ async function renderLichKhoaBieuPage(container) {
     _kbAllDepts = [];
     _kbActiveDeptIds = [];
 
-    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
 
     let membersHtml = '';
     if (isManager) {
@@ -525,7 +525,7 @@ async function renderLichKhoaBieuPage(container) {
                 // Get active child depts under this system
                 let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeDeptIds.has(d.id));
                 // For non-giam_doc: filter depts that have members
-                if (['quan_ly','truong_phong','trinh'].includes(currentUser.role)) {
+                if (['quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role)) {
                     childDepts = childDepts.filter(d => memberDeptNames.has(d.name) || nonSystemDepts.some(sub => sub.parent_id === d.id && memberDeptNames.has(sub.name)));
                 }
                 // Also add parent depts of active sub-teams
@@ -913,7 +913,7 @@ function _kbRenderGrid() {
     }
 
     const isSelf = !_kbViewUserId || Number(_kbViewUserId) === currentUser.id;
-    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
     const canReport = isSelf; // Can report own tasks (via 'Lịch của tôi' or own name in sidebar)
     const canApprove = isManager && !isSelf;
     const todayStr = _kbDateStr(new Date()); // For date comparison
@@ -2522,7 +2522,7 @@ function _kbUpdateSidebarBadge(count) {
 
 // Load badge on page init for managers
 async function _kbInitBadge() {
-    const isManager = ['giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser?.role);
+    const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
     if (!isManager) return;
     try {
         const data = await apiCall('/api/schedule/pending-count');

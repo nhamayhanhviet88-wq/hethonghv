@@ -2106,7 +2106,7 @@ function switchCDTab(tab) {
 
 // ========== AFFILIATE DETAIL POPUP ==========
 const CRM_LABELS_AFF = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', hoa_hong_crm: 'CRM Giáo Viên/Học Sinh/Sinh Viên', nuoi_duong: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng', sinh_vien: 'CRM Thể Thao/Thời Trang Local', koc_tiktok: 'CRM KOL Tiktok/Mẹ Bỉm Sữa' };
-const ROLE_LABELS_AFF = { giam_doc:'Giám Đốc', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', trinh:'Trinh', nhan_vien:'Nhân Viên', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
+const ROLE_LABELS_AFF = { giam_doc:'Giám Đốc', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', trinh:'quan_ly_cap_cao', nhan_vien:'Nhân Viên', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
 
 async function openAffiliateDetail(userId) {
     if (!userId) return;

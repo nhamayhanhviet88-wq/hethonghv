@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT NOT NULL,
     phone TEXT,
     address TEXT,
-    role TEXT NOT NULL CHECK (role IN ('giam_doc', 'quan_ly', 'truong_phong', 'nhan_vien', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien', 'ke_toan', 'nhan_su', 'thu_quy', 'thu_kho', 'pho_giam_doc', 'thu_ky', 'trinh', 'nhan_vien_parttime', 'tkaffiliate')),
+    role TEXT NOT NULL,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'resigned', 'locked')),
     contract_info TEXT,
     start_date TEXT,
@@ -873,3 +873,126 @@ ALTER TABLE chain_task_template_items ADD COLUMN IF NOT EXISTS max_redo_count IN
 ALTER TABLE chain_task_instance_items ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
 ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS approval_deadline TIMESTAMP;
 ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;
+
+-- ========== POSITIONS & ROLES SYSTEM ==========
+
+-- Positions table (job titles)
+CREATE TABLE IF NOT EXISTS positions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- System roles table
+CREATE TABLE IF NOT EXISTS system_roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    level INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add position_id to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS position_id INTEGER REFERENCES positions(id);
+
+-- Drop old role CHECK constraint if exists
+DO $$
+BEGIN
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Insert default system roles
+INSERT INTO system_roles (name, slug, level) VALUES
+    ('Giám Đốc', 'giam_doc', 5),
+    ('Quản Lý Cấp Cao', 'quan_ly_cap_cao', 4),
+    ('Quản Lý', 'quan_ly', 3),
+    ('Trưởng Phòng', 'truong_phong', 2),
+    ('Nhân Viên', 'nhan_vien', 1),
+    ('Part Time', 'part_time', 0)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insert default positions
+INSERT INTO positions (name) VALUES
+    ('Giám Đốc'),('Phó Giám Đốc'),('Trinh'),('Quản Lý'),('Trưởng Phòng'),
+    ('Kế Toán'),('Kinh Doanh'),('Sale'),('Thủ Quỹ'),('Nhân Sự'),
+    ('Thủ Kho'),('Thư Ký'),('Tổ Trưởng'),('KCS Hàng'),('Kỹ Thuật'),
+    ('Sinh Viên Part'),('Sinh Viên Full'),('Nhân Viên'),('NV Part-Time')
+ON CONFLICT (name) DO NOTHING;
+
+-- Migration: convert old roles to new roles + assign positions
+DO $$
+DECLARE
+    pos_id INTEGER;
+BEGIN
+    -- pho_giam_doc → quan_ly_cap_cao + position 'Phó Giám Đốc'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Phó Giám Đốc';
+    UPDATE users SET role = 'quan_ly_cap_cao', position_id = COALESCE(position_id, pos_id) WHERE role = 'pho_giam_doc';
+
+    -- trinh → quan_ly_cap_cao + position 'Trinh'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Trinh';
+    UPDATE users SET role = 'quan_ly_cap_cao', position_id = COALESCE(position_id, pos_id) WHERE role = 'trinh';
+
+    -- ke_toan → nhan_vien + position 'Kế Toán'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Kế Toán';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'ke_toan';
+
+    -- nhan_su → nhan_vien + position 'Nhân Sự'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Nhân Sự';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'nhan_su';
+
+    -- thu_quy → nhan_vien + position 'Thủ Quỹ'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Thủ Quỹ';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'thu_quy';
+
+    -- thu_kho → nhan_vien + position 'Thủ Kho'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Thủ Kho';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'thu_kho';
+
+    -- thu_ky → nhan_vien + position 'Thư Ký'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Thư Ký';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'thu_ky';
+
+    -- kinh_doanh → nhan_vien + position 'Kinh Doanh'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Kinh Doanh';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role IN ('kinh_doanh', 'sale');
+
+    -- to_truong → nhan_vien + position 'Tổ Trưởng'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Tổ Trưởng';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'to_truong';
+
+    -- kcs_hang → nhan_vien + position 'KCS Hàng'
+    SELECT id INTO pos_id FROM positions WHERE name = 'KCS Hàng';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'kcs_hang';
+
+    -- ky_thuat → nhan_vien + position 'Kỹ Thuật'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Kỹ Thuật';
+    UPDATE users SET role = 'nhan_vien', position_id = COALESCE(position_id, pos_id) WHERE role = 'ky_thuat';
+
+    -- nhan_vien_parttime → part_time + position 'NV Part-Time'
+    SELECT id INTO pos_id FROM positions WHERE name = 'NV Part-Time';
+    UPDATE users SET role = 'part_time', position_id = COALESCE(position_id, pos_id) WHERE role = 'nhan_vien_parttime';
+
+    -- sinh_vien → part_time + position 'Sinh Viên Full'
+    SELECT id INTO pos_id FROM positions WHERE name = 'Sinh Viên Full';
+    UPDATE users SET role = 'part_time', position_id = COALESCE(position_id, pos_id) WHERE role = 'sinh_vien';
+
+    -- hoa_hong, ctv, nuoi_duong, sinh_vien, tkaffiliate → keep as-is (affiliate account types, NOT employee roles)
+    -- No migration needed for these roles
+
+    -- Assign default positions to users that don't have one yet
+    SELECT id INTO pos_id FROM positions WHERE name = 'Giám Đốc';
+    UPDATE users SET position_id = pos_id WHERE role = 'giam_doc' AND position_id IS NULL;
+
+    SELECT id INTO pos_id FROM positions WHERE name = 'Quản Lý';
+    UPDATE users SET position_id = pos_id WHERE role = 'quan_ly' AND position_id IS NULL;
+
+    SELECT id INTO pos_id FROM positions WHERE name = 'Trưởng Phòng';
+    UPDATE users SET position_id = pos_id WHERE role = 'truong_phong' AND position_id IS NULL;
+
+    SELECT id INTO pos_id FROM positions WHERE name = 'Nhân Viên';
+    UPDATE users SET position_id = pos_id WHERE role = 'nhan_vien' AND position_id IS NULL;
+
+    SELECT id INTO pos_id FROM positions WHERE name = 'NV Part-Time';
+    UPDATE users SET position_id = pos_id WHERE role = 'part_time' AND position_id IS NULL;
+END $$;

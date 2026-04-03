@@ -67,7 +67,7 @@ window.addEventListener('popstate', function() {
 
 async function renderLichSuBaoCaoPage(container) {
     _rhColorMap = {};
-    _rhIsManager = ['giam_doc', 'pho_giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+    _rhIsManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
     // Detect F5 vs menu navigation
     const lastPage = sessionStorage.getItem('_rh_lastPage');
@@ -259,7 +259,7 @@ function _rhRenderDeptMembers(deptId, deptName) {
         return bP - aP;
     });
     if (members.length === 0) return '<div style="padding:8px 14px;font-size:11px;color:#9ca3af;">Chưa có nhân viên</div>';
-    const isLeader = (role) => ['giam_doc', 'pho_giam_doc', 'quan_ly', 'truong_phong'].includes(role);
+    const isLeader = (role) => ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(role);
     return members.map(m => {
         const isHead = m._is_dept_head;
         const isApprover = m._isApprover;

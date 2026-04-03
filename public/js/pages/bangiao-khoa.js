@@ -15,7 +15,7 @@ let _lkIsParentDept = false; // true if selected dept is a PHÒNG (not sub-team)
 let _lkIsSystemDept = false; // true if selected dept is HỆ THỐNG
 
 async function renderBanGiaoKhoaPage(container) {
-    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(currentUser.role);
 
     // Load departments + members using same data source as Lịch Khóa Biểu
     let sidebarHtml = '';
@@ -276,7 +276,7 @@ async function _lkSelectUser(userId, userName, event) {
 async function _lkLoadDeptTasks(deptId) {
     const panel = document.getElementById('lkTaskPanel');
     if (!panel) return;
-    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(currentUser.role);
     const isDirector = currentUser.role === 'giam_doc';
 
     panel.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải...</div>';
@@ -1392,7 +1392,7 @@ function _ctRenderDetailContent(data) {
     }).length;
     const pct = items.length > 0 ? Math.round(completedCount / items.length * 100) : 0;
     const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '🔄 Song song';
-    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
+    const isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
 
     titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:2px 10px;border-radius:6px;font-size:12px;margin-right:8px;">🔗</span> ${data.chain_name}`;
 
@@ -1597,7 +1597,7 @@ function _ctShowReportHistory(itemId) {
 }
 
 // Frontend approval hierarchy (mirrors utils/approvalHierarchy.js)
-const _ROLE_LEVEL = { nhan_vien: 1, truong_phong: 2, quan_ly: 3, pho_giam_doc: 4, trinh: 4, giam_doc: 5 };
+const _ROLE_LEVEL = { part_time: 0, nhan_vien: 1, truong_phong: 2, quan_ly: 3, quan_ly_cap_cao: 4, giam_doc: 5 };
 function _canApproveRole(approverRole, reporterRole) {
     return (_ROLE_LEVEL[approverRole] || 0) > (_ROLE_LEVEL[reporterRole] || 0);
 }

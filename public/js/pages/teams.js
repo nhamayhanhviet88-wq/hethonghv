@@ -565,7 +565,7 @@ async function showEditDeptModal(deptId) {
     const allStaff = staffData.users || [];
     const deptLevel = getDeptLevel(dept, allDepts);
     // Head candidates by current level
-    const headRolesByLevel = [['giam_doc', 'pho_giam_doc', 'trinh'], ['quan_ly', 'trinh'], ['truong_phong', 'to_truong']];
+    const headRolesByLevel = [['giam_doc', 'quan_ly_cap_cao', 'quan_ly_cap_cao'], ['quan_ly', 'quan_ly_cap_cao'], ['truong_phong', 'to_truong']];
     const headRoles = headRolesByLevel[deptLevel] || headRolesByLevel[2];
     // Allow 1 person to be head of multiple departments
     const headCandidates = allStaff.filter(u => headRoles.includes(u.role));

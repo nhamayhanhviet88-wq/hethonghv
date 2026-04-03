@@ -242,7 +242,7 @@ function _renderTgStats() {
 
 function _renderTgPending() {
     var el = document.getElementById('tgPendingSection');
-    var canAward = currentUser && ['giam_doc','quan_ly','trinh'].indexOf(currentUser.role) !== -1;
+    var canAward = currentUser && ['giam_doc','quan_ly','quan_ly_cap_cao'].indexOf(currentUser.role) !== -1;
 
     var awardSet = {};
     _tgAllAwards.forEach(function(a) { awardSet[a.board_key + '_' + a.top_rank] = true; });
@@ -348,7 +348,7 @@ function _renderTgAwards() {
     }
 
     var medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-    var canDelete = currentUser && ['giam_doc','quan_ly','trinh'].indexOf(currentUser.role) !== -1;
+    var canDelete = currentUser && ['giam_doc','quan_ly','quan_ly_cap_cao'].indexOf(currentUser.role) !== -1;
 
     gridEl.innerHTML = _tgAllAwards.map(function(a) {
         var info = _tgGetBoardInfo(a.board_key);
