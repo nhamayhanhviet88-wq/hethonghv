@@ -772,9 +772,15 @@ async function _rhRenderTaskModal() {
             detailBtn = '<span style="color:#d1d5db;">—</span>';
         }
 
+        const qtyDone = report ? (report.quantity || 0) : 0;
+        const qtyMin = g.min_quantity || 1;
+        const qtyLow = qtyDone < qtyMin;
+        const qtyHtml = report ? `<span style="font-weight:700;color:${qtyLow ? '#dc2626' : '#166534'};font-size:11px;">${qtyDone}/${qtyMin}</span> ${qtyLow ? '<span style="font-size:10px;color:#dc2626;">⚠️</span>' : '<span style="font-size:10px;color:#16a34a;">✅</span>'}` : '<span style="color:#d1d5db;">—</span>';
+
         rows += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:8px 12px;font-size:12px;color:#374151;white-space:nowrap;">${dateDisplay} <span style="color:#9ca3af;font-size:10px;">${dayLabel}</span></td>
             <td style="padding:8px 12px;font-size:11px;color:#6b7280;white-space:nowrap;">⏰ ${timeSlot}</td>
+            <td style="padding:8px 12px;text-align:center;">${qtyHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${detailBtn}</td>
         </tr>`;
@@ -824,13 +830,14 @@ async function _rhRenderTaskModal() {
         <!-- Table -->
         <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#f8fafc;">
-                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">Ngày</th>
-                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">Khung Giờ</th>
-                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">Trạng Thái</th>
-                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:2px solid #e5e7eb;width:90px;">Chi Tiết</th>
+                <thead><tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Ngày</th>
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Khung Giờ</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Số Lượng</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Trạng Thái</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;width:90px;">Chi Tiết</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có dữ liệu trong tháng này</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có dữ liệu trong tháng này</td></tr>'}</tbody>
             </table>
         </div>
     </div>`;
@@ -918,8 +925,14 @@ async function _rhRenderLockModal() {
         const statusHtml = `<span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;">${st.icon} ${st.label}</span>`;
         const detailBtn = `<button onclick="event.stopPropagation();_rhShowLockDetail(${idx},${ci})" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:white;color:#374151;cursor:pointer;font-weight:500;">👁️ Xem</button>`;
 
+        const qd = c.quantity_done || 0;
+        const mq = g.min_quantity || 1;
+        const qLow = qd < mq;
+        const qtyHtml = `<span style="font-weight:700;color:${qLow ? '#dc2626' : '#166534'};font-size:11px;">${qd}/${mq}</span> ${qLow ? '<span style="font-size:10px;color:#dc2626;">⚠️</span>' : '<span style="font-size:10px;color:#16a34a;">✅</span>'}`;
+
         rows += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:8px 12px;font-size:12px;color:#374151;white-space:nowrap;">${dateF}</td>
+            <td style="padding:8px 12px;text-align:center;">${qtyHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${statusHtml}</td>
             <td style="padding:8px 12px;text-align:center;">${detailBtn}</td>
         </tr>`;
@@ -966,12 +979,13 @@ async function _rhRenderLockModal() {
         <!-- Table -->
         <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#fef2f2;">
-                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Ngày</th>
-                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;">Trạng Thái</th>
-                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:#991b1b;font-weight:700;text-transform:uppercase;border-bottom:2px solid #fecaca;width:90px;">Chi Tiết</th>
+                <thead><tr style="background:linear-gradient(135deg,#1e3a5f,#122546);">
+                    <th style="padding:10px 12px;text-align:left;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Ngày</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">SL Công Việc</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;">Trạng Thái</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:11px;color:white;font-weight:700;text-transform:uppercase;border-bottom:2px solid #1e3a5f;width:90px;">Chi Tiết</th>
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có báo cáo trong tháng này</td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;font-size:12px;">Chưa có báo cáo trong tháng này</td></tr>'}</tbody>
             </table>
         </div>
     </div>`;
