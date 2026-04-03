@@ -120,6 +120,7 @@ async function _kbViewReport(el) {
                 <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
+            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
                 <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
             </div>` : ''}
@@ -275,6 +276,7 @@ async function _kbViewApprovalReport(el) {
                 <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
+            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
                 <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
             </div>` : ''}
@@ -1010,7 +1012,7 @@ function _kbRenderGrid() {
                     // HAS REPORT — make it clickable to view details
                     const rData = JSON.stringify({
                         template_id: reportTemplateId, task_name: task.task_name, status: report.status, points_earned: report.points_earned,
-                        quantity: report.quantity, report_value: report.report_value || '', report_image: report.report_image || '',
+                        quantity: report.quantity, min_quantity: task.min_quantity || 1, report_value: report.report_value || '', report_image: report.report_image || '',
                         report_date: dateStr, content: report.content || '', reject_reason: report.reject_reason || '',
                         redo_count: report.redo_count || 0, redo_deadline: report.redo_deadline || ''
                     }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -1922,7 +1924,7 @@ async function _kbLoadApprovalPanel() {
             const isUrgent = dlDate && (dlDate - new Date()) < 6 * 3600000;
             const rData = JSON.stringify({
                 template_id: r.template_id, task_name: r.task_name, status: r.status || 'pending', points_earned: r.points_earned || 0,
-                quantity: r.quantity || '', report_value: r.report_value || '', report_image: r.report_image || '',
+                quantity: r.quantity || '', min_quantity: r.min_quantity || 1, report_value: r.report_value || '', report_image: r.report_image || '',
                 report_date: r.report_date || '', content: r.content || '', reject_reason: r.reject_reason || '',
                 redo_count: r.redo_count || 0, redo_deadline: r.redo_deadline || '',
                 guide_url: r.guide_url || '', user_id: r.user_id,
