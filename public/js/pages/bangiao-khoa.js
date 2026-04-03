@@ -1535,9 +1535,8 @@ function _ctShowReportHistory(itemId) {
     if (!item) return;
 
     const allCompletions = item.completions || [];
-    const isManager = ['giam_doc','pho_giam_doc','quan_ly','truong_phong','trinh'].includes(currentUser.role);
-    const isAssigned = (item.assigned_users || []).some(u => u.user_id === currentUser.id);
-    const completions = (isAssigned || !isManager) ? allCompletions.filter(c => c.user_id === currentUser.id) : allCompletions;
+    // Chain tasks are collaborative — show all reports to everyone
+    const completions = allCompletions;
     const body = document.getElementById('modalBody');
     const titleEl = document.getElementById('modalTitle');
     const footer = document.getElementById('modalFooter');
