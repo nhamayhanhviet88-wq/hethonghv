@@ -2176,11 +2176,9 @@ async function _ctOnTemplateSelect() {
                 ${currentUser.role === 'giam_doc' ? `<button onclick="_ctEditTemplate(${tmplId})" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:4px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">✏️ Sửa mẫu</button>` : ''}
             </div>`;
         (tmpl.items || []).forEach((it, i) => {
-            const deadlineStr = it.deadline ? _ctFmtDate(it.deadline) : '—';
-            const dlColor = it.deadline ? '#6b7280' : '#dc2626';
             html += `<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;display:flex;justify-content:space-between;">
                 <span><b>${it.item_order}.</b> ${it.task_name}</span>
-                <span style="color:${dlColor};">📅 ${deadlineStr} ${it.requires_report ? '📝' : '✅'} ${it.requires_approval ? '🔒' : ''}</span>
+                <span style="color:#9ca3af;">${it.requires_approval ? '🔒 QL duyệt' : ''}</span>
             </div>`;
         });
         html += '</div>';
