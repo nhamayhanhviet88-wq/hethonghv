@@ -264,7 +264,7 @@ async function chainTaskRoutes(fastify, options) {
 
         // Get all chain items assigned to this user with deadline in this week range
         const items = await db.all(`
-            SELECT cii.*, ci.chain_name, ci.execution_mode, ci.status as chain_status,
+            SELECT cii.*, cii.deadline::text as deadline, ci.chain_name, ci.execution_mode, ci.status as chain_status,
                    ci.department_id, ci.id as chain_instance_id,
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id) as total_items,
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items,
@@ -274,7 +274,7 @@ async function chainTaskRoutes(fastify, options) {
             JOIN chain_task_instances ci ON ci.id = cii.chain_instance_id
             JOIN chain_task_assignments ca ON ca.chain_item_id = cii.id AND ca.user_id = $1
             WHERE ci.status != 'cancelled'
-              AND cii.deadline >= $2 AND cii.deadline <= $3
+              AND cii.deadline >= $2::date AND cii.deadline <= $3::date
             ORDER BY cii.deadline, cii.item_order
         `, [userId, weekStart, weekEnd]);
 
@@ -286,7 +286,7 @@ async function chainTaskRoutes(fastify, options) {
         const { id } = request.params;
         
         const instance = await db.get(`
-            SELECT ci.*, u.full_name as creator_name
+            SELECT ci.*, ci.start_date::text as start_date, ci.end_date::text as end_date, u.full_name as creator_name
             FROM chain_task_instances ci
             LEFT JOIN users u ON u.id = ci.created_by
             WHERE ci.id = $1
@@ -294,7 +294,7 @@ async function chainTaskRoutes(fastify, options) {
         if (!instance) return reply.code(404).send({ error: 'Instance not found' });
 
         const items = await db.all(`
-            SELECT cii.*,
+            SELECT cii.*, cii.deadline::text as deadline,
                    (SELECT json_agg(json_build_object('user_id', ca.user_id, 'full_name', u2.full_name))
                     FROM chain_task_assignments ca
                     JOIN users u2 ON u2.id = ca.user_id

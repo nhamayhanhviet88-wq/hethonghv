@@ -1,4 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Override DATE type parser — return raw 'YYYY-MM-DD' string instead of JS Date
+// Prevents timezone shift (e.g. 2026-04-05 → 2026-04-06 in UTC+7)
+types.setTypeParser(1082, val => val); // 1082 = DATE type OID
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv',
