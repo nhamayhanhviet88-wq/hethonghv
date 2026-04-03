@@ -2624,7 +2624,7 @@ async function _ctShowManageTemplates() {
             apiCall(`/api/chain-tasks/templates?department_id=${_ctDeployDeptId}`),
             apiCall('/api/task-points/departments')
         ]);
-        const allDepts = (deptData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE') && !d.name.startsWith('HỆ THỐNG'));
+        const allDepts = (deptData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
 
         let html = `<div style="padding:16px 20px;">
             <h4 style="margin:0 0 14px;color:#1e293b;">📚 Kho mẫu chuỗi — ${_ctDeployDeptName || ''}</h4>`;
