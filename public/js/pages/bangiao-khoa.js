@@ -2062,6 +2062,7 @@ async function _ctSaveEditInstance(instanceId) {
 
 function _ctShowPostponeUI() {
     const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
     if (!body) return;
 
     body.innerHTML = `<div style="padding:20px;">
@@ -2075,24 +2076,34 @@ function _ctShowPostponeUI() {
         </div>
         <div id="ctPostponeItemSelect" style="margin-bottom:12px;"></div>
         <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:600;color:#374151;">Deadline mới:</label>
-            <input type="date" id="ctNewDeadline" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="flex:1;">
+                    <label style="font-size:12px;font-weight:600;color:#374151;">Deadline cũ:</label>
+                    <div id="ctOldDeadline" style="padding:8px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;margin-top:4px;font-size:12px;color:#6b7280;">— Chọn task con —</div>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:12px;font-weight:600;color:#374151;">Deadline mới: <span style="color:#dc2626;">*</span></label>
+                    <input type="date" id="ctNewDeadline" onchange="_ctUpdateCascadePreview()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+                </div>
+            </div>
         </div>
         <div style="margin-bottom:12px;">
-            <label style="font-size:12px;font-weight:600;color:#374151;">Lý do:</label>
-            <textarea id="ctPostponeReason" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;" placeholder="Lý do lùi lịch..."></textarea>
+            <label style="font-size:12px;font-weight:600;color:#374151;">Lý do: <span style="color:#dc2626;">*</span></label>
+            <textarea id="ctPostponeReason" rows="2" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;resize:none;" placeholder="Lý do lùi lịch (bắt buộc)..."></textarea>
         </div>
         <div id="ctCascadeOption" style="margin-bottom:12px;display:none;">
             <label style="font-size:12px;color:#d97706;font-weight:600;">
-                <input type="checkbox" id="ctCascadeCheck" checked /> Tự động lùi các task con phía sau
+                <input type="checkbox" id="ctCascadeCheck" /> Tự động lùi các task con phía sau
             </label>
             <div id="ctCascadePreview" style="margin-top:6px;font-size:11px;color:#6b7280;"></div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:6px 14px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;">← Quay lại</button>
-            <button onclick="_ctDoPostpone()" style="padding:6px 14px;font-size:12px;border:none;border-radius:6px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>
-        </div>
     </div>`;
+
+    footer.innerHTML = `
+        <button onclick="_ctShowDetailModal(_ctCurrentChainId)" style="padding:6px 14px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;">← Quay lại</button>
+        <button onclick="_ctDoPostpone()" style="padding:6px 14px;font-size:12px;border:none;border-radius:6px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;cursor:pointer;font-weight:600;">⏪ Lùi lịch</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
+
     _ctPostponeTypeChange();
 }
 
@@ -2108,15 +2119,17 @@ async function _ctPostponeTypeChange() {
             const items = (data.items || []).filter(i => i.status !== 'completed');
             let opts = items.map(i => `<option value="${i.id}" data-order="${i.item_order}" data-deadline="${i.deadline}">${i.item_order}. ${i.task_name} (${_ctFmtDate(i.deadline)})</option>`).join('');
             itemDiv.innerHTML = `<label style="font-size:12px;font-weight:600;color:#374151;">Chọn task con:</label>
-                <select id="ctPostponeItemId" onchange="_ctUpdateCascadePreview()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">${opts}</select>`;
+                <select id="ctPostponeItemId" onchange="_ctUpdateCascadePreview();_ctUpdateOldDeadline()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;">${opts}</select>`;
             cascadeDiv.style.display = 'block';
             window._ctPostponeItems = data.items;
+            _ctUpdateOldDeadline();
         } catch(e) {
             itemDiv.innerHTML = '<div style="color:#dc2626;font-size:11px;">Lỗi tải dữ liệu</div>';
         }
     } else {
         itemDiv.innerHTML = '';
         cascadeDiv.style.display = 'none';
+        _ctUpdateOldDeadline();
     }
 }
 
@@ -2143,6 +2156,20 @@ function _ctUpdateCascadePreview() {
     }).join('<br>');
 }
 
+function _ctUpdateOldDeadline() {
+    const sel = document.getElementById('ctPostponeItemId');
+    const oldEl = document.getElementById('ctOldDeadline');
+    if (!oldEl) return;
+    if (sel) {
+        const dl = sel.options[sel.selectedIndex]?.dataset?.deadline;
+        oldEl.innerHTML = dl ? `📅 <b>${_ctFmtDate(dl)}</b>` : '—';
+    } else {
+        // "All" mode — show chain end date
+        const data = window._ctCurrentChainData;
+        oldEl.innerHTML = data?.end_date ? `📅 <b>${_ctFmtDate(data.end_date)}</b>` : '—';
+    }
+}
+
 async function _ctDoPostpone() {
     const type = document.getElementById('ctPostponeType')?.value;
     const newDeadline = document.getElementById('ctNewDeadline')?.value;
@@ -2150,6 +2177,7 @@ async function _ctDoPostpone() {
     const cascade = document.getElementById('ctCascadeCheck')?.checked || false;
 
     if (!newDeadline) { alert('Vui lòng chọn deadline mới'); return; }
+    if (!reason.trim()) { alert('Vui lòng nhập lý do lùi lịch'); return; }
 
     const payload = {
         chain_instance_id: _ctCurrentChainId,
