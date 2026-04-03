@@ -2206,6 +2206,16 @@ async function _ctDoDeploy() {
     const userIds = Array.from(document.querySelectorAll('input[name="ct_user"]:checked')).map(cb => parseInt(cb.value));
     if (userIds.length === 0) { alert('Vui lòng chọn ít nhất 1 nhân viên'); return; }
 
+    // Check all items have deadlines
+    try {
+        const tmpl = await apiCall(`/api/chain-tasks/templates/${templateId}`);
+        const missingDl = (tmpl.items || []).filter(it => !it.deadline);
+        if (missingDl.length > 0) {
+            alert(`⚠️ Có ${missingDl.length} task con chưa có deadline.\nVui lòng bấm "✏️ Sửa mẫu" để điền deadline trước khi triển khai.`);
+            return;
+        }
+    } catch(e) { alert('Lỗi: ' + e.message); return; }
+
     const payload = {
         template_id: parseInt(templateId),
         department_id: _ctDeployDeptId,
@@ -2445,15 +2455,15 @@ function _ctEditTemplateItemRow(item, idx) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
             <div>
-                <label style="font-size:10px;color:#6b7280;">Link hướng dẫn</label>
+                <label style="font-size:10px;color:#6b7280;">Link hướng dẫn <span style="color:#dc2626;">*</span></label>
                 <input class="ct-edit-item-guide" value="${item?.guide_link || ''}" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
             </div>
             <div>
-                <label style="font-size:10px;color:#6b7280;">SL tối thiểu</label>
+                <label style="font-size:10px;color:#6b7280;">SL tối thiểu <span style="color:#dc2626;">*</span></label>
                 <input type="number" class="ct-edit-item-qty" value="${item?.min_quantity || 1}" min="1" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
             </div>
             <div>
-                <label style="font-size:10px;color:#6b7280;">Số lần nộp lại</label>
+                <label style="font-size:10px;color:#6b7280;">Số lần nộp lại <span style="color:#dc2626;">*</span></label>
                 <input type="number" class="ct-edit-item-redo" value="${item?.max_redo_count || 3}" min="1" max="10" style="width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;box-sizing:border-box;" />
             </div>
         </div>
@@ -2488,7 +2498,8 @@ async function _ctSaveEditTemplate(templateId) {
         const guide = el.querySelector('.ct-edit-item-guide')?.value?.trim();
 
         if (!name) { alert(`⚠️ Task con #${idx+1}: Vui lòng nhập tên`); hasError = true; return; }
-        if (!deadline) { alert(`⚠️ Task con #${idx+1}: Vui lòng chọn deadline`); hasError = true; return; }
+        if (!deadline) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng chọn deadline`); hasError = true; return; }
+        if (!guide) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng nhập link hướng dẫn`); hasError = true; return; }
 
         items.push({
             task_name: name, deadline, min_quantity: qty || 1, guide_link: guide || '',
