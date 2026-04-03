@@ -2175,7 +2175,17 @@ async function _kbLoadApprovalPanel() {
         chainReviews.forEach(r => {
             const isRedo = r.redo_count > 0;
             const deadlineFormatted = r.deadline ? r.deadline.split('-').reverse().join('/') : '—';
-            rows += `<tr style="border-bottom:1px solid #f1f5f9;">
+            const chainCountdown = r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>';
+            const dlDate = r.approval_deadline ? new Date(r.approval_deadline) : null;
+            const isOverdue = dlDate && dlDate < new Date();
+            const isUrgent = dlDate && (dlDate - new Date()) < 6 * 3600000;
+            const rData = JSON.stringify({
+                id: r.id, chain_item_id: r.chain_item_id, task_name: r.task_name, chain_name: r.chain_name,
+                proof_url: r.proof_url || '', content: r.content || '', quantity_done: r.quantity_done || 0,
+                min_quantity: r.min_quantity || 1, user_name: r.user_name, redo_count: r.redo_count || 0,
+                created_at: r.created_at || '', user_id: r.user_id
+            }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
                     <span style="color:#1e40af;font-weight:700;">${r.task_name}</span>
@@ -2186,9 +2196,9 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${deadlineFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">🔗</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    ${r.proof_url ? `<a href="${r.proof_url}" target="_blank" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;text-decoration:none;" title="Xem báo cáo">📋</a>` : '<span style="color:#9ca3af;">—</span>'}
+                    <span onclick="_kbViewChainReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
                 </td>
-                <td style="padding:8px 12px;text-align:center;"><span style="color:#9ca3af;">—</span></td>
+                <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbChainApprove(${r.chain_item_id},${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
                     <button onclick="_kbChainReject(${r.chain_item_id},${r.id},'${(r.task_name||'').replace(/'/g, "\\'")}','${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
@@ -2324,6 +2334,55 @@ async function _kbConfirmLockReject(completionId) {
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
     } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
+}
+
+// ===== Chain Task: View Report from approval panel =====
+function _kbViewChainReport(el) {
+    const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
+
+    let modal = document.getElementById('kbChainReportModal');
+    if (modal) modal.remove();
+
+    const proofHtml = data.proof_url ? (
+        /\.(jpg|jpeg|png|gif|webp)$/i.test(data.proof_url)
+            ? `<div style="margin-top:8px;"><div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div><img src="${data.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${data.proof_url}','_blank')"></div>`
+            : `<div style="margin-top:6px;padding:6px 12px;background:#eff6ff;border-radius:6px;"><a href="${data.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a></div>`
+    ) : '';
+
+    const qd = data.quantity_done || 0;
+    const mq = data.min_quantity || 1;
+    const isLow = qd < mq;
+    const quantityHtml = `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>
+        ${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}
+    </div>`;
+
+    modal = document.createElement('div');
+    modal.id = 'kbChainReportModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;';
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
+        <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:16px;font-weight:800;color:white;">🔗 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📋 ${data.chain_name} — ${data.user_name}</div>
+            </div>
+            <button onclick="document.getElementById('kbChainReportModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        <div style="padding:18px 22px;">
+            ${data.redo_count > 0 ? `<div style="margin-bottom:8px;"><span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">🔄 Lần nộp: ${data.redo_count + 1}</span></div>` : ''}
+            ${quantityHtml}
+            ${data.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
+                <div style="font-size:12px;color:#1e293b;">${data.content}</div>
+            </div>` : ''}
+            ${proofHtml}
+            <div style="text-align:right;margin-top:12px;">
+                <button onclick="document.getElementById('kbChainReportModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e40af;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
+            </div>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
 }
 
 // ===== Chain Task Approve/Reject from approval panel =====

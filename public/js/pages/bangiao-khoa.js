@@ -2061,9 +2061,10 @@ function _ctAddNewItem() {
                 <input type="number" class="ct-item-qty" value="1" min="1" required style="width:100%;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" />
             </div>
         </div>
-        <div style="display:flex;gap:12px;align-items:center;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <span style="font-size:10px;color:#059669;font-weight:600;">📝 Bắt buộc nộp báo cáo</span>
             <label style="font-size:10px;color:#6b7280;cursor:pointer;" title="Quản lý phải duyệt báo cáo trước khi task con được tính hoàn thành"><input type="checkbox" class="ct-item-approval" /> ✅ Cần QL duyệt</label>
+            <label style="font-size:10px;color:#6b7280;" title="Số lần nhân viên được nộp lại khi bị từ chối">🔄 Số lần nộp lại: <input type="number" class="ct-item-max-redo" value="3" min="1" max="10" style="width:48px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;font-size:11px;" /></label>
         </div>`;
     container.appendChild(div);
 }
@@ -2100,7 +2101,8 @@ async function _ctSaveNewTemplate() {
             min_quantity: qty,
             guide_link: guide,
             requires_report: true,
-            requires_approval: el.querySelector('.ct-item-approval')?.checked || false
+            requires_approval: el.querySelector('.ct-item-approval')?.checked || false,
+            max_redo_count: parseInt(el.querySelector('.ct-item-max-redo')?.value) || 3
         });
     });
 

@@ -781,6 +781,7 @@ CREATE TABLE IF NOT EXISTS chain_task_template_items (
     requires_approval BOOLEAN DEFAULT false,
     requires_report BOOLEAN DEFAULT true,
     min_quantity INTEGER DEFAULT 1,
+    max_redo_count INTEGER DEFAULT 3,
     relative_days INTEGER DEFAULT 0,
     deadline DATE,
     created_at TIMESTAMP DEFAULT NOW()
@@ -816,6 +817,7 @@ CREATE TABLE IF NOT EXISTS chain_task_instance_items (
     requires_approval BOOLEAN DEFAULT false,
     requires_report BOOLEAN DEFAULT true,
     min_quantity INTEGER DEFAULT 1,
+    max_redo_count INTEGER DEFAULT 3,
     deadline DATE NOT NULL,
     deadline_time TIME,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending','in_progress','completed','overdue')),
@@ -845,6 +847,8 @@ CREATE TABLE IF NOT EXISTS chain_task_completions (
     reviewed_at TIMESTAMP,
     reject_reason TEXT,
     redo_count INTEGER DEFAULT 0,
+    approval_deadline TIMESTAMP,
+    redo_deadline TIMESTAMP,
     penalty_amount INTEGER DEFAULT 0,
     penalty_applied BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW()
@@ -863,3 +867,9 @@ CREATE TABLE IF NOT EXISTS chain_task_postponements (
     postponed_for INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Migration: chain task approval deadline columns
+ALTER TABLE chain_task_template_items ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
+ALTER TABLE chain_task_instance_items ADD COLUMN IF NOT EXISTS max_redo_count INTEGER DEFAULT 3;
+ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS approval_deadline TIMESTAMP;
+ALTER TABLE chain_task_completions ADD COLUMN IF NOT EXISTS redo_deadline TIMESTAMP;

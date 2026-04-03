@@ -2,6 +2,7 @@ const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
+const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
 
 // Helper: check if user has manager-level access
 function isManager(role) {
@@ -64,12 +65,12 @@ async function chainTaskRoutes(fastify, options) {
                 `INSERT INTO chain_task_template_items 
                  (chain_template_id, item_order, task_name, task_content, guide_link, 
                   input_requirements, output_requirements, requires_approval, requires_report, 
-                  min_quantity, relative_days, deadline)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+                  min_quantity, relative_days, deadline, max_redo_count)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
                 [template.id, i + 1, item.task_name, item.task_content || '',
                  item.guide_link || '', item.input_requirements || '', item.output_requirements || '',
                  item.requires_approval || false, item.requires_report !== false,
-                 item.min_quantity || 1, item.relative_days || 0, item.deadline || null]
+                 item.min_quantity || 1, item.relative_days || 0, item.deadline || null, item.max_redo_count || 3]
             );
         }
 
@@ -200,15 +201,15 @@ async function chainTaskRoutes(fastify, options) {
                 `INSERT INTO chain_task_instance_items 
                  (chain_instance_id, template_item_id, item_order, task_name, task_content,
                   guide_link, input_requirements, output_requirements, requires_approval,
-                  requires_report, min_quantity, deadline, deadline_time, status)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+                  requires_report, min_quantity, deadline, deadline_time, status, max_redo_count)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
                 [instance.id, ti.id || null, ti.item_order || (i + 1),
                  override?.task_name || ti.task_name, override?.task_content || ti.task_content || '',
                  override?.guide_link || ti.guide_link || '',
                  override?.input_requirements || ti.input_requirements || '',
                  override?.output_requirements || ti.output_requirements || '',
                  ti.requires_approval || false, ti.requires_report !== false,
-                 ti.min_quantity || 1, deadline, deadlineTime, itemStatus]
+                 ti.min_quantity || 1, deadline, deadlineTime, itemStatus, ti.max_redo_count || 3]
             );
 
             // Assign users
@@ -388,11 +389,19 @@ async function chainTaskRoutes(fastify, options) {
 
         const initialStatus = item.requires_approval ? 'pending' : 'approved';
 
+        // Calculate approval deadline if pending
+        let approvalDeadline = null;
+        if (initialStatus === 'pending') {
+            try {
+                approvalDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+            } catch(e2) { /* fallback: no deadline */ }
+        }
+
         const completion = await db.get(
             `INSERT INTO chain_task_completions 
-             (chain_item_id, user_id, proof_url, content, quantity_done, status, redo_count)
-             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-            [itemId, userId, proofUrl, content, quantityDone, initialStatus, redoCount]
+             (chain_item_id, user_id, proof_url, content, quantity_done, status, redo_count, approval_deadline)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+            [itemId, userId, proofUrl, content, quantityDone, initialStatus, redoCount, approvalDeadline]
         );
 
         // If auto-approved (no approval required), mark item as completed
@@ -435,12 +444,39 @@ async function chainTaskRoutes(fastify, options) {
         const { completion_id, reject_reason } = request.body;
         if (!completion_id) return reply.code(400).send({ error: 'completion_id required' });
 
+        // Get completion and item info for redo check
+        const comp = await db.get(
+            `SELECT cc.*, ci.max_redo_count FROM chain_task_completions cc
+             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             WHERE cc.id = $1`, [completion_id]
+        );
+        if (!comp) return reply.code(404).send({ error: 'Completion not found' });
+
+        const maxRedo = comp.max_redo_count || 3;
+        const currentRedo = comp.redo_count || 0;
+
+        if (currentRedo >= maxRedo) {
+            // All redo attempts used → expired
+            await db.run(
+                `UPDATE chain_task_completions SET status = 'expired', reviewed_by = $1, reviewed_at = NOW(), reject_reason = $2 WHERE id = $3`,
+                [request.user.id, reject_reason || '', completion_id]
+            );
+            return { success: true, status: 'expired', message: 'Đã hết lượt làm lại' };
+        }
+
+        // Calculate redo deadline: 23:59 next working day
+        let redoDeadline = null;
+        try {
+            const dl = await calculateRealDeadline(new Date(), null);
+            redoDeadline = toLocalTimestamp(dl);
+        } catch(e2) {}
+
         await db.run(
-            `UPDATE chain_task_completions SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), reject_reason = $2 WHERE id = $3`,
-            [request.user.id, reject_reason || '', completion_id]
+            `UPDATE chain_task_completions SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), reject_reason = $2, redo_deadline = $3 WHERE id = $4`,
+            [request.user.id, reject_reason || '', redoDeadline, completion_id]
         );
 
-        return { success: true };
+        return { success: true, status: 'rejected', redo_deadline: redoDeadline, redo_remaining: maxRedo - currentRedo };
     });
 
     // ========== POSTPONE ==========
@@ -611,7 +647,7 @@ async function chainTaskRoutes(fastify, options) {
 
         const reviews = await db.all(`
             SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
-                   cc.status, cc.created_at, cc.redo_count,
+                   cc.status, cc.created_at, cc.redo_count, cc.approval_deadline,
                    ci.task_name, ci.deadline, ci.min_quantity,
                    cti.chain_name as chain_name,
                    u.full_name as user_name, u.username

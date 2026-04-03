@@ -422,6 +422,52 @@ async function runDeadlineCheck() {
         console.log(`  🔐 [CV Khóa] Khóa QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
     }
 
+    // ========== 4. CHECK CV CHUỖI — QL CHƯA DUYỆT ==========
+    const pendingChainReviews = await db.all(
+        `SELECT cc.*, ci.task_name, ci.chain_instance_id,
+                cins.department_id, u.department_id as user_dept_id
+         FROM chain_task_completions cc
+         JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+         JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+         JOIN users u ON u.id = cc.user_id
+         WHERE cc.status = 'pending' AND cc.approval_deadline IS NOT NULL`
+    );
+
+    for (const pr of pendingChainReviews) {
+        // Tính deadline cho QL: 23:59 ngày làm việc tiếp theo sau NV nộp
+        const submittedAt = new Date(pr.created_at);
+
+        // Find the manager (approver) for this employee's department
+        let managerId = null;
+        let lookupDeptId = pr.user_dept_id;
+        const visitedDepts = new Set();
+        while (lookupDeptId && !visitedDepts.has(lookupDeptId)) {
+            visitedDepts.add(lookupDeptId);
+            const approver = await db.get(
+                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
+                [lookupDeptId, pr.user_id]
+            );
+            if (approver) { managerId = approver.user_id; break; }
+            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
+            lookupDeptId = dept ? dept.parent_id : null;
+        }
+
+        if (!managerId) continue;
+
+        // Tính real deadline (kéo dài qua CN/lễ/nghỉ QL)
+        const realDeadline = await calculateRealDeadline(submittedAt, managerId);
+        if (now < realDeadline) continue; // Chưa hết hạn
+
+        // QL quá hạn → Khóa QL
+        const penaltyAmount = 50000;
+
+        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+
+        lockedCount++;
+        penaltyCount++;
+        console.log(`  🔐 [CV Chuỗi] Khóa QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+    }
+
     if (lockedCount > 0) {
         console.log(`  ✅ Đã khóa ${lockedCount} tài khoản, ${penaltyCount} lỗi vi phạm`);
     }
