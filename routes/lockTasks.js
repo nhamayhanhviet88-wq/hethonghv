@@ -189,7 +189,8 @@ async function lockTaskRoutes(fastify, options) {
                    (SELECT COUNT(*) FROM chain_task_instance_items WHERE chain_instance_id = ci.id AND status = 'completed') as completed_items,
                    (SELECT string_agg(DISTINCT u2.full_name, ', ' ORDER BY u2.full_name)
                     FROM chain_task_instance_items cii2
-                    JOIN users u2 ON u2.id = cii2.assigned_user_id
+                    JOIN chain_task_assignments cta2 ON cta2.chain_item_id = cii2.id
+                    JOIN users u2 ON u2.id = cta2.user_id
                     WHERE cii2.chain_instance_id = ci.id) as assigned_users_str
             FROM chain_task_instances ci
             LEFT JOIN users u ON u.id = ci.created_by
