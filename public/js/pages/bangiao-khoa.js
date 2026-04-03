@@ -1392,7 +1392,7 @@ function _ctRenderDetailContent(data) {
     }).length;
     const pct = items.length > 0 ? Math.round(completedCount / items.length * 100) : 0;
     const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '🔄 Song song';
-    const isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
+    const isManager = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
 
     titleEl.innerHTML = `<span style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:2px 10px;border-radius:6px;font-size:12px;margin-right:8px;">🔗</span> ${data.chain_name}`;
 

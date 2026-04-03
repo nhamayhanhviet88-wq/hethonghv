@@ -68,7 +68,7 @@ async function affiliateRoutes(fastify) {
         const employees = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.department_id, u.status
             FROM users u
-            WHERE u.role IN ('nhan_vien','truong_phong','quan_ly','nhan_vien_parttime','quan_ly_cap_cao')
+            WHERE u.role IN ('nhan_vien','truong_phong','quan_ly','part_time','quan_ly_cap_cao')
             AND u.status = 'active'
             ORDER BY u.full_name
         `);
@@ -91,7 +91,7 @@ async function affiliateRoutes(fastify) {
             AND u.managed_by_user_id IS NOT NULL`;
         const affParams = [];
 
-        if (user.role === 'nhan_vien' || user.role === 'nhan_vien_parttime' || user.role === 'truong_phong') {
+        if (user.role === 'nhan_vien' || user.role === 'part_time' || user.role === 'truong_phong') {
             affQuery += ` AND u.managed_by_user_id = ?`;
             affParams.push(user.id);
         } else if (user.role === 'quan_ly') {
