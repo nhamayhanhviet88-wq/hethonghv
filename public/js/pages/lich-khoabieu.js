@@ -384,6 +384,7 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
                 <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
+            ${(() => { const qd = v.quantity_done || 0; const mq = taskDetail?.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.proof_url ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
                 ${v.proof_url.startsWith('/uploads') ? `<div style="margin-top:4px;"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.proof_url}','_blank')"></div>` : `<a href="${v.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link →</a>`}
             </div>` : ''}
@@ -2931,6 +2932,7 @@ function _kbShowLockReport(compId) {
                     <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">📄 Nội dung:</div>
                     <div style="font-size:12px;color:#1e293b;line-height:1.5;white-space:pre-wrap;">${v.content}</div>
                 </div>` : '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">📭 Không có nội dung</div>'}
+                ${(() => { const qd = v.quantity_done || 0; const mq = lt?.min_quantity || 1; const isLow = qd < mq; return `<div style="background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-weight:700;font-size:11px;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}}
                 ${proofHtml}
                 ${v.reject_reason ? `<div style="margin-top:8px;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;border-radius:6px;padding:8px 10px;">
                     <div style="font-weight:600;color:#dc2626;font-size:11px;margin-bottom:2px;">💬 Lý do từ chối:</div>

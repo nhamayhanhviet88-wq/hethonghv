@@ -418,6 +418,7 @@ async function _lkLoadUserTasks(userId, userName) {
                     input_requirements: lt.input_requirements || '',
                     output_requirements: lt.output_requirements || '',
                     requires_approval: lt.requires_approval || false,
+                    min_quantity: lt.min_quantity || 1,
                     completions: []
                 });
             }
@@ -732,6 +733,7 @@ function _lkShowCompletionDetail(groupIdx, compIdx) {
                     <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">📝 Nội dung báo cáo</div>
                     <div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">${c.content}</div>
                 </div>` : ''}
+                ${(() => { const qd = c.quantity_done || 0; const mq = g.min_quantity || 1; const isLow = qd < mq; return `<div style="background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="font-size:12px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
                 ${c.reject_reason ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-top:10px;">
                     <div style="font-size:10px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">❌ Lý do từ chối</div>
                     <div style="font-size:13px;color:#dc2626;line-height:1.5;">${c.reject_reason}</div>

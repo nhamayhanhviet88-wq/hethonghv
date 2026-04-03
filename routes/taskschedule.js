@@ -986,8 +986,9 @@ async function taskScheduleRoutes(fastify, options) {
             `SELECT ltc.id, ltc.lock_task_id, ltc.completion_date::text as completion_date,
                     ltc.redo_count, ltc.proof_url, ltc.content, ltc.status,
                     ltc.reject_reason, ltc.reviewed_at, ltc.created_at,
+                    ltc.quantity_done,
                     lt.task_name, lt.guide_link,
-                    lt.input_requirements, lt.output_requirements, lt.requires_approval
+                    lt.input_requirements, lt.output_requirements, lt.requires_approval, lt.min_quantity
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
@@ -999,6 +1000,7 @@ async function taskScheduleRoutes(fastify, options) {
         const lock_tasks = await db.all(
             `SELECT lt.id, lt.task_name, lt.guide_link,
                     lt.input_requirements, lt.output_requirements, lt.requires_approval,
+                    lt.min_quantity,
                     lta.user_id
              FROM lock_task_assignments lta
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id
