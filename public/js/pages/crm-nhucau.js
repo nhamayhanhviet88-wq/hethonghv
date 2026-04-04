@@ -63,6 +63,24 @@ function getBirthdayDisplay(birthdayStr) {
     return { html: dateStr, tdClass: '' };
 }
 
+// Check if today is the customer's birthday (day+month match, ignore year)
+function _crmIsBirthdayToday(birthdayStr) {
+    if (!birthdayStr) return false;
+    const today = new Date();
+    let day, month;
+    if (birthdayStr.includes('/')) {
+        const parts = birthdayStr.split('/');
+        day = parseInt(parts[0]); month = parseInt(parts[1]);
+    } else if (birthdayStr.includes('-')) {
+        const parts = birthdayStr.split('-');
+        if (parts.length === 3) { month = parseInt(parts[1]); day = parseInt(parts[2]); }
+        else { day = parseInt(parts[0]); month = parseInt(parts[1]); }
+    } else {
+        return false;
+    }
+    if (isNaN(day) || isNaN(month)) return false;
+    return today.getDate() === day && (today.getMonth() + 1) === month;
+}
 
 const CONSULT_TYPES = {
     lam_quen_tuong_tac: { label: 'Làm Quen Tương Tác', icon: '👋', color: '#14b8a6' },
@@ -198,7 +216,7 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:100px">Nguồn</th>
                         <th style="min-width:120px">Người GT</th>
                         <th style="min-width:110px">CRM Người GT</th>
-                        <th style="min-width:100px">Ngày Sinh</th>
+                        <th style="min-width:100px">Chức Danh</th>
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                     </tr></thead>
@@ -347,6 +365,9 @@ function _crmGetCategory(c, stats) {
         appointIsFuture = (apptStr > todayStr);
     }
 
+    // Check if today is customer's birthday
+    const isBirthdayToday = _crmIsBirthdayToday(c.birthday);
+
     // Check created today
     let createdToday = false;
     if (c.created_at) {
@@ -358,8 +379,8 @@ function _crmGetCategory(c, stats) {
     // Priority 3: Mới chuyển hôm nay (trước Phải xử lý)
     if (createdToday) return 'moi_chuyen';
 
-    // Priority 4: Phải xử lý hôm nay
-    if (appointIsToday) return 'phai_xu_ly';
+    // Priority 4: Phải xử lý hôm nay (appointment today OR birthday today)
+    if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
 
     // Priority 5: Khách xử lý trễ (appointment was in the past, not consulted today)
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
@@ -647,7 +668,8 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 ];
                 const _ci = (c.id || 0) % _colors.length;
                 const _cc = _colors[_ci];
-                return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${c.customer_name}</span>`;
+                const _bdayIcon = _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
+                return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span>`;
             })()}
         </td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
@@ -657,7 +679,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
             ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
         </td>
         <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
-        <td style="font-size:12px" class="${getBirthdayDisplay(c.birthday).tdClass}">${getBirthdayDisplay(c.birthday).html}</td>
+        <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
     </tr>`;

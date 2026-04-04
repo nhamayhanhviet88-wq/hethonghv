@@ -193,7 +193,7 @@ async function loadCrmData(crmType) {
 
     tbody.innerHTML = filtered.map(c => `<tr>
         <td><strong style="color:var(--gold)">${getCustomerCode(c)}</strong></td>
-        <td>${c.customer_name}</td>
+        <td>${typeof _crmIsBirthdayToday === 'function' && _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : ''}${c.customer_name}</td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
         <td>${c.source_name || '-'}</td>
         <td>${c.assigned_to_name || '-'}</td>
