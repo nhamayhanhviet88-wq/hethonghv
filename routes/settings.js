@@ -13,10 +13,10 @@ async function settingsRoutes(fastify, options) {
     fastify.get('/api/settings/job-titles', { preHandler: [authenticate] }, async (request, reply) => {
         const { crm_type } = request.query || {};
         if (crm_type) {
-            const items = await db.all('SELECT * FROM settings_job_titles WHERE crm_type = ? ORDER BY name ASC', [crm_type]);
+            const items = await db.all('SELECT * FROM settings_job_titles WHERE crm_type = ? ORDER BY id ASC', [crm_type]);
             return { items };
         }
-        const items = await db.all('SELECT * FROM settings_job_titles ORDER BY crm_type, name ASC');
+        const items = await db.all('SELECT * FROM settings_job_titles ORDER BY crm_type, id ASC');
         return { items };
     });
 
