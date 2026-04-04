@@ -930,6 +930,8 @@ async function handleRoute() {
         case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
         case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
         case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
+        case 'goidien': renderGoiDienPage(content); break;
+        case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
         default: renderComingSoon(content); break;
     }
 

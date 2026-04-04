@@ -1056,3 +1056,164 @@ INSERT INTO global_penalty_config (key, label, amount) VALUES
     ('cap_cuu_ql_khong_xu_ly',    'Cấp cứu sếp — QL/QLCC không xử lý', 50000),
     ('kh_chua_xu_ly_hom_nay',     'KH chưa xử lý hôm nay — Toàn bộ NV', 100000)
 ON CONFLICT (key) DO NOTHING;
+
+-- ========== HỆ THỐNG GỌI ĐIỆN TELESALE ==========
+
+-- 1. Nguồn gọi điện (NHÂN SỰ, KẾ TOÁN, MẦM NON...)
+CREATE TABLE IF NOT EXISTS telesale_sources (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    icon TEXT DEFAULT '📁',
+    crm_type TEXT,
+    daily_quota INTEGER DEFAULT 0,
+    default_followup_days INTEGER DEFAULT 3,
+    display_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 2. Tình trạng khi bắt máy (GĐ tự thêm/xóa)
+CREATE TABLE IF NOT EXISTS telesale_answer_statuses (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    icon TEXT DEFAULT '📞',
+    action_type TEXT NOT NULL DEFAULT 'none'
+        CHECK (action_type IN ('transfer','followup','cold','none')),
+    default_followup_days INTEGER DEFAULT 0,
+    counts_as_answered BOOLEAN DEFAULT true,
+    display_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 3. Data pool (tất cả SĐT khách hàng tiềm năng)
+CREATE TABLE IF NOT EXISTS telesale_data (
+    id SERIAL PRIMARY KEY,
+    source_id INTEGER NOT NULL REFERENCES telesale_sources(id),
+    company_name TEXT,
+    group_name TEXT,
+    post_link TEXT,
+    post_content TEXT,
+    customer_name TEXT,
+    phone TEXT NOT NULL,
+    address TEXT,
+    extra_data JSONB DEFAULT '{}',
+    status TEXT DEFAULT 'available'
+        CHECK (status IN ('available','assigned','answered','cold','invalid')),
+    invalid_count INTEGER DEFAULT 0,
+    cold_until DATE,
+    last_assigned_date DATE,
+    last_assigned_user_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_telesale_data_source ON telesale_data(source_id);
+CREATE INDEX IF NOT EXISTS idx_telesale_data_status ON telesale_data(status);
+CREATE INDEX IF NOT EXISTS idx_telesale_data_phone ON telesale_data(phone);
+
+-- 4. Phân chia hàng ngày (NV nhận SĐT)
+CREATE TABLE IF NOT EXISTS telesale_assignments (
+    id SERIAL PRIMARY KEY,
+    data_id INTEGER NOT NULL REFERENCES telesale_data(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    assigned_date DATE NOT NULL,
+    call_status TEXT DEFAULT 'pending'
+        CHECK (call_status IN ('pending','no_answer','busy','invalid','answered')),
+    answer_status_id INTEGER REFERENCES telesale_answer_statuses(id),
+    notes TEXT,
+    callback_date DATE,
+    callback_time TIME,
+    transferred_customer_id INTEGER REFERENCES customers(id),
+    called_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_telesale_assign_unique ON telesale_assignments(data_id, user_id, assigned_date);
+CREATE INDEX IF NOT EXISTS idx_telesale_assign_user ON telesale_assignments(user_id, assigned_date);
+CREATE INDEX IF NOT EXISTS idx_telesale_assign_status ON telesale_assignments(call_status);
+CREATE INDEX IF NOT EXISTS idx_telesale_assign_callback ON telesale_assignments(callback_date);
+
+-- 5. NV active trong hệ thống Telesale (GĐ thêm/bỏ)
+CREATE TABLE IF NOT EXISTS telesale_active_members (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    daily_quota INTEGER DEFAULT 250,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 6. Cấu hình cột import (tùy chỉnh)
+CREATE TABLE IF NOT EXISTS telesale_import_columns (
+    id SERIAL PRIMARY KEY,
+    column_key TEXT NOT NULL UNIQUE,
+    column_name TEXT NOT NULL,
+    is_default BOOLEAN DEFAULT false,
+    display_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 7. Kho số không tồn tại (để kiểm tra lại)
+CREATE TABLE IF NOT EXISTS telesale_invalid_numbers (
+    id SERIAL PRIMARY KEY,
+    data_id INTEGER REFERENCES telesale_data(id),
+    phone TEXT NOT NULL,
+    source_id INTEGER REFERENCES telesale_sources(id),
+    customer_name TEXT,
+    company_name TEXT,
+    invalid_count INTEGER DEFAULT 2,
+    last_reported_by INTEGER REFERENCES users(id),
+    last_reported_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed: 16 nguồn gọi điện mặc định
+INSERT INTO telesale_sources (name, icon, daily_quota, display_order) VALUES
+    ('NHÂN SỰ', '👥', 16, 1),
+    ('KẾ TOÁN', '💰', 16, 2),
+    ('KHU CÔNG NGHIỆP CƯ DÂN HỘI PHỤ HUYNH', '🏭', 16, 3),
+    ('SỰ KIỆN', '🎪', 16, 4),
+    ('QUÀ TẶNG', '🎁', 16, 5),
+    ('MẦM NON', '🧒', 16, 6),
+    ('BẢO HỘ LAO ĐỘNG', '🦺', 16, 7),
+    ('BỘ Y TẾ', '🏥', 15, 8),
+    ('KHỞI NGHIỆP KD', '🚀', 15, 9),
+    ('NHÀ HÀNG', '🍽️', 15, 10),
+    ('THUÊ VP KỶ YẾU', '🏢', 15, 11),
+    ('THIẾT KẾ', '🎨', 15, 12),
+    ('THỂ THAO', '⚽', 15, 13),
+    ('ĐỒNG PHỤC', '👔', 15, 14),
+    ('KHU CÔNG NGHIỆP', '🏗️', 15, 15),
+    ('DOANH NGHIỆP', '🏛️', 15, 16)
+ON CONFLICT (name) DO NOTHING;
+
+-- Seed: 6 tình trạng bắt máy mặc định
+INSERT INTO telesale_answer_statuses (name, icon, action_type, default_followup_days, display_order) VALUES
+    ('Có nhu cầu — Chuyển số', '🔥', 'transfer', 0, 1),
+    ('Yêu cầu gửi báo giá', '📨', 'transfer', 2, 2),
+    ('Hẹn gặp trực tiếp', '🤝', 'transfer', 0, 3),
+    ('Đang cân nhắc', '🤔', 'followup', 3, 4),
+    ('Đã có nhà cung cấp', '🏪', 'followup', 30, 5),
+    ('Không có nhu cầu', '🚫', 'cold', 0, 6)
+ON CONFLICT (name) DO NOTHING;
+
+-- Seed: 7 cột import mặc định
+INSERT INTO telesale_import_columns (column_key, column_name, is_default, display_order) VALUES
+    ('company_name', 'Tên Công Ty', true, 1),
+    ('group_name', 'Tên Nhóm', true, 2),
+    ('post_link', 'Link Đăng Bài', true, 3),
+    ('post_content', 'Nội Dung Đăng Bài', true, 4),
+    ('customer_name', 'Tên KH', true, 5),
+    ('phone', 'SĐT', true, 6),
+    ('address', 'Địa Chỉ', true, 7)
+ON CONFLICT (column_key) DO NOTHING;
+
+-- Seed: Telesale global configs
+INSERT INTO app_config (key, value) VALUES
+    ('telesale_pump_time', '07:00'),
+    ('telesale_recall_time', '00:00'),
+    ('telesale_cold_months', '4'),
+    ('telesale_default_quota', '250'),
+    ('telesale_followup_canhnhac', '3'),
+    ('telesale_followup_ncc', '30')
+ON CONFLICT (key) DO NOTHING;

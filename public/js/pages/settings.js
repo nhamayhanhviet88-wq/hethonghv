@@ -9,7 +9,7 @@ async function renderSettingsPage(container) {
                 <h3>⚙️ Cài Đặt Quản Trị Phân Tầng</h3>
             </div>
             <div class="card-body">
-                <div class="tabs">
+                <div class="tabs" style="flex-wrap:wrap;">
                     <div class="tab active" data-tab="commission-tiers" onclick="switchSettingTab('commission-tiers', this)">💰 Tầng Hoa Hồng</div>
                     <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
@@ -19,6 +19,8 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="leaderboard-roles" onclick="switchSettingTab('leaderboard-roles', this)">🏆 BXH Affiliate</div>
                     <div class="tab" data-tab="prize-popup" onclick="switchSettingTab('prize-popup', this)">🎉 Giải Thưởng</div>
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
+                    <div class="tab" data-tab="telesale-sources" onclick="switchSettingTab('telesale-sources', this)">📞 Nguồn Gọi Điện</div>
+                    <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -51,6 +53,10 @@ function switchSettingTab(tab, el) {
         loadPrizePopupSettings();
     } else if (tab === 'roles-positions') {
         loadRolesPositionsSettings();
+    } else if (tab === 'telesale-sources') {
+        loadTelesaleSourcesSettings();
+    } else if (tab === 'telesale-statuses') {
+        loadTelesaleStatusesSettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -598,5 +604,327 @@ async function deletePosition(id, name) {
     if (!confirm(`Xóa vị trí "${name}"?`)) return;
     const data = await apiCall(`/api/positions/${id}`, 'DELETE');
     if (data.success) { showToast('Đã xóa vị trí!'); await loadRolesPositionsSettings(); }
+    else showToast(data.error, 'error');
+}
+
+// ========== TELESALE SOURCES SETTINGS ==========
+const CRM_TYPE_OPTIONS_TS = [
+    { value: '', label: '-- Không map --' },
+    { value: 'nhu_cau', label: 'Chăm Sóc KH Nhu Cầu' },
+    { value: 'hoa_hong_crm', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên' },
+    { value: 'nuoi_duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng' },
+    { value: 'sinh_vien', label: 'CRM Thể Thao/Thời Trang Local' },
+    { value: 'koc_tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa' },
+    { value: 'qua_tang', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch' },
+    { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
+    { value: 'nguoi_than', label: 'CRM Người Thân/Bạn Bè' },
+];
+
+async function loadTelesaleSourcesSettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const [srcRes, configRes1, configRes2, configRes3, configRes4] = await Promise.all([
+        apiCall('/api/telesale/sources'),
+        apiCall('/api/app-config/telesale_default_quota'),
+        apiCall('/api/app-config/telesale_cold_months'),
+        apiCall('/api/app-config/telesale_followup_canhnhac'),
+        apiCall('/api/app-config/telesale_followup_ncc')
+    ]);
+    const sources = srcRes.sources || [];
+    const defaultQuota = configRes1.value || '250';
+    const coldMonths = configRes2.value || '4';
+    const followupCN = configRes3.value || '3';
+    const followupNCC = configRes4.value || '30';
+
+    const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+
+    el.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <h4 style="color:var(--navy);margin:0 0 8px;">📞 Nguồn Gọi Điện Telesale</h4>
+            <p style="font-size:12px;color:var(--gray-500);margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
+        </div>
+
+        <!-- Global Config -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+            <div style="padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;">
+                <label style="font-size:11px;font-weight:700;color:#0369a1;display:block;margin-bottom:4px;">📊 Quota mặc định/NV/ngày</label>
+                <input type="number" id="tsDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px;border:1px solid #bae6fd;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_default_quota',this.value)">
+            </div>
+            <div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;">
+                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">❄️ Kho lạnh (tháng)</label>
+                <input type="number" id="tsColdMonths" value="${coldMonths}" style="width:100%;padding:6px;border:1px solid #fde68a;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_cold_months',this.value)">
+            </div>
+            <div style="padding:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;">
+                <label style="font-size:11px;font-weight:700;color:#065f46;display:block;margin-bottom:4px;">🤔 Hẹn lại (Cân nhắc)</label>
+                <input type="number" id="tsFollowupCN" value="${followupCN}" style="width:100%;padding:6px;border:1px solid #a7f3d0;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;color:#6b7280;">ngày</span>
+            </div>
+            <div style="padding:12px;background:#fce7f3;border:1px solid #f9a8d4;border-radius:10px;">
+                <label style="font-size:11px;font-weight:700;color:#9d174d;display:block;margin-bottom:4px;">🏪 Hẹn lại (Có NCC)</label>
+                <input type="number" id="tsFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px;border:1px solid #f9a8d4;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;color:#6b7280;">ngày</span>
+            </div>
+        </div>
+
+        <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:var(--gray-500);">Tổng quota: <strong style="color:var(--navy);">${totalQuota} SĐT/NV/ngày</strong></span>
+        </div>
+
+        <!-- Sources List -->
+        <div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="background:linear-gradient(135deg,#122546,#1e3a5f);color:white;">
+                        <th style="padding:10px 12px;text-align:left;">Icon</th>
+                        <th style="padding:10px 12px;text-align:left;">Tên Nguồn</th>
+                        <th style="padding:10px 12px;text-align:center;">Quota/NV/Ngày</th>
+                        <th style="padding:10px 12px;text-align:left;">Map CRM</th>
+                        <th style="padding:10px 12px;text-align:center;">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sources.map(s => `
+                    <tr style="border-bottom:1px solid #f3f4f6;" id="tsRow_${s.id}">
+                        <td style="padding:8px 12px;font-size:18px;">${s.icon || '📁'}</td>
+                        <td style="padding:8px 12px;font-weight:700;color:var(--navy);">${s.name}</td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700;">${s.daily_quota}</span>
+                        </td>
+                        <td style="padding:8px 12px;font-size:11px;color:var(--gray-500);">
+                            ${s.crm_type ? (CRM_TYPE_OPTIONS_TS.find(o => o.value === s.crm_type)?.label || s.crm_type) : '<span style="color:#d1d5db;">—</span>'}
+                        </td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-xs btn-secondary" onclick="editTsSource(${s.id})" title="Sửa">✏️</button>
+                            <button class="btn btn-xs btn-danger" onclick="deleteTsSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')" title="Xóa">🗑️</button>
+                        </td>
+                    </tr>`).join('')}
+                    ${sources.length === 0 ? '<tr><td colspan="5" style="padding:20px;text-align:center;color:#9ca3af;">Chưa có nguồn nào</td></tr>' : ''}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add New Source -->
+        <div style="margin-top:16px;padding:16px;background:#f9fafb;border:1px solid var(--gray-200);border-radius:12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Thêm Nguồn Mới</div>
+            <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr 80px;gap:8px;align-items:end;">
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Icon</label>
+                    <input type="text" id="newTsIcon" value="📁" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;text-align:center;font-size:18px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Tên Nguồn</label>
+                    <input type="text" id="newTsName" placeholder="VD: NHÂN SỰ" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Quota</label>
+                    <input type="number" id="newTsQuota" value="15" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Map CRM</label>
+                    <select id="newTsCrm" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;">
+                        ${CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+                    </select>
+                </div>
+                <button class="btn btn-sm btn-success" onclick="addTsSource()" style="height:34px;">➕</button>
+            </div>
+        </div>
+    `;
+}
+
+async function saveTsConfig(key, value) {
+    await apiCall(`/api/app-config/${key}`, 'PUT', { value: String(value) });
+    showToast('✅ Đã lưu');
+}
+
+async function addTsSource() {
+    const name = document.getElementById('newTsName')?.value?.trim();
+    if (!name) return showToast('Nhập tên nguồn', 'error');
+    const data = await apiCall('/api/telesale/sources', 'POST', {
+        name, icon: document.getElementById('newTsIcon').value,
+        daily_quota: parseInt(document.getElementById('newTsQuota').value) || 15,
+        crm_type: document.getElementById('newTsCrm').value || null
+    });
+    if (data.success) { showToast(data.message); await loadTelesaleSourcesSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function editTsSource(id) {
+    const srcRes = await apiCall('/api/telesale/sources');
+    const src = (srcRes.sources || []).find(s => s.id === id);
+    if (!src) return;
+    const crmOpts = CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}" ${o.value === (src.crm_type || '') ? 'selected' : ''}>${o.label}</option>`).join('');
+    openModal('✏️ Sửa Nguồn: ' + src.name, `
+        <div class="form-group"><label>Tên</label><input type="text" id="editTsName" class="form-control" value="${src.name}"></div>
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;">
+            <div class="form-group"><label>Icon</label><input type="text" id="editTsIcon" class="form-control" value="${src.icon || '📁'}" style="text-align:center;font-size:18px;"></div>
+            <div class="form-group"><label>Quota/NV/Ngày</label><input type="number" id="editTsQuota" class="form-control" value="${src.daily_quota}"></div>
+        </div>
+        <div class="form-group"><label>Map CRM</label><select id="editTsCrm" class="form-control">${crmOpts}</select></div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-success" onclick="submitEditTsSource(${id})">💾 Lưu</button>`);
+}
+
+async function submitEditTsSource(id) {
+    const data = await apiCall(`/api/telesale/sources/${id}`, 'PUT', {
+        name: document.getElementById('editTsName').value,
+        icon: document.getElementById('editTsIcon').value,
+        daily_quota: parseInt(document.getElementById('editTsQuota').value) || 0,
+        crm_type: document.getElementById('editTsCrm').value || null
+    });
+    if (data.success) { showToast(data.message); closeModal(); await loadTelesaleSourcesSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function deleteTsSource(id, name) {
+    if (!confirm(`Xóa nguồn "${name}"?`)) return;
+    const data = await apiCall(`/api/telesale/sources/${id}`, 'DELETE');
+    if (data.success) { showToast(data.message); await loadTelesaleSourcesSettings(); }
+    else showToast(data.error, 'error');
+}
+
+// ========== TELESALE ANSWER STATUSES SETTINGS ==========
+const TS_ACTION_TYPES = [
+    { value: 'transfer', label: '🔥 Chuyển Số CRM', color: '#dc2626' },
+    { value: 'followup', label: '⏰ Hẹn Gọi Lại', color: '#d97706' },
+    { value: 'cold', label: '❄️ Kho Lạnh', color: '#6366f1' },
+    { value: 'none', label: '— Không hành động', color: '#6b7280' },
+];
+
+async function loadTelesaleStatusesSettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const res = await apiCall('/api/telesale/answer-statuses');
+    const statuses = res.statuses || [];
+
+    el.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <h4 style="color:var(--navy);margin:0 0 8px;">📱 Tình Trạng Khi Khách Bắt Máy</h4>
+            <p style="font-size:12px;color:var(--gray-500);margin:0;">Cấu hình tình trạng kết quả khi khách hàng bắt máy. Mỗi tình trạng có hành động tự động riêng.</p>
+        </div>
+
+        <div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="background:linear-gradient(135deg,#122546,#1e3a5f);color:white;">
+                        <th style="padding:10px 12px;text-align:left;">Icon</th>
+                        <th style="padding:10px 12px;text-align:left;">Tình Trạng</th>
+                        <th style="padding:10px 12px;text-align:center;">Hành Động</th>
+                        <th style="padding:10px 12px;text-align:center;">Follow-up (ngày)</th>
+                        <th style="padding:10px 12px;text-align:center;">Đếm Bắt Máy</th>
+                        <th style="padding:10px 12px;text-align:center;">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${statuses.map(s => {
+                        const act = TS_ACTION_TYPES.find(a => a.value === s.action_type) || TS_ACTION_TYPES[3];
+                        return `
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:8px 12px;font-size:18px;">${s.icon || '📞'}</td>
+                            <td style="padding:8px 12px;font-weight:700;color:var(--navy);">${s.name}</td>
+                            <td style="padding:8px 12px;text-align:center;">
+                                <span style="background:${act.color}15;color:${act.color};padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px;">${act.label}</span>
+                            </td>
+                            <td style="padding:8px 12px;text-align:center;">
+                                ${s.default_followup_days > 0 ? `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;">${s.default_followup_days} ngày</span>` : '<span style="color:#d1d5db;">—</span>'}
+                            </td>
+                            <td style="padding:8px 12px;text-align:center;">
+                                ${s.counts_as_answered ? '<span style="color:#16a34a;font-weight:700;">✅ Có</span>' : '<span style="color:#dc2626;">❌ Không</span>'}
+                            </td>
+                            <td style="padding:8px 12px;text-align:center;">
+                                <button class="btn btn-xs btn-secondary" onclick="editTsStatus(${s.id})">✏️</button>
+                                <button class="btn btn-xs btn-danger" onclick="deleteTsStatus(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                    ${statuses.length === 0 ? '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9ca3af;">Chưa có tình trạng nào</td></tr>' : ''}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add New Status -->
+        <div style="margin-top:16px;padding:16px;background:#f9fafb;border:1px solid var(--gray-200);border-radius:12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Thêm Tình Trạng Mới</div>
+            <div style="display:grid;grid-template-columns:60px 1fr 150px 80px 80px;gap:8px;align-items:end;">
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Icon</label>
+                    <input type="text" id="newTsStatusIcon" value="📞" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;text-align:center;font-size:18px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Tên Tình Trạng</label>
+                    <input type="text" id="newTsStatusName" placeholder="VD: Hẹn gọi lại" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Loại Hành Động</label>
+                    <select id="newTsStatusAction" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;">
+                        ${TS_ACTION_TYPES.map(a => `<option value="${a.value}">${a.label}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:10px;color:var(--gray-500);">Follow-up</label>
+                    <input type="number" id="newTsStatusFollowup" value="0" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                </div>
+                <button class="btn btn-sm btn-success" onclick="addTsStatus()" style="height:34px;">➕</button>
+            </div>
+        </div>
+
+        <div style="margin-top:16px;padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;font-size:12px;color:#0369a1;">
+            <strong>📌 Hướng dẫn Loại Hành Động:</strong>
+            <ul style="margin:6px 0 0;padding-left:20px;line-height:1.8;">
+                <li><strong>🔥 Chuyển Số CRM</strong>: Tự mở form Chuyển Số, điền sẵn SĐT + Tên KH</li>
+                <li><strong>⏰ Hẹn Gọi Lại</strong>: Tự hẹn ngày gọi lại (theo số ngày mặc định)</li>
+                <li><strong>❄️ Kho Lạnh</strong>: Lưu kho lạnh, GĐ có thể gọi lại sau X tháng</li>
+                <li><strong>— Không hành động</strong>: Chỉ ghi nhận, không xử lý thêm</li>
+            </ul>
+        </div>
+    `;
+}
+
+async function addTsStatus() {
+    const name = document.getElementById('newTsStatusName')?.value?.trim();
+    if (!name) return showToast('Nhập tên tình trạng', 'error');
+    const data = await apiCall('/api/telesale/answer-statuses', 'POST', {
+        name, icon: document.getElementById('newTsStatusIcon').value,
+        action_type: document.getElementById('newTsStatusAction').value,
+        default_followup_days: parseInt(document.getElementById('newTsStatusFollowup').value) || 0
+    });
+    if (data.success) { showToast(data.message); await loadTelesaleStatusesSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function editTsStatus(id) {
+    const res = await apiCall('/api/telesale/answer-statuses');
+    const s = (res.statuses || []).find(x => x.id === id);
+    if (!s) return;
+    const actionOpts = TS_ACTION_TYPES.map(a => `<option value="${a.value}" ${a.value === s.action_type ? 'selected' : ''}>${a.label}</option>`).join('');
+    openModal('✏️ Sửa: ' + s.name, `
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;">
+            <div class="form-group"><label>Icon</label><input type="text" id="editTsStatusIcon" class="form-control" value="${s.icon || '📞'}" style="text-align:center;font-size:18px;"></div>
+            <div class="form-group"><label>Tên Tình Trạng</label><input type="text" id="editTsStatusName" class="form-control" value="${s.name}"></div>
+        </div>
+        <div class="form-group"><label>Loại Hành Động</label><select id="editTsStatusAction" class="form-control">${actionOpts}</select></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group"><label>Follow-up (ngày)</label><input type="number" id="editTsStatusFollowup" class="form-control" value="${s.default_followup_days}"></div>
+            <div class="form-group"><label>Đếm vào Bắt Máy</label><select id="editTsStatusCounts" class="form-control"><option value="true" ${s.counts_as_answered ? 'selected' : ''}>✅ Có</option><option value="false" ${!s.counts_as_answered ? 'selected' : ''}>❌ Không</option></select></div>
+        </div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-success" onclick="submitEditTsStatus(${id})">💾 Lưu</button>`);
+}
+
+async function submitEditTsStatus(id) {
+    const data = await apiCall(`/api/telesale/answer-statuses/${id}`, 'PUT', {
+        name: document.getElementById('editTsStatusName').value,
+        icon: document.getElementById('editTsStatusIcon').value,
+        action_type: document.getElementById('editTsStatusAction').value,
+        default_followup_days: parseInt(document.getElementById('editTsStatusFollowup').value) || 0,
+        counts_as_answered: document.getElementById('editTsStatusCounts').value === 'true'
+    });
+    if (data.success) { showToast(data.message); closeModal(); await loadTelesaleStatusesSettings(); }
+    else showToast(data.error, 'error');
+}
+
+async function deleteTsStatus(id, name) {
+    if (!confirm(`Xóa tình trạng "${name}"?`)) return;
+    const data = await apiCall(`/api/telesale/answer-statuses/${id}`, 'DELETE');
+    if (data.success) { showToast(data.message); await loadTelesaleStatusesSettings(); }
     else showToast(data.error, 'error');
 }
