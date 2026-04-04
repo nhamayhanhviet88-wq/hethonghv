@@ -843,6 +843,124 @@ async function runDeadlineCheck() {
     if (lockedCount > 0) {
         console.log(`  ✅ Đã khóa ${lockedCount} tài khoản, ${penaltyCount} lỗi vi phạm`);
     }
+
+    // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 00:30) ==========
+    try {
+        const tsHour = now.getHours();
+        if (tsHour === 0 && minute < 30) {
+            console.log('  📞 [Telesale] Chạy thu hồi đêm...');
+            const { runTelesaleRecall } = require('./telesale');
+            const recallResult = await runTelesaleRecall();
+            console.log(`  📞 [Telesale] ${recallResult.message}`);
+        }
+    } catch(e) {
+        console.error('  ❌ [Telesale] Error recall:', e.message);
+    }
+
+    // ========== 10. TELESALE — BƠM SÁNG (07:00 - 07:30) ==========
+    try {
+        const tsHour2 = now.getHours();
+        if (tsHour2 === 7 && minute < 30) {
+            // Check if already pumped today
+            const today10 = toDateStr(now);
+            const alreadyPumped = await db.get(
+                "SELECT COUNT(*) as cnt FROM telesale_assignments WHERE assigned_date = $1",
+                [today10]
+            );
+            if (!alreadyPumped || alreadyPumped.cnt === 0) {
+                console.log('  📞 [Telesale] Chạy bơm sáng 7:00...');
+                const { runTelesalePump } = require('./telesale');
+                const pumpResult = await runTelesalePump();
+                console.log(`  📞 [Telesale] ${pumpResult.message}`);
+                if (pumpResult.alerts && pumpResult.alerts.length > 0) {
+                    console.log(`  ⚠️ [Telesale] Cảnh báo nguồn hết: ${pumpResult.alerts.map(a => a.source).join(', ')}`);
+                }
+            } else {
+                console.log(`  ⏭️ [Telesale] Đã bơm rồi hôm nay (${alreadyPumped.cnt} assignments)`);
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ [Telesale] Error pump:', e.message);
+    }
+
+    // ========== 11. TELESALE — CV ĐIỂM AUTO-SCORING ==========
+    try {
+        const todayCV = toDateStr(now);
+
+        // Find all task templates with "Gọi Điện Telesale" in name
+        const telesaleTasks = await db.all(
+            `SELECT tpt.*, u.id as user_id, u.full_name
+             FROM task_point_templates tpt
+             JOIN task_schedule_active_teams tsat ON tsat.department_id = tpt.department_id
+             JOIN users u ON u.department_id = tpt.department_id AND u.status = 'active'
+             WHERE tpt.task_name ILIKE '%Gọi Điện Telesale%'`
+        );
+
+        if (telesaleTasks.length > 0) {
+            // Group by user: sum up target (min_quantity) and points across all matching templates
+            const userTargets = {};
+            for (const t of telesaleTasks) {
+                if (!userTargets[t.user_id]) {
+                    userTargets[t.user_id] = { name: t.full_name, totalTarget: 0, totalPoints: 0, templates: [] };
+                }
+                userTargets[t.user_id].totalTarget += (t.min_quantity || 0);
+                userTargets[t.user_id].totalPoints += (t.points || 0);
+                userTargets[t.user_id].templates.push(t);
+            }
+
+            for (const [userId, info] of Object.entries(userTargets)) {
+                // Count answered calls today
+                const answered = await db.get(
+                    `SELECT COUNT(*) as cnt FROM telesale_assignments
+                     WHERE user_id = $1 AND assigned_date = $2 AND call_status = 'answered'`,
+                    [userId, todayCV]
+                );
+                const answeredCount = parseInt(answered?.cnt || 0);
+                if (answeredCount === 0) continue;
+
+                // Calculate proportional points
+                const target = info.totalTarget || 100;
+                const maxPoints = info.totalPoints || 50;
+                const earnedPoints = Math.round(Math.min(answeredCount, target) / target * maxPoints);
+                const reachedTarget = answeredCount >= target;
+
+                // Update or create task_point_reports for each template
+                for (const tmpl of info.templates) {
+                    const tmplTarget = tmpl.min_quantity || 50;
+                    const tmplPoints = tmpl.points || 25;
+                    const tmplEarned = Math.round(Math.min(answeredCount, target) / target * tmplPoints);
+                    const tmplQty = Math.min(answeredCount, tmplTarget);
+
+                    const existing = await db.get(
+                        "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
+                        [tmpl.id, userId, todayCV]
+                    );
+
+                    if (existing) {
+                        // Update existing report
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                             updated_at = NOW()
+                             WHERE id = $5`,
+                            [tmplQty, tmplEarned, answeredCount, target, existing.id]
+                        );
+                    } else {
+                        // Create new report
+                        const status = reachedTarget ? 'approved' : 'pending';
+                        await db.run(
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                            [tmpl.id, userId, todayCV, tmplQty, tmplEarned, status,
+                             `[Tự động] ${answeredCount}/${target} SĐT bắt máy`]
+                        );
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ [Telesale CV Điểm] Error:', e.message);
+    }
 }
 
 // ===== START CRON =====
@@ -855,3 +973,4 @@ function startDeadlineChecker() {
 }
 
 module.exports = { startDeadlineChecker, calculateRealDeadline, toDateStr, toLocalTimestamp };
+
