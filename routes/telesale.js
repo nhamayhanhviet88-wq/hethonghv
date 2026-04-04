@@ -2,15 +2,15 @@
 const db = require('../db/pool');
 
 async function telesaleRoutes(fastify) {
-    const auth = require('../middleware/auth');
+    const { authenticate } = require('../middleware/auth');
 
     // ========== SOURCES CRUD ==========
-    fastify.get('/api/telesale/sources', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
         const sources = await db.all('SELECT * FROM telesale_sources ORDER BY display_order, id');
         return { sources };
     });
 
-    fastify.post('/api/telesale/sources', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ mới thêm được' });
         const { name, icon, crm_type, daily_quota, default_followup_days } = req.body;
         if (!name) return reply.code(400).send({ error: 'Tên nguồn là bắt buộc' });
@@ -20,7 +20,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã thêm nguồn gọi điện' };
     });
 
-    fastify.put('/api/telesale/sources/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.put('/api/telesale/sources/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { name, icon, crm_type, daily_quota, default_followup_days, display_order } = req.body;
         await db.run(`UPDATE telesale_sources SET
@@ -31,7 +31,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã cập nhật nguồn' };
     });
 
-    fastify.delete('/api/telesale/sources/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.delete('/api/telesale/sources/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const hasData = await db.get('SELECT COUNT(*) as cnt FROM telesale_data WHERE source_id = ?', [req.params.id]);
         if (hasData && hasData.cnt > 0) return reply.code(400).send({ error: `Không thể xóa: nguồn đang có ${hasData.cnt} data` });
@@ -40,12 +40,12 @@ async function telesaleRoutes(fastify) {
     });
 
     // ========== ANSWER STATUSES CRUD ==========
-    fastify.get('/api/telesale/answer-statuses', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/answer-statuses', { preHandler: authenticate }, async (req, reply) => {
         const statuses = await db.all('SELECT * FROM telesale_answer_statuses ORDER BY display_order, id');
         return { statuses };
     });
 
-    fastify.post('/api/telesale/answer-statuses', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/answer-statuses', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { name, icon, action_type, default_followup_days, counts_as_answered } = req.body;
         if (!name) return reply.code(400).send({ error: 'Tên tình trạng là bắt buộc' });
@@ -55,7 +55,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã thêm tình trạng' };
     });
 
-    fastify.put('/api/telesale/answer-statuses/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.put('/api/telesale/answer-statuses/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { name, icon, action_type, default_followup_days, counts_as_answered } = req.body;
         await db.run(`UPDATE telesale_answer_statuses SET
@@ -66,14 +66,14 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã cập nhật tình trạng' };
     });
 
-    fastify.delete('/api/telesale/answer-statuses/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.delete('/api/telesale/answer-statuses/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         await db.run('DELETE FROM telesale_answer_statuses WHERE id = ?', [req.params.id]);
         return { success: true, message: 'Đã xóa tình trạng' };
     });
 
     // ========== DATA POOL ==========
-    fastify.get('/api/telesale/data', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
         const { source_id, status, search, page = 1, limit = 50 } = req.query;
         let where = 'WHERE 1=1';
         const params = [];
@@ -97,7 +97,7 @@ async function telesaleRoutes(fastify) {
         return { data, total: countRes.total, page: parseInt(page), limit: parseInt(limit) };
     });
 
-    fastify.get('/api/telesale/data/stats', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/data/stats', { preHandler: authenticate }, async (req, reply) => {
         const stats = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
             COUNT(d.id) FILTER (WHERE true) as total,
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
@@ -113,7 +113,7 @@ async function telesaleRoutes(fastify) {
         return { stats };
     });
 
-    fastify.post('/api/telesale/data', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { source_id, company_name, group_name, post_link, post_content, customer_name, phone, address } = req.body;
@@ -127,7 +127,7 @@ async function telesaleRoutes(fastify) {
     });
 
     // Import CSV/Excel (parse in frontend, send as JSON array)
-    fastify.post('/api/telesale/data/import', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/data/import', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { source_id, rows } = req.body;
@@ -147,7 +147,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: `Import thành công: ${inserted} mới, ${skipped} bỏ qua (trùng/trống)`, inserted, skipped };
     });
 
-    fastify.delete('/api/telesale/data/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.delete('/api/telesale/data/:id', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         await db.run('DELETE FROM telesale_assignments WHERE data_id = ?', [req.params.id]);
@@ -156,7 +156,7 @@ async function telesaleRoutes(fastify) {
     });
 
     // ========== ACTIVE MEMBERS ==========
-    fastify.get('/api/telesale/active-members', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/active-members', { preHandler: authenticate }, async (req, reply) => {
         const members = await db.all(`SELECT tam.*, u.full_name, u.username, u.role, u.department_id,
             d.name as dept_name, d.parent_id as dept_parent_id
             FROM telesale_active_members tam
@@ -167,7 +167,7 @@ async function telesaleRoutes(fastify) {
         return { members };
     });
 
-    fastify.post('/api/telesale/active-members', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/active-members', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_id, daily_quota } = req.body;
@@ -183,7 +183,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã thêm NV vào Telesale' };
     });
 
-    fastify.put('/api/telesale/active-members/:userId', { preHandler: auth }, async (req, reply) => {
+    fastify.put('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { daily_quota, is_active } = req.body;
@@ -192,7 +192,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã cập nhật' };
     });
 
-    fastify.post('/api/telesale/active-members/sync-quota', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/active-members/sync-quota', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_ids, daily_quota } = req.body;
@@ -203,7 +203,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: `Đã đồng bộ ${user_ids.length} NV → ${daily_quota} số/ngày` };
     });
 
-    fastify.delete('/api/telesale/active-members/:userId', { preHandler: auth }, async (req, reply) => {
+    fastify.delete('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         await db.run('UPDATE telesale_active_members SET is_active = false WHERE user_id = ?', [req.params.userId]);
@@ -211,7 +211,7 @@ async function telesaleRoutes(fastify) {
     });
 
     // ========== CALLING (NV thao tác) ==========
-    fastify.get('/api/telesale/my-calls', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/my-calls', { preHandler: authenticate }, async (req, reply) => {
         const date = req.query.date || new Date().toISOString().split('T')[0];
         const userId = req.user.id;
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
@@ -227,7 +227,7 @@ async function telesaleRoutes(fastify) {
         return { calls, date };
     });
 
-    fastify.get('/api/telesale/user-calls/:userId', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/user-calls/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
         if (!mgr.includes(req.user.role) && String(req.user.id) !== req.params.userId)
             return reply.code(403).send({ error: 'Không có quyền' });
@@ -245,7 +245,7 @@ async function telesaleRoutes(fastify) {
         return { calls, date };
     });
 
-    fastify.put('/api/telesale/call/:assignmentId', { preHandler: auth }, async (req, reply) => {
+    fastify.put('/api/telesale/call/:assignmentId', { preHandler: authenticate }, async (req, reply) => {
         const { call_status, answer_status_id, notes, callback_date, callback_time } = req.body;
         const assign = await db.get('SELECT * FROM telesale_assignments WHERE id = ?', [req.params.assignmentId]);
         if (!assign) return reply.code(404).send({ error: 'Không tìm thấy' });
@@ -285,7 +285,7 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã cập nhật trạng thái' };
     });
 
-    fastify.get('/api/telesale/callbacks', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/callbacks', { preHandler: authenticate }, async (req, reply) => {
         const date = req.query.date || new Date().toISOString().split('T')[0];
         const userId = req.query.user_id || req.user.id;
         const callbacks = await db.all(`SELECT a.*, d.company_name, d.customer_name, d.phone,
@@ -298,7 +298,7 @@ async function telesaleRoutes(fastify) {
         return { callbacks };
     });
 
-    fastify.get('/api/telesale/daily-stats/:userId', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/daily-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
         const date = req.query.date || new Date().toISOString().split('T')[0];
         const stats = await db.get(`SELECT
             COUNT(*) as total,
@@ -313,26 +313,26 @@ async function telesaleRoutes(fastify) {
     });
 
     // GĐ force recall a number (answered → make available again)
-    fastify.post('/api/telesale/force-recall/:dataId', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/force-recall/:dataId', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ?", [req.params.dataId]);
         return { success: true, message: 'Đã yêu cầu gọi lại số này' };
     });
 
     // ========== PUMP & RECALL ==========
-    fastify.post('/api/telesale/pump', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/pump', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const result = await runTelesalePump();
         return result;
     });
 
-    fastify.post('/api/telesale/recall', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/recall', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const result = await runTelesaleRecall();
         return result;
     });
 
-    fastify.get('/api/telesale/pump-preview', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/pump-preview', { preHandler: authenticate }, async (req, reply) => {
         const members = await db.all(`SELECT tam.user_id, tam.daily_quota, u.full_name
             FROM telesale_active_members tam JOIN users u ON u.id = tam.user_id
             WHERE tam.is_active = true AND u.status = 'active'`);
@@ -342,7 +342,7 @@ async function telesaleRoutes(fastify) {
         return { members, sources };
     });
 
-    fastify.get('/api/telesale/source-alerts', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/source-alerts', { preHandler: authenticate }, async (req, reply) => {
         const alerts = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available
             FROM telesale_sources s
@@ -355,12 +355,12 @@ async function telesaleRoutes(fastify) {
     });
 
     // ========== IMPORT COLUMNS ==========
-    fastify.get('/api/telesale/import-columns', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/import-columns', { preHandler: authenticate }, async (req, reply) => {
         const columns = await db.all('SELECT * FROM telesale_import_columns WHERE is_active = true ORDER BY display_order');
         return { columns };
     });
 
-    fastify.post('/api/telesale/import-columns', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/import-columns', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { column_key, column_name } = req.body;
         if (!column_key || !column_name) return reply.code(400).send({ error: 'Cần key và tên cột' });
@@ -370,14 +370,14 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã thêm cột' };
     });
 
-    fastify.put('/api/telesale/import-columns/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.put('/api/telesale/import-columns/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { column_name } = req.body;
         await db.run('UPDATE telesale_import_columns SET column_name = ? WHERE id = ?', [column_name, req.params.id]);
         return { success: true, message: 'Đã sửa cột' };
     });
 
-    fastify.delete('/api/telesale/import-columns/:id', { preHandler: auth }, async (req, reply) => {
+    fastify.delete('/api/telesale/import-columns/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const col = await db.get('SELECT * FROM telesale_import_columns WHERE id = ?', [req.params.id]);
         if (col && col.is_default) return reply.code(400).send({ error: 'Không thể xóa cột mặc định' });
@@ -386,7 +386,7 @@ async function telesaleRoutes(fastify) {
     });
 
     // ========== INVALID NUMBERS ==========
-    fastify.get('/api/telesale/invalid-numbers', { preHandler: auth }, async (req, reply) => {
+    fastify.get('/api/telesale/invalid-numbers', { preHandler: authenticate }, async (req, reply) => {
         const numbers = await db.all(`SELECT inv.*, s.name as source_name, s.icon as source_icon
             FROM telesale_invalid_numbers inv
             LEFT JOIN telesale_sources s ON s.id = inv.source_id
@@ -394,7 +394,7 @@ async function telesaleRoutes(fastify) {
         return { numbers };
     });
 
-    fastify.post('/api/telesale/invalid-numbers/:id/restore', { preHandler: auth }, async (req, reply) => {
+    fastify.post('/api/telesale/invalid-numbers/:id/restore', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const inv = await db.get('SELECT * FROM telesale_invalid_numbers WHERE id = ?', [req.params.id]);
         if (!inv) return reply.code(404).send({ error: 'Không tìm thấy' });

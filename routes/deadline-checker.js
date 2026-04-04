@@ -888,13 +888,28 @@ async function runDeadlineCheck() {
         const todayCV = toDateStr(now);
 
         // Find all task templates with "Gọi Điện Telesale" in name
-        const telesaleTasks = await db.all(
-            `SELECT tpt.*, u.id as user_id, u.full_name
-             FROM task_point_templates tpt
-             JOIN task_schedule_active_teams tsat ON tsat.department_id = tpt.department_id
-             JOIN users u ON u.department_id = tpt.department_id AND u.status = 'active'
-             WHERE tpt.task_name ILIKE '%Gọi Điện Telesale%'`
+        // Templates can be team-level (target_type='team', target_id=dept_id) or individual
+        const telesaleTemplates = await db.all(
+            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Gọi Điện Telesale%'"
         );
+
+        // For each template, find applicable users
+        const telesaleTasks = [];
+        for (const tpl of telesaleTemplates) {
+            if (tpl.target_type === 'team') {
+                // Find all active users in this department
+                const users = await db.all(
+                    "SELECT id as user_id, full_name FROM users WHERE department_id = $1 AND status = 'active'",
+                    [tpl.target_id]
+                );
+                for (const u of users) {
+                    telesaleTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+                }
+            } else if (tpl.target_type === 'individual') {
+                const u = await db.get("SELECT id as user_id, full_name FROM users WHERE id = $1 AND status = 'active'", [tpl.target_id]);
+                if (u) telesaleTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+            }
+        }
 
         if (telesaleTasks.length > 0) {
             // Group by user: sum up target (min_quantity) and points across all matching templates
