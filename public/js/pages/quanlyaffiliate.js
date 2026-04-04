@@ -736,7 +736,7 @@ async function affShowDetail(userId) {
     if (!data.user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
     const user = data.user;
 
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     const ROLE_MAP = {hoa_hong:'Hoa Hồng',ctv:'CTV',nuoi_duong:'Nuôi Dưỡng',sinh_vien:'Sinh Viên'};
 
     // Get department name

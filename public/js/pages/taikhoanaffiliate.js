@@ -654,7 +654,7 @@ function affSelectSource(index) {
     document.getElementById('affSourceSearch').value = `${c.customer_name} - ${c.phone || ''}`;
     document.getElementById('affSourceResults').style.display = 'none';
 
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     document.getElementById('affSourceCrmType').value = c.crm_type || '';
     document.getElementById('affSourceCrmLabel').value = CRM_L[c.crm_type] || c.crm_type || '';
     document.getElementById('affSourceJobTitle').value = c.job || '';
@@ -747,7 +747,7 @@ async function showEditAffModal(userId) {
     if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAffDeptOptions(depts, user.department_id);
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
 
     const bodyHTML = `
         <div class="form-row">
@@ -991,7 +991,7 @@ function editAffSelectSource(index) {
     document.getElementById('editAffSourceCustomerId').value = c.id;
     document.getElementById('editAffSourceSearch').value = `${c.customer_name} - ${c.phone || ''}`;
     document.getElementById('editAffSourceResults').style.display = 'none';
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     document.getElementById('editAffSourceCrmType').value = c.crm_type || '';
     document.getElementById('editAffSourceCrmLabel').value = CRM_L[c.crm_type] || c.crm_type || '';
 }
@@ -1044,7 +1044,7 @@ async function showAffDetail(userId) {
     const { user } = await apiCall(`/api/users/${userId}`);
     if (!user) { showToast('Không tìm thấy', 'error'); return; }
 
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
 
     const initials = user.full_name.split(' ').map(w => w[0]).join('').slice(-2).toUpperCase();
     const statusBadge = user.status === 'active'

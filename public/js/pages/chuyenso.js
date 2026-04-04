@@ -90,7 +90,7 @@ async function renderChuyenSoPage(container) {
             filtered.map(u => `<option value="${u.id}" data-crm="${u.source_crm_type || ''}">${u.full_name} (${ROLE_LABELS_CSO[u.role] || u.role})</option>`).join('');
         document.getElementById('csoAffiliateCrm').value = '';
     }
-    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', hoa_hong_crm: 'CRM Giáo Viên/Học Sinh/Sinh Viên', nuoi_duong: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng', sinh_vien: 'CRM Thể Thao/Thời Trang Local', koc_tiktok: 'CRM KOL Tiktok/Mẹ Bỉm Sữa' };
+    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', hoa_hong_crm: 'CRM Tự Tìm Kiếm', nuoi_duong: 'CRM Gọi Điện Hợp Tác', sinh_vien: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
 
     // Build display label for each user
     function userLabel(u) {
@@ -131,13 +131,11 @@ async function renderChuyenSoPage(container) {
                             <select id="csoCrm" class="form-control" required>
                                 <option value="">-- Chọn CRM --</option>
                                 <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
-                                <option value="hoa_hong_crm">CRM Giáo Viên/Học Sinh/Sinh Viên</option>
-                                <option value="nuoi_duong">CRM Nhân Sự/Kế Toán/P.Mua Hàng</option>
-                                <option value="sinh_vien">CRM Thể Thao/Thời Trang Local</option>
-                                <option value="koc_tiktok">CRM KOL Tiktok/Mẹ Bỉm Sữa</option>
-                                <option value="qua_tang">CRM Quà Tặng/Sự Kiện/Du Lịch</option>
+                                <option value="hoa_hong_crm">CRM Tự Tìm Kiếm</option>
+                                <option value="nuoi_duong">CRM Gọi Điện Hợp Tác</option>
+                                <option value="sinh_vien">CRM Gọi Điện Bán Hàng</option>
+                                <option value="koc_tiktok">CRM KOL/KOC Tiktok</option>
                                 <option value="affiliate">CRM Affiliate Giới Thiệu</option>
-                                <option value="nguoi_than">CRM Người Thân/Bạn Bè</option>
                             </select>
                             `}
                         </div>

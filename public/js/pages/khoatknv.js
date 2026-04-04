@@ -6,8 +6,8 @@ let _penToMonth = 0; // 0 = not set (single month)
 let _penaltyData = [];
 
 const _CRM_LABELS = {
-    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', hoa_hong_crm: 'GV/HS/SV',
-    nuoi_duong: 'NS/KT/PMH', sinh_vien: 'TT/TTL', koc_tiktok: 'KOL/MBS',
+    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', hoa_hong_crm: 'Tự TK',
+    nuoi_duong: 'GĐ HT', sinh_vien: 'GĐ BH', koc_tiktok: 'KOL/KOC',
     qua_tang: 'QT/SK/DL', affiliate: 'Affiliate GT', nguoi_than: 'NT/BB',
     ctv_hoa_hong: 'CTV/HH'
 };

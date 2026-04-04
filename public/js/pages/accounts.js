@@ -578,7 +578,7 @@ function selectSourceCustomer(index) {
     document.getElementById('accSourceResults').style.display = 'none';
 
     // Auto-fill CRM source type
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     document.getElementById('accSourceCrmType').value = c.crm_type || '';
     document.getElementById('accSourceCrmLabel').value = CRM_LABELS[c.crm_type] || c.crm_type || '';
 
@@ -807,7 +807,7 @@ async function showEditAccountModal(userId) {
         </div>
         <div class="form-group">
             <label>📌 Khách CRM từ đâu?</label>
-            <input type="text" id="editSourceCrmLabel" class="form-control" disabled value="${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'})[user.source_crm_type] || user.source_crm_type || '—'}" style="background:#f9fafb;color:var(--navy);font-weight:600;">
+            <input type="text" id="editSourceCrmLabel" class="form-control" disabled value="${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}" style="background:#f9fafb;color:var(--navy);font-weight:600;">
         </div>
         ` : ''}
         <div class="form-row">
@@ -1033,7 +1033,7 @@ function editSelectSourceCustomer(index) {
     document.getElementById('editSourceResults').style.display = 'none';
 
     // Auto-fill CRM source type
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     document.getElementById('editSourceCrmType').value = c.crm_type || '';
     document.getElementById('editSourceCrmLabel').value = CRM_LABELS[c.crm_type] || c.crm_type || '';
 }
@@ -1274,7 +1274,7 @@ async function showAccountDetail(userId) {
                         </div>
                         <div style="padding:12px 14px;">
                             <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📌 CRM Nguồn</div>
-                            <div style="font-size:13px;font-weight:600;color:#1e293b;">${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Giáo Viên/Học Sinh/Sinh Viên',nuoi_duong:'CRM Nhân Sự/Kế Toán/P.Mua Hàng',sinh_vien:'CRM Thể Thao/Thời Trang Local',koc_tiktok:'CRM KOL Tiktok/Mẹ Bỉm Sữa'})[user.source_crm_type] || user.source_crm_type || '—'}</div>
+                            <div style="font-size:13px;font-weight:600;color:#1e293b;">${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}</div>
                         </div>
                         ` : `
                         <div style="padding:12px 14px;">

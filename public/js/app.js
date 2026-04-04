@@ -29,10 +29,10 @@ const CRM_LABELS = {
     nhu_cau: 'Chăm Sóc KH Nhu Cầu',
     ctv_hoa_hong: 'Chăm Sóc CTV / Hoa Hồng',
     ctv: 'Chăm Sóc CTV',
-    hoa_hong_crm: 'CRM Giáo Viên/Học Sinh/Sinh Viên',
-    nuoi_duong: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng',
-    sinh_vien: 'CRM Thể Thao/Thời Trang Local',
-    koc_tiktok: 'CRM KOL Tiktok/Mẹ Bỉm Sữa'
+    hoa_hong_crm: 'CRM Tự Tìm Kiếm',
+    nuoi_duong: 'CRM Gọi Điện Hợp Tác',
+    sinh_vien: 'CRM Gọi Điện Bán Hàng',
+    koc_tiktok: 'CRM KOL/KOC Tiktok'
 };
 
 const MENU_CONFIG = [
@@ -42,12 +42,10 @@ const MENU_CONFIG = [
     { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
-    { id: 'crm-hoa-hong', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-nuoi-duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-sinh-vien', label: 'CRM Thể Thao/Thời Trang Local', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-koc-tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
-    { id: 'crm-gioi-thieu', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch', icon: '🎁', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-affiliate-hv', label: 'CRM Người Thân/Bạn Bè', icon: '👨‍👩‍👧‍👦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/crmaffiliate' },
+    { id: 'crm-hoa-hong', label: 'CRM Tự Tìm Kiếm', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-nuoi-duong', label: 'CRM Gọi Điện Hợp Tác', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-sinh-vien', label: 'CRM Gọi Điện Bán Hàng', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-koc-tiktok', label: 'CRM KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
     { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/affiliate' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },

@@ -300,10 +300,10 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
     const source = _gd_sources.find(s => s.name === call.source_name);
     const crmType = source?.crm_type || '';
     const crmOptions = [
-        {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'hoa_hong_crm',label:'CRM Giáo Viên/Học Sinh/Sinh Viên'},
-        {value:'nuoi_duong',label:'CRM Nhân Sự/Kế Toán/P.Mua Hàng'},{value:'sinh_vien',label:'CRM Thể Thao/Thời Trang Local'},
-        {value:'koc_tiktok',label:'CRM KOL Tiktok/Mẹ Bỉm Sữa'},{value:'qua_tang',label:'CRM Quà Tặng/Sự Kiện/Du Lịch'},
-        {value:'affiliate',label:'CRM Affiliate Giới Thiệu'},{value:'nguoi_than',label:'CRM Người Thân/Bạn Bè'},
+        {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'hoa_hong_crm',label:'CRM Tự Tìm Kiếm'},
+        {value:'nuoi_duong',label:'CRM Gọi Điện Hợp Tác'},{value:'sinh_vien',label:'CRM Gọi Điện Bán Hàng'},
+        {value:'koc_tiktok',label:'CRM KOL/KOC Tiktok'},
+        {value:'affiliate',label:'CRM Affiliate Giới Thiệu'},
     ];
     openModal('📞 Chuyển Số — CRM', `
         <div style="margin-bottom:12px;padding:10px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:12px;font-size:12px;color:#92400e;">

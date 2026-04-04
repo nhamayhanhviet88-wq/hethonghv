@@ -286,12 +286,10 @@ async function saveCancelMgrPopupSettings() {
 
 // ========== JOB TITLES PER CRM ==========
 const JOB_CRM_OPTIONS = [
-    { value: 'nuoi_duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng' },
-    { value: 'sinh_vien', label: 'CRM Thể Thao/Thời Trang Local' },
-    { value: 'qua_tang', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch' },
-    { value: 'koc_tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa' },
-    { value: 'hoa_hong_crm', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên' },
-    { value: 'nguoi_than', label: 'CRM Người Thân/Bạn Bè' },
+    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
+    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
+    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
     { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
 ];
 
@@ -611,13 +609,11 @@ async function deletePosition(id, name) {
 const CRM_TYPE_OPTIONS_TS = [
     { value: '', label: '-- Không map --' },
     { value: 'nhu_cau', label: 'Chăm Sóc KH Nhu Cầu' },
-    { value: 'hoa_hong_crm', label: 'CRM Giáo Viên/Học Sinh/Sinh Viên' },
-    { value: 'nuoi_duong', label: 'CRM Nhân Sự/Kế Toán/P.Mua Hàng' },
-    { value: 'sinh_vien', label: 'CRM Thể Thao/Thời Trang Local' },
-    { value: 'koc_tiktok', label: 'CRM KOL Tiktok/Mẹ Bỉm Sữa' },
-    { value: 'qua_tang', label: 'CRM Quà Tặng/Sự Kiện/Du Lịch' },
+    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
+    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
+    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
     { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
-    { value: 'nguoi_than', label: 'CRM Người Thân/Bạn Bè' },
 ];
 
 async function loadTelesaleSourcesSettings() {
