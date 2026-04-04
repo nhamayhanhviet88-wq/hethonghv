@@ -142,11 +142,11 @@ async function renderChuyenSoPage(container) {
                             `}
                         </div>
                         <div class="form-group">
-                            <label>Nguồn Khách</label>
+                            <label>Nguồn Khách <span style="color:var(--danger)">*</span></label>
                             ${isAffiliate ? `
                                 <input type="text" class="form-control" value="AFFILIATE GIỚI THIỆU" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                             ` : `
-                            <select id="csoSource" class="form-control">
+                            <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
                                 ${(sources.items || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                             </select>
@@ -176,13 +176,21 @@ async function renderChuyenSoPage(container) {
                     </div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
-                            <label>Tên Khách Hàng <span style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng" required>
+                            <label>Tên Khách Hàng</label>
+                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng">
                         </div>
                         <div class="form-group">
-                            <label>Số Điện Thoại <span style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" required>
+                            <label>Số Điện Thoại <span id="csoPhoneStar" style="color:var(--danger)">*</span></label>
+                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" oninput="_csoToggleRequired()">
                         </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>🔗 Link Facebook <span id="csoFbStar" style="color:var(--danger)">*</span></label>
+                            <input type="url" id="csoFacebook" class="form-control" placeholder="https://facebook.com/..." oninput="_csoToggleRequired()">
+                            <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                        </div>
+                        <div></div>
                     </div>
                     ${!isAffiliate ? `
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -252,13 +260,18 @@ async function renderChuyenSoPage(container) {
             receiver_id: document.getElementById('csoReceiver').value,
             notes: document.getElementById('csoNotes').value,
             affiliate_user_id: document.getElementById('csoAffiliate')?.value || null,
-            job: document.getElementById('csoJobTitle')?.value || null
+            job: document.getElementById('csoJobTitle')?.value || null,
+            facebook_link: document.getElementById('csoFacebook')?.value?.trim() || null
         };
         console.log('[CSO] Body:', JSON.stringify(body));
 
-        if (!body.crm_type || !body.customer_name || !body.phone || !body.receiver_id) {
-            console.log('[CSO] Validation failed!', { crm: body.crm_type, name: body.customer_name, phone: body.phone, receiver: body.receiver_id });
+        if (!body.crm_type || !body.receiver_id) {
+            console.log('[CSO] Validation failed!', { crm: body.crm_type, receiver: body.receiver_id });
             showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+            return;
+        }
+        if (!body.phone && !body.facebook_link) {
+            showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error');
             return;
         }
 
@@ -272,6 +285,7 @@ async function renderChuyenSoPage(container) {
                 document.getElementById('csoAffiliateCrm').value = '';
                 document.getElementById('csoJobTitleRow').style.display = 'none';
                 document.getElementById('csoJobTitle').innerHTML = '<option value="">-- Chọn Chức Danh --</option>';
+                if (document.getElementById('csoFacebook')) document.getElementById('csoFacebook').value = '';
             } else {
                 showToast(data.error, 'error');
             }
@@ -383,4 +397,14 @@ async function csoSaveSettings() {
     } catch (err) {
         showToast('Lỗi lưu cài đặt', 'error');
     }
+}
+
+// Toggle required stars: if phone filled -> fb not required, if fb filled -> phone not required
+function _csoToggleRequired() {
+    const phone = document.getElementById('csoPhone')?.value?.trim();
+    const fb = document.getElementById('csoFacebook')?.value?.trim();
+    const phoneStar = document.getElementById('csoPhoneStar');
+    const fbStar = document.getElementById('csoFbStar');
+    if (phoneStar) phoneStar.style.display = fb ? 'none' : '';
+    if (fbStar) fbStar.style.display = phone ? 'none' : '';
 }

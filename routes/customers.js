@@ -56,13 +56,16 @@ async function customersRoutes(fastify, options) {
 
     fastify.post('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {
         const { crm_type, customer_name, phone, source_id, promotion_id, industry_id,
-                receiver_id, notes, affiliate_user_id, job } = request.body || {};
-        if (!crm_type || !customer_name || !phone) return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
-        if (!/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
+                receiver_id, notes, affiliate_user_id, job, facebook_link } = request.body || {};
+        if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
+        if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
+        if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
 
-        // Check phone uniqueness across system
-        const phoneError = await checkPhoneDuplicate(phone);
-        if (phoneError) return reply.code(400).send({ error: phoneError });
+        // Check phone uniqueness across system (only if phone provided)
+        if (phone) {
+            const phoneError = await checkPhoneDuplicate(phone);
+            if (phoneError) return reply.code(400).send({ error: phoneError });
+        }
 
         let actualReceiverId = receiver_id ? Number(receiver_id) : null;
         let referrerId = null;
@@ -86,13 +89,13 @@ async function customersRoutes(fastify, options) {
 
         const result = await db.run(
             `INSERT INTO customers (crm_type, customer_name, phone, source_id, promotion_id,
-             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [crm_type, customer_name, phone,
+             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [crm_type, customer_name || null, phone || null,
              source_id ? Number(source_id) : null, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
-             request.user.id, referrerId, job || null]
+             request.user.id, referrerId, job || null, facebook_link || null]
         );
 
         const code = `${dailyNum}-${now.getUTCDate()}-${now.getUTCMonth() + 1}`;
