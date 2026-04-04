@@ -875,8 +875,9 @@ select.form-control {
 }
 
 .tab.active {
-    color: var(--gold);
-    border-bottom-color: var(--gold);
+    color: #122546;
+    font-weight: 800;
+    border-bottom-color: #122546;
 }
 
 /* Inline edit list */
