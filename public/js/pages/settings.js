@@ -641,90 +641,82 @@ async function loadTelesaleSourcesSettings() {
 
     el.innerHTML = `
         <div style="margin-bottom:20px;">
-            <h4 style="color:var(--navy);margin:0 0 8px;">📞 Nguồn Gọi Điện Telesale</h4>
-            <p style="font-size:12px;color:var(--gray-500);margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
+            <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">📞 Nguồn Gọi Điện Telesale</h4>
+            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
         </div>
 
         <!-- Global Config -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
-            <div style="padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;">
-                <label style="font-size:11px;font-weight:700;color:#0369a1;display:block;margin-bottom:4px;">📊 Quota mặc định/NV/ngày</label>
-                <input type="number" id="tsDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px;border:1px solid #bae6fd;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_default_quota',this.value)">
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">📊 Quota mặc định/NV/ngày</label>
+                <input type="number" id="tsDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px 8px;border:1.5px solid #93c5fd;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_default_quota',this.value)">
             </div>
-            <div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;">
-                <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:4px;">❄️ Kho lạnh (tháng)</label>
-                <input type="number" id="tsColdMonths" value="${coldMonths}" style="width:100%;padding:6px;border:1px solid #fde68a;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_cold_months',this.value)">
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label>
+                <input type="number" id="tsColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_cold_months',this.value)">
             </div>
-            <div style="padding:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;">
-                <label style="font-size:11px;font-weight:700;color:#065f46;display:block;margin-bottom:4px;">🤔 Hẹn lại (Cân nhắc)</label>
-                <input type="number" id="tsFollowupCN" value="${followupCN}" style="width:100%;padding:6px;border:1px solid #a7f3d0;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;color:#6b7280;">ngày</span>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label>
+                <input type="number" id="tsFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span>
             </div>
-            <div style="padding:12px;background:#fce7f3;border:1px solid #f9a8d4;border-radius:10px;">
-                <label style="font-size:11px;font-weight:700;color:#9d174d;display:block;margin-bottom:4px;">🏪 Hẹn lại (Có NCC)</label>
-                <input type="number" id="tsFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px;border:1px solid #f9a8d4;border-radius:6px;font-size:13px;font-weight:700;" onchange="saveTsConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;color:#6b7280;">ngày</span>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (Có NCC)</label>
+                <input type="number" id="tsFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span>
             </div>
         </div>
 
-        <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;color:var(--gray-500);">Tổng quota: <strong style="color:var(--navy);">${totalQuota} SĐT/NV/ngày</strong></span>
+        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:#6b7280;">Tổng quota: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
         </div>
 
         <!-- Sources List -->
-        <div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead>
-                    <tr style="background:linear-gradient(135deg,#122546,#1e3a5f);color:white;">
-                        <th style="padding:10px 12px;text-align:left;">Icon</th>
-                        <th style="padding:10px 12px;text-align:left;">Tên Nguồn</th>
-                        <th style="padding:10px 12px;text-align:center;">Quota/NV/Ngày</th>
-                        <th style="padding:10px 12px;text-align:left;">Map CRM</th>
-                        <th style="padding:10px 12px;text-align:center;">Hành Động</th>
-                    </tr>
-                </thead>
+        <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+            <table class="ts-table">
+                <thead><tr>
+                    <th style="text-align:left;">Icon</th>
+                    <th style="text-align:left;">Tên Nguồn</th>
+                    <th style="text-align:center;">Quota/NV/Ngày</th>
+                    <th style="text-align:left;">Map CRM</th>
+                    <th style="text-align:center;">Thao Tác</th>
+                </tr></thead>
                 <tbody>
                     ${sources.map(s => `
-                    <tr style="border-bottom:1px solid #f3f4f6;" id="tsRow_${s.id}">
-                        <td style="padding:8px 12px;font-size:18px;">${s.icon || '📁'}</td>
-                        <td style="padding:8px 12px;font-weight:700;color:var(--navy);">${s.name}</td>
-                        <td style="padding:8px 12px;text-align:center;">
-                            <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-weight:700;">${s.daily_quota}</span>
-                        </td>
-                        <td style="padding:8px 12px;font-size:11px;color:var(--gray-500);">
-                            ${s.crm_type ? (CRM_TYPE_OPTIONS_TS.find(o => o.value === s.crm_type)?.label || s.crm_type) : '<span style="color:#d1d5db;">—</span>'}
-                        </td>
-                        <td style="padding:8px 12px;text-align:center;">
-                            <button class="btn btn-xs btn-secondary" onclick="editTsSource(${s.id})" title="Sửa">✏️</button>
-                            <button class="btn btn-xs btn-danger" onclick="deleteTsSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')" title="Xóa">🗑️</button>
+                    <tr id="tsRow_${s.id}">
+                        <td style="font-size:20px;">${s.icon || '📁'}</td>
+                        <td style="font-weight:700;color:#122546;">${s.name}</td>
+                        <td style="text-align:center;"><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${s.daily_quota}</span></td>
+                        <td style="font-size:11px;color:#6b7280;">${s.crm_type ? (CRM_TYPE_OPTIONS_TS.find(o => o.value === s.crm_type)?.label || s.crm_type) : '<span style="color:#d1d5db;">—</span>'}</td>
+                        <td style="text-align:center;">
+                            <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="editTsSource(${s.id})">✏️ Sửa</button>
+                            <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="deleteTsSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
                         </td>
                     </tr>`).join('')}
-                    ${sources.length === 0 ? '<tr><td colspan="5" style="padding:20px;text-align:center;color:#9ca3af;">Chưa có nguồn nào</td></tr>' : ''}
+                    ${sources.length === 0 ? '<tr><td colspan="5" class="ts-empty" style="padding:20px;">Chưa có nguồn nào</td></tr>' : ''}
                 </tbody>
             </table>
         </div>
 
         <!-- Add New Source -->
-        <div style="margin-top:16px;padding:16px;background:#f9fafb;border:1px solid var(--gray-200);border-radius:12px;">
-            <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Thêm Nguồn Mới</div>
-            <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr 80px;gap:8px;align-items:end;">
+        <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Nguồn Mới</div>
+            <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr 80px;gap:10px;align-items:end;">
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Icon</label>
-                    <input type="text" id="newTsIcon" value="📁" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;text-align:center;font-size:18px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Icon</label>
+                    <input type="text" id="newTsIcon" value="📁" class="ts-select" style="width:100%;text-align:center;font-size:18px;padding:6px;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Tên Nguồn</label>
-                    <input type="text" id="newTsName" placeholder="VD: NHÂN SỰ" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Tên Nguồn</label>
+                    <input type="text" id="newTsName" placeholder="VD: NHÂN SỰ" class="ts-search" style="padding:8px 12px;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Quota</label>
-                    <input type="number" id="newTsQuota" value="15" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Quota</label>
+                    <input type="number" id="newTsQuota" value="15" class="ts-select" style="width:100%;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Map CRM</label>
-                    <select id="newTsCrm" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;">
-                        ${CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
-                    </select>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Map CRM</label>
+                    <select id="newTsCrm" class="ts-select" style="width:100%;">${CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}</select>
                 </div>
-                <button class="btn btn-sm btn-success" onclick="addTsSource()" style="height:34px;">➕</button>
+                <button class="ts-btn ts-btn-green" onclick="addTsSource()" style="height:38px;">➕</button>
             </div>
         </div>
     `;
@@ -798,76 +790,72 @@ async function loadTelesaleStatusesSettings() {
 
     el.innerHTML = `
         <div style="margin-bottom:20px;">
-            <h4 style="color:var(--navy);margin:0 0 8px;">📱 Tình Trạng Khi Khách Bắt Máy</h4>
-            <p style="font-size:12px;color:var(--gray-500);margin:0;">Cấu hình tình trạng kết quả khi khách hàng bắt máy. Mỗi tình trạng có hành động tự động riêng.</p>
+            <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">📱 Tình Trạng Khi Khách Bắt Máy</h4>
+            <p style="font-size:12px;color:#6b7280;margin:0;">Cấu hình tình trạng kết quả khi khách hàng bắt máy. Mỗi tình trạng có hành động tự động riêng.</p>
         </div>
 
-        <div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead>
-                    <tr style="background:linear-gradient(135deg,#122546,#1e3a5f);color:white;">
-                        <th style="padding:10px 12px;text-align:left;">Icon</th>
-                        <th style="padding:10px 12px;text-align:left;">Tình Trạng</th>
-                        <th style="padding:10px 12px;text-align:center;">Hành Động</th>
-                        <th style="padding:10px 12px;text-align:center;">Follow-up (ngày)</th>
-                        <th style="padding:10px 12px;text-align:center;">Đếm Bắt Máy</th>
-                        <th style="padding:10px 12px;text-align:center;">Thao Tác</th>
-                    </tr>
-                </thead>
+        <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+            <table class="ts-table">
+                <thead><tr>
+                    <th style="text-align:left;">Icon</th>
+                    <th style="text-align:left;">Tình Trạng</th>
+                    <th style="text-align:center;">Hành Động</th>
+                    <th style="text-align:center;">Follow-up</th>
+                    <th style="text-align:center;">Đếm Bắt Máy</th>
+                    <th style="text-align:center;">Thao Tác</th>
+                </tr></thead>
                 <tbody>
                     ${statuses.map(s => {
                         const act = TS_ACTION_TYPES.find(a => a.value === s.action_type) || TS_ACTION_TYPES[3];
                         return `
-                        <tr style="border-bottom:1px solid #f3f4f6;">
-                            <td style="padding:8px 12px;font-size:18px;">${s.icon || '📞'}</td>
-                            <td style="padding:8px 12px;font-weight:700;color:var(--navy);">${s.name}</td>
-                            <td style="padding:8px 12px;text-align:center;">
-                                <span style="background:${act.color}15;color:${act.color};padding:2px 8px;border-radius:6px;font-weight:700;font-size:11px;">${act.label}</span>
+                        <tr>
+                            <td style="font-size:20px;">${s.icon || '📞'}</td>
+                            <td style="font-weight:700;color:#122546;">${s.name}</td>
+                            <td style="text-align:center;">
+                                <span class="ts-badge" style="background:${act.color}15;color:${act.color};">${act.label}</span>
                             </td>
-                            <td style="padding:8px 12px;text-align:center;">
-                                ${s.default_followup_days > 0 ? `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;">${s.default_followup_days} ngày</span>` : '<span style="color:#d1d5db;">—</span>'}
+                            <td style="text-align:center;">
+                                ${s.default_followup_days > 0 ? `<span class="ts-badge" style="background:#fef3c7;color:#92400e;">${s.default_followup_days} ngày</span>` : '<span style="color:#d1d5db;">—</span>'}
                             </td>
-                            <td style="padding:8px 12px;text-align:center;">
-                                ${s.counts_as_answered ? '<span style="color:#16a34a;font-weight:700;">✅ Có</span>' : '<span style="color:#dc2626;">❌ Không</span>'}
+                            <td style="text-align:center;">
+                                ${s.counts_as_answered ? '<span style="color:#16a34a;font-weight:700;">✅</span>' : '<span style="color:#dc2626;">❌</span>'}
                             </td>
-                            <td style="padding:8px 12px;text-align:center;">
-                                <button class="btn btn-xs btn-secondary" onclick="editTsStatus(${s.id})">✏️</button>
-                                <button class="btn btn-xs btn-danger" onclick="deleteTsStatus(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
+                            <td style="text-align:center;">
+                                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="editTsStatus(${s.id})">✏️ Sửa</button>
+                                <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="deleteTsStatus(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
                             </td>
                         </tr>`;
                     }).join('')}
-                    ${statuses.length === 0 ? '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9ca3af;">Chưa có tình trạng nào</td></tr>' : ''}
+                    ${statuses.length === 0 ? '<tr><td colspan="6" class="ts-empty" style="padding:20px;">Chưa có tình trạng nào</td></tr>' : ''}
                 </tbody>
             </table>
         </div>
 
         <!-- Add New Status -->
-        <div style="margin-top:16px;padding:16px;background:#f9fafb;border:1px solid var(--gray-200);border-radius:12px;">
-            <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Thêm Tình Trạng Mới</div>
-            <div style="display:grid;grid-template-columns:60px 1fr 150px 80px 80px;gap:8px;align-items:end;">
+        <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Tình Trạng Mới</div>
+            <div style="display:grid;grid-template-columns:60px 1fr 150px 80px 80px;gap:10px;align-items:end;">
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Icon</label>
-                    <input type="text" id="newTsStatusIcon" value="📞" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;text-align:center;font-size:18px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Icon</label>
+                    <input type="text" id="newTsStatusIcon" value="📞" class="ts-select" style="width:100%;text-align:center;font-size:18px;padding:6px;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Tên Tình Trạng</label>
-                    <input type="text" id="newTsStatusName" placeholder="VD: Hẹn gọi lại" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Tên Tình Trạng</label>
+                    <input type="text" id="newTsStatusName" placeholder="VD: Hẹn gọi lại" class="ts-search" style="padding:8px 12px;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Loại Hành Động</label>
-                    <select id="newTsStatusAction" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;">
-                        ${TS_ACTION_TYPES.map(a => `<option value="${a.value}">${a.label}</option>`).join('')}
-                    </select>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Loại Hành Động</label>
+                    <select id="newTsStatusAction" class="ts-select" style="width:100%;">${TS_ACTION_TYPES.map(a => `<option value="${a.value}">${a.label}</option>`).join('')}</select>
                 </div>
                 <div>
-                    <label style="font-size:10px;color:var(--gray-500);">Follow-up</label>
-                    <input type="number" id="newTsStatusFollowup" value="0" style="width:100%;padding:6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;">
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Follow-up</label>
+                    <input type="number" id="newTsStatusFollowup" value="0" class="ts-select" style="width:100%;">
                 </div>
-                <button class="btn btn-sm btn-success" onclick="addTsStatus()" style="height:34px;">➕</button>
+                <button class="ts-btn ts-btn-green" onclick="addTsStatus()" style="height:38px;">➕</button>
             </div>
         </div>
 
-        <div style="margin-top:16px;padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;font-size:12px;color:#0369a1;">
+        <div style="margin-top:16px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:14px;font-size:12px;color:#0369a1;">
             <strong>📌 Hướng dẫn Loại Hành Động:</strong>
             <ul style="margin:6px 0 0;padding-left:20px;line-height:1.8;">
                 <li><strong>🔥 Chuyển Số CRM</strong>: Tự mở form Chuyển Số, điền sẵn SĐT + Tên KH</li>
