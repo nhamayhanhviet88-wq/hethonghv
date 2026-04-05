@@ -1,7 +1,7 @@
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
-const fastify = require('fastify')({ logger: false });
+const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
 // Global error handler — log all errors
 fastify.setErrorHandler((error, request, reply) => {

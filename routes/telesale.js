@@ -134,15 +134,35 @@ async function telesaleRoutes(fastify) {
         if (!source_id || !rows || !Array.isArray(rows) || rows.length === 0)
             return reply.code(400).send({ error: 'Cần source_id và rows[]' });
 
-        let inserted = 0, skipped = 0;
+        // 1. Get all existing phones for this source in ONE query
+        const existingRows = await db.all('SELECT phone FROM telesale_data WHERE source_id = ?', [source_id]);
+        const existingPhones = new Set(existingRows.map(r => r.phone));
+
+        // 2. Filter new rows (skip empty phone & duplicates)
+        const newRows = [];
+        const seenPhones = new Set();
         for (const row of rows) {
             const phone = (row.phone || '').toString().trim();
-            if (!phone) { skipped++; continue; }
-            const exists = await db.get('SELECT id FROM telesale_data WHERE phone = ? AND source_id = ?', [phone, source_id]);
-            if (exists) { skipped++; continue; }
-            await db.run('INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data) VALUES (?,?,?,?,?,?,?,?,?)',
-                [source_id, row.company_name || '', row.group_name || '', row.post_link || '', row.post_content || '', row.customer_name || '', phone, row.address || '', JSON.stringify(row.extra || {})]);
-            inserted++;
+            if (!phone || existingPhones.has(phone) || seenPhones.has(phone)) continue;
+            seenPhones.add(phone);
+            newRows.push(row);
+        }
+        const skipped = rows.length - newRows.length;
+
+        // 3. Batch INSERT in chunks of 500
+        const BATCH_SIZE = 500;
+        let inserted = 0;
+        for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
+            const chunk = newRows.slice(i, i + BATCH_SIZE);
+            const values = [];
+            const placeholders = [];
+            for (const row of chunk) {
+                const phone = (row.phone || '').toString().trim();
+                placeholders.push('(?,?,?,?,?,?,?,?,?)');
+                values.push(source_id, row.company_name || '', row.group_name || '', row.post_link || '', row.post_content || '', row.customer_name || '', phone, row.address || '', JSON.stringify(row.extra || {}));
+            }
+            await db.run(`INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data) VALUES ${placeholders.join(',')}`, values);
+            inserted += chunk.length;
         }
         return { success: true, message: `Import thành công: ${inserted} mới, ${skipped} bỏ qua (trùng/trống)`, inserted, skipped };
     });

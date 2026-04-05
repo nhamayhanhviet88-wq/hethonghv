@@ -306,6 +306,7 @@ async function _htgd_previewImport(input) {
     const preview = document.getElementById('importPreviewArea');
     preview.style.display = 'block'; preview.innerHTML = '⏳ Đang đọc file...';
     try {
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
         const text = await file.text();
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) { preview.innerHTML = '❌ File rỗng hoặc chỉ có header'; return; }
@@ -316,13 +317,18 @@ async function _htgd_previewImport(input) {
             rows.push({ company_name:cols[0]||'', group_name:cols[1]||'', post_link:cols[2]||'', post_content:cols[3]||'', customer_name:cols[4]||'', phone:(cols[5]||'').trim(), address:cols[6]||'' });
         }
         _htgd_importRows = rows;
+        const sizeColor = fileSizeMB > 10 ? '#dc2626' : fileSizeMB > 5 ? '#d97706' : '#059669';
         preview.innerHTML = `
-            <div style="font-size:12px;margin-bottom:8px;"><strong style="color:#059669;">📊 ${rows.length} bản ghi</strong> sẽ được import.</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;">
+                <strong style="color:#059669;">📊 ${rows.length.toLocaleString()} bản ghi</strong> sẽ được import
+                <span style="margin-left:auto;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:${sizeColor}15;color:${sizeColor};border:1px solid ${sizeColor}40;">📦 ${fileSizeMB} MB</span>
+            </div>
             <div style="max-height:200px;overflow:auto;border:1.5px solid #e5e7eb;border-radius:12px;">
                 <table class="ts-table"><thead><tr><th style="text-align:left;">Tên CT</th><th style="text-align:left;">Tên KH</th><th style="text-align:left;">SĐT</th><th style="text-align:left;">Địa Chỉ</th></tr></thead>
                 <tbody>${rows.slice(0,10).map(r => `<tr><td>${r.company_name}</td><td>${r.customer_name}</td><td style="font-family:monospace;">${r.phone}</td><td>${r.address}</td></tr>`).join('')}
-                ${rows.length > 10 ? `<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:8px;">... và ${rows.length-10} bản ghi nữa</td></tr>` : ''}</tbody></table>
-            </div>`;
+                ${rows.length > 10 ? `<tr><td colspan="4" style="text-align:center;color:#6b7280;padding:8px;">... và ${(rows.length-10).toLocaleString()} bản ghi nữa</td></tr>` : ''}</tbody></table>
+            </div>
+            <div id="importProgressArea" style="display:none;margin-top:10px;"></div>`;
         document.getElementById('importSubmitBtn').disabled = false;
     } catch(e) { preview.innerHTML = `❌ Lỗi đọc file: ${e.message}`; }
 }
@@ -342,9 +348,54 @@ async function _htgd_submitImport() {
     if (_htgd_importRows.length === 0) return;
     const btn = document.getElementById('importSubmitBtn');
     btn.disabled = true; btn.textContent = '⏳ Đang import...';
-    const res = await apiCall('/api/telesale/data/import', 'POST', { source_id: _htgd_activeSourceId, rows: _htgd_importRows });
-    if (res.success) { showToast(res.message); closeModal(); _htgd_importRows = []; await _htgd_refreshStats(); _htgd_renderDataTab(); }
-    else { showToast(res.error, 'error'); btn.disabled = false; btn.textContent = '📥 Import'; }
+
+    const CHUNK = 5000;
+    const total = _htgd_importRows.length;
+    const progressArea = document.getElementById('importProgressArea');
+
+    if (total > CHUNK && progressArea) {
+        progressArea.style.display = 'block';
+        progressArea.innerHTML = `
+            <div style="background:#f1f5f9;border-radius:10px;overflow:hidden;height:22px;position:relative;">
+                <div id="importProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#059669,#10b981);transition:width 0.3s ease;border-radius:10px;"></div>
+                <span id="importProgressText" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#334155;">0%</span>
+            </div>
+            <div id="importProgressDetail" style="font-size:10px;color:#6b7280;margin-top:4px;text-align:center;"></div>`;
+    }
+
+    let totalInserted = 0, totalSkipped = 0;
+    const chunks = Math.ceil(total / CHUNK);
+
+    for (let i = 0; i < total; i += CHUNK) {
+        const chunkRows = _htgd_importRows.slice(i, i + CHUNK);
+        const chunkNum = Math.floor(i / CHUNK) + 1;
+        const pct = Math.round((i / total) * 100);
+
+        if (progressArea?.style.display !== 'none') {
+            const bar = document.getElementById('importProgressBar');
+            const txt = document.getElementById('importProgressText');
+            const det = document.getElementById('importProgressDetail');
+            if (bar) bar.style.width = pct + '%';
+            if (txt) txt.textContent = pct + '%';
+            if (det) det.textContent = `Đang gửi phần ${chunkNum}/${chunks} (${Math.min(i + CHUNK, total).toLocaleString()}/${total.toLocaleString()} dòng)`;
+        }
+
+        const res = await apiCall('/api/telesale/data/import', 'POST', { source_id: _htgd_activeSourceId, rows: chunkRows });
+        if (!res.success) { showToast(res.error, 'error'); btn.disabled = false; btn.textContent = '📥 Import'; return; }
+        totalInserted += (res.inserted || 0);
+        totalSkipped += (res.skipped || 0);
+    }
+
+    // Final 100%
+    if (progressArea?.style.display !== 'none') {
+        const bar = document.getElementById('importProgressBar');
+        const txt = document.getElementById('importProgressText');
+        if (bar) bar.style.width = '100%';
+        if (txt) txt.textContent = '100% ✅';
+    }
+
+    showToast(`Import thành công: ${totalInserted.toLocaleString()} mới, ${totalSkipped.toLocaleString()} bỏ qua`);
+    closeModal(); _htgd_importRows = []; await _htgd_refreshStats(); _htgd_renderDataTab();
 }
 
 // ========== PUMP & RECALL ==========
