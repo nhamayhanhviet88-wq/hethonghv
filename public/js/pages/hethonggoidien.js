@@ -273,9 +273,26 @@ function _htgd_importCSV() {
     if (!_htgd_activeSourceId) return showToast('Chọn nguồn trước', 'error');
     const src = _htgd_sources.find(s => s.id === _htgd_activeSourceId);
     openModal('📥 Import CSV/Excel - ' + (src?.name || ''), `
-        <div style="margin-bottom:12px;padding:12px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;font-size:12px;color:#0369a1;">
-            <strong>📌 Format cột:</strong> Tên Công Ty | Tên Nhóm | Link Đăng Bài | Nội Dung Đăng Bài | Tên KH | SĐT | Địa Chỉ<br>
-            <strong>Hàng đầu tiên</strong> = header (sẽ bỏ qua). Cột <strong>SĐT</strong> là bắt buộc. SĐT trùng sẽ <strong>tự động bỏ qua</strong>.
+        <div style="margin-bottom:14px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <span style="font-size:14px;">📋</span>
+                <span style="font-size:13px;font-weight:800;color:#0c4a6e;">Format cột Excel/CSV</span>
+                <span style="margin-left:auto;font-size:10px;color:#0369a1;background:#e0f2fe;padding:2px 8px;border-radius:6px;font-weight:600;">7 cột</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">①</span> Tên Công Ty</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">②</span> Tên Nhóm</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">③</span> Link Đăng Bài</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">④</span> Nội Dung ĐB</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">⑤</span> Tên KH</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;border:1px solid #86efac;"><span style="color:#16a34a;font-size:10px;">⑥</span> SĐT <span style="color:#dc2626;font-size:9px;">*</span></span>
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;"><span style="color:#94a3b8;font-size:10px;">⑦</span> Địa Chỉ</span>
+            </div>
+            <div style="display:flex;gap:12px;font-size:10px;color:#64748b;">
+                <span>🔹 Hàng 1 = header (bỏ qua)</span>
+                <span>🟢 <span style="color:#dc2626;font-weight:700;">*</span> SĐT bắt buộc</span>
+                <span>🔸 SĐT trùng tự bỏ qua</span>
+            </div>
         </div>
         <div class="form-group"><label>📄 Chọn file CSV/Excel</label><input type="file" id="importFile" accept=".csv,.xlsx,.xls" class="form-control" onchange="_htgd_previewImport(this)"></div>
         <div id="importPreviewArea" style="display:none;"></div>
