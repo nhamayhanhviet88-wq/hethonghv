@@ -424,10 +424,17 @@ async function telesaleRoutes(fastify) {
 
     // ========== INVALID NUMBERS ==========
     fastify.get('/api/telesale/invalid-numbers', { preHandler: authenticate }, async (req, reply) => {
-        const numbers = await db.all(`SELECT inv.*, s.name as source_name, s.icon as source_icon
+        const crm_type = req.query.crm_type;
+        let query = `SELECT inv.*, s.name as source_name, s.icon as source_icon, s.crm_type
             FROM telesale_invalid_numbers inv
-            LEFT JOIN telesale_sources s ON s.id = inv.source_id
-            ORDER BY inv.created_at DESC`);
+            LEFT JOIN telesale_sources s ON s.id = inv.source_id`;
+        const params = [];
+        if (crm_type) {
+            query += ` WHERE s.crm_type = ?`;
+            params.push(crm_type);
+        }
+        query += ` ORDER BY inv.created_at DESC`;
+        const numbers = await db.all(query, params);
         return { numbers };
     });
 

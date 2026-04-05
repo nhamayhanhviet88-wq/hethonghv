@@ -644,7 +644,9 @@ async function _htgd_renderInvalidTab() {
     const el = document.getElementById('htgdContent');
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
-    const res = await apiCall('/api/telesale/invalid-numbers');
+    const isAll = _htgd_activeCrm === 'all';
+    const crmParam = isAll ? '' : `?crm_type=${_htgd_activeCrm}`;
+    const res = await apiCall(`/api/telesale/invalid-numbers${crmParam}`);
     const numbers = res.numbers || [];
 
     el.innerHTML = `
