@@ -54,6 +54,7 @@ async function renderHeThongGoiDienPage(container) {
                 <button class="ts-tab active" onclick="_htgd_switchTab('data',this)">📞 Data Pool</button>
                 <button class="ts-tab" onclick="_htgd_switchTab('members',this)">👥 NV Telesale</button>
                 <button class="ts-tab" onclick="_htgd_switchTab('invalid',this)">❌ Kho Số Không Tồn Tại</button>
+                <button class="ts-tab" onclick="_htgd_switchTab('settings',this)">⚙️ Cài Đặt</button>
             </div>
             <div id="htgdContent" style="flex:1;overflow:auto;">
                 <div style="text-align:center;padding:30px;color:#6b7280;">⏳ Đang tải...</div>
@@ -91,9 +92,13 @@ function _htgd_switchTab(tab, el) {
     _htgd_tab = tab;
     document.querySelectorAll('.ts-tab').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
+    // Hide action buttons on settings/invalid tab
+    const actionBtns = document.getElementById('htgdActionBtns');
+    if (actionBtns) actionBtns.style.visibility = (tab === 'settings' || tab === 'invalid' || _htgd_activeCrm === 'all') ? 'hidden' : 'visible';
     if (tab === 'data') _htgd_renderDataTab();
     else if (tab === 'members') _htgd_renderMembersTab();
     else if (tab === 'invalid') _htgd_renderInvalidTab();
+    else if (tab === 'settings') _htgd_renderSettingsTab();
 }
 
 async function _htgd_loadSources() {
@@ -109,6 +114,7 @@ async function _htgd_loadSources() {
     if (_htgd_tab === 'data') _htgd_renderDataTab();
     else if (_htgd_tab === 'members') _htgd_renderMembersTab();
     else if (_htgd_tab === 'invalid') _htgd_renderInvalidTab();
+    else if (_htgd_tab === 'settings') _htgd_renderSettingsTab();
 }
 
 // ========== DATA TAB ==========
@@ -695,4 +701,178 @@ async function _htgd_restoreNumber(id) {
     const res = await apiCall(`/api/telesale/invalid-numbers/${id}/restore`, 'POST');
     if (res.success) { showToast(res.message); await _htgd_renderInvalidTab(); }
     else showToast(res.error, 'error');
+}
+
+// ========== SETTINGS TAB ==========
+let _htgd_settingsCrm = 'hoa_hong_crm';
+
+async function _htgd_renderSettingsTab() {
+    const el = document.getElementById('htgdContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const [srcRes, configRes1, configRes2, configRes3, configRes4] = await Promise.all([
+        apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
+        apiCall('/api/app-config/telesale_default_quota'),
+        apiCall('/api/app-config/telesale_cold_months'),
+        apiCall('/api/app-config/telesale_followup_canhnhac'),
+        apiCall('/api/app-config/telesale_followup_ncc')
+    ]);
+    const sources = srcRes.sources || [];
+    const defaultQuota = configRes1.value || '250';
+    const coldMonths = configRes2.value || '4';
+    const followupCN = configRes3.value || '3';
+    const followupNCC = configRes4.value || '30';
+
+    const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const crmOptions = [
+        { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+        { value: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+        { value: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    ];
+    const activeCfg = crmOptions.find(o => o.value === _htgd_settingsCrm);
+
+    const crmTabsHtml = crmOptions.map(ct => {
+        const isActive = ct.value === _htgd_settingsCrm;
+        return `<button class="htgd-settings-crm ${isActive ? 'active' : ''}"
+            onclick="_htgd_switchSettingsCrm('${ct.value}')"
+            style="padding:7px 16px;border:1.5px solid ${isActive ? ct.color : '#e2e8f0'};
+            border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.25s ease;
+            background:${isActive ? ct.bg : 'linear-gradient(135deg,#f8fafc,#ffffff)'};
+            color:${isActive ? 'white' : '#475569'};
+            box-shadow:${isActive ? '0 4px 14px ' + ct.color + '30' : '0 1px 3px rgba(0,0,0,0.04)'};
+            display:inline-flex;align-items:center;gap:5px;">
+            ${ct.icon} ${ct.label}
+        </button>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div style="margin:16px 0 12px;">
+            <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">⚙️ Cài Đặt Nguồn Gọi Điện</h4>
+            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            ${crmTabsHtml}
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">📊 Quota mặc định/NV/ngày</label>
+                <input type="number" id="htgdDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px 8px;border:1.5px solid #93c5fd;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_default_quota',this.value)">
+            </div>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label>
+                <input type="number" id="htgdColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_cold_months',this.value)">
+            </div>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label>
+                <input type="number" id="htgdFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span>
+            </div>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (Có NCC)</label>
+                <input type="number" id="htgdFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span>
+            </div>
+        </div>
+
+        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:#6b7280;">Tổng quota <strong style="color:${activeCfg?.color || '#122546'}">${activeCfg?.label || ''}</strong>: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
+        </div>
+
+        <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+            <table class="ts-table">
+                <thead><tr>
+                    <th style="text-align:left;">Icon</th>
+                    <th style="text-align:left;">Tên Nguồn</th>
+                    <th style="text-align:center;">Quota/NV/Ngày</th>
+                    <th style="text-align:center;">Thao Tác</th>
+                </tr></thead>
+                <tbody>
+                    ${sources.map(s => `
+                    <tr>
+                        <td style="font-size:20px;">${s.icon || '📁'}</td>
+                        <td style="font-weight:700;color:#122546;">${s.name}</td>
+                        <td style="text-align:center;"><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${s.daily_quota}</span></td>
+                        <td style="text-align:center;">
+                            <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_editSource(${s.id})">✏️ Sửa</button>
+                            <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="_htgd_deleteSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
+                        </td>
+                    </tr>`).join('')}
+                    ${sources.length === 0 ? '<tr><td colspan="4" class="ts-empty" style="padding:20px;">Chưa có nguồn nào cho CRM này</td></tr>' : ''}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Nguồn Mới vào <span style="color:${activeCfg?.color || '#122546'}">${activeCfg?.icon || ''} ${activeCfg?.label || ''}</span></div>
+            <div style="display:grid;grid-template-columns:60px 1fr 80px auto;gap:10px;align-items:end;">
+                <div>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Icon</label>
+                    <input type="text" id="htgdNewIcon" value="📁" class="ts-select" style="width:100%;text-align:center;font-size:18px;padding:6px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Tên Nguồn</label>
+                    <input type="text" id="htgdNewName" placeholder="VD: NHÂN SỰ" class="ts-search" style="padding:8px 12px;">
+                </div>
+                <div>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Quota</label>
+                    <input type="number" id="htgdNewQuota" value="15" class="ts-select" style="width:100%;">
+                </div>
+                <button class="ts-btn ts-btn-green" onclick="_htgd_addSource()" style="height:38px;">➕ Thêm</button>
+            </div>
+        </div>
+    `;
+}
+
+async function _htgd_switchSettingsCrm(crmType) {
+    _htgd_settingsCrm = crmType;
+    await _htgd_renderSettingsTab();
+}
+
+async function _htgd_saveConfig(key, value) {
+    await apiCall(`/api/app-config/${key}`, 'PUT', { value: String(value) });
+    showToast('✅ Đã lưu');
+}
+
+async function _htgd_addSource() {
+    const name = document.getElementById('htgdNewName')?.value?.trim();
+    if (!name) return showToast('Nhập tên nguồn', 'error');
+    const data = await apiCall('/api/telesale/sources', 'POST', {
+        name, icon: document.getElementById('htgdNewIcon').value,
+        daily_quota: parseInt(document.getElementById('htgdNewQuota').value) || 15,
+        crm_type: _htgd_settingsCrm
+    });
+    if (data.success) { showToast(data.message); await _htgd_renderSettingsTab(); }
+    else showToast(data.error, 'error');
+}
+
+async function _htgd_editSource(id) {
+    const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`);
+    const src = (srcRes.sources || []).find(s => s.id === id);
+    if (!src) return;
+    openModal('✏️ Sửa Nguồn: ' + src.name, `
+        <div class="form-group"><label>Tên</label><input type="text" id="editHtgdName" class="form-control" value="${src.name}"></div>
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;">
+            <div class="form-group"><label>Icon</label><input type="text" id="editHtgdIcon" class="form-control" value="${src.icon || '📁'}" style="text-align:center;font-size:18px;"></div>
+            <div class="form-group"><label>Quota/NV/Ngày</label><input type="number" id="editHtgdQuota" class="form-control" value="${src.daily_quota}"></div>
+        </div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-success" onclick="_htgd_submitEditSource(${id})">💾 Lưu</button>`);
+}
+
+async function _htgd_submitEditSource(id) {
+    const data = await apiCall(`/api/telesale/sources/${id}`, 'PUT', {
+        name: document.getElementById('editHtgdName').value,
+        icon: document.getElementById('editHtgdIcon').value,
+        daily_quota: parseInt(document.getElementById('editHtgdQuota').value) || 0
+    });
+    if (data.success) { showToast(data.message); closeModal(); await _htgd_renderSettingsTab(); }
+    else showToast(data.error, 'error');
+}
+
+async function _htgd_deleteSource(id, name) {
+    if (!confirm(`Xóa nguồn "${name}"?`)) return;
+    const data = await apiCall(`/api/telesale/sources/${id}`, 'DELETE');
+    if (data.success) { showToast(data.message); await _htgd_renderSettingsTab(); }
+    else showToast(data.error, 'error');
 }

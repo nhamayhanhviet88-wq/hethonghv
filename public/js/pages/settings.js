@@ -19,7 +19,6 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="leaderboard-roles" onclick="switchSettingTab('leaderboard-roles', this)">🏆 BXH Affiliate</div>
                     <div class="tab" data-tab="prize-popup" onclick="switchSettingTab('prize-popup', this)">🎉 Giải Thưởng</div>
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
-                    <div class="tab" data-tab="telesale-sources" onclick="switchSettingTab('telesale-sources', this)">📞 Nguồn Gọi Điện</div>
                     <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
                 </div>
                 <div id="settingsContent">
@@ -53,8 +52,6 @@ function switchSettingTab(tab, el) {
         loadPrizePopupSettings();
     } else if (tab === 'roles-positions') {
         loadRolesPositionsSettings();
-    } else if (tab === 'telesale-sources') {
-        loadTelesaleSourcesSettings();
     } else if (tab === 'telesale-statuses') {
         loadTelesaleStatusesSettings();
     } else {
