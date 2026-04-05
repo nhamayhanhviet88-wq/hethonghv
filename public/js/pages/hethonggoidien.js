@@ -9,9 +9,10 @@ let _htgd_members = [];
 let _htgd_stats = [];
 let _htgd_tab = 'data';
 let _htgd_depts = [];
-let _htgd_activeCrm = 'hoa_hong_crm';
+let _htgd_activeCrm = 'all';
 
 const _HTGD_CRM_TABS = [
+    { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
     { key: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
     { key: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
     { key: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
@@ -35,6 +36,7 @@ async function renderHeThongGoiDienPage(container) {
         container.innerHTML = `<div class="ts-empty"><span class="ts-empty-icon">⛔</span><div class="ts-empty-title">Không có quyền truy cập</div><div class="ts-empty-desc">Trang này chỉ dành cho Quản lý trở lên.</div></div>`;
         return;
     }
+    const isAll = _htgd_activeCrm === 'all';
     container.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:16px;height:100%;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -42,23 +44,11 @@ async function renderHeThongGoiDienPage(container) {
                     <h2 style="margin:0;color:#122546;font-size:20px;font-weight:800;">📊 Hệ Thống Phân Chia Gọi Điện</h2>
                     <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Quản lý data pool, import CSV, phân chia tự động cho NV</p>
                 </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div id="htgdActionBtns" style="display:flex;gap:8px;flex-wrap:wrap;${isAll ? 'visibility:hidden;' : ''}">
                     <button class="ts-btn ts-btn-green" onclick="_htgd_importCSV()">📥 Import CSV</button>
                     <button class="ts-btn ts-btn-blue" onclick="_htgd_manualPump()">🚀 Bơm Thủ Công</button>
                     <button class="ts-btn ts-btn-red" onclick="_htgd_manualRecall()">🔄 Thu Hồi</button>
                 </div>
-            </div>
-            <div id="htgdCrmTabs" style="display:flex;gap:8px;flex-wrap:wrap;">
-                ${_HTGD_CRM_TABS.map(t => `
-                    <button class="htgd-crm-tab ${t.key === _htgd_activeCrm ? 'active' : ''}" data-crm="${t.key}"
-                        onclick="_htgd_switchCrm('${t.key}')"
-                        style="padding:10px 20px;border:2px solid ${t.key === _htgd_activeCrm ? t.color : '#e5e7eb'};
-                        border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s;
-                        background:${t.key === _htgd_activeCrm ? t.bg : 'white'};
-                        color:${t.key === _htgd_activeCrm ? 'white' : '#6b7280'};
-                        box-shadow:${t.key === _htgd_activeCrm ? '0 4px 12px ' + t.color + '40' : 'none'};">
-                        ${t.icon} ${t.label}
-                    </button>`).join('')}
             </div>
             <div style="display:flex;gap:2px;border-bottom:2px solid #e5e7eb;">
                 <button class="ts-tab active" onclick="_htgd_switchTab('data',this)">📞 Data Pool</button>
@@ -78,6 +68,7 @@ async function _htgd_switchCrm(crmType) {
     _htgd_activeCrm = crmType;
     _htgd_activeSourceId = null;
     _htgd_page = 1;
+    // Update CRM tab UI
     const tabs = document.querySelectorAll('.htgd-crm-tab');
     tabs.forEach(tab => {
         const key = tab.dataset.crm;
@@ -89,6 +80,9 @@ async function _htgd_switchCrm(crmType) {
         tab.style.borderColor = isActive ? cfg.color : '#e5e7eb';
         tab.style.boxShadow = isActive ? '0 4px 12px ' + cfg.color + '40' : 'none';
     });
+    // Toggle action buttons visibility
+    const actionBtns = document.getElementById('htgdActionBtns');
+    if (actionBtns) actionBtns.style.visibility = crmType === 'all' ? 'hidden' : 'visible';
     await _htgd_loadSources();
 }
 
@@ -102,9 +96,11 @@ function _htgd_switchTab(tab, el) {
 }
 
 async function _htgd_loadSources() {
+    const isAll = _htgd_activeCrm === 'all';
+    const crmParam = isAll ? '' : `crm_type=${_htgd_activeCrm}`;
     const [srcRes, statsRes] = await Promise.all([
-        apiCall(`/api/telesale/sources?crm_type=${_htgd_activeCrm}`),
-        apiCall(`/api/telesale/data/stats?crm_type=${_htgd_activeCrm}`)
+        apiCall(`/api/telesale/sources${crmParam ? '?' + crmParam : ''}`),
+        apiCall(`/api/telesale/data/stats${crmParam ? '?' + crmParam : ''}`)
     ]);
     _htgd_sources = srcRes.sources || [];
     _htgd_stats = statsRes.stats || [];
@@ -118,6 +114,7 @@ async function _htgd_loadSources() {
 async function _htgd_renderDataTab() {
     const el = document.getElementById('htgdContent');
     if (!el) return;
+    const isAll = _htgd_activeCrm === 'all';
     const t = _htgd_stats.reduce((a, s) => ({
         total: a.total + parseInt(s.total || 0), available: a.available + parseInt(s.available || 0),
         assigned: a.assigned + parseInt(s.assigned || 0), answered: a.answered + parseInt(s.answered || 0),
@@ -133,6 +130,42 @@ async function _htgd_renderDataTab() {
         { icon:'❌', label:'Không Tồn Tại', val:t.invalid, grad:_HTGD_GRADIENTS[5], txtColor:'white' },
     ];
 
+    // CRM tabs HTML (rendered below stats)
+    const crmTabsHtml = _HTGD_CRM_TABS.map(ct => {
+        const isActive = ct.key === _htgd_activeCrm;
+        return `<button class="htgd-crm-tab ${isActive ? 'active' : ''}" data-crm="${ct.key}"
+            onclick="_htgd_switchCrm('${ct.key}')"
+            style="padding:8px 18px;border:2px solid ${isActive ? ct.color : '#e5e7eb'};
+            border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s;
+            background:${isActive ? ct.bg : 'white'};
+            color:${isActive ? 'white' : '#6b7280'};
+            box-shadow:${isActive ? '0 4px 12px ' + ct.color + '40' : 'none'};">
+            ${ct.icon} ${ct.label}
+        </button>`;
+    }).join('');
+
+    if (isAll) {
+        // "Tất cả" mode → stats + CRM tabs only, no data table
+        el.innerHTML = `
+            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px;">
+                ${cards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};">
+                    <span class="ts-stat-icon">${c.icon}</span>
+                    <div class="ts-stat-val">${c.val.toLocaleString()}</div>
+                    <div class="ts-stat-label">${c.label}</div>
+                </div>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
+                ${crmTabsHtml}
+            </div>
+            <div style="text-align:center;padding:40px 20px;">
+                <div style="font-size:48px;margin-bottom:12px;">📊</div>
+                <div style="font-size:16px;font-weight:700;color:#334155;margin-bottom:6px;">Tổng Quan Tất Cả CRM</div>
+                <div style="font-size:13px;color:#6b7280;max-width:400px;margin:0 auto;">Chọn CRM cụ thể ở trên để xem data pool chi tiết, import CSV và thao tác dữ liệu.</div>
+            </div>`;
+        return;
+    }
+
+    // Specific CRM mode → full data tab
     el.innerHTML = `
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px;">
             ${cards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};">
@@ -140,6 +173,9 @@ async function _htgd_renderDataTab() {
                 <div class="ts-stat-val">${c.val.toLocaleString()}</div>
                 <div class="ts-stat-label">${c.label}</div>
             </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
+            ${crmTabsHtml}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
             ${_htgd_sources.map(s => {
@@ -272,7 +308,9 @@ async function _htgd_deleteData(id) {
 }
 
 async function _htgd_refreshStats() {
-    const statsRes = await apiCall(`/api/telesale/data/stats?crm_type=${_htgd_activeCrm}`);
+    const isAll = _htgd_activeCrm === 'all';
+    const crmParam = isAll ? '' : `?crm_type=${_htgd_activeCrm}`;
+    const statsRes = await apiCall(`/api/telesale/data/stats${crmParam}`);
     _htgd_stats = statsRes.stats || [];
 }
 
@@ -461,9 +499,11 @@ async function _htgd_renderMembersTab() {
     const el = document.getElementById('htgdContent');
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải NV...</div>';
+    const isAll = _htgd_activeCrm === 'all';
+    const crmParam = isAll ? '' : `?crm_type=${_htgd_activeCrm}`;
 
     const [memRes, usersRes, deptRes] = await Promise.all([
-        apiCall(`/api/telesale/active-members?crm_type=${_htgd_activeCrm}`),
+        apiCall(`/api/telesale/active-members${crmParam}`),
         apiCall('/api/users'),
         apiCall('/api/teams')
     ]);
@@ -484,48 +524,54 @@ async function _htgd_renderMembersTab() {
         groupedUsers[dId].users.push(u);
     });
 
+    const crmLabelMap = { hoa_hong_crm: '🔍 Tự TK', nuoi_duong: '🤝 Hợp Tác', sinh_vien: '📞 Bán Hàng' };
+    const crmColorMap = { hoa_hong_crm: '#6366f1', nuoi_duong: '#059669', sinh_vien: '#f59e0b' };
+
     el.innerHTML = `
-        <div class="ts-members-grid" style="display:grid;grid-template-columns:1fr 320px;gap:18px;">
+        <div class="ts-members-grid" style="display:grid;grid-template-columns:${isAll ? '1fr' : '1fr 320px'};gap:18px;">
             <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                    <h4 style="margin:0;color:#122546;font-size:15px;font-weight:800;">👥 NV Telesale Active (${_htgd_members.filter(m=>m.is_active).length})</h4>
+                    <h4 style="margin:0;color:#122546;font-size:15px;font-weight:800;">👥 NV Telesale Active (${_htgd_members.filter(m=>m.is_active).length})${isAll ? ' — Tất cả CRM' : ''}</h4>
                 </div>
                 ${_htgd_members.length === 0 ? `<div class="ts-empty">
                     <span class="ts-empty-icon">👥</span>
                     <div class="ts-empty-title">Chưa có NV nào</div>
-                    <div class="ts-empty-desc">Thêm NV vào Telesale từ sidebar bên phải</div>
+                    <div class="ts-empty-desc">${isAll ? 'Chọn CRM cụ thể để thêm NV' : 'Thêm NV vào Telesale từ sidebar bên phải'}</div>
                 </div>` : `
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
                     ${_htgd_members.map(m => {
                         const c = _htgd_avatarColor(m.full_name || m.username);
+                        const crmBadge = isAll ? `<span style="font-size:9px;padding:2px 6px;border-radius:6px;font-weight:700;background:${crmColorMap[m.crm_type] || '#6b7280'}20;color:${crmColorMap[m.crm_type] || '#6b7280'}">${crmLabelMap[m.crm_type] || m.crm_type}</span>` : '';
                         return `<div class="ts-nv-card" style="animation:ts-fadeInUp 0.3s ease both;">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                 <span class="ts-avatar" style="background:${c};width:38px;height:38px;font-size:14px;">${_htgd_initials(m.full_name || m.username)}</span>
                                 <div style="flex:1;min-width:0;">
                                     <div style="font-weight:700;color:#122546;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name || m.username}</div>
-                                    <div style="font-size:10px;color:#9ca3af;">${m.dept_name || '—'}</div>
+                                    <div style="font-size:10px;color:#9ca3af;">${m.dept_name || '—'} ${crmBadge}</div>
                                 </div>
                                 ${m.is_active ? '<span class="ts-badge" style="background:#dcfce7;color:#16a34a;font-size:9px;">● Active</span>' : '<span class="ts-badge" style="background:#fef2f2;color:#dc2626;font-size:9px;">● Inactive</span>'}
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <span style="font-size:10px;color:#6b7280;font-weight:600;">Quota/ngày:</span>
-                                    <input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;"
-                                        onchange="_htgd_updateQuota(${m.user_id},this.value)">
+                                    ${isAll
+                                        ? `<span style="font-weight:700;font-size:12px;color:#334155;">${m.daily_quota}</span>`
+                                        : `<input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;"
+                                            onchange="_htgd_updateQuota(${m.user_id},this.value)">`}
                                 </div>
-                                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_removeMember(${m.user_id},'${(m.full_name||m.username).replace(/'/g,"\\\\'")}')" title="Bỏ NV">❌</button>
+                                ${isAll ? '' : `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_removeMember(${m.user_id},'${(m.full_name||m.username).replace(/'/g,"\\\\\\'")}')" title="Bỏ NV">❌</button>`}
                             </div>
                         </div>`;
                     }).join('')}
                 </div>
-                ${_htgd_members.length > 0 ? `
+                ${!isAll && _htgd_members.length > 0 ? `
                 <div style="margin-top:14px;padding:12px 16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:12px;color:#0369a1;font-weight:700;">🔄 Đồng bộ quota:</span>
                     <input type="number" id="syncQuotaValue" value="250" style="width:80px;padding:5px 8px;border:1.5px solid #bae6fd;border-radius:8px;text-align:center;font-weight:700;">
                     <button class="ts-btn ts-btn-blue ts-btn-xs" onclick="_htgd_syncQuota()">Đồng bộ tất cả</button>
                 </div>` : ''}`}
             </div>
-            <div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
+            ${isAll ? '' : `<div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
                 <h4 style="margin:0 0 12px;color:#122546;font-size:13px;font-weight:800;">➕ Thêm NV vào Telesale</h4>
                 <select id="addMemberDeptFilter" class="ts-select" style="width:100%;margin-bottom:10px;" onchange="_htgd_filterByDept(this.value)">
                     <option value="">📁 Tất cả phòng ban</option>
@@ -548,7 +594,7 @@ async function _htgd_renderMembersTab() {
                     }).join('')}
                     ${availableUsers.length === 0 ? '<div class="ts-empty" style="padding:24px;"><span class="ts-empty-icon" style="font-size:32px;">✅</span><div class="ts-empty-title" style="font-size:12px;">Tất cả NV đã được thêm</div></div>' : ''}
                 </div>
-            </div>
+            </div>`}
         </div>`;
 }
 
