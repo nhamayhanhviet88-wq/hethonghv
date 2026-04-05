@@ -75,10 +75,11 @@ async function _htgd_switchCrm(crmType) {
         const cfg = _HTGD_CRM_TABS.find(t => t.key === key);
         if (!cfg) return;
         const isActive = key === crmType;
-        tab.style.background = isActive ? cfg.bg : 'white';
-        tab.style.color = isActive ? 'white' : '#6b7280';
-        tab.style.borderColor = isActive ? cfg.color : '#e5e7eb';
-        tab.style.boxShadow = isActive ? '0 4px 12px ' + cfg.color + '40' : 'none';
+        tab.style.background = isActive ? cfg.bg : 'linear-gradient(135deg,#f8fafc,#ffffff)';
+        tab.style.color = isActive ? 'white' : '#475569';
+        tab.style.borderColor = isActive ? cfg.color : '#e2e8f0';
+        tab.style.boxShadow = isActive ? '0 6px 20px ' + cfg.color + '35, 0 2px 6px ' + cfg.color + '20' : '0 1px 3px rgba(0,0,0,0.05)';
+        tab.style.transform = isActive ? 'scale(1.02)' : 'scale(1)';
     });
     // Toggle action buttons visibility
     const actionBtns = document.getElementById('htgdActionBtns');
@@ -130,17 +131,19 @@ async function _htgd_renderDataTab() {
         { icon:'❌', label:'Không Tồn Tại', val:t.invalid, grad:_HTGD_GRADIENTS[5], txtColor:'white' },
     ];
 
-    // CRM tabs HTML (rendered below stats)
+    // CRM tabs HTML (rendered below stats) — premium style
     const crmTabsHtml = _HTGD_CRM_TABS.map(ct => {
         const isActive = ct.key === _htgd_activeCrm;
         return `<button class="htgd-crm-tab ${isActive ? 'active' : ''}" data-crm="${ct.key}"
             onclick="_htgd_switchCrm('${ct.key}')"
-            style="padding:8px 18px;border:2px solid ${isActive ? ct.color : '#e5e7eb'};
-            border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.2s;
-            background:${isActive ? ct.bg : 'white'};
-            color:${isActive ? 'white' : '#6b7280'};
-            box-shadow:${isActive ? '0 4px 12px ' + ct.color + '40' : 'none'};">
-            ${ct.icon} ${ct.label}
+            style="padding:10px 22px;border:2px solid ${isActive ? ct.color : '#e2e8f0'};
+            border-radius:14px;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.25s ease;
+            background:${isActive ? ct.bg : 'linear-gradient(135deg,#f8fafc,#ffffff)'};
+            color:${isActive ? 'white' : '#475569'};letter-spacing:0.3px;
+            box-shadow:${isActive ? '0 6px 20px ' + ct.color + '35, 0 2px 6px ' + ct.color + '20' : '0 1px 3px rgba(0,0,0,0.05)'};
+            ${isActive ? 'transform:scale(1.02);' : ''}
+            display:inline-flex;align-items:center;gap:6px;">
+            <span style="font-size:16px;">${ct.icon}</span> ${ct.label}
         </button>`;
     }).join('');
 

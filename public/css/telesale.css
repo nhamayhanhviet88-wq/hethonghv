@@ -130,3 +130,14 @@
     .ts-stats-grid { grid-template-columns:repeat(3,1fr) !important; }
     .ts-members-grid { grid-template-columns:1fr !important; }
 }
+
+/* CRM Tabs */
+.htgd-crm-tab:hover:not(.active) {
+    transform:translateY(-2px);
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+    border-color:#94a3b8 !important;
+    color:#1e293b !important;
+}
+.htgd-crm-tab.active:hover {
+    transform:scale(1.04);
+}
