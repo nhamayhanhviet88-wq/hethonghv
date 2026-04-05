@@ -9,7 +9,13 @@ let _htgd_members = [];
 let _htgd_stats = [];
 let _htgd_tab = 'data';
 let _htgd_depts = [];
+let _htgd_activeCrm = 'hoa_hong_crm';
 
+const _HTGD_CRM_TABS = [
+    { key: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+    { key: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { key: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
     'linear-gradient(135deg,#059669,#14b8a6)', // emerald-teal
@@ -42,6 +48,18 @@ async function renderHeThongGoiDienPage(container) {
                     <button class="ts-btn ts-btn-red" onclick="_htgd_manualRecall()">🔄 Thu Hồi</button>
                 </div>
             </div>
+            <div id="htgdCrmTabs" style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${_HTGD_CRM_TABS.map(t => `
+                    <button class="htgd-crm-tab ${t.key === _htgd_activeCrm ? 'active' : ''}" data-crm="${t.key}"
+                        onclick="_htgd_switchCrm('${t.key}')"
+                        style="padding:10px 20px;border:2px solid ${t.key === _htgd_activeCrm ? t.color : '#e5e7eb'};
+                        border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.2s;
+                        background:${t.key === _htgd_activeCrm ? t.bg : 'white'};
+                        color:${t.key === _htgd_activeCrm ? 'white' : '#6b7280'};
+                        box-shadow:${t.key === _htgd_activeCrm ? '0 4px 12px ' + t.color + '40' : 'none'};">
+                        ${t.icon} ${t.label}
+                    </button>`).join('')}
+            </div>
             <div style="display:flex;gap:2px;border-bottom:2px solid #e5e7eb;">
                 <button class="ts-tab active" onclick="_htgd_switchTab('data',this)">📞 Data Pool</button>
                 <button class="ts-tab" onclick="_htgd_switchTab('members',this)">👥 NV Telesale</button>
@@ -52,6 +70,25 @@ async function renderHeThongGoiDienPage(container) {
             </div>
         </div>`;
     _htgd_tab = 'data';
+    _htgd_activeSourceId = null;
+    await _htgd_loadSources();
+}
+
+async function _htgd_switchCrm(crmType) {
+    _htgd_activeCrm = crmType;
+    _htgd_activeSourceId = null;
+    _htgd_page = 1;
+    const tabs = document.querySelectorAll('.htgd-crm-tab');
+    tabs.forEach(tab => {
+        const key = tab.dataset.crm;
+        const cfg = _HTGD_CRM_TABS.find(t => t.key === key);
+        if (!cfg) return;
+        const isActive = key === crmType;
+        tab.style.background = isActive ? cfg.bg : 'white';
+        tab.style.color = isActive ? 'white' : '#6b7280';
+        tab.style.borderColor = isActive ? cfg.color : '#e5e7eb';
+        tab.style.boxShadow = isActive ? '0 4px 12px ' + cfg.color + '40' : 'none';
+    });
     await _htgd_loadSources();
 }
 
@@ -66,13 +103,15 @@ function _htgd_switchTab(tab, el) {
 
 async function _htgd_loadSources() {
     const [srcRes, statsRes] = await Promise.all([
-        apiCall('/api/telesale/sources'),
-        apiCall('/api/telesale/data/stats')
+        apiCall(`/api/telesale/sources?crm_type=${_htgd_activeCrm}`),
+        apiCall(`/api/telesale/data/stats?crm_type=${_htgd_activeCrm}`)
     ]);
     _htgd_sources = srcRes.sources || [];
     _htgd_stats = statsRes.stats || [];
     if (!_htgd_activeSourceId && _htgd_sources.length > 0) _htgd_activeSourceId = _htgd_sources[0].id;
-    _htgd_renderDataTab();
+    if (_htgd_tab === 'data') _htgd_renderDataTab();
+    else if (_htgd_tab === 'members') _htgd_renderMembersTab();
+    else if (_htgd_tab === 'invalid') _htgd_renderInvalidTab();
 }
 
 // ========== DATA TAB ==========
@@ -233,7 +272,7 @@ async function _htgd_deleteData(id) {
 }
 
 async function _htgd_refreshStats() {
-    const statsRes = await apiCall('/api/telesale/data/stats');
+    const statsRes = await apiCall(`/api/telesale/data/stats?crm_type=${_htgd_activeCrm}`);
     _htgd_stats = statsRes.stats || [];
 }
 
@@ -424,7 +463,7 @@ async function _htgd_renderMembersTab() {
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải NV...</div>';
 
     const [memRes, usersRes, deptRes] = await Promise.all([
-        apiCall('/api/telesale/active-members'),
+        apiCall(`/api/telesale/active-members?crm_type=${_htgd_activeCrm}`),
         apiCall('/api/users'),
         apiCall('/api/teams')
     ]);
@@ -527,20 +566,20 @@ function _htgd_filterAddMembers(query) {
 }
 
 async function _htgd_addMember(userId) {
-    const res = await apiCall('/api/telesale/active-members', 'POST', { user_id: userId });
+    const res = await apiCall('/api/telesale/active-members', 'POST', { user_id: userId, crm_type: _htgd_activeCrm });
     if (res.success) { showToast(res.message); await _htgd_renderMembersTab(); }
     else showToast(res.error, 'error');
 }
 
 async function _htgd_updateQuota(userId, quota) {
-    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { daily_quota: parseInt(quota) || 250 });
+    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { daily_quota: parseInt(quota) || 250, crm_type: _htgd_activeCrm });
     if (res.success) showToast('✅ Đã cập nhật quota');
     else showToast(res.error, 'error');
 }
 
 async function _htgd_removeMember(userId, name) {
     if (!confirm(`Bỏ "${name}" khỏi Telesale?`)) return;
-    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'DELETE');
+    const res = await apiCall(`/api/telesale/active-members/${userId}?crm_type=${_htgd_activeCrm}`, 'DELETE');
     if (res.success) { showToast(res.message); await _htgd_renderMembersTab(); }
     else showToast(res.error, 'error');
 }
@@ -549,7 +588,7 @@ async function _htgd_syncQuota() {
     const quota = parseInt(document.getElementById('syncQuotaValue')?.value) || 250;
     const ids = _htgd_members.filter(m => m.is_active).map(m => m.user_id);
     if (ids.length === 0) return showToast('Không có NV active', 'error');
-    const res = await apiCall('/api/telesale/active-members/sync-quota', 'POST', { user_ids: ids, daily_quota: quota });
+    const res = await apiCall('/api/telesale/active-members/sync-quota', 'POST', { user_ids: ids, daily_quota: quota, crm_type: _htgd_activeCrm });
     if (res.success) { showToast(res.message); await _htgd_renderMembersTab(); }
     else showToast(res.error, 'error');
 }

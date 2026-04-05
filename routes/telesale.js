@@ -6,7 +6,12 @@ async function telesaleRoutes(fastify) {
 
     // ========== SOURCES CRUD ==========
     fastify.get('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
-        const sources = await db.all('SELECT * FROM telesale_sources ORDER BY display_order, id');
+        const { crm_type } = req.query;
+        let sql = 'SELECT * FROM telesale_sources';
+        const params = [];
+        if (crm_type) { sql += ' WHERE crm_type = ?'; params.push(crm_type); }
+        sql += ' ORDER BY display_order, id';
+        const sources = await db.all(sql, params);
         return { sources };
     });
 
@@ -98,6 +103,10 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/data/stats', { preHandler: authenticate }, async (req, reply) => {
+        const { crm_type } = req.query;
+        let crmFilter = '';
+        const params = [];
+        if (crm_type) { crmFilter = ' AND s.crm_type = $1'; params.push(crm_type); }
         const stats = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
             COUNT(d.id) FILTER (WHERE true) as total,
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
@@ -107,9 +116,9 @@ async function telesaleRoutes(fastify) {
             COUNT(d.id) FILTER (WHERE d.status = 'invalid') as invalid
             FROM telesale_sources s
             LEFT JOIN telesale_data d ON d.source_id = s.id
-            WHERE s.is_active = true
+            WHERE s.is_active = true${crmFilter}
             GROUP BY s.id, s.name, s.icon, s.daily_quota
-            ORDER BY s.display_order`);
+            ORDER BY s.display_order`, params);
         return { stats };
     });
 
@@ -177,28 +186,33 @@ async function telesaleRoutes(fastify) {
 
     // ========== ACTIVE MEMBERS ==========
     fastify.get('/api/telesale/active-members', { preHandler: authenticate }, async (req, reply) => {
+        const { crm_type } = req.query;
+        let crmFilter = '';
+        const params = [];
+        if (crm_type) { crmFilter = ' AND tam.crm_type = $1'; params.push(crm_type); }
         const members = await db.all(`SELECT tam.*, u.full_name, u.username, u.role, u.department_id,
             d.name as dept_name, d.parent_id as dept_parent_id
             FROM telesale_active_members tam
             JOIN users u ON u.id = tam.user_id
             LEFT JOIN departments d ON d.id = u.department_id
-            WHERE u.status = 'active'
-            ORDER BY u.full_name`);
+            WHERE u.status = 'active'${crmFilter}
+            ORDER BY u.full_name`, params);
         return { members };
     });
 
     fastify.post('/api/telesale/active-members', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const { user_id, daily_quota } = req.body;
+        const { user_id, daily_quota, crm_type } = req.body;
         if (!user_id) return reply.code(400).send({ error: 'user_id là bắt buộc' });
-        const existing = await db.get('SELECT id FROM telesale_active_members WHERE user_id = ?', [user_id]);
+        const crmVal = crm_type || 'hoa_hong_crm';
+        const existing = await db.get('SELECT id FROM telesale_active_members WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
         if (existing) {
-            await db.run('UPDATE telesale_active_members SET is_active = true, daily_quota = COALESCE(?, daily_quota) WHERE user_id = ?', [daily_quota, user_id]);
+            await db.run('UPDATE telesale_active_members SET is_active = true, daily_quota = COALESCE(?, daily_quota) WHERE user_id = ? AND crm_type = ?', [daily_quota, user_id, crmVal]);
         } else {
             const defaultQuota = await db.get("SELECT value FROM app_config WHERE key = 'telesale_default_quota'");
-            await db.run('INSERT INTO telesale_active_members (user_id, daily_quota) VALUES (?,?)',
-                [user_id, daily_quota || parseInt(defaultQuota?.value || '250')]);
+            await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES (?,?,?)',
+                [user_id, crmVal, daily_quota || parseInt(defaultQuota?.value || '250')]);
         }
         return { success: true, message: 'Đã thêm NV vào Telesale' };
     });
@@ -206,19 +220,21 @@ async function telesaleRoutes(fastify) {
     fastify.put('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const { daily_quota, is_active } = req.body;
-        await db.run('UPDATE telesale_active_members SET daily_quota = COALESCE(?,daily_quota), is_active = COALESCE(?,is_active) WHERE user_id = ?',
-            [daily_quota, is_active, req.params.userId]);
+        const { daily_quota, is_active, crm_type } = req.body;
+        const crmVal = crm_type || 'hoa_hong_crm';
+        await db.run('UPDATE telesale_active_members SET daily_quota = COALESCE(?,daily_quota), is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
+            [daily_quota, is_active, req.params.userId, crmVal]);
         return { success: true, message: 'Đã cập nhật' };
     });
 
     fastify.post('/api/telesale/active-members/sync-quota', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const { user_ids, daily_quota } = req.body;
+        const { user_ids, daily_quota, crm_type } = req.body;
+        const crmVal = crm_type || 'hoa_hong_crm';
         if (!user_ids || !Array.isArray(user_ids) || !daily_quota) return reply.code(400).send({ error: 'Cần user_ids[] và daily_quota' });
         for (const uid of user_ids) {
-            await db.run('UPDATE telesale_active_members SET daily_quota = ? WHERE user_id = ?', [daily_quota, uid]);
+            await db.run('UPDATE telesale_active_members SET daily_quota = ? WHERE user_id = ? AND crm_type = ?', [daily_quota, uid, crmVal]);
         }
         return { success: true, message: `Đã đồng bộ ${user_ids.length} NV → ${daily_quota} số/ngày` };
     });
@@ -226,7 +242,8 @@ async function telesaleRoutes(fastify) {
     fastify.delete('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        await db.run('UPDATE telesale_active_members SET is_active = false WHERE user_id = ?', [req.params.userId]);
+        const crm_type = req.query.crm_type || 'hoa_hong_crm';
+        await db.run('UPDATE telesale_active_members SET is_active = false WHERE user_id = ? AND crm_type = ?', [req.params.userId, crm_type]);
         return { success: true, message: 'Đã bỏ NV khỏi Telesale' };
     });
 
@@ -429,82 +446,91 @@ async function telesaleRoutes(fastify) {
 // ========== PUMP LOGIC (exported for cron) ==========
 async function runTelesalePump() {
     const today = new Date().toISOString().split('T')[0];
-    const members = await db.all(`SELECT tam.user_id, tam.daily_quota, u.full_name
-        FROM telesale_active_members tam JOIN users u ON u.id = tam.user_id
-        WHERE tam.is_active = true AND u.status = 'active'`);
-    if (members.length === 0) return { success: true, message: 'Không có NV active', pumped: 0 };
-
-    const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true ORDER BY display_order');
-    if (sources.length === 0) return { success: true, message: 'Không có nguồn', pumped: 0 };
-
+    const CRM_TYPES = ['hoa_hong_crm', 'nuoi_duong', 'sinh_vien'];
     let totalPumped = 0;
     const alerts = [];
 
-    for (const member of members) {
-        let remaining = member.daily_quota;
-        // Check if already pumped today
-        const existing = await db.get('SELECT COUNT(*) as cnt FROM telesale_assignments WHERE user_id = ? AND assigned_date = ?', [member.user_id, today]);
-        if (existing && existing.cnt > 0) continue; // Already pumped
+    for (const crmType of CRM_TYPES) {
+        const members = await db.all(`SELECT tam.user_id, tam.daily_quota, u.full_name
+            FROM telesale_active_members tam JOIN users u ON u.id = tam.user_id
+            WHERE tam.is_active = true AND u.status = 'active' AND tam.crm_type = ?`, [crmType]);
+        if (members.length === 0) continue;
 
-        // Add callbacks due today
-        const callbacks = await db.all(`SELECT DISTINCT a.data_id FROM telesale_assignments a
-            WHERE a.callback_date = $1 AND a.user_id = $2
-            AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = a.data_id AND a2.assigned_date = $1)`,
-            [today, member.user_id]);
-        for (const cb of callbacks) {
-            try {
-                await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
-                    [cb.data_id, member.user_id, today]);
-                await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
-                    [today, member.user_id, cb.data_id]);
-                totalPumped++;
-                remaining--;
-            } catch (e) { /* duplicate, skip */ }
-        }
+        const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true AND crm_type = ? ORDER BY display_order', [crmType]);
+        if (sources.length === 0) continue;
 
-        // Distribute from sources proportionally
-        const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
-        for (let si = 0; si < sources.length && remaining > 0; si++) {
-            const src = sources[si];
-            let count = totalQuota > 0 ? Math.round(remaining * (src.daily_quota || 0) / totalQuota) : Math.ceil(remaining / sources.length);
-            count = Math.min(count, remaining);
-            if (count <= 0) continue;
+        const sourceIds = sources.map(s => s.id);
 
-            const available = await db.all(`SELECT id FROM telesale_data
-                WHERE source_id = $1 AND status = 'available'
-                ORDER BY RANDOM() LIMIT $2`, [src.id, count]);
+        for (const member of members) {
+            let remaining = member.daily_quota;
+            // Check if already pumped today for this CRM's sources
+            const existing = await db.get(`SELECT COUNT(*) as cnt FROM telesale_assignments a
+                JOIN telesale_data d ON d.id = a.data_id
+                WHERE a.user_id = ? AND a.assigned_date = ? AND d.source_id = ANY($3::int[])`,
+                [member.user_id, today, sourceIds]);
+            if (existing && existing.cnt > 0) continue;
 
-            if (available.length < count && available.length < (src.daily_quota || 0)) {
-                alerts.push({ source: src.name, needed: count, available: available.length });
-            }
-
-            for (const d of available) {
+            // Add callbacks due today
+            const callbacks = await db.all(`SELECT DISTINCT a.data_id FROM telesale_assignments a
+                JOIN telesale_data d ON d.id = a.data_id
+                WHERE a.callback_date = $1 AND a.user_id = $2 AND d.source_id = ANY($3::int[])
+                AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = a.data_id AND a2.assigned_date = $1)`,
+                [today, member.user_id, sourceIds]);
+            for (const cb of callbacks) {
                 try {
                     await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
-                        [d.id, member.user_id, today]);
+                        [cb.data_id, member.user_id, today]);
                     await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
-                        [today, member.user_id, d.id]);
+                        [today, member.user_id, cb.data_id]);
                     totalPumped++;
                     remaining--;
-                } catch (e) { /* duplicate */ }
+                } catch (e) { /* duplicate, skip */ }
             }
-        }
 
-        // If still remaining, try to fill from any source with available data
-        if (remaining > 0) {
-            const extra = await db.all(`SELECT id FROM telesale_data
-                WHERE status = 'available'
-                AND id NOT IN (SELECT data_id FROM telesale_assignments WHERE assigned_date = $1 AND user_id = $2)
-                ORDER BY RANDOM() LIMIT $3`, [today, member.user_id, remaining]);
-            for (const d of extra) {
-                try {
-                    await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
-                        [d.id, member.user_id, today]);
-                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
-                        [today, member.user_id, d.id]);
-                    totalPumped++;
-                    remaining--;
-                } catch (e) { /* skip */ }
+            // Distribute from sources proportionally
+            const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+            for (let si = 0; si < sources.length && remaining > 0; si++) {
+                const src = sources[si];
+                let count = totalQuota > 0 ? Math.round(remaining * (src.daily_quota || 0) / totalQuota) : Math.ceil(remaining / sources.length);
+                count = Math.min(count, remaining);
+                if (count <= 0) continue;
+
+                const available = await db.all(`SELECT id FROM telesale_data
+                    WHERE source_id = $1 AND status = 'available'
+                    ORDER BY RANDOM() LIMIT $2`, [src.id, count]);
+
+                if (available.length < count && available.length < (src.daily_quota || 0)) {
+                    alerts.push({ source: src.name, needed: count, available: available.length });
+                }
+
+                for (const d of available) {
+                    try {
+                        await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                            [d.id, member.user_id, today]);
+                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                            [today, member.user_id, d.id]);
+                        totalPumped++;
+                        remaining--;
+                    } catch (e) { /* duplicate */ }
+                }
+            }
+
+            // If still remaining, try any source in this CRM
+            if (remaining > 0) {
+                const extra = await db.all(`SELECT id FROM telesale_data
+                    WHERE status = 'available' AND source_id = ANY($1::int[])
+                    AND id NOT IN (SELECT data_id FROM telesale_assignments WHERE assigned_date = $2 AND user_id = $3)
+                    ORDER BY RANDOM() LIMIT $4`, [sourceIds, today, member.user_id, remaining]);
+                for (const d of extra) {
+                    try {
+                        await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                            [d.id, member.user_id, today]);
+                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                            [today, member.user_id, d.id]);
+                        totalPumped++;
+                        remaining--;
+                    } catch (e) { /* skip */ }
+                }
             }
         }
     }

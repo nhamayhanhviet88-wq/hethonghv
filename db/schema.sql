@@ -1133,14 +1133,26 @@ CREATE INDEX IF NOT EXISTS idx_telesale_assign_user ON telesale_assignments(user
 CREATE INDEX IF NOT EXISTS idx_telesale_assign_status ON telesale_assignments(call_status);
 CREATE INDEX IF NOT EXISTS idx_telesale_assign_callback ON telesale_assignments(callback_date);
 
--- 5. NV active trong hệ thống Telesale (GĐ thêm/bỏ)
+-- 5. NV active trong hệ thống Telesale (GĐ thêm/bỏ) — per CRM
 CREATE TABLE IF NOT EXISTS telesale_active_members (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    crm_type TEXT NOT NULL DEFAULT 'hoa_hong_crm',
     daily_quota INTEGER DEFAULT 250,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tam_user_crm ON telesale_active_members(user_id, crm_type);
+
+-- Migration: add crm_type if table already exists
+DO $$ BEGIN
+    ALTER TABLE telesale_active_members ADD COLUMN IF NOT EXISTS crm_type TEXT NOT NULL DEFAULT 'hoa_hong_crm';
+    -- Drop old unique on user_id only (if exists)
+    BEGIN
+        ALTER TABLE telesale_active_members DROP CONSTRAINT IF EXISTS telesale_active_members_user_id_key;
+    EXCEPTION WHEN undefined_object THEN NULL;
+    END;
+END $$;
 
 -- 6. Cấu hình cột import (tùy chỉnh)
 CREATE TABLE IF NOT EXISTS telesale_import_columns (
