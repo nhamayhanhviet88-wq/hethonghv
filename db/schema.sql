@@ -1137,25 +1137,25 @@ CREATE INDEX IF NOT EXISTS idx_telesale_assign_callback ON telesale_assignments(
 CREATE TABLE IF NOT EXISTS telesale_active_members (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
-    crm_type TEXT NOT NULL DEFAULT 'hoa_hong_crm',
+    crm_type TEXT DEFAULT 'hoa_hong_crm',
     daily_quota INTEGER DEFAULT 250,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tam_user_crm ON telesale_active_members(user_id, crm_type);
 
--- Migration: add crm_type if table already exists
+-- Migration: add crm_type if table already exists (MUST run before index)
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'telesale_active_members' AND column_name = 'crm_type') THEN
         ALTER TABLE telesale_active_members ADD COLUMN crm_type TEXT DEFAULT 'hoa_hong_crm';
         UPDATE telesale_active_members SET crm_type = 'hoa_hong_crm' WHERE crm_type IS NULL;
     END IF;
-    -- Drop old unique on user_id only (if exists)
     BEGIN
         ALTER TABLE telesale_active_members DROP CONSTRAINT IF EXISTS telesale_active_members_user_id_key;
     EXCEPTION WHEN undefined_object THEN NULL;
     END;
 END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tam_user_crm ON telesale_active_members(user_id, crm_type);
 
 -- 6. Cấu hình cột import (tùy chỉnh)
 CREATE TABLE IF NOT EXISTS telesale_import_columns (
