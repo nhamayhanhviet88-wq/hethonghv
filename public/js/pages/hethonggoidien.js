@@ -136,14 +136,13 @@ async function _htgd_renderDataTab() {
         const isActive = ct.key === _htgd_activeCrm;
         return `<button class="htgd-crm-tab ${isActive ? 'active' : ''}" data-crm="${ct.key}"
             onclick="_htgd_switchCrm('${ct.key}')"
-            style="padding:10px 22px;border:2px solid ${isActive ? ct.color : '#e2e8f0'};
-            border-radius:14px;font-size:13px;font-weight:800;cursor:pointer;transition:all 0.25s ease;
+            style="padding:7px 16px;border:1.5px solid ${isActive ? ct.color : '#e2e8f0'};
+            border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.25s ease;
             background:${isActive ? ct.bg : 'linear-gradient(135deg,#f8fafc,#ffffff)'};
-            color:${isActive ? 'white' : '#475569'};letter-spacing:0.3px;
-            box-shadow:${isActive ? '0 6px 20px ' + ct.color + '35, 0 2px 6px ' + ct.color + '20' : '0 1px 3px rgba(0,0,0,0.05)'};
-            ${isActive ? 'transform:scale(1.02);' : ''}
-            display:inline-flex;align-items:center;gap:6px;">
-            <span style="font-size:16px;">${ct.icon}</span> ${ct.label}
+            color:${isActive ? 'white' : '#475569'};
+            box-shadow:${isActive ? '0 4px 14px ' + ct.color + '30' : '0 1px 3px rgba(0,0,0,0.04)'};
+            display:inline-flex;align-items:center;gap:5px;">
+            ${ct.icon} ${ct.label}
         </button>`;
     }).join('');
 
