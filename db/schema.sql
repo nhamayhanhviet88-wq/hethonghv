@@ -1146,7 +1146,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tam_user_crm ON telesale_active_members(us
 
 -- Migration: add crm_type if table already exists
 DO $$ BEGIN
-    ALTER TABLE telesale_active_members ADD COLUMN IF NOT EXISTS crm_type TEXT NOT NULL DEFAULT 'hoa_hong_crm';
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'telesale_active_members' AND column_name = 'crm_type') THEN
+        ALTER TABLE telesale_active_members ADD COLUMN crm_type TEXT DEFAULT 'hoa_hong_crm';
+        UPDATE telesale_active_members SET crm_type = 'hoa_hong_crm' WHERE crm_type IS NULL;
+    END IF;
     -- Drop old unique on user_id only (if exists)
     BEGIN
         ALTER TABLE telesale_active_members DROP CONSTRAINT IF EXISTS telesale_active_members_user_id_key;
