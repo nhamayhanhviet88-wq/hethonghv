@@ -607,21 +607,18 @@ async function deletePosition(id, name) {
 
 // ========== TELESALE SOURCES SETTINGS ==========
 const CRM_TYPE_OPTIONS_TS = [
-    { value: '', label: '-- Không map --' },
-    { value: 'nhu_cau', label: 'Chăm Sóc KH Nhu Cầu' },
-    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
-    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
-    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
-    { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
-    { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
+    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+    { value: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { value: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
+let _settings_activeCrm = 'hoa_hong_crm';
 
 async function loadTelesaleSourcesSettings() {
     const el = document.getElementById('settingsContent');
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
     const [srcRes, configRes1, configRes2, configRes3, configRes4] = await Promise.all([
-        apiCall('/api/telesale/sources'),
+        apiCall(`/api/telesale/sources?crm_type=${_settings_activeCrm}`),
         apiCall('/api/app-config/telesale_default_quota'),
         apiCall('/api/app-config/telesale_cold_months'),
         apiCall('/api/app-config/telesale_followup_canhnhac'),
@@ -634,11 +631,32 @@ async function loadTelesaleSourcesSettings() {
     const followupNCC = configRes4.value || '30';
 
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const activeCfg = CRM_TYPE_OPTIONS_TS.find(o => o.value === _settings_activeCrm);
+
+    // CRM tabs
+    const crmTabsHtml = CRM_TYPE_OPTIONS_TS.map(ct => {
+        const isActive = ct.value === _settings_activeCrm;
+        return `<button class="htgd-crm-tab ${isActive ? 'active' : ''}" data-crm="${ct.value}"
+            onclick="_settings_switchCrm('${ct.value}')"
+            style="padding:7px 16px;border:1.5px solid ${isActive ? ct.color : '#e2e8f0'};
+            border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.25s ease;
+            background:${isActive ? ct.bg : 'linear-gradient(135deg,#f8fafc,#ffffff)'};
+            color:${isActive ? 'white' : '#475569'};
+            box-shadow:${isActive ? '0 4px 14px ' + ct.color + '30' : '0 1px 3px rgba(0,0,0,0.04)'};
+            display:inline-flex;align-items:center;gap:5px;">
+            ${ct.icon} ${ct.label}
+        </button>`;
+    }).join('');
 
     el.innerHTML = `
         <div style="margin-bottom:20px;">
             <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">📞 Nguồn Gọi Điện Telesale</h4>
             <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
+        </div>
+
+        <!-- CRM Tabs -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            ${crmTabsHtml}
         </div>
 
         <!-- Global Config -->
@@ -662,7 +680,7 @@ async function loadTelesaleSourcesSettings() {
         </div>
 
         <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;color:#6b7280;">Tổng quota: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
+            <span style="font-size:12px;color:#6b7280;">Tổng quota <strong style="color:${activeCfg?.color || '#122546'}">${activeCfg?.label || ''}</strong>: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
         </div>
 
         <!-- Sources List -->
@@ -672,7 +690,6 @@ async function loadTelesaleSourcesSettings() {
                     <th style="text-align:left;">Icon</th>
                     <th style="text-align:left;">Tên Nguồn</th>
                     <th style="text-align:center;">Quota/NV/Ngày</th>
-                    <th style="text-align:left;">Map CRM</th>
                     <th style="text-align:center;">Thao Tác</th>
                 </tr></thead>
                 <tbody>
@@ -681,21 +698,20 @@ async function loadTelesaleSourcesSettings() {
                         <td style="font-size:20px;">${s.icon || '📁'}</td>
                         <td style="font-weight:700;color:#122546;">${s.name}</td>
                         <td style="text-align:center;"><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${s.daily_quota}</span></td>
-                        <td style="font-size:11px;color:#6b7280;">${s.crm_type ? (CRM_TYPE_OPTIONS_TS.find(o => o.value === s.crm_type)?.label || s.crm_type) : '<span style="color:#d1d5db;">—</span>'}</td>
                         <td style="text-align:center;">
                             <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="editTsSource(${s.id})">✏️ Sửa</button>
                             <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="deleteTsSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
                         </td>
                     </tr>`).join('')}
-                    ${sources.length === 0 ? '<tr><td colspan="5" class="ts-empty" style="padding:20px;">Chưa có nguồn nào</td></tr>' : ''}
+                    ${sources.length === 0 ? '<tr><td colspan="4" class="ts-empty" style="padding:20px;">Chưa có nguồn nào cho CRM này</td></tr>' : ''}
                 </tbody>
             </table>
         </div>
 
         <!-- Add New Source -->
         <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
-            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Nguồn Mới</div>
-            <div style="display:grid;grid-template-columns:60px 1fr 80px 1fr 80px;gap:10px;align-items:end;">
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Nguồn Mới vào <span style="color:${activeCfg?.color || '#122546'}">${activeCfg?.icon || ''} ${activeCfg?.label || ''}</span></div>
+            <div style="display:grid;grid-template-columns:60px 1fr 80px auto;gap:10px;align-items:end;">
                 <div>
                     <label style="font-size:10px;color:#6b7280;font-weight:600;">Icon</label>
                     <input type="text" id="newTsIcon" value="📁" class="ts-select" style="width:100%;text-align:center;font-size:18px;padding:6px;">
@@ -708,11 +724,7 @@ async function loadTelesaleSourcesSettings() {
                     <label style="font-size:10px;color:#6b7280;font-weight:600;">Quota</label>
                     <input type="number" id="newTsQuota" value="15" class="ts-select" style="width:100%;">
                 </div>
-                <div>
-                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Map CRM</label>
-                    <select id="newTsCrm" class="ts-select" style="width:100%;">${CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}</select>
-                </div>
-                <button class="ts-btn ts-btn-green" onclick="addTsSource()" style="height:38px;">➕</button>
+                <button class="ts-btn ts-btn-green" onclick="addTsSource()" style="height:38px;">➕ Thêm</button>
             </div>
         </div>
     `;
@@ -723,30 +735,33 @@ async function saveTsConfig(key, value) {
     showToast('✅ Đã lưu');
 }
 
+async function _settings_switchCrm(crmType) {
+    _settings_activeCrm = crmType;
+    await loadTelesaleSourcesSettings();
+}
+
 async function addTsSource() {
     const name = document.getElementById('newTsName')?.value?.trim();
     if (!name) return showToast('Nhập tên nguồn', 'error');
     const data = await apiCall('/api/telesale/sources', 'POST', {
         name, icon: document.getElementById('newTsIcon').value,
         daily_quota: parseInt(document.getElementById('newTsQuota').value) || 15,
-        crm_type: document.getElementById('newTsCrm').value || null
+        crm_type: _settings_activeCrm
     });
     if (data.success) { showToast(data.message); await loadTelesaleSourcesSettings(); }
     else showToast(data.error, 'error');
 }
 
 async function editTsSource(id) {
-    const srcRes = await apiCall('/api/telesale/sources');
+    const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_settings_activeCrm}`);
     const src = (srcRes.sources || []).find(s => s.id === id);
     if (!src) return;
-    const crmOpts = CRM_TYPE_OPTIONS_TS.map(o => `<option value="${o.value}" ${o.value === (src.crm_type || '') ? 'selected' : ''}>${o.label}</option>`).join('');
     openModal('✏️ Sửa Nguồn: ' + src.name, `
         <div class="form-group"><label>Tên</label><input type="text" id="editTsName" class="form-control" value="${src.name}"></div>
         <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;">
             <div class="form-group"><label>Icon</label><input type="text" id="editTsIcon" class="form-control" value="${src.icon || '📁'}" style="text-align:center;font-size:18px;"></div>
             <div class="form-group"><label>Quota/NV/Ngày</label><input type="number" id="editTsQuota" class="form-control" value="${src.daily_quota}"></div>
         </div>
-        <div class="form-group"><label>Map CRM</label><select id="editTsCrm" class="form-control">${crmOpts}</select></div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
         <button class="btn btn-success" onclick="submitEditTsSource(${id})">💾 Lưu</button>`);
 }
@@ -755,8 +770,7 @@ async function submitEditTsSource(id) {
     const data = await apiCall(`/api/telesale/sources/${id}`, 'PUT', {
         name: document.getElementById('editTsName').value,
         icon: document.getElementById('editTsIcon').value,
-        daily_quota: parseInt(document.getElementById('editTsQuota').value) || 0,
-        crm_type: document.getElementById('editTsCrm').value || null
+        daily_quota: parseInt(document.getElementById('editTsQuota').value) || 0
     });
     if (data.success) { showToast(data.message); closeModal(); await loadTelesaleSourcesSettings(); }
     else showToast(data.error, 'error');
