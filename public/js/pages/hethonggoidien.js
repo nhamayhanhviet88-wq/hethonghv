@@ -155,7 +155,7 @@ async function _htgd_renderDataTab() {
         { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white' },
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white' },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
-        { icon:'🏪', label:'Đã Có NCC', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white' },
+        { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white' },
     ];
 
     // CRM tabs HTML (rendered below stats) — premium style
