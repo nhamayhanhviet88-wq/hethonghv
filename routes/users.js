@@ -13,7 +13,7 @@ async function usersRoutes(fastify, options) {
                      u.contract_info, u.start_date, u.birth_date, u.id_card_front, u.id_card_back,
                      u.telegram_group_id, u.commission_tier_id, u.assigned_to_user_id, u.managed_by_user_id,
                      u.balance, u.bank_name, u.bank_account, u.bank_holder, u.order_code_prefix,
-                     u.contract_file, u.rules_file, u.source_crm_type, u.position_id,
+                     u.contract_file, u.rules_file, u.source_crm_type, u.position_id, u.department_id,
                      p.name as position_name,
                      u.created_at, u.updated_at,
                      ct.name as tier_name, ct.percentage as tier_percentage, ct.parent_percentage as tier_parent_percentage,
