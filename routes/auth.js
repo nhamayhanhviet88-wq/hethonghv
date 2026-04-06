@@ -25,65 +25,60 @@ async function authRoutes(fastify, options) {
         }
 
         if (user.status === 'locked') {
-            // Fetch ALL penalty sources for popup
-            // Source 1: Support requests (QL không hỗ trợ NV)
+            // Only show YESTERDAY's violations (not entire history)
+            // Full history is available in "Phạt Khóa TK NV" menu
+            const now = new Date();
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+            // Source 1: Support requests (QL không hỗ trợ NV) — yesterday only
             const supportPenalties = await db.all(
                 `SELECT sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                         u.full_name as employee_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON u.id = sr.user_id
-                 WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.acknowledged = false
+                 WHERE sr.manager_id = $1 AND sr.status = 'expired'
+                   AND sr.task_date::text = $2
                  ORDER BY sr.task_date`,
-                [user.id]
+                [user.id, yesterdayStr]
             );
 
-            // Source 2: CV Điểm - QL không duyệt (also stored in task_support_requests with penalty_reason LIKE 'Không duyệt%')
-            // Already included above — separate by penalty_reason prefix
-
-            // Source 3: CV Khóa - NV không nộp báo cáo  
+            // Source 2: CV Khóa — yesterday only
             const lockPenalties = await db.all(
                 `SELECT ltc.completion_date::text as task_date, ltc.penalty_amount,
                         lt.task_name, lt.penalty_amount as task_penalty
                  FROM lock_task_completions ltc
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                  WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-                   AND ltc.acknowledged = false
+                   AND ltc.completion_date::text = $2
                  ORDER BY ltc.completion_date`,
-                [user.id]
+                [user.id, yesterdayStr]
             );
 
             // Group support penalties into categories
-            const htPenalties = []; // Hỗ trợ nhân sự
-            const diemPenalties = []; // CV Điểm không duyệt
+            const htPenalties = [];
+            const diemPenalties = [];
             for (const sp of supportPenalties) {
                 if (sp.penalty_reason && sp.penalty_reason.includes('Không duyệt')) {
                     diemPenalties.push({
-                        task_name: sp.task_name,
-                        task_date: sp.task_date,
+                        task_name: sp.task_name, task_date: sp.task_date,
                         penalty_amount: sp.penalty_amount || 0,
-                        reason: sp.penalty_reason,
-                        employee_name: sp.employee_name,
-                        source: 'diem'
+                        reason: sp.penalty_reason, employee_name: sp.employee_name, source: 'diem'
                     });
                 } else {
                     htPenalties.push({
-                        task_name: sp.task_name,
-                        task_date: sp.task_date,
+                        task_name: sp.task_name, task_date: sp.task_date,
                         penalty_amount: sp.penalty_amount || 0,
-                        reason: sp.penalty_reason,
-                        employee_name: sp.employee_name,
-                        source: 'support'
+                        reason: sp.penalty_reason, employee_name: sp.employee_name, source: 'support'
                     });
                 }
             }
 
-            // Format lock penalties
             const khoaPenalties = lockPenalties.map(lp => ({
-                task_name: lp.task_name,
-                task_date: lp.task_date,
+                task_name: lp.task_name, task_date: lp.task_date,
                 penalty_amount: lp.penalty_amount || lp.task_penalty || 50000,
-                reason: 'Không nộp báo cáo',
-                source: 'khoa'
+                reason: 'Không nộp báo cáo', source: 'khoa'
             }));
 
             const totalFine = [...htPenalties, ...diemPenalties, ...khoaPenalties]
@@ -92,6 +87,7 @@ async function authRoutes(fastify, options) {
             return reply.code(403).send({
                 error: 'locked',
                 locked: true,
+                penaltyDate: yesterdayStr,
                 penaltyGroups: {
                     khoa: khoaPenalties,
                     diem: diemPenalties,
