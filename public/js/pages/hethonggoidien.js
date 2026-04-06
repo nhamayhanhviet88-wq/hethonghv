@@ -318,6 +318,7 @@ async function _htgd_loadData() {
                 <th style="text-align:left;width:40px;">#</th>
                 <th style="text-align:left;">Tên Công Ty</th>
                 <th style="text-align:left;">Tên KH</th>
+                <th style="text-align:left;">Nội Dung ĐB</th>
                 <th style="text-align:left;">SĐT</th>
                 <th style="text-align:center;">NM</th>
                 <th style="text-align:left;">Địa Chỉ</th>
@@ -337,6 +338,7 @@ async function _htgd_loadData() {
                     <td style="color:#9ca3af;font-weight:600;">${((_htgd_page-1)*50)+i+1}</td>
                     <td style="font-weight:600;color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.company_name||'').replace(/"/g,'&quot;')}">${d.company_name || '—'}</td>
                     <td style="font-weight:700;color:#122546;">${d.customer_name || '—'}</td>
+                    <td style="color:#6b7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${(d.post_content||'').replace(/"/g,'&quot;')}">${d.post_content || '—'}</td>
                     <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">${phoneFull}</td>
                     <td style="text-align:center;">${carrierHtml}</td>
                     <td style="color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.address||'').replace(/"/g,'&quot;')}">${d.address || '—'}</td>
