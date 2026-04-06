@@ -40,7 +40,7 @@ async function renderGoiDienPage(container) {
         apiCall('/api/telesale/sources'),
         apiCall('/api/telesale/answer-statuses'),
         apiCall('/api/users'),
-        apiCall('/api/teams'),
+        apiCall('/api/departments'),
         apiCall('/api/telesale/active-members')
     ]);
     _gd_sources = srcRes.sources || [];
