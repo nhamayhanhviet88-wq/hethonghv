@@ -92,6 +92,12 @@ async function runDeadlineCheck() {
 
     const nowLocal = toLocalTimestamp(now);
 
+    // ★ GLOBAL: Chỉ khóa tài khoản vào 00:15-00:30 (1 lần/ngày)
+    // Penalty records vẫn được tạo bất kỳ lúc nào, nhưng status='locked' chỉ set lúc 00:15
+    const _hour = now.getHours();
+    const _minute = now.getMinutes();
+    const shouldLockAccounts = (_hour === 0 && _minute >= 15 && _minute < 30);
+
     // Load global penalty config
     const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
     const GPC = {};
@@ -131,8 +137,8 @@ async function runDeadlineCheck() {
             [penaltyAmount, `Không hỗ trợ nhân sự trước hạn: ${sr.task_name}`, sr.id]
         );
         
-        // Khóa tài khoản quản lý
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.manager_id]);
+        // Khóa tài khoản quản lý (chỉ ở 00:15)
+        if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.manager_id]);
         
         lockedCount++;
         penaltyCount++;
@@ -171,8 +177,8 @@ async function runDeadlineCheck() {
         }
 
         if (!nvSubmitted) {
-            // Khóa NV vì không nộp trong thời hạn gia hạn
-            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.user_id]);
+            // Khóa NV vì không nộp trong thời hạn gia hạn (chỉ ở 00:15)
+            if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [sr.user_id]);
             lockedCount++;
             console.log(`  🔐 Khóa NV id=${sr.user_id} — Không nộp báo cáo trong hạn hỗ trợ: ${sr.task_name}`);
         }
@@ -227,20 +233,18 @@ async function runDeadlineCheck() {
              penaltyAmount, `Không duyệt công việc trước hạn: ${report.task_name}`]
         );
         
-        // Khóa tài khoản quản lý
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+        // Khóa tài khoản quản lý (chỉ ở 00:15)
+        if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
         
-        lockedCount++;
+        if (shouldLockAccounts) lockedCount++;
         penaltyCount++;
-        console.log(`  🔒 Khóa quản lý id=${managerId} — Không duyệt: ${report.task_name} (phạt ${penaltyAmount}đ)`);
+        console.log(`  🔒 Phạt quản lý id=${managerId} — Không duyệt: ${report.task_name} (phạt ${penaltyAmount}đ)${shouldLockAccounts ? ' → KHÓA' : ''}`);
     }
 
     // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
     // Chỉ chạy vào 00:15 - 00:30: kiểm tra 14 ngày qua chưa nộp → khóa NV + phạt
     // Mở rộng 14 ngày để bắt lại task bị hoãn do nghỉ phép
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const shouldCheckLockTasks = (hour === 0 && minute >= 15 && minute < 30);
+    const shouldCheckLockTasks = shouldLockAccounts; // Same 00:15-00:30 window
 
     if (shouldCheckLockTasks) {
         const holidays = await getHolidays();
@@ -388,12 +392,12 @@ async function runDeadlineCheck() {
                 console.error(`  ❌ Error stacking penalty for task ${exp.lock_task_id}, user ${exp.user_id}:`, e.message);
             }
 
-            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
+            if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
             penaltyCount++;
             console.log(`  🔄 [CV Khóa] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} ngày ${exp.completion_date} (thêm ${extraPenalty}đ)`);
         }
     } else {
-        console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 (hiện: ${hour}:${String(minute).padStart(2,'0')})`);
+        console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 (hiện: ${_hour}:${String(_minute).padStart(2,'0')})`);
     }
 
     // ========== 3b. CHECK CV KHÓA - QL CHƯA DUYỆT ==========
@@ -451,12 +455,12 @@ async function runDeadlineCheck() {
             );
         } catch(e) {}
 
-        // Khóa tài khoản QL
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+        // Khóa tài khoản QL (chỉ ở 00:15)
+        if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
 
-        lockedCount++;
+        if (shouldLockAccounts) lockedCount++;
         penaltyCount++;
-        console.log(`  🔐 [CV Khóa] Khóa QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+        console.log(`  🔐 [CV Khóa] Phạt QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)${shouldLockAccounts ? ' → KHÓA' : ''}`);
     }
 
     // ========== 4. CHECK CV CHUỖI — QL CHƯA DUYỆT ==========
@@ -515,8 +519,8 @@ async function runDeadlineCheck() {
             );
         } catch(e) {}
 
-        // Khóa tài khoản QL
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
+        // Khóa tài khoản QL (chỉ ở 00:15)
+        if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [managerId]);
 
         lockedCount++;
         penaltyCount++;
@@ -595,8 +599,8 @@ async function runDeadlineCheck() {
                 continue;
             }
 
-            // Khóa tài khoản NV
-            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [oci.user_id]);
+            // Khóa tài khoản NV (chỉ ở 00:15)
+            if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [oci.user_id]);
 
             lockedCount++;
             penaltyCount++;
@@ -650,8 +654,8 @@ async function runDeadlineCheck() {
                 console.error(`  ❌ Error stacking chain penalty for id ${exp.id}:`, e.message);
             }
 
-            // Lock account again
-            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
+            // Lock account again (chỉ ở 00:15)
+            if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [exp.user_id]);
 
             penaltyCount++;
             console.log(`  🔄 [CV Chuỗi] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} (${exp.chain_name}) (thêm ${extraPenalty}đ)`);
@@ -703,8 +707,8 @@ async function runDeadlineCheck() {
             console.log(`  🔄 [Cấp cứu] Phạt chồng QL id=${handlerId} — Vẫn chưa xử lý cấp cứu: ${em.customer_name || em.reason} (thêm ${penaltyAmount}đ)`);
         }
 
-        // Khóa tài khoản handler
-        await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [handlerId]);
+        // Khóa tài khoản handler (chỉ ở 00:15)
+        if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [handlerId]);
         lockedCount++;
         penaltyCount++;
     }
@@ -817,8 +821,8 @@ async function runDeadlineCheck() {
                         );
 
                         if (inserted) {
-                            // Khóa TK
-                            await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [userId]);
+                            // Khóa TK (chỉ ở 00:15)
+                            if (shouldLockAccounts) await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [userId]);
                             lockedCount++;
                             penaltyCount++;
                             custPenaltyCount++;
