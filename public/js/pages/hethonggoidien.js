@@ -616,31 +616,69 @@ async function _htgd_renderMembersTab() {
                     <div class="ts-empty-title">Chưa có NV nào</div>
                     <div class="ts-empty-desc">${isAll ? 'Chọn CRM cụ thể để thêm NV' : 'Thêm NV vào Telesale từ sidebar bên phải'}</div>
                 </div>` : `
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
-                    ${_htgd_members.map(m => {
-                        const c = _htgd_avatarColor(m.full_name || m.username);
-                        const crmBadge = isAll ? `<span style="font-size:9px;padding:2px 6px;border-radius:6px;font-weight:700;background:${crmColorMap[m.crm_type] || '#6b7280'}20;color:${crmColorMap[m.crm_type] || '#6b7280'}">${crmLabelMap[m.crm_type] || m.crm_type}</span>` : '';
-                        return `<div class="ts-nv-card" style="animation:ts-fadeInUp 0.3s ease both;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                <span class="ts-avatar" style="background:${c};width:38px;height:38px;font-size:14px;">${_htgd_initials(m.full_name || m.username)}</span>
-                                <div style="flex:1;min-width:0;">
-                                    <div style="font-weight:700;color:#122546;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name || m.username}</div>
-                                    <div style="font-size:10px;color:#9ca3af;">${m.dept_name || '—'} ${crmBadge}</div>
-                                </div>
-                                ${m.is_active ? '<span class="ts-badge" style="background:#dcfce7;color:#16a34a;font-size:9px;">● Active</span>' : '<span class="ts-badge" style="background:#fef2f2;color:#dc2626;font-size:9px;">● Inactive</span>'}
-                            </div>
-                            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <span style="font-size:10px;color:#6b7280;font-weight:600;">Quota/ngày:</span>
-                                    ${isAll
-                                        ? `<span style="font-weight:700;font-size:12px;color:#334155;">${m.daily_quota}</span>`
-                                        : `<input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;"
-                                            onchange="_htgd_updateQuota(${m.user_id},this.value)">`}
-                                </div>
-                                ${isAll ? '' : `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_removeMember(${m.user_id},'${(m.full_name||m.username).replace(/'/g,"\\\\\\'")}')" title="Bỏ NV">❌</button>`}
-                            </div>
-                        </div>`;
-                    }).join('')}
+                <div>
+                    ${(() => {
+                        // Build department hierarchy for active members
+                        const deptById = {};
+                        _htgd_depts.forEach(d => { deptById[d.id] = d; });
+                        
+                        // Find parent dept (phòng) for each member
+                        const tree = {}; // { parentId: { name, teams: { teamId: { name, members: [] } } } }
+                        _htgd_members.forEach(m => {
+                            const deptId = m.department_id;
+                            const dept = deptById[deptId];
+                            let parentId = 0, parentName = "Chưa phân phòng", teamId = 0, teamName = "";
+                            if (dept) {
+                                // If dept has a parent that also has a parent → dept is a team
+                                const parent = deptById[dept.parent_id];
+                                if (parent && deptById[parent.parent_id]) {
+                                    // dept is team, parent is phòng
+                                    parentId = parent.id; parentName = parent.name;
+                                    teamId = dept.id; teamName = dept.name;
+                                } else if (parent) {
+                                    // dept is phòng (only 1 level under root)
+                                    parentId = dept.id; parentName = dept.name;
+                                    teamId = 0; teamName = "";
+                                } else {
+                                    parentId = dept.id; parentName = dept.name;
+                                }
+                            }
+                            if (!tree[parentId]) tree[parentId] = { name: parentName, teams: {} };
+                            if (!tree[parentId].teams[teamId]) tree[parentId].teams[teamId] = { name: teamName, members: [] };
+                            tree[parentId].teams[teamId].members.push(m);
+                        });
+                        
+                        return Object.entries(tree).map(([pId, pData]) => {
+                            const teamsHtml = Object.entries(pData.teams).map(([tId, tData]) => {
+                                const teamHeader = tData.name ? `<div style="padding:4px 10px;margin:8px 0 4px;font-size:11px;font-weight:700;color:#6366f1;">👥 ${tData.name} (${tData.members.length})</div>` : "";
+                                const cards = tData.members.map(m => {
+                                    const c = _htgd_avatarColor(m.full_name || m.username);
+                                    const crmBadge = isAll ? `<span style="font-size:9px;padding:2px 6px;border-radius:6px;font-weight:700;background:${crmColorMap[m.crm_type] || "#6b7280"}20;color:${crmColorMap[m.crm_type] || "#6b7280"}">${crmLabelMap[m.crm_type] || m.crm_type}</span>` : "";
+                                    return `<div class="ts-nv-card" style="animation:ts-fadeInUp 0.3s ease both;">
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                            <span class="ts-avatar" style="background:${c};width:38px;height:38px;font-size:14px;">${_htgd_initials(m.full_name || m.username)}</span>
+                                            <div style="flex:1;min-width:0;">
+                                                <div style="font-weight:700;color:#122546;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name || m.username}</div>
+                                                <div style="font-size:10px;color:#6366f1;font-weight:600;">${m.dept_name || "—"} ${crmBadge}</div>
+                                            </div>
+                                            ${m.is_active ? '<span class="ts-badge" style="background:#dcfce7;color:#16a34a;font-size:9px;">● Active</span>' : '<span class="ts-badge" style="background:#fef2f2;color:#dc2626;font-size:9px;">● Inactive</span>'}
+                                        </div>
+                                        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+                                            <div style="display:flex;align-items:center;gap:6px;">
+                                                <span style="font-size:10px;color:#6b7280;font-weight:600;">Quota/ngày:</span>
+                                                ${isAll
+                                                    ? `<span style="font-weight:700;font-size:12px;color:#334155;">${m.daily_quota}</span>`
+                                                    : `<input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;" onchange="_htgd_updateQuota(${m.user_id},this.value)">`}
+                                            </div>
+                                            ${isAll ? '' : `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_removeMember(${m.user_id},'${(m.full_name||m.username).replace(/'/g,"\\\\\\\\\\\\'")}')" title="Bỏ NV">❌</button>`}
+                                        </div>
+                                    </div>`;
+                                }).join("");
+                                return teamHeader + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${cards}</div>`;
+                            }).join("");
+                            return `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:6px;cursor:pointer;" onclick="var el=this.nextElementSibling;el.style.display=el.style.display==='none'?'block':'none';this.querySelector('[data-arrow]').textContent=el.style.display==='none'?'▶':'▼'"><span style="font-size:13px;font-weight:800;color:#334155;">📁 ${pData.name}</span><span style="font-size:11px;color:#6b7280;margin-left:auto;">(${Object.values(pData.teams).reduce((s,t)=>s+t.members.length,0)})</span><span data-arrow style="font-size:11px;color:#9ca3af;margin-left:4px;">▼</span></div><div>${teamsHtml}</div></div>`;
+                        }).join("");
+                    })()}
                 </div>
                 ${!isAll && _htgd_members.length > 0 ? `
                 <div style="margin-top:14px;padding:12px 16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
