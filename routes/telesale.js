@@ -167,8 +167,7 @@ async function telesaleRoutes(fastify) {
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
             COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned,
             COUNT(d.id) FILTER (WHERE d.status = 'answered') as answered,
-            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold,
-            COUNT(d.id) FILTER (WHERE d.status = 'invalid') as invalid
+            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
             FROM telesale_sources s
             LEFT JOIN telesale_data d ON d.source_id = s.id
             WHERE s.is_active = true${crmFilter}
@@ -280,26 +279,31 @@ async function telesaleRoutes(fastify) {
         }
         const skipped = rows.length - newRows.length;
 
-        // 3. Batch INSERT in chunks of 500 (with carrier detection + phone validation)
+        // 3. Batch INSERT in chunks of 500 (skip invalid phones entirely)
         const BATCH_SIZE = 500;
         let inserted = 0;
         let invalidCount = 0;
-        for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
-            const chunk = newRows.slice(i, i + BATCH_SIZE);
+        const validRows = [];
+        for (const row of newRows) {
+            const rawPhone = (row.phone || '').toString().trim();
+            const processed = _processPhone(rawPhone);
+            if (processed.isInvalid) { invalidCount++; continue; }
+            validRows.push({ ...row, _phone: processed.phone, _carrier: processed.carrier });
+        }
+
+        for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+            const chunk = validRows.slice(i, i + BATCH_SIZE);
             const values = [];
             const placeholders = [];
             for (const row of chunk) {
-                const rawPhone = (row.phone || '').toString().trim();
                 const clean = v => (v || '').toString().replace(/\x00/g, '').trim();
-                const processed = _processPhone(rawPhone);
-                if (processed.isInvalid) invalidCount++;
                 placeholders.push('(?,?,?,?,?,?,?,?,?,?,?)');
-                values.push(source_id, clean(row.company_name), clean(row.group_name), clean(row.post_link), clean(row.post_content), clean(row.customer_name), processed.phone, clean(row.address), JSON.stringify(row.extra || {}), processed.carrier, processed.isInvalid ? 'invalid' : 'available');
+                values.push(source_id, clean(row.company_name), clean(row.group_name), clean(row.post_link), clean(row.post_content), clean(row.customer_name), row._phone, clean(row.address), JSON.stringify(row.extra || {}), row._carrier, 'available');
             }
             await db.run(`INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data, carrier, status) VALUES ${placeholders.join(',')}`, values);
             inserted += chunk.length;
         }
-        return { success: true, message: `Import: ${inserted} mới (${invalidCount} SĐT sai), ${skipped} bỏ qua`, inserted, skipped, invalidCount };
+        return { success: true, message: `Import: ${inserted} mới, ${invalidCount} SĐT không hợp lệ (đã loại), ${skipped} trùng`, inserted, skipped, invalidCount };
     });
 
     fastify.delete('/api/telesale/data/:id', { preHandler: authenticate }, async (req, reply) => {
@@ -422,9 +426,18 @@ async function telesaleRoutes(fastify) {
         '055': 'Reddi',
     };
 
+    function _normalizePhone(phone) {
+        if (!phone) return '';
+        let cleaned = phone.toString().replace(/[\s\-\.]/g, '');
+        // Normalize +84 / 84 prefix → 0
+        if (cleaned.startsWith('+84')) cleaned = '0' + cleaned.slice(3);
+        else if (cleaned.startsWith('84') && cleaned.length === 11) cleaned = '0' + cleaned.slice(2);
+        return cleaned;
+    }
+
     function _detectCarrier(phone) {
-        if (!phone) return 'invalid';
-        const cleaned = phone.toString().replace(/[\s\-\.]/g, '');
+        const cleaned = _normalizePhone(phone);
+        if (!cleaned) return 'invalid';
         // Must be exactly 10 digits starting with 0
         if (!/^0\d{9}$/.test(cleaned)) return 'invalid';
         const prefix = cleaned.substring(0, 3);
@@ -441,9 +454,10 @@ async function telesaleRoutes(fastify) {
         const parts = raw.split('|').map(p => p.replace(/[\s\-\.]/g, '').trim()).filter(Boolean);
         
         if (parts.length <= 1) {
-            // Single number — use original logic
+            // Single number — normalize + detect
+            const normalized = _normalizePhone(raw);
             const c = _detectCarrier(raw);
-            return { phone: raw.replace(/[\s\-\.]/g, '').trim(), carrier: c, isInvalid: c === 'invalid' };
+            return { phone: normalized || raw, carrier: c, isInvalid: c === 'invalid' };
         }
         
         // Multiple numbers — validate each, keep max 3 valid mobile numbers
@@ -451,7 +465,7 @@ async function telesaleRoutes(fastify) {
         for (const p of parts) {
             const c = _detectCarrier(p);
             if (c !== 'invalid' && validPhones.length < 3) {
-                validPhones.push({ phone: p, carrier: c });
+                validPhones.push({ phone: _normalizePhone(p), carrier: c });
             }
         }
         
@@ -885,32 +899,6 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã xóa cột' };
     });
 
-    // ========== INVALID NUMBERS ==========
-    fastify.get('/api/telesale/invalid-numbers', { preHandler: authenticate }, async (req, reply) => {
-        const crm_type = req.query.crm_type;
-        let query = `SELECT inv.*, s.name as source_name, s.icon as source_icon, s.crm_type
-            FROM telesale_invalid_numbers inv
-            LEFT JOIN telesale_sources s ON s.id = inv.source_id`;
-        const params = [];
-        if (crm_type) {
-            query += ` WHERE s.crm_type = ?`;
-            params.push(crm_type);
-        }
-        query += ` ORDER BY inv.created_at DESC`;
-        const numbers = await db.all(query, params);
-        return { numbers };
-    });
-
-    fastify.post('/api/telesale/invalid-numbers/:id/restore', { preHandler: authenticate }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
-        const inv = await db.get('SELECT * FROM telesale_invalid_numbers WHERE id = ?', [req.params.id]);
-        if (!inv) return reply.code(404).send({ error: 'Không tìm thấy' });
-        if (inv.data_id) {
-            await db.run("UPDATE telesale_data SET status = 'available', invalid_count = 0, updated_at = NOW() WHERE id = ?", [inv.data_id]);
-        }
-        await db.run('DELETE FROM telesale_invalid_numbers WHERE id = ?', [req.params.id]);
-        return { success: true, message: 'Đã khôi phục số' };
-    });
 };
 
 // ========== PUMP LOGIC (exported for cron) ==========
@@ -1074,22 +1062,13 @@ async function runTelesaleRecall() {
         recalled++;
     }
 
-    // 3. Invalid → check count
-    const invalidAssigns = await db.all(`SELECT a.data_id, d.invalid_count, d.phone, d.customer_name, d.company_name, d.source_id, a.user_id
-        FROM telesale_assignments a JOIN telesale_data d ON d.id = a.data_id
+    // 3. Invalid → delete the data record entirely
+    const invalidAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
         WHERE a.assigned_date <= $1 AND a.call_status = 'invalid'`, [yesterday]);
     for (const a of invalidAssigns) {
-        if ((a.invalid_count || 0) >= 2) {
-            // Move to invalid numbers store
-            await db.run('INSERT INTO telesale_invalid_numbers (data_id, phone, source_id, customer_name, company_name, invalid_count, last_reported_by) VALUES (?,?,?,?,?,?,?)',
-                [a.data_id, a.phone, a.source_id, a.customer_name, a.company_name, a.invalid_count, a.user_id]);
-            await db.run("UPDATE telesale_data SET status = 'invalid', updated_at = NOW() WHERE id = ?", [a.data_id]);
-            invalidated++;
-        } else {
-            // Return to pool for one more try
-            await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ?", [a.data_id]);
-            recalled++;
-        }
+        await db.run('DELETE FROM telesale_assignments WHERE data_id = ?', [a.data_id]);
+        await db.run('DELETE FROM telesale_data WHERE id = ?', [a.data_id]);
+        invalidated++;
     }
 
     // 4. Unfreeze cold data that has passed cold_until

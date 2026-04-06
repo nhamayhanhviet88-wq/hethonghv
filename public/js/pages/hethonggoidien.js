@@ -68,7 +68,7 @@ async function renderHeThongGoiDienPage(container) {
             <div style="display:flex;gap:2px;border-bottom:2px solid #e5e7eb;">
                 <button class="ts-tab active" onclick="_htgd_switchTab('data',this)">📞 Data Pool</button>
                 <button class="ts-tab" onclick="_htgd_switchTab('members',this)">👥 NV Telesale</button>
-                <button class="ts-tab" onclick="_htgd_switchTab('invalid',this)">❌ Kho Số Không Tồn Tại</button>
+
                 <button class="ts-tab" onclick="_htgd_switchTab('settings',this)">⚙️ Cài Đặt</button>
             </div>
             <div id="htgdContent" style="flex:1;overflow:auto;">
@@ -111,10 +111,10 @@ function _htgd_switchTab(tab, el) {
     document.querySelectorAll('.ts-tab').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
     const actionBtns = document.getElementById('htgdActionBtns');
-    if (actionBtns) actionBtns.style.visibility = (tab === 'settings' || tab === 'invalid' || _htgd_activeCrm === 'all') ? 'hidden' : 'visible';
+    if (actionBtns) actionBtns.style.visibility = (tab === 'settings' || _htgd_activeCrm === 'all') ? 'hidden' : 'visible';
     if (tab === 'data') _htgd_renderDataTab();
     else if (tab === 'members') _htgd_renderMembersTab();
-    else if (tab === 'invalid') _htgd_renderInvalidTab();
+
     else if (tab === 'settings') _htgd_renderSettingsTab();
 }
 
@@ -143,7 +143,7 @@ async function _htgd_renderDataTab() {
         total: a.total + parseInt(s.total || 0), available: a.available + parseInt(s.available || 0),
         assigned: a.assigned + parseInt(s.assigned || 0), answered: a.answered + parseInt(s.answered || 0),
         cold: a.cold + parseInt(s.cold || 0), invalid: a.invalid + parseInt(s.invalid || 0),
-    }), { total:0, available:0, assigned:0, answered:0, cold:0, invalid:0 });
+    }), { total:0, available:0, assigned:0, answered:0, cold:0 });
 
     const cards = [
         { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white' },
@@ -151,7 +151,7 @@ async function _htgd_renderDataTab() {
         { icon:'📋', label:'Còn Lại', val:Math.max(0, t.assigned - t.answered), grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)', txtColor:'white' },
         { icon:'📞', label:'Đã Gọi', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white' },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
-        { icon:'❌', label:'Không Tồn Tại', val:t.invalid, grad:_HTGD_GRADIENTS[5], txtColor:'white' },
+
     ];
 
     // CRM tabs HTML (rendered below stats) — premium style
@@ -287,7 +287,6 @@ async function _htgd_loadData() {
             assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
             answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
             cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
-            invalid: { icon:'❌', label:'K.tồn tại', bg:'#fef2f2', color:'#dc2626' },
         };
         const m = map[s] || map.available;
         return `<span class="ts-badge" style="background:${m.bg};color:${m.color};">${m.icon} ${m.label}</span>`;
@@ -1097,8 +1096,7 @@ async function _htgd_viewDetail(dataId) {
         assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
         answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
         cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
-        invalid: { icon:'❌', label:'K.tồn tại', bg:'#fef2f2', color:'#dc2626' },
-    };
+    };
     const sm = statusMap[d.status] || statusMap.available;
     const statusHtml = `<span class="ts-badge" style="background:${sm.bg};color:${sm.color};">${sm.icon} ${sm.label}</span>`;
     let assignHtml = '<div style="color:#9ca3af;font-size:12px;text-align:center;padding:12px;">Chưa có lịch sử phân bổ</div>';
