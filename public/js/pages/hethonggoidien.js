@@ -845,20 +845,14 @@ async function _htgd_renderSettingsTab() {
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [srcRes, srcHopTac, srcBanHang, configRes2, configRes3, configRes4, cStatsRes] = await Promise.all([
+    const [srcRes, srcHopTac, srcBanHang, cStatsRes] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
         apiCall('/api/telesale/sources?crm_type=nuoi_duong'),
         apiCall('/api/telesale/sources?crm_type=sinh_vien'),
-        apiCall('/api/app-config/telesale_cold_months'),
-        apiCall('/api/app-config/telesale_followup_canhnhac'),
-        apiCall('/api/app-config/telesale_followup_ncc'),
         apiCall(`/api/telesale/data/stats?crm_type=${_htgd_settingsCrm}`)
     ]);
     const sources = srcRes.sources || [];
     const sourceCarrierStats = cStatsRes.sourceCarrierStats || {};
-    const coldMonths = configRes2.value || '4';
-    const followupCN = configRes3.value || '3';
-    const followupNCC = configRes4.value || '30';
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
     const hopTacTotal = (srcHopTac.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
     const banHangTotal = (srcBanHang.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
@@ -903,11 +897,7 @@ async function _htgd_renderSettingsTab() {
             <div style="height:8px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;display:flex;"><div style="width:${hopTacPct}%;background:linear-gradient(90deg,#059669,#34d399);border-radius:6px 0 0 6px;"></div><div style="width:${banHangPct}%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:0 6px 6px 0;"></div></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">${crmTabsHtml}</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label><input type="number" id="htgdColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_cold_months',this.value)"></div>
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label><input type="number" id="htgdFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span></div>
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (NCC)</label><input type="number" id="htgdFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span></div>
-        </div>
+
         <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
             <span style="font-size:12px;color:#6b7280;">Tổng quota <strong style="color:${activeCfg?.color || '#122546'}">${activeCfg?.label || ''}</strong>: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
             <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:10px;">

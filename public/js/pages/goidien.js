@@ -22,7 +22,10 @@ async function renderGoiDienPage(container) {
         <div style="display:flex;height:calc(100vh - 120px);gap:0;">
             <div id="gdSidebar" style="width:280px;min-width:280px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
                 <div style="padding:14px;border-bottom:1.5px solid #e2e8f0;">
-                    <h4 style="margin:0 0 10px;color:#122546;font-size:14px;font-weight:800;">📞 Gọi Điện Telesale</h4>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">📞 Gọi Điện Telesale</h4>
+                        ${currentUser.role === 'giam_doc' ? `<button class="ts-btn ts-btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="_gd_openSettings()">⚙️ Cài đặt</button>` : ''}
+                    </div>
                     <select id="gdDeptFilter" class="ts-select" style="width:100%;margin-bottom:8px;padding:8px 10px;" onchange="_gd_sidebarDeptFilter=this.value;_gd_renderSidebar()">
                         <option value="">📁 Tất cả phòng ban</option>
                     </select>
@@ -407,13 +410,20 @@ async function _gd_selectAnswerStatus(assignmentId, answerStatusId, actionType, 
     const notes = document.getElementById(`gdNotes_${assignmentId}`)?.value || '';
     const call = _gd_calls.find(c => c.id === assignmentId);
     if (actionType === 'transfer') { _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call); }
-    else if (actionType === 'followup') {
+    else if (actionType === 'cold_ncc' || actionType === 'cold') {
+        // Auto-freeze — just save, backend handles cold_until
+        if (!confirm(actionType === 'cold_ncc' ? '🏪 Đóng băng — Đã có NCC?' : '🚫 Đóng băng — Không có nhu cầu?')) return;
+        const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status:'answered', answer_status_id:answerStatusId, notes });
+        if (res.success) { showToast('✅ Đã đóng băng'); await _gd_loadCallsForUser(_gd_selectedUserId); }
+        else showToast(res.error, 'error');
+    } else if (actionType === 'followup') {
         const defaultDate = new Date(); defaultDate.setDate(defaultDate.getDate() + (defaultFollowupDays || 3));
+        const dateStr = defaultDate.toISOString().split('T')[0];
         openModal('📅 Hẹn Gọi Lại', `
-            <div class="form-group"><label>📅 Ngày hẹn</label><input type="date" id="gdCallbackDate" class="form-control" value="${defaultDate.toISOString().split('T')[0]}"></div>
-            <div class="form-group"><label>⏰ Giờ hẹn</label><input type="time" id="gdCallbackTime" class="form-control"></div>
-        `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-            <button class="ts-btn ts-btn-green" onclick="_gd_submitFollowup(${assignmentId},${answerStatusId})">💾 Lưu</button>`);
+            <div class="form-group"><label>📅 Ngày hẹn</label>
+            <input type="date" id="gdCallbackDate" class="form-control" value="${dateStr}" readonly style="background:#f1f5f9;cursor:not-allowed;"></div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;">⏰ Tự động hẹn sau ${defaultFollowupDays||3} ngày</div>
+        `, `<button class="ts-btn ts-btn-green" onclick="_gd_submitFollowup(${assignmentId},${answerStatusId})">💾 Lưu</button>`);
     } else {
         const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status:'answered', answer_status_id:answerStatusId, notes });
         if (res.success) { showToast('✅ Đã lưu'); await _gd_loadCallsForUser(_gd_selectedUserId); }
@@ -499,4 +509,40 @@ function _gd_formatDate(dateStr) {
 function _gd_formatDateShort(dateStr) {
     const d = new Date(dateStr);
     return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+// ========== SETTINGS MODAL (GĐ only) ==========
+async function _gd_openSettings() {
+    const res = await apiCall('/api/telesale/settings');
+    const coldMonths = res.cold_months || 4;
+    const nccMonths = res.ncc_cold_months || 3;
+    openModal('⚙️ Cài Đặt Gọi Điện Telesale', `
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1.5px solid #93c5fd;">
+                <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;">❄️ Kho Lạnh — Không Có Nhu Cầu</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Khi KH không có nhu cầu → đóng băng bao lâu trước khi gọi lại</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="number" id="gdSettingColdMonths" class="form-control" value="${coldMonths}" min="1" max="24" style="width:80px;text-align:center;font-weight:700;font-size:16px;">
+                    <span style="font-size:13px;color:#374151;font-weight:600;">tháng</span>
+                </div>
+            </div>
+            <div style="padding:16px;background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1.5px solid #fde047;">
+                <div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:8px;">🏪 Đã Có Nhà Cung Cấp</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Khi KH đã có NCC → đóng băng bao lâu trước khi gọi lại</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="number" id="gdSettingNccMonths" class="form-control" value="${nccMonths}" min="1" max="24" style="width:80px;text-align:center;font-weight:700;font-size:16px;">
+                    <span style="font-size:13px;color:#374151;font-weight:600;">tháng</span>
+                </div>
+            </div>
+        </div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="ts-btn ts-btn-green" onclick="_gd_saveSettings()">💾 Lưu Cài Đặt</button>`);
+}
+
+async function _gd_saveSettings() {
+    const cold_months = parseInt(document.getElementById('gdSettingColdMonths')?.value) || 4;
+    const ncc_cold_months = parseInt(document.getElementById('gdSettingNccMonths')?.value) || 3;
+    const res = await apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months });
+    if (res.success) { showToast('✅ Đã lưu cài đặt'); closeModal(); }
+    else showToast(res.error || 'Lỗi', 'error');
 }

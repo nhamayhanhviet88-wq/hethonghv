@@ -739,12 +739,17 @@ async function telesaleRoutes(fastify) {
                     [assign.user_id, callback_date, assign.data_id]);
             }
 
-            // If answer is "cold" type → set cold_until
+            // If answer is "cold" or "cold_ncc" type → set cold_until
             if (answer_status_id) {
                 const ansStatus = await db.get('SELECT * FROM telesale_answer_statuses WHERE id = ?', [answer_status_id]);
                 if (ansStatus && ansStatus.action_type === 'cold') {
                     const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
                     const months = parseInt(coldMonths?.value || '4');
+                    await db.run(`UPDATE telesale_data SET status = 'cold',
+                        cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                } else if (ansStatus && ansStatus.action_type === 'cold_ncc') {
+                    const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+                    const months = parseInt(nccMonths?.value || '3');
                     await db.run(`UPDATE telesale_data SET status = 'cold',
                         cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
                 }
@@ -803,6 +808,28 @@ async function telesaleRoutes(fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const result = await runTelesaleRecall();
         return result;
+    });
+
+    // ========== SETTINGS (GĐ only) ==========
+    fastify.get('/api/telesale/settings', { preHandler: authenticate }, async (req, reply) => {
+        const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
+        const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+        return {
+            cold_months: parseInt(coldMonths?.value || '4'),
+            ncc_cold_months: parseInt(nccMonths?.value || '3')
+        };
+    });
+
+    fastify.put('/api/telesale/settings', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { cold_months, ncc_cold_months } = req.body;
+        if (cold_months != null) {
+            await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_cold_months', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(cold_months)]);
+        }
+        if (ncc_cold_months != null) {
+            await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_ncc_cold_months', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(ncc_cold_months)]);
+        }
+        return { success: true };
     });
 
     fastify.get('/api/telesale/pump-preview', { preHandler: authenticate }, async (req, reply) => {
