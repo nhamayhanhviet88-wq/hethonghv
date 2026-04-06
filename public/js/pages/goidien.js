@@ -340,11 +340,20 @@ function _gd_renderCallCard(call) {
             ${call.address ? `<span>📍 ${call.address}</span>` : ''}
         </div>
         ${call.call_status === 'pending' ? `
-        <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="ts-btn ts-btn-green" onclick="_gd_markCall(${call.id},'answered')">✅ Bắt máy</button>
+        <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="ts-btn ts-btn-green" onclick="_gd_showAnswerStatuses(${call.id},this)">✅ Bắt máy</button>
             <button class="ts-btn ts-btn-red" onclick="_gd_markCall(${call.id},'no_answer')">📵 Không nghe</button>
             <button class="ts-btn" style="background:linear-gradient(135deg,#f59e0b,#f97316);color:white;" onclick="_gd_markCall(${call.id},'busy')">📞 Bận</button>
             <button class="ts-btn ts-btn-ghost" onclick="_gd_markCall(${call.id},'invalid')">❌ K.tồn tại</button>
+        </div>
+        <div id="gdAnswerPanel_${call.id}" style="display:none;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
+            <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:10px;">📋 Chọn tình trạng bắt máy:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+                ${_gd_answerStatuses.map(as => `
+                <button class="ts-btn ts-btn-ghost" onclick="_gd_selectAnswerStatus(${call.id},${as.id},'${as.action_type}',${as.default_followup_days||3})">${as.icon} ${as.name}</button>`).join('')}
+            </div>
+            <label style="font-size:11px;font-weight:600;color:#374151;">📝 Ghi chú</label>
+            <textarea id="gdNotes_${call.id}" class="ts-search" style="width:100%;margin-top:4px;padding:8px;min-height:50px;resize:vertical;" placeholder="Ghi chú cuộc gọi..."></textarea>
         </div>` : ''}
         ${call.call_status === 'answered' && !call.answer_status_id ? `
         <div style="padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
@@ -375,6 +384,22 @@ async function _gd_markCall(assignmentId, callStatus) {
         const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status: callStatus });
         if (res.success) { showToast(`Đã cập nhật: ${callStatus}`); await _gd_loadCallsForUser(_gd_selectedUserId); }
         else showToast(res.error, 'error');
+    }
+}
+
+function _gd_showAnswerStatuses(assignmentId, btn) {
+    const panel = document.getElementById(`gdAnswerPanel_${assignmentId}`);
+    if (panel) {
+        const isVisible = panel.style.display !== 'none';
+        panel.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+            btn.style.background = '#059669';
+            btn.style.boxShadow = '0 0 0 3px rgba(5,150,105,0.3)';
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            btn.style.background = '';
+            btn.style.boxShadow = '';
+        }
     }
 }
 
