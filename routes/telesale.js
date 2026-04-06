@@ -167,7 +167,22 @@ async function telesaleRoutes(fastify) {
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
             COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned,
             COUNT(d.id) FILTER (WHERE d.status = 'answered') as answered,
-            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
+            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold,
+            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
+                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
+                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
+                AND ans2.action_type = 'transfer') as transferred,
+            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
+                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
+                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
+                AND ans2.action_type = 'cold') as cold_answered,
+            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
+                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
+                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
+                AND ans2.action_type = 'cold_ncc') as ncc_answered,
+            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
+                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
+                AND a2.call_status IN ('no_answer','busy')) as no_answer_busy
             FROM telesale_sources s
             LEFT JOIN telesale_data d ON d.source_id = s.id
             WHERE s.is_active = true${crmFilter}
@@ -209,42 +224,6 @@ async function telesaleRoutes(fastify) {
                 if (!sourceCarrierStats[r.source_id]) sourceCarrierStats[r.source_id] = {};
                 sourceCarrierStats[r.source_id][key] = (sourceCarrierStats[r.source_id][key] || 0) + parseInt(r.cnt);
             }
-        }
-
-        // Count assignment-based stats: transfer, cold, cold_ncc, no_answer/busy
-        let aFilter = '';
-        const aParams = [];
-        if (crm_type) {
-            aFilter = ' AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)';
-            aParams.push(crm_type);
-        }
-        const assignRows = await db.all(`SELECT d.source_id,
-            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
-            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
-            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
-            COUNT(DISTINCT d.id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
-            FROM telesale_data d
-            JOIN telesale_assignments a ON a.data_id = d.id
-            LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
-            WHERE 1=1${aFilter}
-            GROUP BY d.source_id`, aParams);
-        const aBySource = {};
-        for (const r of assignRows) {
-            aBySource[String(r.source_id)] = {
-                transferred: parseInt(r.transferred || 0),
-                cold_answered: parseInt(r.cold_answered || 0),
-                ncc_answered: parseInt(r.ncc_answered || 0),
-                no_answer_busy: parseInt(r.no_answer_busy || 0),
-            };
-        }
-
-        // Attach counts to each source stat
-        for (const s of stats) {
-            const a = aBySource[String(s.id)] || {};
-            s.transferred = a.transferred || 0;
-            s.cold_answered = a.cold_answered || 0;
-            s.ncc_answered = a.ncc_answered || 0;
-            s.no_answer_busy = a.no_answer_busy || 0;
         }
 
         const result = { stats, carrierStats, sourceCarrierStats };
