@@ -27,13 +27,26 @@ async function telesaleRoutes(fastify) {
 
     fastify.put('/api/telesale/sources/:id', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
-        const { name, icon, crm_type, daily_quota, default_followup_days, display_order } = req.body;
+        const { name, icon, crm_type, daily_quota, default_followup_days, display_order, column_mapping, skip_header, carrier_priority, distribution_mode } = req.body;
         await db.run(`UPDATE telesale_sources SET
-            name = COALESCE(?, name), icon = COALESCE(?, icon), crm_type = ?,
+            name = COALESCE(?, name), icon = COALESCE(?, icon), crm_type = COALESCE(?, crm_type),
             daily_quota = COALESCE(?, daily_quota), default_followup_days = COALESCE(?, default_followup_days),
-            display_order = COALESCE(?, display_order)
-            WHERE id = ?`, [name, icon, crm_type, daily_quota, default_followup_days, display_order, req.params.id]);
+            display_order = COALESCE(?, display_order),
+            column_mapping = COALESCE(?::jsonb, column_mapping),
+            skip_header = COALESCE(?, skip_header),
+            carrier_priority = COALESCE(?::jsonb, carrier_priority),
+            distribution_mode = COALESCE(?, distribution_mode)
+            WHERE id = ?`, [name, icon, crm_type, daily_quota, default_followup_days, display_order, column_mapping ? JSON.stringify(column_mapping) : null, skip_header !== undefined ? skip_header : null, carrier_priority ? JSON.stringify(carrier_priority) : null, distribution_mode || null, req.params.id]);
         return { success: true, message: 'Đã cập nhật nguồn' };
+    });
+
+    // Sync quota for all sources in a CRM type
+    fastify.put('/api/telesale/sources/sync-quota', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { crm_type, daily_quota } = req.body;
+        if (!crm_type || daily_quota === undefined) return reply.code(400).send({ error: 'Cần crm_type và daily_quota' });
+        const result = await db.run('UPDATE telesale_sources SET daily_quota = ? WHERE crm_type = ?', [parseInt(daily_quota), crm_type]);
+        return { success: true, message: `Đã đồng bộ quota = ${daily_quota} cho tất cả nguồn`, updated: result?.changes || 0 };
     });
 
     fastify.delete('/api/telesale/sources/:id', { preHandler: authenticate }, async (req, reply) => {
@@ -79,12 +92,13 @@ async function telesaleRoutes(fastify) {
 
     // ========== DATA POOL ==========
     fastify.get('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
-        const { source_id, status, search, page = 1, limit = 50 } = req.query;
+        const { source_id, status, search, carrier, page = 1, limit = 50 } = req.query;
         let where = 'WHERE 1=1';
         const params = [];
         let paramIdx = 0;
         if (source_id) { paramIdx++; where += ` AND d.source_id = $${paramIdx}`; params.push(source_id); }
         if (status) { paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status); }
+        if (carrier) { paramIdx++; where += ` AND d.carrier ILIKE $${paramIdx}`; params.push(`%${carrier}%`); }
         if (search) { paramIdx++; where += ` AND (d.phone ILIKE $${paramIdx} OR d.customer_name ILIKE $${paramIdx} OR d.company_name ILIKE $${paramIdx})`; params.push(`%${search}%`); }
 
         const countRes = await db.get(`SELECT COUNT(*) as total FROM telesale_data d ${where}`, params);
@@ -119,7 +133,46 @@ async function telesaleRoutes(fastify) {
             WHERE s.is_active = true${crmFilter}
             GROUP BY s.id, s.name, s.icon, s.daily_quota
             ORDER BY s.display_order`, params);
-        return { stats };
+
+        // Carrier breakdown counts (filtered by source_id if provided)
+        const { source_id } = req.query;
+        let carrierFilter = '';
+        const carrierParams = [];
+        if (source_id) {
+            carrierFilter = ' WHERE d.source_id = $1';
+            carrierParams.push(source_id);
+        } else if (crm_type) {
+            carrierFilter = ' WHERE d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)';
+            carrierParams.push(crm_type);
+        }
+        const carrierRows = await db.all(
+            `SELECT UNNEST(STRING_TO_ARRAY(d.carrier, '|')) as c, COUNT(*) as cnt
+             FROM telesale_data d${carrierFilter}
+             GROUP BY c ORDER BY cnt DESC`, carrierParams);
+        const carrierStats = {};
+        for (const r of carrierRows) {
+            const key = (r.c || '').trim();
+            if (key) carrierStats[key] = (carrierStats[key] || 0) + parseInt(r.cnt);
+        }
+
+        // Per-source carrier breakdown (for settings tab)
+        let sourceCarrierStats = {};
+        if (!source_id && crm_type) {
+            const perSrcRows = await db.all(
+                `SELECT d.source_id, UNNEST(STRING_TO_ARRAY(d.carrier, '|')) as c, COUNT(*) as cnt
+                 FROM telesale_data d
+                 WHERE d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)
+                 AND d.status = 'available'
+                 GROUP BY d.source_id, c ORDER BY d.source_id, cnt DESC`, [crm_type]);
+            for (const r of perSrcRows) {
+                const key = (r.c || '').trim();
+                if (!key) continue;
+                if (!sourceCarrierStats[r.source_id]) sourceCarrierStats[r.source_id] = {};
+                sourceCarrierStats[r.source_id][key] = (sourceCarrierStats[r.source_id][key] || 0) + parseInt(r.cnt);
+            }
+        }
+
+        return { stats, carrierStats, sourceCarrierStats };
     });
 
     fastify.post('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
@@ -143,8 +196,14 @@ async function telesaleRoutes(fastify) {
         if (!source_id || !rows || !Array.isArray(rows) || rows.length === 0)
             return reply.code(400).send({ error: 'Cần source_id và rows[]' });
 
-        // 1. Get all existing phones for this source in ONE query
-        const existingRows = await db.all('SELECT phone FROM telesale_data WHERE source_id = ?', [source_id]);
+        // 1. Get crm_type for this source, then get ALL existing phones across same CRM
+        const srcInfo = await db.get('SELECT crm_type FROM telesale_sources WHERE id = ?', [source_id]);
+        const crmType = srcInfo?.crm_type || '';
+        const existingRows = crmType
+            ? await db.all(
+                `SELECT phone FROM telesale_data WHERE source_id IN 
+                 (SELECT id FROM telesale_sources WHERE crm_type = ?)`, [crmType])
+            : await db.all('SELECT phone FROM telesale_data WHERE source_id = ?', [source_id]);
         const existingPhones = new Set(existingRows.map(r => r.phone));
 
         // 2. Filter new rows (skip empty phone & duplicates)
@@ -158,22 +217,26 @@ async function telesaleRoutes(fastify) {
         }
         const skipped = rows.length - newRows.length;
 
-        // 3. Batch INSERT in chunks of 500
+        // 3. Batch INSERT in chunks of 500 (with carrier detection + phone validation)
         const BATCH_SIZE = 500;
         let inserted = 0;
+        let invalidCount = 0;
         for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
             const chunk = newRows.slice(i, i + BATCH_SIZE);
             const values = [];
             const placeholders = [];
             for (const row of chunk) {
-                const phone = (row.phone || '').toString().trim();
-                placeholders.push('(?,?,?,?,?,?,?,?,?)');
-                values.push(source_id, row.company_name || '', row.group_name || '', row.post_link || '', row.post_content || '', row.customer_name || '', phone, row.address || '', JSON.stringify(row.extra || {}));
+                const rawPhone = (row.phone || '').toString().trim();
+                const clean = v => (v || '').toString().replace(/\x00/g, '').trim();
+                const processed = _processPhone(rawPhone);
+                if (processed.isInvalid) invalidCount++;
+                placeholders.push('(?,?,?,?,?,?,?,?,?,?,?)');
+                values.push(source_id, clean(row.company_name), clean(row.group_name), clean(row.post_link), clean(row.post_content), clean(row.customer_name), processed.phone, clean(row.address), JSON.stringify(row.extra || {}), processed.carrier, processed.isInvalid ? 'invalid' : 'available');
             }
-            await db.run(`INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data) VALUES ${placeholders.join(',')}`, values);
+            await db.run(`INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data, carrier, status) VALUES ${placeholders.join(',')}`, values);
             inserted += chunk.length;
         }
-        return { success: true, message: `Import thành công: ${inserted} mới, ${skipped} bỏ qua (trùng/trống)`, inserted, skipped };
+        return { success: true, message: `Import: ${inserted} mới (${invalidCount} SĐT sai), ${skipped} bỏ qua`, inserted, skipped, invalidCount };
     });
 
     fastify.delete('/api/telesale/data/:id', { preHandler: authenticate }, async (req, reply) => {
@@ -182,6 +245,298 @@ async function telesaleRoutes(fastify) {
         await db.run('DELETE FROM telesale_assignments WHERE data_id = ?', [req.params.id]);
         await db.run('DELETE FROM telesale_data WHERE id = ?', [req.params.id]);
         return { success: true, message: 'Đã xóa data' };
+    });
+
+    // Bulk delete all data in a source
+    fastify.delete('/api/telesale/data/source/:sourceId', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const sourceId = req.params.sourceId;
+        await db.run('DELETE FROM telesale_assignments WHERE data_id IN (SELECT id FROM telesale_data WHERE source_id = ?)', [sourceId]);
+        const result = await db.run('DELETE FROM telesale_data WHERE source_id = ?', [sourceId]);
+        return { success: true, message: `Đã xóa ${result.rowCount || 0} data`, deleted: result.rowCount || 0 };
+    });
+
+    // 63 tỉnh/thành phố Việt Nam + viết tắt → tên chuẩn
+    const _PROVINCE_MAP = {
+        'Hà Nội': 'Hà Nội', 'HN': 'Hà Nội', 'Ha Noi': 'Hà Nội', 'Hanoi': 'Hà Nội',
+        'Hồ Chí Minh': 'Hồ Chí Minh', 'HCM': 'Hồ Chí Minh', 'TP.HCM': 'Hồ Chí Minh', 'TPHCM': 'Hồ Chí Minh', 'TP HCM': 'Hồ Chí Minh', 'Tp.HCM': 'Hồ Chí Minh', 'Tp HCM': 'Hồ Chí Minh', 'Sài Gòn': 'Hồ Chí Minh', 'SG': 'Hồ Chí Minh', 'Saigon': 'Hồ Chí Minh', 'Ho Chi Minh': 'Hồ Chí Minh',
+        'Đà Nẵng': 'Đà Nẵng', 'Da Nang': 'Đà Nẵng', 'Hải Phòng': 'Hải Phòng', 'Hai Phong': 'Hải Phòng',
+        'Cần Thơ': 'Cần Thơ', 'Can Tho': 'Cần Thơ',
+        'Hà Giang': 'Hà Giang', 'Cao Bằng': 'Cao Bằng', 'Bắc Kạn': 'Bắc Kạn', 'Tuyên Quang': 'Tuyên Quang',
+        'Lào Cai': 'Lào Cai', 'Điện Biên': 'Điện Biên', 'Lai Châu': 'Lai Châu', 'Sơn La': 'Sơn La',
+        'Yên Bái': 'Yên Bái', 'Hòa Bình': 'Hòa Bình', 'Thái Nguyên': 'Thái Nguyên',
+        'Lạng Sơn': 'Lạng Sơn', 'Quảng Ninh': 'Quảng Ninh', 'Bắc Giang': 'Bắc Giang', 'Phú Thọ': 'Phú Thọ',
+        'Vĩnh Phúc': 'Vĩnh Phúc', 'Bắc Ninh': 'Bắc Ninh', 'Hải Dương': 'Hải Dương', 'Hưng Yên': 'Hưng Yên',
+        'Thái Bình': 'Thái Bình', 'Hà Nam': 'Hà Nam', 'Nam Định': 'Nam Định', 'Ninh Bình': 'Ninh Bình',
+        'Thanh Hóa': 'Thanh Hóa', 'Nghệ An': 'Nghệ An', 'Hà Tĩnh': 'Hà Tĩnh', 'Quảng Bình': 'Quảng Bình',
+        'Quảng Trị': 'Quảng Trị', 'Thừa Thiên Huế': 'Thừa Thiên Huế', 'Huế': 'Thừa Thiên Huế',
+        'Quảng Nam': 'Quảng Nam', 'Quảng Ngãi': 'Quảng Ngãi', 'Bình Định': 'Bình Định',
+        'Phú Yên': 'Phú Yên', 'Khánh Hòa': 'Khánh Hòa', 'Nha Trang': 'Khánh Hòa',
+        'Ninh Thuận': 'Ninh Thuận', 'Bình Thuận': 'Bình Thuận',
+        'Kon Tum': 'Kon Tum', 'Gia Lai': 'Gia Lai', 'Đắk Lắk': 'Đắk Lắk', 'Đắk Nông': 'Đắk Nông',
+        'Lâm Đồng': 'Lâm Đồng', 'Đà Lạt': 'Lâm Đồng',
+        'Bình Phước': 'Bình Phước', 'Tây Ninh': 'Tây Ninh', 'Bình Dương': 'Bình Dương',
+        'Đồng Nai': 'Đồng Nai', 'Biên Hòa': 'Đồng Nai',
+        'Bà Rịa - Vũng Tàu': 'Bà Rịa - Vũng Tàu', 'Bà Rịa': 'Bà Rịa - Vũng Tàu', 'Vũng Tàu': 'Bà Rịa - Vũng Tàu',
+        'Long An': 'Long An', 'Tiền Giang': 'Tiền Giang', 'Bến Tre': 'Bến Tre', 'Trà Vinh': 'Trà Vinh',
+        'Vĩnh Long': 'Vĩnh Long', 'Đồng Tháp': 'Đồng Tháp', 'An Giang': 'An Giang',
+        'Kiên Giang': 'Kiên Giang', 'Phú Quốc': 'Kiên Giang',
+        'Hậu Giang': 'Hậu Giang', 'Sóc Trăng': 'Sóc Trăng', 'Bạc Liêu': 'Bạc Liêu', 'Cà Mau': 'Cà Mau',
+    };
+    const _PROVINCE_KEYS = Object.keys(_PROVINCE_MAP).sort((a, b) => b.length - a.length);
+
+    // Load 686 quận/huyện from JSON file → { "Cầu Giấy": "Hà Nội", ... }
+    const _DISTRICT_MAP = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'data', 'districts.json'), 'utf8'));
+    const _DISTRICT_KEYS = Object.keys(_DISTRICT_MAP).sort((a, b) => b.length - a.length);
+
+    function _extractAddress(text) {
+        if (!text) return '';
+        
+        // Step 1: Find province
+        let province = '';
+        for (const key of _PROVINCE_KEYS) {
+            if (key.length <= 3) {
+                const regex = new RegExp(`(?:^|[\\s,.:;\\-\\/])${key.replace(/\./g, '\\.')}(?=$|[\\s,.:;\\-\\/])`, 'i');
+                if (regex.test(text)) { province = _PROVINCE_MAP[key]; break; }
+            } else {
+                if (text.includes(key)) { province = _PROVINCE_MAP[key]; break; }
+            }
+        }
+        
+        // Step 2: Find district
+        let district = '';
+        let distProvince = '';
+        for (const key of _DISTRICT_KEYS) {
+            if (key.length <= 3) {
+                // Skip very short district names to avoid false positives
+                continue;
+            }
+            if (text.includes(key)) {
+                district = key;
+                distProvince = _DISTRICT_MAP[key];
+                break;
+            }
+        }
+        
+        // Step 3: Build result
+        if (district && province) {
+            // Both found — use district + province (prefer province from province map)
+            if (distProvince === province) {
+                return `${district}, ${province}`;
+            } else {
+                // District and province don't match, show both independently
+                return `${district}, ${distProvince}`;
+            }
+        } else if (district) {
+            // Only district found — auto-map to province
+            return `${district}, ${distProvince}`;
+        } else if (province) {
+            // Only province found
+            return province;
+        }
+        return '';
+    }
+
+    // Vietnamese mobile carrier detection + phone validation
+    const _CARRIER_PREFIXES = {
+        // Viettel
+        '032': 'Viettel', '033': 'Viettel', '034': 'Viettel', '035': 'Viettel',
+        '036': 'Viettel', '037': 'Viettel', '038': 'Viettel', '039': 'Viettel',
+        '086': 'Viettel', '096': 'Viettel', '097': 'Viettel', '098': 'Viettel',
+        // Mobifone
+        '070': 'Mobi', '076': 'Mobi', '077': 'Mobi', '078': 'Mobi', '079': 'Mobi',
+        '089': 'Mobi', '090': 'Mobi', '093': 'Mobi',
+        // Vinaphone
+        '081': 'Vina', '082': 'Vina', '083': 'Vina', '084': 'Vina', '085': 'Vina',
+        '088': 'Vina', '091': 'Vina', '094': 'Vina',
+        // Vietnamobile
+        '052': 'Vnmb', '056': 'Vnmb', '058': 'Vnmb', '092': 'Vnmb',
+        // Gmobile
+        '059': 'Gmob', '099': 'Gmob',
+        // iTel (Itelecom)
+        '087': 'iTel',
+        // Reddi Mobile
+        '055': 'Reddi',
+    };
+
+    function _detectCarrier(phone) {
+        if (!phone) return 'invalid';
+        const cleaned = phone.toString().replace(/[\s\-\.]/g, '');
+        // Must be exactly 10 digits starting with 0
+        if (!/^0\d{9}$/.test(cleaned)) return 'invalid';
+        const prefix = cleaned.substring(0, 3);
+        return _CARRIER_PREFIXES[prefix] || 'invalid';
+    }
+
+    // Process phone field that may contain multiple numbers separated by |
+    // Returns { phone: "cleaned1|cleaned2", carrier: "Viettel|Mobi", isInvalid: false }
+    function _processPhone(rawPhone) {
+        if (!rawPhone) return { phone: '', carrier: 'invalid', isInvalid: true };
+        const raw = rawPhone.toString().trim();
+        
+        // Split by | and clean each number
+        const parts = raw.split('|').map(p => p.replace(/[\s\-\.]/g, '').trim()).filter(Boolean);
+        
+        if (parts.length <= 1) {
+            // Single number — use original logic
+            const c = _detectCarrier(raw);
+            return { phone: raw.replace(/[\s\-\.]/g, '').trim(), carrier: c, isInvalid: c === 'invalid' };
+        }
+        
+        // Multiple numbers — validate each, keep max 3 valid mobile numbers
+        const validPhones = [];
+        for (const p of parts) {
+            const c = _detectCarrier(p);
+            if (c !== 'invalid' && validPhones.length < 3) {
+                validPhones.push({ phone: p, carrier: c });
+            }
+        }
+        
+        if (validPhones.length === 0) {
+            return { phone: raw, carrier: 'invalid', isInvalid: true };
+        }
+        
+        return {
+            phone: validPhones.map(v => v.phone).join('|'),
+            carrier: validPhones.map(v => v.carrier).join('|'),
+            isInvalid: false
+        };
+    }
+
+    // Backfill addresses server-side (all-in-one)
+    fastify.post('/api/telesale/data/backfill-address', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        
+        // Reset old wrong addresses first, then re-extract all
+        await db.run(`UPDATE telesale_data SET address = '' WHERE address IS NOT NULL AND address != ''`);
+        
+        const data = await db.all(`SELECT id, post_content FROM telesale_data WHERE post_content IS NOT NULL AND post_content != '' LIMIT 50000`);
+        
+        if (!data || data.length === 0) return { success: true, total: 0, extracted: 0, message: 'Không có data!' };
+        
+        let extracted = 0;
+        const updates = [];
+        for (const row of data) {
+            const addr = _extractAddress(row.post_content);
+            if (addr) {
+                updates.push({ id: row.id, address: addr });
+                extracted++;
+            }
+        }
+        
+        // Batch update
+        for (const u of updates) {
+            await db.run('UPDATE telesale_data SET address = $1 WHERE id = $2', [u.address, u.id]);
+        }
+        
+        return { success: true, total: data.length, extracted, updated: updates.length, message: `Trích xuất: ${extracted}/${data.length}, cập nhật: ${updates.length}` };
+    });
+
+    // Sync all columns: company_name, address, carrier
+    fastify.post('/api/telesale/data/sync-all', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        
+        const results = { companyUpdated: 0, addressExtracted: 0, addressTotal: 0, carrierUpdated: 0, invalidMarked: 0 };
+        
+        // Step 1: Copy group_name → company_name where company_name is empty
+        const companyResult = await db.run(`UPDATE telesale_data SET company_name = group_name WHERE (company_name IS NULL OR company_name = '') AND group_name IS NOT NULL AND group_name != ''`);
+        results.companyUpdated = companyResult.rowCount || 0;
+        
+        // Step 2: Re-extract addresses for records missing address
+        const data = await db.all(`SELECT id, post_content FROM telesale_data WHERE (address IS NULL OR address = '') AND post_content IS NOT NULL AND post_content != '' LIMIT 50000`);
+        results.addressTotal = data.length;
+        const addrUpdates = [];
+        for (const row of data) {
+            const addr = _extractAddress(row.post_content);
+            if (addr) { addrUpdates.push({ id: row.id, address: addr }); results.addressExtracted++; }
+        }
+        for (const u of addrUpdates) {
+            await db.run('UPDATE telesale_data SET address = $1 WHERE id = $2', [u.address, u.id]);
+        }
+        
+        // Step 3: Process ALL phones (handle | separated, detect carrier, clean phone)
+        const phones = await db.all(`SELECT id, phone, status FROM telesale_data LIMIT 200000`);
+        const carrierUpdates = [];
+        for (const row of phones) {
+            const processed = _processPhone(row.phone);
+            const changed = processed.phone !== row.phone || processed.carrier !== row.carrier;
+            if (changed || !row.carrier) {
+                carrierUpdates.push({ id: row.id, phone: processed.phone, carrier: processed.carrier, isInvalid: processed.isInvalid, oldStatus: row.status });
+                results.carrierUpdated++;
+                if (processed.isInvalid && row.status !== 'invalid') results.invalidMarked++;
+            }
+        }
+        // Batch update
+        for (let i = 0; i < carrierUpdates.length; i += 500) {
+            const chunk = carrierUpdates.slice(i, i + 500);
+            for (const u of chunk) {
+                if (u.isInvalid) {
+                    await db.run('UPDATE telesale_data SET phone = $1, carrier = $2, status = $3 WHERE id = $4', [u.phone, u.carrier, 'invalid', u.id]);
+                } else {
+                    // If was invalid before, set back to available
+                    const newStatus = u.oldStatus === 'invalid' ? 'available' : u.oldStatus;
+                    await db.run('UPDATE telesale_data SET phone = $1, carrier = $2, status = $3 WHERE id = $4', [u.phone, u.carrier, newStatus || 'available', u.id]);
+                }
+            }
+        }
+        
+        return { success: true, ...results, message: `CT: ${results.companyUpdated} | Địa chỉ: ${results.addressExtracted} | Nhà mạng: ${results.carrierUpdated} | SĐT sai: ${results.invalidMarked}` };
+    });
+
+    // ========== DEDUP CRM: remove duplicate phones across sources within same CRM type ==========
+    fastify.post('/api/telesale/data/dedup-crm', { preHandler: authenticate }, async (req, reply) => {
+        const mgr = ['giam_doc', 'quan_ly_cap_cao'];
+        if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const { crm_type } = req.body;
+        if (!crm_type) return reply.code(400).send({ error: 'Cần crm_type' });
+
+        // Get all source IDs for this CRM type
+        const sources = await db.all('SELECT id, name FROM telesale_sources WHERE crm_type = ?', [crm_type]);
+        if (sources.length === 0) return { success: true, deleted: 0, message: 'Không có nguồn nào' };
+        const sourceIds = sources.map(s => s.id);
+
+        // Find all records in these sources, ordered by id ASC (oldest first)
+        const allRows = await db.all(
+            `SELECT id, phone, source_id FROM telesale_data 
+             WHERE source_id IN (${sourceIds.map((_, i) => '$' + (i + 1)).join(',')})
+             AND phone IS NOT NULL AND phone != ''
+             ORDER BY id ASC`,
+            sourceIds
+        );
+
+        // Track seen phones — keep first occurrence (oldest), collect duplicates to delete
+        const seenPhones = new Set();
+        const deleteIds = [];
+        for (const row of allRows) {
+            if (seenPhones.has(row.phone)) {
+                deleteIds.push(row.id);
+            } else {
+                seenPhones.add(row.phone);
+            }
+        }
+
+        // Batch delete duplicates in chunks of 500
+        const BATCH = 500;
+        for (let i = 0; i < deleteIds.length; i += BATCH) {
+            const chunk = deleteIds.slice(i, i + BATCH);
+            // Also delete assignments linked to these data ids
+            await db.run(
+                `DELETE FROM telesale_assignments WHERE data_id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`,
+                chunk
+            );
+            await db.run(
+                `DELETE FROM telesale_data WHERE id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`,
+                chunk
+            );
+        }
+
+        return { 
+            success: true, 
+            deleted: deleteIds.length, 
+            totalBefore: allRows.length,
+            totalAfter: allRows.length - deleteIds.length,
+            message: `Đã xóa ${deleteIds.length} SĐT trùng trong CRM (giữ bản ghi cũ nhất)` 
+        };
     });
 
     // ========== ACTIVE MEMBERS ==========
@@ -494,7 +849,7 @@ async function runTelesalePump() {
                 } catch (e) { /* duplicate, skip */ }
             }
 
-            // Distribute from sources proportionally
+            // Distribute from sources proportionally with carrier priority
             const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
             for (let si = 0; si < sources.length && remaining > 0; si++) {
                 const src = sources[si];
@@ -502,20 +857,58 @@ async function runTelesalePump() {
                 count = Math.min(count, remaining);
                 if (count <= 0) continue;
 
-                const available = await db.all(`SELECT id FROM telesale_data
-                    WHERE source_id = $1 AND status = 'available'
-                    ORDER BY RANDOM() LIMIT $2`, [src.id, count]);
+                const priority = src.carrier_priority || ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi'];
+                const mode = src.distribution_mode || 'priority';
+                let pickedIds = [];
 
-                if (available.length < count && available.length < (src.daily_quota || 0)) {
-                    alerts.push({ source: src.name, needed: count, available: available.length });
+                if (mode === 'even') {
+                    // Even mode: distribute equally across carriers
+                    const perCarrier = Math.max(1, Math.floor(count / priority.length));
+                    for (const carrier of priority) {
+                        if (pickedIds.length >= count) break;
+                        const need = Math.min(perCarrier, count - pickedIds.length);
+                        const rows = await db.all(`SELECT id FROM telesale_data
+                            WHERE source_id = $1 AND status = 'available' AND carrier LIKE $2
+                            ORDER BY RANDOM() LIMIT $3`, [src.id, `%${carrier}%`, need]);
+                        pickedIds.push(...rows.map(r => r.id));
+                    }
+                    // Fill remainder with any available
+                    if (pickedIds.length < count) {
+                        const fill = await db.all(`SELECT id FROM telesale_data
+                            WHERE source_id = $1 AND status = 'available' AND id != ALL($2::int[])
+                            ORDER BY RANDOM() LIMIT $3`, [src.id, pickedIds.length > 0 ? pickedIds : [0], count - pickedIds.length]);
+                        pickedIds.push(...fill.map(r => r.id));
+                    }
+                } else {
+                    // Priority mode: take from highest-priority carrier first
+                    for (const carrier of priority) {
+                        if (pickedIds.length >= count) break;
+                        const need = count - pickedIds.length;
+                        const rows = await db.all(`SELECT id FROM telesale_data
+                            WHERE source_id = $1 AND status = 'available' AND carrier LIKE $2
+                            AND id != ALL($3::int[])
+                            ORDER BY RANDOM() LIMIT $4`, [src.id, `%${carrier}%`, pickedIds.length > 0 ? pickedIds : [0], need]);
+                        pickedIds.push(...rows.map(r => r.id));
+                    }
+                    // Fill remainder with any available (including invalid/unknown carrier)
+                    if (pickedIds.length < count) {
+                        const fill = await db.all(`SELECT id FROM telesale_data
+                            WHERE source_id = $1 AND status = 'available' AND id != ALL($2::int[])
+                            ORDER BY RANDOM() LIMIT $3`, [src.id, pickedIds.length > 0 ? pickedIds : [0], count - pickedIds.length]);
+                        pickedIds.push(...fill.map(r => r.id));
+                    }
                 }
 
-                for (const d of available) {
+                if (pickedIds.length < count && pickedIds.length < (src.daily_quota || 0)) {
+                    alerts.push({ source: src.name, needed: count, available: pickedIds.length });
+                }
+
+                for (const dId of pickedIds) {
                     try {
                         await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
-                            [d.id, member.user_id, today]);
+                            [dId, member.user_id, today]);
                         await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
-                            [today, member.user_id, d.id]);
+                            [today, member.user_id, dId]);
                         totalPumped++;
                         remaining--;
                     } catch (e) { /* duplicate */ }

@@ -676,8 +676,13 @@ async function loadTelesaleSourcesSettings() {
             </div>
         </div>
 
-        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
             <span style="font-size:12px;color:#6b7280;">Tổng quota <strong style="color:${activeCfg?.color || '#122546'}">${activeCfg?.label || ''}</strong>: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:10px;">
+                <span style="font-size:11px;font-weight:700;color:#0369a1;">🔄 Đồng bộ quota:</span>
+                <input type="number" id="tsSyncQuotaVal" value="${sources.length > 0 ? sources[0].daily_quota : 15}" min="0" style="width:70px;padding:4px 8px;border:1.5px solid #93c5fd;border-radius:8px;text-align:center;font-weight:700;font-size:13px;">
+                <button class="ts-btn ts-btn-blue ts-btn-xs" onclick="syncTsSourceQuota()" style="white-space:nowrap;">Đồng bộ tất cả</button>
+            </div>
         </div>
 
         <!-- Sources List -->
@@ -737,6 +742,15 @@ async function _settings_switchCrm(crmType) {
     await loadTelesaleSourcesSettings();
 }
 
+async function syncTsSourceQuota() {
+    const quota = parseInt(document.getElementById('tsSyncQuotaVal')?.value);
+    if (isNaN(quota) || quota < 0) return showToast('Nhập quota hợp lệ (≥ 0)', 'error');
+    if (!confirm(`Đồng bộ TẤT CẢ nguồn trong CRM này → quota = ${quota}?`)) return;
+    const res = await apiCall('/api/telesale/sources/sync-quota', 'PUT', { crm_type: _settings_activeCrm, daily_quota: quota });
+    if (res.success) { showToast(res.message); await loadTelesaleSourcesSettings(); }
+    else showToast(res.error, 'error');
+}
+
 async function addTsSource() {
     const name = document.getElementById('newTsName')?.value?.trim();
     if (!name) return showToast('Nhập tên nguồn', 'error');
@@ -767,7 +781,8 @@ async function submitEditTsSource(id) {
     const data = await apiCall(`/api/telesale/sources/${id}`, 'PUT', {
         name: document.getElementById('editTsName').value,
         icon: document.getElementById('editTsIcon').value,
-        daily_quota: parseInt(document.getElementById('editTsQuota').value) || 0
+        daily_quota: parseInt(document.getElementById('editTsQuota').value) || 0,
+        crm_type: _settings_activeCrm
     });
     if (data.success) { showToast(data.message); closeModal(); await loadTelesaleSourcesSettings(); }
     else showToast(data.error, 'error');

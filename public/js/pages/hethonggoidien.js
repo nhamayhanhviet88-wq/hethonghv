@@ -1,15 +1,29 @@
 // ========== HỆ THỐNG PHÂN CHIA GỌI ĐIỆN — PREMIUM UI ==========
 
 let _htgd_sources = [];
-let _htgd_activeSourceId = null;
+let _htgd_activeSourceId = localStorage.getItem('htgd_sourceId') || null;
 let _htgd_page = 1;
 let _htgd_search = '';
 let _htgd_statusFilter = '';
+let _htgd_carrierFilter = '';
+let _htgd_carrierStats = {};
 let _htgd_members = [];
 let _htgd_stats = [];
-let _htgd_tab = 'data';
+let _htgd_tab = localStorage.getItem('htgd_tab') || 'data';
 let _htgd_depts = [];
-let _htgd_activeCrm = 'all';
+let _htgd_activeCrm = localStorage.getItem('htgd_crm') || 'all';
+let _htgd_lastData = [];
+let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'nuoi_duong';
+const _carrierMap = {
+    'Viettel': { label:'Viettel', bg:'#ecfdf5', color:'#059669' },
+    'Mobi': { label:'Mobi', bg:'#eff6ff', color:'#2563eb' },
+    'Vina': { label:'Vina', bg:'#fefce8', color:'#ca8a04' },
+    'Vnmb': { label:'Vnmb', bg:'#f0fdf4', color:'#16a34a' },
+    'Gmob': { label:'Gmob', bg:'#faf5ff', color:'#9333ea' },
+    'iTel': { label:'iTel', bg:'#fff7ed', color:'#ea580c' },
+    'Reddi': { label:'Reddi', bg:'#fef2f2', color:'#b91c1c' },
+    'invalid': { label:'Sai', bg:'#fef2f2', color:'#dc2626' },
+};
 
 const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
@@ -48,6 +62,7 @@ async function renderHeThongGoiDienPage(container) {
                     <button class="ts-btn ts-btn-green" onclick="_htgd_importCSV()">📥 Import CSV</button>
                     <button class="ts-btn ts-btn-blue" onclick="_htgd_manualPump()">🚀 Bơm Thủ Công</button>
                     <button class="ts-btn ts-btn-red" onclick="_htgd_manualRecall()">🔄 Thu Hồi</button>
+                    <button class="ts-btn" onclick="_htgd_dedupCrm()" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;">🧹 Lọc Trùng</button>
                 </div>
             </div>
             <div style="display:flex;gap:2px;border-bottom:2px solid #e5e7eb;">
@@ -67,7 +82,9 @@ async function renderHeThongGoiDienPage(container) {
 
 async function _htgd_switchCrm(crmType) {
     _htgd_activeCrm = crmType;
+    localStorage.setItem('htgd_crm', crmType);
     _htgd_activeSourceId = null;
+    _htgd_carrierFilter = '';
     _htgd_page = 1;
     // Update CRM tab UI
     const tabs = document.querySelectorAll('.htgd-crm-tab');
@@ -90,9 +107,9 @@ async function _htgd_switchCrm(crmType) {
 
 function _htgd_switchTab(tab, el) {
     _htgd_tab = tab;
+    localStorage.setItem('htgd_tab', tab);
     document.querySelectorAll('.ts-tab').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
-    // Hide action buttons on settings/invalid tab
     const actionBtns = document.getElementById('htgdActionBtns');
     if (actionBtns) actionBtns.style.visibility = (tab === 'settings' || tab === 'invalid' || _htgd_activeCrm === 'all') ? 'hidden' : 'visible';
     if (tab === 'data') _htgd_renderDataTab();
@@ -206,7 +223,18 @@ async function _htgd_renderDataTab() {
                 <option value="answered" ${_htgd_statusFilter==='answered'?'selected':''}>📞 Đã gọi</option>
                 <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>🧊 Kho lạnh</option>
             </select>
-            <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="document.getElementById('htgdSearch').value='';_htgd_search='';_htgd_statusFilter='';_htgd_page=1;_htgd_loadData();">🔄 Reset</button>
+            <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">
+                <option value="">Tất cả nhà mạng</option>
+                <option value="Viettel" ${_htgd_carrierFilter==='Viettel'?'selected':''}>🟩 Viettel</option>
+                <option value="Mobi" ${_htgd_carrierFilter==='Mobi'?'selected':''}>🟦 Mobi</option>
+                <option value="Vina" ${_htgd_carrierFilter==='Vina'?'selected':''}>🟨 Vina</option>
+                <option value="Vnmb" ${_htgd_carrierFilter==='Vnmb'?'selected':''}>🟩 Vnmb</option>
+                <option value="Gmob" ${_htgd_carrierFilter==='Gmob'?'selected':''}>🟪 Gmob</option>
+                <option value="iTel" ${_htgd_carrierFilter==='iTel'?'selected':''}>🟧 iTel</option>
+                <option value="Reddi" ${_htgd_carrierFilter==='Reddi'?'selected':''}>🟫 Reddi</option>
+                <option value="invalid" ${_htgd_carrierFilter==='invalid'?'selected':''}>❌ Sai</option>
+            </select>
+            <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="document.getElementById('htgdSearch').value='';_htgd_search='';_htgd_statusFilter='';_htgd_carrierFilter='';_htgd_page=1;_htgd_loadData();">🔄 Reset</button>
             <button class="ts-btn ts-btn-green ts-btn-xs" onclick="_htgd_addDataManual()">➕ Thêm</button>
         </div>
         <div id="htgdDataTable" style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:hidden;">
@@ -228,10 +256,29 @@ async function _htgd_loadData() {
     const params = new URLSearchParams({ source_id: _htgd_activeSourceId, page: _htgd_page, limit: 50 });
     if (_htgd_search) params.set('search', _htgd_search);
     if (_htgd_statusFilter) params.set('status', _htgd_statusFilter);
+    if (_htgd_carrierFilter) params.set('carrier', _htgd_carrierFilter);
 
-    const res = await apiCall(`/api/telesale/data?${params}`);
+    const [res, statsRes] = await Promise.all([
+        apiCall(`/api/telesale/data?${params}`),
+        apiCall(`/api/telesale/data/stats?crm_type=${_htgd_activeCrm}${_htgd_activeSourceId ? '&source_id='+_htgd_activeSourceId : ''}`)
+    ]);
     const data = res.data || [];
+    _htgd_lastData = data;
+    _htgd_carrierStats = statsRes.carrierStats || {};
     const total = parseInt(res.total || 0);
+    // Update carrier filter dropdown counts
+    const dd = document.getElementById('htgdCarrierFilter');
+    if (dd) {
+        const carriers = ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi','invalid'];
+        const icons = ['🟩','🟦','🟨','🟩','🟪','🟧','🟫','❌'];
+        const labels = ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi','Sai'];
+        let opts = '<option value="">Tất cả nhà mạng</option>';
+        carriers.forEach((c,i) => {
+            const cnt = _htgd_carrierStats[c] || 0;
+            opts += `<option value="${c}" ${_htgd_carrierFilter===c?'selected':''}>${icons[i]} ${labels[i]} (${cnt.toLocaleString()})</option>`;
+        });
+        dd.innerHTML = opts;
+    }
     const totalPages = Math.ceil(total / 50);
 
     const statusBadge = (s) => {
@@ -272,22 +319,32 @@ async function _htgd_loadData() {
                 <th style="text-align:left;">Tên Công Ty</th>
                 <th style="text-align:left;">Tên KH</th>
                 <th style="text-align:left;">SĐT</th>
+                <th style="text-align:center;">NM</th>
                 <th style="text-align:left;">Địa Chỉ</th>
                 <th style="text-align:center;">Trạng Thái</th>
                 <th style="text-align:left;">Phân Cho</th>
                 <th style="text-align:center;width:60px;">Xóa</th>
             </tr></thead>
             <tbody>
-                ${data.map((d,i) => `<tr>
+                ${data.map((d,i) => {
+                    const carriers = (d.carrier||'').split('|').filter(Boolean);
+                    const carrierHtml = carriers.length > 0 ? carriers.map(c => {
+                        const cm = _carrierMap[c] || _carrierMap['invalid'];
+                        return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:9px;padding:1px 5px;">${cm.label}</span>`;
+                    }).join(' ') : '<span style="color:#d1d5db;font-size:10px;">—</span>';
+                    const phoneShort = d.phone ? d.phone.replace(/^84/, '0').slice(-3) : '—';
+                    return `<tr onclick="_htgd_viewDetail(${d.id})" style="cursor:pointer;">
                     <td style="color:#9ca3af;font-weight:600;">${((_htgd_page-1)*50)+i+1}</td>
                     <td style="font-weight:600;color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.company_name||'').replace(/"/g,'&quot;')}">${d.company_name || '—'}</td>
                     <td style="font-weight:700;color:#122546;">${d.customer_name || '—'}</td>
-                    <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">${d.phone}</td>
+                    <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">***${phoneShort}</td>
+                    <td style="text-align:center;">${carrierHtml}</td>
                     <td style="color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.address||'').replace(/"/g,'&quot;')}">${d.address || '—'}</td>
                     <td style="text-align:center;">${statusBadge(d.status)}</td>
                     <td>${nvAvatar(d.last_assigned_user_name)}</td>
-                    <td style="text-align:center;"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_deleteData(${d.id})" title="Xóa">🗑️</button></td>
-                </tr>`).join('')}
+                    <td style="text-align:center;" onclick="event.stopPropagation();"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_deleteData(${d.id})" title="Xóa">🗑️</button></td>
+                </tr>`;
+                }).join('')}
             </tbody>
         </table>
         <div style="padding:10px 14px;background:#f8fafc;font-size:11px;color:#6b7280;display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;">
@@ -517,7 +574,7 @@ async function _htgd_renderMembersTab() {
     ]);
     _htgd_members = memRes.members || [];
     const allUsers = (usersRes.users || usersRes || []).filter(u => u.status === 'active');
-    _htgd_depts = deptRes.departments || deptRes || [];
+    _htgd_depts = deptRes.teams || deptRes.departments || (Array.isArray(deptRes) ? deptRes : []);
     const memberIds = new Set(_htgd_members.map(m => m.user_id));
     const availableUsers = allUsers.filter(u => !memberIds.has(u.id));
 
@@ -704,27 +761,32 @@ async function _htgd_restoreNumber(id) {
 }
 
 // ========== SETTINGS TAB ==========
-let _htgd_settingsCrm = 'hoa_hong_crm';
 
 async function _htgd_renderSettingsTab() {
     const el = document.getElementById('htgdContent');
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [srcRes, configRes1, configRes2, configRes3, configRes4] = await Promise.all([
+    const [srcRes, srcHopTac, srcBanHang, configRes2, configRes3, configRes4, cStatsRes] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
-        apiCall('/api/app-config/telesale_default_quota'),
+        apiCall('/api/telesale/sources?crm_type=nuoi_duong'),
+        apiCall('/api/telesale/sources?crm_type=sinh_vien'),
         apiCall('/api/app-config/telesale_cold_months'),
         apiCall('/api/app-config/telesale_followup_canhnhac'),
-        apiCall('/api/app-config/telesale_followup_ncc')
+        apiCall('/api/app-config/telesale_followup_ncc'),
+        apiCall(`/api/telesale/data/stats?crm_type=${_htgd_settingsCrm}`)
     ]);
     const sources = srcRes.sources || [];
-    const defaultQuota = configRes1.value || '250';
+    const sourceCarrierStats = cStatsRes.sourceCarrierStats || {};
     const coldMonths = configRes2.value || '4';
     const followupCN = configRes3.value || '3';
     const followupNCC = configRes4.value || '30';
-
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const hopTacTotal = (srcHopTac.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const banHangTotal = (srcBanHang.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const combinedTotal = hopTacTotal + banHangTotal;
+    const hopTacPct = combinedTotal > 0 ? Math.round((hopTacTotal / combinedTotal) * 100) : 0;
+    const banHangPct = combinedTotal > 0 ? 100 - hopTacPct : 0;
     const crmOptions = [
         { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
         { value: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
@@ -749,58 +811,51 @@ async function _htgd_renderSettingsTab() {
     el.innerHTML = `
         <div style="margin:16px 0 12px;">
             <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">⚙️ Cài Đặt Nguồn Gọi Điện</h4>
-            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các nguồn data gọi điện. Mỗi nguồn = 1 danh mục SĐT khách hàng.</p>
+            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các nguồn data gọi điện.</p>
         </div>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-            ${crmTabsHtml}
+        <div style="margin-bottom:18px;padding:18px 22px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;color:white;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <div><div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">📊 Tổng Quota/NV/Ngày</div></div>
+                <div style="font-size:36px;font-weight:900;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${combinedTotal}</div>
+            </div>
+            <div style="display:flex;gap:16px;margin-bottom:12px;">
+                <div style="flex:1;padding:10px 14px;background:rgba(5,150,105,0.15);border:1px solid rgba(5,150,105,0.3);border-radius:10px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:700;color:#6ee7b7;">🤝 Hợp Tác</span><span style="font-size:18px;font-weight:900;color:#34d399;">${hopTacTotal}</span></div></div>
+                <div style="flex:1;padding:10px 14px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:10px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:700;color:#fcd34d;">📞 Bán Hàng</span><span style="font-size:18px;font-weight:900;color:#fbbf24;">${banHangTotal}</span></div></div>
+            </div>
+            <div style="height:8px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;display:flex;"><div style="width:${hopTacPct}%;background:linear-gradient(90deg,#059669,#34d399);border-radius:6px 0 0 6px;"></div><div style="width:${banHangPct}%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:0 6px 6px 0;"></div></div>
         </div>
-
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">📊 Quota mặc định/NV/ngày</label>
-                <input type="number" id="htgdDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px 8px;border:1.5px solid #93c5fd;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_default_quota',this.value)">
-            </div>
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label>
-                <input type="number" id="htgdColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_cold_months',this.value)">
-            </div>
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label>
-                <input type="number" id="htgdFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span>
-            </div>
-            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (Có NCC)</label>
-                <input type="number" id="htgdFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span>
-            </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">${crmTabsHtml}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label><input type="number" id="htgdColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_cold_months',this.value)"></div>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label><input type="number" id="htgdFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span></div>
+            <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (NCC)</label><input type="number" id="htgdFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="_htgd_saveConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span></div>
         </div>
-
-        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
             <span style="font-size:12px;color:#6b7280;">Tổng quota <strong style="color:${activeCfg?.color || '#122546'}">${activeCfg?.label || ''}</strong>: <strong style="color:#122546;font-size:14px;">${totalQuota} SĐT/NV/ngày</strong></span>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:10px;">
+                <span style="font-size:11px;font-weight:700;color:#0369a1;">🔄 Đồng bộ quota:</span>
+                <input type="number" id="htgdSyncQuotaVal" value="${sources.length > 0 ? sources[0].daily_quota : 15}" min="0" style="width:70px;padding:4px 8px;border:1.5px solid #93c5fd;border-radius:8px;text-align:center;font-weight:700;font-size:13px;">
+                <button class="ts-btn ts-btn-blue ts-btn-xs" onclick="_htgd_syncSourceQuota()" style="white-space:nowrap;">Đồng bộ tất cả</button>
+            </div>
         </div>
-
-        <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:hidden;">
-            <table class="ts-table">
-                <thead><tr>
-                    <th style="text-align:left;">Icon</th>
-                    <th style="text-align:left;">Tên Nguồn</th>
-                    <th style="text-align:center;">Quota/NV/Ngày</th>
-                    <th style="text-align:center;">Thao Tác</th>
-                </tr></thead>
-                <tbody>
-                    ${sources.map(s => `
-                    <tr>
-                        <td style="font-size:20px;">${s.icon || '📁'}</td>
-                        <td style="font-weight:700;color:#122546;">${s.name}</td>
-                        <td style="text-align:center;"><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${s.daily_quota}</span></td>
-                        <td style="text-align:center;">
-                            <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_editSource(${s.id})">✏️ Sửa</button>
-                            <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="_htgd_deleteSource(${s.id},'${s.name.replace(/'/g,"\\\\'")}')">🗑️</button>
-                        </td>
-                    </tr>`).join('')}
-                    ${sources.length === 0 ? '<tr><td colspan="4" class="ts-empty" style="padding:20px;">Chưa có nguồn nào cho CRM này</td></tr>' : ''}
-                </tbody>
-            </table>
+        <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:auto;">
+            <table class="ts-table" style="min-width:900px;"><thead><tr>
+                <th style="text-align:left;">Icon</th><th style="text-align:left;">Tên Nguồn</th><th style="text-align:center;">Quota</th>
+                <th style="text-align:center;color:#059669;">🟩Vtel</th><th style="text-align:center;color:#2563eb;">🟦Mobi</th><th style="text-align:center;color:#ca8a04;">🟨Vina</th>
+                <th style="text-align:center;color:#16a34a;">🟩Vnmb</th><th style="text-align:center;color:#9333ea;">🟪Gmob</th><th style="text-align:center;color:#ea580c;">🟧iTel</th><th style="text-align:center;color:#b91c1c;">🟫Redd</th>
+                <th style="text-align:center;">Chế Độ</th><th style="text-align:center;">Import</th><th style="text-align:center;">Thao Tác</th>
+            </tr></thead><tbody>
+                ${sources.map(s => {
+                    const cs = sourceCarrierStats[s.id] || {};
+                    const hasMapping = s.column_mapping && Object.values(s.column_mapping).some(v => v);
+                    const mappingBadge = hasMapping ? '<span class="ts-badge" style="background:#dcfce7;color:#16a34a;cursor:pointer;" onclick="_htgd_configColumns('+s.id+')">✅</span>' : '<span class="ts-badge" style="background:#fef3c7;color:#92400e;cursor:pointer;" onclick="_htgd_configColumns('+s.id+')">⚠️</span>';
+                    const mode = s.distribution_mode || 'priority';
+                    const modeBadge = mode === 'even' ? '<span class="ts-badge" style="background:#dbeafe;color:#1e40af;cursor:pointer;font-size:10px;" onclick="_htgd_carrierPriorityModal('+s.id+')">⚖️ Đều</span>' : '<span class="ts-badge" style="background:#dcfce7;color:#059669;cursor:pointer;font-size:10px;" onclick="_htgd_carrierPriorityModal('+s.id+')">🎯 Ưu tiên</span>';
+                    const cb = (v) => v ? '<span style="font-weight:700;font-size:11px;">'+v.toLocaleString()+'</span>' : '<span style="color:#d1d5db;">0</span>';
+                    return '<tr><td style="font-size:20px;">'+(s.icon||'📁')+'</td><td style="font-weight:700;color:#122546;white-space:nowrap;">'+s.name+'</td><td style="text-align:center;"><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">'+s.daily_quota+'</span></td><td style="text-align:center;">'+cb(cs.Viettel)+'</td><td style="text-align:center;">'+cb(cs.Mobi)+'</td><td style="text-align:center;">'+cb(cs.Vina)+'</td><td style="text-align:center;">'+cb(cs.Vnmb)+'</td><td style="text-align:center;">'+cb(cs.Gmob)+'</td><td style="text-align:center;">'+cb(cs.iTel)+'</td><td style="text-align:center;">'+cb(cs.Reddi)+'</td><td style="text-align:center;">'+modeBadge+'</td><td style="text-align:center;">'+mappingBadge+'</td><td style="text-align:center;white-space:nowrap;"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_editSource('+s.id+')">✏️</button> <button class="ts-btn ts-btn-xs" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca;" onclick="_htgd_deleteSource('+s.id+',\\''+s.name.replace(/'/g,"\\\\'")+'\\')" >🗑️</button></td></tr>';
+                }).join('')}
+                ${sources.length === 0 ? '<tr><td colspan="13" class="ts-empty" style="padding:20px;">Chưa có nguồn nào</td></tr>' : ''}
+            </tbody></table>
         </div>
 
         <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
@@ -826,6 +881,7 @@ async function _htgd_renderSettingsTab() {
 
 async function _htgd_switchSettingsCrm(crmType) {
     _htgd_settingsCrm = crmType;
+    localStorage.setItem('htgd_settingsCrm', crmType);
     await _htgd_renderSettingsTab();
 }
 
@@ -875,4 +931,148 @@ async function _htgd_deleteSource(id, name) {
     const data = await apiCall(`/api/telesale/sources/${id}`, 'DELETE');
     if (data.success) { showToast(data.message); await _htgd_renderSettingsTab(); }
     else showToast(data.error, 'error');
+}
+
+// ========== SYNC QUOTA ==========
+async function _htgd_syncSourceQuota() {
+    const val = parseInt(document.getElementById('htgdSyncQuotaVal')?.value) || 15;
+    const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`);
+    const sources = srcRes.sources || [];
+    for (const s of sources) {
+        await apiCall(`/api/telesale/sources/${s.id}`, 'PUT', { daily_quota: val });
+    }
+    showToast(`✅ Đã đồng bộ ${sources.length} nguồn = ${val} quota/NV/ngày`);
+    await _htgd_renderSettingsTab();
+}
+
+// ========== CARRIER PRIORITY MODAL ==========
+async function _htgd_carrierPriorityModal(sourceId) {
+    const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`);
+    const src = (srcRes.sources || []).find(s => s.id === sourceId);
+    if (!src) return;
+    const allCarriers = ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi'];
+    const currentPriority = src.carrier_priority || allCarriers;
+    const currentMode = src.distribution_mode || 'priority';
+    const body = `
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:700;margin-bottom:6px;display:block;">Chế độ phân chia:</label>
+            <div style="display:flex;gap:8px;">
+                <button id="cpModePriority" class="ts-btn ${currentMode==='priority'?'ts-btn-green':'ts-btn-ghost'}" onclick="document.getElementById('cpModePriority').classList.add('ts-btn-green');document.getElementById('cpModePriority').classList.remove('ts-btn-ghost');document.getElementById('cpModeEven').classList.remove('ts-btn-blue');document.getElementById('cpModeEven').classList.add('ts-btn-ghost');document.getElementById('cpModeVal').value='priority';">🎯 Ưu tiên</button>
+                <button id="cpModeEven" class="ts-btn ${currentMode==='even'?'ts-btn-blue':'ts-btn-ghost'}" onclick="document.getElementById('cpModeEven').classList.add('ts-btn-blue');document.getElementById('cpModeEven').classList.remove('ts-btn-ghost');document.getElementById('cpModePriority').classList.remove('ts-btn-green');document.getElementById('cpModePriority').classList.add('ts-btn-ghost');document.getElementById('cpModeVal').value='even';">⚖️ Chia đều</button>
+            </div>
+            <input type="hidden" id="cpModeVal" value="${currentMode}">
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;margin-bottom:6px;display:block;">Thứ tự ưu tiên nhà mạng (kéo thả):</label>
+            <div id="cpPriorityList" style="display:flex;flex-direction:column;gap:4px;">
+                ${currentPriority.map((c, i) => {
+                    const cm = _carrierMap[c] || {};
+                    return `<div class="cp-item" draggable="true" data-carrier="${c}" style="padding:8px 12px;background:${cm.bg||'#f8fafc'};border:1.5px solid ${cm.color||'#e5e7eb'};border-radius:8px;cursor:grab;display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:${cm.color||'#334155'};">
+                        <span style="color:#9ca3af;">☰</span> ${i+1}. ${cm.label||c}
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>
+    `;
+    openModal('🎯 Cấu Hình Ưu Tiên Nhà Mạng: ' + src.name, body,
+        `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+         <button class="btn btn-success" onclick="_htgd_saveCarrierPriority(${sourceId})">💾 Lưu</button>`);
+    // Setup drag-and-drop
+    setTimeout(() => {
+        const list = document.getElementById('cpPriorityList');
+        if (!list) return;
+        let dragEl = null;
+        list.querySelectorAll('.cp-item').forEach(item => {
+            item.addEventListener('dragstart', e => { dragEl = item; item.style.opacity = '0.4'; });
+            item.addEventListener('dragend', e => { item.style.opacity = '1'; });
+            item.addEventListener('dragover', e => { e.preventDefault(); });
+            item.addEventListener('drop', e => {
+                e.preventDefault();
+                if (dragEl && dragEl !== item) {
+                    const items = [...list.querySelectorAll('.cp-item')];
+                    const fromIdx = items.indexOf(dragEl);
+                    const toIdx = items.indexOf(item);
+                    if (fromIdx < toIdx) item.after(dragEl);
+                    else item.before(dragEl);
+                }
+            });
+        });
+    }, 200);
+}
+
+async function _htgd_saveCarrierPriority(sourceId) {
+    const list = document.getElementById('cpPriorityList');
+    const mode = document.getElementById('cpModeVal')?.value || 'priority';
+    const priority = [...list.querySelectorAll('.cp-item')].map(el => el.dataset.carrier);
+    const res = await apiCall(`/api/telesale/sources/${sourceId}`, 'PUT', {
+        carrier_priority: priority,
+        distribution_mode: mode
+    });
+    if (res.success) { showToast('✅ Đã lưu cấu hình nhà mạng'); closeModal(); await _htgd_renderSettingsTab(); }
+    else showToast(res.error, 'error');
+}
+
+// ========== VIEW DETAIL ==========
+async function _htgd_viewDetail(dataId) {
+    const res = await apiCall(`/api/telesale/data/${dataId}`);
+    const d = res.data || res;
+    if (!d || !d.phone) return showToast('Không tìm thấy data', 'error');
+    const carriers = (d.carrier||'').split('|').filter(Boolean);
+    const carrierHtml = carriers.map(c => {
+        const cm = _carrierMap[c] || _carrierMap['invalid'];
+        return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:11px;padding:2px 8px;">${cm.label}</span>`;
+    }).join(' ') || '—';
+    openModal('📋 Chi Tiết Data #' + d.id, `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">SĐT</label><div style="font-size:15px;font-weight:700;color:#2563eb;font-family:'SF Mono',monospace;">${d.phone}</div></div>
+            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Nhà Mạng</label><div>${carrierHtml}</div></div>
+            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Tên KH</label><div style="font-weight:700;">${d.customer_name || '—'}</div></div>
+            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Công Ty</label><div style="font-weight:600;">${d.company_name || '—'}</div></div>
+            <div style="grid-column:span 2;"><label style="font-size:10px;color:#6b7280;font-weight:600;">Địa Chỉ</label><div>${d.address || '—'}</div></div>
+        </div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
+}
+
+// ========== DEDUP ==========
+async function _htgd_dedupCrm() {
+    if (!confirm('Lọc trùng SĐT trong CRM ' + (_htgd_activeCrm === 'all' ? 'tất cả' : _htgd_activeCrm) + '? Sẽ giữ bản ghi cũ nhất.')) return;
+    showToast('⏳ Đang lọc trùng...');
+    const res = await apiCall('/api/telesale/data/dedup', 'POST', { crm_type: _htgd_activeCrm });
+    if (res.success) {
+        showToast('✅ Đã xóa ' + (res.removed || 0) + ' bản ghi trùng');
+        await _htgd_loadSources();
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+// ========== CONFIG COLUMNS ==========
+async function _htgd_configColumns(sourceId) {
+    const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`);
+    const src = (srcRes.sources || []).find(s => s.id === sourceId);
+    if (!src) return;
+    const mapping = src.column_mapping || {};
+    const fields = [
+        { key: 'phone', label: '📱 SĐT (bắt buộc)', required: true },
+        { key: 'customer_name', label: '👤 Tên KH' },
+        { key: 'company_name', label: '🏢 Tên Công Ty' },
+        { key: 'address', label: '📍 Địa Chỉ' },
+    ];
+    const body = `<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Nhập tên cột trong file CSV tương ứng với mỗi trường:</div>
+    ${fields.map(f => `<div class="form-group" style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;">${f.label}</label>
+        <input type="text" id="colMap_${f.key}" class="form-control" value="${mapping[f.key] || ''}" placeholder="VD: phone, sdt, so_dien_thoai...">
+    </div>`).join('')}`;
+    openModal('📝 Cấu Hình Cột Import: ' + src.name, body,
+        `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+         <button class="btn btn-success" onclick="_htgd_saveColumns(${sourceId})">💾 Lưu</button>`);
+}
+
+async function _htgd_saveColumns(sourceId) {
+    const mapping = {};
+    ['phone','customer_name','company_name','address'].forEach(k => {
+        const v = document.getElementById('colMap_'+k)?.value?.trim();
+        if (v) mapping[k] = v;
+    });
+    const res = await apiCall(`/api/telesale/sources/${sourceId}`, 'PUT', { column_mapping: mapping });
+    if (res.success) { showToast('✅ Đã lưu cấu hình cột'); closeModal(); await _htgd_renderSettingsTab(); }
+    else showToast(res.error, 'error');
 }
