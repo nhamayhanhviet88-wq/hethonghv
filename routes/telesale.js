@@ -4,6 +4,14 @@ const db = require('../db/pool');
 async function telesaleRoutes(fastify) {
     const { authenticate } = require('../middleware/auth');
 
+    // ========== PERF: Stats cache (30s TTL) ==========
+    const _statsCache = new Map();
+    const _CACHE_TTL = 30000; // 30 seconds
+    function _getCached(key) { const c = _statsCache.get(key); if (c && Date.now() - c.ts < _CACHE_TTL) return c.data; return null; }
+    function _setCache(key, data) { _statsCache.set(key, { data, ts: Date.now() }); }
+    // Invalidate cache on data mutations
+    function _invalidateStatsCache() { _statsCache.clear(); }
+
     // ========== SOURCES CRUD ==========
     fastify.get('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
         const { crm_type } = req.query;
@@ -117,7 +125,10 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/data/stats', { preHandler: authenticate }, async (req, reply) => {
-        const { crm_type } = req.query;
+        const { crm_type, source_id } = req.query;
+        const cacheKey = 'stats_' + (crm_type||'all') + '_' + (source_id||'all');
+        const cached = _getCached(cacheKey);
+        if (cached) return cached;
         let crmFilter = '';
         const params = [];
         if (crm_type) { crmFilter = ' AND s.crm_type = $1'; params.push(crm_type); }
@@ -135,7 +146,6 @@ async function telesaleRoutes(fastify) {
             ORDER BY s.display_order`, params);
 
         // Carrier breakdown counts (filtered by source_id if provided)
-        const { source_id } = req.query;
         let carrierFilter = '';
         const carrierParams = [];
         if (source_id) {
@@ -172,7 +182,9 @@ async function telesaleRoutes(fastify) {
             }
         }
 
-        return { stats, carrierStats, sourceCarrierStats };
+        const result = { stats, carrierStats, sourceCarrierStats };
+        _setCache(cacheKey, result);
+        return result;
     });
 
     // Single data record detail with assignment history
