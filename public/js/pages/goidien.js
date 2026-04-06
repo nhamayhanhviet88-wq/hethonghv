@@ -60,7 +60,9 @@ async function renderGoiDienPage(container) {
         });
     }
 
-    if (!_gd_isManager) {
+    // TP/NV: auto-select themselves
+    const _canSeeOthers = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser.role);
+    if (!_canSeeOthers) {
         _gd_selectedUserId = currentUser.id;
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
     }
@@ -78,33 +80,90 @@ function _gd_initials(n) { if(!n) return '?'; const p=n.trim().split(/\s+/); ret
 function _gd_renderSidebar() {
     const list = document.getElementById('gdSidebarList');
     if (!list) return;
-    const filtered = _gd_allUsers.filter(u => {
+
+    const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser.role);
+
+    // Filter members
+    let filtered = _gd_allUsers.filter(u => {
         if (!_gd_memberIds.has(u.id)) return false;
+        if (!isMgr && u.id !== currentUser.id) return false; // TP/NV only see themselves
         if (_gd_sidebarDeptFilter && String(u.department_id) !== _gd_sidebarDeptFilter) return false;
         return true;
     });
-
-    const deptMap = {}; _gd_allDepts.forEach(d => { deptMap[d.id] = d.name; });
 
     if (filtered.length === 0) {
         list.innerHTML = `<div class="ts-empty" style="padding:20px;"><span class="ts-empty-icon" style="font-size:28px;">📭</span><div class="ts-empty-title" style="font-size:12px;">Không có NV nào</div></div>`;
         return;
     }
 
-    list.innerHTML = filtered.map(u => {
-        const active = u.id === _gd_selectedUserId;
-        const c = _gd_avatarColor(u.full_name || u.username);
-        const dName = deptMap[u.department_id] || '';
-        return `<div onclick="_gd_selectUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\'")}')"
-            style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:12px;margin-bottom:4px;transition:all 0.15s;
-            ${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1.5px solid #e5e7eb;color:#374151;'}">
-            <span class="ts-avatar" style="background:${active?'rgba(255,255,255,0.2)':c};width:36px;height:36px;font-size:13px;">${_gd_initials(u.full_name || u.username)}</span>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div>
-                <div style="font-size:10px;opacity:0.7;">${dName}</div>
-            </div>
-        </div>`;
-    }).join('');
+    // For managers: group by dept hierarchy
+    if (isMgr && !_gd_sidebarDeptFilter) {
+        const deptMap = {}; _gd_allDepts.forEach(d => { deptMap[d.id] = d; });
+
+        // Build tree: find the top-level parent for each user's dept
+        const groups = {}; // parentDeptId → { name, children: { childDeptId → { name, users[] } } }
+        filtered.forEach(u => {
+            const dept = deptMap[u.department_id];
+            if (!dept) {
+                // No dept — put in "Khác"
+                if (!groups['_other']) groups['_other'] = { name: '📁 Khác', children: { '_other_team': { name: '', users: [] } } };
+                groups['_other'].children['_other_team'].users.push(u);
+                return;
+            }
+            const parentDept = dept.parent_id ? deptMap[dept.parent_id] : null;
+            if (parentDept) {
+                // dept is a child (team) — group under parent
+                const pId = parentDept.id;
+                if (!groups[pId]) groups[pId] = { name: parentDept.name, children: {} };
+                if (!groups[pId].children[dept.id]) groups[pId].children[dept.id] = { name: dept.name, users: [] };
+                groups[pId].children[dept.id].users.push(u);
+            } else {
+                // dept is a top-level — no team subdivision
+                if (!groups[dept.id]) groups[dept.id] = { name: dept.name, children: {} };
+                if (!groups[dept.id].children['_direct_' + dept.id]) groups[dept.id].children['_direct_' + dept.id] = { name: '', users: [] };
+                groups[dept.id].children['_direct_' + dept.id].users.push(u);
+            }
+        });
+
+        let html = '';
+        Object.entries(groups).forEach(([pId, pData]) => {
+            html += `<div style="margin-bottom:8px;">
+                <div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
+                    <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span>
+                </div>`;
+            Object.entries(pData.children).forEach(([cId, cData]) => {
+                if (cData.name) {
+                    html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;">
+                        <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}</span>
+                    </div>`;
+                }
+                cData.users.forEach(u => {
+                    html += _gd_renderUserCard(u, cData.name ? 24 : 12);
+                });
+            });
+            html += '</div>';
+        });
+        list.innerHTML = html;
+    } else {
+        // Flat list (TP/NV self-only, or dept filter active)
+        list.innerHTML = filtered.map(u => _gd_renderUserCard(u, 0)).join('');
+    }
+}
+
+function _gd_renderUserCard(u, indent) {
+    const active = u.id === _gd_selectedUserId;
+    const c = _gd_avatarColor(u.full_name || u.username);
+    const deptMap = {}; _gd_allDepts.forEach(d => { deptMap[d.id] = d.name; });
+    const dName = deptMap[u.department_id] || '';
+    return `<div onclick="_gd_selectUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\'")}')"
+        style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;
+        ${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
+        <span class="ts-avatar" style="background:${active?'rgba(255,255,255,0.2)':c};width:32px;height:32px;font-size:12px;">${_gd_initials(u.full_name || u.username)}</span>
+        <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div>
+            <div style="font-size:9px;opacity:0.6;">${dName}</div>
+        </div>
+    </div>`;
 }
 
 async function _gd_selectUser(userId, userName) {

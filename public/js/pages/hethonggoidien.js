@@ -590,8 +590,15 @@ async function _htgd_renderMembersTab() {
     _htgd_members = memRes.members || [];
     const allUsers = (usersRes.users || usersRes || []).filter(u => u.status === 'active');
     _htgd_depts = deptRes.departments || deptRes.teams || (Array.isArray(deptRes) ? deptRes : []);
+
+    // TP/NV: chỉ xem chính mình
+    const _htgd_isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser.role);
+    if (!_htgd_isMgr) {
+        _htgd_members = _htgd_members.filter(m => m.user_id === currentUser.id);
+    }
+
     const memberIds = new Set(_htgd_members.map(m => m.user_id));
-    const availableUsers = allUsers.filter(u => !memberIds.has(u.id));
+    const availableUsers = _htgd_isMgr ? allUsers.filter(u => !memberIds.has(u.id)) : [];
 
     // Group available users by department
     const deptMap = {};
@@ -686,7 +693,7 @@ async function _htgd_renderMembersTab() {
                         }).join("");
                     })()}
                 </div>
-                ${!isAll && _htgd_members.length > 0 ? `
+                ${!isAll && _htgd_isMgr && _htgd_members.length > 0 ? `
                 <div style="margin-top:14px;padding:12px 16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                     <span style="font-size:12px;color:#0369a1;font-weight:700;">🔄 Đồng bộ quota:</span>
                     <input type="number" id="syncQuotaValue" value="250" style="width:80px;padding:5px 8px;border:1.5px solid #bae6fd;border-radius:8px;text-align:center;font-weight:700;">
@@ -695,7 +702,7 @@ async function _htgd_renderMembersTab() {
                     <button class="ts-btn ts-btn-xs" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;font-weight:700;" onclick="_htgd_setDefaultAll()">🔄 Đặt mặc định tất cả</button>
                 </div>` : ''}`}
             </div>
-            ${isAll ? '' : `<div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
+            ${isAll || !_htgd_isMgr ? '' : `<div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
                 <h4 style="margin:0 0 12px;color:#122546;font-size:13px;font-weight:800;">➕ Thêm NV vào Telesale</h4>
                 <div id="addMemberList" class="ts-scroll" style="max-height:500px;overflow:auto;">
                     ${availableUsers.length === 0 ? '<div class="ts-empty" style="padding:24px;"><span class="ts-empty-icon" style="font-size:32px;">✅</span><div class="ts-empty-title" style="font-size:12px;">Tất cả NV đã được thêm</div></div>' : ''}
