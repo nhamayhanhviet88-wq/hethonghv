@@ -146,11 +146,11 @@ async function _htgd_renderDataTab() {
     }), { total:0, available:0, assigned:0, answered:0, cold:0, invalid:0 });
 
     const cards = [
-        { icon:'📊', label:'Tổng Data', val:t.total, grad:_HTGD_GRADIENTS[0], txtColor:'white' },
-        { icon:'✅', label:'Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white' },
+        { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white' },
         { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white' },
+        { icon:'📋', label:'Còn Lại', val:Math.max(0, t.assigned - t.answered), grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)', txtColor:'white' },
         { icon:'📞', label:'Đã Gọi', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white' },
-        { icon:'🧊', label:'Kho Lạnh', val:t.cold, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
+        { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
         { icon:'❌', label:'Không Tồn Tại', val:t.invalid, grad:_HTGD_GRADIENTS[5], txtColor:'white' },
     ];
 
@@ -221,7 +221,7 @@ async function _htgd_renderDataTab() {
                 <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn sàng</option>
                 <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã phân</option>
                 <option value="answered" ${_htgd_statusFilter==='answered'?'selected':''}>📞 Đã gọi</option>
-                <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>🧊 Kho lạnh</option>
+                <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>🚫 Không có nhu cầu</option>
             </select>
             <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">
                 <option value="">Tất cả nhà mạng</option>
@@ -286,7 +286,7 @@ async function _htgd_loadData() {
             available: { icon:'✅', label:'Sẵn sàng', bg:'#dcfce7', color:'#16a34a' },
             assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
             answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
-            cold: { icon:'🧊', label:'Kho lạnh', bg:'#eef2ff', color:'#6366f1' },
+            cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
             invalid: { icon:'❌', label:'K.tồn tại', bg:'#fef2f2', color:'#dc2626' },
         };
         const m = map[s] || map.available;
@@ -1096,7 +1096,7 @@ async function _htgd_viewDetail(dataId) {
         available: { icon:'✅', label:'Sẵn sàng', bg:'#dcfce7', color:'#16a34a' },
         assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
         answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
-        cold: { icon:'🧊', label:'Kho lạnh', bg:'#eef2ff', color:'#6366f1' },
+        cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
         invalid: { icon:'❌', label:'K.tồn tại', bg:'#fef2f2', color:'#dc2626' },
     };
     const sm = statusMap[d.status] || statusMap.available;
