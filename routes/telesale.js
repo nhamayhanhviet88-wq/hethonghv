@@ -626,11 +626,11 @@ async function telesaleRoutes(fastify) {
         const crmVal = crm_type || 'hoa_hong_crm';
         const existing = await db.get('SELECT id FROM telesale_active_members WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
         if (existing) {
-            await db.run('UPDATE telesale_active_members SET is_active = true, daily_quota = COALESCE(?, daily_quota) WHERE user_id = ? AND crm_type = ?', [daily_quota, user_id, crmVal]);
+            await db.run('UPDATE telesale_active_members SET is_active = true WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
         } else {
-            const defaultQuota = await db.get("SELECT value FROM app_config WHERE key = 'telesale_default_quota'");
+            // Mặc định: daily_quota = NULL → nhận đủ Source quota
             await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES (?,?,?)',
-                [user_id, crmVal, daily_quota || parseInt(defaultQuota?.value || '250')]);
+                [user_id, crmVal, null]);
         }
         return { success: true, message: 'Đã thêm NV vào Telesale' };
     });
@@ -638,10 +638,16 @@ async function telesaleRoutes(fastify) {
     fastify.put('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const { daily_quota, is_active, crm_type } = req.body;
+        const { daily_quota, is_active, crm_type, set_default } = req.body;
         const crmVal = crm_type || 'hoa_hong_crm';
-        await db.run('UPDATE telesale_active_members SET daily_quota = COALESCE(?,daily_quota), is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
-            [daily_quota, is_active, req.params.userId, crmVal]);
+        if (set_default) {
+            // Đặt về mặc định: daily_quota = NULL
+            await db.run('UPDATE telesale_active_members SET daily_quota = NULL, is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
+                [is_active, req.params.userId, crmVal]);
+        } else {
+            await db.run('UPDATE telesale_active_members SET daily_quota = COALESCE(?,daily_quota), is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
+                [daily_quota, is_active, req.params.userId, crmVal]);
+        }
         return { success: true, message: 'Đã cập nhật' };
     });
 
@@ -655,6 +661,16 @@ async function telesaleRoutes(fastify) {
             await db.run('UPDATE telesale_active_members SET daily_quota = ? WHERE user_id = ? AND crm_type = ?', [daily_quota, uid, crmVal]);
         }
         return { success: true, message: `Đã đồng bộ ${user_ids.length} NV → ${daily_quota} số/ngày` };
+    });
+
+    // Đặt tất cả NV về chế độ Mặc định (daily_quota = NULL)
+    fastify.post('/api/telesale/active-members/set-default-all', { preHandler: authenticate }, async (req, reply) => {
+        const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
+        if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const { crm_type } = req.body;
+        const crmVal = crm_type || 'hoa_hong_crm';
+        const result = await db.run('UPDATE telesale_active_members SET daily_quota = NULL WHERE crm_type = ? AND is_active = true', [crmVal]);
+        return { success: true, message: `Đã đặt tất cả NV về chế độ Mặc định`, updated: result?.changes || 0 };
     });
 
     fastify.delete('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
@@ -887,7 +903,9 @@ async function runTelesalePump() {
         const sourceIds = sources.map(s => s.id);
 
         for (const member of members) {
-            let remaining = member.daily_quota;
+            // Nếu daily_quota = NULL → dùng tổng source quota (chế độ mặc định)
+            const totalSourceQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+            let remaining = member.daily_quota != null ? member.daily_quota : totalSourceQuota;
             // Check if already pumped today for this CRM's sources
             const existing = await db.get(`SELECT COUNT(*) as cnt FROM telesale_assignments a
                 JOIN telesale_data d ON d.id = a.data_id

@@ -666,11 +666,15 @@ async function _htgd_renderMembersTab() {
                                             ${m.is_active ? '<span class="ts-badge" style="background:#dcfce7;color:#16a34a;font-size:9px;">● Active</span>' : '<span class="ts-badge" style="background:#fef2f2;color:#dc2626;font-size:9px;">● Inactive</span>'}
                                         </div>
                                         <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
-                                            <div style="display:flex;align-items:center;gap:6px;">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                                 <span style="font-size:10px;color:#6b7280;font-weight:600;">Quota/ngày:</span>
                                                 ${isAll
-                                                    ? `<span style="font-weight:700;font-size:12px;color:#334155;">${m.daily_quota}</span>`
-                                                    : `<input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;" onchange="_htgd_updateQuota(${m.user_id},this.value)">`}
+                                                    ? `<span style="font-weight:700;font-size:12px;color:#334155;">${m.daily_quota != null ? m.daily_quota : 'Mặc định'}</span>`
+                                                    : (m.daily_quota != null
+                                                        ? `<input type="number" value="${m.daily_quota}" style="width:65px;padding:4px 6px;border:1.5px solid #e5e7eb;border-radius:8px;text-align:center;font-weight:700;font-size:12px;" onchange="_htgd_updateQuota(${m.user_id},this.value)">
+                                                           <button class="ts-btn ts-btn-xs" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:9px;padding:3px 6px;" onclick="_htgd_setDefaultQuota(${m.user_id})" title="Đặt về mặc định">🔄 MĐ</button>`
+                                                        : `<span style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#15803d;padding:3px 10px;border-radius:8px;font-weight:700;font-size:11px;">✅ Mặc định</span>
+                                                           <button class="ts-btn ts-btn-xs" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:9px;padding:3px 6px;" onclick="_htgd_setCustomQuota(${m.user_id})" title="Đặt số tùy chỉnh">✏️ Custom</button>`)}
                                             </div>
                                             ${isAll ? '' : `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_removeMember(${m.user_id},'${(m.full_name||m.username).replace(/'/g,"\\\\\\\\\\\\'")}')" title="Bỏ NV">❌</button>`}
                                         </div>
@@ -687,6 +691,8 @@ async function _htgd_renderMembersTab() {
                     <span style="font-size:12px;color:#0369a1;font-weight:700;">🔄 Đồng bộ quota:</span>
                     <input type="number" id="syncQuotaValue" value="250" style="width:80px;padding:5px 8px;border:1.5px solid #bae6fd;border-radius:8px;text-align:center;font-weight:700;">
                     <button class="ts-btn ts-btn-blue ts-btn-xs" onclick="_htgd_syncQuota()">Đồng bộ tất cả</button>
+                    <span style="width:1px;height:20px;background:#bae6fd;"></span>
+                    <button class="ts-btn ts-btn-xs" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;font-weight:700;" onclick="_htgd_setDefaultAll()">🔄 Đặt mặc định tất cả</button>
                 </div>` : ''}`}
             </div>
             ${isAll ? '' : `<div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
@@ -725,8 +731,31 @@ async function _htgd_addMember(userId) {
 }
 
 async function _htgd_updateQuota(userId, quota) {
-    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { daily_quota: parseInt(quota) || 250, crm_type: _htgd_activeCrm });
+    const val = parseInt(quota);
+    if (isNaN(val) || val <= 0) return showToast('Nhập số hợp lệ (> 0)', 'error');
+    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { daily_quota: val, crm_type: _htgd_activeCrm });
     if (res.success) showToast('✅ Đã cập nhật quota');
+    else showToast(res.error, 'error');
+}
+
+async function _htgd_setDefaultQuota(userId) {
+    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { set_default: true, crm_type: _htgd_activeCrm });
+    if (res.success) { showToast('✅ Đã đặt về mặc định'); await _htgd_renderMembersTab(); }
+    else showToast(res.error, 'error');
+}
+
+async function _htgd_setCustomQuota(userId) {
+    const val = prompt('Nhập số lượng quota/ngày:');
+    if (!val || isNaN(parseInt(val))) return;
+    const res = await apiCall(`/api/telesale/active-members/${userId}`, 'PUT', { daily_quota: parseInt(val), crm_type: _htgd_activeCrm });
+    if (res.success) { showToast('✅ Đã cập nhật quota'); await _htgd_renderMembersTab(); }
+    else showToast(res.error, 'error');
+}
+
+async function _htgd_setDefaultAll() {
+    if (!confirm('Đặt TẤT CẢ NV về chế độ Mặc định (nhận đủ Source quota)?')) return;
+    const res = await apiCall('/api/telesale/active-members/set-default-all', 'POST', { crm_type: _htgd_activeCrm });
+    if (res.success) { showToast(res.message); await _htgd_renderMembersTab(); }
     else showToast(res.error, 'error');
 }
 
