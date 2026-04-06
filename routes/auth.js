@@ -25,12 +25,17 @@ async function authRoutes(fastify, options) {
         }
 
         if (user.status === 'locked') {
-            // Only show YESTERDAY's violations (not entire history)
+            // Only show MOST RECENT violation date (not entire history)
             // Full history is available in "Phạt Khóa TK NV" menu
-            const now = new Date();
-            const yesterday = new Date(now);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+            const latestLock = await db.get(
+                `SELECT MAX(d) as latest_date FROM (
+                    SELECT MAX(completion_date::text) as d FROM lock_task_completions WHERE user_id = $1 AND status = 'expired'
+                    UNION ALL
+                    SELECT MAX(task_date::text) as d FROM task_support_requests WHERE manager_id = $1 AND status = 'expired'
+                ) sub`,
+                [user.id]
+            );
+            const penaltyDateStr = latestLock?.latest_date || new Date().toISOString().split('T')[0];
 
             // Source 1: Support requests (QL không hỗ trợ NV) — yesterday only
             const supportPenalties = await db.all(
@@ -41,7 +46,7 @@ async function authRoutes(fastify, options) {
                  WHERE sr.manager_id = $1 AND sr.status = 'expired'
                    AND sr.task_date::text = $2
                  ORDER BY sr.task_date`,
-                [user.id, yesterdayStr]
+                [user.id, penaltyDateStr]
             );
 
             // Source 2: CV Khóa — yesterday only
@@ -53,7 +58,7 @@ async function authRoutes(fastify, options) {
                  WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
                    AND ltc.completion_date::text = $2
                  ORDER BY ltc.completion_date`,
-                [user.id, yesterdayStr]
+                [user.id, penaltyDateStr]
             );
 
             // Group support penalties into categories
@@ -87,7 +92,7 @@ async function authRoutes(fastify, options) {
             return reply.code(403).send({
                 error: 'locked',
                 locked: true,
-                penaltyDate: yesterdayStr,
+                penaltyDate: penaltyDateStr,
                 penaltyGroups: {
                     khoa: khoaPenalties,
                     diem: diemPenalties,
