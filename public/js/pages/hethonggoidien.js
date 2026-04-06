@@ -583,11 +583,11 @@ async function _htgd_renderMembersTab() {
     const [memRes, usersRes, deptRes] = await Promise.all([
         apiCall(`/api/telesale/active-members${crmParam}`),
         apiCall('/api/users'),
-        apiCall('/api/teams')
+        apiCall('/api/departments')
     ]);
     _htgd_members = memRes.members || [];
     const allUsers = (usersRes.users || usersRes || []).filter(u => u.status === 'active');
-    _htgd_depts = deptRes.teams || deptRes.departments || (Array.isArray(deptRes) ? deptRes : []);
+    _htgd_depts = deptRes.departments || deptRes.teams || (Array.isArray(deptRes) ? deptRes : []);
     const memberIds = new Set(_htgd_members.map(m => m.user_id));
     const availableUsers = allUsers.filter(u => !memberIds.has(u.id));
 
@@ -651,26 +651,15 @@ async function _htgd_renderMembersTab() {
             </div>
             ${isAll ? '' : `<div style="background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
                 <h4 style="margin:0 0 12px;color:#122546;font-size:13px;font-weight:800;">➕ Thêm NV vào Telesale</h4>
-                <select id="addMemberDeptFilter" class="ts-select" style="width:100%;margin-bottom:10px;" onchange="_htgd_filterByDept(this.value)">
-                    <option value="">📁 Tất cả phòng ban</option>
-                    ${Object.entries(groupedUsers).map(([dId,g]) => `<option value="${dId}">${g.name} (${g.users.length})</option>`).join('')}
-                </select>
-                <div id="addMemberList" class="ts-scroll" style="max-height:450px;overflow:auto;">
-                    ${availableUsers.map(u => {
-                        const c = _htgd_avatarColor(u.full_name || u.username);
-                        const dName = deptMap[u.department_id] || '';
-                        return `<div class="htgd-add-member-item" data-name="${(u.full_name||u.username).toLowerCase()}" data-dept="${u.department_id||0}"
-                            style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #f1f5f9;cursor:pointer;border-radius:8px;transition:background 0.15s;"
-                            onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='transparent'" onclick="_htgd_addMember(${u.id})">
-                            <span class="ts-avatar ts-avatar-sm" style="background:${c};">${_htgd_initials(u.full_name || u.username)}</span>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div>
-                                <div style="font-size:10px;color:#9ca3af;">${dName}</div>
-                            </div>
-                            <span class="ts-btn ts-btn-green ts-btn-xs" style="padding:3px 8px;">➕</span>
-                        </div>`;
-                    }).join('')}
+                <div id="addMemberList" class="ts-scroll" style="max-height:500px;overflow:auto;">
                     ${availableUsers.length === 0 ? '<div class="ts-empty" style="padding:24px;"><span class="ts-empty-icon" style="font-size:32px;">✅</span><div class="ts-empty-title" style="font-size:12px;">Tất cả NV đã được thêm</div></div>' : ''}
+                    ${Object.entries(groupedUsers).map(([dId,g]) => {
+                        const memberCards = g.users.map(u => {
+                            const c2 = _htgd_avatarColor(u.full_name || u.username);
+                            return `<div class="htgd-add-member-item" data-name="${(u.full_name||u.username).toLowerCase()}" data-dept="${u.department_id||0}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;padding-left:16px;border-bottom:1px solid #f1f5f9;cursor:pointer;border-radius:8px;transition:background 0.15s;" onmouseenter="this.style.background='#eff6ff'" onmouseleave="this.style.background='transparent'" onclick="_htgd_addMember(${u.id})"><span class="ts-avatar ts-avatar-sm" style="background:${c2};">${_htgd_initials(u.full_name || u.username)}</span><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div></div><span class="ts-btn ts-btn-green ts-btn-xs" style="padding:3px 8px;">➕</span></div>`;
+                        }).join('');
+                        return `<div style="margin-bottom:8px;"><div onclick="var el=this.nextElementSibling;el.style.display=el.style.display==='none'?'block':'none';this.querySelector('[data-arrow]').textContent=el.style.display==='none'?'▶':'▼'" style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:8px;margin-bottom:2px;cursor:pointer;"><span style="font-size:11px;font-weight:800;color:#334155;">📁 ${g.name}</span><span style="font-size:10px;color:#6b7280;margin-left:auto;">(${g.users.length})</span><span data-arrow style="font-size:10px;color:#9ca3af;margin-left:4px;">▼</span></div><div>${memberCards}</div></div>`;
+                    }).join('')}
                 </div>
             </div>`}
         </div>`;
