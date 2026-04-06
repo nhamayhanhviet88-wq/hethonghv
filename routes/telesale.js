@@ -12,6 +12,26 @@ async function telesaleRoutes(fastify) {
     // Invalidate cache on data mutations
     function _invalidateStatsCache() { _statsCache.clear(); }
 
+    // ========== SALARY FILTER (hide salary info from employees) ==========
+    const _SALARY_VISIBLE_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
+    function _filterSalaryLines(text) {
+        if (!text) return text;
+        return text.split('\n').filter(line => {
+            const l = line.toLowerCase().replace(/[\s]+/g, ' ').trim();
+            if (!l) return true; // keep empty lines
+            // Keywords that indicate salary/income lines
+            if (/l[uư][oơ]ng/.test(l)) return false; // lương, luong, lươn
+            if (/thu nh[aậ]p/.test(l)) return false; // thu nhập, thu nhap
+            if (/m[uứ]c l[uư][oơ]ng/.test(l)) return false; // mức lương
+            if (/lcb/.test(l)) return false; // LCB (lương cơ bản)
+            if (/bao ti[eề]n/.test(l)) return false; // bao tiền
+            if (/\d+[.,]?\d*\s*(tri[eệ]u|tr)(?:\b|[/\s])/.test(l)) return false; // X triệu, X tr
+            if (/\d{1,3}([.]\d{3}){1,}\s*(vn[dđ]|đ[oồ]ng|đ\b)/i.test(l)) return false; // X.XXX.XXX vnđ/đồng
+            if (/\d{1,3}([.]\d{3}){2,}/.test(l) && /vn[dđ]|đ[oồ]ng|l[uư][oơ]ng|thu nh|tr\b|tri[eệ]u/.test(l)) return false; // combo number + salary keyword
+            return true;
+        }).join('\n');
+    }
+
     // ========== SOURCES CRUD ==========
     fastify.get('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
         const { crm_type } = req.query;
@@ -121,6 +141,10 @@ async function telesaleRoutes(fastify) {
             LEFT JOIN telesale_sources s ON s.id = d.source_id
             LEFT JOIN users u ON u.id = d.last_assigned_user_id
             ${where} ORDER BY d.created_at DESC LIMIT $${limitParam} OFFSET $${offsetParam}`, params);
+        // Filter salary info for non-director roles
+        if (!_SALARY_VISIBLE_ROLES.includes(req.user.role)) {
+            data.forEach(d => { d.post_content = _filterSalaryLines(d.post_content); });
+        }
         return { data, total: countRes.total, page: parseInt(page), limit: parseInt(limit) };
     });
 
@@ -202,6 +226,10 @@ async function telesaleRoutes(fastify) {
             LEFT JOIN users u ON u.id = a.user_id
             WHERE a.data_id = $1
             ORDER BY a.assigned_date DESC, a.created_at DESC`, [req.params.id]);
+        // Filter salary info for non-director roles
+        if (!_SALARY_VISIBLE_ROLES.includes(req.user.role)) {
+            data.post_content = _filterSalaryLines(data.post_content);
+        }
         return { success: true, data, assignments };
     });
     fastify.post('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
