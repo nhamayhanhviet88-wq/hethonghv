@@ -461,7 +461,7 @@ async function _htgd_previewImport(input) {
             if (cols.length < 1) continue;
             const getCol = (key) => { const idx = _colIdx(_cm[key]); return idx >= 0 && idx < cols.length ? (cols[idx]||'').trim() : ''; };
             let addr = '';
-            if (cm.address === 'AUTO') {
+            if (_cm.address === 'AUTO') {
                 // Extract address from post_content - look for Vietnamese address patterns
                 const pc = getCol('post_content');
                 const addrMatch = pc.match(/(?:địa chỉ|đc|dc|Đ\/c)[:\s]*([^\n,]+)/i) || pc.match(/(\d+[^,\n]*(?:phố|đường|ngõ|phường|quận|tp|hcm|hà nội|hn)[^,\n]*)/i);
