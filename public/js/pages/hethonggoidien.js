@@ -142,16 +142,15 @@ async function _htgd_renderDataTab() {
     const t = _htgd_stats.reduce((a, s) => ({
         total: a.total + parseInt(s.total || 0), available: a.available + parseInt(s.available || 0),
         assigned: a.assigned + parseInt(s.assigned || 0), answered: a.answered + parseInt(s.answered || 0),
-        cold: a.cold + parseInt(s.cold || 0), invalid: a.invalid + parseInt(s.invalid || 0),
-    }), { total:0, available:0, assigned:0, answered:0, cold:0 });
+        cold: a.cold + parseInt(s.cold || 0), transferred: a.transferred + parseInt(s.transferred || 0),
+    }), { total:0, available:0, assigned:0, answered:0, cold:0, transferred:0 });
 
     const cards = [
         { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white' },
         { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white' },
-        { icon:'📋', label:'Còn Lại', val:Math.max(0, t.assigned - t.answered), grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)', txtColor:'white' },
-        { icon:'📞', label:'Đã Gọi', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white' },
+        { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white' },
+        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white' },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
-
     ];
 
     // CRM tabs HTML (rendered below stats) — premium style

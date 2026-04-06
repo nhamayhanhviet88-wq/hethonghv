@@ -211,6 +211,25 @@ async function telesaleRoutes(fastify) {
             }
         }
 
+        // Count "chuyển số" — answered with transfer-type answer statuses
+        let transferFilter = '';
+        const transferParams = [];
+        if (crm_type) {
+            transferFilter = ' AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)';
+            transferParams.push(crm_type);
+        }
+        const transferRows = await db.all(`SELECT d.source_id, COUNT(DISTINCT d.id) as cnt
+            FROM telesale_data d
+            JOIN telesale_assignments a ON a.data_id = d.id
+            JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+            WHERE ans.action_type = 'transfer'${transferFilter}
+            GROUP BY d.source_id`, transferParams);
+        const transferBySource = {};
+        for (const r of transferRows) { transferBySource[r.source_id] = parseInt(r.cnt); }
+
+        // Attach transferred count to each source stat
+        for (const s of stats) { s.transferred = transferBySource[s.id] || 0; }
+
         const result = { stats, carrierStats, sourceCarrierStats };
         _setCache(cacheKey, result);
         return result;
