@@ -702,7 +702,8 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
         if (!mgr.includes(req.user.role) && String(req.user.id) !== req.params.userId)
             return reply.code(403).send({ error: 'Không có quyền' });
-        const date = req.query.date || new Date().toISOString().split('T')[0];
+        const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
+        const dateTo = req.query.date_to || req.query.date || dateFrom;
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
             d.customer_name, d.phone, d.address, d.extra_data,
             s.name as source_name, s.icon as source_icon, s.crm_type as source_crm_type,
@@ -711,9 +712,9 @@ async function telesaleRoutes(fastify) {
             JOIN telesale_data d ON d.id = a.data_id
             LEFT JOIN telesale_sources s ON s.id = d.source_id
             LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
-            WHERE a.user_id = $1 AND a.assigned_date = $2
-            ORDER BY a.call_status = 'pending' DESC, a.id`, [req.params.userId, date]);
-        return { calls, date };
+            WHERE a.user_id = $1 AND a.assigned_date >= $2 AND a.assigned_date <= $3
+            ORDER BY a.assigned_date DESC, a.call_status = 'pending' DESC, a.id`, [req.params.userId, dateFrom, dateTo]);
+        return { calls, date_from: dateFrom, date_to: dateTo };
     });
 
     fastify.put('/api/telesale/call/:assignmentId', { preHandler: authenticate }, async (req, reply) => {
@@ -770,7 +771,8 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/daily-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
-        const date = req.query.date || new Date().toISOString().split('T')[0];
+        const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
+        const dateTo = req.query.date_to || req.query.date || dateFrom;
         const stats = await db.get(`SELECT
             COUNT(*) as total,
             COUNT(*) FILTER (WHERE call_status = 'pending') as pending,
@@ -779,7 +781,7 @@ async function telesaleRoutes(fastify) {
             COUNT(*) FILTER (WHERE call_status = 'busy') as busy,
             COUNT(*) FILTER (WHERE call_status = 'invalid') as invalid
             FROM telesale_assignments
-            WHERE user_id = $1 AND assigned_date = $2`, [req.params.userId, date]);
+            WHERE user_id = $1 AND assigned_date >= $2 AND assigned_date <= $3`, [req.params.userId, dateFrom, dateTo]);
         return { stats: stats || { total: 0, pending: 0, answered: 0, no_answer: 0, busy: 0, invalid: 0 } };
     });
 

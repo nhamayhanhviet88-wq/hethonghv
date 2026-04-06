@@ -2,7 +2,9 @@
 
 let _gd_selectedUserId = null;
 let _gd_selectedUserName = '';
-let _gd_date = new Date().toISOString().split('T')[0];
+let _gd_dateFrom = new Date().toISOString().split('T')[0];
+let _gd_dateTo = new Date().toISOString().split('T')[0];
+let _gd_filterMode = 'day'; // 'day' | 'month'
 let _gd_calls = [];
 let _gd_stats = null;
 let _gd_sources = [];
@@ -177,10 +179,13 @@ async function _gd_loadCallsForUser(userId) {
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải...</div>';
 
+    const isSingleDay = _gd_dateFrom === _gd_dateTo;
+    const dateParams = `date_from=${_gd_dateFrom}&date_to=${_gd_dateTo}`;
+
     const [callsRes, statsRes, callbacksRes] = await Promise.all([
-        apiCall(`/api/telesale/user-calls/${userId}?date=${_gd_date}`),
-        apiCall(`/api/telesale/daily-stats/${userId}?date=${_gd_date}`),
-        apiCall(`/api/telesale/callbacks?date=${_gd_date}&user_id=${userId}`)
+        apiCall(`/api/telesale/user-calls/${userId}?${dateParams}`),
+        apiCall(`/api/telesale/daily-stats/${userId}?${dateParams}`),
+        apiCall(`/api/telesale/callbacks?date=${_gd_dateFrom}&user_id=${userId}`)
     ]);
     _gd_calls = callsRes.calls || [];
     _gd_stats = statsRes.stats || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0 };
@@ -200,16 +205,68 @@ async function _gd_loadCallsForUser(userId) {
         { icon:'❌', val:_gd_stats.invalid, label:'K.tồn tại', grad:'linear-gradient(135deg,#6b7280,#9ca3af)' },
     ];
 
+    // Date filter UI
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const yearOpts = [curYear-1, curYear, curYear+1].map(y => `<option value="${y}" ${y==new Date(_gd_dateFrom).getFullYear()?'selected':''}>${y}</option>`).join('');
+    const monthOpts = Array.from({length:12},(_, i) => `<option value="${i+1}" ${(i+1)==(new Date(_gd_dateFrom).getMonth()+1)?'selected':''}>${'Tháng '+(i+1)}</option>`).join('');
+    const monthToOpts = Array.from({length:12},(_, i) => `<option value="${i+1}" ${(i+1)==(new Date(_gd_dateTo).getMonth()+1)?'selected':''}>${'Tháng '+(i+1)}</option>`).join('');
+
+    const dateFilterHtml = _gd_filterMode === 'day' ? `
+        <div style="display:flex;gap:6px;align-items:center;">
+            ${isSingleDay ? `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(-1)">◀</button>` : ''}
+            <span style="font-size:11px;font-weight:600;color:#6b7280;">Từ</span>
+            <input type="date" value="${_gd_dateFrom}" onchange="_gd_dateFrom=this.value;if(_gd_dateTo<_gd_dateFrom)_gd_dateTo=_gd_dateFrom;_gd_loadCallsForUser(${userId});" class="ts-select" style="padding:5px 8px;font-size:12px;">
+            <span style="font-size:11px;font-weight:600;color:#6b7280;">→</span>
+            <input type="date" value="${_gd_dateTo}" onchange="_gd_dateTo=this.value;if(_gd_dateTo<_gd_dateFrom)_gd_dateFrom=_gd_dateTo;_gd_loadCallsForUser(${userId});" class="ts-select" style="padding:5px 8px;font-size:12px;">
+            ${isSingleDay ? `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(1)">▶</button>` : ''}
+        </div>` : `
+        <div style="display:flex;gap:6px;align-items:center;">
+            <select class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(this.value,document.getElementById('gdMonthFrom').value,document.getElementById('gdMonthTo').value)">${yearOpts}</select>
+            <select id="gdMonthFrom" class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(null,this.value,null)">${monthOpts}</select>
+            <span style="font-size:11px;font-weight:600;color:#6b7280;">→ Đến</span>
+            <select id="gdMonthTo" class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(null,null,this.value)">${monthToOpts}</select>
+        </div>`;
+
+    // Group calls by date for range view
+    let callsHtml = '';
+    if (!isSingleDay && filteredCalls.length > 0) {
+        const grouped = {};
+        filteredCalls.forEach(c => {
+            const d = c.assigned_date?.split('T')[0] || 'unknown';
+            if (!grouped[d]) grouped[d] = [];
+            grouped[d].push(c);
+        });
+        Object.entries(grouped).sort((a,b) => b[0].localeCompare(a[0])).forEach(([date, calls]) => {
+            const fDate = _gd_formatDate(date);
+            callsHtml += `<div style="margin-bottom:16px;">
+                <div style="padding:8px 12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:13px;font-weight:800;color:#334155;">📅 ${fDate}</span>
+                    <span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${calls.length} SĐT</span>
+                </div>
+                ${calls.map(call => _gd_renderCallCard(call)).join('')}
+            </div>`;
+        });
+    } else {
+        callsHtml = filteredCalls.length === 0
+            ? `<div class="ts-empty"><span class="ts-empty-icon">📭</span><div class="ts-empty-title">Chưa có SĐT nào</div><div class="ts-empty-desc">Chưa có data được phân cho ${isSingleDay ? 'ngày này' : 'khoảng thời gian này'}</div></div>`
+            : filteredCalls.map(call => _gd_renderCallCard(call)).join('');
+    }
+
+    const dateLabel = isSingleDay ? _gd_formatDate(_gd_dateFrom) : `${_gd_formatDateShort(_gd_dateFrom)} → ${_gd_formatDateShort(_gd_dateTo)}`;
+
     el.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
             <div>
                 <h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">${_gd_selectedUserName}</h3>
-                <div style="font-size:12px;color:#6b7280;">📅 ${_gd_formatDate(_gd_date)}</div>
+                <div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div>
             </div>
-            <div style="display:flex;gap:6px;align-items:center;">
-                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(-1)">◀</button>
-                <input type="date" value="${_gd_date}" onchange="_gd_date=this.value;_gd_loadCallsForUser(${userId});" class="ts-select" style="padding:6px 10px;">
-                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(1)">▶</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div style="display:flex;gap:2px;background:#f1f5f9;border-radius:8px;padding:2px;">
+                    <button class="ts-btn ts-btn-xs" style="${_gd_filterMode==='day'?'background:#122546;color:white;':'background:transparent;color:#6b7280;'}padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;" onclick="_gd_filterMode='day';_gd_loadCallsForUser(${userId})">📅 Ngày</button>
+                    <button class="ts-btn ts-btn-xs" style="${_gd_filterMode==='month'?'background:#122546;color:white;':'background:transparent;color:#6b7280;'}padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;" onclick="_gd_filterMode='month';_gd_setMonthRange();_gd_loadCallsForUser(${userId})">📆 Tháng</button>
+                </div>
+                ${dateFilterHtml}
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
@@ -248,10 +305,7 @@ async function _gd_loadCallsForUser(userId) {
                 <span style="font-size:10px;color:#6b7280;">${cb.source_icon||''} ${cb.source_name||''}</span>
                 ${cb.callback_time?`<span class="ts-badge" style="background:#fef3c7;color:#92400e;font-size:9px;">⏰ ${cb.callback_time}</span>`:''}</div>`).join('')}
         </div>` : ''}
-        <div id="gdCallsList">
-            ${filteredCalls.length === 0 ? `<div class="ts-empty"><span class="ts-empty-icon">📭</span><div class="ts-empty-title">Chưa có SĐT nào</div><div class="ts-empty-desc">Chưa có data được phân cho ngày này</div></div>` : ''}
-            ${filteredCalls.map(call => _gd_renderCallCard(call)).join('')}
-        </div>`;
+        <div id="gdCallsList">${callsHtml}</div>`;
 }
 
 function _gd_renderCallCard(call) {
@@ -393,13 +447,31 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId, phone, customerN
 }
 
 function _gd_changeDate(delta) {
-    const d = new Date(_gd_date); d.setDate(d.getDate()+delta);
-    _gd_date = d.toISOString().split('T')[0];
+    const d = new Date(_gd_dateFrom); d.setDate(d.getDate()+delta);
+    _gd_dateFrom = d.toISOString().split('T')[0];
+    _gd_dateTo = _gd_dateFrom;
     _gd_loadCallsForUser(_gd_selectedUserId);
+}
+
+function _gd_setMonthRange(year, monthFrom, monthTo) {
+    const y = year || new Date(_gd_dateFrom).getFullYear();
+    const mf = monthFrom || (new Date(_gd_dateFrom).getMonth()+1);
+    const mt = monthTo || (new Date(_gd_dateTo).getMonth()+1);
+    const mfinal = Math.min(parseInt(mf), parseInt(mt));
+    const mtfinal = Math.max(parseInt(mf), parseInt(mt));
+    _gd_dateFrom = `${y}-${String(mfinal).padStart(2,'0')}-01`;
+    const lastDay = new Date(parseInt(y), parseInt(mtfinal), 0).getDate();
+    _gd_dateTo = `${y}-${String(mtfinal).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
 }
 
 function _gd_formatDate(dateStr) {
     const d = new Date(dateStr);
     const days = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
     return `${days[d.getDay()]}, ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function _gd_formatDateShort(dateStr) {
+    const d = new Date(dateStr);
+    return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
 }
