@@ -189,6 +189,10 @@ async function telesaleRoutes(fastify) {
             GROUP BY s.id, s.name, s.icon, s.daily_quota
             ORDER BY s.display_order`, params);
 
+        // DEBUG: log cold_answered values
+        const _debug = stats.filter(s => parseInt(s.cold_answered) > 0 || parseInt(s.transferred) > 0 || parseInt(s.no_answer_busy) > 0 || parseInt(s.ncc_answered) > 0);
+        if (_debug.length > 0) console.log('[STATS DEBUG]', JSON.stringify(_debug.map(s => ({ id: s.id, name: s.name, cold_answered: s.cold_answered, transferred: s.transferred, no_answer_busy: s.no_answer_busy, ncc_answered: s.ncc_answered }))));
+
         // Carrier breakdown counts (filtered by source_id if provided)
         let carrierFilter = '';
         const carrierParams = [];
