@@ -175,6 +175,23 @@ async function telesaleRoutes(fastify) {
         return { stats, carrierStats, sourceCarrierStats };
     });
 
+    // Single data record detail with assignment history
+    fastify.get('/api/telesale/data/:id', { preHandler: authenticate }, async (req, reply) => {
+        const data = await db.get(`SELECT d.*, s.name as source_name, s.icon as source_icon,
+            u.full_name as last_assigned_user_name
+            FROM telesale_data d
+            LEFT JOIN telesale_sources s ON s.id = d.source_id
+            LEFT JOIN users u ON u.id = d.last_assigned_user_id
+            WHERE d.id = $1`, [req.params.id]);
+        if (!data) return reply.code(404).send({ success: false, error: 'Không tìm thấy data' });
+        // Get full assignment history
+        const assignments = await db.all(`SELECT a.*, u.full_name as user_name
+            FROM telesale_assignments a
+            LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.data_id = $1
+            ORDER BY a.assigned_date DESC, a.created_at DESC`, [req.params.id]);
+        return { success: true, data, assignments };
+    });
     fastify.post('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });

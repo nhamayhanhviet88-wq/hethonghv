@@ -332,12 +332,12 @@ async function _htgd_loadData() {
                         const cm = _carrierMap[c] || _carrierMap['invalid'];
                         return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:9px;padding:1px 5px;">${cm.label}</span>`;
                     }).join(' ') : '<span style="color:#d1d5db;font-size:10px;">—</span>';
-                    const phoneShort = d.phone ? d.phone.replace(/^84/, '0').slice(-3) : '—';
+                    const phoneFull = d.phone ? d.phone.replace(/^84/, '0') : '—';
                     return `<tr onclick="_htgd_viewDetail(${d.id})" style="cursor:pointer;">
                     <td style="color:#9ca3af;font-weight:600;">${((_htgd_page-1)*50)+i+1}</td>
                     <td style="font-weight:600;color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.company_name||'').replace(/"/g,'&quot;')}">${d.company_name || '—'}</td>
                     <td style="font-weight:700;color:#122546;">${d.customer_name || '—'}</td>
-                    <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">***${phoneShort}</td>
+                    <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">${phoneFull}</td>
                     <td style="text-align:center;">${carrierHtml}</td>
                     <td style="color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.address||'').replace(/"/g,'&quot;')}">${d.address || '—'}</td>
                     <td style="text-align:center;">${statusBadge(d.status)}</td>
@@ -1016,20 +1016,50 @@ async function _htgd_saveCarrierPriority(sourceId) {
 // ========== VIEW DETAIL ==========
 async function _htgd_viewDetail(dataId) {
     const res = await apiCall(`/api/telesale/data/${dataId}`);
-    const d = res.data || res;
-    if (!d || !d.phone) return showToast('Không tìm thấy data', 'error');
+    if (!res.success) return showToast(res.error || 'Không tìm thấy data', 'error');
+    const d = res.data;
+    const assignments = res.assignments || [];
     const carriers = (d.carrier||'').split('|').filter(Boolean);
     const carrierHtml = carriers.map(c => {
         const cm = _carrierMap[c] || _carrierMap['invalid'];
         return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:11px;padding:2px 8px;">${cm.label}</span>`;
     }).join(' ') || '—';
+    const statusMap = {
+        available: { icon:'✅', label:'Sẵn sàng', bg:'#dcfce7', color:'#16a34a' },
+        assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
+        answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
+        cold: { icon:'🧊', label:'Kho lạnh', bg:'#eef2ff', color:'#6366f1' },
+        invalid: { icon:'❌', label:'K.tồn tại', bg:'#fef2f2', color:'#dc2626' },
+    };
+    const sm = statusMap[d.status] || statusMap.available;
+    const statusHtml = `<span class="ts-badge" style="background:${sm.bg};color:${sm.color};">${sm.icon} ${sm.label}</span>`;
+    let assignHtml = '<div style="color:#9ca3af;font-size:12px;text-align:center;padding:12px;">Chưa có lịch sử phân bổ</div>';
+    if (assignments.length > 0) {
+        assignHtml = `<table class="ts-table" style="font-size:12px;"><thead><tr>
+            <th>Ngày</th><th>NV</th><th>Trạng thái</th><th>Ghi chú</th>
+        </tr></thead><tbody>
+        ${assignments.map(a => `<tr>
+            <td style="white-space:nowrap;">${a.assigned_date ? new Date(a.assigned_date).toLocaleDateString('vi-VN') : '—'}</td>
+            <td style="font-weight:600;">${a.user_name || '—'}</td>
+            <td>${a.call_status || '—'}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${a.notes || '—'}</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
     openModal('📋 Chi Tiết Data #' + d.id, `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">SĐT</label><div style="font-size:15px;font-weight:700;color:#2563eb;font-family:'SF Mono',monospace;">${d.phone}</div></div>
-            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Nhà Mạng</label><div>${carrierHtml}</div></div>
-            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Tên KH</label><div style="font-weight:700;">${d.customer_name || '—'}</div></div>
-            <div><label style="font-size:10px;color:#6b7280;font-weight:600;">Công Ty</label><div style="font-weight:600;">${d.company_name || '—'}</div></div>
-            <div style="grid-column:span 2;"><label style="font-size:10px;color:#6b7280;font-weight:600;">Địa Chỉ</label><div>${d.address || '—'}</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+            <div style="background:#f0f9ff;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">📱 SĐT</label><div style="font-size:18px;font-weight:800;color:#2563eb;font-family:'SF Mono',monospace;letter-spacing:1px;">${d.phone}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">📡 Nhà Mạng</label><div style="margin-top:2px;">${carrierHtml}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">👤 Tên KH</label><div style="font-weight:700;font-size:15px;color:#122546;">${d.customer_name || '—'}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">🏢 Công Ty</label><div style="font-weight:600;color:#374151;">${d.company_name || '—'}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">📍 Địa Chỉ</label><div style="color:#374151;">${d.address || '—'}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">📊 Trạng Thái</label><div style="margin-top:2px;">${statusHtml}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">👨‍💼 NV Phân Cho</label><div style="font-weight:600;color:#374151;">${d.last_assigned_user_name || '—'}</div></div>
+            <div style="background:#f8fafc;padding:12px;border-radius:10px;"><label style="font-size:10px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">📅 Ngày Phân</label><div style="color:#374151;">${d.last_assigned_date ? new Date(d.last_assigned_date).toLocaleDateString('vi-VN') : '—'}</div></div>
+        </div>
+        <div style="border-top:1.5px solid #e5e7eb;padding-top:14px;">
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:10px;">📜 Lịch Sử Phân Bổ (${assignments.length})</div>
+            <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;max-height:200px;overflow-y:auto;">${assignHtml}</div>
         </div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
 }
