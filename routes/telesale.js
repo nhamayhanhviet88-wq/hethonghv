@@ -28,6 +28,12 @@ async function telesaleRoutes(fastify) {
             if (/\d+[.,]?\d*\s*(tri[eệ]u|tr)(?:\b|[/\s])/.test(l)) return false; // X triệu, X tr
             if (/\d{1,3}([.]\d{3}){1,}\s*(vn[dđ]|đ[oồ]ng|đ\b)/i.test(l)) return false; // X.XXX.XXX vnđ/đồng
             if (/\d{1,3}([.]\d{3}){2,}/.test(l) && /vn[dđ]|đ[oồ]ng|l[uư][oơ]ng|thu nh|tr\b|tri[eệ]u/.test(l)) return false; // combo number + salary keyword
+            if (/\d+[.,]?\d*k\s*[\/]/.test(l)) return false; // 300k/, 52.000k/1h
+            if (/\d+[.,]?\d*k\b/.test(l) && /th[uư][oởỏõóọả]?ng|t[aă]ng ca|ph[uụ]\s*c[aấ]p/.test(l)) return false; // Xk + thưởng/tăng ca/phụ cấp
+            if (/\d{2,3}[.]\d{3}\s*[\/]\s*\d*\s*h/.test(l)) return false; // 45.000/1h, 60.000/h
+            if (/\d{2,3}[.]\d{3}\s*[\/]\s*(gi[oờ]|ca|ng[aà]y|th[aá]ng)/.test(l)) return false; // 45.000/giờ, 45.000/ca
+            if (/th[uư][oởỏõóọả]?ng/.test(l) && /\d+[.,]?\d*\s*k\b|\d+[.,]?\d*\s*(tri[eệ]u|tr\b|đ\b|vn[dđ])/.test(l)) return false; // thưởng + số tiền (500k, 2 triệu)
+            if (/th[uư][oởỏõóọả]?ng/.test(l) && /(cu[oố]i n[aă]m|l[eễ]|t[eế]t|th[aá]ng\s*1[3-9]|kpi|doanh s[oố])/.test(l)) return false; // thưởng cuối năm, thưởng lễ Tết, thưởng KPI
             return true;
         }).join('\n');
     }
