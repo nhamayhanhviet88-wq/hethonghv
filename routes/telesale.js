@@ -211,24 +211,41 @@ async function telesaleRoutes(fastify) {
             }
         }
 
-        // Count "chuyển số" — answered with transfer-type answer statuses
-        let transferFilter = '';
-        const transferParams = [];
+        // Count assignment-based stats: transfer, cold, cold_ncc, no_answer/busy
+        let aFilter = '';
+        const aParams = [];
         if (crm_type) {
-            transferFilter = ' AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)';
-            transferParams.push(crm_type);
+            aFilter = ' AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = $1)';
+            aParams.push(crm_type);
         }
-        const transferRows = await db.all(`SELECT d.source_id, COUNT(DISTINCT d.id) as cnt
+        const assignRows = await db.all(`SELECT d.source_id,
+            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
+            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
+            COUNT(DISTINCT d.id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
+            COUNT(DISTINCT d.id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
             FROM telesale_data d
             JOIN telesale_assignments a ON a.data_id = d.id
-            JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
-            WHERE ans.action_type = 'transfer'${transferFilter}
-            GROUP BY d.source_id`, transferParams);
-        const transferBySource = {};
-        for (const r of transferRows) { transferBySource[r.source_id] = parseInt(r.cnt); }
+            LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+            WHERE 1=1${aFilter}
+            GROUP BY d.source_id`, aParams);
+        const aBySource = {};
+        for (const r of assignRows) {
+            aBySource[r.source_id] = {
+                transferred: parseInt(r.transferred || 0),
+                cold_answered: parseInt(r.cold_answered || 0),
+                ncc_answered: parseInt(r.ncc_answered || 0),
+                no_answer_busy: parseInt(r.no_answer_busy || 0),
+            };
+        }
 
-        // Attach transferred count to each source stat
-        for (const s of stats) { s.transferred = transferBySource[s.id] || 0; }
+        // Attach counts to each source stat
+        for (const s of stats) {
+            const a = aBySource[s.id] || {};
+            s.transferred = a.transferred || 0;
+            s.cold_answered = a.cold_answered || 0;
+            s.ncc_answered = a.ncc_answered || 0;
+            s.no_answer_busy = a.no_answer_busy || 0;
+        }
 
         const result = { stats, carrierStats, sourceCarrierStats };
         _setCache(cacheKey, result);
