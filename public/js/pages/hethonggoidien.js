@@ -453,10 +453,23 @@ async function _htgd_previewImport(input) {
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         if (lines.length < 2) { preview.innerHTML = '❌ File rỗng hoặc chỉ có header'; return; }
         const rows = [];
+            const _src = _htgd_sources.find(s => s.id === _htgd_activeSourceId);
+            const _cm = _src?.column_mapping || {};
+            const _colIdx = (letter) => letter ? letter.charCodeAt(0) - 65 : -1;
         for (let i = 1; i < lines.length; i++) {
             const cols = _htgd_parseCSVLine(lines[i]);
-            if (cols.length < 6) continue;
-            rows.push({ company_name:cols[0]||'', group_name:cols[1]||'', post_link:cols[2]||'', post_content:cols[3]||'', customer_name:cols[4]||'', phone:(cols[5]||'').trim(), address:cols[6]||'' });
+            if (cols.length < 1) continue;
+            const getCol = (key) => { const idx = _colIdx(_cm[key]); return idx >= 0 && idx < cols.length ? (cols[idx]||'').trim() : ''; };
+            let addr = '';
+            if (cm.address === 'AUTO') {
+                // Extract address from post_content - look for Vietnamese address patterns
+                const pc = getCol('post_content');
+                const addrMatch = pc.match(/(?:địa chỉ|đc|dc|Đ\/c)[:\s]*([^\n,]+)/i) || pc.match(/(\d+[^,\n]*(?:phố|đường|ngõ|phường|quận|tp|hcm|hà nội|hn)[^,\n]*)/i);
+                addr = addrMatch ? addrMatch[1].trim() : '';
+            } else {
+                addr = getCol('address');
+            }
+            rows.push({ company_name:getCol('company_name'), group_name:getCol('group_name'), post_link:getCol('post_link'), post_content:getCol('post_content'), customer_name:getCol('customer_name'), phone:getCol('phone'), address:addr });
         }
         _htgd_importRows = rows;
         const sizeColor = fileSizeMB > 10 ? '#dc2626' : fileSizeMB > 5 ? '#d97706' : '#059669';
@@ -1082,16 +1095,28 @@ async function _htgd_configColumns(sourceId) {
     if (!src) return;
     const mapping = src.column_mapping || {};
     const fields = [
-        { key: 'phone', label: '📱 SĐT (bắt buộc)', required: true },
-        { key: 'customer_name', label: '👤 Tên KH' },
         { key: 'company_name', label: '🏢 Tên Công Ty' },
-        { key: 'address', label: '📍 Địa Chỉ' },
+        { key: 'group_name', label: '👥 Tên Nhóm' },
+        { key: 'post_link', label: '🔗 Link Đăng Bài' },
+        { key: 'post_content', label: '📝 Nội Dung ĐB' },
+        { key: 'customer_name', label: '👤 Tên KH' },
+        { key: 'phone', label: '📱 SĐT (bắt buộc)', required: true },
+        { key: 'address', label: '📍 Địa Chỉ', hasAuto: true },
     ];
-    const body = `<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Nhập tên cột trong file CSV tương ứng với mỗi trường:</div>
-    ${fields.map(f => `<div class="form-group" style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:700;">${f.label}</label>
-        <input type="text" id="colMap_${f.key}" class="form-control" value="${mapping[f.key] || ''}" placeholder="VD: phone, sdt, so_dien_thoai...">
-    </div>`).join('')}`;
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const body = `<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Chọn cột Excel/CSV tương ứng với mỗi trường dữ liệu:</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    ${fields.map(f => {
+        const curVal = mapping[f.key] || '';
+        let opts = f.required ? '' : '<option value="">— Bỏ qua —</option>';
+        if (f.hasAuto) opts += '<option value="AUTO" ' + (curVal === 'AUTO' ? 'selected' : '') + '>🔄 AUTO (lấy từ Nội Dung ĐB)</option>';
+        letters.forEach((l, i) => {
+            opts += '<option value="' + l + '" ' + (curVal === l ? 'selected' : '') + '>' + l + ' (Cột ' + (i+1) + ')</option>';
+        });
+        const borderColor = f.required ? '#dc2626' : '#e5e7eb';
+        return '<div style="margin-bottom:4px;"><label style="font-size:11px;font-weight:700;display:block;margin-bottom:3px;">' + f.label + (f.required ? ' <span style=\\"color:#dc2626;\\">*</span>' : '') + '</label><select id="colMap_' + f.key + '" class="form-control" style="border:1.5px solid ' + borderColor + ';border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600;">' + opts + '</select></div>';
+    }).join('')}
+    </div>`;
     openModal('📝 Cấu Hình Cột Import: ' + src.name, body,
         `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
          <button class="btn btn-success" onclick="_htgd_saveColumns(${sourceId})">💾 Lưu</button>`);
@@ -1099,10 +1124,11 @@ async function _htgd_configColumns(sourceId) {
 
 async function _htgd_saveColumns(sourceId) {
     const mapping = {};
-    ['phone','customer_name','company_name','address'].forEach(k => {
+    ['company_name','group_name','post_link','post_content','customer_name','phone','address'].forEach(k => {
         const v = document.getElementById('colMap_'+k)?.value?.trim();
         if (v) mapping[k] = v;
     });
+    if (!mapping.phone) return showToast('SĐT là bắt buộc', 'error');
     const res = await apiCall(`/api/telesale/sources/${sourceId}`, 'PUT', { column_mapping: mapping });
     if (res.success) { showToast('✅ Đã lưu cấu hình cột'); closeModal(); await _htgd_renderSettingsTab(); }
     else showToast(res.error, 'error');
