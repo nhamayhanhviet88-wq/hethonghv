@@ -230,7 +230,7 @@ async function telesaleRoutes(fastify) {
             GROUP BY d.source_id`, aParams);
         const aBySource = {};
         for (const r of assignRows) {
-            aBySource[r.source_id] = {
+            aBySource[String(r.source_id)] = {
                 transferred: parseInt(r.transferred || 0),
                 cold_answered: parseInt(r.cold_answered || 0),
                 ncc_answered: parseInt(r.ncc_answered || 0),
@@ -240,7 +240,7 @@ async function telesaleRoutes(fastify) {
 
         // Attach counts to each source stat
         for (const s of stats) {
-            const a = aBySource[s.id] || {};
+            const a = aBySource[String(s.id)] || {};
             s.transferred = a.transferred || 0;
             s.cold_answered = a.cold_answered || 0;
             s.ncc_answered = a.ncc_answered || 0;
