@@ -10,6 +10,13 @@ let _gd_stats = null;
 let _gd_sources = [];
 let _gd_answerStatuses = [];
 let _gd_activeSourceFilter = null;
+let _gd_activeCrmTab = null; // null = 'Tất cả', or 'hoa_hong_crm'|'nuoi_duong'|'sinh_vien'
+const _gd_CRM_TABS = [
+    { value: null, label: 'Tất cả', icon: '📋', grad: 'linear-gradient(135deg,#122546,#1e3a5f)', color: '#122546' },
+    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
+    { value: 'nuoi_duong', label: 'CRM Giới Thiệu Hợp Tác', icon: '🤝', grad: 'linear-gradient(135deg,#059669,#10b981)', color: '#059669' },
+    { value: 'sinh_vien', label: 'CRM Gọi Bán Hàng', icon: '🛒', grad: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#f59e0b' },
+];
 let _gd_isManager = false;
 let _gd_allUsers = [];
 let _gd_allDepts = [];
@@ -193,12 +200,30 @@ async function _gd_loadCallsForUser(userId) {
     _gd_calls = callsRes.calls || [];
     _gd_stats = statsRes.stats || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0 };
     const callbacks = callbacksRes.callbacks || [];
-    const filteredCalls = _gd_activeSourceFilter ? _gd_calls.filter(c => c.source_name === _gd_activeSourceFilter) : _gd_calls;
+    // CRM tab filter
+    const crmFilteredCalls = _gd_activeCrmTab ? _gd_calls.filter(c => {
+        const src = _gd_sources.find(s => s.name === c.source_name);
+        return src && src.crm_type === _gd_activeCrmTab;
+    }) : _gd_calls;
+    const filteredCalls = _gd_activeSourceFilter ? crmFilteredCalls.filter(c => c.source_name === _gd_activeSourceFilter) : crmFilteredCalls;
     const totalAnswered = parseInt(_gd_stats.answered || 0);
     const targetCalls = 100; const totalPoints = 50;
     const earnedPoints = Math.round(Math.min(totalAnswered, targetCalls) / targetCalls * totalPoints);
     const progressPct = Math.min(100, Math.round(totalAnswered / targetCalls * 100));
-    const sourcesInCalls = [...new Set(_gd_calls.map(c => c.source_name).filter(Boolean))];
+    const sourcesInCalls = [...new Set(crmFilteredCalls.map(c => c.source_name).filter(Boolean))];
+
+    // Count calls per CRM tab
+    const crmCounts = {};
+    _gd_CRM_TABS.forEach(tab => {
+        if (tab.value === null) {
+            crmCounts['all'] = _gd_calls.length;
+        } else {
+            crmCounts[tab.value] = _gd_calls.filter(c => {
+                const src = _gd_sources.find(s => s.name === c.source_name);
+                return src && src.crm_type === tab.value;
+            }).length;
+        }
+    });
 
     const miniCards = [
         { icon:'📊', val:_gd_stats.total, label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)' },
@@ -288,12 +313,30 @@ async function _gd_loadCallsForUser(userId) {
                 <div style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:100%;width:${progressPct}%;border-radius:10px;transition:width 0.5s ease;"></div>
             </div>
         </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:4px;background:#f1f5f9;border-radius:14px;">
+            ${_gd_CRM_TABS.map(tab => {
+                const isActive = _gd_activeCrmTab === tab.value;
+                const cnt = tab.value === null ? crmCounts['all'] : (crmCounts[tab.value] || 0);
+                return `<button onclick="_gd_activeCrmTab=${tab.value === null ? 'null' : "'" + tab.value + "'"};_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});"
+                    style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;
+                    ${isActive
+                        ? `background:${tab.grad};color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);transform:translateY(-1px);`
+                        : 'background:transparent;color:#64748b;'}
+                    ">
+                    <span style="font-size:15px;">${tab.icon}</span>
+                    <span>${tab.label}</span>
+                    <span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800;
+                        ${isActive ? 'background:rgba(255,255,255,0.25);color:white;' : 'background:#e2e8f0;color:#475569;'}
+                    ">${cnt}</span>
+                </button>`;
+            }).join('')}
+        </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
             <button class="ts-source-pill${!_gd_activeSourceFilter?' active':''}" onclick="_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});">
-                Tất cả <span class="ts-pill-count">${_gd_calls.length}</span>
+                Tất cả <span class="ts-pill-count">${crmFilteredCalls.length}</span>
             </button>
             ${sourcesInCalls.map(s => {
-                const cnt = _gd_calls.filter(c => c.source_name === s).length;
+                const cnt = crmFilteredCalls.filter(c => c.source_name === s).length;
                 return `<button class="ts-source-pill${_gd_activeSourceFilter===s?' active':''}" onclick="_gd_activeSourceFilter='${s}';_gd_loadCallsForUser(${userId});">
                     ${s} <span class="ts-pill-count">${cnt}</span>
                 </button>`;
