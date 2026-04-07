@@ -310,7 +310,7 @@ async function _htgd_renderDataTab() {
     // Specific CRM mode → full data tab
     el.innerHTML = `
         ${_htgd_buildDateFilterHtml()}
-        <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px;">
+        <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
             ${cards.map(c => cardHtml(c)).join('')}
         </div>
         ${conversionHtml}
