@@ -1178,9 +1178,9 @@ async function _htgd_viewDetail(dataId) {
 async function _htgd_dedupCrm() {
     if (!confirm('Lọc trùng SĐT trong CRM ' + (_htgd_activeCrm === 'all' ? 'tất cả' : _htgd_activeCrm) + '? Sẽ giữ bản ghi cũ nhất.')) return;
     showToast('⏳ Đang lọc trùng...');
-    const res = await apiCall('/api/telesale/data/dedup', 'POST', { crm_type: _htgd_activeCrm });
+    const res = await apiCall('/api/telesale/data/dedup-crm', 'POST', { crm_type: _htgd_activeCrm });
     if (res.success) {
-        showToast('✅ Đã xóa ' + (res.removed || 0) + ' bản ghi trùng');
+        showToast('✅ ' + (res.message || 'Đã xóa ' + (res.deleted || 0) + ' bản ghi trùng'));
         await _htgd_loadSources();
     } else showToast(res.error || 'Lỗi', 'error');
 }
