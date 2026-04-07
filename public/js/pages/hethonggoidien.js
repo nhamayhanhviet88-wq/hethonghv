@@ -217,13 +217,14 @@ async function _htgd_renderDataTab() {
         cold_answered: a.cold_answered + parseInt(s.cold_answered || 0),
         ncc_answered: a.ncc_answered + parseInt(s.ncc_answered || 0),
         no_answer_busy: a.no_answer_busy + parseInt(s.no_answer_busy || 0),
-    }), { total:0, available:0, assigned:0, answered:0, cold:0, transferred:0, cold_answered:0, ncc_answered:0, no_answer_busy:0 });
+        invalid: a.invalid + parseInt(s.invalid || 0),
+    }), { total:0, available:0, assigned:0, answered:0, cold:0, transferred:0, cold_answered:0, ncc_answered:0, no_answer_busy:0, invalid:0 });
 
     // Previous period totals for comparison
     const tp = _htgd_prevStats ? _htgd_stats.reduce((a, s) => {
         const ps = _htgd_prevStats[s.id] || {};
-        return { assigned: a.assigned+(ps.assigned||0), answered: a.answered+(ps.answered||0), transferred: a.transferred+(ps.transferred||0), cold_answered: a.cold_answered+(ps.cold_answered||0), ncc_answered: a.ncc_answered+(ps.ncc_answered||0), no_answer_busy: a.no_answer_busy+(ps.no_answer_busy||0) };
-    }, { assigned:0, answered:0, transferred:0, cold_answered:0, ncc_answered:0, no_answer_busy:0 }) : null;
+        return { assigned: a.assigned+(ps.assigned||0), answered: a.answered+(ps.answered||0), transferred: a.transferred+(ps.transferred||0), cold_answered: a.cold_answered+(ps.cold_answered||0), ncc_answered: a.ncc_answered+(ps.ncc_answered||0), no_answer_busy: a.no_answer_busy+(ps.no_answer_busy||0), invalid: a.invalid+(ps.invalid||0) };
+    }, { assigned:0, answered:0, transferred:0, cold_answered:0, ncc_answered:0, no_answer_busy:0, invalid:0 }) : null;
 
     // Conversion rates
     const rateBatMay = t.assigned > 0 ? Math.round((t.answered / t.assigned) * 100) : 0;
@@ -236,7 +237,8 @@ async function _htgd_renderDataTab() {
         { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0 },
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy', prevVal:tp?.no_answer_busy||0 },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered', prevVal:tp?.cold_answered||0 },
-        { icon:'🏪', label:'Đã Có NCC', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
+        { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
+        { icon:'❌', label:'Hủy Khách, K. Tồn Tại', val:t.invalid, grad:'linear-gradient(135deg,#6b7280,#374151)', txtColor:'white', filterKey:'invalid', prevVal:tp?.invalid||0 },
     ];
 
     // Conversion rate bar HTML
@@ -290,7 +292,7 @@ async function _htgd_renderDataTab() {
     if (isAll) {
         el.innerHTML = `
             ${_htgd_buildDateFilterHtml()}
-            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px;">
+            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
                 ${cards.map(c => cardHtml(c)).join('')}
             </div>
             ${conversionHtml}
@@ -337,7 +339,8 @@ async function _htgd_renderDataTab() {
                 <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển số</option>
                 <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không nghe, bận</option>
                 <option value="cold_answered" ${_htgd_statusFilter==='cold_answered'?'selected':''}>🚫 Không có nhu cầu</option>
-                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã có NCC</option>
+                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã có Nhà Cung Cấp</option>
+                <option value="invalid" ${_htgd_statusFilter==='invalid'?'selected':''}>❌ Hủy Khách, K. Tồn Tại</option>
                 <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>❄️ Cold</option>
             </select>
             <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">

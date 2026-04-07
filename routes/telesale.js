@@ -132,7 +132,7 @@ async function telesaleRoutes(fastify) {
         let paramIdx = 0;
         if (source_id) { paramIdx++; where += ` AND d.source_id = $${paramIdx}`; params.push(source_id); }
         // Special status filters that use telesale_assignments join
-        const _specialStatuses = ['transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy'];
+        const _specialStatuses = ['transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy', 'invalid'];
         if (status && _specialStatuses.includes(status)) {
             if (status === 'transferred') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'transfer')`;
@@ -142,6 +142,8 @@ async function telesaleRoutes(fastify) {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'cold_ncc')`;
             } else if (status === 'no_answer_busy') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status IN ('no_answer','busy'))`;
+            } else if (status === 'invalid') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'invalid')`;
             }
         } else if (status) {
             paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status);
@@ -203,7 +205,8 @@ async function telesaleRoutes(fastify) {
                     COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
                     COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
                     COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
-                    COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status = 'invalid') as invalid
                 FROM telesale_assignments a
                 JOIN telesale_data d ON d.id = a.data_id
                 LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
@@ -232,7 +235,8 @@ async function telesaleRoutes(fastify) {
                         COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
                         COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
                         COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
-                        COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status = 'invalid') as invalid
                     FROM telesale_assignments a
                     JOIN telesale_data d ON d.id = a.data_id
                     LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
@@ -248,7 +252,7 @@ async function telesaleRoutes(fastify) {
                         ...(map[r.source_id] || {}),
                         answered: parseInt(r.answered), transferred: parseInt(r.transferred),
                         cold_answered: parseInt(r.cold_answered), ncc_answered: parseInt(r.ncc_answered),
-                        no_answer_busy: parseInt(r.no_answer_busy)
+                        no_answer_busy: parseInt(r.no_answer_busy), invalid: parseInt(r.invalid||0)
                     };
                 }
                 return map;
@@ -260,7 +264,8 @@ async function telesaleRoutes(fastify) {
                 map[r.source_id] = {
                     assigned: parseInt(r.assigned), answered: parseInt(r.answered),
                     transferred: parseInt(r.transferred), cold_answered: parseInt(r.cold_answered),
-                    ncc_answered: parseInt(r.ncc_answered), no_answer_busy: parseInt(r.no_answer_busy)
+                    ncc_answered: parseInt(r.ncc_answered), no_answer_busy: parseInt(r.no_answer_busy),
+                    invalid: parseInt(r.invalid||0)
                 };
             }
             return map;
@@ -278,6 +283,7 @@ async function telesaleRoutes(fastify) {
                 s.cold_answered = ds.cold_answered || 0;
                 s.ncc_answered = ds.ncc_answered || 0;
                 s.no_answer_busy = ds.no_answer_busy || 0;
+                s.invalid = ds.invalid || 0;
             } else {
                 // Original queries for non-date mode (backward compat)
                 const ds2 = dateStats[s.id] || {};
@@ -287,6 +293,7 @@ async function telesaleRoutes(fastify) {
                 s.cold_answered = ds2.cold_answered || 0;
                 s.ncc_answered = ds2.ncc_answered || 0;
                 s.no_answer_busy = ds2.no_answer_busy || 0;
+                s.invalid = ds2.invalid || 0;
             }
         }
 
