@@ -131,7 +131,21 @@ async function telesaleRoutes(fastify) {
         const params = [];
         let paramIdx = 0;
         if (source_id) { paramIdx++; where += ` AND d.source_id = $${paramIdx}`; params.push(source_id); }
-        if (status) { paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status); }
+        // Special status filters that use telesale_assignments join
+        const _specialStatuses = ['transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy'];
+        if (status && _specialStatuses.includes(status)) {
+            if (status === 'transferred') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'transfer')`;
+            } else if (status === 'cold_answered') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'cold')`;
+            } else if (status === 'ncc_answered') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'cold_ncc')`;
+            } else if (status === 'no_answer_busy') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status IN ('no_answer','busy'))`;
+            }
+        } else if (status) {
+            paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status);
+        }
         if (carrier) { paramIdx++; where += ` AND d.carrier ILIKE $${paramIdx}`; params.push(`%${carrier}%`); }
         if (search) { paramIdx++; where += ` AND (d.phone ILIKE $${paramIdx} OR d.customer_name ILIKE $${paramIdx} OR d.company_name ILIKE $${paramIdx})`; params.push(`%${search}%`); }
 
@@ -1096,6 +1110,145 @@ async function runTelesaleRecall() {
     return { success: true, message: `Thu hồi: ${recalled} SĐT, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, invalidated };
 }
 
+// ========== PUMP FOR SINGLE USER (called on account unlock) ==========
+async function runTelesalePumpForUser(userId) {
+    // Check VN time < 18:00
+    const vnNow = new Date(Date.now() + 7 * 3600000);
+    const vnHour = vnNow.getUTCHours();
+    if (vnHour >= 18) {
+        return { pumped: 0, message: 'Sau 18:00 — sẽ bơm tự động sáng mai', skipped: true };
+    }
+
+    const today = vnNow.toISOString().split('T')[0];
+    const CRM_TYPES = ['hoa_hong_crm', 'nuoi_duong', 'sinh_vien'];
+    let totalPumped = 0;
+
+    for (const crmType of CRM_TYPES) {
+        // Check if user is an active telesale member for this CRM type
+        const member = await db.get(`SELECT tam.user_id, tam.daily_quota, u.full_name
+            FROM telesale_active_members tam JOIN users u ON u.id = tam.user_id
+            WHERE tam.user_id = $1 AND tam.is_active = true AND u.status = 'active' AND tam.crm_type = $2`,
+            [userId, crmType]);
+        if (!member) continue;
+
+        const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true AND crm_type = ? ORDER BY display_order', [crmType]);
+        if (sources.length === 0) continue;
+
+        const sourceIds = sources.map(s => s.id);
+
+        // Check if already pumped today for this CRM's sources
+        const existing = await db.get(`SELECT COUNT(*) as cnt FROM telesale_assignments a
+            JOIN telesale_data d ON d.id = a.data_id
+            WHERE a.user_id = $1 AND a.assigned_date = $2 AND d.source_id = ANY($3::int[])`,
+            [userId, today, sourceIds]);
+        if (existing && existing.cnt > 0) continue;
+
+        // Calculate remaining quota
+        const totalSourceQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+        let remaining = member.daily_quota != null ? member.daily_quota : totalSourceQuota;
+
+        // Add callbacks due today
+        const callbacks = await db.all(`SELECT DISTINCT a.data_id FROM telesale_assignments a
+            JOIN telesale_data d ON d.id = a.data_id
+            WHERE a.callback_date = $1 AND a.user_id = $2 AND d.source_id = ANY($3::int[])
+            AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = a.data_id AND a2.assigned_date = $1)`,
+            [today, userId, sourceIds]);
+        for (const cb of callbacks) {
+            try {
+                await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                    [cb.data_id, userId, today]);
+                await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                    [today, userId, cb.data_id]);
+                totalPumped++;
+                remaining--;
+            } catch (e) { /* duplicate, skip */ }
+        }
+
+        // Distribute from sources proportionally with carrier priority
+        const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+        for (let si = 0; si < sources.length && remaining > 0; si++) {
+            const src = sources[si];
+            let count = totalQuota > 0 ? Math.round(remaining * (src.daily_quota || 0) / totalQuota) : Math.ceil(remaining / sources.length);
+            count = Math.min(count, remaining);
+            if (count <= 0) continue;
+
+            const priority = src.carrier_priority || ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi'];
+            const mode = src.distribution_mode || 'priority';
+            let pickedIds = [];
+
+            if (mode === 'even') {
+                const perCarrier = Math.max(1, Math.floor(count / priority.length));
+                for (const carrier of priority) {
+                    if (pickedIds.length >= count) break;
+                    const need = Math.min(perCarrier, count - pickedIds.length);
+                    const rows = await db.all(`SELECT id FROM telesale_data
+                        WHERE source_id = $1 AND status = 'available' AND carrier LIKE $2
+                        ORDER BY RANDOM() LIMIT $3`, [src.id, `%${carrier}%`, need]);
+                    pickedIds.push(...rows.map(r => r.id));
+                }
+                if (pickedIds.length < count) {
+                    const fill = await db.all(`SELECT id FROM telesale_data
+                        WHERE source_id = $1 AND status = 'available' AND id != ALL($2::int[])
+                        ORDER BY RANDOM() LIMIT $3`, [src.id, pickedIds.length > 0 ? pickedIds : [0], count - pickedIds.length]);
+                    pickedIds.push(...fill.map(r => r.id));
+                }
+            } else {
+                for (const carrier of priority) {
+                    if (pickedIds.length >= count) break;
+                    const need = count - pickedIds.length;
+                    const rows = await db.all(`SELECT id FROM telesale_data
+                        WHERE source_id = $1 AND status = 'available' AND carrier LIKE $2
+                        AND id != ALL($3::int[])
+                        ORDER BY RANDOM() LIMIT $4`, [src.id, `%${carrier}%`, pickedIds.length > 0 ? pickedIds : [0], need]);
+                    pickedIds.push(...rows.map(r => r.id));
+                }
+                if (pickedIds.length < count) {
+                    const fill = await db.all(`SELECT id FROM telesale_data
+                        WHERE source_id = $1 AND status = 'available' AND id != ALL($2::int[])
+                        ORDER BY RANDOM() LIMIT $3`, [src.id, pickedIds.length > 0 ? pickedIds : [0], count - pickedIds.length]);
+                    pickedIds.push(...fill.map(r => r.id));
+                }
+            }
+
+            for (const dId of pickedIds) {
+                try {
+                    await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                        [dId, userId, today]);
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                        [today, userId, dId]);
+                    totalPumped++;
+                    remaining--;
+                } catch (e) { /* duplicate */ }
+            }
+        }
+
+        // If still remaining, try any source in this CRM
+        if (remaining > 0) {
+            const extra = await db.all(`SELECT id FROM telesale_data
+                WHERE status = 'available' AND source_id = ANY($1::int[])
+                AND id NOT IN (SELECT data_id FROM telesale_assignments WHERE assigned_date = $2 AND user_id = $3)
+                ORDER BY RANDOM() LIMIT $4`, [sourceIds, today, userId, remaining]);
+            for (const d of extra) {
+                try {
+                    await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                        [d.id, userId, today]);
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                        [today, userId, d.id]);
+                    totalPumped++;
+                    remaining--;
+                } catch (e) { /* skip */ }
+            }
+        }
+    }
+
+    if (totalPumped > 0) {
+        console.log(`  📞 [Telesale] Auto-pump sau mở khóa: ${totalPumped} SĐT cho user ${userId}`);
+        return { pumped: totalPumped, message: `Đã bơm ${totalPumped} SĐT gọi điện`, skipped: false };
+    }
+    return { pumped: 0, message: '', skipped: false };
+}
+
 module.exports = telesaleRoutes;
 module.exports.runTelesalePump = runTelesalePump;
 module.exports.runTelesaleRecall = runTelesaleRecall;
+module.exports.runTelesalePumpForUser = runTelesalePumpForUser;

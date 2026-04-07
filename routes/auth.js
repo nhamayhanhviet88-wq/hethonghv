@@ -25,80 +25,120 @@ async function authRoutes(fastify, options) {
         }
 
         if (user.status === 'locked') {
-            // Only show MOST RECENT violation date (not entire history)
-            // Full history is available in "Phạt Khóa TK NV" menu
-            const latestLock = await db.get(
-                `SELECT MAX(d) as latest_date FROM (
-                    SELECT MAX(completion_date::text) as d FROM lock_task_completions WHERE user_id = $1 AND status = 'expired'
-                    UNION ALL
-                    SELECT MAX(task_date::text) as d FROM task_support_requests WHERE manager_id = $1 AND status = 'expired'
-                ) sub`,
+            // Load global penalty config for today's per-task penalty amount
+            const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
+            const GPC = {};
+            _gpcRows.forEach(r => { GPC[r.key] = Number(r.amount) || 0; });
+            const todayPenaltyKhoa = GPC.cv_khoa_khong_nop || 50000;
+            const todayPenaltyChuoi = GPC.cv_chuoi_khong_nop || 50000;
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            // Source 1: CV Khóa — ALL unreported expired (not just latest date)
+            const lockPenalties = await db.all(
+                `SELECT ltc.completion_date::text as task_date, lt.task_name
+                 FROM lock_task_completions ltc
+                 JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+                 WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
+                   AND ltc.redo_count >= 0
+                 ORDER BY ltc.completion_date DESC`,
                 [user.id]
             );
-            const penaltyDateStr = latestLock?.latest_date || new Date().toISOString().split('T')[0];
+            // Filter: only include if NV hasn't re-submitted
+            const khoaPenalties = [];
+            for (const lp of lockPenalties) {
+                const resubmitted = await db.get(
+                    `SELECT id FROM lock_task_completions
+                     WHERE lock_task_id = (SELECT id FROM lock_tasks WHERE task_name = $1 LIMIT 1)
+                       AND user_id = $2 AND completion_date::text = $3
+                       AND status IN ('pending','approved') AND redo_count > 0`,
+                    [lp.task_name, user.id, lp.task_date]
+                );
+                if (!resubmitted) {
+                    khoaPenalties.push({
+                        task_name: lp.task_name, task_date: lp.task_date,
+                        penalty_amount: todayPenaltyKhoa,
+                        reason: `Chưa báo cáo lại đến ${todayStr.split('-').reverse().join('/')}`,
+                        source: 'khoa'
+                    });
+                }
+            }
 
-            // Source 1: Support requests (QL không hỗ trợ NV) — yesterday only
+            // Source 2: CV Chuỗi — ALL unreported expired
+            const chainPenalties = [];
+            try {
+                const chainExpired = await db.all(
+                    `SELECT cc.chain_item_id, ci.task_name, ci.deadline::text as task_date,
+                            cins.chain_name
+                     FROM chain_task_completions cc
+                     JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+                     JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                     WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
+                       AND cc.redo_count >= 0
+                     ORDER BY ci.deadline DESC`,
+                    [user.id]
+                );
+                for (const ce of chainExpired) {
+                    const resubmitted = await db.get(
+                        `SELECT id FROM chain_task_completions
+                         WHERE chain_item_id = $1 AND user_id = $2
+                           AND status IN ('pending','approved') AND redo_count > 0`,
+                        [ce.chain_item_id, user.id]
+                    );
+                    if (!resubmitted) {
+                        chainPenalties.push({
+                            task_name: `${ce.chain_name} — ${ce.task_name}`,
+                            task_date: ce.task_date,
+                            penalty_amount: todayPenaltyChuoi,
+                            reason: `Chưa nộp đến ${todayStr.split('-').reverse().join('/')}`,
+                            source: 'chuoi'
+                        });
+                    }
+                }
+            } catch(e) {}
+
+            // Source 3: Support requests (QL không hỗ trợ NV) — ALL unreported
             const supportPenalties = await db.all(
                 `SELECT sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                         u.full_name as employee_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON u.id = sr.user_id
-                 WHERE sr.manager_id = $1 AND sr.status = 'expired'
-                   AND sr.task_date::text = $2
-                 ORDER BY sr.task_date`,
-                [user.id, penaltyDateStr]
+                 WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.acknowledged = false
+                 ORDER BY sr.task_date DESC`,
+                [user.id]
             );
 
-            // Source 2: CV Khóa — yesterday only
-            const lockPenalties = await db.all(
-                `SELECT ltc.completion_date::text as task_date, ltc.penalty_amount,
-                        lt.task_name, lt.penalty_amount as task_penalty
-                 FROM lock_task_completions ltc
-                 JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-                 WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-                   AND ltc.completion_date::text = $2
-                 ORDER BY ltc.completion_date`,
-                [user.id, penaltyDateStr]
-            );
-
-            // Group support penalties into categories
             const htPenalties = [];
             const diemPenalties = [];
             for (const sp of supportPenalties) {
+                const item = {
+                    task_name: sp.task_name, task_date: sp.task_date,
+                    penalty_amount: sp.penalty_amount || 0,
+                    reason: sp.penalty_reason, employee_name: sp.employee_name
+                };
                 if (sp.penalty_reason && sp.penalty_reason.includes('Không duyệt')) {
-                    diemPenalties.push({
-                        task_name: sp.task_name, task_date: sp.task_date,
-                        penalty_amount: sp.penalty_amount || 0,
-                        reason: sp.penalty_reason, employee_name: sp.employee_name, source: 'diem'
-                    });
+                    diemPenalties.push({ ...item, source: 'diem' });
                 } else {
-                    htPenalties.push({
-                        task_name: sp.task_name, task_date: sp.task_date,
-                        penalty_amount: sp.penalty_amount || 0,
-                        reason: sp.penalty_reason, employee_name: sp.employee_name, source: 'support'
-                    });
+                    htPenalties.push({ ...item, source: 'support' });
                 }
             }
 
-            const khoaPenalties = lockPenalties.map(lp => ({
-                task_name: lp.task_name, task_date: lp.task_date,
-                penalty_amount: lp.penalty_amount || lp.task_penalty || 50000,
-                reason: 'Không nộp báo cáo', source: 'khoa'
-            }));
-
-            const totalFine = [...htPenalties, ...diemPenalties, ...khoaPenalties]
-                .reduce((s, p) => s + (p.penalty_amount || 0), 0);
+            // Total = today's penalty per task × number of unreported tasks
+            const totalFine = khoaPenalties.length * todayPenaltyKhoa
+                + chainPenalties.length * todayPenaltyChuoi
+                + [...htPenalties, ...diemPenalties].reduce((s, p) => s + (p.penalty_amount || 0), 0);
 
             return reply.code(403).send({
                 error: 'locked',
                 locked: true,
-                penaltyDate: penaltyDateStr,
+                penaltyDate: todayStr,
                 penaltyGroups: {
                     khoa: khoaPenalties,
+                    chuoi: chainPenalties,
                     diem: diemPenalties,
                     support: htPenalties
                 },
-                penalties: [...khoaPenalties, ...diemPenalties, ...htPenalties],
+                penalties: [...khoaPenalties, ...chainPenalties, ...diemPenalties, ...htPenalties],
                 totalFine,
                 userId: user.id,
                 username: user.username,

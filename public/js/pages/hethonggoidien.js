@@ -149,13 +149,13 @@ async function _htgd_renderDataTab() {
     }), { total:0, available:0, assigned:0, answered:0, cold:0, transferred:0, cold_answered:0, ncc_answered:0, no_answer_busy:0 });
 
     const cards = [
-        { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white' },
-        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white' },
-        { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white' },
-        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white' },
-        { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white' },
-        { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white' },
-        { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white' },
+        { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'available' },
+        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white', filterKey:'assigned' },
+        { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered' },
+        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white', filterKey:'transferred' },
+        { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy' },
+        { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered' },
+        { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered' },
     ];
 
     // CRM tabs HTML (rendered below stats) — premium style
@@ -177,11 +177,11 @@ async function _htgd_renderDataTab() {
         // "Tất cả" mode → stats + CRM tabs only, no data table
         el.innerHTML = `
             <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px;">
-                ${cards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};">
+                ${cards.map(c => { const isActive = _htgd_statusFilter===c.filterKey; return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};cursor:pointer;transition:all .2s;${isActive?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" onclick="_htgd_filterByCard('${c.filterKey}')">
                     <span class="ts-stat-icon">${c.icon}</span>
                     <div class="ts-stat-val">${c.val.toLocaleString()}</div>
                     <div class="ts-stat-label">${c.label}</div>
-                </div>`).join('')}
+                </div>`; }).join('')}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
                 ${crmTabsHtml}
@@ -197,11 +197,11 @@ async function _htgd_renderDataTab() {
     // Specific CRM mode → full data tab
     el.innerHTML = `
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px;">
-            ${cards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};">
+            ${cards.map(c => { const isActive = _htgd_statusFilter===c.filterKey; return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};cursor:pointer;transition:all .2s;${isActive?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" onclick="_htgd_filterByCard('${c.filterKey}')">
                 <span class="ts-stat-icon">${c.icon}</span>
                 <div class="ts-stat-val">${c.val.toLocaleString()}</div>
                 <div class="ts-stat-label">${c.label}</div>
-            </div>`).join('')}
+            </div>`; }).join('')}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
             ${crmTabsHtml}
@@ -221,11 +221,15 @@ async function _htgd_renderDataTab() {
                     onkeyup="if(event.key==='Enter'){_htgd_search=this.value;_htgd_page=1;_htgd_loadData();}">
             </div>
             <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_loadData();">
-                <option value="">Tất cả trạng thái</option>
+                <option value="" ${_htgd_statusFilter===''?'selected':''}>Tất cả trạng thái</option>
                 <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn sàng</option>
                 <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã phân</option>
                 <option value="answered" ${_htgd_statusFilter==='answered'?'selected':''}>📞 Đã gọi</option>
-                <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>🚫 Không có nhu cầu</option>
+                <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển số</option>
+                <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không nghe, bận</option>
+                <option value="cold_answered" ${_htgd_statusFilter==='cold_answered'?'selected':''}>🚫 Không có nhu cầu</option>
+                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã có NCC</option>
+                <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>❄️ Cold</option>
             </select>
             <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">
                 <option value="">Tất cả nhà mạng</option>
@@ -251,6 +255,23 @@ async function _htgd_renderDataTab() {
 async function _htgd_selectSource(sourceId) {
     _htgd_activeSourceId = sourceId;
     _htgd_page = 1;
+    _htgd_renderDataTab();
+}
+
+function _htgd_filterByCard(filterKey) {
+    // Toggle: click same card again → reset filter
+    if (_htgd_statusFilter === filterKey) {
+        _htgd_statusFilter = '';
+    } else {
+        _htgd_statusFilter = filterKey;
+    }
+    _htgd_page = 1;
+    // If in "all" mode, switch to first specific CRM
+    if (_htgd_activeCrm === 'all' && _htgd_sources.length > 0) {
+        // Stay in all mode but still re-render to update card highlight
+        _htgd_renderDataTab();
+        return;
+    }
     _htgd_renderDataTab();
 }
 

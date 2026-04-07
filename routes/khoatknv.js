@@ -1,4 +1,5 @@
 const db = require('../db/pool');
+const { runTelesalePumpForUser } = require('./telesale');
 const { authenticate } = require('../middleware/auth');
 
 async function khoaTKNVRoutes(fastify, options) {
@@ -487,7 +488,16 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.get('/api/penalty/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
 
-        const pending = await db.all(
+        // Load penalty config
+        const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
+        const GPC = {};
+        _gpcRows.forEach(r => { GPC[r.key] = Number(r.amount) || 0; });
+        const todayPenaltyKhoa = GPC.cv_khoa_khong_nop || 50000;
+        const todayPenaltyChuoi = GPC.cv_chuoi_khong_nop || 50000;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Source 1: Support requests (for managers)
+        const supportPending = await db.all(
             `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                     u.full_name as requested_by
              FROM task_support_requests sr
@@ -497,6 +507,66 @@ async function khoaTKNVRoutes(fastify, options) {
             [userId]
         );
 
+        // Source 2: CV Khóa unreported (for NV)
+        const lockExpired = await db.all(
+            `SELECT ltc.lock_task_id, lt.task_name, ltc.completion_date::text as task_date
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
+               AND ltc.redo_count >= 0 AND ltc.acknowledged = false
+             ORDER BY ltc.completion_date DESC`,
+            [userId]
+        );
+        const khoaPending = [];
+        for (const lp of lockExpired) {
+            const resub = await db.get(
+                `SELECT id FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date::text = $3
+                   AND status IN ('pending','approved') AND redo_count > 0`,
+                [lp.lock_task_id, userId, lp.task_date]
+            );
+            if (!resub) {
+                khoaPending.push({
+                    task_name: lp.task_name, task_date: lp.task_date,
+                    penalty_amount: todayPenaltyKhoa,
+                    penalty_reason: `Chưa báo cáo lại đến ${todayStr.split('-').reverse().join('/')}`
+                });
+            }
+        }
+
+        // Source 3: CV Chuỗi unreported (for NV)
+        const chainPending = [];
+        try {
+            const chainExpired = await db.all(
+                `SELECT cc.chain_item_id, ci.task_name, ci.deadline::text as task_date,
+                        cins.chain_name
+                 FROM chain_task_completions cc
+                 JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+                 JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                 WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
+                   AND cc.redo_count >= 0 AND cc.acknowledged = false
+                 ORDER BY ci.deadline DESC`,
+                [userId]
+            );
+            for (const ce of chainExpired) {
+                const resub = await db.get(
+                    `SELECT id FROM chain_task_completions
+                     WHERE chain_item_id = $1 AND user_id = $2
+                       AND status IN ('pending','approved') AND redo_count > 0`,
+                    [ce.chain_item_id, userId]
+                );
+                if (!resub) {
+                    chainPending.push({
+                        task_name: `${ce.chain_name} — ${ce.task_name}`,
+                        task_date: ce.task_date,
+                        penalty_amount: todayPenaltyChuoi,
+                        penalty_reason: `Chưa nộp đến ${todayStr.split('-').reverse().join('/')}`
+                    });
+                }
+            }
+        } catch(e) {}
+
+        const pending = [...supportPending, ...khoaPending, ...chainPending];
         const total = pending.reduce((s, p) => s + (p.penalty_amount || 0), 0);
         return { pending, total };
     });
@@ -557,7 +627,15 @@ async function khoaTKNVRoutes(fastify, options) {
             [user.id]
         );
 
-        return { success: true, message: 'Đã xác nhận. Tài khoản đã được mở khóa.' };
+        // Auto-pump telesale SĐT sau khi mở khóa
+        let pumpMsg = '';
+        try {
+            const pumpResult = await runTelesalePumpForUser(user.id);
+            if (pumpResult.pumped > 0) pumpMsg = ` ${pumpResult.message}.`;
+            else if (pumpResult.skipped) pumpMsg = ` ${pumpResult.message}.`;
+        } catch (e) { console.error('[Telesale] Auto-pump error:', e.message); }
+
+        return { success: true, message: `Đã xác nhận. Tài khoản đã được mở khóa.${pumpMsg}`, telesalePumped: pumpMsg ? true : false };
     });
 
     // POST: Self-acknowledge (authenticated - when popup shows after login)
@@ -605,7 +683,15 @@ async function khoaTKNVRoutes(fastify, options) {
             [userId]
         );
 
-        return { success: true, message: 'Đã xác nhận. Tài khoản đã được mở khóa.' };
+        // Auto-pump telesale SĐT sau khi mở khóa
+        let pumpMsg = '';
+        try {
+            const pumpResult = await runTelesalePumpForUser(userId);
+            if (pumpResult.pumped > 0) pumpMsg = ` ${pumpResult.message}.`;
+            else if (pumpResult.skipped) pumpMsg = ` ${pumpResult.message}.`;
+        } catch (e) { console.error('[Telesale] Auto-pump error:', e.message); }
+
+        return { success: true, message: `Đã xác nhận. Tài khoản đã được mở khóa.${pumpMsg}`, telesalePumped: pumpMsg ? true : false };
     });
 }
 

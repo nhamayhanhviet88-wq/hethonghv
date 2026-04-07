@@ -649,12 +649,15 @@ async function _penaltyShowSlip(managerId, month, managerName) {
 async function _showPenaltyLockPopup(penalties, total) {
     document.getElementById('penaltyLockPopup')?.remove();
 
+    const todayLabel = new Date().toISOString().split('T')[0].split('-').reverse().join('/');
+
     const itemsHtml = penalties.map((p, i) => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #f1f5f9;${i % 2 ? 'background:#fafbfc;' : ''}">
             <div style="flex:0 0 24px;font-size:12px;font-weight:700;color:#6b7280;text-align:center;">${i+1}</div>
             <div style="flex:1;">
                 <div style="font-size:13px;font-weight:700;color:#1e293b;">${p.task_name}</div>
-                <div style="font-size:11px;color:#6b7280;">Ngày: ${p.task_date.split('-').reverse().join('/')} • NV yêu cầu: ${p.requested_by || '—'}</div>
+                <div style="font-size:11px;color:#6b7280;">📅 ${p.task_date ? p.task_date.split('-').reverse().join('/') : '---'}${p.requested_by ? ' • 👤 NV: ' + p.requested_by : ''}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;">${p.penalty_reason || 'Vi phạm quy định'}</div>
             </div>
             <div style="font-size:13px;font-weight:800;color:#dc2626;">${(p.penalty_amount || 0).toLocaleString()}đ</div>
         </div>
@@ -675,36 +678,35 @@ async function _showPenaltyLockPopup(penalties, total) {
             <div style="width:70px;height:70px;background:rgba(255,255,255,0.15);border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;animation:pulseRed 2s infinite;">
                 <span style="font-size:36px;">🔒</span>
             </div>
-            <div style="font-size:20px;font-weight:800;color:white;margin-top:12px;">TÀI KHOẢN BỊ KHÓA</div>
-            <div style="font-size:12px;color:#fecaca;margin-top:6px;">Bạn chưa xử lý công việc trước thời hạn</div>
+            <div style="font-size:20px;font-weight:800;color:white;margin-top:12px;">CẢNH BÁO PHẠT</div>
+            <div style="font-size:12px;color:#fecaca;margin-top:6px;">Phạt ngày ${todayLabel} — Công việc chưa hoàn thành</div>
         </div>
 
         <!-- PENALTY INFO -->
         <div style="padding:20px 24px;">
             <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:16px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
-                    <div style="font-size:13px;color:#991b1b;font-weight:600;">💰 Tổng tiền phạt</div>
+                    <div style="font-size:13px;color:#991b1b;font-weight:600;">💰 Tổng phạt ngày ${todayLabel}</div>
                     <div style="font-size:24px;font-weight:900;color:#dc2626;">${total.toLocaleString()}đ</div>
                 </div>
             </div>
 
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;">📋 Chi tiết vi phạm (${penalties.length} việc)</div>
-            <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;max-height:250px;overflow-y:auto;">
+            <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;max-height:300px;overflow-y:auto;">
                 ${itemsHtml}
             </div>
 
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-top:14px;">
-                <div style="font-size:11px;color:#92400e;font-weight:600;">⚠️ Lý do bị khóa</div>
-                <div style="font-size:12px;color:#78350f;margin-top:4px;">Quản lý không duyệt / hỗ trợ nhân viên trước deadline theo quy định. Số tiền phạt sẽ được trừ vào lương cuối tháng.</div>
+                <div style="font-size:11px;color:#92400e;font-weight:600;">⚠️ Hãy hoàn thành công việc chưa làm ngay để tránh bị khóa + phạt chồng mỗi ngày!</div>
             </div>
         </div>
 
         <!-- CONFIRM -->
         <div style="padding:16px 24px 24px;text-align:center;">
             <button onclick="_penaltyAcknowledge()" id="penaltyAckBtn" style="padding:14px 40px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:800;box-shadow:0 4px 12px rgba(220,38,38,0.4);width:100%;transition:all .2s;">
-                ✅ Tôi đã đọc và xác nhận — Mở khóa tài khoản
+                ✅ Tôi đã đọc và xác nhận
             </button>
-            <div style="font-size:10px;color:#9ca3af;margin-top:8px;">Bấm xác nhận để mở khóa tài khoản và tiếp tục làm việc</div>
+            <div style="font-size:10px;color:#9ca3af;margin-top:8px;">Bấm xác nhận để đóng thông báo</div>
         </div>
     </div>`;
 

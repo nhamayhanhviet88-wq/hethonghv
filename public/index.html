@@ -86,13 +86,13 @@
 
         function _showPenaltyPopup(penalties, totalFine, userId, penaltyGroups, username, fullName, penaltyDate) {
             document.getElementById('penaltyLoginPopup')?.remove();
-            const dateLabel = penaltyDate ? penaltyDate.split('-').reverse().join('/') : 'Hôm qua';
+            const dateLabel = penaltyDate ? penaltyDate.split('-').reverse().join('/') : 'Hôm nay';
 
             // Build grouped HTML
             let groupsHtml = '';
 
             // Helper: render items for a group
-            function renderItems(items, emptyMsg) {
+            function renderItems(items) {
                 if (!items || items.length === 0) return '';
                 return items.map((p, i) => `
                     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.06);' : ''}">
@@ -110,18 +110,25 @@
 
             const groups = penaltyGroups || {};
             const khoa = groups.khoa || [];
+            const chuoi = groups.chuoi || [];
             const diem = groups.diem || [];
             const support = groups.support || [];
 
             // If no grouped data, fallback to flat penalties list
-            if (khoa.length === 0 && diem.length === 0 && support.length === 0 && penalties && penalties.length > 0) {
+            if (khoa.length === 0 && chuoi.length === 0 && diem.length === 0 && support.length === 0 && penalties && penalties.length > 0) {
                 groupsHtml = `<div style="padding:4px 14px 2px;color:#991b1b;font-size:12px;font-weight:800;">📋 CHI TIẾT VI PHẠM</div>` + renderItems(penalties);
             } else {
                 if (khoa.length > 0) {
                     groupsHtml += `<div style="padding:10px 14px 4px;background:#fef2f2;border-bottom:1px solid #fecaca;">
-                        <div style="font-size:12px;font-weight:800;color:#991b1b;">🔒 CV KHÓA — Không nộp báo cáo</div>
+                        <div style="font-size:12px;font-weight:800;color:#991b1b;">🔒 CV KHÓA ${dateLabel} — Không nộp báo cáo</div>
                     </div>
                     <div style="background:#fef2f2;">${renderItems(khoa)}</div>`;
+                }
+                if (chuoi.length > 0) {
+                    groupsHtml += `<div style="padding:10px 14px 4px;background:#eef2ff;border-top:2px solid #c7d2fe;border-bottom:1px solid #c7d2fe;">
+                        <div style="font-size:12px;font-weight:800;color:#4338ca;">🔗 CV CHUỖI ${dateLabel} — Không nộp báo cáo</div>
+                    </div>
+                    <div style="background:#eef2ff;">${renderItems(chuoi)}</div>`;
                 }
                 if (diem.length > 0) {
                     groupsHtml += `<div style="padding:10px 14px 4px;background:#fffbeb;border-top:2px solid #fde68a;border-bottom:1px solid #fde68a;">
@@ -149,11 +156,11 @@
                 <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:24px 28px;border-radius:16px 16px 0 0;text-align:center;">
                     <div style="font-size:40px;margin-bottom:8px;">🔒</div>
                     <div style="font-size:20px;color:white;font-weight:800;">Tài khoản bị khóa</div>
-                    <div style="font-size:12px;color:#fca5a5;margin-top:4px;">Công việc chưa hoàn thành ngày ${dateLabel}</div>
+                    <div style="font-size:12px;color:#fca5a5;margin-top:4px;">Phạt ngày ${dateLabel}</div>
                     ${username ? `<div style="margin-top:8px;background:rgba(255,255,255,0.15);padding:6px 14px;border-radius:8px;display:inline-block;"><span style="color:white;font-weight:700;font-size:13px;">👤 ${username}</span>${fullName ? ` <span style="color:#fca5a5;font-size:12px;">— ${fullName}</span>` : ''}</div>` : ''}
                 </div>
 
-                <div style="max-height:350px;overflow-y:auto;">
+                <div style="max-height:400px;overflow-y:auto;">
                     ${groupsHtml}
                 </div>
 
@@ -163,7 +170,7 @@
                 </div>
 
                 <div style="padding:12px 20px;background:#fffbeb;border-top:1px solid #fde68a;text-align:center;">
-                    <div style="font-size:12px;color:#92400e;font-weight:600;">⚠️ Hãy hoàn thành các công việc chưa làm ngay để tránh bị khóa lại!</div>
+                    <div style="font-size:12px;color:#92400e;font-weight:600;">⚠️ Hãy hoàn thành các công việc chưa làm ngay để tránh bị khóa lại + phạt chồng mỗi ngày!</div>
                 </div>
 
                 <div style="padding:16px 20px;background:#f8fafc;border-radius:0 0 16px 16px;text-align:center;">

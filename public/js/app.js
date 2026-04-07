@@ -141,16 +141,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(emPopupCheck, 60000);
     }
 
-    // Check if user has unacknowledged penalties → show lock popup
-    if (currentUser && ['quan_ly', 'truong_phong'].includes(currentUser.role)) {
-        setTimeout(async () => {
-            try {
-                const data = await apiCall('/api/penalty/my-pending');
-                if (data.pending && data.pending.length > 0) {
-                    _showPenaltyLockPopup(data.pending, data.total);
-                }
-            } catch(e) {}
-        }, 1500);
+    // Check if user has unacknowledged penalties → show lock popup (once per day)
+    if (currentUser && ['quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'part_time'].includes(currentUser.role)) {
+        const penaltyDateKey = 'penaltyPopupShown_' + new Date().toISOString().split('T')[0];
+        if (!sessionStorage.getItem(penaltyDateKey)) {
+            setTimeout(async () => {
+                try {
+                    const data = await apiCall('/api/penalty/my-pending');
+                    if (data.pending && data.pending.length > 0) {
+                        sessionStorage.setItem(penaltyDateKey, '1');
+                        _showPenaltyLockPopup(data.pending, data.total);
+                    }
+                } catch(e) {}
+            }, 1500);
+        }
     }
 
     // Cancel popup checker for NV (9:30, 15:00)

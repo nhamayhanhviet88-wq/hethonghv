@@ -1,0 +1,55 @@
+=== chain_task_instance_items columns ===
+  id (integer)
+  chain_instance_id (integer)
+  template_item_id (integer)
+  item_order (integer)
+  task_name (text)
+  task_content (text)
+  guide_link (text)
+  input_requirements (text)
+  output_requirements (text)
+  requires_approval (boolean)
+  requires_report (boolean)
+  min_quantity (integer)
+  deadline (date)
+  deadline_time (time without time zone)
+  status (text)
+  created_at (timestamp without time zone)
+  max_redo_count (integer)
+  penalty_amount (integer)
+
+=== chain_task_instance_items samples ===
+{"id":1,"chain_instance_id":1,"template_item_id":1,"item_order":1,"task_name":"Lên mẫu áo thiết kế","task_content":"","guide_link":"","input_requirements":"","output_requirements":"","requires_approval":true,"requires_report":true,"min_quantity":1,"deadline":"2026-04-09","deadline_time":null,"status":"in_progress","created_at":"2026-04-03T03:36:25.067Z","max_redo_count":3,"penalty_amount":0}
+{"id":2,"chain_instance_id":1,"template_item_id":2,"item_order":2,"task_name":"Sản xuất mẫu áo","task_content":"","guide_link":"","input_requirements":"","output_requirements":"","requires_approval":false,"requires_report":true,"min_quantity":1,"deadline":"2026-04-11","deadline_time":null,"status":"completed","created_at":"2026-04-03T03:36:25.080Z","max_redo_count":3,"penalty_amount":0}
+{"id":3,"chain_instance_id":1,"template_item_id":3,"item_order":3,"task_name":"Chuẩn bị buổi chụp","task_content":"","guide_link":"","input_requirements":"","output_requirements":"","requires_approval":false,"requires_report":false,"min_quantity":1,"deadline":"2026-04-13","deadline_time":null,"status":"completed","created_at":"2026-04-03T03:36:25.089Z","max_redo_count":3,"penalty_amount":0}
+{"id":4,"chain_instance_id":1,"template_item_id":4,"item_order":4,"task_name":"Chuẩn bị người mẫu","task_content":"","guide_link":"","input_requirements":"","output_requirements":"","requires_approval":false,"requires_report":false,"min_quantity":1,"deadline":"2026-04-13","deadline_time":null,"status":"in_progress","created_at":"2026-04-03T03:36:25.097Z","max_redo_count":3,"penalty_amount":0}
+{"id":5,"chain_instance_id":1,"template_item_id":5,"item_order":5,"task_name":"Chụp hình","task_content":"","guide_link":"","input_requirements":"","output_requirements":"","requires_approval":true,"requires_report":true,"min_quantity":1,"deadline":"2026-04-15","deadline_time":null,"status":"pending","created_at":"2026-04-03T03:36:25.105Z","max_redo_count":3,"penalty_amount":0}
+
+=== chain_task_assignments columns ===
+  id (integer)
+  chain_item_id (integer)
+  user_id (integer)
+  assigned_by (integer)
+  created_at (timestamp without time zone)
+
+=== chain_task_assignments samples ===
+{"id":1,"chain_item_id":1,"user_id":3,"assigned_by":1,"created_at":"2026-04-03T03:36:25.072Z"}
+{"id":2,"chain_item_id":1,"user_id":4,"assigned_by":1,"created_at":"2026-04-03T03:36:25.077Z"}
+{"id":3,"chain_item_id":2,"user_id":3,"assigned_by":1,"created_at":"2026-04-03T03:36:25.083Z"}
+{"id":4,"chain_item_id":2,"user_id":4,"assigned_by":1,"created_at":"2026-04-03T03:36:25.086Z"}
+{"id":5,"chain_item_id":3,"user_id":3,"assigned_by":1,"created_at":"2026-04-03T03:36:25.092Z"}
+{"id":6,"chain_item_id":3,"user_id":4,"assigned_by":1,"created_at":"2026-04-03T03:36:25.094Z"}
+{"id":7,"chain_item_id":4,"user_id":3,"assigned_by":1,"created_at":"2026-04-03T03:36:25.100Z"}
+{"id":8,"chain_item_id":4,"user_id":4,"assigned_by":1,"created_at":"2026-04-03T03:36:25.102Z"}
+{"id":9,"chain_item_id":5,"user_id":3,"assigned_by":1,"created_at":"2026-04-03T03:36:25.108Z"}
+{"id":10,"chain_item_id":5,"user_id":4,"assigned_by":1,"created_at":"2026-04-03T03:36:25.111Z"}
+
+=== chain_task_completions constraints ===
+  chain_task_completions_chain_item_id_fkey: FOREIGN KEY (chain_item_id) REFERENCES chain_task_instance_items(id)
+  chain_task_completions_chain_item_id_not_null: NOT NULL chain_item_id
+  chain_task_completions_id_not_null: NOT NULL id
+  chain_task_completions_pkey: PRIMARY KEY (id)
+  chain_task_completions_reviewed_by_fkey: FOREIGN KEY (reviewed_by) REFERENCES users(id)
+  chain_task_completions_status_check: CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'expired'::text])))
+  chain_task_completions_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id)
+  chain_task_completions_user_id_not_null: NOT NULL user_id

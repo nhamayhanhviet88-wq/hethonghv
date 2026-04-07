@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
+const { runTelesalePumpForUser } = require('./telesale');
 const path = require('path');
 const fs = require('fs');
 
@@ -374,7 +375,15 @@ async function usersRoutes(fastify, options) {
             );
         }
 
-        return { success: true, message: `Đã mở khóa tài khoản ${user.full_name}. Khách hàng nguồn đã được phục hồi với lịch tư vấn hôm nay.` };
+        // Auto-pump telesale SĐT sau khi mở khóa
+        let pumpMsg = '';
+        try {
+            const pumpResult = await runTelesalePumpForUser(userId);
+            if (pumpResult.pumped > 0) pumpMsg = ` 📞 ${pumpResult.message}.`;
+            else if (pumpResult.skipped) pumpMsg = ` ${pumpResult.message}.`;
+        } catch (e) { console.error('[Telesale] Auto-pump error:', e.message); }
+
+        return { success: true, message: `Đã mở khóa tài khoản ${user.full_name}. Khách hàng nguồn đã được phục hồi với lịch tư vấn hôm nay.${pumpMsg}` };
     });
 
     // Upload hợp đồng PDF

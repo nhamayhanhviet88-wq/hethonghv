@@ -258,8 +258,8 @@ async function runDeadlineCheck() {
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
         );
 
-        // Check past 14 days (to handle long leave periods)
-        for (let daysBack = 1; daysBack <= 14; daysBack++) {
+        // Check past 90 days (to handle long leave periods)
+        for (let daysBack = 1; daysBack <= 90; daysBack++) {
             const checkDate = new Date(now);
             checkDate.setDate(checkDate.getDate() - daysBack);
             const checkDateStr = toDateStr(checkDate);
@@ -350,9 +350,9 @@ async function runDeadlineCheck() {
         const yesterdayForStack = new Date(now);
         yesterdayForStack.setDate(yesterdayForStack.getDate() - 1);
         const yesterdayStrForStack = toDateStr(yesterdayForStack);
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const thirtyDaysAgoStr = toDateStr(thirtyDaysAgo);
+        const ninetyDaysAgo = new Date(now);
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const ninetyDaysAgoStr = toDateStr(ninetyDaysAgo);
 
         const unreportedExpired = await db.all(
             `SELECT ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as completion_date,
@@ -361,7 +361,7 @@ async function runDeadlineCheck() {
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              WHERE ltc.status = 'expired' AND ltc.redo_count >= 0
                AND ltc.completion_date >= $1 AND ltc.completion_date < $2`,
-            [thirtyDaysAgoStr, yesterdayStrForStack]
+            [ninetyDaysAgoStr, yesterdayStrForStack]
         );
 
         for (const exp of unreportedExpired) {
@@ -573,8 +573,8 @@ async function runDeadlineCheck() {
             );
             if (alreadyPenalized) continue;
 
-            // Skip pending items in sequential mode (not yet unlocked)
-            if (oci.item_status === 'pending') continue;
+            // ★ Phạt TẤT CẢ bước quá deadline, kể cả bị block bởi sequential mode
+            // (User yêu cầu: Phương án A — penalize all steps past deadline)
 
             // ★ CHECK NGHỈ PHÉP: Nếu NV nghỉ ngày deadline → tính deadline kéo dài
             const userOnLeaveChain = await isUserOnLeave(oci.user_id, oci.deadline);
@@ -608,9 +608,9 @@ async function runDeadlineCheck() {
         }
 
         // ========== 5a. PHẠT CHỒNG PHẠT — Expired CV Chuỗi chưa báo cáo lại ==========
-        const thirtyDaysAgo2 = new Date(now);
-        thirtyDaysAgo2.setDate(thirtyDaysAgo2.getDate() - 30);
-        const thirtyDaysAgoStr2 = toDateStr(thirtyDaysAgo2);
+        const ninetyDaysAgo2 = new Date(now);
+        ninetyDaysAgo2.setDate(ninetyDaysAgo2.getDate() - 90);
+        const ninetyDaysAgoStr2 = toDateStr(ninetyDaysAgo2);
 
         const unreportedChainExpired = await db.all(
             `SELECT cc.id, cc.chain_item_id, cc.user_id, cc.penalty_amount, cc.created_at,
@@ -621,7 +621,7 @@ async function runDeadlineCheck() {
              JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
              WHERE cc.status = 'expired' AND cc.penalty_applied = true AND cc.redo_count >= 0
                AND ci.deadline >= $1::date AND ci.deadline < $2::date`,
-            [thirtyDaysAgoStr2, yesterdayStr2]
+            [ninetyDaysAgoStr2, yesterdayStr2]
         );
 
         for (const exp of unreportedChainExpired) {
