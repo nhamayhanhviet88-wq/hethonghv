@@ -176,14 +176,49 @@ async function teamsRoutes(fastify, options) {
             return reply.code(400).send({ error: `${user.full_name} đang thuộc đơn vị "${currentDept?.name || user.department_id}". Phải gỡ ra trước.` });
         }
 
-        await db.run('UPDATE users SET department_id = ? WHERE id = ?', [deptId, userId]);
+        // Get old department for history
+        const oldDeptId = user.department_id;
+
+        // Close old department history record
+        if (oldDeptId && oldDeptId !== deptId) {
+            await db.run(
+                'UPDATE department_history SET left_at = NOW() WHERE user_id = $1 AND department_id = $2 AND left_at IS NULL',
+                [userId, oldDeptId]
+            );
+        }
+
+        // Update user department + joined_at
+        await db.run(
+            'UPDATE users SET department_id = $1, department_joined_at = NOW() WHERE id = $2',
+            [deptId, userId]
+        );
+
+        // Create new department history record
+        await db.run(
+            'INSERT INTO department_history (user_id, department_id, joined_at) VALUES ($1, $2, NOW())',
+            [userId, deptId]
+        );
+
         return { success: true, message: 'Đã gán nhân viên vào đơn vị' };
     });
 
     fastify.post('/api/departments/:id/unassign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { user_id } = request.body || {};
         if (!user_id) return reply.code(400).send({ error: 'Chọn nhân viên' });
-        await db.run('UPDATE users SET department_id = NULL WHERE id = ? AND department_id = ?', [Number(user_id), Number(request.params.id)]);
+        const userId = Number(user_id);
+        const deptId = Number(request.params.id);
+
+        // Close department history record
+        await db.run(
+            'UPDATE department_history SET left_at = NOW() WHERE user_id = $1 AND department_id = $2 AND left_at IS NULL',
+            [userId, deptId]
+        );
+
+        // Clear department + joined_at
+        await db.run(
+            'UPDATE users SET department_id = NULL, department_joined_at = NULL WHERE id = $1 AND department_id = $2',
+            [userId, deptId]
+        );
         return { success: true, message: 'Đã gỡ nhân viên khỏi đơn vị' };
     });
 

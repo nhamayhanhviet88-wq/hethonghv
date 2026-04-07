@@ -12,7 +12,7 @@ async function authRoutes(fastify, options) {
         }
 
         const user = await db.get(
-            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id FROM users WHERE username = ?',
+            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at FROM users WHERE username = ?',
             [username]
         );
 
@@ -41,8 +41,9 @@ async function authRoutes(fastify, options) {
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                  WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
                    AND ltc.redo_count >= 0 AND ltc.completion_date >= NOW() - INTERVAL '90 days'
+                   AND ($2::timestamp IS NULL OR ltc.completion_date >= $2::date)
                  ORDER BY ltc.completion_date DESC`,
-                [user.id]
+                [user.id, user.department_joined_at]
             );
             // Filter: only include if NV hasn't re-submitted
             const khoaPenalties = [];
@@ -75,8 +76,9 @@ async function authRoutes(fastify, options) {
                      JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                      WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
                        AND cc.redo_count >= 0 AND ci.deadline >= NOW() - INTERVAL '90 days'
+                       AND ($2::timestamp IS NULL OR ci.deadline >= $2::date)
                      ORDER BY ci.deadline DESC`,
-                    [user.id]
+                    [user.id, user.department_joined_at]
                 );
                 for (const ce of chainExpired) {
                     const resubmitted = await db.get(

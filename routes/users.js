@@ -138,8 +138,8 @@ async function usersRoutes(fastify, options) {
              `INSERT INTO users (username, password_hash, full_name, phone, address, role,
              contract_info, start_date, telegram_group_id, commission_tier_id,
              assigned_to_user_id, bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-             managed_by_user_id, source_customer_id, province, source_crm_type, position_id)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             managed_by_user_id, source_customer_id, province, source_crm_type, position_id, department_joined_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [username, hash, full_name, phone || null, address || null, role,
              contract_info || null, start_date || null, telegram_group_id || null,
              commission_tier_id ? Number(commission_tier_id) : null,
@@ -152,8 +152,19 @@ async function usersRoutes(fastify, options) {
              source_customer_id ? Number(source_customer_id) : null,
              province || null,
              source_crm_type || null,
-             position_id ? Number(position_id) : null]
+             position_id ? Number(position_id) : null,
+             department_id ? new Date().toISOString() : null]
         );
+
+        // Track department history for new user
+        if (department_id && result.lastInsertRowid) {
+            try {
+                await db.run(
+                    'INSERT INTO department_history (user_id, department_id, joined_at) VALUES ($1, $2, NOW())',
+                    [Number(result.lastInsertRowid), Number(department_id)]
+                );
+            } catch(e) { console.error('[DEPT-HISTORY] Error:', e.message); }
+        }
 
         // Sync phone/address/province/birthday to source customer (affiliate = same person)
         console.log('[SYNC-CREATE] sync_source:', request.body.sync_source, 'source_customer_id:', source_customer_id);
@@ -215,6 +226,12 @@ async function usersRoutes(fastify, options) {
             if (phoneError) return reply.code(400).send({ error: phoneError });
         }
 
+        // Check if department changed
+        const oldUser = await db.get('SELECT department_id FROM users WHERE id = ?', [userId]);
+        const oldDeptId = oldUser?.department_id;
+        const newDeptId = department_id !== undefined ? (department_id ? Number(department_id) : null) : oldDeptId;
+        const deptChanged = department_id !== undefined && newDeptId !== oldDeptId;
+
         await db.run(
             `UPDATE users SET 
              full_name = COALESCE(?, full_name), phone = COALESCE(?, phone),
@@ -232,6 +249,7 @@ async function usersRoutes(fastify, options) {
              source_crm_type = COALESCE(?, source_crm_type),
              province = COALESCE(?, province),
              position_id = COALESCE(?, position_id),
+             department_joined_at = CASE WHEN $24::boolean THEN NOW() ELSE department_joined_at END,
              updated_at = NOW()
              WHERE id = ?`,
             [full_name || null, phone || null, address || null, role || null, status || null,
@@ -247,8 +265,29 @@ async function usersRoutes(fastify, options) {
              source_crm_type || null,
              province || null,
              position_id ? Number(position_id) : null,
+             deptChanged,
              userId]
         );
+
+        // Track department history if changed
+        if (deptChanged) {
+            try {
+                // Close old department record
+                if (oldDeptId) {
+                    await db.run(
+                        'UPDATE department_history SET left_at = NOW() WHERE user_id = $1 AND department_id = $2 AND left_at IS NULL',
+                        [userId, oldDeptId]
+                    );
+                }
+                // Create new department record
+                if (newDeptId) {
+                    await db.run(
+                        'INSERT INTO department_history (user_id, department_id, joined_at) VALUES ($1, $2, NOW())',
+                        [userId, newDeptId]
+                    );
+                }
+            } catch(e) { console.error('[DEPT-HISTORY] Error:', e.message); }
+        }
 
         // Sync phone/address/province/birthday to source customer (affiliate = same person)
         if (request.body.sync_source === true) {

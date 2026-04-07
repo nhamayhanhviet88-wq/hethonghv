@@ -249,13 +249,14 @@ async function runDeadlineCheck() {
     if (shouldCheckLockTasks) {
         const holidays = await getHolidays();
 
-        // Get all active lock tasks with assignments
+        // Get all active lock tasks with assignments + user's department_joined_at
         const lockAssignments = await db.all(
             `SELECT lt.id as task_id, lt.task_name, lt.recurrence_type, lt.recurrence_value,
                     lt.requires_approval, lt.penalty_amount, lt.department_id,
-                    lta.user_id
+                    lta.user_id, u.department_joined_at
              FROM lock_task_assignments lta
-             JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true`
+             JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true
+             JOIN users u ON u.id = lta.user_id AND u.status != 'resigned'`
         );
 
         // Check past 90 days (to handle long leave periods)
@@ -285,6 +286,12 @@ async function runDeadlineCheck() {
                 }
 
                 if (!applies) continue;
+
+                // Skip if task date is before user joined their department
+                if (la.department_joined_at) {
+                    const joinedDate = toDateStr(new Date(la.department_joined_at));
+                    if (checkDateStr < joinedDate) continue;
+                }
 
                 // Check if already penalized for this task+date
                 const alreadyExpired = await db.get(

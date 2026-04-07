@@ -496,6 +496,10 @@ async function khoaTKNVRoutes(fastify, options) {
         const todayPenaltyChuoi = GPC.cv_chuoi_khong_nop || 50000;
         const todayStr = new Date().toISOString().split('T')[0];
 
+        // Get user's department_joined_at for filtering
+        const userInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [userId]);
+        const deptJoinedAt = userInfo?.department_joined_at || null;
+
         // Source 1: Support requests (for managers)
         const supportPending = await db.all(
             `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
@@ -514,8 +518,9 @@ async function khoaTKNVRoutes(fastify, options) {
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
                AND ltc.redo_count >= 0 AND ltc.completion_date >= NOW() - INTERVAL '90 days'
+               AND ($2::timestamp IS NULL OR ltc.completion_date >= $2::date)
              ORDER BY ltc.completion_date DESC`,
-            [userId]
+            [userId, deptJoinedAt]
         );
         const khoaPending = [];
         for (const lp of lockExpired) {
@@ -545,8 +550,9 @@ async function khoaTKNVRoutes(fastify, options) {
                  JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                  WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
                    AND cc.redo_count >= 0 AND ci.deadline >= NOW() - INTERVAL '90 days'
+                   AND ($2::timestamp IS NULL OR ci.deadline >= $2::date)
                  ORDER BY ci.deadline DESC`,
-                [userId]
+                [userId, deptJoinedAt]
             );
             for (const ce of chainExpired) {
                 const resub = await db.get(

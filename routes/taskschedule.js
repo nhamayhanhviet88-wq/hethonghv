@@ -172,6 +172,10 @@ async function taskScheduleRoutes(fastify, options) {
         const lastDay = new Date(viewYear, viewMonth+1, 0).getDate();
         const monthEnd = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 
+        // Get user's department_joined_at for filtering
+        const userInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [uid]);
+        const deptJoinedStr = userInfo?.department_joined_at ? _localDateStr(new Date(userInfo.department_joined_at)) : null;
+
         // Run ALL queries in parallel
         const templates = await _getTemplatesForUser(uid, week_start);
 
@@ -226,6 +230,9 @@ async function taskScheduleRoutes(fastify, options) {
             const jsDow = colDate.getDay();
             const dayOfWeek = jsDow === 0 ? 7 : jsDow;
 
+            // Skip dates before user joined their department
+            if (deptJoinedStr && dateStr < deptJoinedStr) continue;
+
             if (dateStr <= todayStr) {
                 await _ensureSnapshots(uid, dateStr, dayOfWeek, week_start);
                 const snaps = await db.all(
@@ -270,6 +277,10 @@ async function taskScheduleRoutes(fastify, options) {
         const todayStr = _localDateStr(today);
         const monDate = new Date(week_start + 'T00:00:00');
 
+        // Get user's department_joined_at for filtering
+        const userInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [uid]);
+        const deptJoinedStr = userInfo?.department_joined_at ? _localDateStr(new Date(userInfo.department_joined_at)) : null;
+
         // Get templates for future days
         const templates = await _getTemplatesForUser(uid, week_start);
 
@@ -281,6 +292,10 @@ async function taskScheduleRoutes(fastify, options) {
             const dateStr = _localDateStr(colDate);
             const jsDow = colDate.getDay(); // 0=Sun
             const dayOfWeek = jsDow === 0 ? 7 : jsDow; // 1=Mon..7=Sun
+
+            // Skip dates before user joined their department
+            if (deptJoinedStr && dateStr < deptJoinedStr) continue;
+
 
             if (dateStr <= todayStr) {
                 // Past or today → use snapshots
