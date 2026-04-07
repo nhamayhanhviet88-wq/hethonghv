@@ -502,7 +502,7 @@ async function khoaTKNVRoutes(fastify, options) {
                     u.full_name as requested_by
              FROM task_support_requests sr
              LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.acknowledged = false
+             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date >= NOW() - INTERVAL '90 days'
              ORDER BY sr.task_date`,
             [userId]
         );
@@ -513,7 +513,7 @@ async function khoaTKNVRoutes(fastify, options) {
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.redo_count >= 0 AND ltc.acknowledged = false
+               AND ltc.redo_count >= 0 AND ltc.completion_date >= NOW() - INTERVAL '90 days'
              ORDER BY ltc.completion_date DESC`,
             [userId]
         );
@@ -544,7 +544,7 @@ async function khoaTKNVRoutes(fastify, options) {
                  JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
                  JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                  WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-                   AND cc.redo_count >= 0 AND cc.acknowledged = false
+                   AND cc.redo_count >= 0 AND ci.deadline >= NOW() - INTERVAL '90 days'
                  ORDER BY ci.deadline DESC`,
                 [userId]
             );
@@ -586,42 +586,7 @@ async function khoaTKNVRoutes(fastify, options) {
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return reply.code(400).send({ error: 'Mật khẩu không đúng' });
 
-        // Acknowledge support request penalties (CV Điểm + Hỗ trợ NV)
-        await db.run(
-            `UPDATE task_support_requests SET acknowledged = true, acknowledged_at = NOW()
-             WHERE manager_id = $1 AND status = 'expired' AND acknowledged = false`,
-            [user.id]
-        );
-
-        // Acknowledge CV Khóa penalties
-        await db.run(
-            `UPDATE lock_task_completions SET acknowledged = true
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
-            [user.id]
-        );
-
-        // Acknowledge CV Chuỗi penalties
-        await db.run(
-            `UPDATE chain_task_completions SET acknowledged = true
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
-            [user.id]
-        );
-
-        // Acknowledge Cấp cứu sếp penalties
-        await db.run(
-            `UPDATE emergencies SET acknowledged = true
-             WHERE (handler_id = $1 OR handover_to = $1) AND penalty_applied = true AND acknowledged = false`,
-            [user.id]
-        );
-
-        // Acknowledge KH chưa xử lý penalties
-        await db.run(
-            `UPDATE customer_penalty_records SET acknowledged = true
-             WHERE user_id = $1 AND acknowledged = false`,
-            [user.id]
-        );
-
-        // Unlock account
+        // Only unlock account — penalties remain until NV submits reports
         await db.run(
             "UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked'",
             [user.id]
@@ -642,42 +607,7 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.post('/api/penalty/acknowledge-self', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
 
-        // Acknowledge support request penalties (CV Điểm + Hỗ trợ NV)
-        await db.run(
-            `UPDATE task_support_requests SET acknowledged = true, acknowledged_at = NOW()
-             WHERE manager_id = $1 AND status = 'expired' AND acknowledged = false`,
-            [userId]
-        );
-
-        // Acknowledge CV Khóa penalties
-        await db.run(
-            `UPDATE lock_task_completions SET acknowledged = true
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
-            [userId]
-        );
-
-        // Acknowledge CV Chuỗi penalties
-        await db.run(
-            `UPDATE chain_task_completions SET acknowledged = true
-             WHERE user_id = $1 AND status = 'expired' AND penalty_applied = true AND acknowledged = false`,
-            [userId]
-        );
-
-        // Acknowledge Cấp cứu sếp penalties
-        await db.run(
-            `UPDATE emergencies SET acknowledged = true
-             WHERE (handler_id = $1 OR handover_to = $1) AND penalty_applied = true AND acknowledged = false`,
-            [userId]
-        );
-
-        // Acknowledge KH chưa xử lý penalties
-        await db.run(
-            `UPDATE customer_penalty_records SET acknowledged = true
-             WHERE user_id = $1 AND acknowledged = false`,
-            [userId]
-        );
-
-        // Unlock account
+        // Only unlock account — penalties remain until NV submits reports
         await db.run(
             "UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked'",
             [userId]

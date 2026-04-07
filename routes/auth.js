@@ -40,7 +40,7 @@ async function authRoutes(fastify, options) {
                  FROM lock_task_completions ltc
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                  WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-                   AND ltc.redo_count >= 0
+                   AND ltc.redo_count >= 0 AND ltc.completion_date >= NOW() - INTERVAL '90 days'
                  ORDER BY ltc.completion_date DESC`,
                 [user.id]
             );
@@ -74,7 +74,7 @@ async function authRoutes(fastify, options) {
                      JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
                      JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                      WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-                       AND cc.redo_count >= 0
+                       AND cc.redo_count >= 0 AND ci.deadline >= NOW() - INTERVAL '90 days'
                      ORDER BY ci.deadline DESC`,
                     [user.id]
                 );
@@ -103,7 +103,7 @@ async function authRoutes(fastify, options) {
                         u.full_name as employee_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON u.id = sr.user_id
-                 WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.acknowledged = false
+                 WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date >= NOW() - INTERVAL '90 days'
                  ORDER BY sr.task_date DESC`,
                 [user.id]
             );
