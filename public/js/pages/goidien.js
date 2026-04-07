@@ -2,15 +2,41 @@
 
 let _gd_selectedUserId = null;
 let _gd_selectedUserName = '';
-let _gd_dateFrom = new Date().toISOString().split('T')[0];
-let _gd_dateTo = new Date().toISOString().split('T')[0];
-let _gd_filterMode = 'day'; // 'day' | 'month'
+let _gd_datePreset = 'today';
+let _gd_dateFrom = '';
+let _gd_dateTo = '';
 let _gd_calls = [];
 let _gd_stats = null;
+let _gd_prevStats = null;
 let _gd_sources = [];
 let _gd_answerStatuses = [];
 let _gd_activeSourceFilter = null;
-let _gd_activeCrmTab = null; // null = 'Tất cả', or 'hoa_hong_crm'|'nuoi_duong'|'sinh_vien'
+let _gd_activeCrmTab = null;
+
+function _gd_getDateRange() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    switch (_gd_datePreset) {
+        case 'today': return { from: fmt(today), to: fmt(today) };
+        case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); return { from: fmt(y), to: fmt(y) }; }
+        case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: fmt(today) }; }
+        case 'this_month': { const m = new Date(today.getFullYear(), today.getMonth(), 1); return { from: fmt(m), to: fmt(today) }; }
+        case 'last_month': { const m1 = new Date(today.getFullYear(), today.getMonth()-1, 1); const m2 = new Date(today.getFullYear(), today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2) }; }
+        case 'custom': return { from: _gd_dateFrom, to: _gd_dateTo };
+        case 'all': return { from: '2020-01-01', to: fmt(today) };
+        default: return { from: fmt(today), to: fmt(today) };
+    }
+}
+function _gd_switchDatePreset(preset) {
+    _gd_datePreset = preset;
+    if (preset === 'custom') return;
+    if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+}
+function _gd_applyCustomDate() {
+    _gd_dateFrom = document.getElementById('gdDateFrom')?.value || '';
+    _gd_dateTo = document.getElementById('gdDateTo')?.value || '';
+    if (_gd_dateFrom && _gd_dateTo && _gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+}
 const _gd_CRM_TABS = [
     { value: null, label: 'Tất cả', icon: '📋', grad: 'linear-gradient(135deg,#122546,#1e3a5f)', color: '#122546' },
     { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
@@ -189,16 +215,18 @@ async function _gd_loadCallsForUser(userId) {
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải...</div>';
 
-    const isSingleDay = _gd_dateFrom === _gd_dateTo;
-    const dateParams = `date_from=${_gd_dateFrom}&date_to=${_gd_dateTo}`;
+    const dr = _gd_getDateRange();
+    const isSingleDay = dr.from === dr.to;
+    const dateParams = `date_from=${dr.from}&date_to=${dr.to}`;
 
     const [callsRes, statsRes, callbacksRes] = await Promise.all([
         apiCall(`/api/telesale/user-calls/${userId}?${dateParams}`),
         apiCall(`/api/telesale/daily-stats/${userId}?${dateParams}`),
-        apiCall(`/api/telesale/callbacks?date=${_gd_dateFrom}&user_id=${userId}`)
+        apiCall(`/api/telesale/callbacks?date=${dr.from}&user_id=${userId}`)
     ]);
     _gd_calls = callsRes.calls || [];
-    _gd_stats = statsRes.stats || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0 };
+    _gd_stats = statsRes.stats || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0, transferred:0, cold_answered:0, ncc_answered:0 };
+    _gd_prevStats = statsRes.prevStats || null;
     const callbacks = callbacksRes.callbacks || [];
     // CRM tab filter
     const crmFilteredCalls = _gd_activeCrmTab ? _gd_calls.filter(c => {
@@ -211,69 +239,78 @@ async function _gd_loadCallsForUser(userId) {
     const earnedPoints = Math.round(Math.min(totalAnswered, targetCalls) / targetCalls * totalPoints);
     const progressPct = Math.min(100, Math.round(totalAnswered / targetCalls * 100));
     const sourcesInCalls = [...new Set(crmFilteredCalls.map(c => c.source_name).filter(Boolean))];
-
-    // Count calls per CRM tab
     const crmCounts = {};
     _gd_CRM_TABS.forEach(tab => {
-        if (tab.value === null) {
-            crmCounts['all'] = _gd_calls.length;
-        } else {
-            crmCounts[tab.value] = _gd_calls.filter(c => {
-                const src = _gd_sources.find(s => s.name === c.source_name);
-                return src && src.crm_type === tab.value;
-            }).length;
-        }
+        if (tab.value === null) { crmCounts['all'] = _gd_calls.length; }
+        else { crmCounts[tab.value] = _gd_calls.filter(c => { const src = _gd_sources.find(s => s.name === c.source_name); return src && src.crm_type === tab.value; }).length; }
     });
 
+    // Comparison helper
+    const ps = _gd_prevStats || {};
+    const _comp = (val, prev) => {
+        if (!_gd_prevStats) return '';
+        const diff = val - prev;
+        if (diff === 0) return '<div style="font-size:9px;opacity:0.8;margin-top:2px;">— kỳ trước</div>';
+        const arrow = diff > 0 ? '↑' : '↓';
+        const bg = diff > 0 ? 'rgba(187,247,208,0.3)' : 'rgba(254,202,202,0.3)';
+        return `<div style="font-size:9px;margin-top:2px;padding:1px 6px;background:${bg};border-radius:4px;display:inline-block;">${arrow}${Math.abs(diff)}</div>`;
+    };
+    const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
+    const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
     const miniCards = [
-        { icon:'📊', val:_gd_stats.total, label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)' },
-        { icon:'⏸️', val:_gd_stats.pending, label:'Chưa gọi', grad:'linear-gradient(135deg,#f59e0b,#f97316)' },
-        { icon:'✅', val:totalAnswered, label:'Bắt máy', grad:'linear-gradient(135deg,#059669,#14b8a6)' },
-        { icon:'📵', val:parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0), label:'Không nghe', grad:'linear-gradient(135deg,#f43f5e,#ef4444)' },
-        { icon:'❌', val:_gd_stats.invalid, label:'K.tồn tại', grad:'linear-gradient(135deg,#6b7280,#9ca3af)' },
+        { icon:'📊', val:parseInt(_gd_stats.total||0), label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)', pv:parseInt(ps.total||0) },
+        { icon:'⏸️', val:parseInt(_gd_stats.pending||0), label:'Chưa Gọi', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:parseInt(ps.pending||0) },
+        { icon:'✅', val:totalAnswered, label:'Bắt Máy', grad:'linear-gradient(135deg,#059669,#14b8a6)', pv:parseInt(ps.answered||0) },
+        { icon:'🔥', val:parseInt(_gd_stats.transferred||0), label:'Chuyển Số', grad:'linear-gradient(135deg,#ea580c,#dc2626)', pv:parseInt(ps.transferred||0) },
+        { icon:'📵', val:noAB, label:'Không Nghe', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB },
+        { icon:'🚫', val:parseInt(_gd_stats.cold_answered||0), label:'Không Nhu Cầu', grad:'linear-gradient(135deg,#f43f5e,#ef4444)', pv:parseInt(ps.cold_answered||0) },
+        { icon:'🏪', val:parseInt(_gd_stats.ncc_answered||0), label:'Đã Có NCC', grad:'linear-gradient(135deg,#854d0e,#a16207)', pv:parseInt(ps.ncc_answered||0) },
     ];
 
-    // Date filter UI
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const yearOpts = [curYear-1, curYear, curYear+1].map(y => `<option value="${y}" ${y==new Date(_gd_dateFrom).getFullYear()?'selected':''}>${y}</option>`).join('');
-    const monthOpts = Array.from({length:12},(_, i) => `<option value="${i+1}" ${(i+1)==(new Date(_gd_dateFrom).getMonth()+1)?'selected':''}>${'Tháng '+(i+1)}</option>`).join('');
-    const monthToOpts = Array.from({length:12},(_, i) => `<option value="${i+1}" ${(i+1)==(new Date(_gd_dateTo).getMonth()+1)?'selected':''}>${'Tháng '+(i+1)}</option>`).join('');
+    // Conversion rates
+    const rateBM = parseInt(_gd_stats.total||0) > 0 ? Math.round(totalAnswered / parseInt(_gd_stats.total) * 100) : 0;
+    const rateCS = totalAnswered > 0 ? Math.round(parseInt(_gd_stats.transferred||0) / totalAnswered * 100) : 0;
 
-    const dateFilterHtml = _gd_filterMode === 'day' ? `
-        <div style="display:flex;gap:6px;align-items:center;">
-            ${isSingleDay ? `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(-1)">◀</button>` : ''}
-            <span style="font-size:11px;font-weight:600;color:#6b7280;">Từ</span>
-            <input type="date" value="${_gd_dateFrom}" onchange="_gd_dateFrom=this.value;if(_gd_dateTo<_gd_dateFrom)_gd_dateTo=_gd_dateFrom;_gd_loadCallsForUser(${userId});" class="ts-select" style="padding:5px 8px;font-size:12px;">
-            <span style="font-size:11px;font-weight:600;color:#6b7280;">→</span>
-            <input type="date" value="${_gd_dateTo}" onchange="_gd_dateTo=this.value;if(_gd_dateTo<_gd_dateFrom)_gd_dateFrom=_gd_dateTo;_gd_loadCallsForUser(${userId});" class="ts-select" style="padding:5px 8px;font-size:12px;">
-            ${isSingleDay ? `<button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_gd_changeDate(1)">▶</button>` : ''}
-        </div>` : `
-        <div style="display:flex;gap:6px;align-items:center;">
-            <select class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(this.value,document.getElementById('gdMonthFrom').value,document.getElementById('gdMonthTo').value)">${yearOpts}</select>
-            <select id="gdMonthFrom" class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(null,this.value,null)">${monthOpts}</select>
-            <span style="font-size:11px;font-weight:600;color:#6b7280;">→ Đến</span>
-            <select id="gdMonthTo" class="ts-select" style="padding:5px 8px;font-size:12px;" onchange="_gd_setMonthRange(null,null,this.value)">${monthToOpts}</select>
-        </div>`;
+    // Date filter chips
+    const _presets = [
+        { key:'today', label:'Hôm nay', icon:'📅' }, { key:'yesterday', label:'Hôm qua', icon:'⏪' },
+        { key:'7days', label:'7 ngày', icon:'📆' }, { key:'this_month', label:'Tháng này', icon:'🗓️' },
+        { key:'last_month', label:'Tháng trước', icon:'📋' }, { key:'all', label:'Tất cả', icon:'♾️' },
+    ];
+    const dfHtml = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #e2e8f0;border-radius:12px;">
+        <span style="font-size:13px;font-weight:800;color:#334155;margin-right:4px;">📅</span>
+        ${_presets.map(p => { const a = _gd_datePreset === p.key; return `<button onclick="_gd_switchDatePreset('${p.key}')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid ${a?'#2563eb':'#e2e8f0'};background:${a?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${a?'white':'#64748b'};box-shadow:${a?'0 2px 8px rgba(37,99,235,0.3)':'none'};">${p.icon} ${p.label}</button>`; }).join('')}
+        <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
+        <button onclick="_gd_datePreset='custom';document.getElementById('gdCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_gd_datePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_gd_datePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_gd_datePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
+        <div id="gdCustomDateArea" style="display:${_gd_datePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
+            <input type="date" id="gdDateFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_gd_dateFrom=this.value">
+            <span style="font-size:11px;color:#9ca3af;">→</span>
+            <input type="date" id="gdDateTo" value="${dr.to}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_gd_dateTo=this.value">
+            <button onclick="_gd_applyCustomDate()" style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #059669;background:linear-gradient(135deg,#059669,#10b981);color:white;">✓</button>
+        </div>
+        ${dr.from ? `<span style="margin-left:auto;font-size:10px;color:#6b7280;font-weight:600;">📊 ${dr.from}${dr.from!==dr.to?' → '+dr.to:''}</span>` : ''}
+    </div>`;
 
-    // Group calls by date for range view
+    const cvHtml = `<div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:#0369a1;">📞 Tỷ lệ bắt máy</span><span style="font-size:14px;font-weight:800;color:#0c4a6e;">${rateBM}%</span></div>
+            <div style="height:6px;background:#e0f2fe;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(rateBM,100)}%;background:linear-gradient(90deg,#0ea5e9,#2563eb);border-radius:3px;transition:width 0.5s;"></div></div>
+            <div style="font-size:9px;color:#64748b;margin-top:3px;">${totalAnswered} bắt máy / ${_gd_stats.total} tổng</div>
+        </div>
+        <div style="flex:1;min-width:180px;padding:10px 14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:#92400e;">🔥 Tỷ lệ chuyển số</span><span style="font-size:14px;font-weight:800;color:#78350f;">${rateCS}%</span></div>
+            <div style="height:6px;background:#fef3c7;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(rateCS,100)}%;background:linear-gradient(90deg,#f59e0b,#ea580c);border-radius:3px;transition:width 0.5s;"></div></div>
+            <div style="font-size:9px;color:#64748b;margin-top:3px;">${_gd_stats.transferred||0} chuyển / ${totalAnswered} bắt máy</div>
+        </div>
+    </div>`;
+
+    // Group calls by date
     let callsHtml = '';
     if (!isSingleDay && filteredCalls.length > 0) {
         const grouped = {};
-        filteredCalls.forEach(c => {
-            const d = c.assigned_date?.split('T')[0] || 'unknown';
-            if (!grouped[d]) grouped[d] = [];
-            grouped[d].push(c);
-        });
+        filteredCalls.forEach(c => { const d = c.assigned_date?.split('T')[0] || 'unknown'; if (!grouped[d]) grouped[d] = []; grouped[d].push(c); });
         Object.entries(grouped).sort((a,b) => b[0].localeCompare(a[0])).forEach(([date, calls]) => {
-            const fDate = _gd_formatDate(date);
-            callsHtml += `<div style="margin-bottom:16px;">
-                <div style="padding:8px 12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-size:13px;font-weight:800;color:#334155;">📅 ${fDate}</span>
-                    <span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${calls.length} SĐT</span>
-                </div>
-                ${calls.map(call => _gd_renderCallCard(call)).join('')}
-            </div>`;
+            callsHtml += `<div style="margin-bottom:16px;"><div style="padding:8px 12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:800;color:#334155;">📅 ${_gd_formatDate(date)}</span><span class="ts-badge" style="background:#dbeafe;color:#1e40af;">${calls.length} SĐT</span></div>${calls.map(call => _gd_renderCallCard(call)).join('')}</div>`;
         });
     } else {
         callsHtml = filteredCalls.length === 0
@@ -281,76 +318,28 @@ async function _gd_loadCallsForUser(userId) {
             : filteredCalls.map(call => _gd_renderCallCard(call)).join('');
     }
 
-    const dateLabel = isSingleDay ? _gd_formatDate(_gd_dateFrom) : `${_gd_formatDateShort(_gd_dateFrom)} → ${_gd_formatDateShort(_gd_dateTo)}`;
+    const dateLabel = isSingleDay ? _gd_formatDate(dr.from) : `${_gd_formatDateShort(dr.from)} → ${_gd_formatDateShort(dr.to)}`;
 
     el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-            <div>
-                <h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">${_gd_selectedUserName}</h3>
-                <div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <div style="display:flex;gap:2px;background:#f1f5f9;border-radius:8px;padding:2px;">
-                    <button class="ts-btn ts-btn-xs" style="${_gd_filterMode==='day'?'background:#122546;color:white;':'background:transparent;color:#6b7280;'}padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;" onclick="_gd_filterMode='day';_gd_loadCallsForUser(${userId})">📅 Ngày</button>
-                    <button class="ts-btn ts-btn-xs" style="${_gd_filterMode==='month'?'background:#122546;color:white;':'background:transparent;color:#6b7280;'}padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;" onclick="_gd_filterMode='month';_gd_setMonthRange();_gd_loadCallsForUser(${userId})">📆 Tháng</button>
-                </div>
-                ${dateFilterHtml}
-            </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">${_gd_selectedUserName}</h3><div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div></div></div>
+        ${dfHtml}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
+            ${miniCards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:white;padding:12px 10px;"><span class="ts-stat-icon" style="font-size:22px;">${c.icon}</span><div class="ts-stat-val" style="font-size:20px;">${c.val}</div><div class="ts-stat-label">${c.label}</div>${_comp(c.val,c.pv)}</div>`).join('')}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
-            ${miniCards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:white;padding:12px 10px;">
-                <span class="ts-stat-icon" style="font-size:22px;">${c.icon}</span>
-                <div class="ts-stat-val" style="font-size:20px;">${c.val}</div>
-                <div class="ts-stat-label">${c.label}</div>
-            </div>`).join('')}
-        </div>
+        ${cvHtml}
         <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#ecfdf5);border:1.5px solid #a7f3d0;border-radius:14px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#065f46;">📊 CV Điểm: ${totalAnswered}/${targetCalls} bắt máy → ${earnedPoints}/${totalPoints} điểm</span>
-                <span style="font-size:12px;font-weight:800;color:${progressPct>=100?'#059669':'#2563eb'};">${progressPct}%</span>
-            </div>
-            <div style="background:#e5e7eb;border-radius:10px;height:10px;overflow:hidden;">
-                <div style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:100%;width:${progressPct}%;border-radius:10px;transition:width 0.5s ease;"></div>
-            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:13px;font-weight:700;color:#065f46;">📊 CV Điểm: ${totalAnswered}/${targetCalls} bắt máy → ${earnedPoints}/${totalPoints} điểm</span><span style="font-size:12px;font-weight:800;color:${progressPct>=100?'#059669':'#2563eb'};">${progressPct}%</span></div>
+            <div style="background:#e5e7eb;border-radius:10px;height:10px;overflow:hidden;"><div style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:100%;width:${progressPct}%;border-radius:10px;transition:width 0.5s ease;"></div></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:4px;background:#f1f5f9;border-radius:14px;">
-            ${_gd_CRM_TABS.map(tab => {
-                const isActive = _gd_activeCrmTab === tab.value;
-                const cnt = tab.value === null ? crmCounts['all'] : (crmCounts[tab.value] || 0);
-                return `<button onclick="_gd_activeCrmTab=${tab.value === null ? 'null' : "'" + tab.value + "'"};_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});"
-                    style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;
-                    ${isActive
-                        ? `background:${tab.grad};color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);transform:translateY(-1px);`
-                        : 'background:transparent;color:#64748b;'}
-                    ">
-                    <span style="font-size:15px;">${tab.icon}</span>
-                    <span>${tab.label}</span>
-                    <span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800;
-                        ${isActive ? 'background:rgba(255,255,255,0.25);color:white;' : 'background:#e2e8f0;color:#475569;'}
-                    ">${cnt}</span>
-                </button>`;
-            }).join('')}
+            ${_gd_CRM_TABS.map(tab => { const isA = _gd_activeCrmTab === tab.value; const cnt = tab.value === null ? crmCounts['all'] : (crmCounts[tab.value]||0);
+                return `<button onclick="_gd_activeCrmTab=${tab.value===null?'null':"'"+tab.value+"'"};_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;${isA?`background:${tab.grad};color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);`:'background:transparent;color:#64748b;'}"><span style="font-size:15px;">${tab.icon}</span><span>${tab.label}</span><span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800;${isA?'background:rgba(255,255,255,0.25);color:white;':'background:#e2e8f0;color:#475569;'}">${cnt}</span></button>`; }).join('')}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-            <button class="ts-source-pill${!_gd_activeSourceFilter?' active':''}" onclick="_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});">
-                Tất cả <span class="ts-pill-count">${crmFilteredCalls.length}</span>
-            </button>
-            ${sourcesInCalls.map(s => {
-                const cnt = crmFilteredCalls.filter(c => c.source_name === s).length;
-                return `<button class="ts-source-pill${_gd_activeSourceFilter===s?' active':''}" onclick="_gd_activeSourceFilter='${s}';_gd_loadCallsForUser(${userId});">
-                    ${s} <span class="ts-pill-count">${cnt}</span>
-                </button>`;
-            }).join('')}
+            <button class="ts-source-pill${!_gd_activeSourceFilter?' active':''}" onclick="_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});">Tất cả <span class="ts-pill-count">${crmFilteredCalls.length}</span></button>
+            ${sourcesInCalls.map(s => { const cnt = crmFilteredCalls.filter(c => c.source_name === s).length; return `<button class="ts-source-pill${_gd_activeSourceFilter===s?' active':''}" onclick="_gd_activeSourceFilter='${s}';_gd_loadCallsForUser(${userId});">${s} <span class="ts-pill-count">${cnt}</span></button>`; }).join('')}
         </div>
-        ${callbacks.length > 0 ? `
-        <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:14px;">
-            <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;">🔔 Hẹn Gọi Lại Hôm Nay (${callbacks.length})</div>
-            ${callbacks.map(cb => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
-                <span style="font-weight:700;color:#d97706;font-family:monospace;">${cb.phone}</span>
-                <span style="color:#374151;font-weight:600;">${cb.customer_name||''}</span>
-                <span style="font-size:10px;color:#6b7280;">${cb.source_icon||''} ${cb.source_name||''}</span>
-                ${cb.callback_time?`<span class="ts-badge" style="background:#fef3c7;color:#92400e;font-size:9px;">⏰ ${cb.callback_time}</span>`:''}</div>`).join('')}
-        </div>` : ''}
+        ${callbacks.length > 0 ? `<div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:14px;"><div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;">🔔 Hẹn Gọi Lại (${callbacks.length})</div>${callbacks.map(cb => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;"><span style="font-weight:700;color:#d97706;font-family:monospace;">${cb.phone}</span><span style="color:#374151;font-weight:600;">${cb.customer_name||''}</span><span style="font-size:10px;color:#6b7280;">${cb.source_icon||''} ${cb.source_name||''}</span>${cb.callback_time?`<span class="ts-badge" style="background:#fef3c7;color:#92400e;font-size:9px;">⏰ ${cb.callback_time}</span>`:''}</div>`).join('')}</div>` : ''}
         <div id="gdCallsList">${callsHtml}</div>`;
 }
 

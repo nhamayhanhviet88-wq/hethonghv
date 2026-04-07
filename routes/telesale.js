@@ -944,16 +944,36 @@ async function telesaleRoutes(fastify) {
     fastify.get('/api/telesale/daily-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
-        const stats = await db.get(`SELECT
-            COUNT(*) as total,
-            COUNT(*) FILTER (WHERE call_status = 'pending') as pending,
-            COUNT(*) FILTER (WHERE call_status = 'answered') as answered,
-            COUNT(*) FILTER (WHERE call_status = 'no_answer') as no_answer,
-            COUNT(*) FILTER (WHERE call_status = 'busy') as busy,
-            COUNT(*) FILTER (WHERE call_status = 'invalid') as invalid
-            FROM telesale_assignments
-            WHERE user_id = $1 AND assigned_date >= $2 AND assigned_date <= $3`, [req.params.userId, dateFrom, dateTo]);
-        return { stats: stats || { total: 0, pending: 0, answered: 0, no_answer: 0, busy: 0, invalid: 0 } };
+
+        const _buildUserStats = async (df, dt) => {
+            const row = await db.get(`SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE a.call_status = 'pending') as pending,
+                COUNT(*) FILTER (WHERE a.call_status = 'answered') as answered,
+                COUNT(*) FILTER (WHERE a.call_status = 'no_answer') as no_answer,
+                COUNT(*) FILTER (WHERE a.call_status = 'busy') as busy,
+                COUNT(*) FILTER (WHERE a.call_status = 'invalid') as invalid,
+                COUNT(*) FILTER (WHERE ans.action_type = 'transfer') as transferred,
+                COUNT(*) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
+                COUNT(*) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered
+                FROM telesale_assignments a
+                LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                WHERE a.user_id = $1 AND a.assigned_date >= $2 AND a.assigned_date <= $3`,
+                [req.params.userId, df, dt]);
+            return row || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0, transferred:0, cold_answered:0, ncc_answered:0 };
+        };
+
+        const stats = await _buildUserStats(dateFrom, dateTo);
+
+        // Previous period comparison
+        const df = new Date(dateFrom), dt = new Date(dateTo);
+        const diffDays = Math.round((dt - df) / 86400000) + 1;
+        const prevTo = new Date(df); prevTo.setDate(prevTo.getDate() - 1);
+        const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - diffDays + 1);
+        const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const prevStats = await _buildUserStats(fmt(prevFrom), fmt(prevTo));
+
+        return { stats, prevStats };
     });
 
     // GĐ force recall a number (answered → make available again)
