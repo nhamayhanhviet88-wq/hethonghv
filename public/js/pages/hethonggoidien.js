@@ -20,7 +20,7 @@ let _htgd_dateTo = '';
 let _htgd_prevStats = null;
 function _htgd_getDateRange() {
     const today = new Date(); today.setHours(0,0,0,0);
-    const fmt = d => d.toISOString().split('T')[0];
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     switch (_htgd_datePreset) {
         case 'today': return { from: fmt(today), to: fmt(today) };
         case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); return { from: fmt(y), to: fmt(y) }; }
