@@ -301,37 +301,41 @@ async function telesaleRoutes(fastify) {
             : await db.all('SELECT phone FROM telesale_data WHERE source_id = ?', [source_id]);
         const existingPhones = new Set(existingRows.map(r => r.phone));
 
-        // 2. Filter new rows (skip empty phone & duplicates)
+        // 2. Normalize ALL phones first, then filter duplicates using processed phone
         const newRows = [];
         const seenPhones = new Set();
-        for (const row of rows) {
-            const phone = (row.phone || '').toString().trim();
-            if (!phone || existingPhones.has(phone) || seenPhones.has(phone)) continue;
-            seenPhones.add(phone);
-            newRows.push(row);
-        }
-        const skipped = rows.length - newRows.length;
-
-        // 3. Batch INSERT in chunks of 500 (skip invalid phones entirely)
-        const BATCH_SIZE = 500;
-        let inserted = 0;
         let invalidCount = 0;
-        const validRows = [];
-        for (const row of newRows) {
+        for (const row of rows) {
             const rawPhone = (row.phone || '').toString().trim();
+            if (!rawPhone) continue;
             const processed = _processPhone(rawPhone);
             if (processed.isInvalid) { invalidCount++; continue; }
-            validRows.push({ ...row, _phone: processed.phone, _carrier: processed.carrier });
+            const normalizedPhone = processed.phone;
+            // Check duplicate against NORMALIZED phone (matches DB format)
+            if (existingPhones.has(normalizedPhone) || seenPhones.has(normalizedPhone)) continue;
+            seenPhones.add(normalizedPhone);
+            const clean = v => (v || '').toString().replace(/\x00/g, '').trim();
+            newRows.push({
+                company_name: clean(row.company_name), group_name: clean(row.group_name),
+                post_link: clean(row.post_link), post_content: clean(row.post_content),
+                customer_name: clean(row.customer_name), phone: normalizedPhone,
+                address: clean(row.address), extra_data: JSON.stringify(row.extra || {}),
+                carrier: processed.carrier
+            });
         }
+        const skipped = rows.length - newRows.length - invalidCount;
 
-        for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
-            const chunk = validRows.slice(i, i + BATCH_SIZE);
+        // 3. Batch INSERT in chunks of 500
+        const BATCH_SIZE = 500;
+        let inserted = 0;
+
+        for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
+            const chunk = newRows.slice(i, i + BATCH_SIZE);
             const values = [];
             const placeholders = [];
             for (const row of chunk) {
-                const clean = v => (v || '').toString().replace(/\x00/g, '').trim();
                 placeholders.push('(?,?,?,?,?,?,?,?,?,?,?)');
-                values.push(source_id, clean(row.company_name), clean(row.group_name), clean(row.post_link), clean(row.post_content), clean(row.customer_name), row._phone, clean(row.address), JSON.stringify(row.extra || {}), row._carrier, 'available');
+                values.push(source_id, row.company_name, row.group_name, row.post_link, row.post_content, row.customer_name, row.phone, row.address, row.extra_data, row.carrier, 'available');
             }
             await db.run(`INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address, extra_data, carrier, status) VALUES ${placeholders.join(',')}`, values);
             inserted += chunk.length;
