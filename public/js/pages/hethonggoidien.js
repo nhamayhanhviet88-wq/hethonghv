@@ -475,8 +475,26 @@ async function _htgd_previewImport(input) {
     preview.style.display = 'block'; preview.innerHTML = '⏳ Đang đọc file...';
     try {
         const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
-        const text = await file.text();
-        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const ext = file.name.split('.').pop().toLowerCase();
+        let lines = [];
+
+        if (ext === 'xlsx' || ext === 'xls') {
+            // Use SheetJS to parse Excel files
+            if (typeof XLSX === 'undefined') {
+                preview.innerHTML = '❌ Thư viện XLSX chưa được tải. Vui lòng thử lại.';
+                return;
+            }
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const csvText = XLSX.utils.sheet_to_csv(firstSheet);
+            lines = csvText.split(/\r?\n/).filter(l => l.trim());
+        } else {
+            // CSV — read as text
+            const text = await file.text();
+            lines = text.split(/\r?\n/).filter(l => l.trim());
+        }
+
         if (lines.length < 2) { preview.innerHTML = '❌ File rỗng hoặc chỉ có header'; return; }
         const rows = [];
             const _src = _htgd_sources.find(s => s.id === _htgd_activeSourceId);
