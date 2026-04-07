@@ -259,10 +259,11 @@ async function _gd_loadCallsForUser(userId) {
     const earnedPoints = Math.round(Math.min(totalAnswered, targetCalls) / targetCalls * totalPoints);
     const progressPct = Math.min(100, Math.round(totalAnswered / targetCalls * 100));
     const sourcesInCalls = [...new Set(crmFilteredCalls.map(c => c.source_name).filter(Boolean))];
+    const _activeCalls = _gd_calls.filter(c => c.call_status !== 'pending');
     const crmCounts = {};
     _gd_CRM_TABS.forEach(tab => {
-        if (tab.value === null) { crmCounts['all'] = _gd_calls.length; }
-        else { crmCounts[tab.value] = _gd_calls.filter(c => { const src = _gd_sources.find(s => s.name === c.source_name); return src && src.crm_type === tab.value; }).length; }
+        if (tab.value === null) { crmCounts['all'] = _activeCalls.length; }
+        else { crmCounts[tab.value] = _activeCalls.filter(c => { const src = _gd_sources.find(s => s.name === c.source_name); return src && src.crm_type === tab.value; }).length; }
     });
 
     // Comparison helper
