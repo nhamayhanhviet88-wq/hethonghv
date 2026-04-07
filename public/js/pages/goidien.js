@@ -277,9 +277,10 @@ async function _gd_loadCallsForUser(userId) {
     };
     const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
     const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
+    const totalHandedOver = parseInt(_gd_stats.total||0) - parseInt(_gd_stats.pending||0);
+    const prevHandedOver = parseInt(ps.total||0) - parseInt(ps.pending||0);
     const miniCards = [
-        { icon:'📊', val:parseInt(_gd_stats.total||0), label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)', pv:parseInt(ps.total||0), fk:'total' },
-        { icon:'⏸️', val:parseInt(_gd_stats.pending||0), label:'Chưa Gọi', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:parseInt(ps.pending||0), fk:'pending' },
+        { icon:'📊', val:totalHandedOver, label:'Được Bàn Giao', grad:'linear-gradient(135deg,#3b82f6,#6366f1)', pv:prevHandedOver, fk:'total' },
         { icon:'✅', val:totalAnswered, label:'Bắt Máy', grad:'linear-gradient(135deg,#059669,#14b8a6)', pv:parseInt(ps.answered||0), fk:'answered' },
         { icon:'🔥', val:parseInt(_gd_stats.transferred||0), label:'Chuyển Số', grad:'linear-gradient(135deg,#ea580c,#dc2626)', pv:parseInt(ps.transferred||0), fk:'transferred' },
         { icon:'📵', val:noAB, label:'Không Nghe', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB, fk:'no_answer_busy' },
