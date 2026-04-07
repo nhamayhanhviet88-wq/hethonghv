@@ -371,7 +371,7 @@ function _gd_renderCallCard(call) {
         answered: { bg:'linear-gradient(135deg,#f0fdf4,#dcfce7)', border:'#86efac', icon:'✅', label:'Bắt máy', leftBorder:'#059669' },
         no_answer: { bg:'linear-gradient(135deg,#fef2f2,#fee2e2)', border:'#fecaca', icon:'📵', label:'Không nghe', leftBorder:'#ef4444' },
         busy: { bg:'linear-gradient(135deg,#fff7ed,#ffedd5)', border:'#fed7aa', icon:'📞', label:'Máy bận', leftBorder:'#f97316' },
-        invalid: { bg:'linear-gradient(135deg,#fdf2f8,#fce7f3)', border:'#fbcfe8', icon:'❌', label:'K.tồn tại', leftBorder:'#ec4899' },
+        invalid: { bg:'linear-gradient(135deg,#fdf2f8,#fce7f3)', border:'#fbcfe8', icon:'❌', label:'Hủy K. Tồn Tại', leftBorder:'#ec4899' },
     }[call.call_status] || { bg:'#fefce8', border:'#fde68a', icon:'⏸️', label:'Chưa gọi', leftBorder:'#f59e0b' };
 
     return `
@@ -401,7 +401,7 @@ function _gd_renderCallCard(call) {
             <button class="ts-btn ts-btn-green" onclick="_gd_showAnswerStatuses(${call.id},this)">✅ Bắt máy</button>
             <button class="ts-btn ts-btn-red" onclick="_gd_markCall(${call.id},'no_answer')">📵 Không nghe</button>
             <button class="ts-btn" style="background:linear-gradient(135deg,#f59e0b,#f97316);color:white;" onclick="_gd_markCall(${call.id},'busy')">📞 Bận</button>
-            <button class="ts-btn ts-btn-ghost" onclick="_gd_markCall(${call.id},'invalid')">❌ K.tồn tại</button>
+            <button class="ts-btn ts-btn-ghost" onclick="_gd_markCall(${call.id},'invalid')">❌ Hủy K. Tồn Tại</button>
         </div>
         <div id="gdAnswerPanel_${call.id}" style="display:none;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
             <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:10px;">📋 Chọn tình trạng bắt máy:</div>
