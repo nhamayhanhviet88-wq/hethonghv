@@ -12,6 +12,11 @@ let _gd_sources = [];
 let _gd_answerStatuses = [];
 let _gd_activeSourceFilter = null;
 let _gd_activeCrmTab = null;
+let _gd_statusFilter = null;
+function _gd_filterByCard(key) {
+    _gd_statusFilter = _gd_statusFilter === key ? null : key;
+    if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+}
 
 function _gd_getDateRange() {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -233,7 +238,22 @@ async function _gd_loadCallsForUser(userId) {
         const src = _gd_sources.find(s => s.name === c.source_name);
         return src && src.crm_type === _gd_activeCrmTab;
     }) : _gd_calls;
-    const filteredCalls = _gd_activeSourceFilter ? crmFilteredCalls.filter(c => c.source_name === _gd_activeSourceFilter) : crmFilteredCalls;
+    let filteredCalls = _gd_activeSourceFilter ? crmFilteredCalls.filter(c => c.source_name === _gd_activeSourceFilter) : crmFilteredCalls;
+    // Status filter from card click
+    if (_gd_statusFilter) {
+        filteredCalls = filteredCalls.filter(c => {
+            switch (_gd_statusFilter) {
+                case 'total': return true;
+                case 'pending': return c.call_status === 'pending';
+                case 'answered': return c.call_status === 'answered';
+                case 'transferred': return c.action_type === 'transfer';
+                case 'no_answer_busy': return c.call_status === 'no_answer' || c.call_status === 'busy';
+                case 'cold_answered': return c.action_type === 'cold';
+                case 'ncc_answered': return c.action_type === 'cold_ncc';
+                default: return true;
+            }
+        });
+    }
     const totalAnswered = parseInt(_gd_stats.answered || 0);
     const targetCalls = 100; const totalPoints = 50;
     const earnedPoints = Math.round(Math.min(totalAnswered, targetCalls) / targetCalls * totalPoints);
@@ -258,13 +278,13 @@ async function _gd_loadCallsForUser(userId) {
     const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
     const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
     const miniCards = [
-        { icon:'📊', val:parseInt(_gd_stats.total||0), label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)', pv:parseInt(ps.total||0) },
-        { icon:'⏸️', val:parseInt(_gd_stats.pending||0), label:'Chưa Gọi', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:parseInt(ps.pending||0) },
-        { icon:'✅', val:totalAnswered, label:'Bắt Máy', grad:'linear-gradient(135deg,#059669,#14b8a6)', pv:parseInt(ps.answered||0) },
-        { icon:'🔥', val:parseInt(_gd_stats.transferred||0), label:'Chuyển Số', grad:'linear-gradient(135deg,#ea580c,#dc2626)', pv:parseInt(ps.transferred||0) },
-        { icon:'📵', val:noAB, label:'Không Nghe', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB },
-        { icon:'🚫', val:parseInt(_gd_stats.cold_answered||0), label:'Không Nhu Cầu', grad:'linear-gradient(135deg,#f43f5e,#ef4444)', pv:parseInt(ps.cold_answered||0) },
-        { icon:'🏪', val:parseInt(_gd_stats.ncc_answered||0), label:'Đã Có NCC', grad:'linear-gradient(135deg,#854d0e,#a16207)', pv:parseInt(ps.ncc_answered||0) },
+        { icon:'📊', val:parseInt(_gd_stats.total||0), label:'Tổng SĐT', grad:'linear-gradient(135deg,#3b82f6,#6366f1)', pv:parseInt(ps.total||0), fk:'total' },
+        { icon:'⏸️', val:parseInt(_gd_stats.pending||0), label:'Chưa Gọi', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:parseInt(ps.pending||0), fk:'pending' },
+        { icon:'✅', val:totalAnswered, label:'Bắt Máy', grad:'linear-gradient(135deg,#059669,#14b8a6)', pv:parseInt(ps.answered||0), fk:'answered' },
+        { icon:'🔥', val:parseInt(_gd_stats.transferred||0), label:'Chuyển Số', grad:'linear-gradient(135deg,#ea580c,#dc2626)', pv:parseInt(ps.transferred||0), fk:'transferred' },
+        { icon:'📵', val:noAB, label:'Không Nghe', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB, fk:'no_answer_busy' },
+        { icon:'🚫', val:parseInt(_gd_stats.cold_answered||0), label:'Không Nhu Cầu', grad:'linear-gradient(135deg,#f43f5e,#ef4444)', pv:parseInt(ps.cold_answered||0), fk:'cold_answered' },
+        { icon:'🏪', val:parseInt(_gd_stats.ncc_answered||0), label:'Đã Có NCC', grad:'linear-gradient(135deg,#854d0e,#a16207)', pv:parseInt(ps.ncc_answered||0), fk:'ncc_answered' },
     ];
 
     // Conversion rates
@@ -324,7 +344,7 @@ async function _gd_loadCallsForUser(userId) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">${_gd_selectedUserName}</h3><div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div></div></div>
         ${dfHtml}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;">
-            ${miniCards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:white;padding:12px 10px;"><span class="ts-stat-icon" style="font-size:22px;">${c.icon}</span><div class="ts-stat-val" style="font-size:20px;">${c.val}</div><div class="ts-stat-label">${c.label}</div>${_comp(c.val,c.pv)}</div>`).join('')}
+            ${miniCards.map(c => { const isA = _gd_statusFilter===c.fk; return `<div class="ts-stat-card" style="background:${c.grad};color:white;padding:12px 10px;cursor:pointer;transition:all .2s;${isA?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" onclick="_gd_filterByCard('${c.fk}')"><span class="ts-stat-icon" style="font-size:22px;">${c.icon}</span><div class="ts-stat-val" style="font-size:20px;">${c.val}</div><div class="ts-stat-label">${c.label}</div>${_comp(c.val,c.pv)}</div>`; }).join('')}
         </div>
         ${cvHtml}
         <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#ecfdf5);border:1.5px solid #a7f3d0;border-radius:14px;">
