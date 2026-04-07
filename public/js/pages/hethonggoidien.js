@@ -1197,7 +1197,7 @@ async function _htgd_deleteAllData() {
     const res = await apiCall('/api/telesale/data/delete-all', 'POST', { source_id: _htgd_activeSourceId });
     if (res.success) {
         showToast('✅ ' + (res.message || 'Đã xóa'));
-        await _htgd_refreshStats(); _htgd_renderDataTab();
+        await _htgd_loadSources();
     } else showToast(res.error || 'Lỗi', 'error');
 }
 
