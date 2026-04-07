@@ -1188,13 +1188,13 @@ async function _htgd_dedupCrm() {
 
 // ========== DELETE ALL DATA ==========
 async function _htgd_deleteAllData() {
-    if (_htgd_activeCrm === 'all') return showToast('Chọn CRM cụ thể trước', 'error');
-    const crmLabels = { hoa_hong_crm: 'CRM Tự Tìm Kiếm', nuoi_duong: 'CRM GĐ Hợp Tác', sinh_vien: 'CRM GĐ Bán Hàng' };
-    const label = crmLabels[_htgd_activeCrm] || _htgd_activeCrm;
-    if (!confirm(`⚠️ XÓA TOÀN BỘ data trong "${label}"?\n\nHành động này KHÔNG THỂ hoàn tác!\nTất cả SĐT, lịch sử phân chia sẽ bị xóa.`)) return;
-    if (!confirm(`🔴 XÁC NHẬN LẦN 2: Bạn CHẮC CHẮN muốn xóa TOÀN BỘ data "${label}"?`)) return;
+    if (!_htgd_activeSourceId) return showToast('Chọn nguồn trước', 'error');
+    const src = _htgd_sources.find(s => s.id === _htgd_activeSourceId);
+    const srcName = src?.name || 'nguồn này';
+    if (!confirm(`⚠️ XÓA TOÀN BỘ data trong "${srcName}"?\n\nHành động này KHÔNG THỂ hoàn tác!\nTất cả SĐT, lịch sử phân chia trong nguồn này sẽ bị xóa.`)) return;
+    if (!confirm(`🔴 XÁC NHẬN LẦN 2: Bạn CHẮC CHẮN muốn xóa TOÀN BỘ data "${srcName}"?`)) return;
     showToast('⏳ Đang xóa toàn bộ data...');
-    const res = await apiCall('/api/telesale/data/delete-all', 'POST', { crm_type: _htgd_activeCrm });
+    const res = await apiCall('/api/telesale/data/delete-all', 'POST', { source_id: _htgd_activeSourceId });
     if (res.success) {
         showToast('✅ ' + (res.message || 'Đã xóa'));
         await _htgd_refreshStats(); _htgd_renderDataTab();
