@@ -234,10 +234,10 @@ async function _gd_loadCallsForUser(userId) {
     _gd_prevStats = statsRes.prevStats || null;
     const callbacks = callbacksRes.callbacks || [];
     // CRM tab filter
-    const crmFilteredCalls = _gd_activeCrmTab ? _gd_calls.filter(c => {
+    const crmFilteredCalls = (_gd_activeCrmTab ? _gd_calls.filter(c => {
         const src = _gd_sources.find(s => s.name === c.source_name);
         return src && src.crm_type === _gd_activeCrmTab;
-    }) : _gd_calls;
+    }) : _gd_calls).filter(c => c.call_status !== 'pending');
     let filteredCalls = _gd_activeSourceFilter ? crmFilteredCalls.filter(c => c.source_name === _gd_activeSourceFilter) : crmFilteredCalls;
     // Status filter from card click
     if (_gd_statusFilter) {
