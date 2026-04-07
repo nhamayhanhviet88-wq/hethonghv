@@ -63,6 +63,7 @@ async function renderHeThongGoiDienPage(container) {
                     <button class="ts-btn ts-btn-blue" onclick="_htgd_manualPump()">🚀 Bơm Thủ Công</button>
                     <button class="ts-btn ts-btn-red" onclick="_htgd_manualRecall()">🔄 Thu Hồi</button>
                     <button class="ts-btn" onclick="_htgd_dedupCrm()" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;">🧹 Lọc Trùng</button>
+                    ${currentUser.role === 'giam_doc' ? '<button class="ts-btn" onclick="_htgd_deleteAllData()" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;">🗑️ Xóa Toàn Bộ</button>' : ''}
                 </div>
             </div>
             <div style="display:flex;gap:2px;border-bottom:2px solid #e5e7eb;">
@@ -1182,6 +1183,21 @@ async function _htgd_dedupCrm() {
     if (res.success) {
         showToast('✅ ' + (res.message || 'Đã xóa ' + (res.deleted || 0) + ' bản ghi trùng'));
         await _htgd_loadSources();
+    } else showToast(res.error || 'Lỗi', 'error');
+}
+
+// ========== DELETE ALL DATA ==========
+async function _htgd_deleteAllData() {
+    if (_htgd_activeCrm === 'all') return showToast('Chọn CRM cụ thể trước', 'error');
+    const crmLabels = { hoa_hong_crm: 'CRM Tự Tìm Kiếm', nuoi_duong: 'CRM GĐ Hợp Tác', sinh_vien: 'CRM GĐ Bán Hàng' };
+    const label = crmLabels[_htgd_activeCrm] || _htgd_activeCrm;
+    if (!confirm(`⚠️ XÓA TOÀN BỘ data trong "${label}"?\n\nHành động này KHÔNG THỂ hoàn tác!\nTất cả SĐT, lịch sử phân chia sẽ bị xóa.`)) return;
+    if (!confirm(`🔴 XÁC NHẬN LẦN 2: Bạn CHẮC CHẮN muốn xóa TOÀN BỘ data "${label}"?`)) return;
+    showToast('⏳ Đang xóa toàn bộ data...');
+    const res = await apiCall('/api/telesale/data/delete-all', 'POST', { crm_type: _htgd_activeCrm });
+    if (res.success) {
+        showToast('✅ ' + (res.message || 'Đã xóa'));
+        await _htgd_refreshStats(); _htgd_renderDataTab();
     } else showToast(res.error || 'Lỗi', 'error');
 }
 

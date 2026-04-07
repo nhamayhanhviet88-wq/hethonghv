@@ -652,6 +652,34 @@ async function telesaleRoutes(fastify) {
             message: `Đã xóa ${deleteIds.length} SĐT trùng trong CRM (giữ bản ghi cũ nhất)` 
         };
     });
+    // ========== DELETE ALL DATA for a CRM type ==========
+    fastify.post('/api/telesale/data/delete-all', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa toàn bộ' });
+        const { crm_type } = req.body;
+        if (!crm_type) return reply.code(400).send({ error: 'Cần crm_type' });
+
+        const sources = await db.all('SELECT id, name FROM telesale_sources WHERE crm_type = ?', [crm_type]);
+        if (sources.length === 0) return { success: true, deleted: 0, message: 'Không có nguồn nào' };
+        const sourceIds = sources.map(s => s.id);
+
+        // Delete assignments first
+        await db.run(
+            `DELETE FROM telesale_assignments WHERE data_id IN (SELECT id FROM telesale_data WHERE source_id IN (${sourceIds.map((_, i) => '$' + (i + 1)).join(',')}))`,
+            sourceIds
+        );
+        // Delete data
+        const before = await db.get(
+            `SELECT COUNT(*) as c FROM telesale_data WHERE source_id IN (${sourceIds.map((_, i) => '$' + (i + 1)).join(',')})`,
+            sourceIds
+        );
+        await db.run(
+            `DELETE FROM telesale_data WHERE source_id IN (${sourceIds.map((_, i) => '$' + (i + 1)).join(',')})`,
+            sourceIds
+        );
+
+        const crmLabels = { hoa_hong_crm: 'CRM Tự Tìm Kiếm', nuoi_duong: 'CRM GĐ Hợp Tác', sinh_vien: 'CRM GĐ Bán Hàng' };
+        return { success: true, deleted: before.c, message: `Đã xóa toàn bộ ${Number(before.c).toLocaleString()} bản ghi trong ${crmLabels[crm_type] || crm_type}` };
+    });
 
     // ========== ACTIVE MEMBERS ==========
     fastify.get('/api/telesale/active-members', { preHandler: authenticate }, async (req, reply) => {
