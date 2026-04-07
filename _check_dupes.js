@@ -1,41 +1,17 @@
 require('dotenv').config();
 const db = require('./db/pool');
 (async () => {
-    // All CRM types total
-    const all = await db.all(`
-        SELECT s.crm_type, COUNT(d.id) as cnt
-        FROM telesale_sources s
-        LEFT JOIN telesale_data d ON d.source_id = s.id
-        GROUP BY s.crm_type
-    `);
-    console.log('=== ALL CRM totals ===');
-    all.forEach(r => console.log(' ', r.crm_type || '(null)', ':', r.cnt));
+    const r = await db.all(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name='telesale_assignments' ORDER BY ordinal_position`);
+    console.log('telesale_assignments:');
+    r.forEach(c => console.log(' ', c.column_name, c.data_type));
 
-    // Check Mam Non source specifically
-    const mamNon = await db.all(`
-        SELECT s.id, s.name, s.crm_type, COUNT(d.id) as cnt
-        FROM telesale_sources s
-        LEFT JOIN telesale_data d ON d.source_id = s.id
-        WHERE s.name LIKE '%Mầm%' OR s.name LIKE '%mam%' OR s.name LIKE '%M_m%'
-        GROUP BY s.id
-    `);
-    console.log('=== Mầm Non sources ===');
-    mamNon.forEach(r => console.log(' ', r.id, r.name, '[' + r.crm_type + ']', ':', r.cnt));
+    const r2 = await db.all(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name='telesale_answer_statuses' ORDER BY ordinal_position`);
+    console.log('telesale_answer_statuses:');
+    r2.forEach(c => console.log(' ', c.column_name, c.data_type));
 
-    // Check if same phone exists across different CRM types
-    const crossCrm = await db.all(`
-        SELECT d.phone, COUNT(DISTINCT s.crm_type) as crm_cnt
-        FROM telesale_data d
-        JOIN telesale_sources s ON s.id = d.source_id
-        GROUP BY d.phone HAVING COUNT(DISTINCT s.crm_type) > 1
-        LIMIT 10
-    `);
-    console.log('=== Cross-CRM duplicates ===', crossCrm.length, 'found');
-    crossCrm.forEach(r => console.log(' ', r.phone, 'in', r.crm_cnt, 'CRMs'));
-
-    // Grand total
-    const grand = await db.get('SELECT COUNT(*) as c FROM telesale_data');
-    console.log('=== Grand total telesale_data:', grand.c);
+    const r3 = await db.all(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name='telesale_data' ORDER BY ordinal_position`);
+    console.log('telesale_data:');
+    r3.forEach(c => console.log(' ', c.column_name, c.data_type));
 
     process.exit(0);
 })();

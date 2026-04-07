@@ -169,45 +169,143 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/data/stats', { preHandler: authenticate }, async (req, reply) => {
-        const { crm_type, source_id } = req.query;
-        const cacheKey = 'stats_' + (crm_type||'all') + '_' + (source_id||'all');
-        const cached = _getCached(cacheKey);
-        if (cached) return cached;
+        const { crm_type, source_id, date_from, date_to } = req.query;
+        const hasDateFilter = date_from && date_to;
+        const cacheKey = 'stats_' + (crm_type||'all') + '_' + (source_id||'all') + '_' + (date_from||'') + '_' + (date_to||'');
+        if (!hasDateFilter) { const cached = _getCached(cacheKey); if (cached) return cached; }
+
         let crmFilter = '';
         const params = [];
         if (crm_type) { crmFilter = ' AND s.crm_type = $1'; params.push(crm_type); }
+
+        // Base stats (available always total, no date filter)
         const stats = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
             COUNT(d.id) FILTER (WHERE true) as total,
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
-            COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned,
-            COUNT(d.id) FILTER (WHERE d.status = 'answered') as answered,
-            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold,
-            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
-                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
-                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
-                AND ans2.action_type = 'transfer') as transferred,
-            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
-                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
-                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
-                AND ans2.action_type = 'cold') as cold_answered,
-            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
-                JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id
-                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
-                AND ans2.action_type = 'cold_ncc') as ncc_answered,
-            (SELECT COUNT(DISTINCT a2.data_id) FROM telesale_assignments a2
-                WHERE a2.data_id IN (SELECT d2.id FROM telesale_data d2 WHERE d2.source_id = s.id)
-                AND a2.call_status IN ('no_answer','busy')) as no_answer_busy
+            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
             FROM telesale_sources s
             LEFT JOIN telesale_data d ON d.source_id = s.id
             WHERE s.is_active = true${crmFilter}
             GROUP BY s.id, s.name, s.icon, s.daily_quota
             ORDER BY s.display_order`, params);
 
-        // DEBUG: log cold_answered values
-        const _debug = stats.filter(s => parseInt(s.cold_answered) > 0 || parseInt(s.transferred) > 0 || parseInt(s.no_answer_busy) > 0 || parseInt(s.ncc_answered) > 0);
-        if (_debug.length > 0) console.log('[STATS DEBUG]', JSON.stringify(_debug.map(s => ({ id: s.id, name: s.name, cold_answered: s.cold_answered, transferred: s.transferred, no_answer_busy: s.no_answer_busy, ncc_answered: s.ncc_answered }))));
+        // Date-filtered stats from telesale_assignments
+        const _buildDateStats = async (df, dt) => {
+            const srcIds = stats.map(s => s.id);
+            if (srcIds.length === 0) return {};
+            const dateCondAssigned = df && dt ? ` AND a.assigned_date BETWEEN '${df}' AND '${dt}'` : '';
+            const dateCondCalled = df && dt ? ` AND a.called_at >= '${df}'::date AND a.called_at < ('${dt}'::date + INTERVAL '1 day')` : '';
 
-        // Carrier breakdown counts (filtered by source_id if provided)
+            const rows = await db.all(`
+                SELECT d.source_id,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE true) as assigned,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status = 'answered') as answered,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
+                    COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
+                FROM telesale_assignments a
+                JOIN telesale_data d ON d.id = a.data_id
+                LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
+                ${dateCondAssigned || dateCondCalled ? `AND (
+                    (a.assigned_date IS NOT NULL${dateCondAssigned})
+                    OR (a.called_at IS NOT NULL${dateCondCalled})
+                )` : ''}
+                GROUP BY d.source_id
+            `, srcIds);
+
+            // If we have date filter, re-query with proper separation
+            if (df && dt) {
+                const assignedRows = await db.all(`
+                    SELECT d.source_id, COUNT(DISTINCT a.data_id) as cnt
+                    FROM telesale_assignments a
+                    JOIN telesale_data d ON d.id = a.data_id
+                    WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
+                    AND a.assigned_date BETWEEN '${df}' AND '${dt}'
+                    GROUP BY d.source_id
+                `, srcIds);
+                
+                const calledRows = await db.all(`
+                    SELECT d.source_id,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status = 'answered') as answered,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'transfer') as transferred,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold') as cold_answered,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE ans.action_type = 'cold_ncc') as ncc_answered,
+                        COUNT(DISTINCT a.data_id) FILTER (WHERE a.call_status IN ('no_answer','busy')) as no_answer_busy
+                    FROM telesale_assignments a
+                    JOIN telesale_data d ON d.id = a.data_id
+                    LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                    WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
+                    AND a.called_at >= '${df}'::date AND a.called_at < ('${dt}'::date + INTERVAL '1 day')
+                    GROUP BY d.source_id
+                `, srcIds);
+
+                const map = {};
+                for (const r of assignedRows) map[r.source_id] = { ...(map[r.source_id] || {}), assigned: parseInt(r.cnt) };
+                for (const r of calledRows) {
+                    map[r.source_id] = {
+                        ...(map[r.source_id] || {}),
+                        answered: parseInt(r.answered), transferred: parseInt(r.transferred),
+                        cold_answered: parseInt(r.cold_answered), ncc_answered: parseInt(r.ncc_answered),
+                        no_answer_busy: parseInt(r.no_answer_busy)
+                    };
+                }
+                return map;
+            }
+
+            // No date filter — use combined rows
+            const map = {};
+            for (const r of rows) {
+                map[r.source_id] = {
+                    assigned: parseInt(r.assigned), answered: parseInt(r.answered),
+                    transferred: parseInt(r.transferred), cold_answered: parseInt(r.cold_answered),
+                    ncc_answered: parseInt(r.ncc_answered), no_answer_busy: parseInt(r.no_answer_busy)
+                };
+            }
+            return map;
+        };
+
+        // Current period stats
+        const dateStats = await _buildDateStats(date_from, date_to);
+        // Merge into stats
+        for (const s of stats) {
+            const ds = dateStats[s.id] || {};
+            if (hasDateFilter) {
+                s.assigned = ds.assigned || 0;
+                s.answered = ds.answered || 0;
+                s.transferred = ds.transferred || 0;
+                s.cold_answered = ds.cold_answered || 0;
+                s.ncc_answered = ds.ncc_answered || 0;
+                s.no_answer_busy = ds.no_answer_busy || 0;
+            } else {
+                // Original queries for non-date mode (backward compat)
+                const ds2 = dateStats[s.id] || {};
+                s.assigned = ds2.assigned || 0;
+                s.answered = ds2.answered || 0;
+                s.transferred = ds2.transferred || 0;
+                s.cold_answered = ds2.cold_answered || 0;
+                s.ncc_answered = ds2.ncc_answered || 0;
+                s.no_answer_busy = ds2.no_answer_busy || 0;
+            }
+        }
+
+        // Comparison: previous period stats
+        let prevStats = null;
+        if (hasDateFilter) {
+            const df = new Date(date_from), dt = new Date(date_to);
+            const diffDays = Math.round((dt - df) / 86400000) + 1;
+            const prevTo = new Date(df); prevTo.setDate(prevTo.getDate() - 1);
+            const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - diffDays + 1);
+            const pf = prevFrom.toISOString().split('T')[0], pt = prevTo.toISOString().split('T')[0];
+            const prevDateStats = await _buildDateStats(pf, pt);
+            prevStats = {};
+            for (const s of stats) {
+                prevStats[s.id] = prevDateStats[s.id] || { assigned: 0, answered: 0, transferred: 0, cold_answered: 0, ncc_answered: 0, no_answer_busy: 0 };
+            }
+        }
+
+        // Carrier stats (unchanged)
         let carrierFilter = '';
         const carrierParams = [];
         if (source_id) {
@@ -227,7 +325,7 @@ async function telesaleRoutes(fastify) {
             if (key) carrierStats[key] = (carrierStats[key] || 0) + parseInt(r.cnt);
         }
 
-        // Per-source carrier breakdown (for settings tab)
+        // Per-source carrier breakdown
         let sourceCarrierStats = {};
         if (!source_id && crm_type) {
             const perSrcRows = await db.all(
@@ -244,8 +342,8 @@ async function telesaleRoutes(fastify) {
             }
         }
 
-        const result = { stats, carrierStats, sourceCarrierStats };
-        _setCache(cacheKey, result);
+        const result = { stats, carrierStats, sourceCarrierStats, prevStats };
+        if (!hasDateFilter) _setCache(cacheKey, result);
         return result;
     });
 
