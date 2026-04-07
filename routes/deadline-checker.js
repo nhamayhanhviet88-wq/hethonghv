@@ -332,7 +332,7 @@ async function runDeadlineCheck() {
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, acknowledged)
                          VALUES ($1, $2, $3, 0, 'expired', $4, true, false)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, acknowledged = false`,
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
                         [la.task_id, la.user_id, checkDateStr, penaltyAmount]
                     );
                 } catch(e) {
@@ -450,7 +450,7 @@ async function runDeadlineCheck() {
             await db.run(
                 `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
                  VALUES ($1, $2, $3, -1, 'expired', $4, true, $5, false)
-                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, acknowledged = false`,
+                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
                 [pr.lock_task_id, managerId, pr.completion_date, penaltyAmount, `QL không duyệt CV Khóa: ${pr.task_name}`]
             );
         } catch(e) {}
