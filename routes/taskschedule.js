@@ -108,8 +108,16 @@ async function taskScheduleRoutes(fastify, options) {
                 }
             }
 
+            // Clean up orphaned snapshots (null template_id that couldn't be matched to any current template)
+            const stillNull = existing.filter(s => !s.template_id);
+            for (const orphan of stillNull) {
+                await db.run('DELETE FROM daily_task_snapshots WHERE id = $1', [orphan.id]);
+            }
+            // Remove orphans from in-memory list too
+            const validExisting = existing.filter(s => !!s.template_id);
+
             // Check if snapshots match current templates
-            const snapTemplateIds = new Set(existing.map(s => s.template_id).filter(Boolean));
+            const snapTemplateIds = new Set(validExisting.map(s => s.template_id).filter(Boolean));
             const currTemplateIds = new Set(dayTasks.map(t => t.id));
 
             // Update existing snapshots that match current templates (refresh content)
@@ -221,7 +229,7 @@ async function taskScheduleRoutes(fastify, options) {
             )
         ]);
 
-        // Build tasks (snapshot logic — inline)
+        // Build tasks: today+future → live templates, past → existing snapshots
         let allTasks = [];
         for (let d = 0; d < 7; d++) {
             const colDate = new Date(monDate);
@@ -233,16 +241,21 @@ async function taskScheduleRoutes(fastify, options) {
             // Skip dates before user joined their department
             if (deptJoinedStr && dateStr < deptJoinedStr) continue;
 
-            if (dateStr <= todayStr) {
-                await _ensureSnapshots(uid, dateStr, dayOfWeek, week_start);
+            if (dateStr >= todayStr) {
+                // Today + Future: use live templates (same as Bàn Giao CV Điểm)
+                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+                dayTasks.forEach(t => { allTasks.push({ ...t, _source: 'template', _date: dateStr }); });
+                // For today: also sync snapshots in background (for penalty/deadline system)
+                if (dateStr === todayStr) {
+                    _ensureSnapshots(uid, dateStr, dayOfWeek, week_start).catch(() => {});
+                }
+            } else {
+                // Past: only show existing snapshots (historical record)
                 const snaps = await db.all(
                     'SELECT * FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
                     [uid, dateStr]
                 );
                 snaps.forEach(s => { allTasks.push({ ...s, _source: 'snapshot', _date: dateStr }); });
-            } else {
-                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
-                dayTasks.forEach(t => { allTasks.push({ ...t, _source: 'template', _date: dateStr }); });
             }
         }
 
@@ -286,6 +299,7 @@ async function taskScheduleRoutes(fastify, options) {
 
         let allTasks = [];
 
+        // Build tasks: today+future → live templates, past → existing snapshots
         for (let d = 0; d < 7; d++) {
             const colDate = new Date(monDate);
             colDate.setDate(monDate.getDate() + d);
@@ -296,23 +310,24 @@ async function taskScheduleRoutes(fastify, options) {
             // Skip dates before user joined their department
             if (deptJoinedStr && dateStr < deptJoinedStr) continue;
 
-
-            if (dateStr <= todayStr) {
-                // Past or today → use snapshots
-                await _ensureSnapshots(uid, dateStr, dayOfWeek, week_start);
+            if (dateStr >= todayStr) {
+                // Today + Future: use live templates
+                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
+                dayTasks.forEach(t => {
+                    allTasks.push({ ...t, _source: 'template', _date: dateStr });
+                });
+                // For today: also sync snapshots in background (for penalty/deadline system)
+                if (dateStr === todayStr) {
+                    _ensureSnapshots(uid, dateStr, dayOfWeek, week_start).catch(() => {});
+                }
+            } else {
+                // Past: only show existing snapshots (historical record)
                 const snaps = await db.all(
                     'SELECT * FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
                     [uid, dateStr]
                 );
-                // Add snapshot data with _date field for frontend
                 snaps.forEach(s => {
                     allTasks.push({ ...s, _source: 'snapshot', _date: dateStr });
-                });
-            } else {
-                // Future → live templates
-                const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
-                dayTasks.forEach(t => {
-                    allTasks.push({ ...t, _source: 'template', _date: dateStr });
                 });
             }
         }
@@ -1005,7 +1020,7 @@ async function taskScheduleRoutes(fastify, options) {
             )
         ]);
 
-        // Lock task completions in this month
+        // Lock task completions in this month (only for tasks still assigned to user)
         const lock_completions = await db.all(
             `SELECT ltc.id, ltc.lock_task_id, ltc.completion_date::text as completion_date,
                     ltc.redo_count, ltc.proof_url, ltc.content, ltc.status,
@@ -1015,6 +1030,7 @@ async function taskScheduleRoutes(fastify, options) {
                     lt.input_requirements, lt.output_requirements, lt.requires_approval, lt.min_quantity
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id AND lta.user_id = ltc.user_id
              WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
              ORDER BY ltc.completion_date DESC, ltc.created_at DESC`,
             [userId, fromDate, toDate]

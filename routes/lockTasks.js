@@ -699,6 +699,158 @@ async function lockTaskRoutes(fastify, options) {
 
         return { success: true, new_task_id: result.id };
     });
+
+    // ========== PENALTY TASKS — CV Phạt Phải Xử Lý ==========
+
+    // GET: Danh sách CV phạt chưa xử lý (expired + rejected chưa nộp lại)
+    fastify.get('/api/penalty-tasks', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+        const isGD = userRole === 'giam_doc';
+        const filterDept = request.query.department_id ? Number(request.query.department_id) : null;
+        const filterUserId = request.query.user_id ? Number(request.query.user_id) : null;
+
+        // For non-GĐ: only own tasks
+        const targetUserId = isGD ? filterUserId : userId;
+
+        let lockQuery = `
+            SELECT 'lock' as task_type, ltc.id, lt.task_name, ltc.completion_date::text as task_date,
+                   ltc.penalty_amount, ltc.status, ltc.reject_reason, ltc.redo_deadline::text as redo_deadline,
+                   ltc.redo_count, lt.max_redo_count, lt.recurrence_type,
+                   u.full_name, u.username, u.id as user_id, d.name as dept_name, d.id as dept_id,
+                   lt.id as task_ref_id
+            FROM lock_task_completions ltc
+            JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+            JOIN lock_task_assignments lta ON lta.lock_task_id = ltc.lock_task_id AND lta.user_id = ltc.user_id
+            JOIN users u ON u.id = ltc.user_id
+            LEFT JOIN departments d ON d.id = u.department_id
+            WHERE ltc.status IN ('expired','rejected')
+              AND NOT EXISTS (
+                  SELECT 1 FROM lock_task_completions ltc2
+                  WHERE ltc2.lock_task_id = ltc.lock_task_id
+                    AND ltc2.user_id = ltc.user_id
+                    AND ltc2.completion_date = ltc.completion_date
+                    AND ltc2.status IN ('pending','approved')
+                    AND ltc2.id > ltc.id
+              )`;
+        const lockParams = [];
+
+        if (targetUserId) {
+            lockParams.push(targetUserId);
+            lockQuery += ` AND ltc.user_id = $${lockParams.length}`;
+        }
+        if (filterDept && isGD) {
+            lockParams.push(filterDept);
+            lockQuery += ` AND u.department_id = $${lockParams.length}`;
+        }
+
+        let chainQuery = `
+            SELECT 'chain' as task_type, cc.id, cii.task_name, cii.deadline::text as task_date,
+                   cc.penalty_amount, cc.status, cc.reject_reason, cc.redo_deadline::text as redo_deadline,
+                   cc.redo_count, cii.max_redo_count, 'chain' as recurrence_type,
+                   u.full_name, u.username, u.id as user_id, d.name as dept_name, d.id as dept_id,
+                   cins.chain_name as chain_name
+            FROM chain_task_completions cc
+            JOIN chain_task_instance_items cii ON cii.id = cc.chain_item_id
+            JOIN chain_task_instances cins ON cins.id = cii.chain_instance_id
+            JOIN chain_task_assignments cta ON cta.chain_item_id = cc.chain_item_id AND cta.user_id = cc.user_id
+            JOIN users u ON u.id = cc.user_id
+            LEFT JOIN departments d ON d.id = u.department_id
+            WHERE cc.status IN ('expired','rejected')
+              AND cc.redo_count >= 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM chain_task_completions cc2
+                  WHERE cc2.chain_item_id = cc.chain_item_id
+                    AND cc2.user_id = cc.user_id
+                    AND cc2.status IN ('pending','approved')
+                    AND cc2.id > cc.id
+              )`;
+        const chainParams = [];
+
+        if (targetUserId) {
+            chainParams.push(targetUserId);
+            chainQuery += ` AND cc.user_id = $${chainParams.length}`;
+        }
+        if (filterDept && isGD) {
+            chainParams.push(filterDept);
+            chainQuery += ` AND u.department_id = $${chainParams.length}`;
+        }
+
+        const [lockTasks, chainTasks] = await Promise.all([
+            db.all(lockQuery, lockParams),
+            db.all(chainQuery, chainParams)
+        ]);
+
+        // Merge and sort by date ASC (oldest first)
+        const all = [...lockTasks, ...chainTasks].sort((a, b) => {
+            if (a.task_date < b.task_date) return -1;
+            if (a.task_date > b.task_date) return 1;
+            return 0;
+        });
+
+        return { tasks: all };
+    });
+
+    // GET: Count CV phạt chưa xử lý (nhẹ, cho sidebar badge)
+    fastify.get('/api/penalty-tasks/count', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+
+        const [lockCount, chainCount] = await Promise.all([
+            db.get(`
+                SELECT COUNT(*) as cnt FROM lock_task_completions ltc
+                JOIN lock_task_assignments lta ON lta.lock_task_id = ltc.lock_task_id AND lta.user_id = ltc.user_id
+                WHERE ltc.user_id = $1 AND ltc.status IN ('expired','rejected')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM lock_task_completions ltc2
+                      WHERE ltc2.lock_task_id = ltc.lock_task_id
+                        AND ltc2.user_id = ltc.user_id
+                        AND ltc2.completion_date = ltc.completion_date
+                        AND ltc2.status IN ('pending','approved')
+                        AND ltc2.id > ltc.id
+                  )`, [userId]),
+            db.get(`
+                SELECT COUNT(*) as cnt FROM chain_task_completions cc
+                JOIN chain_task_instance_items cii ON cii.id = cc.chain_item_id
+                JOIN chain_task_assignments cta ON cta.chain_item_id = cc.chain_item_id AND cta.user_id = cc.user_id
+                WHERE cc.user_id = $1 AND cc.status IN ('expired','rejected') AND cc.redo_count >= 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM chain_task_completions cc2
+                      WHERE cc2.chain_item_id = cc.chain_item_id
+                        AND cc2.user_id = cc.user_id
+                        AND cc2.status IN ('pending','approved')
+                        AND cc2.id > cc.id
+                  )`, [userId])
+        ]);
+
+        return { count: (Number(lockCount?.cnt) || 0) + (Number(chainCount?.cnt) || 0) };
+    });
+    // ========== DELETE: Xóa assignment NV khỏi CV Khóa (chỉ GĐ) ==========
+    fastify.delete('/api/lock-tasks/:taskId/unassign/:userId', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc được xóa assignment' });
+        }
+        const taskId = Number(request.params.taskId);
+        const targetUserId = Number(request.params.userId);
+
+        // 1. Delete assignment
+        await db.run('DELETE FROM lock_task_assignments WHERE lock_task_id = $1 AND user_id = $2', [taskId, targetUserId]);
+
+        // 2. Delete non-penalty completions (submitted, pending, approved, rejected, redo)
+        await db.run(
+            `DELETE FROM lock_task_completions
+             WHERE lock_task_id = $1 AND user_id = $2
+               AND (status != 'expired' OR penalty_applied = false OR redo_count = -2)`,
+            [taskId, targetUserId]
+        );
+
+        // 3. Keep expired penalty records (redo_count >= 0 AND status='expired' AND penalty_applied=true)
+        // Already kept by the WHERE clause above
+
+        console.log(`🗑️ GĐ ${request.user.username} xóa assignment: task=${taskId}, user=${targetUserId}`);
+        return { success: true };
+    });
+
 }
 
 module.exports = lockTaskRoutes;
+

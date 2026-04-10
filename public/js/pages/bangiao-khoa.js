@@ -531,7 +531,10 @@ async function _lkLoadUserTasks(userId, userName) {
                             ${rejected > 0 ? `<span style="background:#fecaca;color:#dc2626;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">❌ ${rejected}</span>` : ''}
                         </div>
                     </div>
-                    <button onclick="event.stopPropagation();_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button onclick="event.stopPropagation();_lkShowGroupModal(${idx})" style="padding:6px 14px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:white;color:#991b1b;cursor:pointer;font-weight:600;white-space:nowrap;">👁️ Xem</button>
+                        ${currentUser.role === 'giam_doc' ? `<button onclick="event.stopPropagation();_lkUnassignLockTask(${g.lock_task_id}, '${g.task_name.replace(/'/g, "\\\'")}')" style="padding:6px 10px;font-size:12px;border:1px solid #fca5a5;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;white-space:nowrap;transition:all .15s;" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'" title="Xóa assignment">🗑️</button>` : ''}
+                    </div>
                 </div>`;
             });
             html += `</div>`;
@@ -580,6 +583,7 @@ async function _lkLoadUserTasks(userId, userName) {
                                 <div style="width:${pct}%;height:100%;background:${statusColor};border-radius:3px;"></div>
                             </div>
                             <span style="font-size:11px;font-weight:600;color:${statusColor};white-space:nowrap;">${allDone ? '✅' : done+'/'+total}</span>
+                            ${currentUser.role === 'giam_doc' ? `<button onclick="event.stopPropagation();_lkUnassignChainTask(${c.id}, '${escapedName}')" style="padding:4px 8px;font-size:11px;border:1px solid #fca5a5;border-radius:5px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'" title="Xóa assignment">🗑️</button>` : ''}
                         </div>
                     </div>`;
                 });
@@ -2462,7 +2466,7 @@ function _ctRenderDeployForm(users) {
         <div id="ctTemplatePreview" style="margin-bottom:12px;"></div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Ngày bắt đầu:</label>
-            <input type="date" id="ctDeployStartDate" value="${new Date().toISOString().split('T')[0]}" onchange="_ctOnTemplateSelect()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
+            <input type="date" id="ctDeployStartDate" value="${(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()}" onchange="_ctOnTemplateSelect()" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-top:4px;font-size:12px;" />
         </div>
         <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:700;color:#374151;">Gán nhân viên (tất cả task con):</label>
@@ -2859,7 +2863,7 @@ function _ctEditTemplateItemRow(item, idx, mode) {
                 </div>
                 <div>
                     <label style="font-size:11px;font-weight:700;color:#374151;">📅 Deadline <span style="color:#dc2626;">*</span></label>
-                    <input type="date" class="ct-edit-item-deadline" value="${item?.deadline?.split('T')[0] || ''}" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;margin-top:4px;" />
+                    <input type="date" class="ct-edit-item-deadline" value="${item?.deadline?.split('T')[0] || ''}" onchange="_ctEnforceDeadlineOrder()" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;margin-top:4px;" />
                 </div>
             </div>
             <input type="hidden" class="ct-edit-item-name" value="${item?.task_name || ''}" />
@@ -2935,6 +2939,13 @@ async function _ctSaveEditTemplate(templateId) {
 
         if (!name) { alert(`⚠️ Task con #${idx+1}: Vui lòng nhập tên`); hasError = true; return; }
         if (mode === 'deploy' && !deadline) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng chọn deadline`); hasError = true; return; }
+        if (mode === 'deploy' && items.length > 0) {
+            const prevDeadline = items[items.length - 1].deadline;
+            if (prevDeadline && deadline && deadline < prevDeadline) {
+                alert(`⚠️ Task con #${idx+1} "${name}": Deadline (${deadline}) phải >= deadline task con trước đó (${prevDeadline})`);
+                hasError = true; return;
+            }
+        }
         if (mode === 'manage' && !guide) { alert(`⚠️ Task con #${idx+1} "${name}": Vui lòng nhập link hướng dẫn`); hasError = true; return; }
 
         const approvalEl = el.querySelector('.ct-edit-item-approval');
@@ -2976,3 +2987,54 @@ function _ctFmtDate(dateStr) {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
+// Enforce deadline ordering: each item's deadline must be >= previous item's deadline
+function _ctEnforceDeadlineOrder() {
+    const inputs = document.querySelectorAll('#ctEditItems > .ct-edit-item .ct-edit-item-deadline');
+    if (!inputs || inputs.length < 2) return;
+    
+    for (let i = 1; i < inputs.length; i++) {
+        const prevVal = inputs[i - 1].value;
+        if (prevVal) {
+            inputs[i].min = prevVal;
+            // If current value is before previous, auto-correct to previous
+            if (inputs[i].value && inputs[i].value < prevVal) {
+                inputs[i].value = prevVal;
+                inputs[i].style.border = '2px solid #f59e0b';
+                setTimeout(() => { inputs[i].style.border = '1px solid #d1d5db'; }, 1500);
+            }
+        }
+    }
+}
+
+// ========== UNASSIGN FUNCTIONS (GĐ only) ==========
+async function _lkUnassignLockTask(taskId, taskName) {
+    if (!_lkSelectedUserId) return;
+    const confirmed = confirm(`⚠️ Xóa assignment CV Khóa:\n\n🔐 ${taskName}\n👤 ${_lkUserName}\n\n• Penalties (phạt tiền) sẽ GIỮ NGUYÊN\n• Báo cáo đã nộp sẽ bị XÓA\n• Lịch Khóa Biểu sẽ không hiện task này\n\nBạn có chắc chắn?`);
+    if (!confirmed) return;
+
+    try {
+        const res = await apiCall(`/api/lock-tasks/${taskId}/unassign/${_lkSelectedUserId}`, 'DELETE');
+        if (res.success) {
+            showToast('✅ Đã xóa assignment CV Khóa thành công', 'success');
+            _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+        }
+    } catch(e) {
+        showToast('❌ Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
+    }
+}
+
+async function _lkUnassignChainTask(instanceId, chainName) {
+    if (!_lkSelectedUserId) return;
+    const confirmed = confirm(`⚠️ Xóa assignment CV Chuỗi:\n\n🔗 ${chainName}\n👤 ${_lkUserName}\n\n• Penalties (phạt tiền) sẽ GIỮ NGUYÊN\n• Báo cáo đã nộp sẽ bị XÓA\n• Lịch Khóa Biểu sẽ không hiện chuỗi này\n\nBạn có chắc chắn?`);
+    if (!confirmed) return;
+
+    try {
+        const res = await apiCall(`/api/chain-tasks/instances/${instanceId}/unassign/${_lkSelectedUserId}`, 'DELETE');
+        if (res.success) {
+            showToast('✅ Đã xóa assignment CV Chuỗi thành công', 'success');
+            _lkLoadUserTasks(_lkSelectedUserId, _lkUserName);
+        }
+    } catch(e) {
+        showToast('❌ Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
+    }
+}

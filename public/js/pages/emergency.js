@@ -662,7 +662,7 @@ async function cancelLoadList() {
             : isApproved
             ? '<span style="background:#16a34a;color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅ Đã Duyệt</span>'
             : '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">❌ Từ Chối</span>';
-        const crmLabels = {nhu_cau:'Nhu Cầu',ctv:'CTV',ctv_hoa_hong:'CTV/HH',nuoi_duong:'Nuôi Dưỡng',sinh_vien:'Sinh Viên',koc_tiktok:'KOC'};
+        const crmLabels = {nhu_cau:'Nhu Cầu',ctv:'CTV',ctv_hoa_hong:'CTV/HH',goi_hop_tac:'GĐ Hợp Tác',goi_ban_hang:'GĐ Bán Hàng',koc_tiktok:'KOC'};
 
         return `<tr style="${isApproved ? 'background:rgba(220,38,38,0.04);' : isAutoReverted ? 'background:rgba(251,191,36,0.06);' : isRejected ? 'background:rgba(245,158,11,0.04);' : ''}">
             <td><strong style="color:#e67e22;font-size:13px;">${getCustomerCode(c)}</strong></td>

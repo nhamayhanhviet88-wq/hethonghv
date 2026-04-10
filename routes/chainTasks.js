@@ -102,7 +102,8 @@ async function chainTaskRoutes(fastify, options) {
             [chain_name, description || '', execution_mode || 'sequential', id]
         );
 
-        // Replace items
+        // Replace items — nullify FK references from deployed instances first
+        await db.run('UPDATE chain_task_instance_items SET template_item_id = NULL WHERE template_item_id IN (SELECT id FROM chain_task_template_items WHERE chain_template_id = $1)', [id]);
         await db.run('DELETE FROM chain_task_template_items WHERE chain_template_id = $1', [id]);
         if (items && items.length > 0) {
             for (let i = 0; i < items.length; i++) {
@@ -867,6 +868,42 @@ async function chainTaskRoutes(fastify, options) {
 
         return { reviews };
     });
+    // ========== DELETE: Xóa assignment NV khỏi CV Chuỗi (chỉ GĐ) ==========
+    fastify.delete('/api/chain-tasks/instances/:instanceId/unassign/:userId', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc được xóa assignment' });
+        }
+        const instanceId = Number(request.params.instanceId);
+        const targetUserId = Number(request.params.userId);
+
+        // Get all items in this chain instance
+        const items = await db.all(
+            'SELECT id FROM chain_task_instance_items WHERE chain_instance_id = $1',
+            [instanceId]
+        );
+        const itemIds = items.map(i => i.id);
+        if (itemIds.length === 0) return { success: true };
+
+        const placeholders = itemIds.map((_, i) => `$${i + 2}`).join(',');
+
+        // 1. Delete assignments
+        await db.run(
+            `DELETE FROM chain_task_assignments WHERE user_id = $1 AND chain_item_id IN (${placeholders})`,
+            [targetUserId, ...itemIds]
+        );
+
+        // 2. Delete non-penalty completions (keep expired penalties with redo_count >= 0)
+        await db.run(
+            `DELETE FROM chain_task_completions
+             WHERE user_id = $1 AND chain_item_id IN (${placeholders})
+               AND (status != 'expired' OR penalty_applied = false OR redo_count = -2)`,
+            [targetUserId, ...itemIds]
+        );
+
+        console.log(`🗑️ GĐ ${request.user.username} xóa chain assignment: instance=${instanceId}, user=${targetUserId}`);
+        return { success: true };
+    });
+
 }
 
 module.exports = chainTaskRoutes;

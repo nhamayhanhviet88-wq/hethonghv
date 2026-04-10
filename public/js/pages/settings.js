@@ -283,10 +283,10 @@ async function saveCancelMgrPopupSettings() {
 
 // ========== JOB TITLES PER CRM ==========
 const JOB_CRM_OPTIONS = [
-    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
-    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'goi_hop_tac', label: 'CRM Gọi Điện Hợp Tác' },
+    { value: 'goi_ban_hang', label: 'CRM Gọi Điện Bán Hàng' },
     { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
-    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
+    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm' },
     { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
 ];
 
@@ -604,28 +604,31 @@ async function deletePosition(id, name) {
 
 // ========== TELESALE SOURCES SETTINGS ==========
 const CRM_TYPE_OPTIONS_TS = [
-    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-    { value: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { value: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+    { value: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { value: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
-let _settings_activeCrm = 'hoa_hong_crm';
+let _settings_activeCrm = 'tu_tim_kiem';
 
 async function loadTelesaleSourcesSettings() {
     const el = document.getElementById('settingsContent');
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [srcRes, configRes1, configRes2, configRes3, configRes4] = await Promise.all([
+    const [srcRes, configRes1, configRes2, configRes3, configRes4, tsSettings] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_settings_activeCrm}`),
         apiCall('/api/app-config/telesale_default_quota'),
         apiCall('/api/app-config/telesale_cold_months'),
         apiCall('/api/app-config/telesale_followup_canhnhac'),
-        apiCall('/api/app-config/telesale_followup_ncc')
+        apiCall('/api/app-config/telesale_followup_ncc'),
+        apiCall('/api/telesale/settings')
     ]);
     const sources = srcRes.sources || [];
     const defaultQuota = configRes1.value || '250';
     const coldMonths = configRes2.value || '4';
     const followupCN = configRes3.value || '3';
     const followupNCC = configRes4.value || '30';
+    const coldNoRepump = tsSettings.cold_no_repump || false;
+    const nccNoRepump = tsSettings.ncc_no_repump || false;
 
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
     const activeCfg = CRM_TYPE_OPTIONS_TS.find(o => o.value === _settings_activeCrm);
@@ -663,16 +666,30 @@ async function loadTelesaleSourcesSettings() {
                 <input type="number" id="tsDefaultQuota" value="${defaultQuota}" style="width:100%;padding:6px 8px;border:1.5px solid #93c5fd;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_default_quota',this.value)">
             </div>
             <div class="ts-stat-card" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh (tháng)</label>
-                <input type="number" id="tsColdMonths" value="${coldMonths}" style="width:100%;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_cold_months',this.value)">
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">❄️ Kho lạnh — K. Nhu Cầu</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="number" id="tsColdMonths" value="${coldMonths}" ${coldNoRepump ? 'disabled' : ''} style="flex:1;padding:6px 8px;border:1.5px solid #fcd34d;border-radius:8px;font-size:14px;font-weight:700;background:${coldNoRepump ? '#f3f4f6' : 'white'};opacity:${coldNoRepump ? '0.5' : '1'};" onchange="saveTsConfig('telesale_cold_months',this.value)">
+                    <span style="font-size:10px;white-space:nowrap;">tháng</span>
+                </div>
+                <label style="display:flex;align-items:center;gap:4px;margin-top:6px;cursor:pointer;font-size:10px;font-weight:600;">
+                    <input type="checkbox" id="tsColdNoRepump" ${coldNoRepump ? 'checked' : ''} onchange="_toggleColdNoRepump('cold', this.checked)" style="cursor:pointer;">
+                    🚫 Không bơm lại
+                </label>
             </div>
             <div class="ts-stat-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;padding:14px;text-align:left;">
                 <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🤔 Hẹn lại (Cân nhắc)</label>
                 <input type="number" id="tsFollowupCN" value="${followupCN}" style="width:100%;padding:6px 8px;border:1.5px solid #6ee7b7;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_followup_canhnhac',this.value)"> <span style="font-size:10px;">ngày</span>
             </div>
             <div class="ts-stat-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;padding:14px;text-align:left;">
-                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Hẹn lại (Có NCC)</label>
-                <input type="number" id="tsFollowupNCC" value="${followupNCC}" style="width:100%;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:white;" onchange="saveTsConfig('telesale_followup_ncc',this.value)"> <span style="font-size:10px;">ngày</span>
+                <label style="font-size:11px;font-weight:700;display:block;margin-bottom:6px;">🏪 Đã Có NCC</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="number" id="tsFollowupNCC" value="${followupNCC}" ${nccNoRepump ? 'disabled' : ''} style="flex:1;padding:6px 8px;border:1.5px solid #f9a8d4;border-radius:8px;font-size:14px;font-weight:700;background:${nccNoRepump ? '#f3f4f6' : 'white'};opacity:${nccNoRepump ? '0.5' : '1'};" onchange="saveTsConfig('telesale_followup_ncc',this.value)">
+                    <span style="font-size:10px;white-space:nowrap;">tháng</span>
+                </div>
+                <label style="display:flex;align-items:center;gap:4px;margin-top:6px;cursor:pointer;font-size:10px;font-weight:600;">
+                    <input type="checkbox" id="tsNccNoRepump" ${nccNoRepump ? 'checked' : ''} onchange="_toggleColdNoRepump('ncc', this.checked)" style="cursor:pointer;">
+                    🚫 Không bơm lại
+                </label>
             </div>
         </div>
 
@@ -735,6 +752,19 @@ async function loadTelesaleSourcesSettings() {
 async function saveTsConfig(key, value) {
     await apiCall(`/api/app-config/${key}`, 'PUT', { value: String(value) });
     showToast('✅ Đã lưu');
+}
+
+async function _toggleColdNoRepump(type, checked) {
+    const key = type === 'cold' ? 'cold_no_repump' : 'ncc_no_repump';
+    const inputId = type === 'cold' ? 'tsColdMonths' : 'tsFollowupNCC';
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.disabled = checked;
+        input.style.opacity = checked ? '0.5' : '1';
+        input.style.background = checked ? '#f3f4f6' : 'white';
+    }
+    await apiCall('/api/telesale/settings', 'PUT', { [key]: checked });
+    showToast(checked ? '🚫 Đã tắt bơm lại' : '✅ Sẽ bơm lại sau số tháng đã cài');
 }
 
 async function _settings_switchCrm(crmType) {

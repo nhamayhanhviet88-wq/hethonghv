@@ -327,9 +327,9 @@ function affRenderStats() {
     const CRM_TYPES = [
         { key: 'nhu_cau', label: 'Nhu Cầu', color: '#f59e0b', bg: '#fffbeb' },
         { key: 'ctv', label: 'CTV', color: '#1d4ed8', bg: '#dbeafe' },
-        { key: 'hoa_hong_crm', label: 'Hoa Hồng', color: '#be185d', bg: '#fce7f3' },
-        { key: 'nuoi_duong', label: 'Nuôi Dưỡng', color: '#065f46', bg: '#d1fae5' },
-        { key: 'sinh_vien', label: 'Sinh Viên', color: '#5b21b6', bg: '#ede9fe' },
+        { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', color: '#be185d', bg: '#fce7f3' },
+        { key: 'goi_hop_tac', label: 'GĐ Hợp Tác', color: '#065f46', bg: '#d1fae5' },
+        { key: 'goi_ban_hang', label: 'GĐ Bán Hàng', color: '#5b21b6', bg: '#ede9fe' },
         { key: 'koc_tiktok', label: 'KOC Tiktok', color: '#dc2626', bg: '#fef2f2' },
     ];
     const crmCounts = {};
@@ -377,9 +377,9 @@ function affRenderTree() {
     const CRM_BADGE_MAP = {
         nhu_cau: { label:'NC', color:'#f59e0b', bg:'#fffbeb' },
         ctv: { label:'CTV', color:'#1d4ed8', bg:'#dbeafe' },
-        hoa_hong_crm: { label:'HH', color:'#be185d', bg:'#fce7f3' },
-        nuoi_duong: { label:'ND', color:'#065f46', bg:'#d1fae5' },
-        sinh_vien: { label:'SV', color:'#5b21b6', bg:'#ede9fe' },
+        tu_tim_kiem: { label:'TTK', color:'#be185d', bg:'#fce7f3' },
+        goi_hop_tac: { label:'HT', color:'#065f46', bg:'#d1fae5' },
+        goi_ban_hang: { label:'BH', color:'#5b21b6', bg:'#ede9fe' },
         koc_tiktok: { label:'KOC', color:'#dc2626', bg:'#fef2f2' },
     };
     function crmBadges(affList) {
@@ -736,7 +736,7 @@ async function affShowDetail(userId) {
     if (!data.user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
     const user = data.user;
 
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     const ROLE_MAP = {hoa_hong:'Hoa Hồng',ctv:'CTV',nuoi_duong:'Nuôi Dưỡng',sinh_vien:'Sinh Viên'};
 
     // Get department name

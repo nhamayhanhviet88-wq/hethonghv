@@ -1,27 +1,27 @@
-// ========== PHẠT KHÓA TÀI KHOẢN NV ==========
+// ========== NHÂN VIÊN BỊ PHẠT TIỀN ==========
 
+let _penActiveFilter = 'yesterday'; // today|yesterday|7days|thisMonth|lastMonth|all|custom
 let _penYear = new Date().getFullYear();
-let _penFromMonth = new Date().getMonth() + 1; // current month
-let _penToMonth = 0; // 0 = not set (single month)
+let _penCustomFrom = '';
+let _penCustomTo = '';
 let _penaltyData = [];
 
 const _CRM_LABELS = {
-    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', hoa_hong_crm: 'Tự TK',
-    nuoi_duong: 'GĐ HT', sinh_vien: 'GĐ BH', koc_tiktok: 'KOL/KOC',
+    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', tu_tim_kiem: 'Tự TK',
+    goi_hop_tac: 'GĐ HT', goi_ban_hang: 'GĐ BH', koc_tiktok: 'KOL/KOC',
     qua_tang: 'QT/SK/DL', affiliate: 'Affiliate GT', nguoi_than: 'NT/BB',
     ctv_hoa_hong: 'CTV/HH'
 };
 
 async function renderKhoaTKNVPage(container) {
     const isGD = currentUser.role === 'giam_doc';
-    const now = new Date();
-    _penYear = now.getFullYear();
-    _penFromMonth = now.getMonth() + 1;
+    _penActiveFilter = 'yesterday';
+    _penYear = new Date().getFullYear();
 
     container.innerHTML = `
     <div style="max-width:1400px;margin:0 auto;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-            <h2 style="margin:0;font-size:22px;color:#122546;font-weight:800;">🔒 Phạt Khóa Tài Khoản NV</h2>
+            <h2 style="margin:0;font-size:22px;color:#122546;font-weight:800;">💰 Nhân Viên Bị Phạt Tiền</h2>
         </div>
 
         ${isGD ? `
@@ -34,7 +34,7 @@ async function renderKhoaTKNVPage(container) {
             <div id="penaltyConfigBody" style="display:none;padding:16px;">
                 <div style="margin-bottom:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
                     <div style="font-size:12px;color:#1e40af;font-weight:600;">ℹ️ Quy tắc phạt chung</div>
-                    <div style="font-size:11px;color:#3b82f6;margin-top:4px;">Áp dụng cho <strong>toàn bộ hệ thống</strong>. Khi không xử lý trước deadline (tính theo <code>calculateRealDeadline</code> — tự động bỏ qua CN, lễ, ngày nghỉ) → khóa TK + phạt số tiền bên dưới.</div>
+                    <div style="font-size:11px;color:#3b82f6;margin-top:4px;">Áp dụng cho <strong>toàn bộ hệ thống</strong>. Khi không xử lý trước deadline (tính theo <code>calculateRealDeadline</code> — tự động bỏ qua CN, lễ, ngày nghỉ) → phạt số tiền bên dưới.</div>
                 </div>
                 <div id="penaltyConfigList" style="margin-bottom:12px;">Đang tải...</div>
                 <div style="text-align:right;">
@@ -44,14 +44,14 @@ async function renderKhoaTKNVPage(container) {
         </div>
         ` : ''}
 
+        <!-- FILTER BAR -->
+        <div id="penaltyFilterBar" style="margin-bottom:16px;"></div>
+
         <!-- SECTION 2: THỐNG KÊ PHẠT -->
         <div style="background:white;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(220,38,38,0.1);">
             <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
                 <span style="color:white;font-weight:800;font-size:15px;">📊 THỐNG KÊ PHẠT NHÂN SỰ</span>
-                <div style="display:flex;align-items:center;gap:8px;">
-                <div style="display:flex;align-items:center;gap:6px;" id="penaltyFilterBar">
-                </div>
-                </div>
+                <span id="penaltyTotalBadge" style="background:rgba(255,255,255,0.3);color:white;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">0đ</span>
             </div>
             <div id="penaltyStatsBody" style="padding:16px;">
                 <div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px;">Đang tải...</div>
@@ -148,84 +148,123 @@ async function _penaltySaveConfig() {
     }
 }
 
-// ===== STATS — CÂY PHÒNG BAN =====
+// ===== FILTER BAR — CHIP BUTTONS =====
 
-// Filter helpers
-function _penBuildYearOptions() {
-    let html = '';
-    for (let y = 2025; y <= 2100; y++) {
-        html += `<option value="${y}" ${y === _penYear ? 'selected' : ''}>${y}</option>`;
-    }
-    return html;
-}
-
-function _penBuildFromOptions() {
-    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-    let html = `<option value="0"${_penFromMonth === 0 ? ' selected' : ''}>📊 Tất cả</option>`;
-    for (let m = 1; m <= 12; m++) {
-        html += `<option value="${m}" ${m === _penFromMonth ? 'selected' : ''}>${months[m]}</option>`;
-    }
-    return html;
-}
-
-function _penBuildToOptions() {
-    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-    let html = `<option value="0"${_penToMonth === 0 ? ' selected' : ''}>— Đến —</option>`;
-    for (let m = 1; m <= 12; m++) {
-        html += `<option value="${m}" ${m === _penToMonth ? 'selected' : ''}>${months[m]}</option>`;
-    }
-    return html;
-}
-
-function _penRangeLabel() {
-    const months = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-    if (_penFromMonth === 0) return `Tất cả tháng / ${_penYear}`;
-    if (!_penToMonth || _penToMonth <= _penFromMonth) return `${months[_penFromMonth]} / ${_penYear}`;
-    return `T${_penFromMonth} → T${_penToMonth} / ${_penYear}`;
-}
-
-function _penGetApiUrl() {
-    if (_penFromMonth === 0) {
-        // All months of year
-        return `/api/penalty/list?monthFrom=${_penYear}-01&monthTo=${_penYear}-12`;
-    }
-    const from = `${_penYear}-${String(_penFromMonth).padStart(2, '0')}`;
-    const to = _penToMonth && _penToMonth >= _penFromMonth
-        ? `${_penYear}-${String(_penToMonth).padStart(2, '0')}`
-        : from;
-    return `/api/penalty/list?monthFrom=${from}&monthTo=${to}`;
-}
+const _penFilters = [
+    { key: 'today', label: '📅 Hôm nay' },
+    { key: 'yesterday', label: 'Hôm qua' },
+    { key: '7days', label: '7 ngày' },
+    { key: 'thisMonth', label: 'Tháng này' },
+    { key: 'lastMonth', label: 'Tháng trước' },
+    { key: 'all', label: 'Tất cả' },
+    { key: 'custom', label: 'Tùy chọn' },
+];
 
 function _penRenderFilterBar() {
     const bar = document.getElementById('penaltyFilterBar');
     if (!bar) return;
-    const ss = 'padding:5px 10px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:12px;background:rgba(255,255,255,0.15);color:white;font-weight:600;cursor:pointer;outline:none;';
-    bar.innerHTML = `
-        <style>.pen-filter-sel option { color:#1e293b; background:white; }</style>
-        <select class="pen-filter-sel" onchange="_penOnYearChange(this.value)" style="${ss}">${_penBuildYearOptions()}</select>
-        <select class="pen-filter-sel" onchange="_penOnFromChange(this.value)" style="${ss}">${_penBuildFromOptions()}</select>
-        ${_penFromMonth !== 0 ? `<span style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;">→</span>
-        <select class="pen-filter-sel" onchange="_penOnToChange(this.value)" style="${ss}">${_penBuildToOptions()}</select>` : ''}
-        <span id="penaltyTotalBadge" style="background:rgba(255,255,255,0.3);color:white;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">0đ</span>
+
+    const chipStyle = (isActive) => `
+        display:inline-flex;align-items:center;gap:4px;
+        padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;
+        cursor:pointer;transition:all 0.2s;border:1.5px solid ${isActive ? '#2563eb' : '#e2e8f0'};
+        background:${isActive ? 'linear-gradient(135deg,#2563eb,#3b82f6)' : 'white'};
+        color:${isActive ? 'white' : '#64748b'};
+        box-shadow:${isActive ? '0 2px 8px rgba(37,99,235,0.25)' : '0 1px 3px rgba(0,0,0,0.05)'};
     `;
+
+    const currentYear = new Date().getFullYear();
+    let yearOpts = '';
+    for (let y = currentYear; y >= 2025; y--) {
+        yearOpts += `<option value="${y}" ${y === _penYear ? 'selected' : ''}>${y}</option>`;
+    }
+
+    let html = `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:12px;color:#94a3b8;font-weight:600;">🔍</span>`;
+
+    _penFilters.forEach(f => {
+        html += `<span onclick="_penSetFilter('${f.key}')" style="${chipStyle(f.key === _penActiveFilter)}"
+            onmouseover="if('${f.key}'!=='${_penActiveFilter}')this.style.borderColor='#93c5fd'"
+            onmouseout="if('${f.key}'!=='${_penActiveFilter}')this.style.borderColor='#e2e8f0'"
+        >${f.label}</span>`;
+    });
+
+    html += `<select onchange="_penOnYearChange(Number(this.value))" style="
+        padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:20px;font-size:12px;
+        font-weight:700;color:#334155;background:white;cursor:pointer;outline:none;
+        box-shadow:0 1px 3px rgba(0,0,0,0.05);
+    ">${yearOpts}</select>`;
+
+    html += '</div>';
+
+    if (_penActiveFilter === 'custom') {
+        const today = new Date().toISOString().split('T')[0];
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            <span style="font-size:12px;color:#64748b;font-weight:600;">Từ:</span>
+            <input type="date" id="penCustomFrom" value="${_penCustomFrom || today}" onchange="_penCustomFrom=this.value;_penaltyLoadStats()"
+                style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;outline:none;">
+            <span style="font-size:12px;color:#64748b;font-weight:600;">Đến:</span>
+            <input type="date" id="penCustomTo" value="${_penCustomTo || today}" onchange="_penCustomTo=this.value;_penaltyLoadStats()"
+                style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;outline:none;">
+        </div>`;
+    }
+
+    bar.innerHTML = html;
+}
+
+function _penSetFilter(key) {
+    _penActiveFilter = key;
+    if (key === 'all') { /* keep current year */ }
+    else if (key !== 'custom') { _penYear = new Date().getFullYear(); }
+    _penRenderFilterBar();
+    _penaltyLoadStats();
 }
 
 function _penOnYearChange(val) {
-    _penYear = Number(val);
+    _penYear = val;
+    if (_penActiveFilter !== 'all') _penActiveFilter = 'all';
     _penRenderFilterBar();
     _penaltyLoadStats();
 }
-function _penOnFromChange(val) {
-    _penFromMonth = Number(val);
-    if (_penFromMonth === 0) _penToMonth = 0;
-    else if (_penToMonth && _penToMonth < _penFromMonth) _penToMonth = 0;
-    _penRenderFilterBar();
-    _penaltyLoadStats();
+
+function _penGetApiUrl() {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    switch (_penActiveFilter) {
+        case 'today':
+            return `/api/penalty/list?dateFrom=${todayStr}&dateTo=${todayStr}`;
+        case 'yesterday': {
+            const y = new Date(today); y.setDate(y.getDate() - 1);
+            const ys = y.toISOString().split('T')[0];
+            return `/api/penalty/list?dateFrom=${ys}&dateTo=${ys}`;
+        }
+        case '7days': {
+            const d7 = new Date(today); d7.setDate(d7.getDate() - 6);
+            return `/api/penalty/list?dateFrom=${d7.toISOString().split('T')[0]}&dateTo=${todayStr}`;
+        }
+        case 'thisMonth': {
+            const mStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+            return `/api/penalty/list?monthFrom=${mStart}&monthTo=${mStart}`;
+        }
+        case 'lastMonth': {
+            const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lmStr = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}`;
+            return `/api/penalty/list?monthFrom=${lmStr}&monthTo=${lmStr}`;
+        }
+        case 'all':
+            return `/api/penalty/list?monthFrom=${_penYear}-01&monthTo=${_penYear}-12`;
+        case 'custom': {
+            const from = _penCustomFrom || todayStr;
+            const to = _penCustomTo || todayStr;
+            return `/api/penalty/list?dateFrom=${from}&dateTo=${to}`;
+        }
+        default:
+            return `/api/penalty/list?dateFrom=${todayStr}&dateTo=${todayStr}`;
+    }
 }
-function _penOnToChange(val) {
-    _penToMonth = Number(val);
-    _penaltyLoadStats();
-}
+
+// ===== STATS — CÂY PHÒNG BAN =====
 
 async function _penaltyLoadStats() {
     const body = document.getElementById('penaltyStatsBody');
@@ -247,7 +286,7 @@ async function _penaltyLoadStats() {
         if (_penaltyData.length === 0) {
             body.innerHTML = `<div style="text-align:center;padding:40px;">
                 <div style="font-size:40px;margin-bottom:8px;">✅</div>
-                <div style="color:#059669;font-weight:700;font-size:14px;">Không có vi phạm nào trong tháng này</div>
+                <div style="color:#059669;font-weight:700;font-size:14px;">Không có vi phạm nào trong khoảng thời gian này</div>
             </div>`;
             return;
         }
@@ -530,7 +569,7 @@ function _renderUserNode(u, SRC, ROLE_SHORT, paddingLeft) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">${u.total.toLocaleString()}đ</span>
-                <button onclick="event.stopPropagation();_penaltyShowSlip(${userId},'${_penYear}-${String(_penFromMonth || 1).padStart(2, '0')}','${(u.name || '').replace(/'/g, "\\\\'")}')" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu</button>
+                <button onclick="event.stopPropagation();_penaltyShowSlip(${userId},'${_penYear}-${String(new Date().getMonth()+1).padStart(2, '0')}','${(u.name || '').replace(/'/g, "\\\\'")}')" style="padding:2px 8px;font-size:10px;border:1px solid #2563eb;border-radius:5px;background:white;color:#2563eb;cursor:pointer;font-weight:600;">📄 Phiếu</button>
             </div>
         </div>
         <div id="${userNodeId}" style="display:none;padding-bottom:6px;">

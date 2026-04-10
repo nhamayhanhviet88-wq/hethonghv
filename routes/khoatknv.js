@@ -72,9 +72,13 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.get('/api/penalty/list', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
-        // Support both single month and range: ?month=YYYY-MM or ?monthFrom=YYYY-MM&monthTo=YYYY-MM
+        // Support: ?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD or ?monthFrom=YYYY-MM&monthTo=YYYY-MM or ?month=YYYY-MM
         let monthStart, monthEnd;
-        if (request.query.monthFrom) {
+        if (request.query.dateFrom) {
+            // Direct date range (for quick filters: today, 7 days, etc.)
+            monthStart = request.query.dateFrom;
+            monthEnd = request.query.dateTo || request.query.dateFrom;
+        } else if (request.query.monthFrom) {
             const mFrom = request.query.monthFrom; // YYYY-MM
             const mTo = request.query.monthTo || mFrom;
             monthStart = `${mFrom}-01`;
@@ -84,7 +88,7 @@ async function khoaTKNVRoutes(fastify, options) {
         } else {
             const month = request.query.month;
             if (!month) {
-                return reply.code(400).send({ error: 'Thiếu tháng (month=YYYY-MM)' });
+                return reply.code(400).send({ error: 'Thiếu tham số lọc ngày' });
             }
             monthStart = `${month}-01`;
             const [y, m] = month.split('-').map(Number);
@@ -487,6 +491,13 @@ async function khoaTKNVRoutes(fastify, options) {
     // GET: Check pending penalties for login popup
     fastify.get('/api/penalty/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Check if popup already shown today (server-side tracking)
+        const userCheck = await db.get('SELECT penalty_popup_date, department_joined_at FROM users WHERE id = $1', [userId]);
+        if (userCheck && userCheck.penalty_popup_date === todayStr) {
+            return { pending: [], total: 0, shownToday: true };
+        }
 
         // Load penalty config
         const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
@@ -494,10 +505,9 @@ async function khoaTKNVRoutes(fastify, options) {
         _gpcRows.forEach(r => { GPC[r.key] = Number(r.amount) || 0; });
         const todayPenaltyKhoa = GPC.cv_khoa_khong_nop || 50000;
         const todayPenaltyChuoi = GPC.cv_chuoi_khong_nop || 50000;
-        const todayStr = new Date().toISOString().split('T')[0];
 
         // Get user's department_joined_at for filtering
-        const userInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [userId]);
+        const userInfo = userCheck;
         const deptJoinedAt = userInfo?.department_joined_at || null;
 
         // Source 1: Support requests (for managers)
@@ -612,11 +622,12 @@ async function khoaTKNVRoutes(fastify, options) {
     // POST: Self-acknowledge (authenticated - when popup shows after login)
     fastify.post('/api/penalty/acknowledge-self', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        // Only unlock account — penalties remain until NV submits reports
+        // Mark popup as shown today (server-side) + unlock account
         await db.run(
-            "UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked'",
-            [userId]
+            "UPDATE users SET status = CASE WHEN status = 'locked' THEN 'active' ELSE status END, penalty_popup_date = $2 WHERE id = $1",
+            [userId, todayStr]
         );
 
         // Auto-pump telesale SĐT sau khi mở khóa
@@ -628,6 +639,179 @@ async function khoaTKNVRoutes(fastify, options) {
         } catch (e) { console.error('[Telesale] Auto-pump error:', e.message); }
 
         return { success: true, message: `Đã xác nhận. Tài khoản đã được mở khóa.${pumpMsg}`, telesalePumped: pumpMsg ? true : false };
+    });
+
+    // GET: Today's penalties for manager popup — scoped by department hierarchy
+    fastify.get('/api/penalty/team-today', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Only for managers
+        if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(userRole)) {
+            return { penalties: [], total: 0 };
+        }
+
+        // Check if popup already shown today
+        const userCheck = await db.get('SELECT penalty_mgr_popup_date, department_id FROM users WHERE id = $1', [userId]);
+        if (userCheck && userCheck.penalty_mgr_popup_date === todayStr) {
+            return { penalties: [], total: 0, shownToday: true };
+        }
+
+        // Get department scope — all dept IDs this manager can see
+        let scopeDeptIds = [];
+
+        if (userRole === 'giam_doc') {
+            // GD sees all departments
+            const allDepts = await db.all('SELECT id FROM departments');
+            scopeDeptIds = allDepts.map(d => d.id);
+        } else {
+            // QLCC/QL/TP — get their dept + all children recursively
+            const myDeptId = userCheck?.department_id;
+            if (!myDeptId) return { penalties: [], total: 0 };
+
+            async function getChildIds(parentId) {
+                let ids = [parentId];
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [parentId]);
+                for (const child of children) {
+                    const childIds = await getChildIds(child.id);
+                    ids.push(...childIds);
+                }
+                return ids;
+            }
+            scopeDeptIds = await getChildIds(myDeptId);
+        }
+
+        if (scopeDeptIds.length === 0) return { penalties: [], total: 0 };
+
+        // Query penalties since last popup view (or last 90 days if never viewed)
+        const lastViewDate = userCheck?.penalty_mgr_popup_date;
+        let sinceDate;
+        if (lastViewDate) {
+            sinceDate = lastViewDate; // Show penalties from the day after last view
+        } else {
+            const d90 = new Date(); d90.setDate(d90.getDate() - 90);
+            sinceDate = d90.toISOString().split('T')[0];
+        }
+        const deptPlaceholders = scopeDeptIds.map((_, i) => `$${i + 3}`).join(',');
+        const baseParams = [sinceDate, userId, ...scopeDeptIds];
+
+        // Source 1: task_support_requests (expired today)
+        const srPenalties = await db.all(
+            `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
+                    sr.manager_id as penalized_user_id, m.full_name as penalized_name, m.username as penalized_username,
+                    m.department_id as penalized_dept_id, m.role as penalized_role,
+                    u.full_name as related_user
+             FROM task_support_requests sr
+             LEFT JOIN users m ON sr.manager_id = m.id
+             LEFT JOIN users u ON sr.user_id = u.id
+             WHERE sr.status = 'expired' AND sr.task_date >= $1
+               AND sr.manager_id != $2 AND m.department_id IN (${deptPlaceholders})
+             ORDER BY sr.task_date`,
+            baseParams
+        );
+
+        // Source 2: lock_task_completions (penalty_applied today or expired today)
+        const lockPenalties = await db.all(
+            `SELECT ltc.user_id as penalized_user_id, lt.task_name, ltc.completion_date::text as task_date,
+                    ltc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
+                    u.department_id as penalized_dept_id, u.role as penalized_role
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+             JOIN users u ON u.id = ltc.user_id
+             WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
+               AND ltc.completion_date >= $1
+               AND ltc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
+             ORDER BY ltc.completion_date`,
+            baseParams
+        );
+
+        // Source 3: chain_task_completions (expired today)
+        let chainPenalties = [];
+        try {
+            chainPenalties = await db.all(
+                `SELECT cc.user_id as penalized_user_id, ci.task_name, ci.deadline::text as task_date,
+                        cc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
+                        u.department_id as penalized_dept_id, u.role as penalized_role,
+                        cins.chain_name
+                 FROM chain_task_completions cc
+                 JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+                 JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                 JOIN users u ON u.id = cc.user_id
+                 WHERE cc.status = 'expired' AND cc.penalty_applied = true
+                   AND ci.deadline >= $1
+                   AND cc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
+                 ORDER BY ci.deadline`,
+                baseParams
+            );
+        } catch(e) {}
+
+        // Merge all penalties
+        const allPenalties = [];
+
+        srPenalties.forEach(p => {
+            allPenalties.push({
+                penalized_user_id: p.penalized_user_id,
+                penalized_name: p.penalized_name,
+                penalized_username: p.penalized_username,
+                penalized_dept_id: p.penalized_dept_id,
+                penalized_role: p.penalized_role,
+                task_name: p.task_name,
+                task_date: p.task_date,
+                penalty_amount: p.penalty_amount || 0,
+                reason: p.penalty_reason || 'Không xử lý hỗ trợ',
+                source: p.penalty_reason?.includes('Không duyệt') ? 'CV Điểm' : 'Hỗ trợ NV',
+                related_user: p.related_user
+            });
+        });
+
+        lockPenalties.forEach(p => {
+            allPenalties.push({
+                penalized_user_id: p.penalized_user_id,
+                penalized_name: p.penalized_name,
+                penalized_username: p.penalized_username,
+                penalized_dept_id: p.penalized_dept_id,
+                penalized_role: p.penalized_role,
+                task_name: p.task_name,
+                task_date: p.task_date,
+                penalty_amount: p.penalty_amount || 0,
+                reason: 'Không nộp báo cáo',
+                source: 'CV Khóa'
+            });
+        });
+
+        chainPenalties.forEach(p => {
+            allPenalties.push({
+                penalized_user_id: p.penalized_user_id,
+                penalized_name: p.penalized_name,
+                penalized_username: p.penalized_username,
+                penalized_dept_id: p.penalized_dept_id,
+                penalized_role: p.penalized_role,
+                task_name: p.chain_name ? `${p.chain_name} — ${p.task_name}` : p.task_name,
+                task_date: p.task_date,
+                penalty_amount: p.penalty_amount || 0,
+                reason: 'Không nộp báo cáo chuỗi',
+                source: 'CV Chuỗi'
+            });
+        });
+
+        const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
+
+        // Get departments for tree structure
+        let departments = [];
+        if (allPenalties.length > 0) {
+            departments = await db.all('SELECT id, name, parent_id FROM departments');
+        }
+
+        return { penalties: allPenalties, total, departments };
+    });
+
+    // POST: Mark manager popup as shown today
+    fastify.post('/api/penalty/team-today/acknowledge', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const todayStr = new Date().toISOString().split('T')[0];
+        await db.run('UPDATE users SET penalty_mgr_popup_date = $1 WHERE id = $2', [todayStr, userId]);
+        return { success: true };
     });
 }
 

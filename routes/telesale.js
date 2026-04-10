@@ -41,9 +41,9 @@ async function telesaleRoutes(fastify) {
     // ========== SOURCES CRUD ==========
     fastify.get('/api/telesale/sources', { preHandler: authenticate }, async (req, reply) => {
         const { crm_type } = req.query;
-        let sql = 'SELECT * FROM telesale_sources';
+        let sql = 'SELECT * FROM telesale_sources WHERE is_active = true';
         const params = [];
-        if (crm_type) { sql += ' WHERE crm_type = ?'; params.push(crm_type); }
+        if (crm_type) { sql += ' AND crm_type = ?'; params.push(crm_type); }
         sql += ' ORDER BY display_order, id';
         const sources = await db.all(sql, params);
         return { sources };
@@ -143,7 +143,7 @@ async function telesaleRoutes(fastify) {
             } else if (status === 'no_answer_busy') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status IN ('no_answer','busy'))`;
             } else if (status === 'invalid') {
-                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'invalid')`;
+                where += ` AND (d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'invalid') OR d.status = 'cold')`;
             }
         } else if (status) {
             paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status);
@@ -796,7 +796,7 @@ async function telesaleRoutes(fastify) {
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_id, daily_quota, crm_type } = req.body;
         if (!user_id) return reply.code(400).send({ error: 'user_id là bắt buộc' });
-        const crmVal = crm_type || 'hoa_hong_crm';
+        const crmVal = crm_type || 'tu_tim_kiem';
         const existing = await db.get('SELECT id FROM telesale_active_members WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
         if (existing) {
             await db.run('UPDATE telesale_active_members SET is_active = true WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
@@ -812,7 +812,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { daily_quota, is_active, crm_type, set_default } = req.body;
-        const crmVal = crm_type || 'hoa_hong_crm';
+        const crmVal = crm_type || 'tu_tim_kiem';
         if (set_default) {
             // Đặt về mặc định: daily_quota = NULL
             await db.run('UPDATE telesale_active_members SET daily_quota = NULL, is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
@@ -828,7 +828,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_ids, daily_quota, crm_type } = req.body;
-        const crmVal = crm_type || 'hoa_hong_crm';
+        const crmVal = crm_type || 'tu_tim_kiem';
         if (!user_ids || !Array.isArray(user_ids) || !daily_quota) return reply.code(400).send({ error: 'Cần user_ids[] và daily_quota' });
         for (const uid of user_ids) {
             await db.run('UPDATE telesale_active_members SET daily_quota = ? WHERE user_id = ? AND crm_type = ?', [daily_quota, uid, crmVal]);
@@ -841,7 +841,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { crm_type } = req.body;
-        const crmVal = crm_type || 'hoa_hong_crm';
+        const crmVal = crm_type || 'tu_tim_kiem';
         const result = await db.run('UPDATE telesale_active_members SET daily_quota = NULL WHERE crm_type = ? AND is_active = true', [crmVal]);
         return { success: true, message: `Đã đặt tất cả NV về chế độ Mặc định`, updated: result?.changes || 0 };
     });
@@ -849,7 +849,7 @@ async function telesaleRoutes(fastify) {
     fastify.delete('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const crm_type = req.query.crm_type || 'hoa_hong_crm';
+        const crm_type = req.query.crm_type || 'tu_tim_kiem';
         await db.run('UPDATE telesale_active_members SET is_active = false WHERE user_id = ? AND crm_type = ?', [req.params.userId, crm_type]);
         return { success: true, message: 'Đã bỏ NV khỏi Telesale' };
     });
@@ -916,15 +916,26 @@ async function telesaleRoutes(fastify) {
             if (answer_status_id) {
                 const ansStatus = await db.get('SELECT * FROM telesale_answer_statuses WHERE id = ?', [answer_status_id]);
                 if (ansStatus && ansStatus.action_type === 'cold') {
-                    const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
-                    const months = parseInt(coldMonths?.value || '4');
-                    await db.run(`UPDATE telesale_data SET status = 'cold',
-                        cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    const noRepump = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_no_repump'");
+                    if (noRepump?.value === 'true') {
+                        // Đóng băng vĩnh viễn — không bơm lại
+                        await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = NULL, updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    } else {
+                        const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
+                        const months = parseInt(coldMonths?.value || '4');
+                        await db.run(`UPDATE telesale_data SET status = 'cold',
+                            cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    }
                 } else if (ansStatus && ansStatus.action_type === 'cold_ncc') {
-                    const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
-                    const months = parseInt(nccMonths?.value || '3');
-                    await db.run(`UPDATE telesale_data SET status = 'cold',
-                        cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    const noRepumpNcc = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_no_repump'");
+                    if (noRepumpNcc?.value === 'true') {
+                        await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = NULL, updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    } else {
+                        const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+                        const months = parseInt(nccMonths?.value || '3');
+                        await db.run(`UPDATE telesale_data SET status = 'cold',
+                            cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [assign.data_id]);
+                    }
                 }
             }
         } else if (call_status === 'invalid') {
@@ -1005,24 +1016,55 @@ async function telesaleRoutes(fastify) {
 
     // ========== SETTINGS (GĐ only) ==========
     fastify.get('/api/telesale/settings', { preHandler: authenticate }, async (req, reply) => {
-        const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
-        const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+        const [coldMonths, nccMonths, coldNoRepump, nccNoRepump] = await Promise.all([
+            db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'"),
+            db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'"),
+            db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_no_repump'"),
+            db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_no_repump'")
+        ]);
         return {
             cold_months: parseInt(coldMonths?.value || '4'),
-            ncc_cold_months: parseInt(nccMonths?.value || '3')
+            ncc_cold_months: parseInt(nccMonths?.value || '3'),
+            cold_no_repump: coldNoRepump?.value === 'true',
+            ncc_no_repump: nccNoRepump?.value === 'true'
         };
     });
 
     fastify.put('/api/telesale/settings', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
-        const { cold_months, ncc_cold_months } = req.body;
+        const { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump } = req.body;
         if (cold_months != null) {
             await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_cold_months', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(cold_months)]);
         }
         if (ncc_cold_months != null) {
             await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_ncc_cold_months', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(ncc_cold_months)]);
         }
+        if (cold_no_repump != null) {
+            await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_cold_no_repump', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(cold_no_repump)]);
+        }
+        if (ncc_no_repump != null) {
+            await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_ncc_no_repump', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [String(ncc_no_repump)]);
+        }
         return { success: true };
+    });
+
+    // ========== MANUAL REPUMP (GĐ only) ==========
+    fastify.post('/api/telesale/data/repump', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { data_ids } = req.body;
+        if (!data_ids || !Array.isArray(data_ids) || data_ids.length === 0) {
+            return reply.code(400).send({ error: 'Chưa chọn data nào' });
+        }
+        let repumped = 0;
+        for (const dataId of data_ids) {
+            // Set data back to available
+            const result = await db.run(
+                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status IN ('cold', 'answered')",
+                [dataId]
+            );
+            if (result?.changes > 0) repumped++;
+        }
+        return { success: true, message: `Đã bơm lại ${repumped} SĐT về Tổng Data Sẵn Sàng`, repumped };
     });
 
     fastify.get('/api/telesale/pump-preview', { preHandler: authenticate }, async (req, reply) => {
@@ -1078,12 +1120,168 @@ async function telesaleRoutes(fastify) {
         return { success: true, message: 'Đã xóa cột' };
     });
 
+    // ========== SELF-SEARCH LOCATIONS CRUD ==========
+    fastify.get('/api/self-search-locations', { preHandler: authenticate }, async (req, reply) => {
+        const locations = await db.all('SELECT * FROM self_search_locations WHERE is_active = true ORDER BY name');
+        return { locations };
+    });
+
+    fastify.post('/api/self-search-locations', { preHandler: authenticate }, async (req, reply) => {
+        const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
+        if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const { name } = req.body;
+        if (!name) return reply.code(400).send({ error: 'Tên nơi tìm kiếm là bắt buộc' });
+        await db.run('INSERT INTO self_search_locations (name, created_by) VALUES (?, ?)', [name.trim(), req.user.id]);
+        return { success: true, message: 'Đã thêm nơi tìm kiếm' };
+    });
+
+    fastify.delete('/api/self-search-locations/:id', { preHandler: authenticate }, async (req, reply) => {
+        const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
+        if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        await db.run('UPDATE self_search_locations SET is_active = false WHERE id = ?', [req.params.id]);
+        return { success: true, message: 'Đã xóa nơi tìm kiếm' };
+    });
+
+    // ========== SELF-SEARCH: Employee adds customer ==========
+    fastify.post('/api/telesale/self-search', { preHandler: authenticate }, async (req, reply) => {
+        const { customer_name, fb_link, phone, source_id, search_location_id } = req.body;
+        if (!customer_name || !customer_name.trim()) return reply.code(400).send({ error: 'Tên KH là bắt buộc' });
+        if (!fb_link && !phone) return reply.code(400).send({ error: 'Cần ít nhất Link FB hoặc SĐT' });
+        if (!source_id) return reply.code(400).send({ error: 'Chọn Nguồn' });
+        if (!search_location_id) return reply.code(400).send({ error: 'Chọn Nơi tìm kiếm' });
+
+        const src = await db.get('SELECT id, crm_type FROM telesale_sources WHERE id = ? AND is_active = true', [source_id]);
+        if (!src) return reply.code(400).send({ error: 'Nguồn không hợp lệ' });
+
+        let normalizedPhone = '';
+        let carrier = '';
+        if (phone && phone.trim()) {
+            const processed = _processPhone(phone.trim());
+            normalizedPhone = processed.phone;
+            carrier = processed.carrier;
+            if (normalizedPhone && !processed.isInvalid) {
+                const dup = await db.get(
+                    `SELECT d.id FROM telesale_data d JOIN telesale_sources s ON s.id = d.source_id WHERE d.phone = $1 AND s.crm_type = $2`,
+                    [normalizedPhone, src.crm_type || 'tu_tim_kiem']
+                );
+                if (dup) return reply.code(400).send({ error: `SĐT ${normalizedPhone} đã tồn tại trong CRM` });
+            }
+        }
+
+        if (fb_link && fb_link.trim()) {
+            const dupFb = await db.get(
+                `SELECT d.id FROM telesale_data d JOIN telesale_sources s ON s.id = d.source_id WHERE d.fb_link = $1 AND s.crm_type = $2`,
+                [fb_link.trim(), src.crm_type || 'tu_tim_kiem']
+            );
+            if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM' });
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date().toISOString();
+
+        const result = await db.run(
+            `INSERT INTO telesale_data (source_id, customer_name, phone, fb_link, search_location_id, self_searched_by, self_searched_at, carrier, status, last_assigned_date, last_assigned_user_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'assigned', $9, $10, $7)`,
+            [source_id, customer_name.trim(), normalizedPhone || '', fb_link?.trim() || null, search_location_id, req.user.id, now, carrier || null, today, req.user.id]
+        );
+
+        const dataId = result.lastInsertRowid || result.insertId;
+        if (dataId) {
+            await db.run(
+                `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
+                [dataId, req.user.id, today]
+            );
+        }
+
+        const countRes = await db.get(
+            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND self_searched_at::date = $2`,
+            [req.user.id, today]
+        );
+        const todayCount = parseInt(countRes?.cnt || 0);
+
+        _invalidateStatsCache();
+        return { success: true, message: `Đã thêm KH "${customer_name.trim()}"`, today_count: todayCount };
+    });
+
+    // ========== SELF-SEARCH STATS ==========
+    fastify.get('/api/telesale/self-search-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
+        const userId = req.params.userId;
+        const { date } = req.query;
+        const targetDate = date || new Date().toISOString().split('T')[0];
+        const countRes = await db.get(
+            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND self_searched_at::date = $2`,
+            [userId, targetDate]
+        );
+
+        // Calculate day_of_week for the target date (DB: 1=Mon..7=Sun)
+        const d = new Date(targetDate + 'T00:00:00');
+        const jsDay = d.getDay(); // 0=Sun
+        const dbDay = jsDay === 0 ? 7 : jsDay;
+
+        // Lookup target from task template min_quantity FOR THIS DAY
+        let target = 20; // default fallback
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+        if (user) {
+            const tmpl = await db.get(
+                `SELECT min_quantity FROM task_point_templates
+                 WHERE task_name ILIKE '%Tự Tìm Kiếm%'
+                 AND day_of_week = $3
+                 AND ((target_type = 'team' AND target_id = $1) OR (target_type = 'individual' AND target_id = $2))
+                 ORDER BY min_quantity DESC LIMIT 1`,
+                [user.department_id, userId, dbDay]
+            );
+            if (tmpl && tmpl.min_quantity > 0) target = tmpl.min_quantity;
+        }
+
+        return { count: parseInt(countRes?.cnt || 0), date: targetDate, target };
+    });
+
+    // ========== TELESALE CALL PROGRESS (for Lịch Khóa Biểu + goidien progress bar) ==========
+    fastify.get('/api/telesale/call-progress/:userId', { preHandler: authenticate }, async (req, reply) => {
+        const userId = req.params.userId;
+        const { date } = req.query;
+        const targetDate = date || new Date().toISOString().split('T')[0];
+
+        // Count answered calls for this user on target date
+        const answeredRes = await db.get(
+            `SELECT COUNT(*) as cnt FROM telesale_assignments
+             WHERE user_id = $1 AND assigned_date = $2 AND call_status = 'answered'`,
+            [userId, targetDate]
+        );
+        const answered = parseInt(answeredRes?.cnt || 0);
+
+        // Calculate day_of_week for the target date (DB: 1=Mon..7=Sun)
+        const d = new Date(targetDate + 'T00:00:00');
+        const jsDay = d.getDay(); // 0=Sun
+        const dbDay = jsDay === 0 ? 7 : jsDay; // Convert to 1=Mon..7=Sun
+
+        // Lookup target & points from task templates FOR THIS DAY ONLY
+        let target = 100; // default fallback
+        let total_points = 50; // default fallback
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+        if (user) {
+            const tmpls = await db.all(
+                `SELECT min_quantity, points FROM task_point_templates
+                 WHERE task_name ILIKE '%Gọi Điện Telesale%'
+                 AND day_of_week = $3
+                 AND ((target_type = 'team' AND target_id = $1) OR (target_type = 'individual' AND target_id = $2))`,
+                [user.department_id, userId, dbDay]
+            );
+            if (tmpls.length > 0) {
+                target = tmpls.reduce((sum, t) => sum + (t.min_quantity || 0), 0) || 100;
+                total_points = tmpls.reduce((sum, t) => sum + (t.points || 0), 0) || 50;
+            }
+        }
+
+        return { answered, target, total_points, date: targetDate };
+    });
+
 };
 
 // ========== PUMP LOGIC (exported for cron) ==========
 async function runTelesalePump() {
     const today = new Date().toISOString().split('T')[0];
-    const CRM_TYPES = ['hoa_hong_crm', 'nuoi_duong', 'sinh_vien'];
+    const CRM_TYPES = ['tu_tim_kiem', 'goi_hop_tac', 'goi_ban_hang'];
     let totalPumped = 0;
     const alerts = [];
 
@@ -1218,7 +1416,7 @@ async function runTelesalePump() {
             [JSON.stringify(alerts)]);
     }
 
-    return { success: true, message: `Đã bơm ${totalPumped} SĐT cho ${members.length} NV`, pumped: totalPumped, alerts };
+    return { success: true, message: `Đã bơm ${totalPumped} SĐT`, pumped: totalPumped, alerts };
 }
 
 async function runTelesaleRecall() {
@@ -1241,6 +1439,16 @@ async function runTelesaleRecall() {
         recalled++;
     }
 
+    // 2.5. Cold/cold_ncc answered → recall assignment (data stays cold in pool)
+    let coldRecalled = 0;
+    const coldAssigns = await db.all(`SELECT a.id, a.data_id FROM telesale_assignments a
+        JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+        WHERE a.assigned_date <= $1 AND a.call_status = 'answered'
+        AND ans.action_type IN ('cold', 'cold_ncc')`, [yesterday]);
+    for (const a of coldAssigns) {
+        coldRecalled++;
+    }
+
     // 3. Invalid → delete the data record entirely
     const invalidAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
         WHERE a.assigned_date <= $1 AND a.call_status = 'invalid'`, [yesterday]);
@@ -1250,10 +1458,10 @@ async function runTelesaleRecall() {
         invalidated++;
     }
 
-    // 4. Unfreeze cold data that has passed cold_until
-    const unfrozen = await db.run("UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE status = 'cold' AND cold_until <= CURRENT_DATE");
+    // 4. Unfreeze cold data that has passed cold_until (only when cold_until IS NOT NULL)
+    const unfrozen = await db.run("UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE status = 'cold' AND cold_until IS NOT NULL AND cold_until <= CURRENT_DATE");
 
-    return { success: true, message: `Thu hồi: ${recalled} SĐT, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, invalidated };
+    return { success: true, message: `Thu hồi: ${recalled} SĐT, ${coldRecalled} kho lạnh, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, coldRecalled, invalidated };
 }
 
 // ========== PUMP FOR SINGLE USER (called on account unlock) ==========
@@ -1266,7 +1474,7 @@ async function runTelesalePumpForUser(userId) {
     }
 
     const today = vnNow.toISOString().split('T')[0];
-    const CRM_TYPES = ['hoa_hong_crm', 'nuoi_duong', 'sinh_vien'];
+    const CRM_TYPES = ['tu_tim_kiem', 'goi_hop_tac', 'goi_ban_hang'];
     let totalPumped = 0;
 
     for (const crmType of CRM_TYPES) {

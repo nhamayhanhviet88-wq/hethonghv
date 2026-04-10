@@ -643,17 +643,29 @@ async function renderLichKhoaBieuPage(container) {
         </div>
     </div>`;
 
-    // Restore saved selection or default to "Lịch của tôi"
-    const kbSaved = _kbGetSavedSelection();
-    if (kbSaved && kbSaved.userId) {
-        const memberEl = document.querySelector(`.kb-member-item[data-uid="${kbSaved.userId}"]`);
-        if (memberEl) {
-            _kbSelectMember(kbSaved.userId);
+    // Priority: CV Phạt target user → select that user directly
+    const ptUser = sessionStorage.getItem('_ptTargetUser');
+    if (ptUser) {
+        const ptMemberEl = document.querySelector(`.kb-member-item[data-uid="${ptUser}"]`);
+        if (ptMemberEl) {
+            _kbSelectMember(ptUser);
         } else {
+            // User not in sidebar (NV viewing own schedule)
             _kbLoadSchedule();
         }
     } else {
-        _kbLoadSchedule();
+        // Restore saved selection or default to "Lịch của tôi"
+        const kbSaved = _kbGetSavedSelection();
+        if (kbSaved && kbSaved.userId) {
+            const memberEl = document.querySelector(`.kb-member-item[data-uid="${kbSaved.userId}"]`);
+            if (memberEl) {
+                _kbSelectMember(kbSaved.userId);
+            } else {
+                _kbLoadSchedule();
+            }
+        } else {
+            _kbLoadSchedule();
+        }
     }
     if (hasApprovalScope) _kbLoadApprovalPanel();
     if (hasApprovalScope) _kbLoadSupportPanel();
@@ -685,11 +697,20 @@ function _kbSelectMember(userId) {
 async function _kbLoadSchedule() {
     // Init week
     if (!_kbWeekStart) {
-        const now = new Date();
-        const day = now.getDay();
-        const mon = new Date(now);
-        mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-        _kbWeekStart = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
+        // Check if navigating from CV Phạt page with a target week
+        const ptWeek = sessionStorage.getItem('_ptTargetWeek');
+        if (ptWeek) {
+            sessionStorage.removeItem('_ptTargetWeek');
+            sessionStorage.removeItem('_ptTargetUser');
+            const wd = new Date(ptWeek + 'T00:00:00');
+            _kbWeekStart = new Date(wd.getFullYear(), wd.getMonth(), wd.getDate());
+        } else {
+            const now = new Date();
+            const day = now.getDay();
+            const mon = new Date(now);
+            mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+            _kbWeekStart = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
+        }
     }
 
     const monStr = _kbDateStr(_kbWeekStart);
@@ -794,6 +815,8 @@ async function _kbLoadSchedule() {
 
     _kbRenderStats();
     _kbRenderGrid();
+    _kbInjectSelfSearchStats();
+    _kbInjectTelesaleStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1104,6 +1127,14 @@ function _kbRenderGrid() {
                     }
                 }
 
+                // Check if this is a "Tự Tìm Kiếm" task
+                const isSelfSearch = /tự\s*tìm\s*kiếm/i.test(task.task_name);
+                const ssPlaceholder = isSelfSearch ? `<div id="kbSS_${dateStr}" data-ss-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
+                // Check if this is a "Gọi Điện Telesale" task
+                const isTelesale = /gọi\s*điện\s*telesale/i.test(task.task_name);
+                const tsPlaceholder = isTelesale ? `<div id="kbTS_${dateStr}" data-ts-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1117,6 +1148,8 @@ function _kbRenderGrid() {
                             ${isSelf && dateStr === todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
                             ${actionBtn}
                         </div>
+                        ${ssPlaceholder}
+                        ${tsPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
@@ -1350,7 +1383,8 @@ function _kbRenderGrid() {
         ];
 
         const monDate3 = new Date(_kbWeekStart);
-        const todayStr3 = new Date().toISOString().split('T')[0];
+        const _now3 = new Date();
+        const todayStr3 = `${_now3.getFullYear()}-${String(_now3.getMonth()+1).padStart(2,'0')}-${String(_now3.getDate()).padStart(2,'0')}`;
 
         Object.values(chainGroups).forEach((chain, chainIdx) => {
             const cc = _chainColors[chainIdx % _chainColors.length];
@@ -1409,7 +1443,7 @@ function _kbRenderGrid() {
                     } else if (isPending) {
                         statusBadge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;">🔒 Chờ</span>';
                     } else if (isOverdue) {
-                        statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">⚠️ Trễ hạn</span>';
+                        statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔥 Quá hạn</span>';
                     } else {
                         // Check if user has submitted
                         const myComp = item.my_completions;
@@ -1425,6 +1459,9 @@ function _kbRenderGrid() {
                         }
                     }
 
+                    // Floating overdue badge (prominent, like CẦN DUYỆT)
+                    const overdueBadge = isOverdue ? '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_kbPulse 2s infinite;border:1px solid #fca5a5;">🔥 QUÁ HẠN</span>' : '';
+
                     // Action button — uses chain color
                     let actionBtn = '';
                     if (!isCompleted && !isPending) {
@@ -1432,6 +1469,7 @@ function _kbRenderGrid() {
                     }
 
                     html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid ${cc.border};border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;position:relative;">
+                        ${overdueBadge}
                         ${item.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
                         <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">🔗 ${item.task_name}</div>
                         <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${Number(chain.total_items)||0})</div>
@@ -1617,6 +1655,7 @@ async function _kbShowTaskDetail(templateId) {
                     <span style="margin-left:auto;font-size:14px;">→</span>
                 </a>
             </div>` : ''}
+            <div id="kbTaskDetailSSProgress"></div>
             ${reqList(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
             ${reqList(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
             ${!inputReqs.length && !outputReqs.length ? `
@@ -1626,6 +1665,14 @@ async function _kbShowTaskDetail(templateId) {
         </div>
     </div>`;
     document.body.appendChild(m);
+    // If this is a Tự Tìm Kiếm task, load self-search progress into the detail modal
+    if (/tự\s*tìm\s*kiếm/i.test(task.task_name)) {
+        _kbLoadDetailSelfSearch();
+    }
+    // If this is a Gọi Điện Telesale task, load call progress into the detail modal
+    if (/gọi\s*điện\s*telesale/i.test(task.task_name)) {
+        _kbLoadDetailTelesale();
+    }
 }
 
 // Report modal — full redesign
@@ -3073,14 +3120,23 @@ function _kbFilterCreateDepts() {
     const sysId = Number(document.getElementById('kbNewSysSelect')?.value);
     const deptSel = document.getElementById('kbNewDeptSelect');
     if (!deptSel) return;
-    // Get non-system depts under this system that are NOT already active
-    const childDepts = _kbAllDepts.filter(d => d.parent_id === sysId && !d.name.startsWith('HỆ THỐNG') && !_kbActiveDeptIds.includes(d.id));
-    // Also get sub-teams of those depts
+    // Get ALL non-system depts under this system (both active & inactive parents)
+    const allChildDepts = _kbAllDepts.filter(d => d.parent_id === sysId && !d.name.startsWith('HỆ THỐNG'));
+    allChildDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     let opts = '';
-    childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).forEach(d => {
-        opts += `<option value="${d.id}">${d.name}</option>`;
+    allChildDepts.forEach(d => {
+        const parentIsActive = _kbActiveDeptIds.includes(d.id);
         const subTeams = _kbAllDepts.filter(sub => sub.parent_id === d.id && !_kbActiveDeptIds.includes(sub.id));
-        subTeams.forEach(sub => { opts += `<option value="${sub.id}">  └ ${sub.name}</option>`; });
+        if (!parentIsActive) {
+            // Parent chưa active → cho chọn parent + sub-teams
+            opts += `<option value="${d.id}">🏢 ${d.name}</option>`;
+            subTeams.forEach(sub => { opts += `<option value="${sub.id}">  └ ${sub.name}</option>`; });
+        } else if (subTeams.length > 0) {
+            // Parent đã active nhưng còn sub-teams chưa active → hiện group header
+            opts += `<optgroup label="🏢 ${d.name}">`;
+            subTeams.forEach(sub => { opts += `<option value="${sub.id}">${sub.name}</option>`; });
+            opts += `</optgroup>`;
+        }
     });
     deptSel.innerHTML = opts || '<option value="">Tất cả phòng đã được thêm</option>';
     _kbLoadCreateUsers();
@@ -3351,4 +3407,134 @@ function _kbShowLockReport(compId) {
 
     footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
     overlay.classList.add('show');
+}
+
+// ========== SELF-SEARCH PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectSelfSearchStats() {
+    const placeholders = document.querySelectorAll('[data-ss-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-ss-date');
+        try {
+            const res = await apiCall(`/api/telesale/self-search-stats/${uid}?date=${dateStr}`);
+            const count = res.count || 0;
+            const target = res.target || 20;
+            const pct = Math.min(100, Math.round(count / target * 100));
+            const done = count >= target;
+            const barColor = done ? '#059669' : '#6366f1';
+            const statusLabel = done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#6366f1;font-weight:700;">🔍 ${count}/${target}</span>`;
+            el.innerHTML = `
+                <div style="margin-top:4px;">
+                    <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
+                    <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                        <div style="background:${barColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+                    </div>
+                </div>`;
+        } catch(e) {}
+    }
+}
+
+async function _kbLoadDetailSelfSearch() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/telesale/self-search-stats/${uid}?date=${todayStr}`);
+        const count = res.count || 0;
+        const target = res.target || 20;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #a5b4fc;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tiến trình Tự Tìm Kiếm hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#6366f1'};">${count}/${target} KH — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#c7d2fe;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a78bfa);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();setTimeout(()=>{if(typeof _gd_activeCrmTab!=='undefined'){_gd_activeCrmTab='tu_tim_kiem';if(_gd_selectedUserId)_gd_loadCallsForUser(_gd_selectedUserId);}},500);" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(99,102,241,0.3)'">
+                    📞 Mở CRM Tự Tìm Kiếm →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== TELESALE CALL PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectTelesaleStats() {
+    const placeholders = document.querySelectorAll('[data-ts-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    // Only need 1 API call per date since all telesale cards share the same total
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-ts-date');
+        if (datesCalled[dateStr]) {
+            // Reuse cached result
+            _kbRenderTelesaleMini(el, datesCalled[dateStr]);
+            continue;
+        }
+        try {
+            const res = await apiCall(`/api/telesale/call-progress/${uid}?date=${dateStr}`);
+            datesCalled[dateStr] = res;
+            _kbRenderTelesaleMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderTelesaleMini(el, res) {
+    const count = res.answered || 0;
+    const target = res.target || 100;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    const barColor = done ? '#059669' : '#059669';
+    const statusLabel = done
+        ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#059669;font-weight:700;">📞 ${count}/${target}</span>`;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:${barColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailTelesale() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/telesale/call-progress/${uid}?date=${todayStr}`);
+        const count = res.answered || 0;
+        const target = res.target || 100;
+        const totalPts = res.total_points || 50;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#065f46;">📞 Tiến trình Gọi Điện hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#065f46'};">${count}/${target} bắt máy — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#a7f3d0;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#059669,#10b981);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(5,150,105,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(5,150,105,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(5,150,105,0.3)'">
+                    📞 Mở Gọi Điện Telesale →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
 }

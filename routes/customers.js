@@ -103,7 +103,7 @@ async function customersRoutes(fastify, options) {
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
-        const crmLabels = { nhu_cau: 'CRM Nhu Cầu', ctv_hoa_hong: 'CRM CTV/Hoa Hồng', nuoi_duong: 'CRM Nuôi Dưỡng', kinh_doanh: 'CRM Kinh Doanh' };
+        const crmLabels = { nhu_cau: 'CRM Nhu Cầu', ctv_hoa_hong: 'CRM CTV/Hoa Hồng', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', kinh_doanh: 'CRM Kinh Doanh' };
 
         const tgMessage = `📱 <b>${code}</b> : ${customer_name} - ${phone} - ${crmLabels[crm_type] || crm_type} - ${sourceName || 'N/A'} - ${receiverUser?.full_name || 'N/A'} - ${promoName || 'N/A'} - ${industryName || 'N/A'}`;
         const targetIds = [];
@@ -148,7 +148,7 @@ async function customersRoutes(fastify, options) {
 
         if (crm_type) {
             if (crm_type === 'ctv') { query += ` AND c.crm_type IN ('ctv','ctv_hoa_hong')`; }
-            else if (crm_type === 'sinh_vien') { query += ` AND c.crm_type IN ('sinh_vien','kinh_doanh')`; }
+            else if (crm_type === 'goi_ban_hang') { query += ` AND c.crm_type IN ('goi_ban_hang','kinh_doanh')`; }
             else { query += ` AND c.crm_type = ?`; params.push(crm_type); }
         }
         if (order_status) { query += ` AND c.order_status = ?`; params.push(order_status); }

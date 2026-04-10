@@ -127,6 +127,12 @@ async function start() {
     // Start deadline checker cron (mỗi 15 phút)
     const { startDeadlineChecker } = require('./routes/deadline-checker');
     startDeadlineChecker();
+
+    // Sync telesale active members from task templates at startup
+    const taskPointRoutes = require('./routes/taskpoints');
+    if (taskPointRoutes._syncTelesaleFromTemplates) {
+        taskPointRoutes._syncTelesaleFromTemplates().catch(e => console.error('[Startup] Telesale sync error:', e.message));
+    }
 }
 
 start().catch(err => {

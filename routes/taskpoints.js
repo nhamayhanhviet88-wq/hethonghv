@@ -2,6 +2,120 @@ const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
+const RE_TELESALE = /gọi\s*điện\s*telesale/i;
+const RE_TU_TIM_KIEM = /tự\s*tìm\s*kiếm/i;
+
+/**
+ * Sync telesale_active_members based on task_point_templates.
+ * - "Gọi Điện Telesale" → add goi_hop_tac + goi_ban_hang (user gets pumped)
+ * - "Tự Tìm Kiếm" → add tu_tim_kiem (user appears in sidebar but NOT pumped)
+ * - If template is removed → deactivate corresponding entries
+ *
+ * This is a FULL sync: scan ALL templates and rebuild active members.
+ * Called after any template mutation.
+ */
+async function _syncTelesaleFromTemplates() {
+    try {
+        // 1. Get ALL team templates matching our patterns
+        const allTemplates = await db.all(
+            `SELECT DISTINCT t.target_type, t.target_id, t.task_name
+             FROM task_point_templates t
+             WHERE t.week_only IS NULL`
+        );
+
+        // 2. Find which target_ids have telesale/tu-tim-kiem tasks
+        const teamTelesale = new Set(); // team IDs with "Gọi Điện Telesale"
+        const teamTuTim = new Set();    // team IDs with "Tự Tìm Kiếm"
+        const indivTelesale = new Set(); // individual user IDs with "Gọi Điện Telesale"
+        const indivTuTim = new Set();    // individual user IDs with "Tự Tìm Kiếm"
+
+        for (const t of allTemplates) {
+            if (t.target_type === 'team') {
+                if (RE_TELESALE.test(t.task_name)) teamTelesale.add(t.target_id);
+                if (RE_TU_TIM_KIEM.test(t.task_name)) teamTuTim.add(t.target_id);
+            } else if (t.target_type === 'individual') {
+                if (RE_TELESALE.test(t.task_name)) indivTelesale.add(t.target_id);
+                if (RE_TU_TIM_KIEM.test(t.task_name)) indivTuTim.add(t.target_id);
+            }
+        }
+
+        // 3. Resolve team → user IDs (active users in each department)
+        const userTelesale = new Set(indivTelesale); // start with individual overrides
+        const userTuTim = new Set(indivTuTim);
+
+        if (teamTelesale.size > 0) {
+            const ids = [...teamTelesale];
+            const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+            const users = await db.all(
+                `SELECT id FROM users WHERE department_id IN (${ph}) AND status = 'active' AND role NOT IN ('giam_doc','quan_ly_cap_cao')`, ids
+            );
+            users.forEach(u => userTelesale.add(u.id));
+        }
+        if (teamTuTim.size > 0) {
+            const ids = [...teamTuTim];
+            const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+            const users = await db.all(
+                `SELECT id FROM users WHERE department_id IN (${ph}) AND status = 'active' AND role NOT IN ('giam_doc','quan_ly_cap_cao')`, ids
+            );
+            users.forEach(u => userTuTim.add(u.id));
+        }
+
+        // Also check exemptions — if a user is permanently exempted from a telesale/tu_tim_kiem task, exclude them
+        const exemptions = await db.all(
+            `SELECT e.user_id, t.task_name FROM task_exemptions e
+             JOIN task_point_templates t ON t.id = e.template_id
+             WHERE e.exempt_type = 'permanent'`
+        );
+        for (const ex of exemptions) {
+            if (RE_TELESALE.test(ex.task_name)) userTelesale.delete(ex.user_id);
+            if (RE_TU_TIM_KIEM.test(ex.task_name)) userTuTim.delete(ex.user_id);
+        }
+
+        // 4. Sync telesale_active_members
+        // For users with Gọi Điện Telesale: ensure goi_hop_tac + goi_ban_hang
+        for (const uid of userTelesale) {
+            for (const crm of ['goi_hop_tac', 'goi_ban_hang']) {
+                const existing = await db.get('SELECT id, is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2', [uid, crm]);
+                if (existing) {
+                    if (!existing.is_active) await db.run('UPDATE telesale_active_members SET is_active = true WHERE id = $1', [existing.id]);
+                } else {
+                    await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES ($1,$2,NULL)', [uid, crm]);
+                }
+            }
+        }
+        // For users with Tự Tìm Kiếm: ensure tu_tim_kiem
+        for (const uid of userTuTim) {
+            const existing = await db.get('SELECT id, is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2', [uid, 'tu_tim_kiem']);
+            if (existing) {
+                if (!existing.is_active) await db.run('UPDATE telesale_active_members SET is_active = true WHERE id = $1', [existing.id]);
+            } else {
+                await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES ($1,$2,NULL)', [uid, 'tu_tim_kiem']);
+            }
+        }
+
+        // 5. Deactivate users who no longer have matching templates
+        const allActive = await db.all('SELECT id, user_id, crm_type FROM telesale_active_members WHERE is_active = true');
+        for (const m of allActive) {
+            let shouldBeActive = false;
+            if (m.crm_type === 'goi_hop_tac' || m.crm_type === 'goi_ban_hang') {
+                shouldBeActive = userTelesale.has(m.user_id);
+            } else if (m.crm_type === 'tu_tim_kiem') {
+                shouldBeActive = userTuTim.has(m.user_id);
+            }
+            if (!shouldBeActive) {
+                await db.run('UPDATE telesale_active_members SET is_active = false WHERE id = $1', [m.id]);
+            }
+        }
+
+        console.log(`[Telesale Sync] Gọi Điện: ${userTelesale.size} users, Tự Tìm Kiếm: ${userTuTim.size} users`);
+    } catch (err) {
+        console.error('[Telesale Sync] Error:', err.message);
+    }
+}
+
+// Export for use from other modules (e.g. startup)
+module.exports._syncTelesaleFromTemplates = _syncTelesaleFromTemplates;
+
 async function taskPointRoutes(fastify, options) {
 
     // Ensure active teams registry table exists
@@ -129,6 +243,8 @@ async function taskPointRoutes(fastify, options) {
         );
         // Log change
         try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['add', task_name, target_type, Number(target_id), request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}
+        // Auto-sync telesale active members
+        if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name)) _syncTelesaleFromTemplates();
         return { success: true, id: result.lastInsertRowid };
     });
 
@@ -149,6 +265,8 @@ async function taskPointRoutes(fastify, options) {
         );
         // Log change
         try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['edit', task_name || (oldTask && oldTask.task_name), oldTask?.target_type, oldTask?.target_id, request.user.id, request.user.full_name || request.user.username, JSON.stringify({points, day_of_week, time_start, time_end})]); } catch(e) {}
+        // Auto-sync telesale if task name changed to/from telesale patterns
+        if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name) || (oldTask && (RE_TELESALE.test(oldTask.task_name) || RE_TU_TIM_KIEM.test(oldTask.task_name)))) _syncTelesaleFromTemplates();
         return { success: true };
     });
 
@@ -159,10 +277,125 @@ async function taskPointRoutes(fastify, options) {
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa CV cố định' });
         }
+        // Snapshot today before deleting (preserve history)
+        if (existing) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDow = new Date(todayStr).getDay() || 7;
+            if (existing.day_of_week === todayDow) {
+                try {
+                    await db.run(
+                        `INSERT INTO task_point_snapshots (snapshot_date, target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, template_id)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ON CONFLICT DO NOTHING`,
+                        [todayStr, existing.target_type, existing.target_id, existing.day_of_week, existing.task_name, existing.points || 0, existing.min_quantity || 1, existing.time_start, existing.time_end, existing.guide_url, existing.sort_order || 0, existing.requires_approval || false, existing.id]
+                    );
+                } catch(e) { /* duplicate, skip */ }
+            }
+        }
+        await db.run('UPDATE task_support_requests SET template_id = NULL WHERE template_id = ?', [Number(request.params.id)]);
         await db.run('DELETE FROM task_point_templates WHERE id = ?', [Number(request.params.id)]);
         // Log change
         if (existing) { try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['delete', existing.task_name, existing.target_type, existing.target_id, request.user.id, request.user.full_name || request.user.username, JSON.stringify({points: existing.points, day_of_week: existing.day_of_week})]); } catch(e) {} }
+        // Auto-sync telesale if deleted task was telesale/tu-tim-kiem
+        if (existing && (RE_TELESALE.test(existing.task_name) || RE_TU_TIM_KIEM.test(existing.task_name))) _syncTelesaleFromTemplates();
         return { success: true };
+    });
+
+    // DELETE ALL instances of a task by task_name + target
+    fastify.post('/api/task-points/delete-all-by-name', { preHandler: [authenticate] }, async (request, reply) => {
+        const { task_name, target_type, target_id, time_start, time_end } = request.body || {};
+        if (!task_name || !target_type || !target_id) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+        try {
+            // Build query with optional time_start/time_end filter
+            let whereClause = 'task_name = ? AND target_type = ? AND target_id = ?';
+            let params = [task_name, target_type, Number(target_id)];
+            if (time_start && time_end) {
+                whereClause += ' AND time_start = ? AND time_end = ?';
+                params.push(time_start, time_end);
+            }
+
+            // Only giam_doc can delete fixed tasks
+            const sample = await db.get(`SELECT week_only FROM task_point_templates WHERE ${whereClause}`, params);
+            if (sample && !sample.week_only && request.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa CV cố định' });
+            }
+            // Get all templates to delete
+            const toDelete = await db.all(`SELECT * FROM task_point_templates WHERE ${whereClause}`, params);
+            if (toDelete.length === 0) {
+                return { success: true, deleted: 0 };
+            }
+
+            // Snapshot today's tasks before deleting (preserve history)
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDow = new Date(todayStr).getDay() || 7; // 1=Mon..7=Sun
+            for (const t of toDelete) {
+                if (t.day_of_week === todayDow) {
+                    try {
+                        await db.run(
+                            `INSERT INTO task_point_snapshots (snapshot_date, target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, template_id)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             ON CONFLICT DO NOTHING`,
+                            [todayStr, t.target_type, t.target_id, t.day_of_week, t.task_name, t.points || 0, t.min_quantity || 1, t.time_start, t.time_end, t.guide_url, t.sort_order || 0, t.requires_approval || false, t.id]
+                        );
+                    } catch(e) { /* duplicate, skip */ }
+                }
+            }
+
+            // Nullify FK references in task_support_requests
+            const ids = toDelete.map(r => r.id);
+            const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+            await db.run(`UPDATE task_support_requests SET template_id = NULL WHERE template_id IN (${ph})`, ids);
+            // Delete the templates (snapshots for past days remain untouched)
+            const result = await db.run(`DELETE FROM task_point_templates WHERE id IN (${ph})`, ids);
+            console.log(`[delete-all-by-name] deleted ${result.changes} rows of "${task_name}" ${time_start||''}—${time_end||''} (${target_type}/${target_id})`);
+            // Log change
+            try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['delete_all', task_name, target_type, Number(target_id), request.user.id, request.user.full_name || request.user.username, JSON.stringify({deleted_count: result.changes || 0})]); } catch(e) {}
+            // Auto-sync telesale
+            if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name)) _syncTelesaleFromTemplates();
+            return { success: true, deleted: result.changes || 0 };
+        } catch(err) {
+            console.error('[delete-all-by-name] ERROR:', err.message);
+            return reply.code(500).send({ error: err.message });
+        }
+    });
+
+    // UPDATE ALL instances of a task by old name + target (apply edits to all days)
+    fastify.put('/api/task-points/update-all-by-name', { preHandler: [authenticate] }, async (request, reply) => {
+        const { old_task_name, old_time_start, old_time_end, target_type, target_id,
+                task_name, points, min_quantity, time_start, time_end, guide_url,
+                requires_approval, max_redo_count, input_requirements, output_requirements } = request.body || {};
+        if (!old_task_name || !target_type || !target_id) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+        try {
+            let whereClause = 'task_name = ? AND target_type = ? AND target_id = ?';
+            let params = [old_task_name, target_type, Number(target_id)];
+            if (old_time_start && old_time_end) {
+                whereClause += ' AND time_start = ? AND time_end = ?';
+                params.push(old_time_start, old_time_end);
+            }
+
+            // Permission check
+            const sample = await db.get(`SELECT week_only FROM task_point_templates WHERE ${whereClause}`, params);
+            if (sample && !sample.week_only && request.user.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
+            }
+
+            const result = await db.run(
+                `UPDATE task_point_templates SET task_name=?, points=?, min_quantity=?, time_start=?, time_end=?, guide_url=?, requires_approval=?, max_redo_count=?, input_requirements=?, output_requirements=?, updated_at=NOW() WHERE ${whereClause}`,
+                [task_name, Number(points) || 0, Number(min_quantity) || 1, time_start, time_end, guide_url || null, requires_approval ? true : false, Number(max_redo_count) || 3, JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), ...params]
+            );
+            console.log(`[update-all-by-name] updated ${result.changes} rows of "${old_task_name}" → "${task_name}" ${time_start}—${time_end} (${target_type}/${target_id})`);
+            try { await db.run('INSERT INTO task_change_log (action, task_name, target_type, target_id, changed_by, changed_by_name, details) VALUES ($1,$2,$3,$4,$5,$6,$7)', ['edit_all', task_name, target_type, Number(target_id), request.user.id, request.user.full_name || request.user.username, JSON.stringify({updated_count: result.changes || 0})]); } catch(e) {}
+            // Auto-sync telesale if task name matches
+            if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name) || RE_TELESALE.test(old_task_name) || RE_TU_TIM_KIEM.test(old_task_name)) _syncTelesaleFromTemplates();
+            return { success: true, updated: result.changes || 0 };
+        } catch(err) {
+            console.error('[update-all-by-name] ERROR:', err.message);
+            return reply.code(500).send({ error: err.message });
+        }
     });
 
     // COPY team template to individual
@@ -182,6 +415,9 @@ async function taskPointRoutes(fastify, options) {
                 [Number(user_id), t.day_of_week, t.task_name, t.points, t.min_quantity, t.time_start, t.time_end, t.guide_url, t.sort_order, t.requires_approval || false, request.user.id]
             );
         }
+        // Auto-sync telesale after copying team templates to individual
+        const hasTSTask = teamTasks.some(t => RE_TELESALE.test(t.task_name) || RE_TU_TIM_KIEM.test(t.task_name));
+        if (hasTSTask) _syncTelesaleFromTemplates();
         return { success: true, copied: teamTasks.length };
     });
 
@@ -333,6 +569,8 @@ async function taskPointRoutes(fastify, options) {
             );
         }
 
+        // Auto-sync telesale if library task matches patterns
+        if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name) || (existing && (RE_TELESALE.test(existing.task_name) || RE_TU_TIM_KIEM.test(existing.task_name)))) _syncTelesaleFromTemplates();
         return { success: true };
     });
 
@@ -424,6 +662,8 @@ async function taskPointRoutes(fastify, options) {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [task.target_type, task.target_id, task.task_name, task.points, task.min_quantity, new_time_start, new_time_end, new_day, task.guide_url, task.sort_order, task.requires_approval, task.week_only, task.input_requirements, task.output_requirements]
             );
+            // Auto-sync telesale if cloned task matches
+            if (RE_TELESALE.test(task.task_name) || RE_TU_TIM_KIEM.test(task.task_name)) _syncTelesaleFromTemplates();
             return { ok: true, message: `Đã nhân bản "${task.task_name}" sang ${DAY_NAMES[new_day] || 'ngày ' + new_day}` };
         } else {
             // Move: update existing
@@ -476,6 +716,9 @@ async function taskPointRoutes(fastify, options) {
             cloned++;
         }
 
+        // Auto-sync telesale after cloning
+        const hasMatchingTask = sourceTasks.some(t => RE_TELESALE.test(t.task_name) || RE_TU_TIM_KIEM.test(t.task_name));
+        if (hasMatchingTask) _syncTelesaleFromTemplates();
         return { ok: true, message: `Đã clone ${cloned} công việc từ team nguồn`, cloned };
     });
 
@@ -517,6 +760,8 @@ async function taskPointRoutes(fastify, options) {
             [user_id, template_id, exempt_type, week_start || null, request.user.id]
         );
 
+        // Auto-sync telesale if exempting from a telesale/tu-tim-kiem task
+        if (exempt_type === 'permanent' && (RE_TELESALE.test(tpl.task_name) || RE_TU_TIM_KIEM.test(tpl.task_name))) _syncTelesaleFromTemplates();
         return { ok: true, message: exempt_type === 'permanent' ? 'Đã xóa vĩnh viễn cho nhân viên này' : 'Đã bỏ qua tuần này cho nhân viên' };
     });
 
@@ -528,6 +773,9 @@ async function taskPointRoutes(fastify, options) {
             return reply.code(404).send({ error: 'Không tìm thấy miễn trừ' });
         }
         await db.run('DELETE FROM task_exemptions WHERE id = ?', [id]);
+        // Auto-sync telesale if restoring a telesale/tu-tim-kiem task
+        const tpl = await db.get('SELECT task_name FROM task_point_templates WHERE id = $1', [exemption.template_id]);
+        if (tpl && (RE_TELESALE.test(tpl.task_name) || RE_TU_TIM_KIEM.test(tpl.task_name))) _syncTelesaleFromTemplates();
         return { ok: true, message: 'Đã khôi phục CV cho nhân viên' };
     });
 
@@ -679,3 +927,4 @@ async function taskPointRoutes(fastify, options) {
 }
 
 module.exports = taskPointRoutes;
+taskPointRoutes._syncTelesaleFromTemplates = _syncTelesaleFromTemplates;

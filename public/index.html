@@ -196,6 +196,9 @@
 
                 if (ackData.success) {
                     document.getElementById('penaltyLoginPopup')?.remove();
+                    // Mark penalty popup as already shown today so dashboard won't show it again
+                    const todayKey = 'penaltyPopupShown_' + new Date().toISOString().split('T')[0];
+                    sessionStorage.setItem(todayKey, '1');
                     // Re-submit login
                     document.getElementById('loginForm').dispatchEvent(new Event('submit'));
                 } else {

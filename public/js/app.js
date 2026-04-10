@@ -42,9 +42,9 @@ const MENU_CONFIG = [
     { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
-    { id: 'crm-hoa-hong', label: 'CRM Tự Tìm Kiếm', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-nuoi-duong', label: 'CRM Gọi Điện Hợp Tác', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-sinh-vien', label: 'CRM Gọi Điện Bán Hàng', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-tu-tim-kiem', label: 'CRM Tự Tìm Kiếm', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-goi-hop-tac', label: 'CRM Gọi Điện Hợp Tác', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'crm-goi-ban-hang', label: 'CRM Gọi Điện Bán Hàng', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
     { id: 'crm-koc-tiktok', label: 'CRM KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
     { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/affiliate' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
@@ -65,7 +65,7 @@ const MENU_CONFIG = [
     // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
     { id: 'teams', label: 'Cơ Cấu Tổ Chức', icon: '🏢', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
     { id: 'permissions', label: 'Phân Quyền', icon: '🔐', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV' },
-    { id: 'khoa-tk-nv', label: 'Phạt Khóa TK NV', icon: '🔒', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/khoatknv' },
+    { id: 'khoa-tk-nv', label: 'Nhân Viên Bị Phạt Tiền', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/khoatknv' },
     { id: 'xin-nghi-nv', label: 'Xin Nghỉ NV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/xinnghinhanvien' },
     { id: 'setup-ngay-le', label: 'Setup Ngày Lễ', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/setupngayle' },
     { id: 'settings', label: 'Cài Đặt Phân Tầng', icon: '⚙️', roles: ['giam_doc'], section: 'HỆ THỐNG' },
@@ -75,6 +75,7 @@ const MENU_CONFIG = [
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu' },
+    { id: 'congvieckhoaxuly', label: 'CV Phạt Phải Xử Lý', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/congvieckhoaxuly' },
     { id: 'lich-su-bao-cao', label: 'Lịch Sử Báo Cáo CV', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichsubaocaocv' },
     { id: 'bangiao-diem-kd', label: 'Bàn Giao CV Điểm', icon: '🏪', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaodiem' },
     { id: 'bangiao-khoa', label: 'Bàn Giao CV Khóa - Chuỗi', icon: '🔐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/bangiaokhoa' },
@@ -89,9 +90,9 @@ const MENU_PERM_MAP = {
     'dashboard': 'tong_quan',
     'crm-nhu-cau': 'crm_nhu_cau',
     'crm-ctv': 'crm_ctv',
-    'crm-hoa-hong': 'crm_hoa_hong',
-    'crm-nuoi-duong': 'crm_nuoi_duong',
-    'crm-sinh-vien': 'crm_sinh_vien',
+    'crm-tu-tim-kiem': 'crm_tu_tim_kiem',
+    'crm-goi-hop-tac': 'crm_goi_hop_tac',
+    'crm-goi-ban-hang': 'crm_goi_ban_hang',
     'affiliate-hv': 'affiliate_hv',
     'huy-khach': 'huy_khach',
     'accounts': 'nhan_vien',
@@ -141,20 +142,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(emPopupCheck, 60000);
     }
 
-    // Check if user has unacknowledged penalties → show lock popup (once per day)
+    // Check if user has unacknowledged penalties → show lock popup (once per day, server-tracked)
     if (currentUser && ['quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'part_time'].includes(currentUser.role)) {
-        const penaltyDateKey = 'penaltyPopupShown_' + new Date().toISOString().split('T')[0];
-        if (!sessionStorage.getItem(penaltyDateKey)) {
-            setTimeout(async () => {
-                try {
-                    const data = await apiCall('/api/penalty/my-pending');
-                    if (data.pending && data.pending.length > 0) {
-                        sessionStorage.setItem(penaltyDateKey, '1');
-                        _showPenaltyLockPopup(data.pending, data.total);
-                    }
-                } catch(e) {}
-            }, 1500);
-        }
+        setTimeout(async () => {
+            try {
+                const data = await apiCall('/api/penalty/my-pending');
+                if (data.pending && data.pending.length > 0) {
+                    _showPenaltyLockPopup(data.pending, data.total);
+                }
+            } catch(e) {}
+        }, 1500);
+    }
+
+    // Manager penalty popup — show team penalties (once per day, server-tracked)
+    if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
+        setTimeout(async () => {
+            try {
+                const data = await apiCall('/api/penalty/team-today');
+                if (data.penalties && data.penalties.length > 0) {
+                    _showMgrPenaltyPopup(data.penalties, data.total, data.departments);
+                }
+            } catch(e) {}
+        }, 3000);
     }
 
     // Cancel popup checker for NV (9:30, 15:00)
@@ -907,9 +916,9 @@ async function handleRoute() {
         case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
         case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
         case 'crm-ctv': renderCRMPage(content, 'ctv'); break;
-        case 'crm-hoa-hong': renderCRMPage(content, 'hoa_hong_crm'); break;
-        case 'crm-nuoi-duong': renderCRMPage(content, 'nuoi_duong'); break;
-        case 'crm-sinh-vien': renderCRMPage(content, 'sinh_vien'); break;
+        case 'crm-tu-tim-kiem': renderCRMPage(content, 'tu_tim_kiem'); break;
+        case 'crm-goi-hop-tac': renderCRMPage(content, 'goi_hop_tac'); break;
+        case 'crm-goi-ban-hang': renderCRMPage(content, 'goi_ban_hang'); break;
         case 'cap-cuu-sep': renderEmergencyPage(content); break;
         case 'huy-khach': renderCancelPage(content); break;
         case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
@@ -927,6 +936,7 @@ async function handleRoute() {
         case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
         case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
         case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
+        case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
         case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
         case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
         case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
@@ -968,6 +978,12 @@ function _setBadge(menuText, count) {
 }
 
 async function _globalRefreshBadges() {
+    // Badge phạt cho TẤT CẢ users
+    try {
+        const penaltyRes = await apiCall('/api/penalty-tasks/count').catch(() => ({ count: 0 }));
+        _setBadge('CV Phạt Phải Xử Lý', penaltyRes.count || 0);
+    } catch(e) {}
+
     const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
     if (!isManager) return;
     try {
@@ -1486,3 +1502,173 @@ if (document.readyState === 'loading') {
     _numFmtObserver.observe(document.body, { childList: true, subtree: true });
 }
 
+// ========== MANAGER PENALTY POPUP ==========
+function _showMgrPenaltyPopup(penalties, total, departments) {
+    if (document.getElementById('mgrPenaltyPopupOverlay')) return;
+    const ROLE_LABEL = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
+    const ROLE_COLOR = { giam_doc: '#7c3aed', quan_ly_cap_cao: '#2563eb', quan_ly: '#0891b2', truong_phong: '#d97706', nhan_vien: '#6b7280', part_time: '#9ca3af' };
+    const SOURCE_COLOR = { 'CV Khóa': '#dc2626', 'CV Chuỗi': '#7c3aed', 'CV Điểm': '#2563eb', 'Hỗ trợ NV': '#d97706' };
+    const todayLabel = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // Group penalties by user
+    const userMap = {};
+    penalties.forEach(p => {
+        const uid = p.penalized_user_id;
+        if (!userMap[uid]) userMap[uid] = { name: p.penalized_name, username: p.penalized_username, role: p.penalized_role, dept_id: p.penalized_dept_id, items: [], total: 0 };
+        userMap[uid].items.push(p);
+        userMap[uid].total += (p.penalty_amount || 0);
+    });
+    const userCount = Object.keys(userMap).length;
+
+    // Build dept tree
+    const deptMap = {};
+    (departments || []).forEach(d => { deptMap[d.id] = { ...d, children: [] }; });
+    const roots = [];
+    Object.values(deptMap).forEach(d => {
+        if (d.parent_id && deptMap[d.parent_id]) deptMap[d.parent_id].children.push(d);
+        else roots.push(d);
+    });
+
+    // Get users in a dept (direct, not children)
+    function getDeptUsers(deptId) {
+        return Object.entries(userMap).filter(([_, u]) => u.dept_id === deptId).sort((a, b) => {
+            const rp = { giam_doc: 0, quan_ly_cap_cao: 1, quan_ly: 2, truong_phong: 3, nhan_vien: 4, part_time: 5 };
+            return (rp[a[1].role] || 9) - (rp[b[1].role] || 9);
+        });
+    }
+
+    // Get total penalty for dept + children
+    function getDeptTotal(dept) {
+        let sum = getDeptUsers(dept.id).reduce((s, [_, u]) => s + u.total, 0);
+        (dept.children || []).forEach(c => { sum += getDeptTotal(c); });
+        return sum;
+    }
+
+    // Render user row
+    function renderUser(uid, u) {
+        const roleBadge = `<span style="background:${ROLE_COLOR[u.role] || '#6b7280'};color:white;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">${ROLE_LABEL[u.role] || 'NV'}</span>`;
+        let itemsHtml = u.items.map(p => {
+            const srcColor = SOURCE_COLOR[p.source] || '#6b7280';
+            return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;">
+                <span style="background:${srcColor}15;color:${srcColor};padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;border:1px solid ${srcColor}30;">${p.source}</span>
+                <span style="color:#334155;flex:1;">${p.task_name}${p.related_user ? ' <span style="color:#9ca3af;">(' + p.related_user + ')</span>' : ''}</span>
+                <span style="color:#dc2626;font-weight:700;white-space:nowrap;">${(p.penalty_amount || 0).toLocaleString()}đ</span>
+            </div>`;
+        }).join('');
+
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#fafafa;border-radius:8px;margin-bottom:4px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">👤</div>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:12px;color:#1e293b;">${u.name || u.username}</span>
+                    ${roleBadge}
+                    <span style="margin-left:auto;font-weight:800;color:#dc2626;font-size:12px;">${u.total.toLocaleString()}đ</span>
+                </div>
+                <div style="margin-top:4px;">${itemsHtml}</div>
+            </div>
+        </div>`;
+    }
+
+    // Render dept node recursively
+    function renderDept(dept, depth) {
+        const deptTotal = getDeptTotal(dept);
+        if (deptTotal === 0) return '';
+        const users = getDeptUsers(dept.id);
+        const indent = depth * 12;
+        const isTeam = depth >= 2;
+        const bgColor = depth === 0 ? 'linear-gradient(135deg,#122546,#1e3a5f)' : depth === 1 ? 'linear-gradient(135deg,#2563eb,#3b82f6)' : '#f1f5f9';
+        const textColor = depth <= 1 ? 'white' : '#334155';
+        const icon = depth === 0 ? '🏛️' : depth === 1 ? '📁' : '🏷️';
+
+        let html = `<div style="margin-left:${indent}px;margin-bottom:${depth === 0 ? 12 : 6}px;">
+            <div style="background:${bgColor};padding:${depth <= 1 ? '8px 14px' : '6px 12px'};border-radius:${depth <= 1 ? 8 : 6}px;display:flex;align-items:center;justify-content:space-between;${depth >= 2 ? 'border:1px solid #e2e8f0;' : ''}">
+                <span style="color:${textColor};font-weight:${depth <= 1 ? 800 : 700};font-size:${depth <= 1 ? 13 : 11}px;">${icon} ${dept.name}</span>
+                <span style="color:${depth <= 1 ? 'rgba(255,255,255,0.9)' : '#dc2626'};font-weight:800;font-size:${depth <= 1 ? 13 : 11}px;">${deptTotal.toLocaleString()}đ</span>
+            </div>`;
+
+        if (users.length > 0) {
+            html += `<div style="margin-top:4px;margin-left:8px;">`;
+            users.forEach(([uid, u]) => { html += renderUser(uid, u); });
+            html += `</div>`;
+        }
+
+        (dept.children || []).forEach(child => {
+            html += renderDept(child, depth + 1);
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    // Build tree HTML
+    let treeHtml = '';
+    roots.forEach(r => { treeHtml += renderDept(r, 0); });
+
+    // Handle ungrouped users (dept_id not in tree)
+    const groupedDeptIds = new Set();
+    function collectIds(dept) { groupedDeptIds.add(dept.id); (dept.children || []).forEach(collectIds); }
+    roots.forEach(collectIds);
+    const ungrouped = Object.entries(userMap).filter(([_, u]) => !groupedDeptIds.has(u.dept_id));
+    if (ungrouped.length > 0) {
+        treeHtml += `<div style="margin-bottom:6px;"><div style="background:#f1f5f9;padding:6px 12px;border-radius:6px;border:1px solid #e2e8f0;font-weight:700;font-size:11px;color:#64748b;">📋 Khác</div><div style="margin-top:4px;margin-left:8px;">`;
+        ungrouped.forEach(([uid, u]) => { treeHtml += renderUser(uid, u); });
+        treeHtml += '</div></div>';
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'mgrPenaltyPopupOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;animation:mgrPenFadeIn 0.3s;backdrop-filter:blur(4px);';
+    overlay.innerHTML = `
+        <style>
+            @keyframes mgrPenFadeIn { from { opacity:0; } to { opacity:1; } }
+            @keyframes mgrPenSlideUp { from { transform:translateY(30px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+        </style>
+        <div style="background:white;border-radius:16px;width:95%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:mgrPenSlideUp 0.4s;overflow:hidden;">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:20px 24px 24px;position:relative;">
+                <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+                <div style="position:absolute;bottom:-30px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;">⚠️</div>
+                    <div>
+                        <div style="color:white;font-weight:800;font-size:16px;">THÔNG BÁO PHẠT NHÂN SỰ</div>
+                        <div style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:2px;">📅 ${todayLabel}</div>
+                    </div>
+                </div>
+                <div style="margin-top:12px;display:flex;gap:12px;">
+                    <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 14px;flex:1;text-align:center;">
+                        <div style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;">SỐ NHÂN SỰ</div>
+                        <div style="color:white;font-size:20px;font-weight:800;">${userCount}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 14px;flex:1;text-align:center;">
+                        <div style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;">TỔNG PHẠT</div>
+                        <div style="color:#fbbf24;font-size:20px;font-weight:800;">${total.toLocaleString()}đ</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 14px;flex:1;text-align:center;">
+                        <div style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;">VI PHẠM</div>
+                        <div style="color:white;font-size:20px;font-weight:800;">${penalties.length}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div style="flex:1;overflow-y:auto;padding:16px 20px;">
+                <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:10px;">📋 Chi tiết phạt theo phòng ban:</div>
+                ${treeHtml}
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#fafafa;">
+                <div style="font-size:11px;color:#9ca3af;">Popup hiện 1 lần/ngày</div>
+                <button onclick="_mgrPenaltyAcknowledge()" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10b981);color:white;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 3px 10px rgba(5,150,105,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">✅ Đã xem</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _mgrPenaltyAcknowledge() {
+    try { await apiCall('/api/penalty/team-today/acknowledge', 'POST'); } catch(e) {}
+    const el = document.getElementById('mgrPenaltyPopupOverlay');
+    if (el) { el.style.animation = 'mgrPenFadeIn 0.2s reverse'; setTimeout(() => el.remove(), 200); }
+}

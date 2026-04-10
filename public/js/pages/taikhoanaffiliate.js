@@ -17,9 +17,9 @@ async function renderTaiKhoanAffiliatePage(container) {
                     <option value="">Tất cả CRM</option>
                     <option value="nhu_cau">KH Nhu Cầu</option>
                     <option value="ctv">CTV</option>
-                    <option value="hoa_hong_crm">GV / HS / SV</option>
-                    <option value="nuoi_duong">NS/KT/P.Mua Hàng</option>
-                    <option value="sinh_vien">TT/Thời Trang</option>
+                    <option value="tu_tim_kiem">GV / HS / SV</option>
+                    <option value="goi_hop_tac">NS/KT/P.Mua Hàng</option>
+                    <option value="goi_ban_hang">TT/Thời Trang</option>
                     <option value="koc_tiktok">KOC/KOL Tiktok</option>
                 </select>
                 <input type="text" class="form-control" id="affFilterSearch" placeholder="🔍 Tìm tên, SĐT..." oninput="loadAffAccounts()" style="min-width:180px;">
@@ -65,7 +65,7 @@ async function loadAffAccounts() {
     const statusFilter = document.getElementById('affFilterStatus')?.value || '';
     const crmFilter = document.getElementById('affFilterCrm')?.value || '';
     const searchQ = (document.getElementById('affFilterSearch')?.value || '').toLowerCase().trim();
-    const CRM_MAP = {nhu_cau:'KH Nhu Cầu',ctv:'CTV',hoa_hong_crm:'Hoa Hồng',nuoi_duong:'Nuôi Dưỡng',sinh_vien:'Sinh Viên',koc_tiktok:'KOC Tiktok'};
+    const CRM_MAP = {nhu_cau:'KH Nhu Cầu',ctv:'CTV',tu_tim_kiem:'Tự Tìm Kiếm',goi_hop_tac:'GĐ Hợp Tác',goi_ban_hang:'GĐ Bán Hàng',koc_tiktok:'KOC Tiktok'};
     const tbody = document.getElementById('affTableBody');
 
     const data = await apiCall('/api/affiliate/org-tree');
@@ -654,7 +654,7 @@ function affSelectSource(index) {
     document.getElementById('affSourceSearch').value = `${c.customer_name} - ${c.phone || ''}`;
     document.getElementById('affSourceResults').style.display = 'none';
 
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
     document.getElementById('affSourceCrmType').value = c.crm_type || '';
     document.getElementById('affSourceCrmLabel').value = CRM_L[c.crm_type] || c.crm_type || '';
     document.getElementById('affSourceJobTitle').value = c.job || '';

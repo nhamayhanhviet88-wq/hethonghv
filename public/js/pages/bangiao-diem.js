@@ -217,7 +217,7 @@ async function renderBanGiaoDiemPage(container) {
             _tpSelectDept(activeDepts[0].id);
         }
         // Auto-snapshot today's tasks (idempotent)
-        try { apiCall('/api/task-points/snapshot-today', { method: 'POST' }); } catch(e) {}
+        try { apiCall('/api/task-points/snapshot-today', 'POST'); } catch(e) {}
     }
 }
 
@@ -226,8 +226,30 @@ function _tpShowCreateDeptModal() {
     const modal = document.createElement('div');
     modal.id = 'tpCreateDeptModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    // Build options: inactive depts
-    const inactiveOpts = _tpAllDepts.filter(d => !_tpActiveDeptIds.includes(d.id)).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    // Build options: structured by system > dept > team
+    const systemDepts = _tpAllDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+    const nonSystemDepts = _tpAllDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
+    let inactiveOpts = '';
+    systemDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).forEach(sys => {
+        const childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id)
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        let sysInner = '';
+        childDepts.forEach(d => {
+            const parentIsActive = _tpActiveDeptIds.includes(d.id);
+            const subTeams = nonSystemDepts.filter(sub => sub.parent_id === d.id && !_tpActiveDeptIds.includes(sub.id));
+            if (!parentIsActive) {
+                sysInner += `<option value="${d.id}">🏢 ${d.name}</option>`;
+                subTeams.forEach(sub => { sysInner += `<option value="${sub.id}">  └ ${sub.name}</option>`; });
+            } else if (subTeams.length > 0) {
+                sysInner += `<optgroup label="🏢 ${d.name}">`;
+                subTeams.forEach(sub => { sysInner += `<option value="${sub.id}">${sub.name}</option>`; });
+                sysInner += `</optgroup>`;
+            }
+        });
+        if (sysInner) {
+            inactiveOpts += `<optgroup label="🏛️ ${sys.name}">${sysInner}</optgroup>`;
+        }
+    });
     modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -237,7 +259,7 @@ function _tpShowCreateDeptModal() {
         <div style="margin-bottom:14px;">
             <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="tpNewDeptSelect" onchange="_tpLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${inactiveOpts ? `<optgroup label="➕ Phòng chưa có lịch">${inactiveOpts}</optgroup>` : ''}
+                ${inactiveOpts || '<option value="">Tất cả phòng đã được thêm</option>'}
             </select>
         </div>
         <div style="margin-bottom:6px;">
@@ -516,6 +538,48 @@ async function _tpLoadTasks() {
         }
     } catch(e) { _tpTasks = []; }
 
+    // Merge snapshots for past days of this week (preserve deleted task history)
+    try {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const monDate = new Date(_tpCurrentWeekStart);
+        // Only load snapshots if this week has past days
+        if (monDate < today) {
+            const sunDate = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
+            const endDate = sunDate < today ? sunDate : new Date(today.getTime() - 86400000); // yesterday or sunDate
+            const startStr = _tpDateStr(monDate);
+            const endStr = _tpDateStr(endDate);
+            const targetType = _tpViewMode === 'individual' ? 'individual' : (_tpTarget.type || 'team');
+            const targetId = _tpViewMode === 'individual' ? _tpViewUserId : _tpTarget.id;
+            const snapData = await apiCall(`/api/task-points/month-data?target_type=${targetType}&target_id=${targetId}&month=${weekStr.substring(0,7)}`);
+            if (snapData && snapData.dayData) {
+                // For each past day in this week, if templates don't cover it, use snapshots
+                let cursor = new Date(monDate);
+                while (cursor < today && cursor <= sunDate) {
+                    const dateStr = _tpDateStr(cursor);
+                    const dow = cursor.getDay() || 7; // 1=Mon..7=Sun
+                    const snaps = snapData.dayData[dateStr] || [];
+                    if (snaps.length > 0) {
+                        // Check if templates already have this day covered
+                        const hasTemplate = _tpTasks.some(t => t.day_of_week === dow && !t._fromSnapshot);
+                        if (!hasTemplate) {
+                            // Add snapshots as read-only tasks
+                            snaps.forEach(s => {
+                                _tpTasks.push({
+                                    ...s,
+                                    id: s.template_id || s.id,
+                                    day_of_week: dow,
+                                    _fromSnapshot: true,
+                                    _readOnly: true
+                                });
+                            });
+                        }
+                    }
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+            }
+        }
+    } catch(e) { console.warn('Snapshot merge error:', e); }
+
     // Load holidays
     try {
         const h = await apiCall(`/api/holidays/week?date=${weekStr}`);
@@ -569,14 +633,29 @@ function _tpRenderGrid() {
     const uniqueNames = [...new Set(_tpTasks.map(t => t.task_name))];
     uniqueNames.forEach(name => _tpGetTaskColor(name));
 
-    // Group tasks by day
+    // Group tasks by day (past days: only snapshots; today+future: templates)
+    const _gridToday = new Date(); _gridToday.setHours(0,0,0,0);
+    const _gridMonDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
     const byDay = {};
-    for (let d = 1; d <= 7; d++) byDay[d] = [];
-    _tpTasks.forEach(t => { if (byDay[t.day_of_week]) byDay[t.day_of_week].push(t); });
+    for (let d = 1; d <= 7; d++) {
+        const colDate = new Date(_gridMonDate); colDate.setDate(_gridMonDate.getDate() + d - 1); colDate.setHours(0,0,0,0);
+        const isPast = colDate < _gridToday;
+        byDay[d] = _tpTasks.filter(t => {
+            if (t.day_of_week !== d) return false;
+            if (isPast) return !!t._fromSnapshot; // past: only snapshot tasks
+            return !t._fromSnapshot; // today/future: only template tasks
+        });
+    }
 
-    // Collect all unique time slots and sort
+    // Collect all unique time slots and sort (include both template and snapshot tasks)
     const allSlots = new Set();
-    _tpTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
+    _tpTasks.forEach(t => {
+        const colDate = new Date(_gridMonDate); colDate.setDate(_gridMonDate.getDate() + t.day_of_week - 1); colDate.setHours(0,0,0,0);
+        const isPast = colDate < _gridToday;
+        if (isPast && !t._fromSnapshot) return; // skip template tasks for past days
+        if (!isPast && t._fromSnapshot) return; // skip snapshot tasks for future days
+        allSlots.add(t.time_start + '|' + t.time_end);
+    });
     _tpExemptedTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
 
@@ -695,7 +774,7 @@ function _tpRenderGrid() {
                     // Past-day protection: calculate actual date for this column
                     const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1); colDate.setHours(0,0,0,0);
                     const isPast = colDate < today;
-                    const canEdit = !isPast && !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
+                    const canEdit = !isPast && !task._fromSnapshot && !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
                     // Director can delete team tasks from individual view (but not past)
                     const canDeleteTeam = !isPast && isIndivView && isTeamTask && _tpIsDirector;
                     
@@ -896,12 +975,74 @@ function _tpEditTask(taskId) {
 }
 
 async function _tpDeleteTask(taskId) {
-    if (!confirm('Xóa công việc này?')) return;
+    const task = _tpTasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Count how many instances this task_name has in the current view
+    const sameNameCount = _tpTasks.filter(t => t.task_name === task.task_name && t.time_start === task.time_start && t.time_end === task.time_end).length;
+
+    // If only 1 instance, just confirm and delete
+    if (sameNameCount <= 1) {
+        if (!confirm(`Xóa công việc "${task.task_name}"?`)) return;
+        try {
+            await apiCall(`/api/task-points/${taskId}`, 'DELETE');
+            showToast('✅ Đã xóa');
+            _tpLoadTasks();
+        } catch(e) { showToast('Lỗi!', 'error'); }
+        return;
+    }
+
+    // Multiple instances → show modal with 2 choices
+    document.getElementById('tpDeleteChoiceModal')?.remove();
+    const m = document.createElement('div');
+    m.id = 'tpDeleteChoiceModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(3px);';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:0;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;animation:tpSlideUp .25s ease;">
+        <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:18px 24px;color:white;position:relative;">
+            <button onclick="document.getElementById('tpDeleteChoiceModal').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            <div style="font-size:16px;font-weight:800;">🗑️ Xóa công việc</div>
+            <div style="font-size:12px;margin-top:4px;opacity:0.9;">CV: <b>${task.task_name}</b> — Khung giờ: <b>${task.time_start}—${task.time_end}</b> — ${sameNameCount} ngày</div>
+        </div>
+        <div style="padding:20px 24px;">
+            <div style="margin-bottom:12px;font-size:13px;color:#374151;font-weight:600;">Chọn cách xóa:</div>
+            <button onclick="_tpDoDelete('single', ${taskId})" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #d97706;border-radius:10px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#d97706';this.style.color='white'" onmouseout="this.style.background='#fffbeb';this.style.color='#d97706'">
+                📅 Xóa ngày ${DAY_NAMES[task.day_of_week]} này thôi<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Chỉ xóa 1 ô — các ngày khác vẫn giữ</span>
+            </button>
+            <button onclick="_tpDoDelete('all', ${taskId})" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#dc2626';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'">
+                🗑️ Xóa toàn bộ "${task.task_name}" (${task.time_start}—${task.time_end})<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Xóa tất cả ${sameNameCount} ngày cùng khung giờ</span>
+            </button>
+            <button onclick="document.getElementById('tpDeleteChoiceModal').remove()" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _tpDoDelete(mode, taskId) {
+    const task = _tpTasks.find(t => t.id === taskId);
+    if (!task) return;
+    document.getElementById('tpDeleteChoiceModal')?.remove();
+
     try {
-        await apiCall(`/api/task-points/${taskId}`, 'DELETE');
-        showToast('✅ Đã xóa');
+        if (mode === 'single') {
+            await apiCall(`/api/task-points/${taskId}`, 'DELETE');
+            showToast('✅ Đã xóa 1 ngày');
+        } else {
+            // Use target_type and target_id directly from the task record
+            const targetType = task.target_type || (_tpViewMode === 'individual' ? 'individual' : 'team');
+            const targetId = task.target_id || (_tpViewMode === 'individual' ? _tpViewUserId : _tpTarget.id);
+            const r = await apiCall('/api/task-points/delete-all-by-name', 'POST', {
+                task_name: task.task_name,
+                target_type: targetType,
+                target_id: Number(targetId),
+                time_start: task.time_start,
+                time_end: task.time_end
+            });
+            showToast(`✅ Đã xóa toàn bộ "${task.task_name}" (${r.deleted || 0} ngày)`);
+        }
         _tpLoadTasks();
-    } catch(e) { showToast('Lỗi!', 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error'); }
 }
 
 function _tpShowTaskModal(task, dayOfWeek, prefill) {
@@ -915,7 +1056,7 @@ function _tpShowTaskModal(task, dayOfWeek, prefill) {
     const lockStyle = shouldLock ? 'background:#f3f4f6;color:#6b7280;cursor:not-allowed;' : '';
     const lockAttr = shouldLock ? 'readonly tabindex="-1"' : '';
 
-    // Days checkboxes for multi-day add
+    // Days checkboxes for multi-day add (all 7 days selectable — templates are recurring)
     const daysHtml = !isEdit ? `
     <div style="margin-top:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1047,11 +1188,26 @@ async function _tpSaveTask(editId, defaultDay) {
         targetId = _tpViewUserId;
     }
 
+    const savePayload = { task_name, points, min_quantity, time_start, time_end, guide_url, requires_approval, max_redo_count, week_only, input_requirements, output_requirements };
+
     try {
         if (editId) {
-            await apiCall(`/api/task-points/${editId}`, 'PUT', {
-                task_name, points, min_quantity, time_start, time_end, guide_url, day_of_week: defaultDay, sort_order: 0, requires_approval, max_redo_count, week_only, input_requirements, output_requirements
-            });
+            // Check if there are multiple instances of this task
+            const editingTask = _tpTasks.find(t => t.id === editId);
+            const oldName = editingTask ? editingTask.task_name : task_name;
+            const oldTimeStart = editingTask ? editingTask.time_start : time_start;
+            const oldTimeEnd = editingTask ? editingTask.time_end : time_end;
+            const sameNameCount = _tpTasks.filter(t => t.task_name === oldName && t.time_start === oldTimeStart && t.time_end === oldTimeEnd).length;
+
+            if (sameNameCount > 1) {
+                // Show choice modal
+                document.getElementById('tpModal')?.remove();
+                _tpShowEditChoiceModal(editId, defaultDay, oldName, oldTimeStart, oldTimeEnd, sameNameCount, savePayload, targetType, targetId);
+                return;
+            }
+
+            // Single instance — save directly
+            await apiCall(`/api/task-points/${editId}`, 'PUT', { ...savePayload, day_of_week: defaultDay, sort_order: 0 });
             showToast('✅ Đã cập nhật');
         } else {
             const checkedDays = [...document.querySelectorAll('.tpDayCb:checked')].map(cb => Number(cb.value));
@@ -1068,6 +1224,59 @@ async function _tpSaveTask(editId, defaultDay) {
         document.getElementById('tpModal')?.remove();
         _tpLoadTasks();
     } catch(e) { showToast('Lỗi: ' + (e.message || 'Unknown'), 'error'); }
+}
+
+function _tpShowEditChoiceModal(editId, dayOfWeek, oldName, oldTimeStart, oldTimeEnd, count, payload, targetType, targetId) {
+    document.getElementById('tpEditChoiceModal')?.remove();
+    const m = document.createElement('div');
+    m.id = 'tpEditChoiceModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;backdrop-filter:blur(3px);';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    // Store payload in window for the callbacks
+    window._tpEditPayload = { editId, dayOfWeek, oldName, oldTimeStart, oldTimeEnd, payload, targetType, targetId };
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:0;width:440px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;animation:tpSlideUp .25s ease;">
+        <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:18px 24px;color:white;position:relative;">
+            <button onclick="document.getElementById('tpEditChoiceModal').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            <div style="font-size:16px;font-weight:800;">✏️ Sửa công việc</div>
+            <div style="font-size:12px;margin-top:4px;opacity:0.9;">CV: <b>${oldName}</b> — Khung giờ: <b>${oldTimeStart}—${oldTimeEnd}</b> — ${count} ngày</div>
+        </div>
+        <div style="padding:20px 24px;">
+            <div style="margin-bottom:12px;font-size:13px;color:#374151;font-weight:600;">Chọn cách sửa:</div>
+            <button onclick="_tpDoEditChoice('single')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #2563eb;border-radius:10px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#2563eb';this.style.color='white'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
+                📅 Chỉ sửa ${DAY_NAMES[dayOfWeek]} này thôi<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Chỉ thay đổi 1 ô — các ngày khác giữ nguyên</span>
+            </button>
+            <button onclick="_tpDoEditChoice('all')" style="width:100%;padding:14px 16px;margin-bottom:10px;border:2px solid #059669;border-radius:10px;background:#ecfdf5;color:#059669;cursor:pointer;font-size:13px;font-weight:700;text-align:left;transition:all .15s;" onmouseover="this.style.background='#059669';this.style.color='white'" onmouseout="this.style.background='#ecfdf5';this.style.color='#059669'">
+                🔄 Sửa toàn bộ "${oldName}" (${count} ngày)<br><span style="font-weight:400;font-size:11px;opacity:0.8;">Áp dụng thay đổi cho tất cả ${count} ngày cùng khung giờ</span>
+            </button>
+            <button onclick="document.getElementById('tpEditChoiceModal').remove()" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-size:13px;font-weight:500;">Hủy</button>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _tpDoEditChoice(mode) {
+    const { editId, dayOfWeek, oldName, oldTimeStart, oldTimeEnd, payload, targetType, targetId } = window._tpEditPayload || {};
+    if (!editId) return;
+    document.getElementById('tpEditChoiceModal')?.remove();
+
+    try {
+        if (mode === 'single') {
+            await apiCall(`/api/task-points/${editId}`, 'PUT', { ...payload, day_of_week: dayOfWeek, sort_order: 0 });
+            showToast('✅ Đã cập nhật 1 ngày');
+        } else {
+            const r = await apiCall('/api/task-points/update-all-by-name', 'PUT', {
+                old_task_name: oldName,
+                old_time_start: oldTimeStart,
+                old_time_end: oldTimeEnd,
+                target_type: targetType,
+                target_id: Number(targetId),
+                ...payload
+            });
+            showToast(`✅ Đã cập nhật toàn bộ "${payload.task_name}" (${r.updated || 0} ngày)`);
+        }
+        _tpLoadTasks();
+    } catch(e) { showToast('Lỗi: ' + (e.message || 'Không thể cập nhật'), 'error'); }
 }
 
 async function _tpCopyToIndividual() {

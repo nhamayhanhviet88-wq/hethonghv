@@ -13,7 +13,8 @@ let _htgd_tab = localStorage.getItem('htgd_tab') || 'data';
 let _htgd_depts = [];
 let _htgd_activeCrm = localStorage.getItem('htgd_crm') || 'all';
 let _htgd_lastData = [];
-let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'nuoi_duong';
+let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'goi_hop_tac';
+let _htgd_selectedYear = new Date().getFullYear();
 let _htgd_datePreset = 'today';
 let _htgd_dateFrom = '';
 let _htgd_dateTo = '';
@@ -25,10 +26,10 @@ function _htgd_getDateRange() {
         case 'today': return { from: fmt(today), to: fmt(today) };
         case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); return { from: fmt(y), to: fmt(y) }; }
         case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: fmt(today) }; }
-        case 'this_month': { const m = new Date(today.getFullYear(), today.getMonth(), 1); return { from: fmt(m), to: fmt(today) }; }
-        case 'last_month': { const m1 = new Date(today.getFullYear(), today.getMonth()-1, 1); const m2 = new Date(today.getFullYear(), today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2) }; }
+        case 'this_month': { const m = new Date(_htgd_selectedYear, today.getMonth(), 1); const mEnd = _htgd_selectedYear === today.getFullYear() ? today : new Date(_htgd_selectedYear, today.getMonth()+1, 0); return { from: fmt(m), to: fmt(mEnd) }; }
+        case 'last_month': { const m1 = new Date(_htgd_selectedYear, today.getMonth()-1, 1); const m2 = new Date(_htgd_selectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2) }; }
         case 'custom': return { from: _htgd_dateFrom, to: _htgd_dateTo };
-        case 'all': return { from: '', to: '' };
+        case 'all': return { from: `${_htgd_selectedYear}-01-01`, to: `${_htgd_selectedYear}-12-31` };
         default: return { from: fmt(today), to: fmt(today) };
     }
 }
@@ -55,9 +56,9 @@ const _carrierMap = {
 
 const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
-    { key: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-    { key: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { key: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { key: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+    { key: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { key: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
@@ -187,6 +188,9 @@ function _htgd_buildDateFilterHtml() {
         }).join('')}
         <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
         <button onclick="_htgd_datePreset='custom';document.getElementById('htgdCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_htgd_datePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_htgd_datePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_htgd_datePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
+        <select onchange="_htgd_selectedYear=parseInt(this.value);_htgd_switchDatePreset('all')" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
+            ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _htgd_selectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
+        </select>
         <div id="htgdCustomDateArea" style="display:${_htgd_datePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
             <input type="date" id="htgdDateFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_htgd_dateFrom=this.value">
             <span style="font-size:11px;color:#9ca3af;">→</span>
@@ -238,7 +242,7 @@ async function _htgd_renderDataTab() {
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy', prevVal:tp?.no_answer_busy||0 },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered', prevVal:tp?.cold_answered||0 },
         { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
-        { icon:'❌', label:'Hủy Khách, K. Tồn Tại', val:t.invalid, grad:'linear-gradient(135deg,#6b7280,#374151)', txtColor:'white', filterKey:'invalid', prevVal:tp?.invalid||0 },
+        { icon:'❌', label:'Hủy Khách, K. Tồn Tại', val:t.invalid + t.cold, grad:'linear-gradient(135deg,#6b7280,#374151)', txtColor:'white', filterKey:'invalid', prevVal:tp?.invalid||0 },
     ];
 
     // Conversion rate bar HTML
@@ -288,10 +292,20 @@ async function _htgd_renderDataTab() {
             ${comp}
         </div>`;
     };
+    // Active filter label
+    const _htgd_filterLabels = { available:'✅ Tổng Data Sẵn Sàng', assigned:'📤 Đã Phân', answered:'📞 Đã Gọi Bắt Máy', transferred:'🔥 Chuyển Số', no_answer_busy:'📵 Không Nghe, Bận', cold_answered:'🚫 Không Có Nhu Cầu', ncc_answered:'🏪 Đã Có Nhà Cung Cấp', invalid:'❌ Hủy Khách, K. Tồn Tại' };
+    const htgdActiveFilterHtml = _htgd_statusFilter ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;background:linear-gradient(135deg,#122546,#1e3a5f);color:white;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(18,37,70,0.3);animation:_htgdFilterPulse 2s ease-in-out infinite;">
+            <span>🔍 Đang lọc:</span><span style="color:#fbbf24;">${_htgd_filterLabels[_htgd_statusFilter] || _htgd_statusFilter}</span>
+            <button onclick="_htgd_filterByCard('${_htgd_statusFilter}')" style="background:rgba(255,255,255,0.2);border:none;color:white;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;margin-left:4px;" title="Bỏ lọc">✕</button>
+        </div>
+    </div>
+    <style>@keyframes _htgdFilterPulse { 0%,100%{box-shadow:0 2px 8px rgba(18,37,70,0.3)} 50%{box-shadow:0 2px 16px rgba(18,37,70,0.5)} }</style>` : '';
 
     if (isAll) {
         el.innerHTML = `
             ${_htgd_buildDateFilterHtml()}
+            ${htgdActiveFilterHtml}
             <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
                 ${cards.map(c => cardHtml(c)).join('')}
             </div>
@@ -310,6 +324,7 @@ async function _htgd_renderDataTab() {
     // Specific CRM mode → full data tab
     el.innerHTML = `
         ${_htgd_buildDateFilterHtml()}
+        ${htgdActiveFilterHtml}
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
             ${cards.map(c => cardHtml(c)).join('')}
         </div>
@@ -448,9 +463,27 @@ async function _htgd_loadData() {
         return;
     }
 
+    // Check if we're in a repumpable filter mode
+    const _isRepumpFilter = ['invalid','cold','cold_answered','ncc_answered'].includes(_htgd_statusFilter);
+    const _checkboxCol = _isRepumpFilter ? `<th style="text-align:center;width:40px;" onclick="event.stopPropagation();">
+        <input type="checkbox" id="htgdSelectAll" onchange="_htgd_toggleSelectAll(this.checked)" style="cursor:pointer;width:16px;height:16px;">
+    </th>` : '';
+
+    // Repump action bar
+    const repumpBar = _isRepumpFilter ? `<div id="htgdRepumpBar" style="display:none;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:10px;animation:fadeIn 0.3s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:12px;font-weight:700;color:#1e40af;">✅ Đã chọn <span id="htgdSelectedCount">0</span> SĐT</span>
+            <button class="ts-btn ts-btn-green" onclick="_htgd_repumpSelected()" style="padding:6px 16px;font-size:12px;font-weight:700;">
+                🔄 Bơm Lại
+            </button>
+        </div>
+    </div>` : '';
+
     tbl.innerHTML = `
+        ${repumpBar}
         <table class="ts-table">
             <thead><tr>
+                ${_checkboxCol}
                 <th style="text-align:left;width:40px;">#</th>
                 <th style="text-align:left;">Tên Công Ty</th>
                 <th style="text-align:left;">Tên KH</th>
@@ -470,7 +503,9 @@ async function _htgd_loadData() {
                         return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:9px;padding:1px 5px;">${cm.label}</span>`;
                     }).join(' ') : '<span style="color:#d1d5db;font-size:10px;">—</span>';
                     const phoneFull = d.phone ? d.phone.replace(/^84/, '0') : '—';
+                    const checkboxTd = _isRepumpFilter ? `<td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="htgd-repump-cb" data-id="${d.id}" onchange="_htgd_updateRepumpCount()" style="cursor:pointer;width:15px;height:15px;"></td>` : '';
                     return `<tr onclick="_htgd_viewDetail(${d.id})" style="cursor:pointer;">
+                    ${checkboxTd}
                     <td style="color:#9ca3af;font-weight:600;">${((_htgd_page-1)*50)+i+1}</td>
                     <td style="font-weight:600;color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.company_name||'').replace(/"/g,'&quot;')}">${d.company_name || '—'}</td>
                     <td style="font-weight:700;color:#122546;">${d.customer_name || '—'}</td>
@@ -515,6 +550,43 @@ async function _htgd_refreshStats() {
     const crmParam = isAll ? '' : `?crm_type=${_htgd_activeCrm}`;
     const statsRes = await apiCall(`/api/telesale/data/stats${crmParam}`);
     _htgd_stats = statsRes.stats || [];
+}
+
+// ========== REPUMP FUNCTIONS ==========
+function _htgd_toggleSelectAll(checked) {
+    const cbs = document.querySelectorAll('.htgd-repump-cb');
+    cbs.forEach(cb => cb.checked = checked);
+    _htgd_updateRepumpCount();
+}
+
+function _htgd_updateRepumpCount() {
+    const cbs = document.querySelectorAll('.htgd-repump-cb:checked');
+    const count = cbs.length;
+    const bar = document.getElementById('htgdRepumpBar');
+    const countEl = document.getElementById('htgdSelectedCount');
+    if (bar) bar.style.display = count > 0 ? 'block' : 'none';
+    if (countEl) countEl.textContent = count;
+    // Update select-all checkbox state
+    const allCbs = document.querySelectorAll('.htgd-repump-cb');
+    const selectAll = document.getElementById('htgdSelectAll');
+    if (selectAll) selectAll.checked = allCbs.length > 0 && count === allCbs.length;
+}
+
+async function _htgd_repumpSelected() {
+    const cbs = document.querySelectorAll('.htgd-repump-cb:checked');
+    const ids = Array.from(cbs).map(cb => parseInt(cb.dataset.id));
+    if (ids.length === 0) return showToast('Chưa chọn data nào', 'error');
+    if (!confirm(`Bơm lại ${ids.length} SĐT về Tổng Data Sẵn Sàng?`)) return;
+    const res = await apiCall('/api/telesale/data/repump', 'POST', { data_ids: ids });
+    if (res.success) {
+        showToast(res.message);
+        _htgd_loadData();
+        await _htgd_refreshStats();
+        // Re-render cards   
+        _htgd_renderDataTab();
+    } else {
+        showToast(res.error || 'Lỗi bơm lại', 'error');
+    }
 }
 
 async function _htgd_addDataManual() {
@@ -765,8 +837,8 @@ async function _htgd_renderMembersTab() {
         groupedUsers[dId].users.push(u);
     });
 
-    const crmLabelMap = { hoa_hong_crm: '🔍 Tự TK', nuoi_duong: '🤝 Hợp Tác', sinh_vien: '📞 Bán Hàng' };
-    const crmColorMap = { hoa_hong_crm: '#6366f1', nuoi_duong: '#059669', sinh_vien: '#f59e0b' };
+    const crmLabelMap = { tu_tim_kiem: '🔍 Tự TK', goi_hop_tac: '🤝 Hợp Tác', goi_ban_hang: '📞 Bán Hàng' };
+    const crmColorMap = { tu_tim_kiem: '#6366f1', goi_hop_tac: '#059669', goi_ban_hang: '#f59e0b' };
 
     el.innerHTML = `
         <div class="ts-members-grid" style="display:grid;grid-template-columns:${isAll ? '1fr' : '1fr 320px'};gap:18px;">
@@ -1001,8 +1073,8 @@ async function _htgd_renderSettingsTab() {
 
     const [srcRes, srcHopTac, srcBanHang, cStatsRes] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
-        apiCall('/api/telesale/sources?crm_type=nuoi_duong'),
-        apiCall('/api/telesale/sources?crm_type=sinh_vien'),
+        apiCall('/api/telesale/sources?crm_type=goi_hop_tac'),
+        apiCall('/api/telesale/sources?crm_type=goi_ban_hang'),
         apiCall(`/api/telesale/data/stats?crm_type=${_htgd_settingsCrm}`)
     ]);
     const sources = srcRes.sources || [];
@@ -1014,9 +1086,9 @@ async function _htgd_renderSettingsTab() {
     const hopTacPct = combinedTotal > 0 ? Math.round((hopTacTotal / combinedTotal) * 100) : 0;
     const banHangPct = combinedTotal > 0 ? 100 - hopTacPct : 0;
     const crmOptions = [
-        { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-        { value: 'nuoi_duong', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-        { value: 'sinh_vien', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+        { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
+        { value: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+        { value: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     ];
     const activeCfg = crmOptions.find(o => o.value === _htgd_settingsCrm);
 
