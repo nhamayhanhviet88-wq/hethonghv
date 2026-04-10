@@ -284,9 +284,10 @@ async function _htgd_renderDataTab() {
 
     // Card HTML builder with comparison
     const cardHtml = (c) => {
-        const isActive = _htgd_statusFilter===c.filterKey;
+        const isDisplayOnly = c.filterKey === 'answered'; // Bắt Máy = chỉ hiển thị số liệu
+        const isActive = !isDisplayOnly && _htgd_statusFilter===c.filterKey;
         const comp = _htgd_buildComparisonHtml(c.filterKey, c.val, c.prevVal);
-        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};cursor:pointer;transition:all .2s;${isActive?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" onclick="_htgd_filterByCard('${c.filterKey}')">
+        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};${isDisplayOnly ? '' : 'cursor:pointer;'}transition:all .2s;${isActive?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" ${isDisplayOnly ? '' : `onclick="_htgd_filterByCard('${c.filterKey}')"`}>
             <span class="ts-stat-icon">${c.icon}</span>
             <div class="ts-stat-val">${c.val.toLocaleString()}</div>
             <div class="ts-stat-label">${c.label}</div>
