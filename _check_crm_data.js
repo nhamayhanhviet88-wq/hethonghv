@@ -4,45 +4,39 @@ const db = require('./db/pool');
 async function check() {
     await db.init();
     
-    // Current status breakdown by CRM type
-    const result = await db.all(`
-        SELECT s.crm_type,
-            COUNT(d.id) as total,
-            COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
-            COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned,
-            COUNT(d.id) FILTER (WHERE d.status = 'answered') as answered,
-            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
-        FROM telesale_sources s
-        LEFT JOIN telesale_data d ON d.source_id = s.id
-        WHERE s.is_active = true
-        GROUP BY s.crm_type
-    `);
-    console.log('\n=== HIỆN TẠI (SAU THU HỒI) ===');
-    console.table(result);
-
-    // Assigned today only
-    const today = '2026-04-10';
-    const todayAssigned = await db.all(`
-        SELECT s.crm_type, COUNT(DISTINCT a.data_id) as assigned_today
+    // 1. Assignments with call_status = 'answered' (card count source)
+    const answered = await db.all(`
+        SELECT a.id, a.data_id, a.call_status, a.assigned_date, a.user_id,
+            d.status as data_status, d.customer_name, d.company_name, d.phone,
+            ans.name as answer_status_name, ans.action_type,
+            s.crm_type, s.name as source_name
         FROM telesale_assignments a
         JOIN telesale_data d ON d.id = a.data_id
         JOIN telesale_sources s ON s.id = d.source_id
-        WHERE a.assigned_date = $1
-        GROUP BY s.crm_type
-    `, [today]);
-    console.log('\n=== ASSIGNED HÔM NAY ===');
-    console.table(todayAssigned);
-
-    // Total all
-    const total = await db.get(`
-        SELECT COUNT(*) as total,
-            COUNT(*) FILTER (WHERE status = 'available') as available,
-            COUNT(*) FILTER (WHERE status = 'assigned') as assigned
-        FROM telesale_data d
-        JOIN telesale_sources s ON s.id = d.source_id AND s.is_active = true
+        LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+        WHERE a.call_status = 'answered' AND s.crm_type = 'goi_hop_tac'
+        ORDER BY a.assigned_date DESC
     `);
-    console.log('\n=== TỔNG TẤT CẢ CRM ===');
-    console.log(`Total: ${total.total} | Available: ${total.available} | Assigned: ${total.assigned}`);
+    console.log('\n=== ASSIGNMENTS với call_status=answered (card đếm 3) ===');
+    console.table(answered.map(r => ({
+        assignment_id: r.id,
+        data_id: r.data_id,
+        customer: r.customer_name,
+        data_status: r.data_status,
+        answer_status: r.answer_status_name,
+        action_type: r.action_type,
+        assigned_date: r.assigned_date
+    })));
+
+    // 2. Data with status = 'answered' (table filter)
+    const dataAnswered = await db.all(`
+        SELECT d.id, d.customer_name, d.company_name, d.phone, d.status
+        FROM telesale_data d
+        JOIN telesale_sources s ON s.id = d.source_id
+        WHERE d.status = 'answered' AND s.crm_type = 'goi_hop_tac'
+    `);
+    console.log('\n=== DATA với status=answered (bảng hiện 1) ===');
+    console.table(dataAnswered);
 
     process.exit(0);
 }

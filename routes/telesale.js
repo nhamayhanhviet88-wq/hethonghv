@@ -133,9 +133,11 @@ async function telesaleRoutes(fastify) {
         if (source_id) { paramIdx++; where += ` AND d.source_id = $${paramIdx}`; params.push(source_id); }
         else if (crm_type && crm_type !== 'all') { where += ` AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = '${crm_type.replace(/'/g, "''")}' AND is_active = true)`; }
         // Special status filters that use telesale_assignments join
-        const _specialStatuses = ['transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy', 'invalid'];
+        const _specialStatuses = ['answered', 'transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy', 'invalid'];
         if (status && _specialStatuses.includes(status)) {
-            if (status === 'transferred') {
+            if (status === 'answered') {
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'answered')`;
+            } else if (status === 'transferred') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'transfer')`;
             } else if (status === 'cold_answered') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 JOIN telesale_answer_statuses ans2 ON ans2.id = a2.answer_status_id WHERE ans2.action_type = 'cold')`;
