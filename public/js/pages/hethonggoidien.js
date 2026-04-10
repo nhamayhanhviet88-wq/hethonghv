@@ -235,7 +235,7 @@ async function _htgd_renderDataTab() {
     const rateChuyenSo = t.answered > 0 ? Math.round((t.transferred / t.answered) * 100) : 0;
 
     const cards = [
-        { icon:'✅', label:'Tổng Data Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'available', prevVal:0 },
+        { icon:'✅', label:'Tổng Data Còn Lại Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'available', prevVal:0 },
         { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0 },
         { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered', prevVal:tp?.answered||0 },
         { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0 },
