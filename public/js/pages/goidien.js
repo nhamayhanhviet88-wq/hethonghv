@@ -608,12 +608,16 @@ function _gd_formatDateShort(dateStr) {
 
 // ========== SETTINGS MODAL (GĐ only) ==========
 async function _gd_openSettings() {
-    const res = await apiCall('/api/telesale/settings');
-    console.log('[GD Settings] Loaded:', res);
+    const [res, coldNR, nccNR] = await Promise.all([
+        apiCall('/api/telesale/settings'),
+        apiCall('/api/app-config/telesale_cold_no_repump'),
+        apiCall('/api/app-config/telesale_ncc_no_repump')
+    ]);
     const coldMonths = res.cold_months || 4;
     const nccMonths = res.ncc_cold_months || 3;
-    const coldNoRepump = res.cold_no_repump === true;
-    const nccNoRepump = res.ncc_no_repump === true;
+    const coldNoRepump = coldNR.value === 'true';
+    const nccNoRepump = nccNR.value === 'true';
+    console.log('[GD Settings] Loaded:', { coldMonths, nccMonths, coldNoRepump, nccNoRepump });
     openModal('⚙️ Cài Đặt Gọi Điện Telesale', `
         <div style="display:flex;flex-direction:column;gap:16px;">
             <div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1.5px solid #93c5fd;">
@@ -654,7 +658,6 @@ function _gd_toggleNoRepump(type, checked) {
         input.style.opacity = checked ? '0.5' : '1';
         input.style.background = checked ? '#f3f4f6' : 'white';
     }
-    // Update label style
     const cb = document.getElementById(labelId);
     if (cb) {
         const label = cb.closest('label');
@@ -672,11 +675,14 @@ async function _gd_saveSettings() {
     const ncc_cold_months = parseInt(document.getElementById('gdSettingNccMonths')?.value) || 3;
     const cold_no_repump = document.getElementById('gdColdNoRepump')?.checked === true;
     const ncc_no_repump = document.getElementById('gdNccNoRepump')?.checked === true;
-    console.log('[GD Settings] Saving:', { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump });
-    const res = await apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump });
-    console.log('[GD Settings] Save result:', res);
-    if (res.success) { showToast('✅ Đã lưu cài đặt'); closeModal(); }
-    else showToast(res.error || 'Lỗi', 'error');
+    // Save all values via stable app-config API
+    await Promise.all([
+        apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months }),
+        apiCall('/api/app-config/telesale_cold_no_repump', 'PUT', { value: String(cold_no_repump) }),
+        apiCall('/api/app-config/telesale_ncc_no_repump', 'PUT', { value: String(ncc_no_repump) })
+    ]);
+    showToast('✅ Đã lưu cài đặt');
+    closeModal();
 }
 
 // ========== DATA DETAIL MODAL ==========
