@@ -235,11 +235,14 @@ async function _htgd_renderDataTab() {
     const rateBatMay = t.assigned > 0 ? Math.round((t.answered / t.assigned) * 100) : 0;
     const rateChuyenSo = t.answered > 0 ? Math.round((t.transferred / t.answered) * 100) : 0;
 
-    const cards = [
-        { icon:'✅', label:'Tổng Data Còn Lại Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'available', prevVal:0 },
-        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0 },
+    // Row 1: 3 key metrics centered
+    const cardsRow1 = [
+        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0 },
         { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ff6b00,#f59e0b)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0, isHero:true },
         { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered', prevVal:tp?.answered||0 },
+    ];
+    // Row 2: 4 secondary metrics
+    const cardsRow2 = [
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy', prevVal:tp?.no_answer_busy||0 },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered', prevVal:tp?.cold_answered||0 },
         { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
@@ -305,8 +308,11 @@ async function _htgd_renderDataTab() {
         el.innerHTML = `
             ${_htgd_buildDateFilterHtml()}
             ${_htgdHeroAnimStyle}
+            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;max-width:900px;margin-left:auto;margin-right:auto;">
+                ${cardsRow1.map(c => cardHtml(c)).join('')}
+            </div>
             <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
-                ${cards.map(c => cardHtml(c)).join('')}
+                ${cardsRow2.map(c => cardHtml(c)).join('')}
             </div>
             ${conversionHtml}
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
@@ -324,8 +330,11 @@ async function _htgd_renderDataTab() {
     el.innerHTML = `
         ${_htgd_buildDateFilterHtml()}
         ${_htgdHeroAnimStyle}
+        <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;max-width:900px;margin-left:auto;margin-right:auto;">
+            ${cardsRow1.map(c => cardHtml(c)).join('')}
+        </div>
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
-            ${cards.map(c => cardHtml(c)).join('')}
+            ${cardsRow2.map(c => cardHtml(c)).join('')}
         </div>
         ${conversionHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
@@ -370,7 +379,7 @@ async function _htgd_renderDataTab() {
             </div>
             <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_renderDataTab();">
                 <option value="" ${_htgd_statusFilter===''?'selected':''}>Tất cả trạng thái</option>
-                <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Tổng Data Còn Lại Sẵn Sàng</option>
+                <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn Sàng</option>
                 <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã Phân</option>
                 <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển Số</option>
                 <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không Nghe, Bận</option>
