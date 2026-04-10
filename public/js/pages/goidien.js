@@ -609,10 +609,11 @@ function _gd_formatDateShort(dateStr) {
 // ========== SETTINGS MODAL (GĐ only) ==========
 async function _gd_openSettings() {
     const res = await apiCall('/api/telesale/settings');
+    console.log('[GD Settings] Loaded:', res);
     const coldMonths = res.cold_months || 4;
     const nccMonths = res.ncc_cold_months || 3;
-    const coldNoRepump = res.cold_no_repump || false;
-    const nccNoRepump = res.ncc_no_repump || false;
+    const coldNoRepump = res.cold_no_repump === true;
+    const nccNoRepump = res.ncc_no_repump === true;
     openModal('⚙️ Cài Đặt Gọi Điện Telesale', `
         <div style="display:flex;flex-direction:column;gap:16px;">
             <div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1.5px solid #93c5fd;">
@@ -669,9 +670,11 @@ function _gd_toggleNoRepump(type, checked) {
 async function _gd_saveSettings() {
     const cold_months = parseInt(document.getElementById('gdSettingColdMonths')?.value) || 4;
     const ncc_cold_months = parseInt(document.getElementById('gdSettingNccMonths')?.value) || 3;
-    const cold_no_repump = document.getElementById('gdColdNoRepump')?.checked || false;
-    const ncc_no_repump = document.getElementById('gdNccNoRepump')?.checked || false;
+    const cold_no_repump = document.getElementById('gdColdNoRepump')?.checked === true;
+    const ncc_no_repump = document.getElementById('gdNccNoRepump')?.checked === true;
+    console.log('[GD Settings] Saving:', { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump });
     const res = await apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump });
+    console.log('[GD Settings] Save result:', res);
     if (res.success) { showToast('✅ Đã lưu cài đặt'); closeModal(); }
     else showToast(res.error || 'Lỗi', 'error');
 }
