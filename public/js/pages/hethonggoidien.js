@@ -372,12 +372,8 @@ async function _htgd_renderDataTab() {
                 return tatCaBtn + srcBtns;
             })()}
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
-            <div class="ts-search-wrap" style="flex:1;min-width:200px;">
-                <input type="text" class="ts-search" id="htgdSearch" placeholder="Tìm SĐT, Tên KH, Công ty..." value="${_htgd_search}"
-                    onkeyup="if(event.key==='Enter'){_htgd_search=this.value;_htgd_page=1;_htgd_loadData();}">
-            </div>
-            <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_renderDataTab();">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+            <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_renderDataTab();" style="min-width:180px;">
                 <option value="" ${_htgd_statusFilter===''?'selected':''}>Tất cả trạng thái</option>
                 <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn Sàng</option>
                 <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã Phân</option>
@@ -387,6 +383,12 @@ async function _htgd_renderDataTab() {
                 <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã Có Nhà Cung Cấp</option>
                 <option value="invalid" ${_htgd_statusFilter==='invalid'?'selected':''}>❌ Hủy Khách, K. Tồn Tại</option>
             </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+            <div class="ts-search-wrap" style="flex:1;min-width:200px;">
+                <input type="text" class="ts-search" id="htgdSearch" placeholder="Tìm SĐT, Tên KH, Công ty..." value="${_htgd_search}"
+                    onkeyup="if(event.key==='Enter'){_htgd_search=this.value;_htgd_page=1;_htgd_loadData();}">
+            </div>
             <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">
                 <option value="">Tất cả nhà mạng</option>
                 <option value="Viettel" ${_htgd_carrierFilter==='Viettel'?'selected':''}>🟩 Viettel</option>
