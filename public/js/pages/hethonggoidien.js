@@ -161,7 +161,8 @@ async function _htgd_loadSources() {
     _htgd_sources = srcRes.sources || [];
     _htgd_stats = statsRes.stats || [];
     _htgd_prevStats = statsRes.prevStats || null;
-    if (!_htgd_activeSourceId && _htgd_sources.length > 0) _htgd_activeSourceId = _htgd_sources[0].id;
+    if (!_htgd_activeSourceId && _htgd_activeCrm !== 'all') _htgd_activeSourceId = null; // default to "Tất Cả" within CRM
+    else if (!_htgd_activeSourceId && _htgd_activeCrm === 'all') _htgd_activeSourceId = null;
     if (_htgd_tab === 'data') _htgd_renderDataTab();
     else if (_htgd_tab === 'members') _htgd_renderMembersTab();
     else if (_htgd_tab === 'invalid') _htgd_renderInvalidTab();
@@ -333,6 +334,9 @@ async function _htgd_renderDataTab() {
             ${crmTabsHtml}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+            ${_htgd_activeCrm !== 'all' ? `<button class="ts-source-pill${_htgd_activeSourceId === null ? ' active' : ''}" onclick="_htgd_selectSource(null)">
+                📋 Tất Cả <span class="ts-pill-count">${_htgd_stats.reduce((s,st) => s + parseInt(st.total||0), 0).toLocaleString()}</span>
+            </button>` : ''}
             ${_htgd_sources.map(s => {
                 const stat = _htgd_stats.find(st => st.id === s.id) || {};
                 const active = s.id === _htgd_activeSourceId;
@@ -405,7 +409,9 @@ function _htgd_filterByCard(filterKey) {
 async function _htgd_loadData() {
     const tbl = document.getElementById('htgdDataTable');
     if (!tbl) return;
-    const params = new URLSearchParams({ source_id: _htgd_activeSourceId, page: _htgd_page, limit: 50 });
+    const params = new URLSearchParams({ page: _htgd_page, limit: 50 });
+    if (_htgd_activeSourceId) params.set('source_id', _htgd_activeSourceId);
+    else if (_htgd_activeCrm && _htgd_activeCrm !== 'all') params.set('crm_type', _htgd_activeCrm);
     if (_htgd_search) params.set('search', _htgd_search);
     if (_htgd_statusFilter) params.set('status', _htgd_statusFilter);
     if (_htgd_carrierFilter) params.set('carrier', _htgd_carrierFilter);
