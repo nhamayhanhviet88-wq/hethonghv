@@ -238,8 +238,8 @@ async function _htgd_renderDataTab() {
     const cards = [
         { icon:'✅', label:'Tổng Data Còn Lại Sẵn Sàng', val:t.available, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'available', prevVal:0 },
         { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[2], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0 },
+        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ff6b00,#f59e0b)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0, isHero:true },
         { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered', prevVal:tp?.answered||0 },
-        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ea580c)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0 },
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy', prevVal:tp?.no_answer_busy||0 },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered', prevVal:tp?.cold_answered||0 },
         { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
@@ -282,32 +282,29 @@ async function _htgd_renderDataTab() {
         </button>`;
     }).join('');
 
-    // Card HTML builder with comparison
+    // Card HTML builder — ALL cards are display-only (dashboard metrics)
     const cardHtml = (c) => {
-        const isDisplayOnly = c.filterKey === 'answered'; // Bắt Máy = chỉ hiển thị số liệu
-        const isActive = !isDisplayOnly && _htgd_statusFilter===c.filterKey;
         const comp = _htgd_buildComparisonHtml(c.filterKey, c.val, c.prevVal);
-        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};${isDisplayOnly ? '' : 'cursor:pointer;'}transition:all .2s;${isActive?'outline:3px solid white;outline-offset:2px;transform:scale(1.05);':''}" ${isDisplayOnly ? '' : `onclick="_htgd_filterByCard('${c.filterKey}')"`}>
-            <span class="ts-stat-icon">${c.icon}</span>
-            <div class="ts-stat-val">${c.val.toLocaleString()}</div>
-            <div class="ts-stat-label">${c.label}</div>
+        const heroStyle = c.isHero ? `position:relative;overflow:hidden;background-size:200% 200%;animation:_htgdHeroShimmer 3s ease infinite;box-shadow:0 4px 20px rgba(245,158,11,0.5);border:2px solid rgba(255,255,255,0.3);transform:scale(1.02);` : '';
+        const heroOverlay = c.isHero ? `<div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,0.15) 50%,transparent 70%);animation:_htgdHeroGlint 4s ease-in-out infinite;"></div>` : '';
+        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};transition:all .3s;${heroStyle}">
+            ${heroOverlay}
+            <span class="ts-stat-icon" style="${c.isHero ? 'font-size:28px;filter:drop-shadow(0 0 8px rgba(255,200,0,0.8));' : ''}">${c.icon}</span>
+            <div class="ts-stat-val" style="${c.isHero ? 'font-size:32px;text-shadow:0 0 20px rgba(255,255,255,0.6);' : ''}">${c.val.toLocaleString()}</div>
+            <div class="ts-stat-label" style="${c.isHero ? 'font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;' : ''}">${c.label}</div>
             ${comp}
         </div>`;
     };
-    // Active filter label
-    const _htgd_filterLabels = { available:'✅ Tổng Data Sẵn Sàng', assigned:'📤 Đã Phân', answered:'📞 Đã Gọi Bắt Máy', transferred:'🔥 Chuyển Số', no_answer_busy:'📵 Không Nghe, Bận', cold_answered:'🚫 Không Có Nhu Cầu', ncc_answered:'🏪 Đã Có Nhà Cung Cấp', invalid:'❌ Hủy Khách, K. Tồn Tại' };
-    const htgdActiveFilterHtml = _htgd_statusFilter ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;background:linear-gradient(135deg,#122546,#1e3a5f);color:white;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(18,37,70,0.3);animation:_htgdFilterPulse 2s ease-in-out infinite;">
-            <span>🔍 Đang lọc:</span><span style="color:#fbbf24;">${_htgd_filterLabels[_htgd_statusFilter] || _htgd_statusFilter}</span>
-            <button onclick="_htgd_filterByCard('${_htgd_statusFilter}')" style="background:rgba(255,255,255,0.2);border:none;color:white;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;margin-left:4px;" title="Bỏ lọc">✕</button>
-        </div>
-    </div>
-    <style>@keyframes _htgdFilterPulse { 0%,100%{box-shadow:0 2px 8px rgba(18,37,70,0.3)} 50%{box-shadow:0 2px 16px rgba(18,37,70,0.5)} }</style>` : '';
+    // Shimmer animations for hero card (Chuyển Số)
+    const _htgdHeroAnimStyle = `<style>
+        @keyframes _htgdHeroShimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes _htgdHeroGlint { 0%{transform:translateX(-100%) rotate(25deg)} 50%{transform:translateX(100%) rotate(25deg)} 100%{transform:translateX(100%) rotate(25deg)} }
+    </style>`;
 
     if (isAll) {
         el.innerHTML = `
             ${_htgd_buildDateFilterHtml()}
-            ${htgdActiveFilterHtml}
+            ${_htgdHeroAnimStyle}
             <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
                 ${cards.map(c => cardHtml(c)).join('')}
             </div>
@@ -326,7 +323,7 @@ async function _htgd_renderDataTab() {
     // Specific CRM mode → full data tab
     el.innerHTML = `
         ${_htgd_buildDateFilterHtml()}
-        ${htgdActiveFilterHtml}
+        ${_htgdHeroAnimStyle}
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
             ${cards.map(c => cardHtml(c)).join('')}
         </div>
