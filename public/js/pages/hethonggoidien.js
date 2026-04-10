@@ -4,11 +4,12 @@ let _htgd_sources = [];
 let _htgd_activeSourceId = localStorage.getItem('htgd_sourceId') || null;
 let _htgd_page = 1;
 let _htgd_search = '';
-let _htgd_statusFilter = '';
+let _htgd_statusFilter = 'available';
 let _htgd_carrierFilter = '';
 let _htgd_carrierStats = {};
 let _htgd_members = [];
 let _htgd_stats = [];
+let _htgd_realtimeStats = [];
 let _htgd_tab = localStorage.getItem('htgd_tab') || 'data';
 let _htgd_depts = [];
 let _htgd_activeCrm = localStorage.getItem('htgd_crm') || 'all';
@@ -154,12 +155,14 @@ async function _htgd_loadSources() {
     const dr = _htgd_getDateRange();
     const dateParam = dr.from && dr.to ? `&date_from=${dr.from}&date_to=${dr.to}` : '';
     const sep = crmParam ? '?' + crmParam : '?';
-    const [srcRes, statsRes] = await Promise.all([
+    const [srcRes, statsRes, realtimeRes] = await Promise.all([
         apiCall(`/api/telesale/sources${crmParam ? '?' + crmParam : ''}`),
-        apiCall(`/api/telesale/data/stats${sep}${dateParam}`)
+        apiCall(`/api/telesale/data/stats${sep}${dateParam}`),
+        apiCall(`/api/telesale/data/stats${crmParam ? '?' + crmParam : ''}`)
     ]);
     _htgd_sources = srcRes.sources || [];
     _htgd_stats = statsRes.stats || [];
+    _htgd_realtimeStats = realtimeRes.stats || [];
     _htgd_prevStats = statsRes.prevStats || null;
     if (!_htgd_activeSourceId && _htgd_activeCrm !== 'all') _htgd_activeSourceId = null; // default to "Tất Cả" within CRM
     else if (!_htgd_activeSourceId && _htgd_activeCrm === 'all') _htgd_activeSourceId = null;
@@ -342,7 +345,7 @@ async function _htgd_renderDataTab() {
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
             ${(() => {
-                // Map active filter to stat field for dynamic counts
+                // Map active filter to stat field for dynamic counts (realtime)
                 const _pillCountField = (stat) => {
                     const f = _htgd_statusFilter;
                     if (!f || f === '') return parseInt(stat.total||0);
@@ -357,12 +360,12 @@ async function _htgd_renderDataTab() {
                     if (f === 'cold') return parseInt(stat.cold||0);
                     return parseInt(stat.total||0);
                 };
-                const allCount = _htgd_stats.reduce((s,st) => s + _pillCountField(st), 0);
+                const allCount = _htgd_realtimeStats.reduce((s,st) => s + _pillCountField(st), 0);
                 const tatCaBtn = _htgd_activeCrm !== 'all' ? `<button class="ts-source-pill${_htgd_activeSourceId === null ? ' active' : ''}" onclick="_htgd_selectSource(null)">
                     📋 Tất Cả <span class="ts-pill-count">${allCount.toLocaleString()}</span>
                 </button>` : '';
                 const srcBtns = _htgd_sources.map(s => {
-                    const stat = _htgd_stats.find(st => st.id === s.id) || {};
+                    const stat = _htgd_realtimeStats.find(st => st.id === s.id) || {};
                     const active = s.id === _htgd_activeSourceId;
                     const cnt = _pillCountField(stat);
                     return `<button class="ts-source-pill${active?' active':''}" onclick="_htgd_selectSource(${s.id})">
@@ -372,18 +375,45 @@ async function _htgd_renderDataTab() {
                 return tatCaBtn + srcBtns;
             })()}
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
-            ${[
-                { key:'available', icon:'✅', label:'Sẵn Sàng', count:t.available },
-                { key:'assigned', icon:'📤', label:'Đã Phân', count:t.assigned },
-                { key:'transferred', icon:'🔥', label:'Chuyển Số', count:t.transferred },
-                { key:'answered', icon:'📞', label:'Bắt Máy', count:t.answered },
-                { key:'no_answer_busy', icon:'📵', label:'Không Nghe', count:t.no_answer_busy },
-                { key:'cold_answered', icon:'🚫', label:'Không NC', count:t.cold_answered },
-                { key:'ncc_answered', icon:'🏪', label:'Đã Có NCC', count:t.ncc_answered },
-                { key:'invalid', icon:'❌', label:'Hủy Khách', count:t.invalid + t.cold },
-            ].map(sp => '<button class="ts-source-pill' + (_htgd_statusFilter===sp.key?' active':'') + '" onclick="_htgd_statusFilter=_htgd_statusFilter===\'' + sp.key + '\'?\'\':\''+sp.key+'\';_htgd_page=1;_htgd_renderDataTab();" style="font-size:11px;">' + sp.icon + ' (' + sp.count.toLocaleString() + ') ' + sp.label + '</button>').join('')}
-        </div>
+        ${(() => {
+            const rt = _htgd_realtimeStats.reduce((a, s) => ({
+                total: a.total + parseInt(s.total||0), available: a.available + parseInt(s.available||0),
+                assigned: a.assigned + parseInt(s.assigned||0), answered: a.answered + parseInt(s.answered||0),
+                transferred: a.transferred + parseInt(s.transferred||0), no_answer_busy: a.no_answer_busy + parseInt(s.no_answer_busy||0),
+                cold_answered: a.cold_answered + parseInt(s.cold_answered||0), ncc_answered: a.ncc_answered + parseInt(s.ncc_answered||0),
+                invalid: a.invalid + parseInt(s.invalid||0), cold: a.cold + parseInt(s.cold||0),
+            }), { total:0, available:0, assigned:0, answered:0, transferred:0, no_answer_busy:0, cold_answered:0, ncc_answered:0, invalid:0, cold:0 });
+            const _spColors = {
+                '': { bg:'#334155', text:'white' },
+                available: { bg:'#059669', text:'white' },
+                assigned: { bg:'#2563eb', text:'white' },
+                transferred: { bg:'#ea580c', text:'white' },
+                answered: { bg:'#7c3aed', text:'white' },
+                no_answer_busy: { bg:'#6366f1', text:'white' },
+                cold_answered: { bg:'#0891b2', text:'white' },
+                ncc_answered: { bg:'#92400e', text:'white' },
+                invalid: { bg:'#6b7280', text:'white' },
+            };
+            const pills = [
+                { key:'', icon:'📋', label:'T\u1ea5t C\u1ea3', count:rt.total },
+                { key:'available', icon:'\u2705', label:'S\u1eb5n S\u00e0ng', count:rt.available },
+                { key:'assigned', icon:'\ud83d\udce4', label:'\u0110\u00e3 Ph\u00e2n', count:rt.assigned },
+                { key:'transferred', icon:'\ud83d\udd25', label:'Chuy\u1ec3n S\u1ed1', count:rt.transferred },
+                { key:'answered', icon:'\ud83d\udcde', label:'B\u1eaft M\u00e1y', count:rt.answered },
+                { key:'no_answer_busy', icon:'\ud83d\udcf5', label:'Kh\u00f4ng Nghe', count:rt.no_answer_busy },
+                { key:'cold_answered', icon:'\ud83d\udeab', label:'Kh\u00f4ng NC', count:rt.cold_answered },
+                { key:'ncc_answered', icon:'\ud83c\udfea', label:'\u0110\u00e3 C\u00f3 NCC', count:rt.ncc_answered },
+                { key:'invalid', icon:'\u274c', label:'H\u1ee7y Kh\u00e1ch', count:rt.invalid + rt.cold },
+            ];
+            return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">' + pills.map(sp => {
+                const isActive = _htgd_statusFilter === sp.key;
+                const c = _spColors[sp.key] || _spColors[''];
+                const style = isActive
+                    ? 'background:' + c.bg + ';color:' + c.text + ';border-color:' + c.bg + ';font-weight:700;box-shadow:0 2px 8px ' + c.bg + '40;'
+                    : 'border:1.5px solid ' + c.bg + ';color:' + c.bg + ';background:white;';
+                return '<button class="ts-source-pill" onclick="_htgd_statusFilter=\'' + sp.key + '\';_htgd_page=1;_htgd_renderDataTab();" style="font-size:11px;' + style + '">' + sp.icon + ' (' + sp.count.toLocaleString() + ') ' + sp.label + '</button>';
+            }).join('') + '</div>';
+        })()}
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
             <div class="ts-search-wrap" style="flex:1;min-width:200px;">
                 <input type="text" class="ts-search" id="htgdSearch" placeholder="Tìm SĐT, Tên KH, Công ty..." value="${_htgd_search}"
@@ -581,8 +611,15 @@ async function _htgd_deleteData(id) {
 async function _htgd_refreshStats() {
     const isAll = _htgd_activeCrm === 'all';
     const crmParam = isAll ? '' : `?crm_type=${_htgd_activeCrm}`;
-    const statsRes = await apiCall(`/api/telesale/data/stats${crmParam}`);
+    const dr = _htgd_getDateRange();
+    const dateParam = dr.from && dr.to ? `&date_from=${dr.from}&date_to=${dr.to}` : '';
+    const sep = crmParam ? crmParam : '?';
+    const [statsRes, realtimeRes] = await Promise.all([
+        apiCall(`/api/telesale/data/stats?${sep}${dateParam}`),
+        apiCall(`/api/telesale/data/stats${crmParam ? '?' + crmParam : ''}`)
+    ]);
     _htgd_stats = statsRes.stats || [];
+    _htgd_realtimeStats = realtimeRes.stats || [];
 }
 
 // ========== REPUMP FUNCTIONS ==========
