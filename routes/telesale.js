@@ -1424,7 +1424,11 @@ async function runTelesalePump() {
 }
 
 async function runTelesaleRecall() {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // Use VN time (UTC+7) for date calculation
+    const vnNow = new Date(Date.now() + 7 * 3600000);
+    const vnToday = vnNow.toISOString().split('T')[0];
+    const yesterday = new Date(vnNow.getTime() - 86400000).toISOString().split('T')[0];
+    console.log(`[Telesale Recall] VN today=${vnToday}, yesterday=${yesterday}`);
     let recalled = 0, invalidated = 0;
 
     // 1. Pending (not called) → return to pool
