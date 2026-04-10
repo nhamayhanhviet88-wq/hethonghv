@@ -334,16 +334,36 @@ async function _htgd_renderDataTab() {
             ${crmTabsHtml}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-            ${_htgd_activeCrm !== 'all' ? `<button class="ts-source-pill${_htgd_activeSourceId === null ? ' active' : ''}" onclick="_htgd_selectSource(null)">
-                📋 Tất Cả <span class="ts-pill-count">${_htgd_stats.reduce((s,st) => s + parseInt(st.total||0), 0).toLocaleString()}</span>
-            </button>` : ''}
-            ${_htgd_sources.map(s => {
-                const stat = _htgd_stats.find(st => st.id === s.id) || {};
-                const active = s.id === _htgd_activeSourceId;
-                return `<button class="ts-source-pill${active?' active':''}" onclick="_htgd_selectSource(${s.id})">
-                    ${s.icon||'📁'} ${s.name} <span class="ts-pill-count">${stat.total||0}</span>
-                </button>`;
-            }).join('')}
+            ${(() => {
+                // Map active filter to stat field for dynamic counts
+                const _pillCountField = (stat) => {
+                    const f = _htgd_statusFilter;
+                    if (!f || f === '') return parseInt(stat.total||0);
+                    if (f === 'available') return parseInt(stat.available||0);
+                    if (f === 'assigned') return parseInt(stat.assigned_current||stat.assigned||0);
+                    if (f === 'answered') return parseInt(stat.answered||0);
+                    if (f === 'transferred') return parseInt(stat.transferred||0);
+                    if (f === 'no_answer_busy') return parseInt(stat.no_answer_busy||0);
+                    if (f === 'cold_answered') return parseInt(stat.cold_answered||0);
+                    if (f === 'ncc_answered') return parseInt(stat.ncc_answered||0);
+                    if (f === 'invalid') return parseInt(stat.invalid||0) + parseInt(stat.cold||0);
+                    if (f === 'cold') return parseInt(stat.cold||0);
+                    return parseInt(stat.total||0);
+                };
+                const allCount = _htgd_stats.reduce((s,st) => s + _pillCountField(st), 0);
+                const tatCaBtn = _htgd_activeCrm !== 'all' ? `<button class="ts-source-pill${_htgd_activeSourceId === null ? ' active' : ''}" onclick="_htgd_selectSource(null)">
+                    📋 Tất Cả <span class="ts-pill-count">${allCount.toLocaleString()}</span>
+                </button>` : '';
+                const srcBtns = _htgd_sources.map(s => {
+                    const stat = _htgd_stats.find(st => st.id === s.id) || {};
+                    const active = s.id === _htgd_activeSourceId;
+                    const cnt = _pillCountField(stat);
+                    return `<button class="ts-source-pill${active?' active':''}" onclick="_htgd_selectSource(${s.id})">
+                        ${s.icon||'📁'} ${s.name} <span class="ts-pill-count">${cnt.toLocaleString()}</span>
+                    </button>`;
+                }).join('');
+                return tatCaBtn + srcBtns;
+            })()}
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
             <div class="ts-search-wrap" style="flex:1;min-width:200px;">
