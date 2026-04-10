@@ -882,10 +882,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.log(`  ✅ Tổng: ${penaltyCount} lỗi vi phạm (chỉ ghi phạt, không khóa TK)`);
     }
 
-    // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 00:30) ==========
+    // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 01:00) ==========
     try {
         const tsHour = now.getHours();
-        if (tsHour === 0 && minute < 30) {
+        if (tsHour === 0) {
             console.log('  📞 [Telesale] Chạy thu hồi đêm...');
             const { runTelesaleRecall } = require('./telesale');
             const recallResult = await runTelesaleRecall();

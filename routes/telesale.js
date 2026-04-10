@@ -1461,6 +1461,10 @@ async function runTelesaleRecall() {
     // 4. Unfreeze cold data that has passed cold_until (only when cold_until IS NOT NULL)
     const unfrozen = await db.run("UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE status = 'cold' AND cold_until IS NOT NULL AND cold_until <= CURRENT_DATE");
 
+    // 5. Track last recall run
+    await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_last_recall', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [new Date().toISOString()]);
+
+    console.log(`[Telesale Recall] recalled=${recalled}, cold=${coldRecalled}, invalid=${invalidated}, unfrozen=${unfrozen?.changes || 0}`);
     return { success: true, message: `Thu hồi: ${recalled} SĐT, ${coldRecalled} kho lạnh, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, coldRecalled, invalidated };
 }
 
