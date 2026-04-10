@@ -238,11 +238,11 @@ async function _htgd_renderDataTab() {
     const rateBatMay = t.assigned > 0 ? Math.round((t.answered / t.assigned) * 100) : 0;
     const rateChuyenSo = t.answered > 0 ? Math.round((t.transferred / t.answered) * 100) : 0;
 
-    // Row 1: 3 key metrics centered
+    // Row 1: 3 key metrics — full width, premium size
     const cardsRow1 = [
-        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0 },
-        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ff6b00,#f59e0b)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0, isHero:true },
-        { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered', prevVal:tp?.answered||0 },
+        { icon:'📤', label:'Đã Phân', val:t.assigned, grad:_HTGD_GRADIENTS[1], txtColor:'white', filterKey:'assigned', prevVal:tp?.assigned||0, isRow1:true },
+        { icon:'🔥', label:'Chuyển Số', val:t.transferred, grad:'linear-gradient(135deg,#f59e0b,#ff6b00,#f59e0b)', txtColor:'white', filterKey:'transferred', prevVal:tp?.transferred||0, isHero:true, isRow1:true },
+        { icon:'📞', label:'Đã Gọi Bắt Máy', val:t.answered, grad:_HTGD_GRADIENTS[3], txtColor:'white', filterKey:'answered', prevVal:tp?.answered||0, isRow1:true },
     ];
     // Row 2: 4 secondary metrics
     const cardsRow2 = [
@@ -293,11 +293,15 @@ async function _htgd_renderDataTab() {
         const comp = _htgd_buildComparisonHtml(c.filterKey, c.val, c.prevVal);
         const heroStyle = c.isHero ? `position:relative;overflow:hidden;background-size:200% 200%;animation:_htgdHeroShimmer 3s ease infinite;box-shadow:0 4px 20px rgba(245,158,11,0.5);border:2px solid rgba(255,255,255,0.3);transform:scale(1.02);` : '';
         const heroOverlay = c.isHero ? `<div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,0.15) 50%,transparent 70%);animation:_htgdHeroGlint 4s ease-in-out infinite;"></div>` : '';
-        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};transition:all .3s;${heroStyle}">
+        const row1Pad = c.isRow1 ? 'padding:24px 20px;' : '';
+        const iconSize = c.isHero ? 'font-size:36px;filter:drop-shadow(0 0 8px rgba(255,200,0,0.8));' : (c.isRow1 ? 'font-size:32px;' : '');
+        const valSize = c.isHero ? 'font-size:38px;text-shadow:0 0 20px rgba(255,255,255,0.6);' : (c.isRow1 ? 'font-size:30px;' : '');
+        const lblSize = c.isHero ? 'font-size:14px;font-weight:800;letter-spacing:1px;text-transform:uppercase;' : (c.isRow1 ? 'font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;' : '');
+        return `<div class="ts-stat-card" style="background:${c.grad};color:${c.txtColor};transition:all .3s;${row1Pad}${heroStyle}">
             ${heroOverlay}
-            <span class="ts-stat-icon" style="${c.isHero ? 'font-size:28px;filter:drop-shadow(0 0 8px rgba(255,200,0,0.8));' : ''}">${c.icon}</span>
-            <div class="ts-stat-val" style="${c.isHero ? 'font-size:32px;text-shadow:0 0 20px rgba(255,255,255,0.6);' : ''}">${c.val.toLocaleString()}</div>
-            <div class="ts-stat-label" style="${c.isHero ? 'font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;' : ''}">${c.label}</div>
+            <span class="ts-stat-icon" style="${iconSize}">${c.icon}</span>
+            <div class="ts-stat-val" style="${valSize}">${c.val.toLocaleString()}</div>
+            <div class="ts-stat-label" style="${lblSize}">${c.label}</div>
             ${comp}
         </div>`;
     };
@@ -311,7 +315,7 @@ async function _htgd_renderDataTab() {
         el.innerHTML = `
             ${_htgd_buildDateFilterHtml()}
             ${_htgdHeroAnimStyle}
-            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;max-width:900px;margin-left:auto;margin-right:auto;">
+            <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:14px;">
                 ${cardsRow1.map(c => cardHtml(c)).join('')}
             </div>
             <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
@@ -333,7 +337,7 @@ async function _htgd_renderDataTab() {
     el.innerHTML = `
         ${_htgd_buildDateFilterHtml()}
         ${_htgdHeroAnimStyle}
-        <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;max-width:900px;margin-left:auto;margin-right:auto;">
+        <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:14px;">
             ${cardsRow1.map(c => cardHtml(c)).join('')}
         </div>
         <div class="ts-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
