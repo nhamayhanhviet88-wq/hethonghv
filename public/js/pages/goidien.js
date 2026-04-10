@@ -611,33 +611,67 @@ async function _gd_openSettings() {
     const res = await apiCall('/api/telesale/settings');
     const coldMonths = res.cold_months || 4;
     const nccMonths = res.ncc_cold_months || 3;
+    const coldNoRepump = res.cold_no_repump || false;
+    const nccNoRepump = res.ncc_no_repump || false;
     openModal('⚙️ Cài Đặt Gọi Điện Telesale', `
         <div style="display:flex;flex-direction:column;gap:16px;">
             <div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1.5px solid #93c5fd;">
                 <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;">❄️ Kho Lạnh — Không Có Nhu Cầu</div>
                 <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Khi KH không có nhu cầu → đóng băng bao lâu trước khi gọi lại</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="number" id="gdSettingColdMonths" class="form-control" value="${coldMonths}" min="1" max="24" style="width:80px;text-align:center;font-weight:700;font-size:16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="gdSettingColdMonths" class="form-control" value="${coldMonths}" min="1" max="24" ${coldNoRepump ? 'disabled' : ''} style="width:80px;text-align:center;font-weight:700;font-size:16px;opacity:${coldNoRepump ? '0.5' : '1'};background:${coldNoRepump ? '#f3f4f6' : 'white'};">
                     <span style="font-size:13px;color:#374151;font-weight:600;">tháng</span>
                 </div>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;background:${coldNoRepump ? 'rgba(220,38,38,0.08)' : 'rgba(0,0,0,0.03)'};border:1px solid ${coldNoRepump ? '#fca5a5' : '#e5e7eb'};border-radius:8px;transition:all .2s;">
+                    <input type="checkbox" id="gdColdNoRepump" ${coldNoRepump ? 'checked' : ''} onchange="_gd_toggleNoRepump('cold', this.checked)" style="cursor:pointer;width:16px;height:16px;">
+                    <span style="font-size:12px;font-weight:700;color:${coldNoRepump ? '#dc2626' : '#6b7280'};">🚫 Không bơm lại</span>
+                </label>
             </div>
             <div style="padding:16px;background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;border:1.5px solid #fde047;">
                 <div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:8px;">🏪 Đã Có Nhà Cung Cấp</div>
                 <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Khi KH đã có NCC → đóng băng bao lâu trước khi gọi lại</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="number" id="gdSettingNccMonths" class="form-control" value="${nccMonths}" min="1" max="24" style="width:80px;text-align:center;font-weight:700;font-size:16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <input type="number" id="gdSettingNccMonths" class="form-control" value="${nccMonths}" min="1" max="24" ${nccNoRepump ? 'disabled' : ''} style="width:80px;text-align:center;font-weight:700;font-size:16px;opacity:${nccNoRepump ? '0.5' : '1'};background:${nccNoRepump ? '#f3f4f6' : 'white'};">
                     <span style="font-size:13px;color:#374151;font-weight:600;">tháng</span>
                 </div>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;background:${nccNoRepump ? 'rgba(220,38,38,0.08)' : 'rgba(0,0,0,0.03)'};border:1px solid ${nccNoRepump ? '#fca5a5' : '#e5e7eb'};border-radius:8px;transition:all .2s;">
+                    <input type="checkbox" id="gdNccNoRepump" ${nccNoRepump ? 'checked' : ''} onchange="_gd_toggleNoRepump('ncc', this.checked)" style="cursor:pointer;width:16px;height:16px;">
+                    <span style="font-size:12px;font-weight:700;color:${nccNoRepump ? '#dc2626' : '#6b7280'};">🚫 Không bơm lại</span>
+                </label>
             </div>
         </div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
         <button class="ts-btn ts-btn-green" onclick="_gd_saveSettings()">💾 Lưu Cài Đặt</button>`);
 }
 
+function _gd_toggleNoRepump(type, checked) {
+    const inputId = type === 'cold' ? 'gdSettingColdMonths' : 'gdSettingNccMonths';
+    const labelId = type === 'cold' ? 'gdColdNoRepump' : 'gdNccNoRepump';
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.disabled = checked;
+        input.style.opacity = checked ? '0.5' : '1';
+        input.style.background = checked ? '#f3f4f6' : 'white';
+    }
+    // Update label style
+    const cb = document.getElementById(labelId);
+    if (cb) {
+        const label = cb.closest('label');
+        if (label) {
+            label.style.background = checked ? 'rgba(220,38,38,0.08)' : 'rgba(0,0,0,0.03)';
+            label.style.borderColor = checked ? '#fca5a5' : '#e5e7eb';
+            const span = label.querySelector('span');
+            if (span) span.style.color = checked ? '#dc2626' : '#6b7280';
+        }
+    }
+}
+
 async function _gd_saveSettings() {
     const cold_months = parseInt(document.getElementById('gdSettingColdMonths')?.value) || 4;
     const ncc_cold_months = parseInt(document.getElementById('gdSettingNccMonths')?.value) || 3;
-    const res = await apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months });
+    const cold_no_repump = document.getElementById('gdColdNoRepump')?.checked || false;
+    const ncc_no_repump = document.getElementById('gdNccNoRepump')?.checked || false;
+    const res = await apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months, cold_no_repump, ncc_no_repump });
     if (res.success) { showToast('✅ Đã lưu cài đặt'); closeModal(); }
     else showToast(res.error || 'Lỗi', 'error');
 }
