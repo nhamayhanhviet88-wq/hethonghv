@@ -371,17 +371,15 @@ async function _htgd_renderDataTab() {
                 <input type="text" class="ts-search" id="htgdSearch" placeholder="Tìm SĐT, Tên KH, Công ty..." value="${_htgd_search}"
                     onkeyup="if(event.key==='Enter'){_htgd_search=this.value;_htgd_page=1;_htgd_loadData();}">
             </div>
-            <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_loadData();">
+            <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_renderDataTab();">
                 <option value="" ${_htgd_statusFilter===''?'selected':''}>Tất cả trạng thái</option>
-                <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn sàng</option>
-                <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã phân</option>
-                <option value="answered" ${_htgd_statusFilter==='answered'?'selected':''}>📞 Đã gọi</option>
-                <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển số</option>
-                <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không nghe, bận</option>
-                <option value="cold_answered" ${_htgd_statusFilter==='cold_answered'?'selected':''}>🚫 Không có nhu cầu</option>
-                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã có Nhà Cung Cấp</option>
+                <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Tổng Data Còn Lại Sẵn Sàng</option>
+                <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã Phân</option>
+                <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển Số</option>
+                <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không Nghe, Bận</option>
+                <option value="cold_answered" ${_htgd_statusFilter==='cold_answered'?'selected':''}>🚫 Không Có Nhu Cầu</option>
+                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã Có Nhà Cung Cấp</option>
                 <option value="invalid" ${_htgd_statusFilter==='invalid'?'selected':''}>❌ Hủy Khách, K. Tồn Tại</option>
-                <option value="cold" ${_htgd_statusFilter==='cold'?'selected':''}>❄️ Cold</option>
             </select>
             <select class="ts-select" id="htgdCarrierFilter" onchange="_htgd_carrierFilter=this.value;_htgd_page=1;_htgd_loadData();">
                 <option value="">Tất cả nhà mạng</option>
