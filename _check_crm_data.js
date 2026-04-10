@@ -1,88 +1,49 @@
 require('dotenv').config();
 const db = require('./db/pool');
 
-async function manualRecall() {
+async function check() {
     await db.init();
     
-    const today = new Date().toISOString().split('T')[0];
-    // Recall everything BEFORE today (keep today's assignments intact)
-    console.log(`\n🔄 Thu hồi data assigned trước ngày ${today}...\n`);
-
-    // 1. Count what we'll recall
-    const before = await db.all(`
-        SELECT d.status, COUNT(*) as count
-        FROM telesale_data d WHERE d.status = 'assigned'
-        GROUP BY d.status
+    // Current status breakdown by CRM type
+    const result = await db.all(`
+        SELECT s.crm_type,
+            COUNT(d.id) as total,
+            COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
+            COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned,
+            COUNT(d.id) FILTER (WHERE d.status = 'answered') as answered,
+            COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
+        FROM telesale_sources s
+        LEFT JOIN telesale_data d ON d.source_id = s.id
+        WHERE s.is_active = true
+        GROUP BY s.crm_type
     `);
-    console.log('=== TRƯỚC KHI THU HỒI ===');
-    console.table(before);
+    console.log('\n=== HIỆN TẠI (SAU THU HỒI) ===');
+    console.table(result);
 
-    // 2. Get all assignments from BEFORE today that are still pending
-    const pendingOld = await db.all(`
-        SELECT a.id, a.data_id, a.assigned_date, a.call_status, a.user_id
+    // Assigned today only
+    const today = '2026-04-10';
+    const todayAssigned = await db.all(`
+        SELECT s.crm_type, COUNT(DISTINCT a.data_id) as assigned_today
         FROM telesale_assignments a
         JOIN telesale_data d ON d.id = a.data_id
-        WHERE a.assigned_date < $1 AND a.call_status = 'pending' AND d.status = 'assigned'
+        JOIN telesale_sources s ON s.id = d.source_id
+        WHERE a.assigned_date = $1
+        GROUP BY s.crm_type
     `, [today]);
-    console.log(`\n📋 Pending cũ (trước ${today}): ${pendingOld.length} records`);
+    console.log('\n=== ASSIGNED HÔM NAY ===');
+    console.table(todayAssigned);
 
-    // 3. Get no_answer/busy from before today
-    const noAnswerOld = await db.all(`
-        SELECT a.id, a.data_id, a.assigned_date, a.call_status
-        FROM telesale_assignments a
-        JOIN telesale_data d ON d.id = a.data_id
-        WHERE a.assigned_date < $1 AND a.call_status IN ('no_answer', 'busy') AND d.status = 'assigned'
-    `, [today]);
-    console.log(`📋 No answer/busy cũ: ${noAnswerOld.length} records`);
-
-    // 4. Get invalid from before today
-    const invalidOld = await db.all(`
-        SELECT a.id, a.data_id, a.assigned_date
-        FROM telesale_assignments a
-        JOIN telesale_data d ON d.id = a.data_id
-        WHERE a.assigned_date < $1 AND a.call_status = 'invalid' AND d.status = 'assigned'
-    `, [today]);
-    console.log(`📋 Invalid cũ: ${invalidOld.length} records`);
-
-    // 5. Execute recall
-    let recalled = 0, invalidated = 0;
-
-    // Pending → available
-    for (const a of pendingOld) {
-        await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ? AND status = 'assigned'", [a.data_id]);
-        recalled++;
-    }
-    console.log(`\n✅ Thu hồi pending → available: ${recalled}`);
-
-    // No answer/busy → available
-    let recalledNAB = 0;
-    for (const a of noAnswerOld) {
-        await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ? AND status = 'assigned'", [a.data_id]);
-        recalledNAB++;
-    }
-    console.log(`✅ Thu hồi no_answer/busy → available: ${recalledNAB}`);
-
-    // Invalid → delete
-    for (const a of invalidOld) {
-        await db.run('DELETE FROM telesale_assignments WHERE data_id = ?', [a.data_id]);
-        await db.run('DELETE FROM telesale_data WHERE id = ?', [a.data_id]);
-        invalidated++;
-    }
-    console.log(`✅ Xóa invalid: ${invalidated}`);
-
-    // 6. Verify after
-    const after = await db.all(`
-        SELECT d.status, COUNT(*) as count
+    // Total all
+    const total = await db.get(`
+        SELECT COUNT(*) as total,
+            COUNT(*) FILTER (WHERE status = 'available') as available,
+            COUNT(*) FILTER (WHERE status = 'assigned') as assigned
         FROM telesale_data d
-        GROUP BY d.status
-        ORDER BY count DESC
+        JOIN telesale_sources s ON s.id = d.source_id AND s.is_active = true
     `);
-    console.log('\n=== SAU KHI THU HỒI ===');
-    console.table(after);
-
-    const totalRecalled = recalled + recalledNAB;
-    console.log(`\n🎉 TỔNG KẾT: Thu hồi ${totalRecalled} SĐT → available, Xóa ${invalidated} invalid`);
+    console.log('\n=== TỔNG TẤT CẢ CRM ===');
+    console.log(`Total: ${total.total} | Available: ${total.available} | Assigned: ${total.assigned}`);
 
     process.exit(0);
 }
-manualRecall().catch(e => { console.error(e); process.exit(1); });
+check().catch(e => { console.error(e); process.exit(1); });

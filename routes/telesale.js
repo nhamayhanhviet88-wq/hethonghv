@@ -184,6 +184,7 @@ async function telesaleRoutes(fastify) {
         const stats = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
             COUNT(d.id) FILTER (WHERE true) as total,
             COUNT(d.id) FILTER (WHERE d.status = 'available') as available,
+            COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned_current,
             COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
             FROM telesale_sources s
             LEFT JOIN telesale_data d ON d.source_id = s.id
@@ -277,7 +278,7 @@ async function telesaleRoutes(fastify) {
         for (const s of stats) {
             const ds = dateStats[s.id] || {};
             if (hasDateFilter) {
-                s.assigned = ds.assigned || 0;
+                s.assigned = parseInt(s.assigned_current) || 0;
                 s.answered = ds.answered || 0;
                 s.transferred = ds.transferred || 0;
                 s.cold_answered = ds.cold_answered || 0;
@@ -287,7 +288,7 @@ async function telesaleRoutes(fastify) {
             } else {
                 // Original queries for non-date mode (backward compat)
                 const ds2 = dateStats[s.id] || {};
-                s.assigned = ds2.assigned || 0;
+                s.assigned = parseInt(s.assigned_current) || 0;
                 s.answered = ds2.answered || 0;
                 s.transferred = ds2.transferred || 0;
                 s.cold_answered = ds2.cold_answered || 0;
