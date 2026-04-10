@@ -289,10 +289,10 @@ async function _gd_loadCallsForUser(userId) {
     };
     const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
     const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
-    const totalAssigned = parseInt(_gd_stats.total||0);
-    const prevAssigned = parseInt(ps.total||0);
+    const totalAssigned = parseInt(_gd_stats.pending||0);
+    const prevAssigned = parseInt(ps.pending||0);
     const miniCards = [
-        { icon:'📤', val:totalAssigned, label:'Đã Phân', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:prevAssigned, fk:'total' },
+        { icon:'📤', val:totalAssigned, label:'Đã Phân Còn Lại', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:prevAssigned, fk:'total' },
         { icon:'📞', val:totalAnswered, label:'Đã Gọi Bắt Máy', grad:'linear-gradient(135deg,#8b5cf6,#a855f7)', pv:parseInt(ps.answered||0), fk:'answered' },
         { icon:'🔥', val:parseInt(_gd_stats.transferred||0), label:'Chuyển Số', grad:'linear-gradient(135deg,#f59e0b,#ea580c)', pv:parseInt(ps.transferred||0), fk:'transferred' },
         { icon:'📵', val:noAB, label:'Không Nghe, Bận', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB, fk:'no_answer_busy' },
@@ -357,7 +357,7 @@ async function _gd_loadCallsForUser(userId) {
 
     const dateLabel = isSingleDay ? _gd_formatDate(dr.from) : `${_gd_formatDateShort(dr.from)} → ${_gd_formatDateShort(dr.to)}`;
     // Active filter label
-    const _filterLabels = { total:'📤 Đã Phân', answered:'📞 Đã Gọi Bắt Máy', transferred:'🔥 Chuyển Số', no_answer_busy:'📵 Không Nghe, Bận', cold_answered:'🚫 Không Có Nhu Cầu', ncc_answered:'🏪 Đã Có Nhà Cung Cấp', invalid:'❌ Hủy Khách, K. Tồn Tại' };
+    const _filterLabels = { total:'📤 Đã Phân Còn Lại', answered:'📞 Đã Gọi Bắt Máy', transferred:'🔥 Chuyển Số', no_answer_busy:'📵 Không Nghe, Bận', cold_answered:'🚫 Không Có Nhu Cầu', ncc_answered:'🏪 Đã Có Nhà Cung Cấp', invalid:'❌ Hủy Khách, K. Tồn Tại' };
     const activeFilterHtml = _gd_statusFilter ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:linear-gradient(135deg,#122546,#1e3a5f);color:white;border-radius:10px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(18,37,70,0.3);animation:_gdFilterPulse 2s ease-in-out infinite;">
         <span>🔍</span><span>${_filterLabels[_gd_statusFilter] || _gd_statusFilter}</span>
         <button onclick="_gd_filterByCard('${_gd_statusFilter}')" style="background:rgba(255,255,255,0.2);border:none;color:white;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;" title="Bỏ lọc">✕</button>
