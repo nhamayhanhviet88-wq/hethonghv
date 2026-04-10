@@ -373,16 +373,16 @@ async function _htgd_renderDataTab() {
             })()}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
-            <select class="ts-select" id="htgdStatusFilter" onchange="_htgd_statusFilter=this.value;_htgd_page=1;_htgd_renderDataTab();" style="min-width:180px;">
-                <option value="" ${_htgd_statusFilter===''?'selected':''}>Tất cả trạng thái</option>
-                <option value="available" ${_htgd_statusFilter==='available'?'selected':''}>✅ Sẵn Sàng</option>
-                <option value="assigned" ${_htgd_statusFilter==='assigned'?'selected':''}>📤 Đã Phân</option>
-                <option value="transferred" ${_htgd_statusFilter==='transferred'?'selected':''}>🔥 Chuyển Số</option>
-                <option value="no_answer_busy" ${_htgd_statusFilter==='no_answer_busy'?'selected':''}>📵 Không Nghe, Bận</option>
-                <option value="cold_answered" ${_htgd_statusFilter==='cold_answered'?'selected':''}>🚫 Không Có Nhu Cầu</option>
-                <option value="ncc_answered" ${_htgd_statusFilter==='ncc_answered'?'selected':''}>🏪 Đã Có Nhà Cung Cấp</option>
-                <option value="invalid" ${_htgd_statusFilter==='invalid'?'selected':''}>❌ Hủy Khách, K. Tồn Tại</option>
-            </select>
+            ${[
+                { key:'available', icon:'✅', label:'Sẵn Sàng', count:t.available },
+                { key:'assigned', icon:'📤', label:'Đã Phân', count:t.assigned },
+                { key:'transferred', icon:'🔥', label:'Chuyển Số', count:t.transferred },
+                { key:'answered', icon:'📞', label:'Bắt Máy', count:t.answered },
+                { key:'no_answer_busy', icon:'📵', label:'Không Nghe', count:t.no_answer_busy },
+                { key:'cold_answered', icon:'🚫', label:'Không NC', count:t.cold_answered },
+                { key:'ncc_answered', icon:'🏪', label:'Đã Có NCC', count:t.ncc_answered },
+                { key:'invalid', icon:'❌', label:'Hủy Khách', count:t.invalid + t.cold },
+            ].map(sp => '<button class="ts-source-pill' + (_htgd_statusFilter===sp.key?' active':'') + '" onclick="_htgd_statusFilter=_htgd_statusFilter===\'' + sp.key + '\'?\'\':\''+sp.key+'\';_htgd_page=1;_htgd_renderDataTab();" style="font-size:11px;">' + sp.icon + ' (' + sp.count.toLocaleString() + ') ' + sp.label + '</button>').join('')}
         </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
             <div class="ts-search-wrap" style="flex:1;min-width:200px;">
