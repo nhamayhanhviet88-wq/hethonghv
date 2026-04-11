@@ -1374,7 +1374,7 @@ async function runTelesalePump() {
                 try {
                     await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                         [cb.data_id, member.user_id, today]);
-                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                         [today, member.user_id, cb.data_id]);
                     totalPumped++;
                     remaining--;
@@ -1439,7 +1439,7 @@ async function runTelesalePump() {
                     try {
                         await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                             [dId, member.user_id, today]);
-                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                             [today, member.user_id, dId]);
                         totalPumped++;
                         remaining--;
@@ -1457,7 +1457,7 @@ async function runTelesalePump() {
                     try {
                         await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                             [d.id, member.user_id, today]);
-                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                        await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                             [today, member.user_id, d.id]);
                         totalPumped++;
                         remaining--;
@@ -1594,7 +1594,7 @@ async function runTelesalePumpForUser(userId) {
             try {
                 await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                     [cb.data_id, userId, today]);
-                await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                     [today, userId, cb.data_id]);
                 totalPumped++;
                 remaining--;
@@ -1651,7 +1651,7 @@ async function runTelesalePumpForUser(userId) {
                 try {
                     await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                         [dId, userId, today]);
-                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                         [today, userId, dId]);
                     totalPumped++;
                     remaining--;
@@ -1669,7 +1669,7 @@ async function runTelesalePumpForUser(userId) {
                 try {
                     await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
                         [d.id, userId, today]);
-                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ? WHERE id = ?",
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
                         [today, userId, d.id]);
                     totalPumped++;
                     remaining--;
