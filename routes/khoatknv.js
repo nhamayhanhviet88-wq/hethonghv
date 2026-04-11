@@ -215,15 +215,17 @@ async function khoaTKNVRoutes(fastify, options) {
         }));
 
         // ===== SOURCE 3: chain_task_completions (CV Chuỗi — NV/QL phạt) =====
+        // Stack penalties (redo_count=-2) use created_at as the penalty date, originals use ci.deadline
+        const effectiveDateExpr = `CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END`;
         let ctWhere = '';
         let ctParams = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date`;
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date`;
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user3 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user3 || !user3.department_id) {
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND 1=0`;
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND 1=0`;
             } else {
                 const deptIds3 = [user3.department_id];
                 const children3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user3.department_id]);
@@ -233,16 +235,17 @@ async function khoaTKNVRoutes(fastify, options) {
                     gc3.forEach(gc => deptIds3.push(gc.id));
                 }
                 const ph3 = deptIds3.map((_, i) => `$${i + 3}`).join(',');
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND cins.department_id IN (${ph3})`;
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND cins.department_id IN (${ph3})`;
                 ctParams.push(...deptIds3);
             }
         } else {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ci.deadline BETWEEN $1::date AND $2::date AND cc.user_id = $3`;
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND cc.user_id = $3`;
             ctParams.push(userId);
         }
 
         const ctPenalties = await db.all(
-            `SELECT cc.id, cc.chain_item_id, cc.user_id, ci.deadline::text as task_date,
+            `SELECT cc.id, cc.chain_item_id, cc.user_id, 
+                    (${effectiveDateExpr})::text as task_date,
                     cc.penalty_amount, cc.penalty_applied, cc.acknowledged, cc.content as penalty_reason,
                     ci.task_name, cins.chain_name, cins.department_id,
                     u.full_name as user_name, u.username, u.department_id as user_dept_id, u.role as user_role,
@@ -253,7 +256,7 @@ async function khoaTKNVRoutes(fastify, options) {
              JOIN users u ON u.id = cc.user_id
              LEFT JOIN departments d ON cins.department_id = d.id
              ${ctWhere}
-             ORDER BY ci.deadline DESC`,
+             ORDER BY (${effectiveDateExpr}) DESC`,
             ctParams
         );
 
@@ -429,14 +432,16 @@ async function khoaTKNVRoutes(fastify, options) {
 
         // Source 3: chain_task_completions (CV Chuỗi)
         const ctItems = await db.all(
-            `SELECT ci.task_name, ci.deadline::text as task_date, cc.penalty_amount, cc.acknowledged,
+            `SELECT ci.task_name, 
+                    (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
+                    cc.penalty_amount, cc.acknowledged,
                     cins.chain_name, cc.content as penalty_reason
              FROM chain_task_completions cc
              JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
              JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
              WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-               AND ci.deadline BETWEEN $2::date AND $3::date
-             ORDER BY ci.deadline`,
+               AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) BETWEEN $2::date AND $3::date
+             ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)`,
             [managerId, monthStart, monthEnd]
         );
         ctItems.forEach(item => {
@@ -725,7 +730,8 @@ async function khoaTKNVRoutes(fastify, options) {
         let chainPenalties = [];
         try {
             chainPenalties = await db.all(
-                `SELECT cc.user_id as penalized_user_id, ci.task_name, ci.deadline::text as task_date,
+                `SELECT cc.user_id as penalized_user_id, ci.task_name,
+                        (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
                         cc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
                         u.department_id as penalized_dept_id, u.role as penalized_role,
                         cins.chain_name
@@ -734,9 +740,9 @@ async function khoaTKNVRoutes(fastify, options) {
                  JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                  JOIN users u ON u.id = cc.user_id
                  WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                   AND ci.deadline >= $1
+                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) >= $1::date
                    AND cc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
-                 ORDER BY ci.deadline`,
+                 ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)`,
                 baseParams
             );
         } catch(e) {}
