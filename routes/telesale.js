@@ -173,7 +173,7 @@ async function telesaleRoutes(fastify) {
                 WHERE a.data_id = d.id
                 ORDER BY a.assigned_date DESC, a.id DESC LIMIT 1
             ) la ON true
-            ${where} ORDER BY d.created_at DESC LIMIT $${limitParam} OFFSET $${offsetParam}`, params);
+            ${where} ORDER BY d.updated_at DESC LIMIT $${limitParam} OFFSET $${offsetParam}`, params);
         // Filter salary info for non-director roles
         if (!_SALARY_VISIBLE_ROLES.includes(req.user.role)) {
             data.forEach(d => { d.post_content = _filterSalaryLines(d.post_content); });
