@@ -895,10 +895,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ [Telesale] Error recall:', e.message);
     }
 
-    // ========== 10. TELESALE — BƠM SÁNG (07:00 - 07:30) ==========
+    // ========== 10. TELESALE — BƠM SÁNG (07:00+) ==========
+    // ★ Catch-up: nếu server restart sau 7:00 mà chưa bơm → bơm ngay
     try {
         const tsHour2 = now.getHours();
-        if (tsHour2 === 7 && minute < 30) {
+        const shouldPump = (tsHour2 === 7 && _minute < 30) || (forceFullCheck && tsHour2 >= 7);
+        if (shouldPump) {
             // Check if already pumped today
             const today10 = toDateStr(now);
             const alreadyPumped = await db.get(
@@ -906,7 +908,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 [today10]
             );
             if (!alreadyPumped || alreadyPumped.cnt === 0) {
-                console.log('  📞 [Telesale] Chạy bơm sáng 7:00...');
+                console.log(`  📞 [Telesale] Chạy bơm sáng${forceFullCheck && tsHour2 > 7 ? ' (catch-up sau restart)' : ''}...`);
                 const { runTelesalePump } = require('./telesale');
                 const pumpResult = await runTelesalePump();
                 console.log(`  📞 [Telesale] ${pumpResult.message}`);

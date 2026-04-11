@@ -1,69 +1,56 @@
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv' });
+const http = require('http');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = 'dongphuchv_secret_key_2024_change_this';
+const token = jwt.sign({ id: 1, username: 'admin', full_name: 'Admin', role: 'giam_doc' }, JWT_SECRET, { expiresIn: '1d' });
+
+function apiCall(path, method, body) {
+  return new Promise((resolve, reject) => {
+    const opts = { hostname: 'localhost', port: 11000, path, method: method || 'GET',
+      headers: { Cookie: 'token=' + token, 'Content-Type': 'application/json' } };
+    const req = http.request(opts, res => { let d = ''; res.on('data', c => d += c); res.on('end', () => resolve({ status: res.statusCode, data: d })); });
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
 
 (async () => {
-  const nv3 = await pool.query("SELECT id FROM users WHERE username = 'nhanvien3'");
-  if (nv3.rows.length === 0) { console.log('nhanvien3 not found'); return; }
-  const nv3Id = nv3.rows[0].id;
-
-  // Get ALL chain penalties with full detail
-  const chains = await pool.query(
-    "SELECT cc.id, cc.chain_item_id, cc.user_id, cc.penalty_amount, cc.status, " +
-    "cc.penalty_applied, cc.redo_count, cc.created_at::text as created_at, cc.content, " +
-    "ci.task_name, ci.deadline::text as deadline, cins.chain_name " +
-    "FROM chain_task_completions cc " +
-    "JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id " +
-    "JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id " +
-    "WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true " +
-    "ORDER BY ci.deadline DESC, cc.created_at DESC",
-    [nv3Id]
+  // 1. Check current state
+  console.log('=== Check assignments today ===');
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv' });
+  
+  const today = '2026-04-11';
+  const asg = await pool.query("SELECT COUNT(*) as cnt FROM telesale_assignments WHERE assigned_date = $1", [today]);
+  console.log('Assignments today:', asg.rows[0].cnt);
+  
+  // Check available data by source
+  const avail = await pool.query(
+    "SELECT ts.name, ts.crm_type, ts.daily_quota, COUNT(td.id) as available " +
+    "FROM telesale_sources ts " +
+    "LEFT JOIN telesale_data td ON td.source_id = ts.id AND td.status = 'available' " +
+    "WHERE ts.is_active = true " +
+    "GROUP BY ts.id, ts.name, ts.crm_type, ts.daily_quota " +
+    "ORDER BY ts.display_order"
   );
-
-  console.log('nhanvien3 ALL chain penalties:');
-  chains.rows.forEach(r => {
-    console.log('  ID=' + r.id + ' | chain_item=' + r.chain_item_id + 
-      ' | redo_count=' + r.redo_count +
-      ' | deadline=' + r.deadline + 
-      ' | created=' + r.created_at +
-      ' | amount=' + r.penalty_amount +
-      ' | task=' + r.chain_name + ' - ' + r.task_name +
-      ' | content=' + (r.content || '').substring(0, 60));
-  });
-
-  console.log('\n--- From /api/penalty/list for "hom qua" (2026-04-10) ---');
-  // This simulates the list query for "hom qua"
-  const listResult = await pool.query(
-    "SELECT cc.id, ci.task_name, ci.deadline::text as task_date, " +
-    "cc.penalty_amount, cins.chain_name, cc.redo_count, cc.created_at::text " +
-    "FROM chain_task_completions cc " +
-    "JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id " +
-    "JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id " +
-    "JOIN users u ON u.id = cc.user_id " +
-    "WHERE cc.status = 'expired' AND cc.penalty_applied = true " +
-    "AND ci.deadline BETWEEN '2026-04-10'::date AND '2026-04-10'::date " +
-    "AND cc.user_id = $1 ORDER BY ci.deadline DESC",
-    [nv3Id]
+  console.log('\nSources:');
+  avail.rows.forEach(r => console.log('  ' + r.name + ' (CRM: ' + r.crm_type + ') | quota: ' + r.daily_quota + '/day | available: ' + r.available));
+  
+  // Check active members
+  const members = await pool.query(
+    "SELECT tam.user_id, tam.daily_quota, tam.crm_type, tam.is_active, u.username, u.full_name, u.status " +
+    "FROM telesale_active_members tam " +
+    "JOIN users u ON u.id = tam.user_id " +
+    "ORDER BY tam.crm_type, u.username"
   );
-  console.log('Results (filtered by ci.deadline = 2026-04-10):');
-  listResult.rows.forEach(r => {
-    console.log('  ' + r.chain_name + ' - ' + r.task_name + ' | deadline=' + r.task_date + ' | amount=' + r.penalty_amount + ' | redo=' + r.redo_count);
-  });
-
-  console.log('\n--- Stacked penalties (redo_count=-2) created on 2026-04-10 but deadline!=2026-04-10 ---');
-  const stacked = await pool.query(
-    "SELECT cc.id, ci.task_name, ci.deadline::text, cc.created_at::text, " +
-    "cc.penalty_amount, cins.chain_name, cc.redo_count " +
-    "FROM chain_task_completions cc " +
-    "JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id " +
-    "JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id " +
-    "WHERE cc.user_id = $1 AND cc.redo_count = -2 " +
-    "ORDER BY cc.created_at DESC",
-    [nv3Id]
-  );
-  console.log('Stacked records:');
-  stacked.rows.forEach(r => {
-    console.log('  ' + r.chain_name + ' - ' + r.task_name + ' | deadline=' + r.deadline + ' | created=' + r.created_at + ' | amount=' + r.penalty_amount);
-  });
-
+  console.log('\nActive members:');
+  members.rows.forEach(r => console.log('  ' + r.username + ' (' + r.full_name + ') | CRM: ' + r.crm_type + ' | quota: ' + (r.daily_quota || 'DEFAULT') + ' | active: ' + r.is_active + ' | user_status: ' + r.status));
+  
   await pool.end();
-})().catch(e => { console.error(e.message); process.exit(1); });
+  
+  // 2. Trigger pump manually via API
+  console.log('\n=== Triggering manual pump ===');
+  const pumpRes = await apiCall('/api/telesale/pump', 'POST', {});
+  console.log('Pump result:', pumpRes.status, pumpRes.data);
+})().catch(e => console.error(e));
