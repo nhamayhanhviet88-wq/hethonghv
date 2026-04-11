@@ -416,11 +416,11 @@ async function _htgd_renderDataTab() {
                 { key:'available', icon:'\u2705', label:'S\u1eb5n S\u00e0ng', count:rt.available },
                 { key:'assigned', icon:'\ud83d\udce4', label:'\u0110\u00e3 Ph\u00e2n', count:rt.assigned },
                 { key:'transferred', icon:'\ud83d\udd25', label:'Chuy\u1ec3n S\u1ed1', count:rt.transferred },
-                { key:'answered', icon:'\ud83d\udcde', label:'B\u1eaft M\u00e1y', count:rt.answered },
-                { key:'no_answer_busy', icon:'\ud83d\udcf5', label:'Kh\u00f4ng Nghe', count:rt.no_answer_busy },
-                { key:'cold_answered', icon:'\ud83d\udeab', label:'Kh\u00f4ng NC', count:rt.cold_answered },
-                { key:'ncc_answered', icon:'\ud83c\udfea', label:'\u0110\u00e3 C\u00f3 NCC', count:rt.ncc_answered },
-                { key:'invalid', icon:'\u274c', label:'H\u1ee7y Kh\u00e1ch', count:rt.invalid },
+                { key:'answered', icon:'\ud83d\udcde', label:'\u0110\u00e3 G\u1ecdi B\u1eaft M\u00e1y', count:rt.answered },
+                { key:'no_answer_busy', icon:'\ud83d\udcf5', label:'Kh\u00f4ng Nghe, B\u1eadn', count:rt.no_answer_busy },
+                { key:'cold_answered', icon:'\ud83d\udeab', label:'Kh\u00f4ng C\u00f3 Nhu C\u1ea7u', count:rt.cold_answered },
+                { key:'ncc_answered', icon:'\ud83c\udfea', label:'\u0110\u00e3 C\u00f3 Nh\u00e0 Cung C\u1ea5p', count:rt.ncc_answered },
+                { key:'invalid', icon:'\u274c', label:'H\u1ee7y Kh\u00e1ch, K. T\u1ed3n T\u1ea1i', count:rt.invalid },
             ];
             return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">' + pills.map(sp => {
                 const isActive = _htgd_statusFilter === sp.key;
