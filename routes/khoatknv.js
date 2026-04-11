@@ -684,15 +684,10 @@ async function khoaTKNVRoutes(fastify, options) {
 
         if (scopeDeptIds.length === 0) return { penalties: [], total: 0 };
 
-        // Query penalties since last popup view (or last 90 days if never viewed)
-        const lastViewDate = userCheck?.penalty_mgr_popup_date;
-        let sinceDate;
-        if (lastViewDate) {
-            sinceDate = lastViewDate; // Show penalties from the day after last view
-        } else {
-            const d90 = new Date(); d90.setDate(d90.getDate() - 90);
-            sinceDate = d90.toISOString().split('T')[0];
-        }
+        // Always show all active penalties from last 90 days
+        // (lastViewDate only controls whether popup auto-shows, not which penalties to include)
+        const d90 = new Date(); d90.setDate(d90.getDate() - 90);
+        const sinceDate = d90.toISOString().split('T')[0];
         const deptPlaceholders = scopeDeptIds.map((_, i) => `$${i + 3}`).join(',');
         const baseParams = [sinceDate, userId, ...scopeDeptIds];
 
