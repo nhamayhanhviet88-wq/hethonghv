@@ -161,10 +161,18 @@ async function telesaleRoutes(fastify) {
         params.push(parseInt(limit), offset);
 
         const data = await db.all(`SELECT d.*, s.name as source_name, s.icon as source_icon,
-            u.full_name as last_assigned_user_name
+            u.full_name as last_assigned_user_name,
+            la.call_status as last_call_status, la.answer_action_type, la.answer_status_name
             FROM telesale_data d
             LEFT JOIN telesale_sources s ON s.id = d.source_id
             LEFT JOIN users u ON u.id = d.last_assigned_user_id
+            LEFT JOIN LATERAL (
+                SELECT a.call_status, ans.action_type as answer_action_type, ans.name as answer_status_name
+                FROM telesale_assignments a
+                LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                WHERE a.data_id = d.id
+                ORDER BY a.assigned_date DESC, a.id DESC LIMIT 1
+            ) la ON true
             ${where} ORDER BY d.created_at DESC LIMIT $${limitParam} OFFSET $${offsetParam}`, params);
         // Filter salary info for non-director roles
         if (!_SALARY_VISIBLE_ROLES.includes(req.user.role)) {

@@ -499,15 +499,33 @@ async function _htgd_loadData() {
     }
     const totalPages = Math.ceil(total / 50);
 
-    const statusBadge = (s) => {
-        const map = {
-            available: { icon:'✅', label:'Sẵn sàng', bg:'#dcfce7', color:'#16a34a' },
-            assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
-            answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
-            cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
-        };
-        const m = map[s] || map.available;
-        return `<span class="ts-badge" style="background:${m.bg};color:${m.color};">${m.icon} ${m.label}</span>`;
+    const statusBadge = (d) => {
+        // Determine actual status from call result + answer type
+        const cs = d.last_call_status;
+        const at = d.answer_action_type;
+        let badge;
+        if (cs === 'invalid') {
+            badge = { icon:'\u274c', label:'H\u1ee7y K.T\u1ed3n T\u1ea1i', bg:'#fee2e2', color:'#dc2626' };
+        } else if (cs === 'answered' && at === 'cold_ncc') {
+            badge = { icon:'\ud83c\udfea', label:'\u0110\u00e3 C\u00f3 NCC', bg:'#fef3c7', color:'#92400e' };
+        } else if (cs === 'answered' && at === 'cold') {
+            badge = { icon:'\ud83d\udeab', label:'Kh\u00f4ng C\u00f3 NC', bg:'#eef2ff', color:'#6366f1' };
+        } else if (cs === 'answered' && at === 'transfer') {
+            badge = { icon:'\ud83d\udd25', label:'Chuy\u1ec3n S\u1ed1', bg:'#fff7ed', color:'#ea580c' };
+        } else if (cs === 'answered') {
+            badge = { icon:'\ud83d\udcde', label:'B\u1eaft M\u00e1y', bg:'#f5f3ff', color:'#7c3aed' };
+        } else if (cs === 'no_answer' || cs === 'busy') {
+            badge = { icon:'\ud83d\udcf5', label:'Kh\u00f4ng Nghe, B\u1eadn', bg:'#eef2ff', color:'#4f46e5' };
+        } else if (d.status === 'assigned') {
+            badge = { icon:'\ud83d\udce4', label:'\u0110\u00e3 Ph\u00e2n', bg:'#dbeafe', color:'#2563eb' };
+        } else if (d.status === 'available') {
+            badge = { icon:'\u2705', label:'S\u1eb5n S\u00e0ng', bg:'#dcfce7', color:'#16a34a' };
+        } else if (d.status === 'cold') {
+            badge = { icon:'\ud83d\udeab', label:'Kh\u00f4ng C\u00f3 NC', bg:'#eef2ff', color:'#6366f1' };
+        } else {
+            badge = { icon:'\u2705', label:'S\u1eb5n S\u00e0ng', bg:'#dcfce7', color:'#16a34a' };
+        }
+        return `<span class="ts-badge" style="background:${badge.bg};color:${badge.color};">${badge.icon} ${badge.label}</span>`;
     };
 
     const nvAvatar = (name) => {
@@ -582,7 +600,7 @@ async function _htgd_loadData() {
                     <td style="text-align:center;">${d.fb_link ? `<a href="${d.fb_link}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#1877f2;font-size:16px;" title="${d.fb_link}">🔗</a>` : '<span style="color:#d1d5db;">—</span>'}</td>
                     <td style="text-align:center;">${carrierHtml}</td>
                     <td style="color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.address||'').replace(/"/g,'&quot;')}">${d.address || '—'}</td>
-                    <td style="text-align:center;">${statusBadge(d.status)}</td>
+                    <td style="text-align:center;">${statusBadge(d)}</td>
                     <td style="text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${d.updated_at ? new Date(d.updated_at).toLocaleDateString('vi-VN') : '—'}</td>
                     <td>${nvAvatar(d.last_assigned_user_name)}</td>
                     <td style="text-align:center;" onclick="event.stopPropagation();"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_deleteData(${d.id})" title="Xóa">🗑️</button></td>
