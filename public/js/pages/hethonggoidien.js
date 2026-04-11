@@ -20,6 +20,8 @@ let _htgd_datePreset = 'today';
 let _htgd_dateFrom = '';
 let _htgd_dateTo = '';
 let _htgd_prevStats = null;
+let _htgd_assignedUserFilter = '';
+let _htgd_activeMembers = [];
 function _htgd_getDateRange() {
     const today = new Date(); today.setHours(0,0,0,0);
     const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -108,6 +110,13 @@ async function renderHeThongGoiDienPage(container) {
         </div>`;
     _htgd_tab = 'data';
     _htgd_activeSourceId = null;
+    // Load active members for user filter dropdown
+    const [membersRes, usersRes] = await Promise.all([
+        apiCall('/api/telesale/active-members'),
+        apiCall('/api/users')
+    ]);
+    const memberIds = new Set((membersRes.members || []).filter(m => m.is_active).map(m => m.user_id));
+    _htgd_activeMembers = (usersRes.users || usersRes || []).filter(u => u.status === 'active' && memberIds.has(u.id));
     await _htgd_loadSources();
 }
 
@@ -194,6 +203,10 @@ function _htgd_buildDateFilterHtml() {
         <button onclick="_htgd_datePreset='custom';document.getElementById('htgdCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_htgd_datePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_htgd_datePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_htgd_datePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
         <select onchange="_htgd_selectedYear=parseInt(this.value);_htgd_switchDatePreset('all')" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
             ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _htgd_selectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
+        </select>
+        <select onchange="_htgd_assignedUserFilter=this.value;_htgd_page=1;_htgd_loadData();" style="padding:7px 14px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid #7c3aed;background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#5b21b6;cursor:pointer;min-width:160px;box-shadow:0 2px 8px rgba(124,58,237,0.15);">
+            <option value="">👥 Tất Cả NV</option>
+            ${_htgd_activeMembers.map(u => `<option value="${u.id}" ${String(_htgd_assignedUserFilter) === String(u.id) ? 'selected' : ''}>${u.full_name || u.username}</option>`).join('')}
         </select>
         <div id="htgdCustomDateArea" style="display:${_htgd_datePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
             <input type="date" id="htgdDateFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_htgd_dateFrom=this.value">
@@ -475,6 +488,7 @@ async function _htgd_loadData() {
     if (_htgd_search) params.set('search', _htgd_search);
     if (_htgd_statusFilter) params.set('status', _htgd_statusFilter);
     if (_htgd_carrierFilter) params.set('carrier', _htgd_carrierFilter);
+    if (_htgd_assignedUserFilter) params.set('assigned_user_id', _htgd_assignedUserFilter);
 
     const [res, statsRes] = await Promise.all([
         apiCall(`/api/telesale/data?${params}`),

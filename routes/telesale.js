@@ -126,12 +126,13 @@ async function telesaleRoutes(fastify) {
 
     // ========== DATA POOL ==========
     fastify.get('/api/telesale/data', { preHandler: authenticate }, async (req, reply) => {
-        const { source_id, crm_type, status, search, carrier, page = 1, limit = 50 } = req.query;
+        const { source_id, crm_type, status, search, carrier, page = 1, limit = 50, assigned_user_id } = req.query;
         let where = 'WHERE 1=1';
         const params = [];
         let paramIdx = 0;
         if (source_id) { paramIdx++; where += ` AND d.source_id = $${paramIdx}`; params.push(source_id); }
         else if (crm_type && crm_type !== 'all') { where += ` AND d.source_id IN (SELECT id FROM telesale_sources WHERE crm_type = '${crm_type.replace(/'/g, "''")}' AND is_active = true)`; }
+        if (assigned_user_id) { paramIdx++; where += ` AND d.last_assigned_user_id = $${paramIdx}`; params.push(parseInt(assigned_user_id)); }
         // Special status filters that use telesale_assignments join
         const _specialStatuses = ['answered', 'transferred', 'cold_answered', 'ncc_answered', 'no_answer_busy', 'invalid'];
         if (status && _specialStatuses.includes(status)) {
