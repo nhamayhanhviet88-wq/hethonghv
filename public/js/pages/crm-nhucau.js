@@ -212,6 +212,7 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:80px">Mã KH</th>
                         <th style="min-width:150px">Tên KH</th>
                         <th style="min-width:110px">SĐT</th>
+                        <th style="min-width:110px">Link FB</th>
                         <th style="min-width:130px">Địa Chỉ</th>
                         <th style="min-width:100px">Nguồn</th>
                         <th style="min-width:120px">Người GT</th>
@@ -220,7 +221,7 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                     </tr></thead>
-                    <tbody id="crmNhuCauTbody"><tr><td colspan="17" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="crmNhuCauTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
@@ -532,7 +533,7 @@ function _crmRenderFilteredTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="17"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="18"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('crmPagination').innerHTML = '';
         return;
     }
@@ -550,11 +551,11 @@ function _crmRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="17"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="18"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="17"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="18"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -673,6 +674,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
             })()}
         </td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
+        <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
         <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? 'openReferrerSearch(' + c.id + ')' : ''}">
