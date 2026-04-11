@@ -204,8 +204,8 @@ function _htgd_buildDateFilterHtml() {
         <select onchange="_htgd_selectedYear=parseInt(this.value);_htgd_switchDatePreset('all')" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
             ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _htgd_selectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
         </select>
-        <select onchange="_htgd_assignedUserFilter=this.value;_htgd_page=1;_htgd_loadData();" style="padding:7px 14px;border-radius:10px;font-size:12px;font-weight:800;border:2px solid #7c3aed;background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#5b21b6;cursor:pointer;min-width:160px;box-shadow:0 2px 8px rgba(124,58,237,0.15);">
-            <option value="">👥 Tất Cả NV</option>
+        <select onchange="_htgd_assignedUserFilter=this.value;_htgd_page=1;_htgd_loadData();" style="padding:7px 14px;border-radius:10px;font-size:13px;font-weight:800;font-family:'Inter','Segoe UI',system-ui,sans-serif;border:2px solid #7c3aed;background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#5b21b6;cursor:pointer;min-width:170px;box-shadow:0 2px 8px rgba(124,58,237,0.15);letter-spacing:0.3px;text-transform:uppercase;">
+            <option value="">👥 TẤT CẢ NV</option>
             ${_htgd_activeMembers.map(u => `<option value="${u.id}" ${String(_htgd_assignedUserFilter) === String(u.id) ? 'selected' : ''}>${u.full_name || u.username}</option>`).join('')}
         </select>
         <div id="htgdCustomDateArea" style="display:${_htgd_datePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
