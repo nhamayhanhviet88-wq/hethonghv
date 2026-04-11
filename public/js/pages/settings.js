@@ -283,10 +283,10 @@ async function saveCancelMgrPopupSettings() {
 
 // ========== JOB TITLES PER CRM ==========
 const JOB_CRM_OPTIONS = [
-    { value: 'goi_hop_tac', label: 'CRM Gọi Điện Hợp Tác' },
-    { value: 'goi_ban_hang', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
+    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
     { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
-    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm' },
+    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
     { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
 ];
 
