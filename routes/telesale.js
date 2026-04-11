@@ -973,6 +973,7 @@ async function telesaleRoutes(fastify) {
             await db.run("UPDATE telesale_data SET status = 'invalid', invalid_count = invalid_count + 1, updated_at = NOW() WHERE id = ?", [assign.data_id]);
         }
 
+        _invalidateStatsCache(); // Clear stats cache so admin sees updated data immediately
         return { success: true, message: 'Đã cập nhật trạng thái' };
     });
 
