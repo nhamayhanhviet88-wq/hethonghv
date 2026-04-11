@@ -406,7 +406,7 @@ async function _htgd_renderDataTab() {
                 { key:'no_answer_busy', icon:'\ud83d\udcf5', label:'Kh\u00f4ng Nghe', count:rt.no_answer_busy },
                 { key:'cold_answered', icon:'\ud83d\udeab', label:'Kh\u00f4ng NC', count:rt.cold_answered },
                 { key:'ncc_answered', icon:'\ud83c\udfea', label:'\u0110\u00e3 C\u00f3 NCC', count:rt.ncc_answered },
-                { key:'invalid', icon:'\u274c', label:'H\u1ee7y Kh\u00e1ch', count:rt.invalid + rt.cold },
+                { key:'invalid', icon:'\u274c', label:'H\u1ee7y Kh\u00e1ch', count:rt.invalid },
             ];
             return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">' + pills.map(sp => {
                 const isActive = _htgd_statusFilter === sp.key;

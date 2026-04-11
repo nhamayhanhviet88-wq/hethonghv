@@ -146,8 +146,7 @@ async function telesaleRoutes(fastify) {
             } else if (status === 'no_answer_busy') {
                 where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status IN ('no_answer','busy'))`;
             } else if (status === 'invalid') {
-                where += ` AND (d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'invalid') OR d.status = 'cold')`;
-            }
+                where += ` AND d.id IN (SELECT DISTINCT a2.data_id FROM telesale_assignments a2 WHERE a2.call_status = 'invalid')`;            }
         } else if (status) {
             paramIdx++; where += ` AND d.status = $${paramIdx}`; params.push(status);
         }
