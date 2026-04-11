@@ -463,14 +463,62 @@ function _gd_renderCallCard(call) {
     </div>`;
 }
 
-// ========== CALL ACTIONS (unchanged logic) ==========
-async function _gd_markCall(assignmentId, callStatus) {
-    console.log('[_gd_markCall]', assignmentId, callStatus);
-    try {
-        // Confirm for destructive actions
-        if (callStatus === 'invalid') {
-            if (!confirm('❌ Xác nhận: Số này không tồn tại?')) return;
+// ========== CALL ACTIONS ==========
+function _gd_markCall(assignmentId, callStatus) {
+    const call = _gd_calls.find(c => c.id === assignmentId);
+    const khName = call?.customer_name || 'Khách hàng';
+    const khPhone = call?.phone || '';
+
+    const configs = {
+        no_answer: {
+            icon: '📵', title: 'Không Nghe Máy',
+            desc: `Xác nhận <strong>${khName}</strong> ${khPhone ? '(<code>' + khPhone + '</code>)' : ''} không nghe máy?`,
+            gradient: 'linear-gradient(135deg,#ef4444,#dc2626)',
+            bgGrad: 'linear-gradient(135deg,#fef2f2,#fee2e2)',
+            borderColor: '#fecaca', iconBg: '#fee2e2', iconColor: '#dc2626',
+            btnGrad: 'linear-gradient(135deg,#ef4444,#dc2626)',
+            btnText: '📵 Xác Nhận Không Nghe'
+        },
+        busy: {
+            icon: '📞', title: 'Máy Bận',
+            desc: `Xác nhận <strong>${khName}</strong> ${khPhone ? '(<code>' + khPhone + '</code>)' : ''} đang bận?`,
+            gradient: 'linear-gradient(135deg,#f59e0b,#ea580c)',
+            bgGrad: 'linear-gradient(135deg,#fffbeb,#fef3c7)',
+            borderColor: '#fde68a', iconBg: '#fef3c7', iconColor: '#d97706',
+            btnGrad: 'linear-gradient(135deg,#f59e0b,#ea580c)',
+            btnText: '📞 Xác Nhận Bận'
+        },
+        invalid: {
+            icon: '❌', title: 'Hủy Khách, Không Tồn Tại',
+            desc: `Xác nhận số <strong>${khName}</strong> ${khPhone ? '(<code>' + khPhone + '</code>)' : ''} không tồn tại hoặc hủy khách?<br><span style="font-size:11px;color:#6b7280;">Số này sẽ không được phân lại.</span>`,
+            gradient: 'linear-gradient(135deg,#6b7280,#374151)',
+            bgGrad: 'linear-gradient(135deg,#f9fafb,#f3f4f6)',
+            borderColor: '#d1d5db', iconBg: '#f3f4f6', iconColor: '#374151',
+            btnGrad: 'linear-gradient(135deg,#6b7280,#374151)',
+            btnText: '❌ Xác Nhận Hủy'
         }
+    };
+
+    const cfg = configs[callStatus];
+    if (!cfg) return;
+
+    openModal(`${cfg.icon} ${cfg.title}`, `
+        <div style="text-align:center;padding:10px 0;">
+            <div style="width:80px;height:80px;border-radius:50%;background:${cfg.bgGrad};border:3px solid ${cfg.borderColor};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;animation:_gdConfirmPulse 1.5s ease-in-out infinite;">
+                ${cfg.icon}
+            </div>
+            <div style="font-size:15px;color:#1e293b;line-height:1.6;margin-bottom:8px;">
+                ${cfg.desc}
+            </div>
+        </div>
+        <style>@keyframes _gdConfirmPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }</style>
+    `, `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;font-size:13px;font-weight:700;border-radius:10px;">↩️ Quay Lại</button>
+        <button onclick="_gd_confirmMarkCall(${assignmentId},'${callStatus}')" style="padding:10px 24px;font-size:13px;font-weight:700;border:none;border-radius:10px;background:${cfg.btnGrad};color:white;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">${cfg.btnText}</button>`);
+}
+
+async function _gd_confirmMarkCall(assignmentId, callStatus) {
+    try {
+        closeModal();
         const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status: callStatus });
         if (res.success) {
             const labels = { answered: '✅ Đã ghi nhận bắt máy', no_answer: '📵 Không nghe máy', busy: '📞 Máy bận', invalid: '❌ Đã đánh dấu không tồn tại' };
