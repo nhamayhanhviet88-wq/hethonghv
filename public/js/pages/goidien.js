@@ -708,14 +708,22 @@ async function _gd_viewDataDetail(dataId) {
         const cm = _gd_carrierMap[c] || _gd_carrierMap['invalid'];
         return `<span class="ts-badge" style="background:${cm.bg};color:${cm.color};font-size:11px;padding:2px 8px;">${cm.label}</span>`;
     }).join(' ') || '—';
-    const statusMap = {
-        available: { icon:'✅', label:'Sẵn sàng', bg:'#dcfce7', color:'#16a34a' },
-        assigned: { icon:'📤', label:'Đã phân', bg:'#dbeafe', color:'#2563eb' },
-        answered: { icon:'📞', label:'Đã gọi', bg:'#fef3c7', color:'#d97706' },
-        cold: { icon:'🚫', label:'Không có nhu cầu', bg:'#eef2ff', color:'#6366f1' },
+    // ★ Rich status badge (same logic as hethonggoidien.js)
+    const _detailBadge = (cs, at, dataStatus) => {
+        let b;
+        if (cs === 'invalid') b = { icon:'❌', label:'Hủy K.Tồn Tại', bg:'#fee2e2', color:'#dc2626' };
+        else if (cs === 'answered' && at === 'cold_ncc') b = { icon:'🏪', label:'Đã Có NCC', bg:'#fef3c7', color:'#92400e' };
+        else if (cs === 'answered' && at === 'cold') b = { icon:'🚫', label:'Không Có NC', bg:'#eef2ff', color:'#6366f1' };
+        else if (cs === 'answered' && at === 'transfer') b = { icon:'🔥', label:'Chuyển Số', bg:'#fff7ed', color:'#ea580c' };
+        else if (cs === 'answered') b = { icon:'📞', label:'Bắt Máy', bg:'#f5f3ff', color:'#7c3aed' };
+        else if (cs === 'no_answer' || cs === 'busy') b = { icon:'📵', label:'Không Nghe, Bận', bg:'#eef2ff', color:'#4f46e5' };
+        else if (dataStatus === 'assigned' || cs === 'pending') b = { icon:'📤', label:'Đã Phân', bg:'#dbeafe', color:'#2563eb' };
+        else if (dataStatus === 'available') b = { icon:'✅', label:'Sẵn Sàng', bg:'#dcfce7', color:'#16a34a' };
+        else if (dataStatus === 'cold') b = { icon:'🚫', label:'Không Có NC', bg:'#eef2ff', color:'#6366f1' };
+        else b = { icon:'✅', label:'Sẵn Sàng', bg:'#dcfce7', color:'#16a34a' };
+        return `<span class="ts-badge" style="background:${b.bg};color:${b.color};">${b.icon} ${b.label}</span>`;
     };
-    const sm = statusMap[d.status] || statusMap.available;
-    const statusHtml = `<span class="ts-badge" style="background:${sm.bg};color:${sm.color};">${sm.icon} ${sm.label}</span>`;
+    const statusHtml = _detailBadge(d.last_call_status, d.answer_action_type, d.status);
     let assignHtml = '<div style="color:#9ca3af;font-size:12px;text-align:center;padding:12px;">Chưa có lịch sử phân bổ</div>';
     if (assignments.length > 0) {
         assignHtml = `<table class="ts-table" style="font-size:12px;"><thead><tr>
@@ -724,8 +732,8 @@ async function _gd_viewDataDetail(dataId) {
         ${assignments.map(a => `<tr>
             <td style="white-space:nowrap;">${a.assigned_date ? new Date(a.assigned_date).toLocaleDateString('vi-VN') : '—'}</td>
             <td style="font-weight:600;">${a.user_name || '—'}</td>
-            <td>${a.call_status || '—'}</td>
-            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${a.notes || '—'}</td>
+            <td>${_detailBadge(a.call_status, a.answer_action_type, null)}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${a.answer_status_name || a.notes || '—'}</td>
         </tr>`).join('')}
         </tbody></table>`;
     }
