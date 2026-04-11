@@ -90,7 +90,7 @@ async function renderChuyenSoPage(container) {
             filtered.map(u => `<option value="${u.id}" data-crm="${u.source_crm_type || ''}">${u.full_name} (${ROLE_LABELS_CSO[u.role] || u.role})</option>`).join('');
         document.getElementById('csoAffiliateCrm').value = '';
     }
-    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', hoa_hong_crm: 'CRM Tự Tìm Kiếm', nuoi_duong: 'CRM Gọi Điện Hợp Tác', sinh_vien: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
+    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
 
     // Build display label for each user
     function userLabel(u) {
@@ -131,9 +131,9 @@ async function renderChuyenSoPage(container) {
                             <select id="csoCrm" class="form-control" required>
                                 <option value="">-- Chọn CRM --</option>
                                 <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
-                                <option value="hoa_hong_crm">CRM Tự Tìm Kiếm</option>
-                                <option value="nuoi_duong">CRM Gọi Điện Hợp Tác</option>
-                                <option value="sinh_vien">CRM Gọi Điện Bán Hàng</option>
+                                <option value="tu_tim_kiem">CRM Tự Tìm Kiếm</option>
+                                <option value="goi_hop_tac">CRM Gọi Điện Hợp Tác</option>
+                                <option value="goi_ban_hang">CRM Gọi Điện Bán Hàng</option>
                                 <option value="koc_tiktok">CRM KOL/KOC Tiktok</option>
                                 <option value="affiliate">CRM Affiliate Giới Thiệu</option>
                             </select>
@@ -307,11 +307,11 @@ async function renderChuyenSoPage(container) {
                 document.getElementById('csoAffiliateCrm').value = '';
             }
             // Load job titles for selected CRM
-            const crmTypesWithJobs = ['nuoi_duong','sinh_vien','qua_tang','koc_tiktok','hoa_hong_crm','nguoi_than','affiliate'];
+            const crmTypesWithJobs = ['goi_hop_tac','goi_ban_hang','tu_tim_kiem','koc_tiktok','affiliate'];
             if (crmTypesWithJobs.includes(this.value)) {
-                const data = await apiCall(`/api/settings/job-titles?crm_type=${this.value}`);
+                const data = await apiCall(`/api/telesale/sources?crm_type=${this.value}`);
                 jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>' +
-                    (data.items || []).map(j => `<option value="${j.name}">${j.name}</option>`).join('');
+                    (data.sources || []).map(j => `<option value="${j.name}">${j.name}</option>`).join('');
                 jobRow.style.display = 'grid';
             } else {
                 jobRow.style.display = 'none';

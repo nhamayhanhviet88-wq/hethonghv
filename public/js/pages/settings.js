@@ -281,12 +281,12 @@ async function saveCancelMgrPopupSettings() {
     showToast('✅ Đã lưu cài đặt pop-up hủy khách (QL/GĐ)!');
 }
 
-// ========== JOB TITLES PER CRM ==========
+// ========== JOB TITLES PER CRM (synced from telesale_sources) ==========
 const JOB_CRM_OPTIONS = [
-    { value: 'nuoi_duong', label: 'CRM Gọi Điện Hợp Tác' },
-    { value: 'sinh_vien', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm' },
+    { value: 'goi_hop_tac', label: 'CRM Gọi Điện Hợp Tác' },
+    { value: 'goi_ban_hang', label: 'CRM Gọi Điện Bán Hàng' },
     { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
-    { value: 'hoa_hong_crm', label: 'CRM Tự Tìm Kiếm' },
     { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
 ];
 
@@ -298,23 +298,19 @@ async function loadJobTitlesSettings() {
 
     let listHtml = '';
     if (currentJobCrm) {
-        const data = await apiCall(`/api/settings/job-titles?crm_type=${currentJobCrm}`);
-        if (!data.items || data.items.length === 0) {
-            listHtml = `<div class="text-muted" style="padding:20px;text-align:center;">Chưa có chức danh nào cho CRM này. Thêm mới bên dưới.</div>`;
+        const data = await apiCall(`/api/telesale/sources?crm_type=${currentJobCrm}`);
+        const sources = data.sources || [];
+        if (sources.length === 0) {
+            listHtml = `<div class="text-muted" style="padding:20px;text-align:center;">Chưa có chức danh nào cho CRM này.<br><span style="font-size:11px;color:#6b7280;">Thêm nguồn tại <strong>📊 Hệ Thống Phân Chia Gọi Điện → Cài Đặt</strong></span></div>`;
         } else {
-            listHtml = `<ul class="setting-list">${data.items.map(item => `
+            listHtml = `<ul class="setting-list">${sources.map(item => `
                 <li class="setting-item">
-                    <div class="item-info"><span class="fw-600">${item.name}</span></div>
-                    <div class="item-actions">
-                        <button class="btn btn-xs btn-danger" onclick="deleteJobTitle(${item.id})">🗑️</button>
+                    <div class="item-info">
+                        <span style="font-size:18px;margin-right:8px;">${item.icon || '📁'}</span>
+                        <span class="fw-600">${item.name}</span>
                     </div>
                 </li>`).join('')}</ul>`;
         }
-        listHtml += `
-            <div class="setting-add">
-                <input type="text" id="newJobTitleName" placeholder="Tên chức danh mới..." onkeypress="if(event.key==='Enter') addJobTitle()">
-                <button class="btn btn-sm btn-success" onclick="addJobTitle()">➕ Thêm</button>
-            </div>`;
     }
 
     contentDiv.innerHTML = `
@@ -328,25 +324,13 @@ async function loadJobTitlesSettings() {
             </div>
             ${currentJobCrm ? `<div style="padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
                 <h4 style="margin-bottom:12px;color:#122546;">👔 Danh sách Chức Danh</h4>
+                <div style="margin-bottom:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;">
+                    📌 Chức danh được đồng bộ từ <strong>Nguồn Gọi Điện</strong> tại Hệ Thống Phân Chia Gọi Điện. Thêm/xóa nguồn tại đó sẽ tự động cập nhật ở đây.
+                </div>
                 ${listHtml}
-            </div>` : '<div class="text-muted" style="text-align:center;padding:30px;">Chọn CRM để quản lý chức danh</div>'}
+            </div>` : '<div class="text-muted" style="text-align:center;padding:30px;">Chọn CRM để xem chức danh</div>'}
         </div>
     `;
-}
-
-async function addJobTitle() {
-    const name = document.getElementById('newJobTitleName')?.value?.trim();
-    if (!name) { showToast('Vui lòng nhập tên chức danh', 'error'); return; }
-    const data = await apiCall('/api/settings/job-titles', 'POST', { crm_type: currentJobCrm, name });
-    if (data.success) { showToast(data.message); await loadJobTitlesSettings(); }
-    else showToast(data.error, 'error');
-}
-
-async function deleteJobTitle(id) {
-    if (!confirm('Xóa chức danh này?')) return;
-    const data = await apiCall(`/api/settings/job-titles/${id}`, 'DELETE');
-    if (data.success) { showToast(data.message); await loadJobTitlesSettings(); }
-    else showToast(data.error, 'error');
 }
 
 // ========== LEADERBOARD ROLES SETTINGS ==========
