@@ -1289,6 +1289,29 @@ async function runTelesalePump() {
     let totalPumped = 0;
     const alerts = [];
 
+    // ★ Step 0: Tự Tìm Kiếm — gán lại KH cho NV gốc (safety net nếu recall chưa chạy)
+    const selfSearchedAvail = await db.all(`
+        SELECT DISTINCT d.id as data_id, d.self_searched_by as original_user_id
+        FROM telesale_data d
+        JOIN users u ON u.id = d.self_searched_by
+        WHERE d.self_searched_by IS NOT NULL
+          AND d.status = 'available'
+          AND u.status = 'active'
+          AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = d.id AND a2.assigned_date = $1)
+    `, [today]);
+    for (const ss of selfSearchedAvail) {
+        try {
+            await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_user_id = $1, last_assigned_date = $2, updated_at = NOW() WHERE id = $3",
+                [ss.original_user_id, today, ss.data_id]);
+            await db.run("INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())",
+                [ss.data_id, ss.original_user_id, today]);
+            totalPumped++;
+        } catch(e) { /* duplicate */ }
+    }
+    if (selfSearchedAvail.length > 0) {
+        console.log(`  🔄 [Pump] Tự Tìm Kiếm: gán lại ${selfSearchedAvail.length} KH cho NV gốc`);
+    }
+
     for (const crmType of CRM_TYPES) {
         const members = await db.all(`SELECT tam.user_id, tam.daily_quota, u.full_name
             FROM telesale_active_members tam JOIN users u ON u.id = tam.user_id
@@ -1447,6 +1470,30 @@ async function runTelesaleRecall() {
         recalled++;
     }
 
+    // ★ 2.1. Tự Tìm Kiếm: KH do NV tự tìm → gán lại cho NV gốc (không trả về pool chung)
+    let selfReassigned = 0;
+    const selfSearchedRecalled = await db.all(`
+        SELECT DISTINCT d.id as data_id, d.self_searched_by as original_user_id, u.username
+        FROM telesale_data d
+        JOIN users u ON u.id = d.self_searched_by
+        WHERE d.self_searched_by IS NOT NULL
+          AND d.status = 'available'
+          AND u.status = 'active'
+          AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = d.id AND a2.assigned_date = $1)
+    `, [vnToday]);
+    for (const ss of selfSearchedRecalled) {
+        try {
+            await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_user_id = $1, last_assigned_date = $2, updated_at = NOW() WHERE id = $3",
+                [ss.original_user_id, vnToday, ss.data_id]);
+            await db.run("INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())",
+                [ss.data_id, ss.original_user_id, vnToday]);
+            selfReassigned++;
+        } catch(e) { /* duplicate assignment, skip */ }
+    }
+    if (selfReassigned > 0) {
+        console.log(`  🔄 [Tự Tìm Kiếm] Gán lại ${selfReassigned} KH cho NV gốc`);
+    }
+
     // 2.5. Cold/cold_ncc answered → recall assignment (data stays cold in pool)
     let coldRecalled = 0;
     const coldAssigns = await db.all(`SELECT a.id, a.data_id FROM telesale_assignments a
@@ -1472,8 +1519,8 @@ async function runTelesaleRecall() {
     // 5. Track last recall run
     await db.run("INSERT INTO app_config (key, value, updated_at) VALUES ('telesale_last_recall', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [new Date().toISOString()]);
 
-    console.log(`[Telesale Recall] recalled=${recalled}, cold=${coldRecalled}, invalid=${invalidated}, unfrozen=${unfrozen?.changes || 0}`);
-    return { success: true, message: `Thu hồi: ${recalled} SĐT, ${coldRecalled} kho lạnh, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, coldRecalled, invalidated };
+    console.log(`[Telesale Recall] recalled=${recalled}, selfReassigned=${selfReassigned}, cold=${coldRecalled}, invalid=${invalidated}, unfrozen=${unfrozen?.changes || 0}`);
+    return { success: true, message: `Thu hồi: ${recalled} SĐT, ${selfReassigned} gán lại NV gốc, ${coldRecalled} kho lạnh, ${invalidated} chuyển kho không tồn tại, ${unfrozen?.changes || 0} giải đông`, recalled, selfReassigned, coldRecalled, invalidated };
 }
 
 // ========== PUMP FOR SINGLE USER (called on account unlock) ==========
