@@ -182,14 +182,17 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/data/stats', { preHandler: authenticate }, async (req, reply) => {
-        const { crm_type, source_id, date_from, date_to } = req.query;
+        const { crm_type, source_id, date_from, date_to, assigned_user_id } = req.query;
         const hasDateFilter = date_from && date_to;
-        const cacheKey = 'stats_' + (crm_type||'all') + '_' + (source_id||'all') + '_' + (date_from||'') + '_' + (date_to||'');
-        if (!hasDateFilter) { const cached = _getCached(cacheKey); if (cached) return cached; }
+        const cacheKey = 'stats_' + (crm_type||'all') + '_' + (source_id||'all') + '_' + (date_from||'') + '_' + (date_to||'') + '_u' + (assigned_user_id||'');
+        if (!hasDateFilter && !assigned_user_id) { const cached = _getCached(cacheKey); if (cached) return cached; }
 
         let crmFilter = '';
         const params = [];
-        if (crm_type) { crmFilter = ' AND s.crm_type = $1'; params.push(crm_type); }
+        let paramIdx = 0;
+        if (crm_type) { paramIdx++; crmFilter = ` AND s.crm_type = $${paramIdx}`; params.push(crm_type); }
+        let userFilter = '';
+        if (assigned_user_id) { paramIdx++; userFilter = ` AND d.last_assigned_user_id = $${paramIdx}`; params.push(parseInt(assigned_user_id)); }
 
         // Base stats (available always total, no date filter)
         const stats = await db.all(`SELECT s.id, s.name, s.icon, s.daily_quota,
@@ -198,7 +201,7 @@ async function telesaleRoutes(fastify) {
             COUNT(d.id) FILTER (WHERE d.status = 'assigned') as assigned_current,
             COUNT(d.id) FILTER (WHERE d.status = 'cold') as cold
             FROM telesale_sources s
-            LEFT JOIN telesale_data d ON d.source_id = s.id
+            LEFT JOIN telesale_data d ON d.source_id = s.id${userFilter.replace('d.last_assigned_user_id', 'd.last_assigned_user_id')}
             WHERE s.is_active = true${crmFilter}
             GROUP BY s.id, s.name, s.icon, s.daily_quota
             ORDER BY s.display_order`, params);
@@ -209,6 +212,8 @@ async function telesaleRoutes(fastify) {
             if (srcIds.length === 0) return {};
             const dateCondAssigned = df && dt ? ` AND a.assigned_date BETWEEN '${df}' AND '${dt}'` : '';
             const dateCondCalled = df && dt ? ` AND a.called_at >= '${df}'::date AND a.called_at < ('${dt}'::date + INTERVAL '1 day')` : '';
+
+            const userCondAssignment = assigned_user_id ? ` AND a.user_id = ${parseInt(assigned_user_id)}` : '';
 
             const rows = await db.all(`
                 SELECT d.source_id,
@@ -223,6 +228,7 @@ async function telesaleRoutes(fastify) {
                 JOIN telesale_data d ON d.id = a.data_id
                 LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
                 WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
+                ${userCondAssignment}
                 ${dateCondAssigned || dateCondCalled ? `AND (
                     (a.assigned_date IS NOT NULL${dateCondAssigned})
                     OR (a.called_at IS NOT NULL${dateCondCalled})
@@ -238,6 +244,7 @@ async function telesaleRoutes(fastify) {
                     JOIN telesale_data d ON d.id = a.data_id
                     WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
                     AND a.assigned_date BETWEEN '${df}' AND '${dt}'
+                    ${userCondAssignment}
                     GROUP BY d.source_id
                 `, srcIds);
                 
@@ -254,6 +261,7 @@ async function telesaleRoutes(fastify) {
                     LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
                     WHERE d.source_id IN (${srcIds.map((_, i) => '$' + (i + 1)).join(',')})
                     AND a.called_at >= '${df}'::date AND a.called_at < ('${dt}'::date + INTERVAL '1 day')
+                    ${userCondAssignment}
                     GROUP BY d.source_id
                 `, srcIds);
 
@@ -362,7 +370,7 @@ async function telesaleRoutes(fastify) {
         }
 
         const result = { stats, carrierStats, sourceCarrierStats, prevStats };
-        if (!hasDateFilter) _setCache(cacheKey, result);
+        if (!hasDateFilter && !assigned_user_id) _setCache(cacheKey, result);
         return result;
     });
 
