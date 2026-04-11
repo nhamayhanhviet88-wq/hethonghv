@@ -399,7 +399,6 @@ async function _htgd_renderDataTab() {
                 invalid: { bg:'#6b7280', text:'white' },
             };
             const pills = [
-                { key:'', icon:'📋', label:'T\u1ea5t C\u1ea3', count:rt.total },
                 { key:'available', icon:'\u2705', label:'S\u1eb5n S\u00e0ng', count:rt.available },
                 { key:'assigned', icon:'\ud83d\udce4', label:'\u0110\u00e3 Ph\u00e2n', count:rt.assigned },
                 { key:'transferred', icon:'\ud83d\udd25', label:'Chuy\u1ec3n S\u1ed1', count:rt.transferred },
