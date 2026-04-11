@@ -263,7 +263,7 @@ async function _htgd_renderDataTab() {
         { icon:'📵', label:'Không Nghe, Bận', val:t.no_answer_busy, grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', txtColor:'white', filterKey:'no_answer_busy', prevVal:tp?.no_answer_busy||0 },
         { icon:'🚫', label:'Không Có Nhu Cầu', val:t.cold_answered, grad:_HTGD_GRADIENTS[4], txtColor:'white', filterKey:'cold_answered', prevVal:tp?.cold_answered||0 },
         { icon:'🏪', label:'Đã Có Nhà Cung Cấp', val:t.ncc_answered, grad:'linear-gradient(135deg,#854d0e,#a16207)', txtColor:'white', filterKey:'ncc_answered', prevVal:tp?.ncc_answered||0 },
-        { icon:'❌', label:'Hủy Khách, K. Tồn Tại', val:t.invalid + t.cold, grad:'linear-gradient(135deg,#6b7280,#374151)', txtColor:'white', filterKey:'invalid', prevVal:tp?.invalid||0 },
+        { icon:'❌', label:'Hủy Khách, K. Tồn Tại', val:t.invalid, grad:'linear-gradient(135deg,#6b7280,#374151)', txtColor:'white', filterKey:'invalid', prevVal:tp?.invalid||0 },
     ];
 
     // Conversion rate bar HTML
@@ -374,7 +374,7 @@ async function _htgd_renderDataTab() {
                     if (f === 'no_answer_busy') return parseInt(stat.no_answer_busy||0);
                     if (f === 'cold_answered') return parseInt(stat.cold_answered||0);
                     if (f === 'ncc_answered') return parseInt(stat.ncc_answered||0);
-                    if (f === 'invalid') return parseInt(stat.invalid||0) + parseInt(stat.cold||0);
+                    if (f === 'invalid') return parseInt(stat.invalid||0);
                     if (f === 'cold') return parseInt(stat.cold||0);
                     return parseInt(stat.total||0);
                 };

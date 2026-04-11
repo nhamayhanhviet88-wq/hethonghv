@@ -969,8 +969,8 @@ async function telesaleRoutes(fastify) {
                 }
             }
         } else if (call_status === 'invalid') {
-            // Increment invalid count
-            await db.run("UPDATE telesale_data SET invalid_count = invalid_count + 1, updated_at = NOW() WHERE id = ?", [assign.data_id]);
+            // Set data status to invalid immediately + increment count
+            await db.run("UPDATE telesale_data SET status = 'invalid', invalid_count = invalid_count + 1, updated_at = NOW() WHERE id = ?", [assign.data_id]);
         }
 
         return { success: true, message: 'Đã cập nhật trạng thái' };
@@ -1089,7 +1089,7 @@ async function telesaleRoutes(fastify) {
         for (const dataId of data_ids) {
             // Set data back to available
             const result = await db.run(
-                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status IN ('cold', 'answered')",
+                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status IN ('cold', 'answered', 'invalid')",
                 [dataId]
             );
             if (result?.changes > 0) repumped++;
@@ -1530,14 +1530,8 @@ async function runTelesaleRecall() {
         coldRecalled++;
     }
 
-    // 3. Invalid → delete the data record entirely
-    const invalidAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
-        WHERE a.assigned_date <= $1 AND a.call_status = 'invalid'`, [yesterday]);
-    for (const a of invalidAssigns) {
-        await db.run('DELETE FROM telesale_assignments WHERE data_id = ?', [a.data_id]);
-        await db.run('DELETE FROM telesale_data WHERE id = ?', [a.data_id]);
-        invalidated++;
-    }
+    // 3. Invalid → keep data (GĐ can restore), no longer delete
+    // Data already has status='invalid' set when NV marked it
 
     // 4. Unfreeze cold data that has passed cold_until (only when cold_until IS NOT NULL)
     const unfrozen = await db.run("UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE status = 'cold' AND cold_until IS NOT NULL AND cold_until <= CURRENT_DATE");
