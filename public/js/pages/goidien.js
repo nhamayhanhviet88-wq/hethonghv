@@ -533,6 +533,19 @@ async function _gd_confirmMarkCall(assignmentId, callStatus) {
     }
 }
 
+async function _gd_confirmCold(assignmentId, answerStatusId) {
+    try {
+        closeModal();
+        const notes = document.getElementById(`gdNotes_${assignmentId}`)?.value || '';
+        const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status:'answered', answer_status_id:answerStatusId, notes });
+        if (res.success) { showToast('✅ Đã đóng băng'); await _gd_loadCallsForUser(_gd_selectedUserId); }
+        else showToast(res.error, 'error');
+    } catch(e) {
+        console.error('[_gd_confirmCold] ERROR:', e);
+        showToast('Lỗi: ' + e.message, 'error');
+    }
+}
+
 function _gd_showAnswerStatuses(assignmentId, btn) {
     const panel = document.getElementById(`gdAnswerPanel_${assignmentId}`);
     if (panel) {
@@ -554,11 +567,33 @@ async function _gd_selectAnswerStatus(assignmentId, answerStatusId, actionType, 
     const call = _gd_calls.find(c => c.id === assignmentId);
     if (actionType === 'transfer') { _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call); }
     else if (actionType === 'cold_ncc' || actionType === 'cold') {
-        // Auto-freeze — just save, backend handles cold_until
-        if (!confirm(actionType === 'cold_ncc' ? '🏪 Đóng băng — Đã có NCC?' : '🚫 Đóng băng — Không có nhu cầu?')) return;
-        const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', { call_status:'answered', answer_status_id:answerStatusId, notes });
-        if (res.success) { showToast('✅ Đã đóng băng'); await _gd_loadCallsForUser(_gd_selectedUserId); }
-        else showToast(res.error, 'error');
+        const khName = call?.customer_name || 'Khách hàng';
+        const khPhone = call?.phone || '';
+        const isColdNcc = actionType === 'cold_ncc';
+        const cfg = isColdNcc ? {
+            icon: '🏪', title: 'Đã Có Nhà Cung Cấp',
+            desc: `Xác nhận <strong>${khName}</strong> ${khPhone ? '(<code>' + khPhone + '</code>)' : ''} đã có nhà cung cấp?<br><span style="font-size:11px;color:#6b7280;">Số này sẽ được đóng băng theo thời gian cài đặt.</span>`,
+            bgGrad: 'linear-gradient(135deg,#fefce8,#fef9c3)', borderColor: '#fde047',
+            btnGrad: 'linear-gradient(135deg,#854d0e,#a16207)', btnText: '🏪 Xác Nhận Đã Có NCC'
+        } : {
+            icon: '🚫', title: 'Không Có Nhu Cầu',
+            desc: `Xác nhận <strong>${khName}</strong> ${khPhone ? '(<code>' + khPhone + '</code>)' : ''} không có nhu cầu?<br><span style="font-size:11px;color:#6b7280;">Số này sẽ được đóng băng theo thời gian cài đặt.</span>`,
+            bgGrad: 'linear-gradient(135deg,#eef2ff,#e0e7ff)', borderColor: '#a5b4fc',
+            btnGrad: 'linear-gradient(135deg,#6366f1,#4f46e5)', btnText: '🚫 Xác Nhận Không NC'
+        };
+        openModal(`${cfg.icon} ${cfg.title}`, `
+            <div style="text-align:center;padding:10px 0;">
+                <div style="width:80px;height:80px;border-radius:50%;background:${cfg.bgGrad};border:3px solid ${cfg.borderColor};display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;animation:_gdConfirmPulse 1.5s ease-in-out infinite;">
+                    ${cfg.icon}
+                </div>
+                <div style="font-size:15px;color:#1e293b;line-height:1.6;margin-bottom:8px;">
+                    ${cfg.desc}
+                </div>
+            </div>
+            <style>@keyframes _gdConfirmPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }</style>
+        `, `<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 24px;font-size:13px;font-weight:700;border-radius:10px;">↩️ Quay Lại</button>
+            <button onclick="_gd_confirmCold(${assignmentId},${answerStatusId})" style="padding:10px 24px;font-size:13px;font-weight:700;border:none;border-radius:10px;background:${cfg.btnGrad};color:white;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">${cfg.btnText}</button>`);
+        return;
     } else if (actionType === 'followup') {
         const defaultDate = new Date(); defaultDate.setDate(defaultDate.getDate() + (defaultFollowupDays || 3));
         const dateStr = defaultDate.toISOString().split('T')[0];
