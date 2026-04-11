@@ -971,6 +971,9 @@ async function telesaleRoutes(fastify) {
         } else if (call_status === 'invalid') {
             // Set data status to invalid immediately + increment count
             await db.run("UPDATE telesale_data SET status = 'invalid', invalid_count = invalid_count + 1, updated_at = NOW() WHERE id = ?", [assign.data_id]);
+        } else {
+            // For no_answer, busy — still update the timestamp
+            await db.run("UPDATE telesale_data SET updated_at = NOW() WHERE id = ?", [assign.data_id]);
         }
 
         _invalidateStatsCache(); // Clear stats cache so admin sees updated data immediately
