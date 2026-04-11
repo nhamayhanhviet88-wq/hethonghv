@@ -555,9 +555,11 @@ async function _htgd_loadData() {
                 <th style="text-align:left;">Tên KH</th>
                 <th style="text-align:left;">Nội Dung ĐB</th>
                 <th style="text-align:left;">SĐT</th>
+                <th style="text-align:center;">Link FB</th>
                 <th style="text-align:center;">NM</th>
                 <th style="text-align:left;">Địa Chỉ</th>
                 <th style="text-align:center;">Trạng Thái</th>
+                <th style="text-align:center;">Time Cập Nhật</th>
                 <th style="text-align:left;">Phân Cho</th>
                 <th style="text-align:center;width:60px;">Xóa</th>
             </tr></thead>
@@ -577,9 +579,11 @@ async function _htgd_loadData() {
                     <td style="font-weight:700;color:#122546;">${d.customer_name || '—'}</td>
                     <td style="color:#6b7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${(d.post_content||'').replace(/"/g,'&quot;')}">${d.post_content || '—'}</td>
                     <td style="font-family:'SF Mono',monospace;font-weight:700;color:#2563eb;letter-spacing:0.5px;">${phoneFull}</td>
+                    <td style="text-align:center;">${d.fb_link ? `<a href="${d.fb_link}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#1877f2;font-size:16px;" title="${d.fb_link}">🔗</a>` : '<span style="color:#d1d5db;">—</span>'}</td>
                     <td style="text-align:center;">${carrierHtml}</td>
                     <td style="color:#6b7280;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(d.address||'').replace(/"/g,'&quot;')}">${d.address || '—'}</td>
                     <td style="text-align:center;">${statusBadge(d.status)}</td>
+                    <td style="text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${d.updated_at ? new Date(d.updated_at).toLocaleDateString('vi-VN') : '—'}</td>
                     <td>${nvAvatar(d.last_assigned_user_name)}</td>
                     <td style="text-align:center;" onclick="event.stopPropagation();"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_deleteData(${d.id})" title="Xóa">🗑️</button></td>
                 </tr>`;
