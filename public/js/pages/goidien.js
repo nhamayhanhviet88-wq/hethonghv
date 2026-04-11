@@ -548,31 +548,111 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
         {value:'koc_tiktok',label:'CRM KOL/KOC Tiktok'},
         {value:'affiliate',label:'CRM Affiliate Giới Thiệu'},
     ];
-    openModal('📞 Chuyển Số — CRM', `
-        <div style="margin-bottom:12px;padding:10px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:12px;font-size:12px;color:#92400e;">
-            🔒 <strong>Nguồn Khách: GỌI ĐIỆN</strong> — SĐT, Tên KH không được chỉnh sửa
+    const hasPhone = !!(call.phone && call.phone.trim());
+    const hasFb = !!(call.facebook_link && call.facebook_link.trim());
+
+    openModal('📱 Chuyển Số Khách Hàng', `
+        <div style="max-width:600px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">CRM <span style="color:#dc2626;">*</span></label>
+                    <select id="gdCSCrm" class="form-control" onchange="_gd_csLoadJobTitles(this.value)">
+                        ${crmOptions.map(o => `<option value="${o.value}" ${o.value===crmType?'selected':''}>${o.label}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Nguồn Khách <span style="color:#dc2626;">*</span></label>
+                    <input type="text" class="form-control" value="GỌI ĐIỆN TELESALE" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                </div>
+            </div>
+            <div id="gdCSJobTitleRow" style="display:${['tu_tim_kiem','goi_hop_tac','goi_ban_hang','koc_tiktok','affiliate'].includes(crmType)?'grid':'none'};grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Chức Danh <span style="color:#dc2626;">*</span></label>
+                    <select id="gdCSJobTitle" class="form-control">
+                        <option value="">-- Chọn Chức Danh --</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Tên Khách Hàng</label>
+                    <input type="text" id="gdCSName" class="form-control" value="${(call.customer_name||'').replace(/"/g,'&quot;')}">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Số Điện Thoại <span style="color:#dc2626;">*</span></label>
+                    <input type="text" id="gdCSPhone" class="form-control" value="${call.phone||''}" ${hasPhone?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''}>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Facebook <span style="color:#dc2626;">*</span></label>
+                    <input type="url" id="gdCSFacebook" class="form-control" value="${call.facebook_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com/...">
+                    <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                </div>
+                <div></div>
+            </div>
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#374151;">Người Nhận Số <span style="color:#dc2626;">*</span></label>
+                <input type="text" class="form-control" value="${currentUser.full_name || currentUser.username}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+            </div>
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#374151;">Ghi chú</label>
+                <textarea id="gdCSNotes" class="form-control" rows="3" placeholder="Ghi chú thêm...">${notes||''}</textarea>
+            </div>
         </div>
-        <div class="form-group"><label>📞 SĐT</label><input type="text" class="form-control" value="${call.phone}" readonly style="background:#f3f4f6;font-weight:700;"></div>
-        <div class="form-group"><label>👤 Tên KH</label><input type="text" class="form-control" value="${call.customer_name||''}" readonly style="background:#f3f4f6;"></div>
-        <div class="form-group"><label>🏢 Công Ty</label><input type="text" class="form-control" value="${call.company_name||''}" readonly style="background:#f3f4f6;"></div>
-        <div class="form-group"><label>📋 CRM Đích</label>
-            <select id="gdChuyenSoCRM" class="form-control" ${crmType?'disabled':''}>${crmOptions.map(o=>`<option value="${o.value}" ${o.value===crmType?'selected':''}>${o.label}</option>`).join('')}</select>
-        </div>
-        <div class="form-group"><label>📝 Ghi chú</label><textarea id="gdChuyenSoNotes" class="form-control" rows="3">${notes}</textarea></div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="ts-btn ts-btn-green" onclick="_gd_submitChuyenSo(${assignmentId},${answerStatusId},'${call.phone}','${(call.customer_name||'').replace(/'/g,"\\\\'")}','${(call.company_name||'').replace(/'/g,"\\\\'")}')">📞 Chuyển Số</button>`);
+        <button class="ts-btn ts-btn-green" onclick="_gd_submitChuyenSo(${assignmentId},${answerStatusId})">📱 Chuyển Số</button>`);
+
+    // Load job titles for initial CRM
+    _gd_csLoadJobTitles(crmType, call.source_name);
 }
 
-async function _gd_submitChuyenSo(assignmentId, answerStatusId, phone, customerName, companyName) {
-    const crmType = document.getElementById('gdChuyenSoCRM')?.value;
-    const notes = document.getElementById('gdChuyenSoNotes')?.value || '';
-    if (!crmType) return showToast('Chọn CRM đích', 'error');
-    const custRes = await apiCall('/api/customers', 'POST', { phone, name:customerName, company:companyName, source:'GỌI ĐIỆN', crm_type:crmType, notes, assigned_to:currentUser.id });
+async function _gd_csLoadJobTitles(crmType, preselect) {
+    const jobRow = document.getElementById('gdCSJobTitleRow');
+    const jobSel = document.getElementById('gdCSJobTitle');
+    if (!jobRow || !jobSel) return;
+    const crmTypesWithJobs = ['goi_hop_tac','goi_ban_hang','tu_tim_kiem','koc_tiktok','affiliate'];
+    if (crmTypesWithJobs.includes(crmType)) {
+        const data = await apiCall(`/api/telesale/sources?crm_type=${crmType}`);
+        const sources = data.sources || [];
+        jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>' +
+            sources.map(s => `<option value="${s.name}" ${preselect && s.name === preselect ? 'selected' : ''}>${s.name}</option>`).join('');
+        jobRow.style.display = 'grid';
+    } else {
+        jobRow.style.display = 'none';
+        jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>';
+    }
+}
+
+async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
+    const crmType = document.getElementById('gdCSCrm')?.value;
+    const phone = document.getElementById('gdCSPhone')?.value?.trim();
+    const fbLink = document.getElementById('gdCSFacebook')?.value?.trim();
+    const customerName = document.getElementById('gdCSName')?.value?.trim();
+    const jobTitle = document.getElementById('gdCSJobTitle')?.value;
+    const notes = document.getElementById('gdCSNotes')?.value || '';
+
+    if (!crmType) return showToast('Chọn CRM', 'error');
+    if (!phone && !fbLink) return showToast('Vui lòng nhập SĐT hoặc Link Facebook', 'error');
+
+    const custRes = await apiCall('/api/customers', 'POST', {
+        crm_type: crmType,
+        customer_name: customerName,
+        phone: phone,
+        facebook_link: fbLink || null,
+        source_id: null,
+        receiver_id: currentUser.id,
+        notes: notes,
+        job: jobTitle || null
+    });
+    if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số', 'error');
+
     const res = await apiCall(`/api/telesale/call/${assignmentId}`, 'PUT', {
         call_status:'answered', answer_status_id:answerStatusId, notes,
         transferred_customer_id: custRes.customer?.id || custRes.lastInsertRowid || null
     });
-    if (res.success) { showToast('✅ Chuyển số thành công!'); closeModal(); await _gd_loadCallsForUser(_gd_selectedUserId); }
+    if (res.success) { showToast(`✅ Chuyển số thành công! Mã: ${custRes.dailyNum || ''}`); closeModal(); await _gd_loadCallsForUser(_gd_selectedUserId); }
     else showToast(res.error, 'error');
 }
 
