@@ -368,16 +368,26 @@ async function telesaleRoutes(fastify) {
     // Single data record detail with assignment history
     fastify.get('/api/telesale/data/:id', { preHandler: authenticate }, async (req, reply) => {
         const data = await db.get(`SELECT d.*, s.name as source_name, s.icon as source_icon,
-            u.full_name as last_assigned_user_name
+            u.full_name as last_assigned_user_name,
+            la.call_status as last_call_status, la.answer_action_type, la.answer_status_name
             FROM telesale_data d
             LEFT JOIN telesale_sources s ON s.id = d.source_id
             LEFT JOIN users u ON u.id = d.last_assigned_user_id
+            LEFT JOIN LATERAL (
+                SELECT a.call_status, ans.action_type as answer_action_type, ans.name as answer_status_name
+                FROM telesale_assignments a
+                LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                WHERE a.data_id = d.id
+                ORDER BY a.assigned_date DESC, a.id DESC LIMIT 1
+            ) la ON true
             WHERE d.id = $1`, [req.params.id]);
         if (!data) return reply.code(404).send({ success: false, error: 'Không tìm thấy data' });
         // Get full assignment history
-        const assignments = await db.all(`SELECT a.*, u.full_name as user_name
+        const assignments = await db.all(`SELECT a.*, u.full_name as user_name,
+            ans.name as answer_status_name, ans.action_type as answer_action_type
             FROM telesale_assignments a
             LEFT JOIN users u ON u.id = a.user_id
+            LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
             WHERE a.data_id = $1
             ORDER BY a.assigned_date DESC, a.created_at DESC`, [req.params.id]);
         // Filter salary info for non-director roles
