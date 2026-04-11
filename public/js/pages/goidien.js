@@ -549,7 +549,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
         {value:'affiliate',label:'CRM Affiliate Giới Thiệu'},
     ];
     const hasPhone = !!(call.phone && call.phone.trim());
-    const hasFb = !!(call.facebook_link && call.facebook_link.trim());
+    const hasFb = !!(call.fb_link && call.fb_link.trim());
 
     openModal('📱 Chuyển Số Khách Hàng', `
         <div style="max-width:600px;">
@@ -587,7 +587,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Facebook <span style="color:#dc2626;">*</span></label>
-                    <input type="url" id="gdCSFacebook" class="form-control" value="${call.facebook_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com/...">
+                    <input type="url" id="gdCSFacebook" class="form-control" value="${call.fb_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com/...">
                     <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
                 </div>
                 <div></div>
