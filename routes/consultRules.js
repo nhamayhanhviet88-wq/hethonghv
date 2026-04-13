@@ -9,6 +9,18 @@ module.exports = async function (fastify) {
         return { types: rows };
     });
 
+    // PATCH batch update sort_order (drag & drop)
+    fastify.patch('/api/consult-types/batch/sort-order', async (req, reply) => {
+        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { orders } = req.body; // Array of { key, sort_order }
+        if (!Array.isArray(orders)) return reply.code(400).send({ error: 'orders must be array' });
+        for (const o of orders) {
+            await db.run(`UPDATE consult_type_configs SET sort_order=$1 WHERE key=$2`, [o.sort_order, o.key]);
+        }
+        return { success: true };
+    });
+
+
     // PUT update a consult type (GĐ only)
     fastify.put('/api/consult-types/:key', async (req, reply) => {
         if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });

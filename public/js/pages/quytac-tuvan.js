@@ -1,4 +1,4 @@
-// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN ==========
+// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI ==========
 
 // Status labels for display
 const FLOW_STATUS_LABELS = {
@@ -20,126 +20,86 @@ const FLOW_STATUS_LABELS = {
     cancel_auto_revert: '❌ KH bị auto-revert hủy',
 };
 
+// Stage definitions for Tab 1 grouping
+const QT_STAGES = [
+    {
+        id: 'tuvan', title: 'Giai Đoạn Tư Vấn', icon: '💬',
+        gradient: 'linear-gradient(135deg,#dbeafe,#eff6ff)',
+        textColor: '#1e40af', countBg: '#bfdbfe', countColor: '#1e40af',
+        keys: ['lam_quen_tuong_tac','goi_dien','nhan_tin','tuong_tac_ket_noi','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua']
+    },
+    {
+        id: 'coc', title: 'Giai Đoạn Cọc & Đơn Hàng', icon: '💰',
+        gradient: 'linear-gradient(135deg,#fef3c7,#fffbeb)',
+        textColor: '#92400e', countBg: '#fde68a', countColor: '#92400e',
+        keys: ['gui_stk_coc','giuc_coc','dat_coc','chot_don','dang_san_xuat','hoan_thanh']
+    },
+    {
+        id: 'sauban', title: 'Sau Bán Hàng & Chăm Sóc', icon: '📦',
+        gradient: 'linear-gradient(135deg,#d1fae5,#ecfdf5)',
+        textColor: '#065f46', countBg: '#a7f3d0', countColor: '#065f46',
+        keys: ['sau_ban_hang','gui_ct_kh_cu','giam_gia']
+    },
+    {
+        id: 'capuu', title: 'Cấp Cứu & Hủy', icon: '🚨',
+        gradient: 'linear-gradient(135deg,#fee2e2,#fef2f2)',
+        textColor: '#991b1b', countBg: '#fecaca', countColor: '#991b1b',
+        keys: ['cap_cuu_sep','huy_coc','hoan_thanh_cap_cuu','huy','tu_van_lai']
+    }
+];
+
+// Flowchart journey definition
+const QT_JOURNEY_NODES = [
+    { key: 'dang_tu_van', icon: '🆕', short: 'Khách Mới', group: 'main' },
+    { key: 'lam_quen_tuong_tac', icon: '👋', short: 'Làm Quen', group: 'main' },
+    { key: 'goi_dien', icon: '📞', short: 'Tư Vấn', group: 'main', multi: true,
+      tooltip: 'Gọi Điện / Nhắn Tin / Gặp TT / Gửi BG / Mẫu / TK / Sửa TK' },
+    { key: 'gui_stk_coc', icon: '🏦', short: 'Gửi STK', group: 'main' },
+    { key: 'giuc_coc', icon: '⏰', short: 'Giục Cọc', group: 'main' },
+    { key: 'dat_coc', icon: '💵', short: 'Đặt Cọc', group: 'main' },
+    { key: 'chot_don', icon: '✅', short: 'Chốt Đơn', group: 'main' },
+    { key: 'dang_san_xuat', icon: '🏭', short: 'Sản Xuất', group: 'main' },
+    { key: 'hoan_thanh', icon: '🏆', short: 'Hoàn Thành', group: 'main' },
+    { key: 'sau_ban_hang', icon: '📦', short: 'Sau Bán', group: 'main' },
+    { key: 'tuong_tac_ket_noi', icon: '🔗', short: 'Kết Nối', group: 'main' },
+    { key: 'gui_ct_kh_cu', icon: '🎟️', short: 'CT KH Cũ', group: 'main' },
+];
+const QT_JOURNEY_BRANCH = [
+    { key: 'huy_coc', icon: '🚫', short: 'Hủy Cọc', group: 'branch' },
+    { key: 'cap_cuu_sep', icon: '🚨', short: 'Cấp Cứu', group: 'branch' },
+    { key: 'hoan_thanh_cap_cuu', icon: '🏥', short: 'HT Cấp Cứu', group: 'branch' },
+    { key: 'tu_van_lai', icon: '🔄', short: 'TV Lại', group: 'branch' },
+];
+
+// ========== STATE ==========
 let _qtAllTypes = [];
 let _qtAllRules = {};
 let _qtIsGD = false;
+let _qtActiveTab = 'buttons';
+let _qtTabCache = {};
+let _qtSortDebounce = null;
 
+// ========== MAIN ENTRY ==========
 async function renderQuyTacTuVanPage(container) {
     _qtIsGD = currentUser && currentUser.role === 'giam_doc';
+    _qtTabCache = {};
 
     container.innerHTML = `
-        <style>
-            .qt-page { max-width:1200px; margin:0 auto; font-family:'Inter','Segoe UI',sans-serif; }
-            .qt-tabs { display:flex; gap:0; margin-bottom:0; border-bottom:2px solid #e2e8f0; }
-            .qt-tab { padding:12px 28px; cursor:pointer; font-weight:700; font-size:14px;
-                background:transparent; color:#94a3b8; border:none; border-bottom:3px solid transparent;
-                margin-bottom:-2px; transition:all .2s; }
-            .qt-tab:hover { color:#475569; }
-            .qt-tab.active { color:#2563eb; border-bottom-color:#2563eb; }
-            .qt-panel { background:#ffffff; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 16px 16px;
-                padding:28px; min-height:400px; box-shadow:0 4px 24px rgba(0,0,0,.04); }
-
-            /* Tab 1: Button Grid */
-            .qt-btn-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:14px; }
-            .qt-btn-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px;
-                padding:18px 14px; text-align:center; transition:all .3s; position:relative; overflow:hidden;
-                box-shadow:0 1px 4px rgba(0,0,0,.04); }
-            .qt-btn-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,.08); border-color:#cbd5e1; }
-            .qt-btn-card.inactive { opacity:.35; }
-            .qt-btn-card .qt-icon { font-size:34px; margin-bottom:10px; display:block; }
-            .qt-btn-card .qt-label { font-size:13px; font-weight:700; color:#1e293b; margin-bottom:6px; }
-            .qt-btn-card .qt-color-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:4px; }
-            .qt-btn-card .qt-key { font-size:9px; color:#94a3b8; font-family:'JetBrains Mono',monospace; letter-spacing:.3px; }
-            .qt-btn-card .qt-edit-btn { position:absolute; top:8px; right:8px; background:#2563eb; color:white;
-                border:none; border-radius:8px; width:28px; height:28px; cursor:pointer; font-size:12px;
-                display:flex; align-items:center; justify-content:center; opacity:0; transition:all .2s; box-shadow:0 2px 8px rgba(37,99,235,.3); }
-            .qt-btn-card:hover .qt-edit-btn { opacity:1; }
-            .qt-btn-card .qt-status { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; margin-top:8px; display:inline-block; }
-
-            /* Tab 2: Flow Rules */
-            .qt-flow-section { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:14px;
-                overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.03); transition:box-shadow .2s; }
-            .qt-flow-section:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
-            .qt-flow-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px;
-                background:#fafbfc; cursor:pointer; border-bottom:1px solid #f1f5f9; }
-            .qt-flow-header:hover { background:#f1f5f9; }
-            .qt-flow-title { font-size:14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-            .qt-flow-count { font-size:10px; background:#eff6ff; color:#2563eb; padding:3px 10px; border-radius:20px; font-weight:700; }
-            .qt-flow-body { padding:18px 20px; display:none; background:#fafbfc; }
-            .qt-flow-body.open { display:block; }
-            .qt-flow-targets { display:flex; flex-wrap:wrap; gap:10px; }
-            .qt-target-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px;
-                text-align:center; min-width:110px; position:relative; transition:all .25s; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-            .qt-target-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.08); border-color:#cbd5e1; }
-            .qt-target-card .qt-t-icon { font-size:26px; display:block; margin-bottom:6px; }
-            .qt-target-card .qt-t-label { font-size:11px; font-weight:700; color:#334155; line-height:1.3; }
-            .qt-target-card .qt-t-default { font-size:9px; color:#d97706; font-weight:800; margin-top:4px; }
-            .qt-target-card .qt-t-delay { font-size:9px; color:#ea580c; font-weight:700; margin-top:3px; padding:2px 6px;
-                background:#fff7ed; border-radius:6px; display:inline-block; }
-            .qt-flow-edit-btn { background:linear-gradient(135deg,#2563eb,#1d4ed8); color:white; border:none;
-                border-radius:8px; padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s;
-                box-shadow:0 2px 8px rgba(37,99,235,.25); }
-            .qt-flow-edit-btn:hover { transform:scale(1.05); box-shadow:0 4px 16px rgba(37,99,235,.35); }
-
-            /* Modal */
-            .qt-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,.5);
-                backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; animation:qtFadeIn .2s; }
-            @keyframes qtFadeIn { from{opacity:0} to{opacity:1} }
-            .qt-modal { background:#ffffff; border:1px solid #e2e8f0; border-radius:20px; width:92%; max-width:700px;
-                max-height:85vh; overflow-y:auto; padding:28px; box-shadow:0 24px 64px rgba(0,0,0,.12); }
-            .qt-modal h3 { color:#1e293b; margin:0 0 20px; font-size:18px; }
-            .qt-modal label { color:#64748b; font-size:12px; font-weight:600; display:block; margin-bottom:6px; }
-            .qt-modal input, .qt-modal select { background:#f8fafc; color:#1e293b; border:1px solid #e2e8f0;
-                border-radius:10px; padding:10px 14px; width:100%; font-size:13px; box-sizing:border-box; transition:border .2s; }
-            .qt-modal input:focus { border-color:#2563eb; outline:none; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
-            .qt-modal .qt-row { display:flex; gap:14px; margin-bottom:14px; }
-            .qt-modal .qt-row > div { flex:1; }
-            .qt-modal .qt-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
-            .qt-modal .qt-btn { padding:10px 24px; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; transition:all .2s; }
-            .qt-modal .qt-btn-primary { background:linear-gradient(135deg,#2563eb,#1d4ed8); color:white; box-shadow:0 2px 8px rgba(37,99,235,.3); }
-            .qt-modal .qt-btn-primary:hover { box-shadow:0 4px 16px rgba(37,99,235,.4); }
-            .qt-modal .qt-btn-secondary { background:#f1f5f9; color:#64748b; }
-            .qt-modal .qt-btn-secondary:hover { background:#e2e8f0; }
-
-            /* Rule editor checkboxes */
-            .qt-rule-list { max-height:400px; overflow-y:auto; }
-            .qt-rule-item { display:flex; align-items:center; gap:12px; padding:10px 14px;
-                background:#f8fafc; border:1px solid #f1f5f9; border-radius:10px; margin-bottom:6px; transition:all .15s; }
-            .qt-rule-item:hover { background:#eff6ff; border-color:#dbeafe; }
-            .qt-rule-item input[type="checkbox"] { width:18px; height:18px; accent-color:#2563eb; cursor:pointer; }
-            .qt-rule-item .qt-ri-info { flex:1; display:flex; align-items:center; gap:8px; }
-            .qt-rule-item .qt-ri-icon { font-size:20px; }
-            .qt-rule-item .qt-ri-label { font-size:13px; font-weight:600; color:#334155; }
-            .qt-rule-item .qt-ri-delay { width:60px; text-align:center; }
-            .qt-rule-item .qt-ri-default { width:18px; height:18px; accent-color:#d97706; cursor:pointer; }
-
-            .qt-legend { display:flex; gap:18px; margin-bottom:16px; flex-wrap:wrap; padding:10px 16px; background:#f8fafc; border-radius:10px; border:1px solid #f1f5f9; }
-            .qt-legend-item { font-size:11px; color:#64748b; display:flex; align-items:center; gap:4px; font-weight:600; }
-
-            /* Back button */
-            .qt-back { display:inline-flex; align-items:center; gap:6px; color:#2563eb; font-size:13px;
-                font-weight:600; cursor:pointer; margin-bottom:16px; text-decoration:none; transition:color .2s; }
-            .qt-back:hover { color:#1d4ed8; }
-
-            /* Section headers */
-            .qt-section-hdr { margin:28px 0 14px; padding:16px 22px; border-radius:14px; display:flex; align-items:center; gap:12px; }
-        </style>
-
         <div class="qt-page">
             <a class="qt-back" href="/crm-nhu-cau" onclick="event.preventDefault();navigate('crm-nhu-cau')">← Quay lại CRM Nhu Cầu</a>
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap;">
-                <h2 style="color:var(--navy,#122546);margin:0;font-size:24px;font-weight:900;letter-spacing:-.3px;">⚙️ Quy Tắc Nút Tư Vấn</h2>
-                <span style="font-size:12px;color:var(--navy,#122546);background:rgba(250,210,76,.15);padding:5px 14px;border-radius:20px;font-weight:700;border:1px solid rgba(250,210,76,.3);">
+            <div class="qt-header">
+                <h2 class="qt-header-title">⚙️ Quy Tắc Nút Tư Vấn</h2>
+                <span class="qt-header-badge">
                     ${_qtIsGD ? '🔓 Chế độ chỉnh sửa' : '👁️ Chế độ xem'}
                 </span>
             </div>
 
             <div class="qt-tabs">
-                <div class="qt-tab active" onclick="_qtSwitchTab('buttons')" id="qtTabButtons">📋 Danh Sách Nút (${0})</div>
+                <div class="qt-tab active" onclick="_qtSwitchTab('buttons')" id="qtTabButtons">📋 Danh Sách Nút (0)</div>
                 <div class="qt-tab" onclick="_qtSwitchTab('rules')" id="qtTabRules">🔄 Quy Tắc Liên Kết</div>
             </div>
             <div class="qt-panel" id="qtPanel">
-                <div style="text-align:center;padding:40px;color:#94a3b8;">⏳ Đang tải...</div>
+                ${_qtRenderSkeleton()}
             </div>
         </div>
     `;
@@ -147,6 +107,16 @@ async function renderQuyTacTuVanPage(container) {
     await _qtLoadData();
 }
 
+// ========== SKELETON LOADING ==========
+function _qtRenderSkeleton() {
+    let cards = '';
+    for (let i = 0; i < 12; i++) {
+        cards += `<div class="qt-skel-card" style="animation-delay:${i*60}ms"></div>`;
+    }
+    return `<div class="qt-btn-grid qt-skeleton">${cards}</div>`;
+}
+
+// ========== DATA LOADING ==========
 async function _qtLoadData() {
     const [typesData, rulesData] = await Promise.all([
         apiCall('/api/consult-types'),
@@ -154,72 +124,177 @@ async function _qtLoadData() {
     ]);
     _qtAllTypes = typesData.types || [];
     _qtAllRules = rulesData.rules || {};
+    _qtTabCache = {};
 
     document.getElementById('qtTabButtons').innerHTML = `📋 Danh Sách Nút (${_qtAllTypes.length})`;
-    _qtRenderButtons();
+    _qtRenderActiveTab();
 }
 
+// ========== TAB SWITCHING ==========
 function _qtSwitchTab(tab) {
+    _qtActiveTab = tab;
     document.querySelectorAll('.qt-tab').forEach(t => t.classList.remove('active'));
     if (tab === 'buttons') {
         document.getElementById('qtTabButtons').classList.add('active');
-        _qtRenderButtons();
     } else {
         document.getElementById('qtTabRules').classList.add('active');
+    }
+    _qtRenderActiveTab();
+}
+
+function _qtRenderActiveTab() {
+    if (_qtActiveTab === 'buttons') {
+        _qtRenderButtons();
+    } else {
         _qtRenderRules();
     }
 }
 
+// ========== TAB 1: BUTTONS (Grouped by Stage) ==========
 function _qtRenderButtons() {
     const panel = document.getElementById('qtPanel');
-    let html = '';
 
+    // Action bar
+    let html = '';
     if (_qtIsGD) {
-        html += `<div style="margin-bottom:16px;text-align:right;">
+        html += `<div class="qt-action-bar">
             <button class="qt-flow-edit-btn" onclick="_qtShowAddTypeModal()">➕ Thêm nút mới</button>
         </div>`;
     }
 
-    html += '<div class="qt-btn-grid">';
-    for (const t of _qtAllTypes) {
+    // Collect keys already in stages
+    const assignedKeys = new Set();
+    QT_STAGES.forEach(s => s.keys.forEach(k => assignedKeys.add(k)));
+
+    // Find unassigned types
+    const unassigned = _qtAllTypes.filter(t => !assignedKeys.has(t.key));
+
+    // Render each stage
+    for (const stage of QT_STAGES) {
+        const stageTypes = stage.keys
+            .map(k => _qtAllTypes.find(t => t.key === k))
+            .filter(Boolean);
+        if (stageTypes.length === 0) continue;
+
         html += `
-            <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}">
-                ${_qtIsGD ? `<button class="qt-edit-btn" onclick="_qtShowEditTypeModal('${t.key}')">✏️</button>` : ''}
-                <span class="qt-icon">${t.icon}</span>
-                <div class="qt-label">${t.label}</div>
-                <div>
-                    <span class="qt-color-dot" style="background:${t.color}"></span>
-                    <span style="font-size:11px;color:${t.color};font-weight:600">${t.color}</span>
+            <div class="qt-stage">
+                <div class="qt-stage-header" style="background:${stage.gradient};">
+                    <span class="qt-stage-header-icon">${stage.icon}</span>
+                    <span class="qt-stage-header-text" style="color:${stage.textColor}">${stage.title}</span>
+                    <span class="qt-stage-header-count" style="background:${stage.countBg};color:${stage.countColor}">${stageTypes.length} nút</span>
                 </div>
-                <div class="qt-key">${t.key}</div>
-                <span class="qt-status" style="background:${t.is_active ? 'rgba(34,197,94,.15);color:#22c55e' : 'rgba(239,68,68,.15);color:#ef4444'}">
-                    ${t.is_active ? '● Đang bật' : '○ Đã tắt'}
-                </span>
-            </div>
+                <div class="qt-btn-grid" data-stage="${stage.id}">
         `;
+        for (const t of stageTypes) {
+            html += _qtRenderButtonCard(t);
+        }
+        html += '</div></div>';
     }
-    html += '</div>';
+
+    // Unassigned group
+    if (unassigned.length > 0) {
+        html += `
+            <div class="qt-stage">
+                <div class="qt-stage-header" style="background:linear-gradient(135deg,#f1f5f9,#f8fafc);">
+                    <span class="qt-stage-header-icon">📋</span>
+                    <span class="qt-stage-header-text" style="color:#64748b">Khác</span>
+                    <span class="qt-stage-header-count" style="background:#e2e8f0;color:#64748b">${unassigned.length} nút</span>
+                </div>
+                <div class="qt-btn-grid" data-stage="other">
+        `;
+        for (const t of unassigned) {
+            html += _qtRenderButtonCard(t);
+        }
+        html += '</div></div>';
+    }
+
     panel.innerHTML = html;
+
+    // Initialize drag & drop for each grid
+    if (_qtIsGD && typeof Sortable !== 'undefined') {
+        document.querySelectorAll('.qt-btn-grid').forEach(grid => {
+            new Sortable(grid, {
+                animation: 200,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                handle: '.qt-btn-card',
+                group: 'buttons',
+                onEnd: _qtOnButtonSortEnd
+            });
+        });
+    }
 }
 
+function _qtRenderButtonCard(t) {
+    return `
+        <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}" data-key="${t.key}" style="--card-accent:${t.color}">
+            ${_qtIsGD ? `<span class="qt-drag-hint">⠿</span>` : ''}
+            ${_qtIsGD ? `<button class="qt-edit-btn" onclick="event.stopPropagation();_qtShowEditTypeModal('${t.key}')">✏️</button>` : ''}
+            <span class="qt-icon">${t.icon}</span>
+            <div class="qt-label">${t.label}</div>
+            <div class="qt-color-info">
+                <span class="qt-color-dot" style="background:${t.color};color:${t.color}"></span>
+                <span class="qt-color-hex">${t.color}</span>
+            </div>
+            <div class="qt-key">${t.key}</div>
+            <span class="qt-status ${t.is_active ? 'qt-status-on' : 'qt-status-off'}">
+                ${t.is_active ? '● Đang bật' : '○ Đã tắt'}
+            </span>
+        </div>
+    `;
+}
+
+// Drag & drop sort handler for buttons
+function _qtOnButtonSortEnd() {
+    clearTimeout(_qtSortDebounce);
+    _qtSortDebounce = setTimeout(() => {
+        const orders = [];
+        let globalOrder = 0;
+        document.querySelectorAll('.qt-btn-grid').forEach(grid => {
+            grid.querySelectorAll('.qt-btn-card').forEach(card => {
+                globalOrder++;
+                orders.push({ key: card.dataset.key, sort_order: globalOrder });
+            });
+        });
+        _qtSaveSortOrder(orders);
+    }, 500);
+}
+
+// ========== TAB 2: RULES (Flowchart + Accordion) ==========
 function _qtRenderRules() {
     const panel = document.getElementById('qtPanel');
 
-    // Define 3 sections with Loại numbering
+    // Flowchart
+    let html = _qtRenderFlowchart();
+
+    // Legend
+    html += `
+        <div class="qt-legend">
+            <span class="qt-legend-item">⭐ = Nút mặc định (tự chọn)</span>
+            <span class="qt-legend-item">📅 = Sau X ngày mới hiện</span>
+            <span class="qt-legend-item">🔵 = Nút đích cho phép</span>
+        </div>
+    `;
+
+    // Action bar
+    if (_qtIsGD) {
+        html += `<div class="qt-action-bar">
+            <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới</button>
+        </div>`;
+    }
+
+    // Define sections
     const SECTIONS = [
         {
             title: 'PHẦN 1: LÀM QUEN, TƯ VẤN KHÁCH',
-            icon: '📋',
-            color: '#3b82f6',
+            icon: '📋', color: '#3b82f6',
             gradient: 'linear-gradient(135deg,#1e3a5f,#0f172a)',
             loai: [
-                {
-                    num: 1,
-                    label: 'Khi ấn: Gọi Điện / Nhắn Tin / Gặp TT / Gửi BG / Gửi Mẫu / TK / Sửa TK',
-                    statuses: ['dang_tu_van','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'],
-                    showFrom: 'dang_tu_van',
-                    desc: 'Khách mới vào → hoặc sau khi ấn các nút tư vấn cơ bản → hiện lại đầy đủ nút'
-                },
+                { num: 1, label: 'Khi ấn: Gọi Điện / Nhắn Tin / Gặp TT / Gửi BG / Gửi Mẫu / TK / Sửa TK',
+                  statuses: ['dang_tu_van','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'],
+                  showFrom: 'dang_tu_van',
+                  desc: 'Khách mới vào → hoặc sau khi ấn các nút tư vấn cơ bản → hiện lại đầy đủ nút' },
                 { num: 2, label: 'Khi ấn: Làm Quen Tương Tác', statuses: ['lam_quen_tuong_tac'] },
                 { num: 3, label: 'Khi ấn: Gửi STK Cọc', statuses: ['gui_stk_coc'] },
                 { num: 4, label: 'Khi ấn: Giục Cọc', statuses: ['giuc_coc'] },
@@ -231,8 +306,7 @@ function _qtRenderRules() {
         },
         {
             title: 'PHẦN 2: CHĂM SÓC SAU BÁN HÀNG',
-            icon: '📦',
-            color: '#10b981',
+            icon: '📦', color: '#10b981',
             gradient: 'linear-gradient(135deg,#064e3b,#0f172a)',
             loai: [
                 { num: 9, label: 'Khi ấn: Chăm Sóc Sau Bán', statuses: ['sau_ban_hang'] },
@@ -243,8 +317,7 @@ function _qtRenderRules() {
         },
         {
             title: 'PHẦN 3: TRẠNG THÁI HỦY, CẤP CỨU SẾP',
-            icon: '🚨',
-            color: '#ef4444',
+            icon: '🚨', color: '#ef4444',
             gradient: 'linear-gradient(135deg,#7f1d1d,#0f172a)',
             loai: [
                 { num: 13, label: 'Khi ấn: Hủy Cọc', statuses: ['huy_coc'] },
@@ -257,70 +330,51 @@ function _qtRenderRules() {
         }
     ];
 
-    let html = `
-        <div class="qt-legend">
-            <span class="qt-legend-item">⭐ = Nút mặc định (tự chọn)</span>
-            <span class="qt-legend-item">📅 = Sau X ngày mới hiện</span>
-            <span class="qt-legend-item">🔵 = Nút đích cho phép</span>
-        </div>
-    `;
-
-    if (_qtIsGD) {
-        html += `<div style="margin-bottom:16px;text-align:right;">
-            <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới</button>
-        </div>`;
-    }
-
+    // Render sections
     for (const section of SECTIONS) {
-        // Section header
         html += `
-            <div style="margin:24px 0 12px;padding:14px 20px;border-radius:12px;background:${section.gradient};
-                border-left:4px solid ${section.color};display:flex;align-items:center;gap:10px;">
-                <span style="font-size:22px;">${section.icon}</span>
-                <span style="font-size:16px;font-weight:900;color:${section.color};letter-spacing:1px;">${section.title}</span>
+            <div class="qt-section-divider" style="background:${section.gradient};border-left-color:${section.color};">
+                <span class="qt-section-divider-icon">${section.icon}</span>
+                <span class="qt-section-divider-text" style="color:${section.color}">${section.title}</span>
             </div>
         `;
 
         for (const loai of section.loai) {
-            // Get rules from first status that has data
             const mainStatus = loai.showFrom || loai.statuses[0];
             const rules = _qtAllRules[mainStatus];
             if (!rules || rules.length === 0) continue;
 
-            const isOverride = loai.isOverride;
-
-            // Build sub-status chips for Loại 1 (grouped)
+            // Sub-chips for grouped statuses
             let subChipsHTML = '';
             if (loai.statuses.length > 1) {
-                subChipsHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">`;
+                subChipsHTML = '<div class="qt-flow-sub-chips">';
                 for (const s of loai.statuses) {
                     const t = _qtAllTypes.find(x => x.key === s);
                     const lbl = t ? `${t.icon} ${t.label}` : (FLOW_STATUS_LABELS[s] || s);
-                    subChipsHTML += `<span style="font-size:10px;background:rgba(59,130,246,.1);color:#60a5fa;padding:2px 8px;border-radius:6px;font-weight:600;">${lbl}</span>`;
+                    subChipsHTML += `<span class="qt-sub-chip">${lbl}</span>`;
                 }
-                subChipsHTML += `</div>`;
+                subChipsHTML += '</div>';
             }
 
+            const sectionId = `qtRule_${mainStatus}`;
             html += `
-                <div class="qt-flow-section" style="${isOverride ? 'border-color:#ef4444;border-style:dashed;' : ''}">
-                    <div class="qt-flow-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                <div class="qt-flow-section ${loai.isOverride ? 'override' : ''}" id="${sectionId}">
+                    <div class="qt-flow-header" onclick="_qtToggleSection(this)">
                         <div class="qt-flow-title">
-                            <span style="background:${section.color};color:white;font-size:11px;font-weight:900;padding:3px 10px;border-radius:8px;min-width:55px;text-align:center;">Loại ${loai.num}</span>
+                            <span class="qt-loai-badge" style="background:${section.color}">Loại ${loai.num}</span>
                             ${loai.label}
                             <span class="qt-flow-count">${rules.length} nút</span>
-                            ${isOverride ? '<span style="font-size:10px;background:rgba(239,68,68,.2);color:#f87171;padding:2px 8px;border-radius:6px;">OVERRIDE</span>' : ''}
+                            ${loai.isOverride ? '<span class="qt-override-tag">OVERRIDE</span>' : ''}
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${mainStatus}')">✏️ Sửa</button>` : ''}
-                            <span style="color:#64748b;font-size:18px;">▼</span>
+                            <span class="qt-flow-chevron">▼</span>
                         </div>
                     </div>
                     <div class="qt-flow-body">
                         ${subChipsHTML}
-                        ${loai.desc ? `<div style="color:#fbbf24;font-size:11px;margin-bottom:8px;font-style:italic;">💡 ${loai.desc}</div>` : ''}
-                        <div style="color:#94a3b8;font-size:12px;margin-bottom:10px;font-weight:600;">
-                            → Hiện các nút:
-                        </div>
+                        ${loai.desc ? `<div class="qt-flow-desc">💡 ${loai.desc}</div>` : ''}
+                        <div class="qt-flow-label">Hiện các nút:</div>
                         <div class="qt-flow-targets">
             `;
 
@@ -331,30 +385,107 @@ function _qtRenderRules() {
                 const color = t ? t.color : r.to_color || '#6b7280';
 
                 html += `
-                    <div class="qt-target-card" style="border-top:3px solid ${color};">
+                    <div class="qt-target-card" style="--target-color:${color}">
                         <span class="qt-t-icon">${icon}</span>
                         <div class="qt-t-label">${label}</div>
                         ${r.is_default ? '<div class="qt-t-default">⭐ Mặc định</div>' : ''}
-                        ${r.delay_days > 0 ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>` : '<div style="font-size:10px;color:#64748b;margin-top:2px;">⚡ Ngay lập tức</div>'}
+                        ${r.delay_days > 0
+                            ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>`
+                            : '<div class="qt-t-instant">⚡ Ngay lập tức</div>'}
                     </div>
                 `;
             }
 
-            html += `
-                        </div>
-                    </div>
-                </div>
-            `;
+            html += '</div></div></div>';
         }
     }
 
     panel.innerHTML = html;
 
     // Auto-open first section
-    const firstBody = panel.querySelector('.qt-flow-body');
-    if (firstBody) firstBody.classList.add('open');
+    const firstHeader = panel.querySelector('.qt-flow-header');
+    if (firstHeader) _qtToggleSection(firstHeader);
 }
 
+// Toggle accordion section
+function _qtToggleSection(header) {
+    const body = header.nextElementSibling;
+    const isOpen = body.classList.contains('open');
+    header.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+}
+
+// ========== FLOWCHART ==========
+function _qtRenderFlowchart() {
+    let mainNodes = '';
+    for (let i = 0; i < QT_JOURNEY_NODES.length; i++) {
+        const n = QT_JOURNEY_NODES[i];
+        const t = _qtAllTypes.find(x => x.key === n.key);
+        const color = t ? t.color : '#6b7280';
+
+        mainNodes += `
+            <div class="qt-fc-node" onclick="_qtScrollToRule('${n.key}')" title="${n.tooltip || (t ? t.label : n.short)}">
+                <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">
+                    ${n.icon}
+                </div>
+                <div class="qt-fc-name">${n.short}${n.multi ? ' ×7' : ''}</div>
+            </div>
+        `;
+        if (i < QT_JOURNEY_NODES.length - 1) {
+            mainNodes += '<div class="qt-fc-connector"></div>';
+        }
+    }
+
+    let branchNodes = '';
+    for (let i = 0; i < QT_JOURNEY_BRANCH.length; i++) {
+        const n = QT_JOURNEY_BRANCH[i];
+        const t = _qtAllTypes.find(x => x.key === n.key);
+        const color = t ? t.color : '#ef4444';
+
+        branchNodes += `
+            <div class="qt-fc-node" onclick="_qtScrollToRule('${n.key}')" title="${t ? t.label : n.short}">
+                <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">
+                    ${n.icon}
+                </div>
+                <div class="qt-fc-name">${n.short}</div>
+            </div>
+        `;
+        if (i < QT_JOURNEY_BRANCH.length - 1) {
+            branchNodes += '<div class="qt-fc-connector"></div>';
+        }
+    }
+
+    return `
+        <div class="qt-flowchart">
+            <div class="qt-flowchart-title">Luồng Tư Vấn Khách Hàng — Customer Journey</div>
+            <div class="qt-fc-row">${mainNodes}</div>
+            <div class="qt-fc-branch">
+                <div class="qt-fc-branch-label">↓ Nhánh Hủy / Cấp Cứu</div>
+                <div class="qt-fc-row">${branchNodes}</div>
+            </div>
+        </div>
+    `;
+}
+
+// Scroll to rule section when clicking flowchart node
+function _qtScrollToRule(key) {
+    const el = document.getElementById(`qtRule_${key}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Open the section
+        const header = el.querySelector('.qt-flow-header');
+        const body = el.querySelector('.qt-flow-body');
+        if (header && body && !body.classList.contains('open')) {
+            header.classList.add('open');
+            body.classList.add('open');
+        }
+        // Flash highlight
+        el.style.boxShadow = '0 0 0 3px #3b82f6';
+        setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+    }
+}
+
+// ========== HELPER ==========
 function _qtGetTypeLabel(key) {
     const t = _qtAllTypes.find(x => x.key === key);
     return t ? `${t.icon} ${t.label}` : key;
@@ -385,7 +516,7 @@ function _qtShowEditTypeModal(key) {
                 <div>
                     <label>Màu nền</label>
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <input type="color" id="qtEditColor" value="${t.color}" style="width:50px;height:36px;padding:2px;cursor:pointer;">
+                        <input type="color" id="qtEditColor" value="${t.color}" style="width:50px;height:36px;padding:2px;cursor:pointer;border-radius:8px;">
                         <input type="text" id="qtEditColorText" value="${t.color}" onchange="document.getElementById('qtEditColor').value=this.value">
                     </div>
                 </div>
@@ -395,12 +526,12 @@ function _qtShowEditTypeModal(key) {
                 </div>
             </div>
             <div style="margin-top:12px;">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#e2e8f0;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#334155;">
                     <input type="checkbox" id="qtEditActive" ${t.is_active ? 'checked' : ''} style="width:18px;height:18px;accent-color:#22c55e;">
                     Đang bật (hiển thị cho NV)
                 </label>
             </div>
-            <div style="margin-top:12px;padding:12px;background:#0f172a;border-radius:8px;">
+            <div class="qt-preview">
                 <label>Xem trước</label>
                 <div id="qtEditPreview" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
                     <span style="font-size:24px;">${t.icon}</span>
@@ -470,7 +601,7 @@ function _qtShowAddTypeModal() {
                 </div>
                 <div>
                     <label>Màu</label>
-                    <input type="color" id="qtNewColor" value="#6b7280" style="width:50px;height:36px;">
+                    <input type="color" id="qtNewColor" value="#6b7280" style="width:50px;height:36px;border-radius:8px;">
                 </div>
             </div>
             <div class="qt-actions">
@@ -508,6 +639,7 @@ function _qtShowEditRulesModal(fromStatus) {
 
         listHTML += `
             <div class="qt-rule-item" data-key="${t.key}" data-order="${order}">
+                <span class="qt-ri-drag">⠿</span>
                 <input type="checkbox" class="qt-ri-check" ${checked ? 'checked' : ''}>
                 <div class="qt-ri-info">
                     <span class="qt-ri-icon">${t.icon}</span>
@@ -532,14 +664,15 @@ function _qtShowEditRulesModal(fromStatus) {
     overlay.innerHTML = `
         <div class="qt-modal">
             <h3>⚙️ Quy tắc sau: ${statusLabel}</h3>
-            <div style="margin-bottom:12px;padding:10px;background:#0f172a;border-radius:8px;">
-                <div class="qt-legend" style="margin:0;">
+            <div style="margin-bottom:12px;padding:10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                <div class="qt-legend" style="margin:0;background:transparent;border:none;padding:0;">
+                    <span class="qt-legend-item">⠿ Kéo sắp xếp</span>
                     <span class="qt-legend-item">☑ Bật/tắt nút</span>
                     <span class="qt-legend-item">📅 Delay (0 = ngay)</span>
                     <span class="qt-legend-item">⭐ Mặc định</span>
                 </div>
             </div>
-            <div class="qt-rule-list">${listHTML}</div>
+            <div class="qt-rule-list" id="qtRuleList">${listHTML}</div>
             <div class="qt-actions">
                 <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
                 <button class="qt-btn qt-btn-primary" onclick="_qtSaveRules('${fromStatus}')">💾 Lưu quy tắc</button>
@@ -547,6 +680,16 @@ function _qtShowEditRulesModal(fromStatus) {
         </div>
     `;
     document.body.appendChild(overlay);
+
+    // Init drag & drop in rule list
+    if (typeof Sortable !== 'undefined') {
+        new Sortable(document.getElementById('qtRuleList'), {
+            animation: 200,
+            handle: '.qt-ri-drag',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+        });
+    }
 }
 
 async function _qtSaveRules(fromStatus) {
@@ -577,7 +720,6 @@ async function _qtSaveRules(fromStatus) {
 }
 
 function _qtShowAddRuleGroupModal() {
-    // Collect statuses that don't have rules yet
     const existingStatuses = new Set(Object.keys(_qtAllRules));
     let optionsHTML = '';
     for (const t of _qtAllTypes) {
@@ -611,7 +753,20 @@ function _qtAddRuleGroup() {
     const from = document.getElementById('qtNewRuleFrom').value;
     if (!from) return;
     document.querySelector('.qt-modal-overlay')?.remove();
-    // Pre-populate empty rules then open edit modal
     _qtAllRules[from] = [];
     _qtShowEditRulesModal(from);
+}
+
+// ========== SORT ORDER API ==========
+async function _qtSaveSortOrder(orders) {
+    try {
+        await apiCall('/api/consult-types/batch/sort-order', {
+            method: 'PATCH',
+            body: JSON.stringify({ orders }),
+            headers: {'Content-Type':'application/json'}
+        });
+        showToast('✅ Đã lưu thứ tự!', 'success');
+    } catch(e) {
+        showToast('❌ Lỗi lưu thứ tự!', 'error');
+    }
 }
