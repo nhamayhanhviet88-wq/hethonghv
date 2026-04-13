@@ -1227,6 +1227,13 @@ function _qtShowAddRuleGroupModal() {
             <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Chọn nút chưa có loại → tạo section "Khi ấn: ..." + mở cấu hình</p>
             <div class="qt-rule-list" style="max-height:300px;overflow-y:auto;">${listHTML}</div>
             <div style="margin-top:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Thuộc Phần:</label>
+                <select id="qtNewRulePhase" style="margin-top:4px;">
+                    <option value="">(Chưa phân phần)</option>
+                    ${_qtRulePhases.map(p => `<option value="${p.id}">${p.icon} PHẦN ${p.sort_order}: ${p.title}</option>`).join('')}
+                </select>
+            </div>
+            <div style="margin-top:8px;">
                 <label style="font-size:13px;font-weight:600;color:#334155;">Bắt đầu từ Loại số:</label>
                 <input type="number" id="qtNewRuleOrder" value="${nextOrder}" min="1" style="width:80px;padding:6px 10px;font-size:14px;font-weight:700;border:2px solid #3b82f6;border-radius:8px;text-align:center;margin-left:8px;">
             </div>
@@ -1248,14 +1255,16 @@ async function _qtAddRuleGroup() {
     if (selected.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
 
     let startOrder = parseInt(document.getElementById('qtNewRuleOrder').value) || 1;
+    const selectedPhase = document.getElementById('qtNewRulePhase').value || null;
 
     for (const key of selected) {
         // Create self-referencing flow rule if missing
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }]
         });
-        // Set section order
+        // Set section order + phase
         await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
         startOrder++;
     }
 
