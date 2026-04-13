@@ -1019,13 +1019,16 @@ async function _qtSaveSectionEdit(key, oldOrder) {
 async function _qtDeleteSection(key) {
     const tp = _qtAllTypes.find(x => x.key === key);
     const label = tp ? `${tp.icon} ${tp.label}` : key;
-    if (!confirm(`🗑️ Xóa loại "${label}"?\n\n⚠️ Section sẽ bị xóa khỏi danh sách.\nFlow rules và data cũ được giữ nguyên.`)) return;
+    const ruleCount = (_qtAllRules[key] || []).length;
+    if (!confirm(`🗑️ Xóa loại "${label}"?\n\n❌ Xóa toàn bộ ${ruleCount} flow rules "Khi ấn: ${tp ? tp.label : key}"\n❌ Xóa khỏi phần hiện tại\n✅ Data tư vấn cũ giữ nguyên\n\n⚠️ Không thể hoàn tác!`)) return;
 
-    // Reset section_order to 0 (removes from sections list)
+    // 1. Delete all flow rules for this button
+    await apiCall(`/api/consult-flow-rules/${key}`, 'DELETE');
+    // 2. Reset section_order to 0 + clear phase
     await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0 });
     await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: null });
 
-    showToast('✅ Đã xóa loại!', 'success');
+    showToast('✅ Đã xóa loại hoàn toàn!', 'success');
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
