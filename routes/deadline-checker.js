@@ -949,26 +949,17 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
     // ========== 10. TELESALE — BƠM SÁNG (07:00+) ==========
     // ★ Catch-up: nếu server restart sau 7:00 mà chưa bơm → bơm ngay
+    // ★ runTelesalePump() đã có dedup per-user per-CRM bên trong, KHÔNG cần check global
     try {
         const tsHour2 = now.getHours();
         const shouldPump = (tsHour2 === 7 && _minute < 30) || (forceFullCheck && tsHour2 >= 7);
         if (shouldPump) {
-            // Check if already pumped today
-            const today10 = toDateStr(now);
-            const alreadyPumped = await db.get(
-                "SELECT COUNT(*) as cnt FROM telesale_assignments WHERE assigned_date = $1",
-                [today10]
-            );
-            if (!alreadyPumped || alreadyPumped.cnt === 0) {
-                console.log(`  📞 [Telesale] Chạy bơm sáng${forceFullCheck && tsHour2 > 7 ? ' (catch-up sau restart)' : ''}...`);
-                const { runTelesalePump } = require('./telesale');
-                const pumpResult = await runTelesalePump();
-                console.log(`  📞 [Telesale] ${pumpResult.message}`);
-                if (pumpResult.alerts && pumpResult.alerts.length > 0) {
-                    console.log(`  ⚠️ [Telesale] Cảnh báo nguồn hết: ${pumpResult.alerts.map(a => a.source).join(', ')}`);
-                }
-            } else {
-                console.log(`  ⏭️ [Telesale] Đã bơm rồi hôm nay (${alreadyPumped.cnt} assignments)`);
+            console.log(`  📞 [Telesale] Chạy bơm sáng${forceFullCheck && tsHour2 > 7 ? ' (catch-up sau restart)' : ''}...`);
+            const { runTelesalePump } = require('./telesale');
+            const pumpResult = await runTelesalePump();
+            console.log(`  📞 [Telesale] ${pumpResult.message}`);
+            if (pumpResult.alerts && pumpResult.alerts.length > 0) {
+                console.log(`  ⚠️ [Telesale] Cảnh báo nguồn hết: ${pumpResult.alerts.map(a => a.source).join(', ')}`);
             }
         }
     } catch(e) {
