@@ -49,6 +49,13 @@ module.exports = async function (fastify) {
              ON CONFLICT (key) DO NOTHING`,
             [key, label, icon || '📋', color || '#6b7280', text_color || 'white', max.next, stage || null]
         );
+        // ★ Auto-create self-referencing flow rule → tạo section "Khi ấn: [nút mới]"
+        await db.run(
+            `INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order)
+             VALUES ($1, $1, true, 1)
+             ON CONFLICT (from_status, to_type_key) DO NOTHING`,
+            [key]
+        );
         return { success: true };
     });
 
