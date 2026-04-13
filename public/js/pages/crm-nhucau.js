@@ -849,12 +849,15 @@ async function openConsultModal(customerId) {
     const hasSauBanHang = consultLogs.some(l => l.log_type === 'sau_ban_hang');
 
     let allowedTypes;
-    // ★ Try flow rules first — use last consultation log type as primary (represents actual workflow state)
+    // ★ Use last consultation log type (represents actual workflow state)
     const lastLogEntry = consultLogs.length > 0 ? consultLogs[0] : null;
     const effectiveStatus = lastLogEntry ? lastLogEntry.log_type : orderStatus;
     const frTypes = _getFlowRuleTypes(effectiveStatus);
 
-    if (hasSauBanHang && orderStatus === 'sau_ban_hang') {
+    // ★ PRIORITY 1: Dynamic flow rules from last log type (always wins if configured)
+    if (frTypes) {
+        allowedTypes = frTypes;
+    } else if (hasSauBanHang && orderStatus === 'sau_ban_hang') {
         allowedTypes = _getFlowRuleTypes('sau_ban_hang') || allTypes.filter(([k]) => ['tuong_tac_ket_noi'].includes(k));
     } else if (orderStatus === 'tuong_tac_ket_noi') {
         allowedTypes = _getFlowRuleTypes('tuong_tac_ket_noi') || allTypes.filter(([k]) => ['gui_ct_kh_cu'].includes(k));
@@ -880,11 +883,8 @@ async function openConsultModal(customerId) {
         allowedTypes = _getFlowRuleTypes('tu_van_lai') || allTypes.filter(([k]) => ['giam_gia','thiet_ke'].includes(k));
     } else if (orderStatus === 'giam_gia') {
         allowedTypes = _getFlowRuleTypes('giam_gia') || allTypes.filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
-    } else if (frTypes) {
-        // Dynamic: flow rules exist for this status
-        allowedTypes = frTypes;
     } else {
-        // Normal: consultation phase types only
+        // Fallback: consultation phase types only
         const normalTypes = ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','cap_cuu_sep','huy'];
         allowedTypes = allTypes.filter(([k]) => normalTypes.includes(k));
     }
