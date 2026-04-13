@@ -1,7 +1,9 @@
 const db = require('../db/pool');
 
 module.exports = async function (fastify) {
-    // GET all consult types
+    const { authenticate } = require('../middleware/auth');
+
+    // GET all consult types (public - no auth needed)
     fastify.get('/api/consult-types', async (req, reply) => {
         const rows = await db.all(
             `SELECT * FROM consult_type_configs ORDER BY sort_order`
@@ -10,9 +12,9 @@ module.exports = async function (fastify) {
     });
 
     // PATCH batch update sort_order + stage (drag & drop)
-    fastify.patch('/api/consult-types/batch/sort-order', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
-        const { orders } = req.body; // Array of { key, sort_order, stage? }
+    fastify.patch('/api/consult-types/batch/sort-order', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { orders } = req.body;
         if (!Array.isArray(orders)) return reply.code(400).send({ error: 'orders must be array' });
         for (const o of orders) {
             if (o.stage !== undefined) {
@@ -25,8 +27,8 @@ module.exports = async function (fastify) {
     });
 
     // PUT update a consult type (GĐ only)
-    fastify.put('/api/consult-types/:key', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+    fastify.put('/api/consult-types/:key', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { label, icon, color, text_color, is_active, stage } = req.body;
         await db.run(
@@ -37,8 +39,8 @@ module.exports = async function (fastify) {
     });
 
     // POST create new consult type (GĐ only)
-    fastify.post('/api/consult-types', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+    fastify.post('/api/consult-types', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key, label, icon, color, text_color, stage } = req.body;
         if (!key || !label) return reply.code(400).send({ error: 'Key and label required' });
         const max = await db.get(`SELECT COALESCE(MAX(sort_order),0)+1 as next FROM consult_type_configs`);
@@ -51,7 +53,7 @@ module.exports = async function (fastify) {
     });
 
     // ========== CONSULT STAGES (giai đoạn) ==========
-    // GET stages config
+    // GET stages config (public)
     fastify.get('/api/consult-stages', async (req, reply) => {
         const row = await db.get(`SELECT value FROM app_config WHERE key='consult_stages'`);
         let stages = [];
@@ -60,8 +62,8 @@ module.exports = async function (fastify) {
     });
 
     // PUT save stages config (GĐ only)
-    fastify.put('/api/consult-stages', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+    fastify.put('/api/consult-stages', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { stages } = req.body;
         if (!Array.isArray(stages)) return reply.code(400).send({ error: 'stages must be array' });
         await db.run(
@@ -72,7 +74,7 @@ module.exports = async function (fastify) {
     });
 
     // ========== FLOW RULES ==========
-    // GET all flow rules (grouped by from_status)
+    // GET all flow rules (public)
     fastify.get('/api/consult-flow-rules', async (req, reply) => {
         const rows = await db.all(
             `SELECT cfr.*, ctc.label as to_label, ctc.icon as to_icon, ctc.color as to_color
@@ -89,8 +91,8 @@ module.exports = async function (fastify) {
     });
 
     // PUT update flow rules for a specific from_status (GĐ only)
-    fastify.put('/api/consult-flow-rules/:fromStatus', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+    fastify.put('/api/consult-flow-rules/:fromStatus', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { fromStatus } = req.params;
         const { rules } = req.body;
         if (!Array.isArray(rules)) return reply.code(400).send({ error: 'rules must be array' });
@@ -108,8 +110,8 @@ module.exports = async function (fastify) {
     });
 
     // DELETE a from_status group (GĐ only)
-    fastify.delete('/api/consult-flow-rules/:fromStatus', async (req, reply) => {
-        if (req.session.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+    fastify.delete('/api/consult-flow-rules/:fromStatus', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [req.params.fromStatus]);
         return { success: true };
     });
