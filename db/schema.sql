@@ -1515,3 +1515,10 @@ DO $$ BEGIN
     ALTER TABLE consultation_logs DROP CONSTRAINT IF EXISTS consultation_logs_log_type_check;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- Migration: Drop hardcoded CHECK constraint on customers.order_status
+-- System now uses dynamic consult type keys as order statuses
+DO $$ BEGIN
+    ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_order_status_check;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
