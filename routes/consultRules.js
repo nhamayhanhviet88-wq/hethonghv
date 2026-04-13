@@ -134,4 +134,45 @@ module.exports = async function (fastify) {
         await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [req.params.fromStatus]);
         return { success: true };
     });
+
+    // PATCH update section_order for a consult type (GĐ only)
+    fastify.patch('/api/consult-types/:key/section-order', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { key } = req.params;
+        const { section_order } = req.body;
+        if (!section_order || section_order < 1) return reply.code(400).send({ error: 'Invalid section_order' });
+
+        // Shift existing sections at >= this position down by 1
+        await db.run(
+            `UPDATE consult_type_configs SET section_order = section_order + 1 WHERE section_order >= $1 AND section_order > 0 AND key != $2`,
+            [section_order, key]
+        );
+        // Set the new order
+        await db.run(
+            `UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`,
+            [section_order, key]
+        );
+        return { success: true };
+    });
+
+    // GET sections info (types that have flow rules = have their own "Khi ấn:" section)
+    fastify.get('/api/consult-sections', async (req, reply) => {
+        const rows = await db.all(`
+            SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order,
+                   (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key) as rule_count
+            FROM consult_type_configs ctc
+            INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key
+            WHERE ctc.section_order > 0
+            ORDER BY ctc.section_order
+        `);
+        // Also return types WITHOUT a section (section_order = 0 or NULL)
+        const unsectioned = await db.all(`
+            SELECT ctc.key, ctc.label, ctc.icon, ctc.color
+            FROM consult_type_configs ctc
+            WHERE (ctc.section_order IS NULL OR ctc.section_order = 0)
+            AND ctc.is_active = true
+            ORDER BY ctc.sort_order
+        `);
+        return { sections: rows, unsectioned };
+    });
 };

@@ -1528,3 +1528,6 @@ INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order
 SELECT key, key, true, 1 FROM consult_type_configs
 WHERE key NOT IN (SELECT DISTINCT from_status FROM consult_flow_rules)
 ON CONFLICT DO NOTHING;
+
+-- Migration: Add section_order for controlling "Khi ấn:" section display order
+ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_order INTEGER DEFAULT 0;

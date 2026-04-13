@@ -60,6 +60,8 @@ const QT_JOURNEY_BRANCH = [
 let _qtAllTypes = [];
 let _qtAllRules = {};
 let _qtStages = [];
+let _qtSections = [];      // dynamic sections with section_order
+let _qtUnsectioned = [];   // types without a section
 let _qtIsGD = false;
 let _qtActiveTab = 'buttons';
 let _qtSortDebounce = null;
@@ -96,14 +98,17 @@ function _qtRenderSkeleton() {
 
 // ========== DATA LOADING ==========
 async function _qtLoadData() {
-    const [typesData, rulesData, stagesData] = await Promise.all([
+    const [typesData, rulesData, stagesData, sectionsData] = await Promise.all([
         apiCall('/api/consult-types'),
         apiCall('/api/consult-flow-rules'),
-        apiCall('/api/consult-stages')
+        apiCall('/api/consult-stages'),
+        apiCall('/api/consult-sections')
     ]);
     _qtAllTypes = typesData.types || [];
     _qtAllRules = rulesData.rules || {};
     _qtStages = stagesData.stages || [];
+    _qtSections = sectionsData.sections || [];
+    _qtUnsectioned = sectionsData.unsectioned || [];
     // Sort stages by sort_order
     _qtStages.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
@@ -586,7 +591,7 @@ async function _qtAddType() {
     await _qtLoadData();
 }
 
-// ========== TAB 2: RULES (Flowchart + Accordion) ==========
+// ========== TAB 2: RULES (Flowchart + Dynamic Accordion) ==========
 function _qtRenderRules() {
     const panel = document.getElementById('qtPanel');
     let html = _qtRenderFlowchart();
@@ -601,122 +606,143 @@ function _qtRenderRules() {
     `;
 
     if (_qtIsGD) {
-        html += `<div class="qt-action-bar">
+        const unsecCount = _qtUnsectioned.length;
+        html += `<div class="qt-action-bar" style="gap:8px;">
+            <div style="position:relative;display:inline-block;">
+                <button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="_qtShowAddSectionModal()">📌 Thêm loại khi ấn ${unsecCount > 0 ? '<span style="background:#ef4444;color:white;padding:1px 7px;border-radius:10px;font-size:10px;margin-left:4px;">' + unsecCount + '</span>' : ''}</button>
+            </div>
             <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới</button>
         </div>`;
     }
 
-    const SECTIONS = [
-        {
-            title: 'PHẦN 1: LÀM QUEN, TƯ VẤN KHÁCH', icon: '📋', color: '#3b82f6',
-            gradient: 'linear-gradient(135deg,#1e3a5f,#0f172a)',
-            loai: [
-                { num: 1, label: 'Khi ấn: Gọi Điện / Nhắn Tin / Gặp TT / Gửi BG / Gửi Mẫu / TK / Sửa TK',
-                  statuses: ['dang_tu_van','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'],
-                  showFrom: 'dang_tu_van',
-                  desc: 'Khách mới vào → hoặc sau khi ấn các nút tư vấn cơ bản → hiện lại đầy đủ nút' },
-                { num: 2, label: 'Khi ấn: Làm Quen Tương Tác', statuses: ['lam_quen_tuong_tac'] },
-                { num: 3, label: 'Khi ấn: Gửi STK Cọc', statuses: ['gui_stk_coc'] },
-                { num: 4, label: 'Khi ấn: Giục Cọc', statuses: ['giuc_coc'] },
-                { num: 5, label: 'Khi ấn: Đặt Cọc', statuses: ['dat_coc'] },
-                { num: 6, label: 'Khi ấn: Chốt Đơn', statuses: ['chot_don'] },
-                { num: 7, label: 'Khi ấn: Đang Sản Xuất', statuses: ['dang_san_xuat'] },
-                { num: 8, label: 'Khi ấn: Hoàn Thành Đơn', statuses: ['hoan_thanh'] },
-            ]
-        },
-        {
-            title: 'PHẦN 2: CHĂM SÓC SAU BÁN HÀNG', icon: '📦', color: '#10b981',
-            gradient: 'linear-gradient(135deg,#064e3b,#0f172a)',
-            loai: [
-                { num: 9, label: 'Khi ấn: Chăm Sóc Sau Bán', statuses: ['sau_ban_hang'] },
-                { num: 10, label: 'Khi ấn: Tương Tác Kết Nối Lại', statuses: ['tuong_tac_ket_noi'] },
-                { num: 11, label: 'Khi ấn: Gửi Chương Trình KH Cũ', statuses: ['gui_ct_kh_cu'] },
-                { num: 12, label: 'Khi ấn: Giảm Giá', statuses: ['giam_gia'] },
-            ]
-        },
-        {
-            title: 'PHẦN 3: TRẠNG THÁI HỦY, CẤP CỨU SẾP', icon: '🚨', color: '#ef4444',
-            gradient: 'linear-gradient(135deg,#7f1d1d,#0f172a)',
-            loai: [
-                { num: 13, label: 'Khi ấn: Hủy Cọc', statuses: ['huy_coc'] },
-                { num: 14, label: 'Khi ấn: Tư Vấn Lại (sếp không duyệt hủy)', statuses: ['tu_van_lai'] },
-                { num: 15, label: 'Khi ấn: Duyệt Hủy', statuses: ['duyet_huy'] },
-                { num: 16, label: 'Khi ấn: Hoàn Thành Cấp Cứu', statuses: ['hoan_thanh_cap_cuu'] },
-                { num: 17, label: 'OVERRIDE: Đang có Cấp Cứu Sếp chưa xử lý', statuses: ['pending_emergency'], isOverride: true },
-                { num: 18, label: 'OVERRIDE: KH bị auto-revert hủy', statuses: ['cancel_auto_revert'], isOverride: true },
-            ]
-        }
-    ];
+    // ★ DYNAMIC sections from API (sorted by section_order)
+    for (const sec of _qtSections) {
+        const rules = _qtAllRules[sec.key];
+        if (!rules || rules.length === 0) continue;
 
-    for (const section of SECTIONS) {
+        const tp = _qtAllTypes.find(x => x.key === sec.key);
+        const label = tp ? `${tp.icon} ${tp.label}` : `${sec.icon} ${sec.label}`;
+        const sectionId = `qtRule_${sec.key}`;
+
         html += `
-            <div class="qt-section-divider" style="background:${section.gradient};border-left-color:${section.color};">
-                <span class="qt-section-divider-icon">${section.icon}</span>
-                <span class="qt-section-divider-text" style="color:${section.color}">${section.title}</span>
-            </div>
+            <div class="qt-flow-section" id="${sectionId}">
+                <div class="qt-flow-header" onclick="_qtToggleSection(this)">
+                    <div class="qt-flow-title">
+                        <span class="qt-loai-badge" style="background:#3b82f6;cursor:${_qtIsGD ? 'pointer' : 'default'};" ${_qtIsGD ? `onclick="event.stopPropagation();_qtEditSectionOrder('${sec.key}',${sec.section_order})" title="Click để đổi STT"` : ''}>Loại ${sec.section_order}</span>
+                        Khi ấn: ${sec.label}
+                        <span class="qt-flow-count">${rules.length} nút</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button>` : ''}
+                        <span class="qt-flow-chevron">▼</span>
+                    </div>
+                </div>
+                <div class="qt-flow-body">
+                    <div class="qt-flow-label">Hiện các nút:</div>
+                    <div class="qt-flow-targets">
         `;
 
-        for (const loai of section.loai) {
-            const mainStatus = loai.showFrom || loai.statuses[0];
-            const rules = _qtAllRules[mainStatus];
-            if (!rules || rules.length === 0) continue;
-
-            let subChipsHTML = '';
-            if (loai.statuses.length > 1) {
-                subChipsHTML = '<div class="qt-flow-sub-chips">';
-                for (const s of loai.statuses) {
-                    const tp = _qtAllTypes.find(x => x.key === s);
-                    const lbl = tp ? `${tp.icon} ${tp.label}` : (FLOW_STATUS_LABELS[s] || s);
-                    subChipsHTML += `<span class="qt-sub-chip">${lbl}</span>`;
-                }
-                subChipsHTML += '</div>';
-            }
-
-            const sectionId = `qtRule_${mainStatus}`;
+        for (const r of rules) {
+            const rtp = _qtAllTypes.find(x => x.key === r.to_type_key);
+            const icon = rtp ? rtp.icon : r.to_icon || '📋';
+            const rlabel = rtp ? rtp.label : r.to_label || r.to_type_key;
+            const color = rtp ? rtp.color : r.to_color || '#6b7280';
             html += `
-                <div class="qt-flow-section ${loai.isOverride ? 'override' : ''}" id="${sectionId}">
-                    <div class="qt-flow-header" onclick="_qtToggleSection(this)">
-                        <div class="qt-flow-title">
-                            <span class="qt-loai-badge" style="background:${section.color}">Loại ${loai.num}</span>
-                            ${loai.label}
-                            <span class="qt-flow-count">${rules.length} nút</span>
-                            ${loai.isOverride ? '<span class="qt-override-tag">OVERRIDE</span>' : ''}
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${mainStatus}')">✏️ Sửa</button>` : ''}
-                            <span class="qt-flow-chevron">▼</span>
-                        </div>
-                    </div>
-                    <div class="qt-flow-body">
-                        ${subChipsHTML}
-                        ${loai.desc ? `<div class="qt-flow-desc">💡 ${loai.desc}</div>` : ''}
-                        <div class="qt-flow-label">Hiện các nút:</div>
-                        <div class="qt-flow-targets">
+                <div class="qt-target-card" style="--target-color:${color}">
+                    <span class="qt-t-icon">${icon}</span>
+                    <div class="qt-t-label">${rlabel}</div>
+                    ${r.is_default ? '<div class="qt-t-default">⭐ Mặc định</div>' : ''}
+                    ${r.delay_days > 0
+                        ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>`
+                        : '<div class="qt-t-instant">⚡ Ngay lập tức</div>'}
+                </div>
             `;
-
-            for (const r of rules) {
-                const tp = _qtAllTypes.find(x => x.key === r.to_type_key);
-                const icon = tp ? tp.icon : r.to_icon || '📋';
-                const label = tp ? tp.label : r.to_label || r.to_type_key;
-                const color = tp ? tp.color : r.to_color || '#6b7280';
-                html += `
-                    <div class="qt-target-card" style="--target-color:${color}">
-                        <span class="qt-t-icon">${icon}</span>
-                        <div class="qt-t-label">${label}</div>
-                        ${r.is_default ? '<div class="qt-t-default">⭐ Mặc định</div>' : ''}
-                        ${r.delay_days > 0
-                            ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>`
-                            : '<div class="qt-t-instant">⚡ Ngay lập tức</div>'}
-                    </div>
-                `;
-            }
-            html += '</div></div></div>';
         }
+        html += '</div></div></div>';
     }
 
     panel.innerHTML = html;
     const firstHeader = panel.querySelector('.qt-flow-header');
     if (firstHeader) _qtToggleSection(firstHeader);
+}
+
+// ========== ADD SECTION (Thêm loại khi ấn) ==========
+function _qtShowAddSectionModal() {
+    if (_qtUnsectioned.length === 0) return showToast('✅ Tất cả nút đã có loại!', 'success');
+    const nextOrder = _qtSections.length > 0 ? Math.max(..._qtSections.map(s => s.section_order)) + 1 : 1;
+
+    let listHTML = _qtUnsectioned.map(t => `
+        <div class="qt-rule-item" data-key="${t.key}" style="cursor:pointer;" onclick="this.querySelector('input[type=checkbox]').click()">
+            <input type="checkbox" class="qt-ri-check" onclick="event.stopPropagation()">
+            <div class="qt-ri-info">
+                <span class="qt-ri-icon">${t.icon}</span>
+                <span class="qt-ri-label">${t.label}</span>
+            </div>
+            <span style="font-size:10px;color:#94a3b8;">${t.key}</span>
+        </div>
+    `).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>📌 Thêm loại khi ấn</h3>
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Chọn nút chưa có loại → tạo section "Khi ấn: ..." cho nó</p>
+            <div class="qt-rule-list" style="max-height:300px;overflow-y:auto;">${listHTML}</div>
+            <div style="margin-top:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Bắt đầu từ Loại số:</label>
+                <input type="number" id="qtNewSectionOrder" value="${nextOrder}" min="1" style="width:80px;padding:6px 10px;font-size:14px;font-weight:700;border:2px solid #3b82f6;border-radius:8px;text-align:center;margin-left:8px;">
+            </div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtAddSections()">📌 Thêm loại</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _qtAddSections() {
+    const items = document.querySelectorAll('.qt-rule-list .qt-rule-item');
+    const selected = [];
+    items.forEach(item => {
+        if (item.querySelector('.qt-ri-check').checked) selected.push(item.dataset.key);
+    });
+    if (selected.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
+
+    let startOrder = parseInt(document.getElementById('qtNewSectionOrder').value) || 1;
+
+    for (const key of selected) {
+        // Create flow rule if missing
+        await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
+            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }]
+        });
+        // Set section order
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        startOrder++;
+    }
+
+    document.querySelector('.qt-modal-overlay')?.remove();
+    showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
+}
+
+// ========== EDIT SECTION ORDER (click badge) ==========
+function _qtEditSectionOrder(key, currentOrder) {
+    const tp = _qtAllTypes.find(x => x.key === key);
+    const label = tp ? `${tp.icon} ${tp.label}` : key;
+    const newOrder = prompt(`Đổi STT cho "${label}"\n\nHiện tại: Loại ${currentOrder}\nNhập số mới:`, currentOrder);
+    if (!newOrder || isNaN(newOrder) || parseInt(newOrder) < 1) return;
+    if (parseInt(newOrder) === currentOrder) return;
+
+    apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: parseInt(newOrder) })
+        .then(() => {
+            showToast(`✅ Đã đổi thành Loại ${newOrder}!`, 'success');
+            _qtLoadData().then(() => _qtSwitchTab('rules'));
+        })
+        .catch(e => showToast('❌ Lỗi: ' + (e.message || ''), 'error'));
 }
 
 function _qtToggleSection(header) {
@@ -788,8 +814,15 @@ function _qtShowEditRulesModal(fromStatus) {
     const rules = _qtAllRules[fromStatus] || [];
     const statusLabel = FLOW_STATUS_LABELS[fromStatus] || _qtGetTypeLabel(fromStatus) || fromStatus;
 
+    // ★ Only show types that have their own section (section_order > 0)
+    // Exception: types already in this rule group are always shown
+    const sectionKeys = new Set(_qtSections.map(s => s.key));
+    const eligibleTypes = _qtAllTypes.filter(t => {
+        return sectionKeys.has(t.key) || rules.some(r => r.to_type_key === t.key);
+    });
+
     let listHTML = '';
-    for (const t of _qtAllTypes) {
+    for (const t of eligibleTypes) {
         const existing = rules.find(r => r.to_type_key === t.key);
         const checked = !!existing;
         const delay = existing ? (existing.delay_days || 0) : 0;
