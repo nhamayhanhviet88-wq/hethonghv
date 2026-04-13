@@ -849,8 +849,10 @@ async function openConsultModal(customerId) {
     const hasSauBanHang = consultLogs.some(l => l.log_type === 'sau_ban_hang');
 
     let allowedTypes;
-    // ★ Try flow rules first — if configured for this orderStatus, use them
-    const frTypes = _getFlowRuleTypes(orderStatus);
+    // ★ Try flow rules first — use last consultation log type as primary (represents actual workflow state)
+    const lastLogEntry = consultLogs.length > 0 ? consultLogs[0] : null;
+    const effectiveStatus = lastLogEntry ? lastLogEntry.log_type : orderStatus;
+    const frTypes = _getFlowRuleTypes(effectiveStatus);
 
     if (hasSauBanHang && orderStatus === 'sau_ban_hang') {
         allowedTypes = _getFlowRuleTypes('sau_ban_hang') || allTypes.filter(([k]) => ['tuong_tac_ket_noi'].includes(k));
