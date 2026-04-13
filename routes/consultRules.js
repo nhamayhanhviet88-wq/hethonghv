@@ -155,14 +155,34 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // POST reindex all sections sequentially (1, 2, 3, ..., n) with no gaps
+    // POST reindex all sections sequentially (1, 2, 3, ..., n) grouped by phase
     fastify.post('/api/consult-sections/reindex', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
-        const rows = await db.all(`SELECT key FROM consult_type_configs WHERE section_order > 0 ORDER BY section_order`);
-        for (let i = 0; i < rows.length; i++) {
-            await db.run(`UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`, [i + 1, rows[i].key]);
+
+        // Get phases sorted by sort_order
+        const phaseRow = await db.get(`SELECT value FROM app_config WHERE key = 'consult_rule_phases'`);
+        const phases = phaseRow ? JSON.parse(phaseRow.value) : [];
+        phases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+        // Get all sections
+        const allSections = await db.all(`SELECT key, rule_phase FROM consult_type_configs WHERE section_order > 0 ORDER BY section_order`);
+
+        // Group: phases first (in phase order), then unphased
+        const ordered = [];
+        for (const phase of phases) {
+            const inPhase = allSections.filter(s => s.rule_phase === phase.id);
+            ordered.push(...inPhase);
         }
-        return { success: true, count: rows.length };
+        // Add unphased at end
+        const phaseIds = new Set(phases.map(p => p.id));
+        const unphased = allSections.filter(s => !s.rule_phase || !phaseIds.has(s.rule_phase));
+        ordered.push(...unphased);
+
+        // Assign 1, 2, 3, ..., n
+        for (let i = 0; i < ordered.length; i++) {
+            await db.run(`UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`, [i + 1, ordered[i].key]);
+        }
+        return { success: true, count: ordered.length };
     });
 
     // GET sections info (types that have flow rules = have their own "Khi ấn:" section)
