@@ -1522,3 +1522,9 @@ DO $$ BEGIN
     ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_order_status_check;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- Migration: Backfill self-referencing flow rules for any types missing their own "Khi ấn:" section
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order)
+SELECT key, key, true, 1 FROM consult_type_configs
+WHERE key NOT IN (SELECT DISTINCT from_status FROM consult_flow_rules)
+ON CONFLICT DO NOTHING;
