@@ -87,6 +87,14 @@
 .qt-btn-card:hover .qt-edit-btn { opacity:1; }
 .qt-btn-card .qt-edit-btn:hover { transform:scale(1.15); background:linear-gradient(135deg,#1d4ed8,#1e40af); }
 
+.qt-btn-card .qt-del-btn { position:absolute; top:40px; right:8px;
+    background:linear-gradient(135deg,#ef4444,#dc2626); color:white;
+    border:none; border-radius:8px; width:28px; height:28px; cursor:pointer; font-size:11px;
+    display:flex; align-items:center; justify-content:center; opacity:0; transition:all .2s;
+    box-shadow:0 2px 8px rgba(239,68,68,.3); z-index:10; pointer-events:all; }
+.qt-btn-card:hover .qt-del-btn { opacity:1; }
+.qt-btn-card .qt-del-btn:hover { transform:scale(1.15); background:linear-gradient(135deg,#dc2626,#b91c1c); }
+
 .qt-btn-card .qt-status { font-size:10px; font-weight:700; padding:3px 10px;
     border-radius:20px; margin-top:6px; display:inline-block; letter-spacing:.2px; }
 .qt-status-on { background:rgba(34,197,94,.12); color:#16a34a; }

@@ -52,6 +52,18 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // DELETE a consult type (GĐ only)
+    fastify.delete('/api/consult-types/:key', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { key } = req.params;
+        // Clean up flow rules referencing this key
+        await db.run(`DELETE FROM consult_flow_rules WHERE to_type_key = $1`, [key]);
+        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [key]);
+        // Delete the type
+        await db.run(`DELETE FROM consult_type_configs WHERE key = $1`, [key]);
+        return { success: true };
+    });
+
     // ========== CONSULT STAGES (giai đoạn) ==========
     // GET stages config (public)
     fastify.get('/api/consult-stages', async (req, reply) => {

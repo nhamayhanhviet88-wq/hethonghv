@@ -177,7 +177,7 @@ function _qtRenderButtons() {
 
     panel.innerHTML = html;
 
-    // Event delegation for edit buttons (avoids SortableJS blocking inline onclick)
+    // Event delegation for edit + delete buttons (avoids SortableJS blocking inline onclick)
     if (_qtIsGD) {
         panel.addEventListener('click', function(e) {
             const editBtn = e.target.closest('.qt-edit-btn');
@@ -185,12 +185,18 @@ function _qtRenderButtons() {
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 const card = editBtn.closest('.qt-btn-card');
-                if (card && card.dataset.key) {
-                    _qtShowEditTypeModal(card.dataset.key);
-                }
+                if (card && card.dataset.key) _qtShowEditTypeModal(card.dataset.key);
                 return;
             }
-        }, true); // use capture phase to beat SortableJS
+            const delBtn = e.target.closest('.qt-del-btn');
+            if (delBtn) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const card = delBtn.closest('.qt-btn-card');
+                if (card && card.dataset.key) _qtDeleteType(card.dataset.key);
+                return;
+            }
+        }, true);
     }
 
     // Initialize drag & drop
@@ -216,6 +222,7 @@ function _qtRenderButtonCard(t) {
         <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}" data-key="${t.key}" style="--card-accent:${t.color}">
             ${_qtIsGD ? `<span class="qt-drag-hint">⠿</span>` : ''}
             ${_qtIsGD ? `<button class="qt-edit-btn" type="button">✏️</button>` : ''}
+            ${_qtIsGD ? `<button class="qt-del-btn" type="button">🗑️</button>` : ''}
             <span class="qt-icon">${t.icon}</span>
             <div class="qt-label">${t.label}</div>
             <div class="qt-color-info">
@@ -405,6 +412,21 @@ async function _qtDeleteStage(stageId) {
 
     showToast('✅ Đã xóa giai đoạn!', 'success');
     await _qtLoadData();
+}
+
+// ========== DELETE TYPE ==========
+async function _qtDeleteType(key) {
+    const t = _qtAllTypes.find(x => x.key === key);
+    if (!t) return;
+    if (!confirm(`🗑️ Xóa nút "${t.icon} ${t.label}"?\n\nKey: ${t.key}\n⚠️ Hành động này không thể hoàn tác!`)) return;
+
+    try {
+        await apiCall(`/api/consult-types/${key}`, 'DELETE');
+        showToast('✅ Đã xóa nút!', 'success');
+        await _qtLoadData();
+    } catch(e) {
+        showToast('❌ Lỗi xóa nút: ' + (e.message || ''), 'error');
+    }
 }
 
 // ========== EDIT TYPE MODAL ==========
