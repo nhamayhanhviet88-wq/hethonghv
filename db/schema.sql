@@ -1508,3 +1508,10 @@ ON CONFLICT (from_status, to_type_key) DO NOTHING;
 INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
     ('dang_san_xuat','dang_san_xuat',false,1),('dang_san_xuat','hoan_thanh',true,2),('dang_san_xuat','cap_cuu_sep',false,3)
 ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Migration: Drop hardcoded CHECK constraint on consultation_logs.log_type
+-- System now uses dynamic types from consult_type_configs table
+DO $$ BEGIN
+    ALTER TABLE consultation_logs DROP CONSTRAINT IF EXISTS consultation_logs_log_type_check;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
