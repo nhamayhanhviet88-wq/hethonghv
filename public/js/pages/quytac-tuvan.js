@@ -177,6 +177,22 @@ function _qtRenderButtons() {
 
     panel.innerHTML = html;
 
+    // Event delegation for edit buttons (avoids SortableJS blocking inline onclick)
+    if (_qtIsGD) {
+        panel.addEventListener('click', function(e) {
+            const editBtn = e.target.closest('.qt-edit-btn');
+            if (editBtn) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const card = editBtn.closest('.qt-btn-card');
+                if (card && card.dataset.key) {
+                    _qtShowEditTypeModal(card.dataset.key);
+                }
+                return;
+            }
+        }, true); // use capture phase to beat SortableJS
+    }
+
     // Initialize drag & drop
     if (_qtIsGD && typeof Sortable !== 'undefined') {
         document.querySelectorAll('.qt-btn-grid').forEach(grid => {
@@ -186,6 +202,8 @@ function _qtRenderButtons() {
                 chosenClass: 'sortable-chosen',
                 dragClass: 'sortable-drag',
                 handle: '.qt-drag-hint',
+                filter: '.qt-edit-btn',
+                preventOnFilter: false,
                 group: 'buttons',
                 onEnd: _qtOnButtonSortEnd
             });
@@ -197,7 +215,7 @@ function _qtRenderButtonCard(t) {
     return `
         <div class="qt-btn-card ${t.is_active ? '' : 'inactive'}" data-key="${t.key}" style="--card-accent:${t.color}">
             ${_qtIsGD ? `<span class="qt-drag-hint">⠿</span>` : ''}
-            ${_qtIsGD ? `<button class="qt-edit-btn" onclick="event.stopPropagation();_qtShowEditTypeModal('${t.key}')">✏️</button>` : ''}
+            ${_qtIsGD ? `<button class="qt-edit-btn" type="button">✏️</button>` : ''}
             <span class="qt-icon">${t.icon}</span>
             <div class="qt-label">${t.label}</div>
             <div class="qt-color-info">
