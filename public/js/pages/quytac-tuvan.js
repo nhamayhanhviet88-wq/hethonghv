@@ -680,7 +680,7 @@ function _qtRenderSectionAccordion(sec) {
                     <span class="qt-flow-count">${rules.length} nút</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button>` : ''}
+                    ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtDeleteSection('${sec.key}')" title="Xóa loại">🗑️</button>` : ''}
                     <span class="qt-flow-chevron">▼</span>
                 </div>
             </div>
@@ -962,16 +962,72 @@ async function _qtAddSections() {
 function _qtEditSectionOrder(key, currentOrder) {
     const tp = _qtAllTypes.find(x => x.key === key);
     const label = tp ? `${tp.icon} ${tp.label}` : key;
-    const newOrder = prompt(`Đổi STT cho "${label}"\n\nHiện tại: Loại ${currentOrder}\nNhập số mới:`, currentOrder);
-    if (!newOrder || isNaN(newOrder) || parseInt(newOrder) < 1) return;
-    if (parseInt(newOrder) === currentOrder) return;
+    const sec = _qtSections.find(s => s.key === key);
+    const currentPhase = sec ? sec.rule_phase : '';
 
-    apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: parseInt(newOrder) })
-        .then(() => {
-            showToast(`✅ Đã đổi thành Loại ${newOrder}!`, 'success');
-            _qtLoadData().then(() => _qtSwitchTab('rules'));
-        })
-        .catch(e => showToast('❌ Lỗi: ' + (e.message || ''), 'error'));
+    const phaseOptions = _qtRulePhases.map(p =>
+        `<option value="${p.id}" ${p.id === currentPhase ? 'selected' : ''}>${p.icon} PHẦN ${p.sort_order}: ${p.title}</option>`
+    ).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>🔢 Chỉnh Loại: ${label}</h3>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Số Loại (STT)</label>
+                <input type="number" id="qtEditLoaiNum" value="${currentOrder}" min="1" style="width:100%;padding:10px;font-size:18px;font-weight:700;border:2px solid #3b82f6;border-radius:10px;text-align:center;margin-top:4px;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Thuộc Phần</label>
+                <select id="qtEditLoaiPhase" style="margin-top:4px;">
+                    <option value="">(Chưa phân phần)</option>
+                    ${phaseOptions}
+                </select>
+            </div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtSaveSectionEdit('${key}',${currentOrder})">💾 Lưu</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _qtSaveSectionEdit(key, oldOrder) {
+    const newOrder = parseInt(document.getElementById('qtEditLoaiNum').value);
+    const newPhase = document.getElementById('qtEditLoaiPhase').value;
+    if (!newOrder || newOrder < 1) return showToast('❌ Số loại không hợp lệ!', 'error');
+
+    const promises = [];
+    if (newOrder !== oldOrder) {
+        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder }));
+    }
+    const sec = _qtSections.find(s => s.key === key);
+    if (!sec || sec.rule_phase !== (newPhase || null)) {
+        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null }));
+    }
+    if (promises.length > 0) await Promise.all(promises);
+
+    document.querySelector('.qt-modal-overlay')?.remove();
+    showToast('✅ Đã cập nhật!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
+}
+
+async function _qtDeleteSection(key) {
+    const tp = _qtAllTypes.find(x => x.key === key);
+    const label = tp ? `${tp.icon} ${tp.label}` : key;
+    if (!confirm(`🗑️ Xóa loại "${label}"?\n\n⚠️ Section sẽ bị xóa khỏi danh sách.\nFlow rules và data cũ được giữ nguyên.`)) return;
+
+    // Reset section_order to 0 (removes from sections list)
+    await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0 });
+    await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: null });
+
+    showToast('✅ Đã xóa loại!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
 }
 
 function _qtToggleSection(header) {
