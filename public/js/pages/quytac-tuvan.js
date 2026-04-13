@@ -930,13 +930,19 @@ async function _qtSaveRules(fromStatus) {
 }
 
 function _qtShowAddRuleGroupModal() {
-    const existingStatuses = new Set(Object.keys(_qtAllRules));
-    let optionsHTML = '';
-    for (const t of _qtAllTypes) {
-        if (!existingStatuses.has(t.key)) {
-            optionsHTML += `<option value="${t.key}">${t.icon} ${t.label}</option>`;
-        }
+    // Show unsectioned types (those without their own section)
+    const sectionKeys = new Set(_qtSections.map(s => s.key));
+    const available = _qtAllTypes.filter(t => !sectionKeys.has(t.key) && t.is_active);
+
+    if (available.length === 0) {
+        return showToast('✅ Tất cả nút đã có nhóm quy tắc!', 'success');
     }
+
+    let optionsHTML = available.map(t =>
+        `<option value="${t.key}">${t.icon} ${t.label}</option>`
+    ).join('');
+
+    const nextOrder = _qtSections.length > 0 ? Math.max(..._qtSections.map(s => s.section_order)) + 1 : 1;
 
     const overlay = document.createElement('div');
     overlay.className = 'qt-modal-overlay';
@@ -948,6 +954,10 @@ function _qtShowAddRuleGroupModal() {
                 <label>Chọn nút nguồn (sau khi bấm nút này thì...)</label>
                 <select id="qtNewRuleFrom" style="margin-top:4px;">${optionsHTML}</select>
             </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Đặt là Loại số:</label>
+                <input type="number" id="qtNewRuleOrder" value="${nextOrder}" min="1" style="width:80px;padding:6px 10px;font-size:14px;font-weight:700;border:2px solid #3b82f6;border-radius:8px;text-align:center;margin-left:8px;">
+            </div>
             <div class="qt-actions">
                 <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
                 <button class="qt-btn qt-btn-primary" onclick="_qtAddRuleGroup()">Tiếp tục →</button>
@@ -957,12 +967,25 @@ function _qtShowAddRuleGroupModal() {
     document.body.appendChild(overlay);
 }
 
-function _qtAddRuleGroup() {
+async function _qtAddRuleGroup() {
     const from = document.getElementById('qtNewRuleFrom').value;
     if (!from) return;
+    const order = parseInt(document.getElementById('qtNewRuleOrder').value) || 1;
+
+    // Create self-referencing flow rule if missing
+    await apiCall(`/api/consult-flow-rules/${from}`, 'PUT', {
+        rules: [{ to_type_key: from, is_default: true, delay_days: 0, sort_order: 1 }]
+    });
+    // Set section order
+    await apiCall(`/api/consult-types/${from}/section-order`, 'PATCH', { section_order: order });
+
     document.querySelector('.qt-modal-overlay')?.remove();
-    _qtAllRules[from] = [];
-    _qtShowEditRulesModal(from);
+    showToast('✅ Đã tạo nhóm quy tắc!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
+
+    // Open edit rules modal for the new group
+    setTimeout(() => _qtShowEditRulesModal(from), 300);
 }
 
 // ========== HELPERS ==========
