@@ -155,6 +155,16 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // POST reindex all sections sequentially (1, 2, 3, ..., n) with no gaps
+    fastify.post('/api/consult-sections/reindex', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const rows = await db.all(`SELECT key FROM consult_type_configs WHERE section_order > 0 ORDER BY section_order`);
+        for (let i = 0; i < rows.length; i++) {
+            await db.run(`UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`, [i + 1, rows[i].key]);
+        }
+        return { success: true, count: rows.length };
+    });
+
     // GET sections info (types that have flow rules = have their own "Khi ấn:" section)
     fastify.get('/api/consult-sections', async (req, reply) => {
         const rows = await db.all(`

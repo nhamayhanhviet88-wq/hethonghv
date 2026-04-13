@@ -954,6 +954,7 @@ async function _qtAddSections() {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
+    await apiCall('/api/consult-sections/reindex', 'POST');
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
@@ -1012,6 +1013,7 @@ async function _qtSaveSectionEdit(key, oldOrder) {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
+    await apiCall('/api/consult-sections/reindex', 'POST');
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
@@ -1029,6 +1031,7 @@ async function _qtDeleteSection(key) {
     await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: null });
 
     showToast('✅ Đã xóa loại hoàn toàn!', 'success');
+    await apiCall('/api/consult-sections/reindex', 'POST');
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
@@ -1270,6 +1273,7 @@ async function _qtAddRuleGroup() {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} nhóm quy tắc!`, 'success');
+    await apiCall('/api/consult-sections/reindex', 'POST');
     await _qtLoadData();
     _qtSwitchTab('rules');
 
