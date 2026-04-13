@@ -62,6 +62,7 @@ let _qtAllRules = {};
 let _qtStages = [];
 let _qtSections = [];      // dynamic sections with section_order
 let _qtUnsectioned = [];   // types without a section
+let _qtRulePhases = [];    // dynamic phase groups (PHẦN 1, 2, 3...)
 let _qtIsGD = false;
 let _qtActiveTab = 'buttons';
 let _qtSortDebounce = null;
@@ -98,17 +99,20 @@ function _qtRenderSkeleton() {
 
 // ========== DATA LOADING ==========
 async function _qtLoadData() {
-    const [typesData, rulesData, stagesData, sectionsData] = await Promise.all([
+    const [typesData, rulesData, stagesData, sectionsData, phasesData] = await Promise.all([
         apiCall('/api/consult-types'),
         apiCall('/api/consult-flow-rules'),
         apiCall('/api/consult-stages'),
-        apiCall('/api/consult-sections')
+        apiCall('/api/consult-sections'),
+        apiCall('/api/consult-rule-phases')
     ]);
     _qtAllTypes = typesData.types || [];
     _qtAllRules = rulesData.rules || {};
     _qtStages = stagesData.stages || [];
     _qtSections = sectionsData.sections || [];
     _qtUnsectioned = sectionsData.unsectioned || [];
+    _qtRulePhases = phasesData.phases || [];
+    _qtRulePhases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     // Sort stages by sort_order
     _qtStages.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
@@ -608,80 +612,287 @@ function _qtRenderRules() {
     if (_qtIsGD) {
         const unsecCount = _qtUnsectioned.length;
         html += `<div class="qt-action-bar" style="gap:8px;">
+            <button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#10b981,#059669);" onclick="_qtShowAddPhaseModal()">📂 Thêm Phần</button>
             <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới ${unsecCount > 0 ? '<span style="background:#ef4444;color:white;padding:1px 7px;border-radius:10px;font-size:10px;margin-left:4px;">' + unsecCount + '</span>' : ''}</button>
         </div>`;
     }
 
-    // ★ DYNAMIC sections from API (sorted by section_order)
-    // Phase dividers based on section_order ranges
-    const PHASES = [
-        { minOrder: 1, maxOrder: 8, title: 'PHẦN 1: LÀM QUEN, TƯ VẤN KHÁCH', icon: '📋', color: '#3b82f6', gradient: 'linear-gradient(135deg,#1e3a5f,#0f172a)' },
-        { minOrder: 9, maxOrder: 12, title: 'PHẦN 2: CHĂM SÓC SAU BÁN HÀNG', icon: '📦', color: '#10b981', gradient: 'linear-gradient(135deg,#064e3b,#0f172a)' },
-        { minOrder: 13, maxOrder: 999, title: 'PHẦN 3: TRẠNG THÁI HỦY, CẤP CỨU SẾP', icon: '🚨', color: '#ef4444', gradient: 'linear-gradient(135deg,#7f1d1d,#0f172a)' },
-    ];
-    let currentPhaseIdx = -1;
-
-    for (const sec of _qtSections) {
-        const rules = _qtAllRules[sec.key];
-        if (!rules || rules.length === 0) continue;
-
-        // Insert phase divider if entering a new phase
-        const phaseIdx = PHASES.findIndex(p => sec.section_order >= p.minOrder && sec.section_order <= p.maxOrder);
-        if (phaseIdx !== -1 && phaseIdx !== currentPhaseIdx) {
-            currentPhaseIdx = phaseIdx;
-            const phase = PHASES[phaseIdx];
-            html += `
-                <div class="qt-section-divider" style="background:${phase.gradient};border-left-color:${phase.color};">
-                    <span class="qt-section-divider-icon">${phase.icon}</span>
-                    <span class="qt-section-divider-text" style="color:${phase.color}">${phase.title}</span>
-                </div>
-            `;
-        }
-
-        const tp = _qtAllTypes.find(x => x.key === sec.key);
-        const label = tp ? `${tp.icon} ${tp.label}` : `${sec.icon} ${sec.label}`;
-        const sectionId = `qtRule_${sec.key}`;
+    // ★ DYNAMIC phases from API
+    const renderedPhaseIds = new Set();
+    for (const phase of _qtRulePhases) {
+        const phaseSections = _qtSections.filter(s => s.rule_phase === phase.id);
+        renderedPhaseIds.add(phase.id);
 
         html += `
-            <div class="qt-flow-section" id="${sectionId}">
-                <div class="qt-flow-header" onclick="_qtToggleSection(this)">
-                    <div class="qt-flow-title">
-                        <span class="qt-loai-badge" style="background:#3b82f6;cursor:${_qtIsGD ? 'pointer' : 'default'};" ${_qtIsGD ? `onclick="event.stopPropagation();_qtEditSectionOrder('${sec.key}',${sec.section_order})" title="Click để đổi STT"` : ''}>Loại ${sec.section_order}</span>
-                        Khi ấn: ${sec.label}
-                        <span class="qt-flow-count">${rules.length} nút</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button>` : ''}
-                        <span class="qt-flow-chevron">▼</span>
-                    </div>
-                </div>
-                <div class="qt-flow-body">
-                    <div class="qt-flow-label">Hiện các nút:</div>
-                    <div class="qt-flow-targets">
+            <div class="qt-section-divider" style="background:${phase.gradient};border-left-color:${phase.color};">
+                <span class="qt-section-divider-icon">${phase.icon}</span>
+                <span class="qt-section-divider-text" style="color:${phase.color}">PHẦN ${phase.sort_order}: ${phase.title}</span>
+                ${_qtIsGD ? `<div style="margin-left:auto;display:flex;gap:6px;">
+                    <button onclick="event.stopPropagation();_qtEditPhase('${phase.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Sửa phần">✏️</button>
+                    <button onclick="event.stopPropagation();_qtDeletePhase('${phase.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Xóa phần">🗑️</button>
+                </div>` : ''}
+            </div>
         `;
 
-        for (const r of rules) {
-            const rtp = _qtAllTypes.find(x => x.key === r.to_type_key);
-            const icon = rtp ? rtp.icon : r.to_icon || '📋';
-            const rlabel = rtp ? rtp.label : r.to_label || r.to_type_key;
-            const color = rtp ? rtp.color : r.to_color || '#6b7280';
-            html += `
-                <div class="qt-target-card" style="--target-color:${color}">
-                    <span class="qt-t-icon">${icon}</span>
-                    <div class="qt-t-label">${rlabel}</div>
-                    ${r.is_default ? '<div class="qt-t-default">⭐ Mặc định</div>' : ''}
-                    ${r.delay_days > 0
-                        ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>`
-                        : '<div class="qt-t-instant">⚡ Ngay lập tức</div>'}
-                </div>
-            `;
+        if (phaseSections.length === 0) {
+            html += `<div style="padding:16px 24px;color:#94a3b8;font-style:italic;font-size:13px;">— Chưa có loại nào trong phần này —</div>`;
         }
-        html += '</div></div></div>';
+
+        for (const sec of phaseSections) {
+            html += _qtRenderSectionAccordion(sec);
+        }
+    }
+
+    // Sections without a phase
+    const unphased = _qtSections.filter(s => !s.rule_phase || !renderedPhaseIds.has(s.rule_phase));
+    if (unphased.length > 0) {
+        html += `
+            <div class="qt-section-divider" style="background:linear-gradient(135deg,#334155,#1e293b);border-left-color:#64748b;">
+                <span class="qt-section-divider-icon">📋</span>
+                <span class="qt-section-divider-text" style="color:#94a3b8;">CHƯA PHÂN PHẦN</span>
+            </div>
+        `;
+        for (const sec of unphased) {
+            html += _qtRenderSectionAccordion(sec);
+        }
     }
 
     panel.innerHTML = html;
     const firstHeader = panel.querySelector('.qt-flow-header');
     if (firstHeader) _qtToggleSection(firstHeader);
+}
+
+// Render a single section accordion item
+function _qtRenderSectionAccordion(sec) {
+    const rules = _qtAllRules[sec.key];
+    if (!rules || rules.length === 0) return '';
+
+    const tp = _qtAllTypes.find(x => x.key === sec.key);
+    const label = tp ? tp.label : sec.label;
+    const sectionId = `qtRule_${sec.key}`;
+
+    let html = `
+        <div class="qt-flow-section" id="${sectionId}">
+            <div class="qt-flow-header" onclick="_qtToggleSection(this)">
+                <div class="qt-flow-title">
+                    <span class="qt-loai-badge" style="background:#3b82f6;cursor:${_qtIsGD ? 'pointer' : 'default'};" ${_qtIsGD ? `onclick="event.stopPropagation();_qtEditSectionOrder('${sec.key}',${sec.section_order})" title="Click để đổi STT"` : ''}>Loại ${sec.section_order}</span>
+                    Khi ấn: ${label}
+                    <span class="qt-flow-count">${rules.length} nút</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button>` : ''}
+                    <span class="qt-flow-chevron">▼</span>
+                </div>
+            </div>
+            <div class="qt-flow-body">
+                <div class="qt-flow-label">Hiện các nút:</div>
+                <div class="qt-flow-targets">
+    `;
+
+    for (const r of rules) {
+        const rtp = _qtAllTypes.find(x => x.key === r.to_type_key);
+        const icon = rtp ? rtp.icon : r.to_icon || '📋';
+        const rlabel = rtp ? rtp.label : r.to_label || r.to_type_key;
+        const color = rtp ? rtp.color : r.to_color || '#6b7280';
+        html += `
+            <div class="qt-target-card" style="--target-color:${color}">
+                <span class="qt-t-icon">${icon}</span>
+                <div class="qt-t-label">${rlabel}</div>
+                ${r.is_default ? '<div class="qt-t-default">⭐ Mặc định</div>' : ''}
+                ${r.delay_days > 0
+                    ? `<div class="qt-t-delay">📅 Sau ${r.delay_days} ngày</div>`
+                    : '<div class="qt-t-instant">⚡ Ngay lập tức</div>'}
+            </div>
+        `;
+    }
+    html += '</div></div></div>';
+    return html;
+}
+
+// ========== PHASE MANAGEMENT ==========
+function _qtShowAddPhaseModal() {
+    const presetsHTML = STAGE_PRESETS.map((p, i) => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .2s;" class="qt-preset-opt" onclick="document.querySelectorAll('.qt-preset-opt').forEach(x=>x.style.borderColor='transparent');this.style.borderColor='#2563eb';document.getElementById('qtPhasePresetIdx').value=${i}">
+            <div style="width:50px;height:24px;border-radius:4px;background:${p.gradient};flex-shrink:0;"></div>
+            <span style="font-size:11px;font-weight:600;color:#334155;">${p.name}</span>
+        </label>
+    `).join('');
+
+    const nextOrder = _qtRulePhases.length > 0 ? Math.max(..._qtRulePhases.map(p => p.sort_order)) + 1 : 1;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>📂 Thêm Phần mới</h3>
+            <input type="hidden" id="qtPhasePresetIdx" value="0">
+            <div class="qt-row">
+                <div>
+                    <label>Tên phần</label>
+                    <input type="text" id="qtPhaseTitle" placeholder="VD: RE-MARKETING">
+                </div>
+                <div style="flex:0 0 80px;">
+                    <label>Icon</label>
+                    <input type="text" id="qtPhaseIcon" value="🎯" style="text-align:center;font-size:20px;">
+                </div>
+            </div>
+            <div style="margin-top:8px;">
+                <label>Chọn màu nền</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;max-height:180px;overflow-y:auto;">
+                    ${presetsHTML}
+                </div>
+            </div>
+            <div style="margin-top:8px;">
+                <label>Gom các loại vào phần này:</label>
+                <div id="qtPhaseSectionsList" style="max-height:200px;overflow-y:auto;margin-top:4px;">
+                    ${_qtSections.filter(s => !s.rule_phase).map(s => `
+                        <div class="qt-rule-item" data-key="${s.key}" style="cursor:pointer;" onclick="this.querySelector('input[type=checkbox]').click()">
+                            <input type="checkbox" class="qt-ri-check" onclick="event.stopPropagation()">
+                            <div class="qt-ri-info">
+                                <span class="qt-ri-icon">${s.icon}</span>
+                                <span class="qt-ri-label">Loại ${s.section_order}: ${s.label}</span>
+                            </div>
+                        </div>
+                    `).join('') || '<div style="padding:8px;color:#94a3b8;font-size:12px;">Tất cả loại đã thuộc phần khác</div>'}
+                </div>
+            </div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtAddPhase()">📂 Thêm Phần</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => { const f = overlay.querySelector('.qt-preset-opt'); if (f) f.style.borderColor = '#2563eb'; }, 50);
+}
+
+async function _qtAddPhase() {
+    const title = document.getElementById('qtPhaseTitle').value.trim();
+    const icon = document.getElementById('qtPhaseIcon').value.trim();
+    if (!title) return showToast('❌ Vui lòng nhập tên phần!', 'error');
+
+    const presetIdx = parseInt(document.getElementById('qtPhasePresetIdx').value) || 0;
+    const preset = STAGE_PRESETS[presetIdx];
+    const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('phase_' + Date.now());
+    const nextOrder = _qtRulePhases.length > 0 ? Math.max(..._qtRulePhases.map(p => p.sort_order)) + 1 : 1;
+
+    _qtRulePhases.push({
+        id, title, icon: icon || '📋',
+        color: preset.textColor, gradient: preset.gradient,
+        sort_order: nextOrder
+    });
+    await apiCall('/api/consult-rule-phases', 'PUT', { phases: _qtRulePhases });
+
+    // Assign selected sections to this phase
+    const items = document.querySelectorAll('#qtPhaseSectionsList .qt-rule-item');
+    const updates = [];
+    items.forEach(item => {
+        if (item.querySelector('.qt-ri-check').checked) updates.push({ key: item.dataset.key, rule_phase: id });
+    });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+
+    document.querySelector('.qt-modal-overlay')?.remove();
+    showToast('✅ Đã thêm phần!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
+}
+
+function _qtEditPhase(phaseId) {
+    const phase = _qtRulePhases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    // Sections in this phase + available sections (no phase or different phase)
+    const allSectioned = _qtSections;
+    let sectionsHTML = allSectioned.map(s => {
+        const inThis = s.rule_phase === phaseId;
+        return `
+            <div class="qt-rule-item" data-key="${s.key}" style="cursor:pointer;" onclick="this.querySelector('input[type=checkbox]').click()">
+                <input type="checkbox" class="qt-ri-check" ${inThis ? 'checked' : ''} onclick="event.stopPropagation()">
+                <div class="qt-ri-info">
+                    <span class="qt-ri-icon">${s.icon}</span>
+                    <span class="qt-ri-label">Loại ${s.section_order}: ${s.label}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>✏️ Sửa Phần: ${phase.icon} ${phase.title}</h3>
+            <div class="qt-row">
+                <div>
+                    <label>Tên phần</label>
+                    <input type="text" id="qtEditPhaseTitle" value="${phase.title}">
+                </div>
+                <div style="flex:0 0 80px;">
+                    <label>Icon</label>
+                    <input type="text" id="qtEditPhaseIcon" value="${phase.icon}" style="text-align:center;font-size:20px;">
+                </div>
+            </div>
+            <div style="margin-top:10px;">
+                <label>Gom các loại vào phần này:</label>
+                <div id="qtEditPhaseSectionsList" style="max-height:250px;overflow-y:auto;margin-top:4px;">
+                    ${sectionsHTML}
+                </div>
+            </div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtSavePhase('${phaseId}')">💾 Lưu</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function _qtSavePhase(phaseId) {
+    const phase = _qtRulePhases.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    phase.title = document.getElementById('qtEditPhaseTitle').value.trim() || phase.title;
+    phase.icon = document.getElementById('qtEditPhaseIcon').value.trim() || phase.icon;
+    await apiCall('/api/consult-rule-phases', 'PUT', { phases: _qtRulePhases });
+
+    // Update section assignments
+    const items = document.querySelectorAll('#qtEditPhaseSectionsList .qt-rule-item');
+    const updates = [];
+    items.forEach(item => {
+        const checked = item.querySelector('.qt-ri-check').checked;
+        const key = item.dataset.key;
+        const sec = _qtSections.find(s => s.key === key);
+        if (checked && (!sec || sec.rule_phase !== phaseId)) {
+            updates.push({ key, rule_phase: phaseId });
+        } else if (!checked && sec && sec.rule_phase === phaseId) {
+            updates.push({ key, rule_phase: null });
+        }
+    });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+
+    document.querySelector('.qt-modal-overlay')?.remove();
+    showToast('✅ Đã lưu phần!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
+}
+
+async function _qtDeletePhase(phaseId) {
+    const phase = _qtRulePhases.find(p => p.id === phaseId);
+    if (!phase) return;
+    const count = _qtSections.filter(s => s.rule_phase === phaseId).length;
+    if (!confirm(`🗑️ Xóa phần "${phase.icon} ${phase.title}"?\n${count > 0 ? `⚠️ ${count} loại sẽ chuyển về "Chưa phân phần"` : ''}`)) return;
+
+    // Clear rule_phase for sections in this phase
+    const updates = _qtSections.filter(s => s.rule_phase === phaseId).map(s => ({ key: s.key, rule_phase: null }));
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+
+    _qtRulePhases = _qtRulePhases.filter(p => p.id !== phaseId);
+    await apiCall('/api/consult-rule-phases', 'PUT', { phases: _qtRulePhases });
+
+    showToast('✅ Đã xóa phần!', 'success');
+    await _qtLoadData();
+    _qtSwitchTab('rules');
 }
 
 // ========== ADD SECTION (Thêm loại khi ấn) ==========

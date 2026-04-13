@@ -158,7 +158,7 @@ module.exports = async function (fastify) {
     // GET sections info (types that have flow rules = have their own "Khi ấn:" section)
     fastify.get('/api/consult-sections', async (req, reply) => {
         const rows = await db.all(`
-            SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order,
+            SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order, ctc.rule_phase,
                    (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key) as rule_count
             FROM consult_type_configs ctc
             INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key
@@ -174,5 +174,42 @@ module.exports = async function (fastify) {
             ORDER BY ctc.sort_order
         `);
         return { sections: rows, unsectioned };
+    });
+
+    // GET rule phases config
+    fastify.get('/api/consult-rule-phases', async (req, reply) => {
+        const row = await db.get(`SELECT value FROM app_config WHERE key = 'consult_rule_phases'`);
+        const phases = row ? JSON.parse(row.value) : [];
+        phases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        return { phases };
+    });
+
+    // PUT update rule phases config (GĐ only)
+    fastify.put('/api/consult-rule-phases', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { phases } = req.body;
+        await db.run(
+            `INSERT INTO app_config (key, value) VALUES ('consult_rule_phases', $1) ON CONFLICT (key) DO UPDATE SET value = $1`,
+            [JSON.stringify(phases)]
+        );
+        return { success: true };
+    });
+
+    // PATCH update a section's rule_phase (GĐ only)
+    fastify.patch('/api/consult-types/:key/rule-phase', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { rule_phase } = req.body;
+        await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2`, [rule_phase || null, req.params.key]);
+        return { success: true };
+    });
+
+    // PATCH batch update rule_phase for multiple sections (GĐ only)
+    fastify.patch('/api/consult-types/batch/rule-phase', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { updates } = req.body; // [{key, rule_phase}]
+        for (const u of updates) {
+            await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2`, [u.rule_phase || null, u.key]);
+        }
+        return { success: true };
     });
 };

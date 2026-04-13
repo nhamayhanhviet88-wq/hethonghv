@@ -1531,3 +1531,17 @@ ON CONFLICT DO NOTHING;
 
 -- Migration: Add section_order for controlling "Khi ấn:" section display order
 ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_order INTEGER DEFAULT 0;
+
+-- Migration: Add rule_phase for grouping sections into visual phases (PHẦN 1, 2, 3...)
+ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS rule_phase TEXT;
+
+-- Seed: default rule phases config
+INSERT INTO app_config (key, value) VALUES (
+    'consult_rule_phases',
+    '[{"id":"tuvan_kh","title":"LÀM QUEN, TƯ VẤN KHÁCH","icon":"📋","color":"#3b82f6","gradient":"linear-gradient(135deg,#1e3a5f,#0f172a)","sort_order":1},{"id":"sauban","title":"CHĂM SÓC SAU BÁN HÀNG","icon":"📦","color":"#10b981","gradient":"linear-gradient(135deg,#064e3b,#0f172a)","sort_order":2},{"id":"huy_capuu","title":"TRẠNG THÁI HỦY, CẤP CỨU SẾP","icon":"🚨","color":"#ef4444","gradient":"linear-gradient(135deg,#7f1d1d,#0f172a)","sort_order":3}]'
+) ON CONFLICT (key) DO NOTHING;
+
+-- Backfill: assign existing sections to default phases
+UPDATE consult_type_configs SET rule_phase='tuvan_kh' WHERE rule_phase IS NULL AND section_order BETWEEN 1 AND 8;
+UPDATE consult_type_configs SET rule_phase='sauban' WHERE rule_phase IS NULL AND section_order BETWEEN 9 AND 12;
+UPDATE consult_type_configs SET rule_phase='huy_capuu' WHERE rule_phase IS NULL AND section_order BETWEEN 13 AND 99;
