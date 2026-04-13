@@ -1247,6 +1247,21 @@ CREATE TABLE IF NOT EXISTS consult_type_configs (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Migration: add stage column for grouping buttons
+ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS stage TEXT;
+
+-- Seed: default stages config
+INSERT INTO app_config (key, value) VALUES (
+    'consult_stages',
+    '[{"id":"tuvan","title":"Giai Đoạn Tư Vấn","icon":"💬","gradient":"linear-gradient(135deg,#dbeafe,#eff6ff)","textColor":"#1e40af","countBg":"#bfdbfe","countColor":"#1e40af","sort_order":1},{"id":"coc","title":"Giai Đoạn Cọc & Đơn Hàng","icon":"💰","gradient":"linear-gradient(135deg,#fef3c7,#fffbeb)","textColor":"#92400e","countBg":"#fde68a","countColor":"#92400e","sort_order":2},{"id":"sauban","title":"Sau Bán Hàng & Chăm Sóc","icon":"📦","gradient":"linear-gradient(135deg,#d1fae5,#ecfdf5)","textColor":"#065f46","countBg":"#a7f3d0","countColor":"#065f46","sort_order":3},{"id":"capuu","title":"Cấp Cứu & Hủy","icon":"🚨","gradient":"linear-gradient(135deg,#fee2e2,#fef2f2)","textColor":"#991b1b","countBg":"#fecaca","countColor":"#991b1b","sort_order":4}]'
+) ON CONFLICT (key) DO NOTHING;
+
+-- Seed: assign default stages to existing buttons
+UPDATE consult_type_configs SET stage='tuvan' WHERE stage IS NULL AND key IN ('lam_quen_tuong_tac','goi_dien','nhan_tin','tuong_tac_ket_noi','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua');
+UPDATE consult_type_configs SET stage='coc' WHERE stage IS NULL AND key IN ('gui_stk_coc','giuc_coc','dat_coc','chot_don','dang_san_xuat','hoan_thanh');
+UPDATE consult_type_configs SET stage='sauban' WHERE stage IS NULL AND key IN ('sau_ban_hang','gui_ct_kh_cu','giam_gia');
+UPDATE consult_type_configs SET stage='capuu' WHERE stage IS NULL AND key IN ('cap_cuu_sep','huy_coc','hoan_thanh_cap_cuu','huy','tu_van_lai');
+
 CREATE TABLE IF NOT EXISTS consult_flow_rules (
     id SERIAL PRIMARY KEY,
     from_status TEXT NOT NULL,
