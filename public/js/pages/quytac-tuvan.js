@@ -608,10 +608,7 @@ function _qtRenderRules() {
     if (_qtIsGD) {
         const unsecCount = _qtUnsectioned.length;
         html += `<div class="qt-action-bar" style="gap:8px;">
-            <div style="position:relative;display:inline-block;">
-                <button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="_qtShowAddSectionModal()">📌 Thêm loại khi ấn ${unsecCount > 0 ? '<span style="background:#ef4444;color:white;padding:1px 7px;border-radius:10px;font-size:10px;margin-left:4px;">' + unsecCount + '</span>' : ''}</button>
-            </div>
-            <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới</button>
+            <button class="qt-flow-edit-btn" onclick="_qtShowAddRuleGroupModal()">➕ Thêm nhóm quy tắc mới ${unsecCount > 0 ? '<span style="background:#ef4444;color:white;padding:1px 7px;border-radius:10px;font-size:10px;margin-left:4px;">' + unsecCount + '</span>' : ''}</button>
         </div>`;
     }
 
@@ -938,11 +935,18 @@ function _qtShowAddRuleGroupModal() {
         return showToast('✅ Tất cả nút đã có nhóm quy tắc!', 'success');
     }
 
-    let optionsHTML = available.map(t =>
-        `<option value="${t.key}">${t.icon} ${t.label}</option>`
-    ).join('');
-
     const nextOrder = _qtSections.length > 0 ? Math.max(..._qtSections.map(s => s.section_order)) + 1 : 1;
+
+    let listHTML = available.map(t => `
+        <div class="qt-rule-item" data-key="${t.key}" style="cursor:pointer;" onclick="this.querySelector('input[type=checkbox]').click()">
+            <input type="checkbox" class="qt-ri-check" onclick="event.stopPropagation()">
+            <div class="qt-ri-info">
+                <span class="qt-ri-icon">${t.icon}</span>
+                <span class="qt-ri-label">${t.label}</span>
+            </div>
+            <span style="font-size:10px;color:#94a3b8;">${t.key}</span>
+        </div>
+    `).join('');
 
     const overlay = document.createElement('div');
     overlay.className = 'qt-modal-overlay';
@@ -950,17 +954,15 @@ function _qtShowAddRuleGroupModal() {
     overlay.innerHTML = `
         <div class="qt-modal">
             <h3>➕ Thêm nhóm quy tắc mới</h3>
-            <div style="margin-bottom:12px;">
-                <label>Chọn nút nguồn (sau khi bấm nút này thì...)</label>
-                <select id="qtNewRuleFrom" style="margin-top:4px;">${optionsHTML}</select>
-            </div>
-            <div style="margin-bottom:12px;">
-                <label style="font-size:13px;font-weight:600;color:#334155;">Đặt là Loại số:</label>
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Chọn nút chưa có loại → tạo section "Khi ấn: ..." + mở cấu hình</p>
+            <div class="qt-rule-list" style="max-height:300px;overflow-y:auto;">${listHTML}</div>
+            <div style="margin-top:12px;">
+                <label style="font-size:13px;font-weight:600;color:#334155;">Bắt đầu từ Loại số:</label>
                 <input type="number" id="qtNewRuleOrder" value="${nextOrder}" min="1" style="width:80px;padding:6px 10px;font-size:14px;font-weight:700;border:2px solid #3b82f6;border-radius:8px;text-align:center;margin-left:8px;">
             </div>
             <div class="qt-actions">
                 <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
-                <button class="qt-btn qt-btn-primary" onclick="_qtAddRuleGroup()">Tiếp tục →</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtAddRuleGroup()">➕ Thêm</button>
             </div>
         </div>
     `;
@@ -968,24 +970,34 @@ function _qtShowAddRuleGroupModal() {
 }
 
 async function _qtAddRuleGroup() {
-    const from = document.getElementById('qtNewRuleFrom').value;
-    if (!from) return;
-    const order = parseInt(document.getElementById('qtNewRuleOrder').value) || 1;
-
-    // Create self-referencing flow rule if missing
-    await apiCall(`/api/consult-flow-rules/${from}`, 'PUT', {
-        rules: [{ to_type_key: from, is_default: true, delay_days: 0, sort_order: 1 }]
+    const items = document.querySelectorAll('.qt-rule-list .qt-rule-item');
+    const selected = [];
+    items.forEach(item => {
+        if (item.querySelector('.qt-ri-check').checked) selected.push(item.dataset.key);
     });
-    // Set section order
-    await apiCall(`/api/consult-types/${from}/section-order`, 'PATCH', { section_order: order });
+    if (selected.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
+
+    let startOrder = parseInt(document.getElementById('qtNewRuleOrder').value) || 1;
+
+    for (const key of selected) {
+        // Create self-referencing flow rule if missing
+        await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
+            rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }]
+        });
+        // Set section order
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        startOrder++;
+    }
 
     document.querySelector('.qt-modal-overlay')?.remove();
-    showToast('✅ Đã tạo nhóm quy tắc!', 'success');
+    showToast(`✅ Đã thêm ${selected.length} nhóm quy tắc!`, 'success');
     await _qtLoadData();
     _qtSwitchTab('rules');
 
-    // Open edit rules modal for the new group
-    setTimeout(() => _qtShowEditRulesModal(from), 300);
+    // Auto-open Sửa modal for the first added item
+    if (selected.length === 1) {
+        setTimeout(() => _qtShowEditRulesModal(selected[0]), 300);
+    }
 }
 
 // ========== HELPERS ==========
