@@ -82,7 +82,7 @@ function _crmIsBirthdayToday(birthdayStr) {
     return today.getDate() === day && (today.getMonth() + 1) === month;
 }
 
-const CONSULT_TYPES = {
+let CONSULT_TYPES = {
     lam_quen_tuong_tac: { label: 'Làm Quen Tương Tác', icon: '👋', color: '#14b8a6' },
     goi_dien: { label: 'Gọi Điện', icon: '📞', color: '#3b82f6' },
     nhan_tin: { label: 'Nhắn Tin', icon: '💬', color: '#8b5cf6' },
@@ -107,6 +107,25 @@ const CONSULT_TYPES = {
     tu_van_lai: { label: 'Tư Vấn Lại', icon: '🔄', color: '#0891b2' },
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
 };
+
+// Merge dynamic types from consult_type_configs API into CONSULT_TYPES
+async function _crmSyncConsultTypes() {
+    try {
+        const data = await apiCall('/api/consult-types');
+        if (data.types && Array.isArray(data.types)) {
+            for (const t of data.types) {
+                if (!t.key || !t.is_active) continue;
+                // Add or update (API types override defaults)
+                CONSULT_TYPES[t.key] = {
+                    label: t.label || t.key,
+                    icon: t.icon || '📋',
+                    color: t.color || '#6b7280',
+                    textColor: t.text_color || 'white'
+                };
+            }
+        }
+    } catch(e) { /* silent — fallback to hardcoded */ }
+}
 
 async function renderCRMNhuCauPage(container) {
     let topStaffOptions = '';
@@ -699,6 +718,9 @@ function _crmRenderCustomerRow(c, stats, stt) {
 }
 
 async function loadCrmNhuCauData() {
+    // Sync dynamic consult types from API (adds any new types created in settings)
+    await _crmSyncConsultTypes();
+
     let url = '/api/customers?crm_type=nhu_cau';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -803,51 +825,62 @@ async function openConsultModal(customerId) {
     } catch(e) {}
     const grandTotal = existingItems.reduce((s, i) => s + (i.total || 0), 0);
 
+    // Load flow rules from API for dynamic allowed types
+    let flowRules = {};
+    try {
+        const frData = await apiCall('/api/consult-flow-rules');
+        flowRules = frData.rules || {};
+    } catch(e) {}
+
     // Determine allowed types based on order_status and consultation history
     const orderStatus = customerInfo.order_status || 'dang_tu_van';
     const allTypes = Object.entries(CONSULT_TYPES);
+
+    // Helper: get allowed types from flow rules for a given status
+    function _getFlowRuleTypes(status) {
+        const rules = flowRules[status];
+        if (!rules || rules.length === 0) return null;
+        return rules
+            .map(r => [r.to_type_key, CONSULT_TYPES[r.to_type_key]])
+            .filter(([k, v]) => v); // only include types that exist
+    }
 
     // Check if customer already has a sau_ban_hang consultation
     const hasSauBanHang = consultLogs.some(l => l.log_type === 'sau_ban_hang');
 
     let allowedTypes;
+    // ★ Try flow rules first — if configured for this orderStatus, use them
+    const frTypes = _getFlowRuleTypes(orderStatus);
+
     if (hasSauBanHang && orderStatus === 'sau_ban_hang') {
-        // After Chăm Sóc Sau Bán → only Tương Tác Kết Nối Lại
-        allowedTypes = allTypes.filter(([k]) => ['tuong_tac_ket_noi'].includes(k));
+        allowedTypes = _getFlowRuleTypes('sau_ban_hang') || allTypes.filter(([k]) => ['tuong_tac_ket_noi'].includes(k));
     } else if (orderStatus === 'tuong_tac_ket_noi') {
-        // After Tương Tác Kết Nối Lại → only Gửi Chương Trình KH Cũ
-        allowedTypes = allTypes.filter(([k]) => ['gui_ct_kh_cu'].includes(k));
+        allowedTypes = _getFlowRuleTypes('tuong_tac_ket_noi') || allTypes.filter(([k]) => ['gui_ct_kh_cu'].includes(k));
     } else if (orderStatus === 'gui_ct_kh_cu') {
-        // After Gửi Chương Trình KH Cũ
-        allowedTypes = allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('gui_ct_kh_cu') || allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
     } else if (orderStatus === 'lam_quen_tuong_tac') {
-        // After Làm Quen Tương Tác
-        allowedTypes = allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke'].includes(k));
+        allowedTypes = _getFlowRuleTypes('lam_quen_tuong_tac') || allTypes.filter(([k]) => ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke'].includes(k));
     } else if (orderStatus === 'hoan_thanh') {
-        // After Hoàn Thành Đơn → only Chăm Sóc Sau Bán
-        allowedTypes = allTypes.filter(([k]) => ['sau_ban_hang'].includes(k));
+        allowedTypes = _getFlowRuleTypes('hoan_thanh') || allTypes.filter(([k]) => ['sau_ban_hang'].includes(k));
     } else if (orderStatus === 'chot_don') {
-        // After Chốt Đơn → Đang Sản Xuất + Hoàn Thành Đơn + CCS
-        allowedTypes = allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep'].includes(k));
+        allowedTypes = _getFlowRuleTypes('chot_don') || allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep'].includes(k));
     } else if (orderStatus === 'dat_coc') {
-        // After Đặt Cọc → Chốt Đơn + CCS + Hủy Cọc
-        allowedTypes = allTypes.filter(([k]) => ['chot_don','cap_cuu_sep','huy_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('dat_coc') || allTypes.filter(([k]) => ['chot_don','cap_cuu_sep','huy_coc'].includes(k));
     } else if (orderStatus === 'gui_stk_coc') {
-        // After Gửi STK Cọc → Giục Cọc + Đặt Cọc + Nhắn Tin + CCS
-        const order = ['giuc_coc','dat_coc','nhan_tin','cap_cuu_sep'];
-        allowedTypes = order.map(k => [k, CONSULT_TYPES[k]]).filter(([,v]) => v);
+        const fr = _getFlowRuleTypes('gui_stk_coc');
+        if (fr) { allowedTypes = fr; }
+        else { const order = ['giuc_coc','dat_coc','nhan_tin','cap_cuu_sep']; allowedTypes = order.map(k => [k, CONSULT_TYPES[k]]).filter(([,v]) => v); }
     } else if (orderStatus === 'huy_coc') {
-        // After Hủy Cọc → TTKN Lại + Nhắn Tin + Gọi Điện + Gặp Trực Tiếp + CCS
-        allowedTypes = allTypes.filter(([k]) => ['tuong_tac_ket_noi','nhan_tin','goi_dien','gap_truc_tiep','cap_cuu_sep'].includes(k));
+        allowedTypes = _getFlowRuleTypes('huy_coc') || allTypes.filter(([k]) => ['tuong_tac_ket_noi','nhan_tin','goi_dien','gap_truc_tiep','cap_cuu_sep'].includes(k));
     } else if (orderStatus === 'duyet_huy') {
-        // TH1: Duyệt hủy xong → chỉ Nhắn Tin
-        allowedTypes = allTypes.filter(([k]) => ['nhan_tin'].includes(k));
+        allowedTypes = _getFlowRuleTypes('duyet_huy') || allTypes.filter(([k]) => ['nhan_tin'].includes(k));
     } else if (orderStatus === 'tu_van_lai') {
-        // TH2: Không duyệt hủy → Giảm Giá + Thiết Kế
-        allowedTypes = allTypes.filter(([k]) => ['giam_gia','thiet_ke'].includes(k));
+        allowedTypes = _getFlowRuleTypes('tu_van_lai') || allTypes.filter(([k]) => ['giam_gia','thiet_ke'].includes(k));
     } else if (orderStatus === 'giam_gia') {
-        // After Giảm Giá
-        allowedTypes = allTypes.filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+        allowedTypes = _getFlowRuleTypes('giam_gia') || allTypes.filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
+    } else if (frTypes) {
+        // Dynamic: flow rules exist for this status
+        allowedTypes = frTypes;
     } else {
         // Normal: consultation phase types only
         const normalTypes = ['lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc','cap_cuu_sep','huy'];
