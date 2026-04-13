@@ -616,9 +616,30 @@ function _qtRenderRules() {
     }
 
     // ★ DYNAMIC sections from API (sorted by section_order)
+    // Phase dividers based on section_order ranges
+    const PHASES = [
+        { minOrder: 1, maxOrder: 8, title: 'PHẦN 1: LÀM QUEN, TƯ VẤN KHÁCH', icon: '📋', color: '#3b82f6', gradient: 'linear-gradient(135deg,#1e3a5f,#0f172a)' },
+        { minOrder: 9, maxOrder: 12, title: 'PHẦN 2: CHĂM SÓC SAU BÁN HÀNG', icon: '📦', color: '#10b981', gradient: 'linear-gradient(135deg,#064e3b,#0f172a)' },
+        { minOrder: 13, maxOrder: 999, title: 'PHẦN 3: TRẠNG THÁI HỦY, CẤP CỨU SẾP', icon: '🚨', color: '#ef4444', gradient: 'linear-gradient(135deg,#7f1d1d,#0f172a)' },
+    ];
+    let currentPhaseIdx = -1;
+
     for (const sec of _qtSections) {
         const rules = _qtAllRules[sec.key];
         if (!rules || rules.length === 0) continue;
+
+        // Insert phase divider if entering a new phase
+        const phaseIdx = PHASES.findIndex(p => sec.section_order >= p.minOrder && sec.section_order <= p.maxOrder);
+        if (phaseIdx !== -1 && phaseIdx !== currentPhaseIdx) {
+            currentPhaseIdx = phaseIdx;
+            const phase = PHASES[phaseIdx];
+            html += `
+                <div class="qt-section-divider" style="background:${phase.gradient};border-left-color:${phase.color};">
+                    <span class="qt-section-divider-icon">${phase.icon}</span>
+                    <span class="qt-section-divider-text" style="color:${phase.color}">${phase.title}</span>
+                </div>
+            `;
+        }
 
         const tp = _qtAllTypes.find(x => x.key === sec.key);
         const label = tp ? `${tp.icon} ${tp.label}` : `${sec.icon} ${sec.label}`;
