@@ -145,6 +145,17 @@ async function renderCRMNhuCauPage(container) {
             .crm-pagination button:disabled { opacity:.4; cursor:not-allowed; }
             .crm-pagination .pg-info { color:#94a3b8; font-size:12px; font-weight:600; margin:0 8px; }
         </style>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div></div>
+            <a href="/quytacnuttuvancrmnhucau" onclick="event.preventDefault();navigate('quytacnuttuvancrmnhucau')"
+                style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
+                border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
+                background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
+                onmouseover="this.style.background='rgba(249,115,22,.18)';this.style.transform='translateY(-2px)'"
+                onmouseout="this.style.background='rgba(249,115,22,.08)';this.style.transform=''">
+                ⚙️ Quy Tắc Nút Tư Vấn
+            </a>
+        </div>
         <div class="crm-stat-cards" id="crmStatCards">
             <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_crmFilterByCat('phai_xu_ly')">
                 <div class="stat-icon">🔥</div>

@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const data = await apiCall('/api/penalty/my-pending');
                 if (data.pending && data.pending.length > 0) {
-                    _showPenaltyLockPopup(data.pending, data.total);
+                    _showPenaltyLockPopup(data.pending, data.total, data.penaltyDate);
                 }
             } catch(e) {}
         }, 1500);
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const data = await apiCall('/api/penalty/team-today');
                 if (data.penalties && data.penalties.length > 0) {
-                    _showMgrPenaltyPopup(data.penalties, data.total, data.departments);
+                    _showMgrPenaltyPopup(data.penalties, data.total, data.departments, data.penaltyDate);
                 }
             } catch(e) {}
         }, 3000);
@@ -944,6 +944,7 @@ async function handleRoute() {
         case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
         case 'goidien': renderGoiDienPage(content); break;
         case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
+        case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
         default: renderComingSoon(content); break;
     }
 
@@ -1503,12 +1504,14 @@ if (document.readyState === 'loading') {
 }
 
 // ========== MANAGER PENALTY POPUP ==========
-function _showMgrPenaltyPopup(penalties, total, departments) {
+function _showMgrPenaltyPopup(penalties, total, departments, penaltyDate) {
     if (document.getElementById('mgrPenaltyPopupOverlay')) return;
     const ROLE_LABEL = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
     const ROLE_COLOR = { giam_doc: '#7c3aed', quan_ly_cap_cao: '#2563eb', quan_ly: '#0891b2', truong_phong: '#d97706', nhan_vien: '#6b7280', part_time: '#9ca3af' };
     const SOURCE_COLOR = { 'CV Khóa': '#dc2626', 'CV Chuỗi': '#7c3aed', 'CV Điểm': '#2563eb', 'Hỗ trợ NV': '#d97706' };
-    const todayLabel = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    // Sử dụng ngày từ API (ngày hôm qua) thay vì ngày hôm nay
+    const dateObj = penaltyDate ? new Date(penaltyDate + 'T00:00:00') : new Date();
+    const todayLabel = dateObj.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
     // Group penalties by user
     const userMap = {};

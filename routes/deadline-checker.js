@@ -374,25 +374,26 @@ async function runDeadlineCheck(forceFullCheck = false) {
             }
         }
 
-        // ========== 3a. PHẠT CHỒNG PHẠT — Expired CV Khóa chưa báo cáo lại ==========
-        const yesterdayForStack = new Date(now);
-        yesterdayForStack.setDate(yesterdayForStack.getDate() - 1);
-        const yesterdayStrForStack = toDateStr(yesterdayForStack);
+        // ========== 3a. PHẠT CHỒNG PHẠT HÀNG NGÀY — Expired CV Khóa chưa báo cáo lại ==========
+        // Tạo phạt chồng MỖI NGÀY LÀM VIỆC cho mỗi CV Khóa chưa báo cáo lại
+        const todayForStack = toDateStr(now);
         const ninetyDaysAgo = new Date(now);
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const ninetyDaysAgoStr = toDateStr(ninetyDaysAgo);
 
         const unreportedExpired = await db.all(
             `SELECT ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as completion_date,
-                    ltc.penalty_amount, ltc.updated_at, lt.task_name
+                    ltc.penalty_amount, lt.task_name
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.is_active = true
              JOIN lock_task_assignments lta ON lta.lock_task_id = ltc.lock_task_id AND lta.user_id = ltc.user_id
-             WHERE ltc.status = 'expired' AND ltc.redo_count >= 0
-               AND ltc.completion_date >= $1 AND ltc.completion_date < $2`,
-            [ninetyDaysAgoStr, yesterdayStrForStack]
+             WHERE ltc.status = 'expired' AND ltc.redo_count >= 0 AND ltc.penalty_applied = true
+               AND ltc.completion_date >= $1::date AND ltc.completion_date < $2::date`,
+            [ninetyDaysAgoStr, todayForStack]
         );
 
+        // Group by (lock_task_id, user_id), filter out resubmitted originals
+        const taskUserMap = {};
         for (const exp of unreportedExpired) {
             const resubmitted = await db.get(
                 `SELECT id FROM lock_task_completions
@@ -402,39 +403,71 @@ async function runDeadlineCheck(forceFullCheck = false) {
             );
             if (resubmitted) continue;
 
-            // Check if already stacked for yesterday
-            const alreadyStacked = await db.get(
-                `SELECT id FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND redo_count = -2`,
-                [exp.lock_task_id, exp.user_id, yesterdayStrForStack]
-            );
-            if (alreadyStacked) continue;
-
-            // ★ CHECK CHỦ NHẬT + NGÀY LỄ + NGHỈ PHÉP: Skip phạt chồng
-            const todayStr = toDateStr(now);
-            const todayDow = now.getDay();
-            if (todayDow === 0) continue;
-            const todayHolidays = await getHolidays();
-            if (todayHolidays.has(todayStr)) continue;
-            const onLeaveToday = await isUserOnLeave(exp.user_id, todayStr);
-            if (onLeaveToday) continue;
-
-            // Tạo record MỚI cho ngày hôm qua (redo_count=-2 = phạt chồng NV)
-            const extraPenalty = GPC.cv_khoa_khong_nop;
-            try {
-                await db.run(
-                    `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
-                     VALUES ($1, $2, $3, -2, 'expired', $4, true, $5, false)
-                     ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
-                    [exp.lock_task_id, exp.user_id, yesterdayStrForStack, extraPenalty,
-                     `Chưa báo cáo lại: ${exp.task_name} (ngày gốc: ${exp.completion_date})`]
-                );
-            } catch(e) {
-                console.error(`  ❌ Error stacking penalty for task ${exp.lock_task_id}, user ${exp.user_id}:`, e.message);
+            const key = `${exp.lock_task_id}_${exp.user_id}`;
+            if (!taskUserMap[key]) {
+                taskUserMap[key] = {
+                    lock_task_id: exp.lock_task_id,
+                    user_id: exp.user_id,
+                    task_name: exp.task_name,
+                    origDates: []
+                };
             }
+            taskUserMap[key].origDates.push(exp.completion_date);
+        }
 
-            penaltyCount++;
-            console.log(`  🔄 [CV Khóa] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} ngày ${exp.completion_date} → ghi phạt ngày ${yesterdayStrForStack} (${extraPenalty}đ)`);
+        const extraPenaltyKhoa = GPC.cv_khoa_khong_nop;
+        let stackCountKhoa = 0;
+
+        for (const k of Object.values(taskUserMap)) {
+            if (k.origDates.length === 0) continue;
+            k.origDates.sort();
+
+            // Stacking bắt đầu từ ngày sau original sớm nhất → đến hôm nay
+            const earliestOrig = new Date(k.origDates[0] + 'T00:00:00');
+            let stackDate = new Date(earliestOrig);
+            stackDate.setDate(stackDate.getDate() + 1);
+
+            const todayDate = new Date(todayForStack + 'T00:00:00');
+
+            while (stackDate < todayDate) {
+                const stackDateStr = toDateStr(stackDate);
+
+                // Skip Chủ nhật
+                if (stackDate.getDay() === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                // Skip ngày lễ
+                if (holidays.has(stackDateStr)) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                // Skip NV nghỉ phép
+                const onLeave = await isUserOnLeave(k.user_id, stackDateStr);
+                if (onLeave) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+
+                // Đếm bao nhiêu ngày gốc TRƯỚC ngày stacking này
+                const countBefore = k.origDates.filter(d => d < stackDateStr).length;
+                if (countBefore === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+
+                const totalPenalty = countBefore * extraPenaltyKhoa;
+
+                try {
+                    const res = await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
+                         VALUES ($1, $2, $3, -2, 'expired', $4, true, $5, false)
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                        [k.lock_task_id, k.user_id, stackDateStr, totalPenalty,
+                         `Phạt chồng: ${k.task_name} (${countBefore} ngày gốc chưa BC)`]
+                    );
+                    if (res && res.rowCount > 0) {
+                        stackCountKhoa++;
+                    }
+                } catch(e) {
+                    console.error(`  ❌ Error stacking penalty for task ${k.lock_task_id}, user ${k.user_id}:`, e.message);
+                }
+
+                stackDate.setDate(stackDate.getDate() + 1);
+            }
+        }
+
+        if (stackCountKhoa > 0) {
+            penaltyCount += stackCountKhoa;
+            console.log(`  🔄 [CV Khóa] Tạo ${stackCountKhoa} bản ghi phạt chồng hàng ngày`);
         }
     } else {
         console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 hoặc lúc khởi động (hiện: ${_hour}:${String(_minute).padStart(2,'0')})`);
@@ -637,10 +670,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
             console.log(`  ⚠️ [CV Chuỗi] Phạt NV id=${oci.user_id} — Không nộp: ${oci.task_name} (${oci.chain_name}) deadline ${oci.deadline} (phạt ${penaltyAmount}đ)`);
         }
 
-        // ========== 5a. PHẠT CHỒNG PHẠT — Expired CV Chuỗi chưa báo cáo lại ==========
+        // ========== 5a. PHẠT CHỒNG PHẠT HÀNG NGÀY — Expired CV Chuỗi chưa báo cáo lại ==========
+        // Tạo phạt chồng MỖI NGÀY LÀM VIỆC cho mỗi CV Chuỗi chưa báo cáo lại
         const ninetyDaysAgo2 = new Date(now);
         ninetyDaysAgo2.setDate(ninetyDaysAgo2.getDate() - 90);
         const ninetyDaysAgoStr2 = toDateStr(ninetyDaysAgo2);
+        const todayForChainStack = toDateStr(now);
+        const chainHolidaysStack = await getHolidays();
 
         const unreportedChainExpired = await db.all(
             `SELECT cc.id, cc.chain_item_id, cc.user_id, cc.penalty_amount, cc.created_at,
@@ -651,8 +687,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
              JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
              WHERE cc.status = 'expired' AND cc.penalty_applied = true AND cc.redo_count >= 0
                AND ci.deadline >= $1::date AND ci.deadline < $2::date`,
-            [ninetyDaysAgoStr2, yesterdayStr2]
+            [ninetyDaysAgoStr2, todayForChainStack]
         );
+
+        const extraPenaltyChuoi = GPC.cv_chuoi_khong_nop;
+        let stackCountChuoi = 0;
 
         for (const exp of unreportedChainExpired) {
             const resubmitted = await db.get(
@@ -662,40 +701,53 @@ async function runDeadlineCheck(forceFullCheck = false) {
             );
             if (resubmitted) continue;
 
-            // Check if already stacked for yesterday
-            const alreadyStacked = await db.get(
-                `SELECT id FROM chain_task_completions
-                 WHERE chain_item_id = $1 AND user_id = $2 AND redo_count = -2
-                   AND created_at::date = $3::date`,
-                [exp.chain_item_id, exp.user_id, yesterdayStr2]
-            );
-            if (alreadyStacked) continue;
+            // Stacking từ deadline+1 đến hôm nay
+            const origDeadline = new Date(exp.deadline + 'T00:00:00');
+            let stackDate = new Date(origDeadline);
+            stackDate.setDate(stackDate.getDate() + 1);
 
-            // ★ CHECK CHỦ NHẬT + NGÀY LỄ + NGHỈ PHÉP
-            const todayStr5a = toDateStr(now);
-            const todayDow5a = now.getDay();
-            if (todayDow5a === 0) continue;
-            const todayHolidays5a = await getHolidays();
-            if (todayHolidays5a.has(todayStr5a)) continue;
-            const onLeaveToday5a = await isUserOnLeave(exp.user_id, todayStr5a);
-            if (onLeaveToday5a) continue;
+            const todayDate = new Date(todayForChainStack + 'T00:00:00');
 
-            // Tạo record MỚI cho ngày hôm qua (redo_count=-2 = phạt chồng NV)
-            const extraPenalty = GPC.cv_chuoi_khong_nop;
-            try {
-                await db.run(
-                    `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count, created_at)
-                     VALUES ($1, $2, 'expired', $3, true, $4, -2, $5::timestamp)`,
-                    [exp.chain_item_id, exp.user_id, extraPenalty,
-                     `Chưa báo cáo lại: ${exp.task_name} (${exp.chain_name}) (ngày gốc: ${exp.deadline})`,
-                     yesterdayStr2 + ' 23:59:00']
+            while (stackDate < todayDate) {
+                const stackDateStr = toDateStr(stackDate);
+
+                // Skip Chủ nhật
+                if (stackDate.getDay() === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                // Skip ngày lễ
+                if (chainHolidaysStack.has(stackDateStr)) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                // Skip NV nghỉ phép
+                const onLeave = await isUserOnLeave(exp.user_id, stackDateStr);
+                if (onLeave) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+
+                // Kiểm tra trùng (manual dedup vì chain_task_completions không có unique constraint tương ứng)
+                const alreadyStacked = await db.get(
+                    `SELECT id FROM chain_task_completions
+                     WHERE chain_item_id = $1 AND user_id = $2 AND redo_count = -2
+                       AND created_at::date = $3::date`,
+                    [exp.chain_item_id, exp.user_id, stackDateStr]
                 );
-            } catch(e) {
-                console.error(`  ❌ Error stacking chain penalty for id ${exp.id}:`, e.message);
-            }
+                if (alreadyStacked) { stackDate.setDate(stackDate.getDate() + 1); continue; }
 
-            penaltyCount++;
-            console.log(`  🔄 [CV Chuỗi] Phạt chồng NV id=${exp.user_id} — Chưa báo cáo lại: ${exp.task_name} (${exp.chain_name}) → ghi phạt ngày ${yesterdayStr2} (${extraPenalty}đ)`);
+                try {
+                    await db.run(
+                        `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count, created_at)
+                         VALUES ($1, $2, 'expired', $3, true, $4, -2, $5::timestamp)`,
+                        [exp.chain_item_id, exp.user_id, extraPenaltyChuoi,
+                         `Phạt chồng: ${exp.task_name} (${exp.chain_name}) (ngày gốc: ${exp.deadline})`,
+                         stackDateStr + ' 23:59:00']
+                    );
+                    stackCountChuoi++;
+                } catch(e) {
+                    console.error(`  ❌ Error stacking chain penalty for id ${exp.id}:`, e.message);
+                }
+
+                stackDate.setDate(stackDate.getDate() + 1);
+            }
+        }
+
+        if (stackCountChuoi > 0) {
+            penaltyCount += stackCountChuoi;
+            console.log(`  🔄 [CV Chuỗi] Tạo ${stackCountChuoi} bản ghi phạt chồng hàng ngày`);
         }
     }
 

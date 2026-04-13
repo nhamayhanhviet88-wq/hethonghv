@@ -685,10 +685,11 @@ async function _penaltyShowSlip(managerId, month, managerName) {
 }
 
 // ===== PENALTY LOCK POPUP (hiện khi NV bị khóa TK) =====
-async function _showPenaltyLockPopup(penalties, total) {
+async function _showPenaltyLockPopup(penalties, total, penaltyDate) {
     document.getElementById('penaltyLockPopup')?.remove();
 
-    const todayLabel = new Date().toISOString().split('T')[0].split('-').reverse().join('/');
+    // Sử dụng ngày từ API (ngày hôm qua) thay vì ngày hôm nay
+    const todayLabel = penaltyDate ? penaltyDate.split('-').reverse().join('/') : new Date().toISOString().split('T')[0].split('-').reverse().join('/');
 
     const itemsHtml = penalties.map((p, i) => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #f1f5f9;${i % 2 ? 'background:#fafbfc;' : ''}">

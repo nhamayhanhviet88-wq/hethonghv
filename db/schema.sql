@@ -1232,3 +1232,264 @@ INSERT INTO app_config (key, value) VALUES
     ('telesale_followup_canhnhac', '3'),
     ('telesale_followup_ncc', '30')
 ON CONFLICT (key) DO NOTHING;
+
+-- ========== QUY TẮC NÚT TƯ VẤN CRM ==========
+CREATE TABLE IF NOT EXISTS consult_type_configs (
+    id SERIAL PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    label TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '📋',
+    color TEXT NOT NULL DEFAULT '#6b7280',
+    text_color TEXT DEFAULT 'white',
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS consult_flow_rules (
+    id SERIAL PRIMARY KEY,
+    from_status TEXT NOT NULL,
+    to_type_key TEXT NOT NULL,
+    delay_days INTEGER DEFAULT 0,
+    is_default BOOLEAN DEFAULT false,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(from_status, to_type_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cfr_from ON consult_flow_rules(from_status);
+
+-- Seed: 23 nút tư vấn
+INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order) VALUES
+    ('lam_quen_tuong_tac', 'Làm Quen Tương Tác', '👋', '#14b8a6', 'white', 1),
+    ('goi_dien', 'Gọi Điện', '📞', '#3b82f6', 'white', 2),
+    ('nhan_tin', 'Nhắn Tin', '💬', '#8b5cf6', 'white', 3),
+    ('tuong_tac_ket_noi', 'Tương Tác Kết Nối Lại', '🔗', '#6366f1', 'white', 4),
+    ('gap_truc_tiep', 'Gặp Trực Tiếp', '🤝', '#10b981', 'white', 5),
+    ('gui_bao_gia', 'Gửi Báo Giá', '📄', '#f59e0b', 'white', 6),
+    ('gui_mau', 'Gửi Mẫu Vải/Áo', '👔', '#ec4899', 'white', 7),
+    ('thiet_ke', 'Thiết Kế', '🎨', '#6366f1', 'white', 8),
+    ('bao_sua', 'Sửa Thiết Kế', '🔧', '#ef4444', 'white', 9),
+    ('gui_stk_coc', 'Gửi STK Cọc', '🏦', '#f59e0b', 'white', 10),
+    ('giuc_coc', 'Giục Cọc', '⏰', '#ea580c', 'white', 11),
+    ('dat_coc', 'Đặt Cọc', '💵', '#f97316', 'white', 12),
+    ('chot_don', 'Chốt Đơn', '✅', '#22c55e', 'white', 13),
+    ('dang_san_xuat', 'Đang Sản Xuất', '🏭', '#8b5cf6', 'white', 14),
+    ('hoan_thanh', 'Hoàn Thành Đơn', '🏆', '#0d9488', 'white', 15),
+    ('sau_ban_hang', 'Chăm Sóc Sau Bán', '📦', '#0ea5e9', 'white', 16),
+    ('cap_cuu_sep', 'Cấp Cứu Sếp', '🚨', '#ef4444', 'white', 17),
+    ('huy_coc', 'Hủy Cọc', '🚫', '#dc2626', 'white', 18),
+    ('hoan_thanh_cap_cuu', 'Hoàn Thành Cấp Cứu', '🏥', '#122546', '#fad24c', 19),
+    ('huy', 'Hủy Khách', '❌', '#dc2626', 'white', 20),
+    ('giam_gia', 'Giảm Giá', '🎁', '#e11d48', 'white', 21),
+    ('tu_van_lai', 'Tư Vấn Lại', '🔄', '#0891b2', 'white', 22),
+    ('gui_ct_kh_cu', 'Gửi Chương Trình KH Cũ', '🎟️', '#7c3aed', 'white', 23)
+ON CONFLICT (key) DO NOTHING;
+
+-- Seed: Quy tắc liên kết (from_status → to_type_key)
+-- dang_tu_van (Mặc định / Khách mới)
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('dang_tu_van', 'lam_quen_tuong_tac', true, 1),
+    ('dang_tu_van', 'goi_dien', false, 2),
+    ('dang_tu_van', 'nhan_tin', false, 3),
+    ('dang_tu_van', 'gap_truc_tiep', false, 4),
+    ('dang_tu_van', 'gui_bao_gia', false, 5),
+    ('dang_tu_van', 'gui_mau', false, 6),
+    ('dang_tu_van', 'thiet_ke', false, 7),
+    ('dang_tu_van', 'bao_sua', false, 8),
+    ('dang_tu_van', 'gui_stk_coc', false, 9),
+    ('dang_tu_van', 'giuc_coc', false, 10),
+    ('dang_tu_van', 'dat_coc', false, 11),
+    ('dang_tu_van', 'cap_cuu_sep', false, 12),
+    ('dang_tu_van', 'huy', false, 13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- lam_quen_tuong_tac
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('lam_quen_tuong_tac', 'lam_quen_tuong_tac', true, 1),
+    ('lam_quen_tuong_tac', 'goi_dien', false, 2),
+    ('lam_quen_tuong_tac', 'nhan_tin', false, 3),
+    ('lam_quen_tuong_tac', 'gap_truc_tiep', false, 4),
+    ('lam_quen_tuong_tac', 'gui_bao_gia', false, 5),
+    ('lam_quen_tuong_tac', 'gui_mau', false, 6),
+    ('lam_quen_tuong_tac', 'thiet_ke', false, 7)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- gui_stk_coc
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('gui_stk_coc', 'giuc_coc', true, 1),
+    ('gui_stk_coc', 'dat_coc', false, 2),
+    ('gui_stk_coc', 'nhan_tin', false, 3),
+    ('gui_stk_coc', 'cap_cuu_sep', false, 4)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- dat_coc
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('dat_coc', 'chot_don', true, 1),
+    ('dat_coc', 'cap_cuu_sep', false, 2),
+    ('dat_coc', 'huy_coc', false, 3)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- chot_don
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('chot_don', 'dang_san_xuat', false, 1),
+    ('chot_don', 'hoan_thanh', true, 2),
+    ('chot_don', 'cap_cuu_sep', false, 3)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- hoan_thanh
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('hoan_thanh', 'sau_ban_hang', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- sau_ban_hang
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('sau_ban_hang', 'tuong_tac_ket_noi', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- tuong_tac_ket_noi
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('tuong_tac_ket_noi', 'gui_ct_kh_cu', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- gui_ct_kh_cu
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('gui_ct_kh_cu', 'lam_quen_tuong_tac', false, 1),
+    ('gui_ct_kh_cu', 'goi_dien', false, 2),
+    ('gui_ct_kh_cu', 'nhan_tin', false, 3),
+    ('gui_ct_kh_cu', 'gap_truc_tiep', false, 4),
+    ('gui_ct_kh_cu', 'gui_bao_gia', false, 5),
+    ('gui_ct_kh_cu', 'gui_mau', false, 6),
+    ('gui_ct_kh_cu', 'thiet_ke', false, 7),
+    ('gui_ct_kh_cu', 'bao_sua', false, 8),
+    ('gui_ct_kh_cu', 'gui_stk_coc', false, 9),
+    ('gui_ct_kh_cu', 'giuc_coc', false, 10),
+    ('gui_ct_kh_cu', 'dat_coc', false, 11)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- huy_coc
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('huy_coc', 'tuong_tac_ket_noi', false, 1),
+    ('huy_coc', 'nhan_tin', true, 2),
+    ('huy_coc', 'goi_dien', false, 3),
+    ('huy_coc', 'gap_truc_tiep', false, 4),
+    ('huy_coc', 'cap_cuu_sep', false, 5)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- giam_gia
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('giam_gia', 'goi_dien', false, 1),
+    ('giam_gia', 'nhan_tin', false, 2),
+    ('giam_gia', 'gap_truc_tiep', false, 3),
+    ('giam_gia', 'gui_bao_gia', false, 4),
+    ('giam_gia', 'gui_mau', false, 5),
+    ('giam_gia', 'thiet_ke', false, 6),
+    ('giam_gia', 'bao_sua', false, 7),
+    ('giam_gia', 'gui_stk_coc', false, 8),
+    ('giam_gia', 'giuc_coc', false, 9),
+    ('giam_gia', 'dat_coc', false, 10)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- tu_van_lai (sếp không duyệt hủy)
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('tu_van_lai', 'giam_gia', true, 1),
+    ('tu_van_lai', 'thiet_ke', false, 2)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- duyet_huy
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('duyet_huy', 'nhan_tin', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- hoan_thanh_cap_cuu (override)
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('hoan_thanh_cap_cuu', 'giam_gia', true, 1),
+    ('hoan_thanh_cap_cuu', 'lam_quen_tuong_tac', false, 2),
+    ('hoan_thanh_cap_cuu', 'goi_dien', false, 3),
+    ('hoan_thanh_cap_cuu', 'nhan_tin', false, 4),
+    ('hoan_thanh_cap_cuu', 'gap_truc_tiep', false, 5),
+    ('hoan_thanh_cap_cuu', 'gui_bao_gia', false, 6),
+    ('hoan_thanh_cap_cuu', 'gui_mau', false, 7),
+    ('hoan_thanh_cap_cuu', 'thiet_ke', false, 8),
+    ('hoan_thanh_cap_cuu', 'bao_sua', false, 9),
+    ('hoan_thanh_cap_cuu', 'gui_stk_coc', false, 10),
+    ('hoan_thanh_cap_cuu', 'giuc_coc', false, 11),
+    ('hoan_thanh_cap_cuu', 'dat_coc', false, 12)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- pending_emergency (override: chỉ CCS)
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('pending_emergency', 'cap_cuu_sep', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- cancel_auto_revert (override: chỉ Hủy Khách)
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('cancel_auto_revert', 'huy', true, 1)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Gọi Điện → same buttons as dang_tu_van
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('goi_dien','lam_quen_tuong_tac',true,1),('goi_dien','goi_dien',false,2),('goi_dien','nhan_tin',false,3),
+    ('goi_dien','gap_truc_tiep',false,4),('goi_dien','gui_bao_gia',false,5),('goi_dien','gui_mau',false,6),
+    ('goi_dien','thiet_ke',false,7),('goi_dien','bao_sua',false,8),('goi_dien','gui_stk_coc',false,9),
+    ('goi_dien','giuc_coc',false,10),('goi_dien','dat_coc',false,11),('goi_dien','cap_cuu_sep',false,12),('goi_dien','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Nhắn Tin
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('nhan_tin','lam_quen_tuong_tac',true,1),('nhan_tin','goi_dien',false,2),('nhan_tin','nhan_tin',false,3),
+    ('nhan_tin','gap_truc_tiep',false,4),('nhan_tin','gui_bao_gia',false,5),('nhan_tin','gui_mau',false,6),
+    ('nhan_tin','thiet_ke',false,7),('nhan_tin','bao_sua',false,8),('nhan_tin','gui_stk_coc',false,9),
+    ('nhan_tin','giuc_coc',false,10),('nhan_tin','dat_coc',false,11),('nhan_tin','cap_cuu_sep',false,12),('nhan_tin','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Gặp Trực Tiếp
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('gap_truc_tiep','lam_quen_tuong_tac',true,1),('gap_truc_tiep','goi_dien',false,2),('gap_truc_tiep','nhan_tin',false,3),
+    ('gap_truc_tiep','gap_truc_tiep',false,4),('gap_truc_tiep','gui_bao_gia',false,5),('gap_truc_tiep','gui_mau',false,6),
+    ('gap_truc_tiep','thiet_ke',false,7),('gap_truc_tiep','bao_sua',false,8),('gap_truc_tiep','gui_stk_coc',false,9),
+    ('gap_truc_tiep','giuc_coc',false,10),('gap_truc_tiep','dat_coc',false,11),('gap_truc_tiep','cap_cuu_sep',false,12),('gap_truc_tiep','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Gửi Báo Giá
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('gui_bao_gia','lam_quen_tuong_tac',true,1),('gui_bao_gia','goi_dien',false,2),('gui_bao_gia','nhan_tin',false,3),
+    ('gui_bao_gia','gap_truc_tiep',false,4),('gui_bao_gia','gui_bao_gia',false,5),('gui_bao_gia','gui_mau',false,6),
+    ('gui_bao_gia','thiet_ke',false,7),('gui_bao_gia','bao_sua',false,8),('gui_bao_gia','gui_stk_coc',false,9),
+    ('gui_bao_gia','giuc_coc',false,10),('gui_bao_gia','dat_coc',false,11),('gui_bao_gia','cap_cuu_sep',false,12),('gui_bao_gia','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Gửi Mẫu Vải/Áo
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('gui_mau','lam_quen_tuong_tac',true,1),('gui_mau','goi_dien',false,2),('gui_mau','nhan_tin',false,3),
+    ('gui_mau','gap_truc_tiep',false,4),('gui_mau','gui_bao_gia',false,5),('gui_mau','gui_mau',false,6),
+    ('gui_mau','thiet_ke',false,7),('gui_mau','bao_sua',false,8),('gui_mau','gui_stk_coc',false,9),
+    ('gui_mau','giuc_coc',false,10),('gui_mau','dat_coc',false,11),('gui_mau','cap_cuu_sep',false,12),('gui_mau','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Thiết Kế
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('thiet_ke','lam_quen_tuong_tac',true,1),('thiet_ke','goi_dien',false,2),('thiet_ke','nhan_tin',false,3),
+    ('thiet_ke','gap_truc_tiep',false,4),('thiet_ke','gui_bao_gia',false,5),('thiet_ke','gui_mau',false,6),
+    ('thiet_ke','thiet_ke',false,7),('thiet_ke','bao_sua',false,8),('thiet_ke','gui_stk_coc',false,9),
+    ('thiet_ke','giuc_coc',false,10),('thiet_ke','dat_coc',false,11),('thiet_ke','cap_cuu_sep',false,12),('thiet_ke','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 1: Sửa Thiết Kế
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('bao_sua','lam_quen_tuong_tac',true,1),('bao_sua','goi_dien',false,2),('bao_sua','nhan_tin',false,3),
+    ('bao_sua','gap_truc_tiep',false,4),('bao_sua','gui_bao_gia',false,5),('bao_sua','gui_mau',false,6),
+    ('bao_sua','thiet_ke',false,7),('bao_sua','bao_sua',false,8),('bao_sua','gui_stk_coc',false,9),
+    ('bao_sua','giuc_coc',false,10),('bao_sua','dat_coc',false,11),('bao_sua','cap_cuu_sep',false,12),('bao_sua','huy',false,13)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 4: Giục Cọc
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('giuc_coc','giuc_coc',true,1),('giuc_coc','dat_coc',false,2),('giuc_coc','nhan_tin',false,3),('giuc_coc','cap_cuu_sep',false,4)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Loại 7: Đang Sản Xuất
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('dang_san_xuat','dang_san_xuat',false,1),('dang_san_xuat','hoan_thanh',true,2),('dang_san_xuat','cap_cuu_sep',false,3)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;

@@ -504,92 +504,115 @@ async function khoaTKNVRoutes(fastify, options) {
             return { pending: [], total: 0, shownToday: true };
         }
 
-        // Load penalty config
-        const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
-        const GPC = {};
-        _gpcRows.forEach(r => { GPC[r.key] = Number(r.amount) || 0; });
-        const todayPenaltyKhoa = GPC.cv_khoa_khong_nop || 50000;
-        const todayPenaltyChuoi = GPC.cv_chuoi_khong_nop || 50000;
+        // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (không phải tổng cộng tất cả)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-        // Get user's department_joined_at for filtering
-        const userInfo = userCheck;
-        const deptJoinedAt = userInfo?.department_joined_at || null;
-
-        // Source 1: Support requests (for managers)
+        // ===== Source 1: Support requests (for managers) — ngày hôm qua =====
         const supportPending = await db.all(
             `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                     u.full_name as requested_by
              FROM task_support_requests sr
              LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date >= NOW() - INTERVAL '90 days'
+             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date = $2::date
              ORDER BY sr.task_date`,
-            [userId]
+            [userId, yesterdayStr]
         );
 
-        // Source 2: CV Khóa unreported (for NV)
-        const lockExpired = await db.all(
-            `SELECT ltc.lock_task_id, lt.task_name, ltc.completion_date::text as task_date
+        // ===== Source 2: CV Khóa — penalty records ngày hôm qua =====
+        const khoaRecords = await db.all(
+            `SELECT lt.task_name, ltc.completion_date::text as task_date,
+                    ltc.penalty_amount, ltc.redo_count, ltc.content as penalty_reason
              FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.redo_count >= 0 AND ltc.completion_date >= NOW() - INTERVAL '90 days'
-               AND ($2::timestamp IS NULL OR ltc.completion_date >= $2::date)
+               AND ltc.completion_date = $2::date
              ORDER BY ltc.completion_date DESC`,
-            [userId, deptJoinedAt]
+            [userId, yesterdayStr]
         );
-        const khoaPending = [];
-        for (const lp of lockExpired) {
-            const resub = await db.get(
-                `SELECT id FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date::text = $3
-                   AND status IN ('pending','approved') AND redo_count > 0`,
-                [lp.lock_task_id, userId, lp.task_date]
-            );
-            if (!resub) {
-                khoaPending.push({
-                    task_name: lp.task_name, task_date: lp.task_date,
-                    penalty_amount: todayPenaltyKhoa,
-                    penalty_reason: `Chưa báo cáo lại đến ${todayStr.split('-').reverse().join('/')}`
-                });
-            }
-        }
 
-        // Source 3: CV Chuỗi unreported (for NV)
-        const chainPending = [];
+        const khoaPending = khoaRecords
+            .filter(r => r.redo_count === 0 || r.redo_count === -2)
+            .map(r => ({
+                task_name: r.task_name,
+                task_date: r.task_date,
+                penalty_amount: r.penalty_amount,
+                penalty_reason: r.redo_count === -2
+                    ? (r.penalty_reason || `Phạt chồng: ${r.task_name}`)
+                    : `Không nộp báo cáo: ${r.task_name}`
+            }));
+
+        // ===== Source 3: CV Chuỗi — penalty records ngày hôm qua =====
+        let chainPending = [];
         try {
-            const chainExpired = await db.all(
-                `SELECT cc.chain_item_id, ci.task_name, ci.deadline::text as task_date,
+            const chainRecords = await db.all(
+                `SELECT ci.task_name,
+                        (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
+                        cc.penalty_amount, cc.redo_count, cc.content as penalty_reason,
                         cins.chain_name
                  FROM chain_task_completions cc
                  JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
                  JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                  WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-                   AND cc.redo_count >= 0 AND ci.deadline >= NOW() - INTERVAL '90 days'
-                   AND ($2::timestamp IS NULL OR ci.deadline >= $2::date)
-                 ORDER BY ci.deadline DESC`,
-                [userId, deptJoinedAt]
+                   AND cc.redo_count IN (0, -2)
+                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $2::date
+                 ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) DESC`,
+                [userId, yesterdayStr]
             );
-            for (const ce of chainExpired) {
-                const resub = await db.get(
-                    `SELECT id FROM chain_task_completions
-                     WHERE chain_item_id = $1 AND user_id = $2
-                       AND status IN ('pending','approved') AND redo_count > 0`,
-                    [ce.chain_item_id, userId]
-                );
-                if (!resub) {
-                    chainPending.push({
-                        task_name: `${ce.chain_name} — ${ce.task_name}`,
-                        task_date: ce.task_date,
-                        penalty_amount: todayPenaltyChuoi,
-                        penalty_reason: `Chưa nộp đến ${todayStr.split('-').reverse().join('/')}`
-                    });
-                }
-            }
+
+            chainPending = chainRecords.map(r => ({
+                task_name: r.chain_name ? `${r.chain_name} — ${r.task_name}` : r.task_name,
+                task_date: r.task_date,
+                penalty_amount: r.penalty_amount,
+                penalty_reason: r.redo_count === -2
+                    ? (r.penalty_reason || `Phạt chồng: ${r.task_name}`)
+                    : `Chưa nộp báo cáo CV chuỗi: ${r.task_name}`
+            }));
         } catch(e) {}
 
-        const pending = [...supportPending, ...khoaPending, ...chainPending];
+        // ===== Source 4: Cấp cứu (for managers) — ngày hôm qua =====
+        let emergencyPending = [];
+        try {
+            const emRecords = await db.all(
+                `SELECT e.id, e.reason, e.penalty_amount, e.created_at::text as task_date,
+                        c.customer_name
+                 FROM emergencies e
+                 LEFT JOIN customers c ON c.id = e.customer_id
+                 WHERE COALESCE(e.handover_to, e.handler_id) = $1
+                   AND e.status = 'pending' AND e.penalty_applied = true
+                   AND e.created_at::date = $2::date`,
+                [userId, yesterdayStr]
+            );
+            emergencyPending = emRecords.map(r => ({
+                task_name: `Cấp cứu: ${r.customer_name || r.reason || 'KH'}`,
+                task_date: r.task_date,
+                penalty_amount: r.penalty_amount,
+                penalty_reason: 'Không xử lý cấp cứu đúng hạn'
+            }));
+        } catch(e) {}
+
+        // ===== Source 5: KH chưa xử lý (for NV) — ngày hôm qua =====
+        let custPending = [];
+        try {
+            const custRecords = await db.all(
+                `SELECT cpr.penalty_date::text as task_date, cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount
+                 FROM customer_penalty_records cpr
+                 WHERE cpr.user_id = $1 AND cpr.penalty_date = $2::date
+                 ORDER BY cpr.penalty_date DESC`,
+                [userId, yesterdayStr]
+            );
+            custPending = custRecords.map(r => ({
+                task_name: `KH chưa xử lý: ${r.crm_type} (${r.unhandled_count} KH)`,
+                task_date: r.task_date,
+                penalty_amount: r.penalty_amount,
+                penalty_reason: `Không xử lý ${r.unhandled_count} khách hàng trong ngày`
+            }));
+        } catch(e) {}
+
+        const pending = [...supportPending, ...khoaPending, ...chainPending, ...emergencyPending, ...custPending];
         const total = pending.reduce((s, p) => s + (p.penalty_amount || 0), 0);
-        return { pending, total };
+        return { pending, total, penaltyDate: yesterdayStr };
     });
 
     // POST: Acknowledge penalties (NV bấm "Tôi đã biết" → mở khóa)
@@ -689,14 +712,14 @@ async function khoaTKNVRoutes(fastify, options) {
 
         if (scopeDeptIds.length === 0) return { penalties: [], total: 0 };
 
-        // Always show all active penalties from last 90 days
-        // (lastViewDate only controls whether popup auto-shows, not which penalties to include)
-        const d90 = new Date(); d90.setDate(d90.getDate() - 90);
-        const sinceDate = d90.toISOString().split('T')[0];
+        // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (khớp với NV popup và trang thống kê)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
         const deptPlaceholders = scopeDeptIds.map((_, i) => `$${i + 3}`).join(',');
-        const baseParams = [sinceDate, userId, ...scopeDeptIds];
+        const baseParams = [yesterdayStr, userId, ...scopeDeptIds];
 
-        // Source 1: task_support_requests (expired today)
+        // Source 1: task_support_requests — ngày hôm qua
         const srPenalties = await db.all(
             `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
                     sr.manager_id as penalized_user_id, m.full_name as penalized_name, m.username as penalized_username,
@@ -705,13 +728,13 @@ async function khoaTKNVRoutes(fastify, options) {
              FROM task_support_requests sr
              LEFT JOIN users m ON sr.manager_id = m.id
              LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.status = 'expired' AND sr.task_date >= $1
+             WHERE sr.status = 'expired' AND sr.task_date = $1::date
                AND sr.manager_id != $2 AND m.department_id IN (${deptPlaceholders})
              ORDER BY sr.task_date`,
             baseParams
         );
 
-        // Source 2: lock_task_completions (penalty_applied today or expired today)
+        // Source 2: lock_task_completions — ngày hôm qua
         const lockPenalties = await db.all(
             `SELECT ltc.user_id as penalized_user_id, lt.task_name, ltc.completion_date::text as task_date,
                     ltc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
@@ -720,13 +743,13 @@ async function khoaTKNVRoutes(fastify, options) {
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              JOIN users u ON u.id = ltc.user_id
              WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.completion_date >= $1
+               AND ltc.completion_date = $1::date
                AND ltc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
              ORDER BY ltc.completion_date`,
             baseParams
         );
 
-        // Source 3: chain_task_completions (expired today)
+        // Source 3: chain_task_completions — ngày hôm qua
         let chainPenalties = [];
         try {
             chainPenalties = await db.all(
@@ -740,7 +763,7 @@ async function khoaTKNVRoutes(fastify, options) {
                  JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                  JOIN users u ON u.id = cc.user_id
                  WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) >= $1::date
+                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $1::date
                    AND cc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
                  ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)`,
                 baseParams
@@ -804,7 +827,7 @@ async function khoaTKNVRoutes(fastify, options) {
             departments = await db.all('SELECT id, name, parent_id FROM departments');
         }
 
-        return { penalties: allPenalties, total, departments };
+        return { penalties: allPenalties, total, departments, penaltyDate: yesterdayStr };
     });
 
     // POST: Mark manager popup as shown today
