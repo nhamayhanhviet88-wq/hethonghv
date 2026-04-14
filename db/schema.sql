@@ -1545,3 +1545,7 @@ INSERT INTO app_config (key, value) VALUES (
 UPDATE consult_type_configs SET rule_phase='tuvan_kh' WHERE rule_phase IS NULL AND section_order BETWEEN 1 AND 8;
 UPDATE consult_type_configs SET rule_phase='sauban' WHERE rule_phase IS NULL AND section_order BETWEEN 9 AND 12;
 UPDATE consult_type_configs SET rule_phase='huy_capuu' WHERE rule_phase IS NULL AND section_order BETWEEN 13 AND 99;
+
+-- Migration: Add section_group for grouping multiple buttons into one Loại
+ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_group TEXT;
+ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_group_label TEXT;

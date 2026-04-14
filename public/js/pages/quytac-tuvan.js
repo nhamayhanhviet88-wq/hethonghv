@@ -62,6 +62,7 @@ let _qtAllRules = {};
 let _qtStages = [];
 let _qtSections = [];      // dynamic sections with section_order
 let _qtUnsectioned = [];   // types without a section
+let _qtGroupMembers = [];  // buttons belonging to a group (section_order=0)
 let _qtRulePhases = [];    // dynamic phase groups (PHẦN 1, 2, 3...)
 let _qtIsGD = false;
 let _qtActiveTab = 'buttons';
@@ -111,6 +112,7 @@ async function _qtLoadData() {
     _qtStages = stagesData.stages || [];
     _qtSections = sectionsData.sections || [];
     _qtUnsectioned = sectionsData.unsectioned || [];
+    _qtGroupMembers = sectionsData.groupMembers || [];
     _qtRulePhases = phasesData.phases || [];
     _qtRulePhases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     // Sort stages by sort_order
@@ -664,19 +666,34 @@ function _qtRenderRules() {
 
 // Render a single section accordion item
 function _qtRenderSectionAccordion(sec) {
+    // Check if this is a group leader
+    const isGroup = !!sec.section_group;
+    const groupKeys = isGroup ? _qtGetGroupKeys(sec.section_group) : [sec.key];
     const rules = _qtAllRules[sec.key];
     if (!rules || rules.length === 0) return '';
 
-    const tp = _qtAllTypes.find(x => x.key === sec.key);
-    const label = tp ? tp.label : sec.label;
+    let label, tooltip = '';
+    if (isGroup && sec.section_group_label) {
+        label = sec.section_group_label;
+        const memberLabels = groupKeys.map(k => {
+            const t = _qtAllTypes.find(x => x.key === k);
+            return t ? `${t.icon} ${t.label}` : k;
+        }).join(', ');
+        tooltip = `title=\"Gồm: ${memberLabels}\"`;
+    } else {
+        const tp = _qtAllTypes.find(x => x.key === sec.key);
+        label = tp ? tp.label : sec.label;
+    }
     const sectionId = `qtRule_${sec.key}`;
+    const editKey = isGroup ? sec.section_group : sec.key;
 
     let html = `
         <div class="qt-flow-section" id="${sectionId}">
             <div class="qt-flow-header" onclick="_qtToggleSection(this)">
                 <div class="qt-flow-title">
                     <span class="qt-loai-badge" style="background:#3b82f6;cursor:${_qtIsGD ? 'pointer' : 'default'};" ${_qtIsGD ? `onclick="event.stopPropagation();_qtEditSectionOrder('${sec.key}',${sec.section_order})" title="Click để đổi STT"` : ''}>Loại ${sec.section_order}</span>
-                    Khi ấn: ${label}
+                    <span ${tooltip}>Khi ấn: ${label}</span>
+                    ${isGroup ? `<span style="font-size:10px;background:#8b5cf6;color:white;padding:1px 6px;border-radius:8px;">🔗 ${groupKeys.length} nút</span>` : ''}
                     <span class="qt-flow-count">${rules.length} nút</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -707,6 +724,20 @@ function _qtRenderSectionAccordion(sec) {
     }
     html += '</div></div></div>';
     return html;
+}
+
+// Get all keys in a section group
+function _qtGetGroupKeys(groupId) {
+    if (!groupId) return [];
+    const keys = [];
+    // Leader (section_order > 0)
+    const leader = _qtSections.find(s => s.section_group === groupId);
+    if (leader) keys.push(leader.key);
+    // Members (section_order = 0)
+    for (const m of _qtGroupMembers) {
+        if (m.section_group === groupId && !keys.includes(m.key)) keys.push(m.key);
+    }
+    return keys;
 }
 
 // ========== PHASE MANAGEMENT ==========
@@ -1019,16 +1050,22 @@ async function _qtSaveSectionEdit(key, oldOrder) {
 }
 
 async function _qtDeleteSection(key) {
+    const sec = _qtSections.find(s => s.key === key);
+    const isGroup = sec && sec.section_group;
+    const groupKeys = isGroup ? _qtGetGroupKeys(sec.section_group) : [key];
     const tp = _qtAllTypes.find(x => x.key === key);
-    const label = tp ? `${tp.icon} ${tp.label}` : key;
+    const displayLabel = (isGroup && sec.section_group_label) ? sec.section_group_label : (tp ? `${tp.icon} ${tp.label}` : key);
     const ruleCount = (_qtAllRules[key] || []).length;
-    if (!confirm(`🗑️ Xóa loại "${label}"?\n\n❌ Xóa toàn bộ ${ruleCount} flow rules "Khi ấn: ${tp ? tp.label : key}"\n❌ Xóa khỏi phần hiện tại\n✅ Data tư vấn cũ giữ nguyên\n\n⚠️ Không thể hoàn tác!`)) return;
 
-    // 1. Delete all flow rules for this button
-    await apiCall(`/api/consult-flow-rules/${key}`, 'DELETE');
-    // 2. Reset section_order to 0 + clear phase
-    await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0 });
-    await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: null });
+    if (!confirm(`🗑️ Xóa loại "${displayLabel}"?${isGroup ? `\n🔗 Gồm ${groupKeys.length} nút trong nhóm` : ''}\n\n❌ Xóa toàn bộ ${ruleCount} flow rules\n❌ Xóa khỏi phần hiện tại\n✅ Data tư vấn cũ giữ nguyên\n\n⚠️ Không thể hoàn tác!`)) return;
+
+    for (const k of groupKeys) {
+        await apiCall(`/api/consult-flow-rules/${k}`, 'DELETE');
+        await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0 });
+        await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null });
+        // Clear group fields
+        await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null });
+    }
 
     showToast('✅ Đã xóa loại hoàn toàn!', 'success');
     await apiCall('/api/consult-sections/reindex', 'POST');
@@ -1192,7 +1229,13 @@ async function _qtSaveRules(fromStatus) {
         });
     });
 
-    await apiCall(`/api/consult-flow-rules/${fromStatus}`, 'PUT', { rules });
+    // If this is a group leader, update ALL members' rules
+    const sec = _qtSections.find(s => s.key === fromStatus);
+    const groupKeys = (sec && sec.section_group) ? _qtGetGroupKeys(sec.section_group) : [fromStatus];
+    for (const key of groupKeys) {
+        await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', { rules });
+    }
+
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã lưu quy tắc!', 'success');
     await _qtLoadData();
@@ -1227,8 +1270,12 @@ function _qtShowAddRuleGroupModal() {
     overlay.innerHTML = `
         <div class="qt-modal">
             <h3>➕ Thêm nhóm quy tắc mới</h3>
-            <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Chọn nút chưa có loại → tạo section "Khi ấn: ..." + mở cấu hình</p>
-            <div class="qt-rule-list" style="max-height:300px;overflow-y:auto;">${listHTML}</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px;">Chọn 1 nút → tạo loại riêng. Chọn 2+ nút → gom thành 1 loại chung.</p>
+            <div class="qt-rule-list" id="qtAddRuleList" style="max-height:300px;overflow-y:auto;">${listHTML}</div>
+            <div id="qtGroupNameRow" style="margin-top:12px;display:none;padding:10px;background:#f0f9ff;border:2px solid #3b82f6;border-radius:10px;">
+                <label style="font-size:13px;font-weight:600;color:#1e40af;">🔗 Tên loại nhóm:</label>
+                <input type="text" id="qtGroupName" placeholder="VD: Tư Vấn Trực Tiếp" style="width:100%;padding:8px 12px;font-size:14px;font-weight:600;border:1px solid #93c5fd;border-radius:8px;margin-top:4px;">
+            </div>
             <div style="margin-top:12px;">
                 <label style="font-size:13px;font-weight:600;color:#334155;">Thuộc Phần:</label>
                 <select id="qtNewRulePhase" style="margin-top:4px;">
@@ -1247,40 +1294,70 @@ function _qtShowAddRuleGroupModal() {
         </div>
     `;
     document.body.appendChild(overlay);
+
+    // Show/hide group name input based on checkbox count
+    overlay.querySelectorAll('.qt-ri-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const checked = overlay.querySelectorAll('.qt-ri-check:checked').length;
+            document.getElementById('qtGroupNameRow').style.display = checked >= 2 ? 'block' : 'none';
+        });
+    });
 }
 
 async function _qtAddRuleGroup() {
-    const items = document.querySelectorAll('.qt-rule-list .qt-rule-item');
+    const items = document.querySelectorAll('#qtAddRuleList .qt-rule-item');
     const selected = [];
     items.forEach(item => {
         if (item.querySelector('.qt-ri-check').checked) selected.push(item.dataset.key);
     });
     if (selected.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
 
+    const isGroup = selected.length >= 2;
+    const groupName = isGroup ? (document.getElementById('qtGroupName').value || '').trim() : '';
+    if (isGroup && !groupName) return showToast('❌ Nhập tên loại nhóm!', 'error');
+
     let startOrder = parseInt(document.getElementById('qtNewRuleOrder').value) || 1;
     const selectedPhase = document.getElementById('qtNewRulePhase').value || null;
+    const groupId = isGroup ? `grp_${Date.now()}` : null;
 
-    for (const key of selected) {
-        // Create self-referencing flow rule if missing
+    if (isGroup) {
+        // GROUP MODE: first button = leader (has section_order), rest = members (section_order=0)
+        const leaderKey = selected[0];
+
+        // Create empty flow rules for ALL members (will be configured via Sửa)
+        for (const key of selected) {
+            await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
+                rules: [{ to_type_key: key, is_default: key === leaderKey, delay_days: 0, sort_order: selected.indexOf(key) + 1 }]
+            });
+            // Set group for all
+            await apiCall(`/api/consult-types/${key}`, 'PATCH', {
+                section_group: groupId,
+                section_group_label: key === leaderKey ? groupName : null
+            });
+        }
+
+        // Only leader gets section_order
+        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder });
+        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+
+    } else {
+        // SINGLE MODE: same as before
+        const key = selected[0];
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }]
         });
-        // Set section order + phase
         await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
         if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
-        startOrder++;
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
-    showToast(`✅ Đã thêm ${selected.length} nhóm quy tắc!`, 'success');
+    showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
     await apiCall('/api/consult-sections/reindex', 'POST');
     await _qtLoadData();
     _qtSwitchTab('rules');
 
-    // Auto-open Sửa modal for the first added item
-    if (selected.length === 1) {
-        setTimeout(() => _qtShowEditRulesModal(selected[0]), 300);
-    }
+    // Auto-open Sửa modal for the first/leader item
+    setTimeout(() => _qtShowEditRulesModal(selected[0]), 300);
 }
 
 // ========== HELPERS ==========

@@ -140,7 +140,13 @@ module.exports = async function (fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { section_order } = req.body;
-        if (!section_order || section_order < 1) return reply.code(400).send({ error: 'Invalid section_order' });
+        if (section_order === undefined || section_order === null || section_order < 0) return reply.code(400).send({ error: 'Invalid section_order' });
+
+        if (section_order === 0) {
+            // Just reset to 0 (remove from sections)
+            await db.run(`UPDATE consult_type_configs SET section_order = 0 WHERE key = $1`, [key]);
+            return { success: true };
+        }
 
         // Shift existing sections at >= this position down by 1
         await db.run(
@@ -189,21 +195,29 @@ module.exports = async function (fastify) {
     fastify.get('/api/consult-sections', async (req, reply) => {
         const rows = await db.all(`
             SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order, ctc.rule_phase,
+                   ctc.section_group, ctc.section_group_label,
                    (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key) as rule_count
             FROM consult_type_configs ctc
             INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key
             WHERE ctc.section_order > 0
             ORDER BY ctc.section_order
         `);
-        // Also return types WITHOUT a section (section_order = 0 or NULL)
+        // Group members: buttons with section_group but section_order = 0
+        const groupMembers = await db.all(`
+            SELECT key, label, icon, color, section_group
+            FROM consult_type_configs
+            WHERE section_group IS NOT NULL AND (section_order IS NULL OR section_order = 0) AND is_active = true
+        `);
+        // Also return types WITHOUT a section (section_order = 0 or NULL, no group)
         const unsectioned = await db.all(`
             SELECT ctc.key, ctc.label, ctc.icon, ctc.color
             FROM consult_type_configs ctc
             WHERE (ctc.section_order IS NULL OR ctc.section_order = 0)
             AND ctc.is_active = true
+            AND (ctc.section_group IS NULL OR ctc.section_group = '')
             ORDER BY ctc.sort_order
         `);
-        return { sections: rows, unsectioned };
+        return { sections: rows, unsectioned, groupMembers };
     });
 
     // GET rule phases config
@@ -240,6 +254,22 @@ module.exports = async function (fastify) {
         for (const u of updates) {
             await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2`, [u.rule_phase || null, u.key]);
         }
+        return { success: true };
+    });
+
+    // PATCH update section_group fields for a consult type (GĐ only)
+    fastify.patch('/api/consult-types/:key', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { key } = req.params;
+        const { section_group, section_group_label } = req.body;
+        const sets = [];
+        const vals = [];
+        let idx = 1;
+        if (section_group !== undefined) { sets.push(`section_group = $${idx++}`); vals.push(section_group); }
+        if (section_group_label !== undefined) { sets.push(`section_group_label = $${idx++}`); vals.push(section_group_label); }
+        if (sets.length === 0) return reply.code(400).send({ error: 'Nothing to update' });
+        vals.push(key);
+        await db.run(`UPDATE consult_type_configs SET ${sets.join(', ')} WHERE key = $${idx}`, vals);
         return { success: true };
     });
 };
