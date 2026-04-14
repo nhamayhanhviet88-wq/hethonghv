@@ -1120,17 +1120,16 @@ function _qtRenderFlowchart() {
             const icon = t ? t.icon : '📋';
             const color = t ? t.color : '#6b7280';
             const label = t ? t.label : sec.label || sec.key;
-            // Short label: truncate to 8 chars
-            let short = label.length > 10 ? label.substring(0, 9) + '…' : label;
-            // Check if this is a group with multiple buttons
+            // For grouped sections, use the group label (e.g. "Tư Vấn Khách" instead of "Gọi Điện")
             const isGroup = !!sec.section_group;
             const groupKeys = isGroup ? _qtGetGroupKeys(sec.section_group) : [];
             const multiCount = isGroup ? groupKeys.length : 0;
+            const displayName = (isGroup && sec.section_group_label) ? sec.section_group_label : label;
 
             nodesHtml += `
-                <div class="qt-fc-node" onclick="_qtScrollToRule('${sec.key}')" title="${label}${isGroup ? ' (nhóm ' + multiCount + ' nút)' : ''}">
+                <div class="qt-fc-node" onclick="_qtScrollToRule('${sec.key}')" title="${displayName}${isGroup ? ' (nhóm ' + multiCount + ' nút: ' + groupKeys.map(k => { const gt = _qtAllTypes.find(x => x.key === k); return gt ? gt.label : k; }).join(', ') + ')' : ''}">
                     <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">${icon}</div>
-                    <div class="qt-fc-name">${short}${multiCount > 1 ? ' ×' + multiCount : ''}</div>
+                    <div class="qt-fc-name">${displayName}${multiCount > 1 ? ' ×' + multiCount : ''}</div>
                 </div>
             `;
             if (i < sections.length - 1) nodesHtml += '<div class="qt-fc-connector"></div>';
