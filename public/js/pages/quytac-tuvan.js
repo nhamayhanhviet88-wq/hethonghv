@@ -34,27 +34,6 @@ const STAGE_PRESETS = [
     { id: 'indigo', name: '🧊 Indigo', gradient: 'linear-gradient(135deg,#e0e7ff,#eef2ff)', textColor: '#3730a3', countBg: '#c7d2fe', countColor: '#3730a3' },
 ];
 
-// Flowchart journey definition
-const QT_JOURNEY_NODES = [
-    { key: 'dang_tu_van', icon: '🆕', short: 'Khách Mới' },
-    { key: 'lam_quen_tuong_tac', icon: '👋', short: 'Làm Quen' },
-    { key: 'goi_dien', icon: '📞', short: 'Tư Vấn', multi: true, tooltip: 'Gọi Điện / Nhắn Tin / Gặp TT / Gửi BG / Mẫu / TK / Sửa TK' },
-    { key: 'gui_stk_coc', icon: '🏦', short: 'Gửi STK' },
-    { key: 'giuc_coc', icon: '⏰', short: 'Giục Cọc' },
-    { key: 'dat_coc', icon: '💵', short: 'Đặt Cọc' },
-    { key: 'chot_don', icon: '✅', short: 'Chốt Đơn' },
-    { key: 'dang_san_xuat', icon: '🏭', short: 'Sản Xuất' },
-    { key: 'hoan_thanh', icon: '🏆', short: 'Hoàn Thành' },
-    { key: 'sau_ban_hang', icon: '📦', short: 'Sau Bán' },
-    { key: 'tuong_tac_ket_noi', icon: '🔗', short: 'Kết Nối' },
-    { key: 'gui_ct_kh_cu', icon: '🎟️', short: 'CT KH Cũ' },
-];
-const QT_JOURNEY_BRANCH = [
-    { key: 'huy_coc', icon: '🚫', short: 'Hủy Cọc' },
-    { key: 'cap_cuu_sep', icon: '🚨', short: 'Cấp Cứu' },
-    { key: 'hoan_thanh_cap_cuu', icon: '🏥', short: 'HT Cấp Cứu' },
-    { key: 'tu_van_lai', icon: '🔄', short: 'TV Lại' },
-];
 
 // ========== STATE ==========
 let _qtAllTypes = [];
@@ -1106,44 +1085,83 @@ function _qtToggleSection(header) {
     body.classList.toggle('open', !isOpen);
 }
 
-// ========== FLOWCHART ==========
+// ========== FLOWCHART (DYNAMIC from sections) ==========
 function _qtRenderFlowchart() {
-    let mainNodes = '';
-    for (let i = 0; i < QT_JOURNEY_NODES.length; i++) {
-        const n = QT_JOURNEY_NODES[i];
-        const t = _qtAllTypes.find(x => x.key === n.key);
-        const color = t ? t.color : '#6b7280';
-        mainNodes += `
-            <div class="qt-fc-node" onclick="_qtScrollToRule('${n.key}')" title="${n.tooltip || (t ? t.label : n.short)}">
-                <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">${n.icon}</div>
-                <div class="qt-fc-name">${n.short}${n.multi ? ' ×7' : ''}</div>
-            </div>
-        `;
-        if (i < QT_JOURNEY_NODES.length - 1) mainNodes += '<div class="qt-fc-connector"></div>';
+    // Build journey nodes dynamically from _qtSections (sorted by section_order)
+    // Group by phase for separate rows
+    const phaseMap = new Map(); // phaseId => { phase, sections[] }
+
+    for (const phase of _qtRulePhases) {
+        phaseMap.set(phase.id, { phase, sections: [] });
+    }
+    // Add unphased bucket
+    phaseMap.set('__none__', { phase: null, sections: [] });
+
+    for (const sec of _qtSections) {
+        const phaseId = sec.rule_phase && phaseMap.has(sec.rule_phase) ? sec.rule_phase : '__none__';
+        phaseMap.get(phaseId).sections.push(sec);
     }
 
-    let branchNodes = '';
-    for (let i = 0; i < QT_JOURNEY_BRANCH.length; i++) {
-        const n = QT_JOURNEY_BRANCH[i];
-        const t = _qtAllTypes.find(x => x.key === n.key);
-        const color = t ? t.color : '#ef4444';
-        branchNodes += `
-            <div class="qt-fc-node" onclick="_qtScrollToRule('${n.key}')" title="${t ? t.label : n.short}">
-                <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">${n.icon}</div>
-                <div class="qt-fc-name">${n.short}</div>
+    // Build rows: each phase = a row, first phase = main, rest = branches
+    let rows = [];
+    for (const [phaseId, data] of phaseMap) {
+        if (data.sections.length === 0) continue;
+        rows.push(data);
+    }
+
+    if (rows.length === 0) return '';
+
+    // Render helper for a row of nodes
+    function renderNodeRow(sections) {
+        let nodesHtml = '';
+        for (let i = 0; i < sections.length; i++) {
+            const sec = sections[i];
+            const t = _qtAllTypes.find(x => x.key === sec.key);
+            const icon = t ? t.icon : '📋';
+            const color = t ? t.color : '#6b7280';
+            const label = t ? t.label : sec.label || sec.key;
+            // Short label: truncate to 8 chars
+            let short = label.length > 10 ? label.substring(0, 9) + '…' : label;
+            // Check if this is a group with multiple buttons
+            const isGroup = !!sec.section_group;
+            const groupKeys = isGroup ? _qtGetGroupKeys(sec.section_group) : [];
+            const multiCount = isGroup ? groupKeys.length : 0;
+
+            nodesHtml += `
+                <div class="qt-fc-node" onclick="_qtScrollToRule('${sec.key}')" title="${label}${isGroup ? ' (nhóm ' + multiCount + ' nút)' : ''}">
+                    <div class="qt-fc-circle" style="border-color:${color}40;background:${color}15;">${icon}</div>
+                    <div class="qt-fc-name">${short}${multiCount > 1 ? ' ×' + multiCount : ''}</div>
+                </div>
+            `;
+            if (i < sections.length - 1) nodesHtml += '<div class="qt-fc-connector"></div>';
+        }
+        return nodesHtml;
+    }
+
+    // Main row = first phase row
+    const mainRow = rows[0];
+    const mainNodesHtml = renderNodeRow(mainRow.sections);
+
+    // Branch rows = remaining phases
+    let branchesHtml = '';
+    for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const branchLabel = row.phase ? `↓ ${row.phase.icon || ''} ${row.phase.title}` : '↓ Khác';
+        branchesHtml += `
+            <div class="qt-fc-branch">
+                <div class="qt-fc-branch-label">${branchLabel}</div>
+                <div class="qt-fc-row">${renderNodeRow(row.sections)}</div>
             </div>
         `;
-        if (i < QT_JOURNEY_BRANCH.length - 1) branchNodes += '<div class="qt-fc-connector"></div>';
     }
+
+    const mainTitle = mainRow.phase ? `${mainRow.phase.icon || '—'} ${mainRow.phase.title} — Customer Journey` : '— Luồng Tư Vấn Khách Hàng — Customer Journey';
 
     return `
         <div class="qt-flowchart">
-            <div class="qt-flowchart-title">Luồng Tư Vấn Khách Hàng — Customer Journey</div>
-            <div class="qt-fc-row">${mainNodes}</div>
-            <div class="qt-fc-branch">
-                <div class="qt-fc-branch-label">↓ Nhánh Hủy / Cấp Cứu</div>
-                <div class="qt-fc-row">${branchNodes}</div>
-            </div>
+            <div class="qt-flowchart-title">${mainTitle}</div>
+            <div class="qt-fc-row">${mainNodesHtml}</div>
+            ${branchesHtml}
         </div>
     `;
 }
