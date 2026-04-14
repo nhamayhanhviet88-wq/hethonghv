@@ -44,7 +44,7 @@ let _qtUnsectioned = [];   // types without a section
 let _qtGroupMembers = [];  // buttons belonging to a group (section_order=0)
 let _qtRulePhases = [];    // dynamic phase groups (PHẦN 1, 2, 3...)
 let _qtIsGD = false;
-let _qtActiveTab = 'buttons';
+let _qtActiveTab = localStorage.getItem('qt_active_tab') || 'buttons';
 let _qtSortDebounce = null;
 
 // ========== MAIN ENTRY ==========
@@ -61,8 +61,8 @@ async function renderQuyTacTuVanPage(container) {
                 </span>
             </div>
             <div class="qt-tabs">
-                <div class="qt-tab active" onclick="_qtSwitchTab('buttons')" id="qtTabButtons">📋 Danh Sách Nút (0)</div>
-                <div class="qt-tab" onclick="_qtSwitchTab('rules')" id="qtTabRules">🔄 Quy Tắc Liên Kết</div>
+                <div class="qt-tab${_qtActiveTab === 'buttons' ? ' active' : ''}" onclick="_qtSwitchTab('buttons')" id="qtTabButtons">📋 Danh Sách Nút (0)</div>
+                <div class="qt-tab${_qtActiveTab === 'rules' ? ' active' : ''}" onclick="_qtSwitchTab('rules')" id="qtTabRules">🔄 Quy Tắc Liên Kết</div>
             </div>
             <div class="qt-panel" id="qtPanel">${_qtRenderSkeleton()}</div>
         </div>
@@ -104,6 +104,7 @@ async function _qtLoadData() {
 // ========== TAB SWITCHING ==========
 function _qtSwitchTab(tab) {
     _qtActiveTab = tab;
+    localStorage.setItem('qt_active_tab', tab);
     document.querySelectorAll('.qt-tab').forEach(t => t.classList.remove('active'));
     document.getElementById(tab === 'buttons' ? 'qtTabButtons' : 'qtTabRules').classList.add('active');
     _qtRenderActiveTab();
