@@ -737,7 +737,7 @@ async function _qtEditMaxDays(key, currentVal) {
     try {
         await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: days });
         showToast(`✅ Đã cập nhật giới hạn: ${days > 0 ? days + ' ngày' : 'Không giới hạn'}`);
-        _qtLoadFlowRules();
+        _qtLoadData();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
