@@ -161,6 +161,15 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // PATCH update max_appointment_days for a consult type (GĐ only)
+    fastify.patch('/api/consult-types/:key/max-appointment-days', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const { key } = req.params;
+        const { max_appointment_days } = req.body;
+        await db.run(`UPDATE consult_type_configs SET max_appointment_days = $1 WHERE key = $2`, [max_appointment_days || 0, key]);
+        return { success: true };
+    });
+
     // POST reindex all sections sequentially (1, 2, 3, ..., n) grouped by phase
     fastify.post('/api/consult-sections/reindex', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });

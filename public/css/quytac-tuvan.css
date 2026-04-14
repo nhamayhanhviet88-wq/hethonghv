@@ -276,6 +276,14 @@
 .qt-rule-item .qt-ri-default { width:18px; height:18px; accent-color:#d97706; cursor:pointer; }
 .qt-rule-item .qt-ri-drag { color:#cbd5e1; font-size:14px; cursor:grab; user-select:none; }
 
+/* Active/Inactive rule item states */
+.qt-rule-item.qt-ri-active { background:#eff6ff; border-color:#bfdbfe; }
+.qt-rule-item.qt-ri-active:hover { background:#dbeafe; border-color:#93c5fd; }
+.qt-rule-item.qt-ri-inactive { background:#f8fafc; border-color:#f1f5f9; opacity:.55; }
+.qt-rule-item.qt-ri-inactive:hover { opacity:.75; }
+.qt-rule-item.qt-ri-inactive .qt-ri-label { color:#94a3b8; }
+.qt-rule-item.qt-ri-inactive .qt-ri-icon { filter:grayscale(.5); }
+
 /* Preview box */
 .qt-preview { margin-top:12px; padding:14px; background:#f8fafc;
     border-radius:10px; border:1px solid #e2e8f0; }

@@ -693,8 +693,10 @@ function _qtRenderSectionAccordion(sec) {
                 <div class="qt-flow-title">
                     <span class="qt-loai-badge" style="background:#3b82f6;cursor:${_qtIsGD ? 'pointer' : 'default'};" ${_qtIsGD ? `onclick="event.stopPropagation();_qtEditSectionOrder('${sec.key}',${sec.section_order})" title="Click để đổi STT"` : ''}>Loại ${sec.section_order}</span>
                     <span ${tooltip}>Khi ấn: ${label}</span>
-                    ${isGroup ? `<span style="font-size:10px;background:#8b5cf6;color:white;padding:1px 6px;border-radius:8px;">🔗 ${groupKeys.length} nút</span>` : ''}
+                    ${isGroup ? `<span style="font-size:10px;background:#8b5cf6;color:white;padding:1px 6px;border-radius:8px;">🔗 ${groupKeys.length} nút</span>
+                        <span class="qt-group-members" style="display:inline-flex;gap:3px;flex-wrap:wrap;margin-left:4px;">${groupKeys.map(k => { const mt = _qtAllTypes.find(x => x.key === k); return mt ? `<span style="font-size:9px;padding:1px 5px;border-radius:6px;background:${mt.color}20;color:${mt.color};font-weight:700;border:1px solid ${mt.color}30;white-space:nowrap;">${mt.icon} ${mt.label}</span>` : ''; }).join('')}</span>` : ''}
                     <span class="qt-flow-count">${rules.length} nút</span>
+                    ${_qtIsGD ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${sec.max_appointment_days > 0 ? '#f59e0b20' : '#64748b20'};color:${sec.max_appointment_days > 0 ? '#f59e0b' : '#94a3b8'};cursor:pointer;border:1px solid ${sec.max_appointment_days > 0 ? '#f59e0b40' : '#64748b30'};margin-left:4px;" onclick="event.stopPropagation();_qtEditMaxDays('${sec.key}',${sec.max_appointment_days || 0})" title="Giới hạn ngày hẹn tối đa">📅 ${sec.max_appointment_days > 0 ? sec.max_appointment_days + ' ngày' : 'Không giới hạn'}</span>` : (sec.max_appointment_days > 0 ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#f59e0b20;color:#f59e0b;">📅 ${sec.max_appointment_days} ngày</span>` : '')}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
                     ${_qtIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtDeleteSection('${sec.key}')" title="Xóa loại">🗑️</button>` : ''}
@@ -724,6 +726,19 @@ function _qtRenderSectionAccordion(sec) {
     }
     html += '</div></div></div>';
     return html;
+}
+
+// Edit max appointment days for a section
+async function _qtEditMaxDays(key, currentVal) {
+    const val = prompt(`📅 Giới hạn ngày hẹn tối đa cho loại này?\n\n0 = Không giới hạn\nVD: 15 = Chỉ cho hẹn tối đa 15 ngày`, currentVal || 0);
+    if (val === null) return;
+    const days = parseInt(val) || 0;
+    if (days < 0) return showToast('Số ngày không hợp lệ', 'error');
+    try {
+        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: days });
+        showToast(`✅ Đã cập nhật giới hạn: ${days > 0 ? days + ' ngày' : 'Không giới hạn'}`);
+        _qtLoadFlowRules();
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 // Get all keys in a section group
@@ -1059,18 +1074,29 @@ async function _qtDeleteSection(key) {
 
     if (!confirm(`🗑️ Xóa loại "${displayLabel}"?${isGroup ? `\n🔗 Gồm ${groupKeys.length} nút trong nhóm` : ''}\n\n❌ Xóa toàn bộ ${ruleCount} flow rules\n❌ Xóa khỏi phần hiện tại\n✅ Data tư vấn cũ giữ nguyên\n\n⚠️ Không thể hoàn tác!`)) return;
 
-    for (const k of groupKeys) {
-        await apiCall(`/api/consult-flow-rules/${k}`, 'DELETE');
-        await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0 });
-        await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null });
-        // Clear group fields
-        await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null });
-    }
+    try {
+        console.log('[_qtDeleteSection] Deleting key:', key, 'groupKeys:', groupKeys);
+        for (const k of groupKeys) {
+            console.log('[_qtDeleteSection] Processing key:', k);
+            const r1 = await apiCall(`/api/consult-flow-rules/${k}`, 'DELETE');
+            console.log('[_qtDeleteSection] DELETE flow-rules:', k, r1);
+            const r2 = await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0 });
+            console.log('[_qtDeleteSection] PATCH section-order:', k, r2);
+            const r3 = await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null });
+            console.log('[_qtDeleteSection] PATCH rule-phase:', k, r3);
+            // Clear group fields
+            const r4 = await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null });
+            console.log('[_qtDeleteSection] PATCH group fields:', k, r4);
+        }
 
-    showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
-    await _qtLoadData();
-    _qtSwitchTab('rules');
+        showToast('✅ Đã xóa loại hoàn toàn!', 'success');
+        await apiCall('/api/consult-sections/reindex', 'POST');
+        await _qtLoadData();
+        _qtSwitchTab('rules');
+    } catch(e) {
+        console.error('[_qtDeleteSection] ERROR:', e);
+        showToast('❌ Lỗi xóa loại: ' + (e.message || ''), 'error');
+    }
 }
 
 function _qtToggleSection(header) {
@@ -1142,24 +1168,36 @@ function _qtShowEditRulesModal(fromStatus) {
     const rules = _qtAllRules[fromStatus] || [];
     const statusLabel = FLOW_STATUS_LABELS[fromStatus] || _qtGetTypeLabel(fromStatus) || fromStatus;
 
-    // ★ Only show types that have their own section (section_order > 0)
-    // Exception: types already in this rule group are always shown
-    const sectionKeys = new Set(_qtSections.map(s => s.key));
+    // ★ Show ALL active types as eligible targets
     const eligibleTypes = _qtAllTypes.filter(t => {
-        return sectionKeys.has(t.key) || rules.some(r => r.to_type_key === t.key);
+        return t.is_active || rules.some(r => r.to_type_key === t.key);
+    });
+
+    // ★ Sort: checked items first (by sort_order), then unchecked (by label)
+    const sorted = eligibleTypes.slice().sort((a, b) => {
+        const aRule = rules.find(r => r.to_type_key === a.key);
+        const bRule = rules.find(r => r.to_type_key === b.key);
+        const aChecked = !!aRule;
+        const bChecked = !!bRule;
+        if (aChecked && !bChecked) return -1;
+        if (!aChecked && bChecked) return 1;
+        if (aChecked && bChecked) return (aRule.sort_order || 0) - (bRule.sort_order || 0);
+        return (a.label || '').localeCompare(b.label || '', 'vi');
     });
 
     let listHTML = '';
-    for (const t of eligibleTypes) {
+    let sttCount = 0;
+    for (const t of sorted) {
         const existing = rules.find(r => r.to_type_key === t.key);
         const checked = !!existing;
         const delay = existing ? (existing.delay_days || 0) : 0;
         const isDef = existing ? existing.is_default : false;
-        const order = existing ? existing.sort_order : 99;
+        if (checked) sttCount++;
 
         listHTML += `
-            <div class="qt-rule-item" data-key="${t.key}" data-order="${order}">
-                <span class="qt-ri-drag">⠿</span>
+            <div class="qt-rule-item ${checked ? 'qt-ri-active' : 'qt-ri-inactive'}" data-key="${t.key}" data-checked="${checked ? '1' : '0'}">
+                <span class="qt-ri-stt" style="min-width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;${checked ? 'background:#3b82f6;color:white;' : 'background:#e2e8f0;color:#94a3b8;'}">${checked ? sttCount : '-'}</span>
+                <span class="qt-ri-drag" style="${checked ? '' : 'opacity:0.3;pointer-events:none;'}">⠿</span>
                 <input type="checkbox" class="qt-ri-check" ${checked ? 'checked' : ''}>
                 <div class="qt-ri-info">
                     <span class="qt-ri-icon">${t.icon}</span>
@@ -1201,14 +1239,71 @@ function _qtShowEditRulesModal(fromStatus) {
     `;
     document.body.appendChild(overlay);
 
+    const ruleList = document.getElementById('qtRuleList');
+
+    // ★ Checkbox change → re-sort (checked to top) + update STT
+    ruleList.addEventListener('change', e => {
+        if (e.target.classList.contains('qt-ri-check')) {
+            _qtResortRuleList();
+        }
+    });
+
+    // ★ Init SortableJS with STT update on drag end
     if (typeof Sortable !== 'undefined') {
-        new Sortable(document.getElementById('qtRuleList'), {
+        new Sortable(ruleList, {
             animation: 200,
             handle: '.qt-ri-drag',
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
+            onEnd: () => _qtUpdateRuleSTT()
         });
     }
+}
+
+// Re-sort rule list: checked items to top, unchecked to bottom, then update STT
+function _qtResortRuleList() {
+    const list = document.getElementById('qtRuleList');
+    if (!list) return;
+    const items = Array.from(list.querySelectorAll('.qt-rule-item'));
+    const checked = items.filter(el => el.querySelector('.qt-ri-check').checked);
+    const unchecked = items.filter(el => !el.querySelector('.qt-ri-check').checked);
+
+    // Re-append in order: checked first, then unchecked
+    checked.forEach(el => list.appendChild(el));
+    unchecked.forEach(el => list.appendChild(el));
+
+    _qtUpdateRuleSTT();
+}
+
+// Update STT badges + visual styling for all items in the rule list
+function _qtUpdateRuleSTT() {
+    const list = document.getElementById('qtRuleList');
+    if (!list) return;
+    let stt = 0;
+    list.querySelectorAll('.qt-rule-item').forEach(el => {
+        const cb = el.querySelector('.qt-ri-check');
+        const sttBadge = el.querySelector('.qt-ri-stt');
+        const drag = el.querySelector('.qt-ri-drag');
+        const isChecked = cb.checked;
+        if (isChecked) {
+            stt++;
+            sttBadge.textContent = stt;
+            sttBadge.style.background = '#3b82f6';
+            sttBadge.style.color = 'white';
+            drag.style.opacity = '';
+            drag.style.pointerEvents = '';
+            el.classList.add('qt-ri-active');
+            el.classList.remove('qt-ri-inactive');
+        } else {
+            sttBadge.textContent = '-';
+            sttBadge.style.background = '#e2e8f0';
+            sttBadge.style.color = '#94a3b8';
+            drag.style.opacity = '0.3';
+            drag.style.pointerEvents = 'none';
+            el.classList.remove('qt-ri-active');
+            el.classList.add('qt-ri-inactive');
+        }
+    });
 }
 
 async function _qtSaveRules(fromStatus) {
@@ -1243,9 +1338,9 @@ async function _qtSaveRules(fromStatus) {
 }
 
 function _qtShowAddRuleGroupModal() {
-    // Show unsectioned types (those without their own section)
+    // Show unsectioned types (those without their own section AND not in a group)
     const sectionKeys = new Set(_qtSections.map(s => s.key));
-    const available = _qtAllTypes.filter(t => !sectionKeys.has(t.key) && t.is_active);
+    const available = _qtAllTypes.filter(t => !sectionKeys.has(t.key) && t.is_active && !t.section_group);
 
     if (available.length === 0) {
         return showToast('✅ Tất cả nút đã có nhóm quy tắc!', 'success');

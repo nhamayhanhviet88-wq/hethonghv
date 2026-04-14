@@ -120,7 +120,8 @@ async function _crmSyncConsultTypes() {
                     label: t.label || t.key,
                     icon: t.icon || '📋',
                     color: t.color || '#6b7280',
-                    textColor: t.text_color || 'white'
+                    textColor: t.text_color || 'white',
+                    maxAppointmentDays: t.max_appointment_days || 0
                 };
             }
         }
@@ -907,23 +908,14 @@ async function openConsultModal(customerId) {
         allowedTypes = allTypes.filter(([k]) => k === 'huy');
     }
 
-    let defaultType = lastLog ? lastLog.log_type : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
+    // ★ Use admin-configured flow rule defaults (⭐ Mặc định from Quy Tắc Liên Kết)
+    const effectiveRules = flowRules[effectiveStatus] || [];
+    const defaultRule = effectiveRules.find(r => r.is_default);
+    let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
 
-    // Force defaultType when pending emergency
+    // Force overrides (system logic, takes priority over flow rules)
     if (pendingEmergency) defaultType = 'cap_cuu_sep';
-    // Force defaultType when cancel auto-reverted
     if (customerInfo.cancel_approved === -2) defaultType = 'huy';
-
-    // After Đặt Cọc → default to Chốt Đơn
-    if (defaultType === 'dat_coc') defaultType = 'chot_don';
-    // After Chốt Đơn → default to Hoàn Thành Đơn
-    else if (defaultType === 'chot_don') defaultType = 'hoan_thanh';
-    // After Hoàn Thành Đơn → default to Sau Bán Hàng
-    else if (defaultType === 'hoan_thanh') defaultType = 'sau_ban_hang';
-    // After Hủy Cọc → default to Nhắn Tin
-    else if (defaultType === 'huy_coc') defaultType = 'nhan_tin';
-    // After Gửi STK Cọc → default to Giục Cọc
-    else if (defaultType === 'gui_stk_coc') defaultType = 'giuc_coc';
 
     const typeOptions = allowedTypes.map(([k, v]) =>
         `<option value="${k}" ${k === defaultType ? 'selected' : ''}>${v.icon} ${v.label}</option>`
@@ -1131,6 +1123,24 @@ function onConsultTypeChange() {
     if (contentGroup) contentGroup.style.display = 'block';
     if (imageGroup) imageGroup.style.display = 'block';
     if (appointmentGroup) appointmentGroup.style.display = 'block';
+
+    // ★ Apply max_appointment_days from type config
+    const apptInput = document.getElementById('consultAppointment');
+    if (apptInput) {
+        const typeConfig = CONSULT_TYPES[type];
+        const maxDays = typeConfig?.maxAppointmentDays || 0;
+        if (maxDays > 0) {
+            const maxDate = new Date();
+            maxDate.setDate(maxDate.getDate() + maxDays);
+            apptInput.max = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
+            // Update label to show max days
+            const apptLabelEl = appointmentGroup?.querySelector('label');
+            if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
+        } else {
+            apptInput.removeAttribute('max');
+        }
+    }
+
     const nextTypeGroup = document.getElementById('consultNextTypeGroup');
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
