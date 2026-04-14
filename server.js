@@ -3,6 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
+// ========== CRASH PREVENTION — Keep server alive ==========
+process.on('uncaughtException', (err) => {
+    console.error('🔴 [UNCAUGHT EXCEPTION] Server sẽ KHÔNG dừng:', err.message);
+    console.error(err.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🟡 [UNHANDLED REJECTION] Promise bị reject:', reason);
+});
+// ===========================================================
+
 // Global error handler — log all errors
 fastify.setErrorHandler((error, request, reply) => {
     console.error(`❌ [${request.method}] ${request.url}:`, error.message);
