@@ -204,7 +204,7 @@ module.exports = async function (fastify) {
     fastify.get('/api/consult-sections', async (req, reply) => {
         const rows = await db.all(`
             SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order, ctc.rule_phase,
-                   ctc.section_group, ctc.section_group_label,
+                   ctc.section_group, ctc.section_group_label, ctc.max_appointment_days,
                    (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key) as rule_count
             FROM consult_type_configs ctc
             INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key

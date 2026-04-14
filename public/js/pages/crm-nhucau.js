@@ -1124,9 +1124,20 @@ function onConsultTypeChange() {
     if (imageGroup) imageGroup.style.display = 'block';
     if (appointmentGroup) appointmentGroup.style.display = 'block';
 
-    // ★ Apply max_appointment_days from type config
+    // Reset labels back to default FIRST (before applying max_appointment_days)
+    const contentLabel = contentGroup?.querySelector('label');
+    if (contentLabel) contentLabel.innerHTML = 'Nội Dung Tư Vấn <span style="color:var(--danger)">*</span>';
+    const contentArea = document.getElementById('consultContent');
+    if (contentArea) contentArea.placeholder = 'Nhập nội dung tư vấn...';
+    const apptLabel = appointmentGroup?.querySelector('label');
+    if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span>';
+
+    // ★ Apply max_appointment_days from type config (AFTER label reset)
     const apptInput = document.getElementById('consultAppointment');
     if (apptInput) {
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+        apptInput.min = todayStr;
         const typeConfig = CONSULT_TYPES[type];
         const maxDays = typeConfig?.maxAppointmentDays || 0;
         if (maxDays > 0) {
@@ -1143,14 +1154,6 @@ function onConsultTypeChange() {
 
     const nextTypeGroup = document.getElementById('consultNextTypeGroup');
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
-
-    // Reset labels back to default
-    const contentLabel = contentGroup?.querySelector('label');
-    if (contentLabel) contentLabel.innerHTML = 'Nội Dung Tư Vấn <span style="color:var(--danger)">*</span>';
-    const contentArea = document.getElementById('consultContent');
-    if (contentArea) contentArea.placeholder = 'Nhập nội dung tư vấn...';
-    const apptLabel = appointmentGroup?.querySelector('label');
-    if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span>';
 
     // Image required: hide * for goi_dien, dat_coc, cap_cuu_sep, sau_ban_hang
     const imageOptionalTypes = ['goi_dien', 'dat_coc', 'cap_cuu_sep', 'sau_ban_hang'];
