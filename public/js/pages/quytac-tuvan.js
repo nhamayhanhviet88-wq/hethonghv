@@ -1049,7 +1049,7 @@ async function _qtAddSections() {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'nhu_cau' });
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
@@ -1108,7 +1108,7 @@ async function _qtSaveSectionEdit(key, oldOrder) {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'nhu_cau' });
     await _qtLoadData();
     _qtSwitchTab('rules');
 }
@@ -1139,7 +1139,7 @@ async function _qtDeleteSection(key) {
         }
 
         showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-        await apiCall('/api/consult-sections/reindex', 'POST');
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'nhu_cau' });
         await _qtLoadData();
         _qtSwitchTab('rules');
     } catch(e) {
@@ -1557,7 +1557,7 @@ async function _qtAddRuleGroup() {
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'nhu_cau' });
     await _qtLoadData();
     _qtSwitchTab('rules');
 

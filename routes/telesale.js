@@ -1210,7 +1210,9 @@ async function telesaleRoutes(fastify) {
             if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM' });
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        // Use VN timezone (UTC+7) for date — matching pattern from runTelesaleRecall
+        const vnNow = new Date(Date.now() + 7 * 3600000);
+        const today = vnNow.toISOString().split('T')[0];
         const now = new Date().toISOString();
 
         const result = await db.run(
@@ -1225,6 +1227,30 @@ async function telesaleRoutes(fastify) {
                 `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
                 [dataId, req.user.id, today]
             );
+        }
+
+        // ★ ALSO create a customer record in `customers` table so it appears in CRM Tự Tìm Kiếm
+        const crmType = src.crm_type || 'tu_tim_kiem';
+        try {
+            // Get daily order number for this user
+            const maxNum = await db.get(
+                "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
+                [today, req.user.id]
+            );
+            const dailyNum = (maxNum?.mx || 0) + 1;
+
+            // Get source name for job field
+            const srcName = src.name || (await db.get('SELECT name FROM telesale_sources WHERE id = ?', [source_id]))?.name || null;
+
+            await db.run(
+                `INSERT INTO customers (crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName]
+            );
+            console.log(`[Self-Search] ✅ Created customer in CRM ${crmType} for "${customer_name.trim()}" by user ${req.user.id}`);
+        } catch (custErr) {
+            // Non-fatal: telesale_data already created, just log the error
+            console.error('[Self-Search] ⚠️ Failed to create customer record:', custErr.message);
         }
 
         const countRes = await db.get(

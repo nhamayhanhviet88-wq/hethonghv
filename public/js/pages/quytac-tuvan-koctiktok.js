@@ -1,4 +1,4 @@
-﻿// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
+// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
 
 // Status labels for display
 const KOC_FLOW_STATUS_LABELS = {
@@ -1043,13 +1043,13 @@ async function _qtKAddSections() {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'koc_tiktok'
         });
         // Set section order
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'koc_tiktok' });
         startOrder++;
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'koc_tiktok' });
     await _qtKLoadData();
     _qtKSwitchTab('rules');
 }
@@ -1098,17 +1098,17 @@ async function _qtKSaveSectionEdit(key, oldOrder) {
 
     const promises = [];
     if (newOrder !== oldOrder) {
-        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder }));
+        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder, crm_menu: 'koc_tiktok' }));
     }
     const sec = _qtKSections.find(s => s.key === key);
     if (!sec || sec.rule_phase !== (newPhase || null)) {
-        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null }));
+        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null, crm_menu: 'koc_tiktok' }));
     }
     if (promises.length > 0) await Promise.all(promises);
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'koc_tiktok' });
     await _qtKLoadData();
     _qtKSwitchTab('rules');
 }
@@ -1127,19 +1127,19 @@ async function _qtKDeleteSection(key) {
         console.log('[_qtKDeleteSection] Deleting key:', key, 'groupKeys:', groupKeys);
         for (const k of groupKeys) {
             console.log('[_qtKDeleteSection] Processing key:', k);
-            const r1 = await apiCall(`/api/consult-flow-rules/${k}`, 'DELETE');
+            const r1 = await apiCall(`/api/consult-flow-rules/${k}?crm_menu=koc_tiktok`, 'DELETE');
             console.log('[_qtKDeleteSection] DELETE flow-rules:', k, r1);
-            const r2 = await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0 });
+            const r2 = await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'koc_tiktok' });
             console.log('[_qtKDeleteSection] PATCH section-order:', k, r2);
-            const r3 = await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null });
+            const r3 = await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null, crm_menu: 'koc_tiktok' });
             console.log('[_qtKDeleteSection] PATCH rule-phase:', k, r3);
             // Clear group fields
-            const r4 = await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null });
+            const r4 = await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: 'koc_tiktok' });
             console.log('[_qtKDeleteSection] PATCH group fields:', k, r4);
         }
 
         showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-        await apiCall('/api/consult-sections/reindex', 'POST');
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'koc_tiktok' });
         await _qtKLoadData();
         _qtKSwitchTab('rules');
     } catch(e) {
@@ -1542,8 +1542,8 @@ async function _qtKAddRuleGroup() {
         }
 
         // Only leader gets section_order
-        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'koc_tiktok' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'koc_tiktok' });
 
     } else {
         // SINGLE MODE: same as before
@@ -1551,13 +1551,13 @@ async function _qtKAddRuleGroup() {
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'koc_tiktok'
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'koc_tiktok' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'koc_tiktok' });
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'koc_tiktok' });
     await _qtKLoadData();
     _qtKSwitchTab('rules');
 

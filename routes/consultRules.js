@@ -202,14 +202,15 @@ module.exports = async function (fastify) {
     // POST reindex all sections sequentially (1, 2, 3, ..., n) grouped by phase
     fastify.post('/api/consult-sections/reindex', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
 
         // Get phases sorted by sort_order
         const phaseRow = await db.get(`SELECT value FROM app_config WHERE key = 'consult_rule_phases'`);
         const phases = phaseRow ? JSON.parse(phaseRow.value) : [];
         phases.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-        // Get all sections
-        const allSections = await db.all(`SELECT key, rule_phase FROM consult_type_configs WHERE section_order > 0 ORDER BY section_order`);
+        // Get all sections for this crm_menu only
+        const allSections = await db.all(`SELECT key, rule_phase FROM consult_type_configs WHERE section_order > 0 AND crm_menu = $1 ORDER BY section_order`, [crmMenu]);
 
         // Group: phases first (in phase order), then unphased
         const ordered = [];
@@ -224,7 +225,7 @@ module.exports = async function (fastify) {
 
         // Assign 1, 2, 3, ..., n
         for (let i = 0; i < ordered.length; i++) {
-            await db.run(`UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`, [i + 1, ordered[i].key]);
+            await db.run(`UPDATE consult_type_configs SET section_order = $1 WHERE key = $2 AND crm_menu = $3`, [i + 1, ordered[i].key, crmMenu]);
         }
         return { success: true, count: ordered.length };
     });

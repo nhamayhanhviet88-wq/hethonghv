@@ -1,4 +1,4 @@
-﻿// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
+// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
 
 // Status labels for display
 const GDBH_FLOW_STATUS_LABELS = {
@@ -1043,13 +1043,13 @@ async function _qtBAddSections() {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'goi_ban_hang'
         });
         // Set section order
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'goi_ban_hang' });
         startOrder++;
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'goi_ban_hang' });
     await _qtBLoadData();
     _qtBSwitchTab('rules');
 }
@@ -1098,17 +1098,17 @@ async function _qtBSaveSectionEdit(key, oldOrder) {
 
     const promises = [];
     if (newOrder !== oldOrder) {
-        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder }));
+        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder, crm_menu: 'goi_ban_hang' }));
     }
     const sec = _qtBSections.find(s => s.key === key);
     if (!sec || sec.rule_phase !== (newPhase || null)) {
-        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null }));
+        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null, crm_menu: 'goi_ban_hang' }));
     }
     if (promises.length > 0) await Promise.all(promises);
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'goi_ban_hang' });
     await _qtBLoadData();
     _qtBSwitchTab('rules');
 }
@@ -1139,7 +1139,7 @@ async function _qtBDeleteSection(key) {
         }
 
         showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-        await apiCall('/api/consult-sections/reindex', 'POST');
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'goi_ban_hang' });
         await _qtBLoadData();
         _qtBSwitchTab('rules');
     } catch(e) {
@@ -1542,8 +1542,8 @@ async function _qtBAddRuleGroup() {
         }
 
         // Only leader gets section_order
-        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'goi_ban_hang' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'goi_ban_hang' });
 
     } else {
         // SINGLE MODE: same as before
@@ -1551,13 +1551,13 @@ async function _qtBAddRuleGroup() {
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'goi_ban_hang'
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'goi_ban_hang' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'goi_ban_hang' });
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'goi_ban_hang' });
     await _qtBLoadData();
     _qtBSwitchTab('rules');
 

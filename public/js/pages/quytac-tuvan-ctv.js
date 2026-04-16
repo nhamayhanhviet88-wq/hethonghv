@@ -54,7 +54,7 @@ async function renderQuyTacTuVanCtvPage(container) {
 
     container.innerHTML = `
         <div class="qt-page">
-            <a class="qt-back" href="/crm-nhu-cau" onclick="event.preventDefault();navigate('crm-nhu-cau')">← Quay lại CRM Nhu Cầu</a>
+            <a class="qt-back" href="/crm-ctv" onclick="event.preventDefault();navigate('crm-ctv')">← Quay lại Chăm Sóc CTV</a>
             <div class="qt-header">
                 <h2 class="qt-header-title">⚙️ Quy Tắc Nút Tư Vấn</h2>
                 <span class="qt-header-badge">
@@ -1098,17 +1098,17 @@ async function _qtCSaveSectionEdit(key, oldOrder) {
 
     const promises = [];
     if (newOrder !== oldOrder) {
-        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder }));
+        promises.push(apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: newOrder, crm_menu: 'ctv' }));
     }
     const sec = _qtCSections.find(s => s.key === key);
     if (!sec || sec.rule_phase !== (newPhase || null)) {
-        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null }));
+        promises.push(apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: newPhase || null, crm_menu: 'ctv' }));
     }
     if (promises.length > 0) await Promise.all(promises);
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã cập nhật!', 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'ctv' });
     await _qtCLoadData();
     _qtCSwitchTab('rules');
 }
@@ -1127,19 +1127,19 @@ async function _qtCDeleteSection(key) {
         console.log('[_qtCDeleteSection] Deleting key:', key, 'groupKeys:', groupKeys);
         for (const k of groupKeys) {
             console.log('[_qtCDeleteSection] Processing key:', k);
-            const r1 = await apiCall(`/api/consult-flow-rules/${k}`, 'DELETE');
+            const r1 = await apiCall(`/api/consult-flow-rules/${k}?crm_menu=ctv`, 'DELETE');
             console.log('[_qtCDeleteSection] DELETE flow-rules:', k, r1);
-            const r2 = await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0 });
+            const r2 = await apiCall(`/api/consult-types/${k}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'ctv' });
             console.log('[_qtCDeleteSection] PATCH section-order:', k, r2);
-            const r3 = await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null });
+            const r3 = await apiCall(`/api/consult-types/${k}/rule-phase`, 'PATCH', { rule_phase: null, crm_menu: 'ctv' });
             console.log('[_qtCDeleteSection] PATCH rule-phase:', k, r3);
             // Clear group fields
-            const r4 = await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null });
+            const r4 = await apiCall(`/api/consult-types/${k}`, 'PATCH', { section_group: null, section_group_label: null, crm_menu: 'ctv' });
             console.log('[_qtCDeleteSection] PATCH group fields:', k, r4);
         }
 
         showToast('✅ Đã xóa loại hoàn toàn!', 'success');
-        await apiCall('/api/consult-sections/reindex', 'POST');
+        await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'ctv' });
         await _qtCLoadData();
         _qtCSwitchTab('rules');
     } catch(e) {
@@ -1542,8 +1542,8 @@ async function _qtCAddRuleGroup() {
         }
 
         // Only leader gets section_order
-        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${leaderKey}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'ctv' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${leaderKey}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'ctv' });
 
     } else {
         // SINGLE MODE: same as before
@@ -1551,13 +1551,13 @@ async function _qtCAddRuleGroup() {
         await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'ctv'
         });
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
-        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'ctv' });
+        if (selectedPhase) await apiCall(`/api/consult-types/${key}/rule-phase`, 'PATCH', { rule_phase: selectedPhase, crm_menu: 'ctv' });
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${isGroup ? `nhóm "${groupName}" (${selected.length} nút)` : '1 loại'}!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'ctv' });
     await _qtCLoadData();
     _qtCSwitchTab('rules');
 
