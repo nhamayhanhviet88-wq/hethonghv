@@ -1,4 +1,4 @@
-﻿// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
+// ========== TRANG QUẢN LÝ QUY TẮC NÚT TƯ VẤN — PREMIUM UI v2 ==========
 
 // Status labels for display
 const CTV_FLOW_STATUS_LABELS = {
@@ -399,7 +399,7 @@ async function _qtCDeleteStage(stageId) {
     // Clear stage from buttons
     const orders = _qtCAllTypes.filter(t => t.stage === stageId).map((t, i) => ({ key: t.key, sort_order: 999 + i, stage: null }));
     if (orders.length > 0) {
-        await apiCall('/api/consult-types/batch/sort-order', 'PATCH', { orders });
+        await apiCall('/api/consult-types/batch/sort-order', 'PATCH', { orders, crm_menu: 'ctv' });
     }
 
     showToast('✅ Đã xóa giai đoạn!', 'success');
@@ -413,7 +413,7 @@ async function _qtCDeleteType(key) {
     if (!confirm(`🗑️ Xóa nút "${t.icon} ${t.label}"?\n\nKey: ${t.key}\n⚠️ Hành động này không thể hoàn tác!`)) return;
 
     try {
-        await apiCall(`/api/consult-types/${key}`, 'DELETE');
+        await apiCall(`/api/consult-types/${key}?crm_menu=ctv`, 'DELETE');
         showToast('✅ Đã xóa nút!', 'success');
         await _qtCLoadData();
     } catch(e) {
@@ -511,7 +511,7 @@ async function _qtCSaveType(key) {
         is_active: document.getElementById('qtEditActive').checked,
         stage: document.getElementById('qtEditStage').value || null
     };
-    await apiCall(`/api/consult-types/${key}`, 'PUT', data);
+    await apiCall(`/api/consult-types/${key}`, 'PUT', {...data, crm_menu: 'ctv'});
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã lưu thay đổi!', 'success');
     await _qtCLoadData();
@@ -784,7 +784,7 @@ async function _qtCEditMaxDays(key, currentVal) {
     const days = parseInt(val) || 0;
     if (days < 0) return showToast('Số ngày không hợp lệ', 'error');
     try {
-        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: days });
+        await apiCall(`/api/consult-types/${key}/max-appointment-days`, 'PATCH', { max_appointment_days: days, crm_menu: 'ctv' });
         showToast(`✅ Đã cập nhật giới hạn: ${days > 0 ? days + ' ngày' : 'Không giới hạn'}`);
         _qtCLoadData();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
@@ -885,7 +885,7 @@ async function _qtCAddPhase() {
     items.forEach(item => {
         if (item.querySelector('.qt-ri-check').checked) updates.push({ key: item.dataset.key, rule_phase: id });
     });
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'ctv' });
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã thêm phần!', 'success');
@@ -964,7 +964,7 @@ async function _qtCSavePhase(phaseId) {
             updates.push({ key, rule_phase: null });
         }
     });
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'ctv' });
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast('✅ Đã lưu phần!', 'success');
@@ -980,7 +980,7 @@ async function _qtCDeletePhase(phaseId) {
 
     // Clear rule_phase for sections in this phase
     const updates = _qtCSections.filter(s => s.rule_phase === phaseId).map(s => ({ key: s.key, rule_phase: null }));
-    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates });
+    if (updates.length > 0) await apiCall('/api/consult-types/batch/rule-phase', 'PATCH', { updates, crm_menu: 'ctv' });
 
     _qtCRulePhases = _qtCRulePhases.filter(p => p.id !== phaseId);
     await apiCall('/api/consult-rule-phases', 'PUT', { phases: _qtCRulePhases });
@@ -1043,13 +1043,13 @@ async function _qtCAddSections() {
             rules: [{ to_type_key: key, is_default: true, delay_days: 0, sort_order: 1 }], crm_menu: 'ctv'
         });
         // Set section order
-        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: startOrder, crm_menu: 'ctv' });
         startOrder++;
     }
 
     document.querySelector('.qt-modal-overlay')?.remove();
     showToast(`✅ Đã thêm ${selected.length} loại!`, 'success');
-    await apiCall('/api/consult-sections/reindex', 'POST');
+    await apiCall('/api/consult-sections/reindex', 'POST', { crm_menu: 'ctv' });
     await _qtCLoadData();
     _qtCSwitchTab('rules');
 }
