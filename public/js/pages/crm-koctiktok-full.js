@@ -1,7 +1,7 @@
-// ========== CRM NHU CẦU — 14-column layout with consultation system ==========
+﻿// ========== CRM KOL/KOC Tiktok CẦU — 14-column layout with consultation system ==========
 
 // Format deposit input with thousand separators (500000 → 500.000)
-function formatDepositInput(el) {
+function _kocFormatDepositInput(el) {
     const cursor = el.selectionStart;
     const oldLen = el.value.length;
     const raw = el.value.replace(/\D/g, '');
@@ -11,7 +11,7 @@ function formatDepositInput(el) {
     el.setSelectionRange(newCursor, newCursor);
 }
 
-const VN_PROVINCES = [
+const KOC_VN_PROVINCES = [
     'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
     'Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai',
     'Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình',
@@ -21,7 +21,7 @@ const VN_PROVINCES = [
     'Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'
 ];
 // Birthday countdown helper: returns { html, class } based on days until birthday
-function getBirthdayDisplay(birthdayStr) {
+function _kocGetBirthdayDisplay(birthdayStr) {
     if (!birthdayStr) return { html: '<span style="color:var(--gray-600)">—</span>', tdClass: '' };
     const today = new Date();
     // Parse birthday as "day/month" format (e.g. "23/10")
@@ -64,7 +64,7 @@ function getBirthdayDisplay(birthdayStr) {
 }
 
 // Check if today is the customer's birthday (day+month match, ignore year)
-function _crmIsBirthdayToday(birthdayStr) {
+function _kocIsBirthdayToday(birthdayStr) {
     if (!birthdayStr) return false;
     const today = new Date();
     let day, month;
@@ -82,7 +82,7 @@ function _crmIsBirthdayToday(birthdayStr) {
     return today.getDate() === day && (today.getMonth() + 1) === month;
 }
 
-let CONSULT_TYPES = {
+let KOC_CONSULT_TYPES = {
     lam_quen_tuong_tac: { label: 'Làm Quen Tương Tác', icon: '👋', color: '#14b8a6' },
     goi_dien: { label: 'Gọi Điện', icon: '📞', color: '#3b82f6' },
     nhan_tin: { label: 'Nhắn Tin', icon: '💬', color: '#8b5cf6' },
@@ -108,15 +108,15 @@ let CONSULT_TYPES = {
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
 };
 
-// Merge dynamic types from consult_type_configs API into CONSULT_TYPES
-async function _crmSyncConsultTypes() {
+// Merge dynamic types from consult_type_configs API into KOC_CONSULT_TYPES
+async function _kocSyncConsultTypes() {
     try {
-        const data = await apiCall('/api/consult-types');
+        const data = await apiCall('/api/consult-types?crm_menu=koc_tiktok');
         if (data.types && Array.isArray(data.types)) {
             for (const t of data.types) {
                 if (!t.key || !t.is_active) continue;
                 // Add or update (API types override defaults)
-                CONSULT_TYPES[t.key] = {
+                KOC_CONSULT_TYPES[t.key] = {
                     label: t.label || t.key,
                     icon: t.icon || '📋',
                     color: t.color || '#6b7280',
@@ -128,7 +128,7 @@ async function _crmSyncConsultTypes() {
     } catch(e) { /* silent — fallback to hardcoded */ }
 }
 
-async function renderCRMNhuCauPage(container) {
+async function renderCRMKocPage(container) {
     let topStaffOptions = '';
     if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         const staff = await apiCall('/api/managed-staff');
@@ -167,7 +167,7 @@ async function renderCRMNhuCauPage(container) {
         </style>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div></div>
-            <a href="/quytacnuttuvancrmnhucau" onclick="event.preventDefault();navigate('quytacnuttuvancrmnhucau')"
+            <a href="/quytacnuttuvancrmkoctiktok" onclick="event.preventDefault();navigate('quytacnuttuvancrmkoctiktok')"
                 style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
                 border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
                 background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
@@ -177,27 +177,27 @@ async function renderCRMNhuCauPage(container) {
             </a>
         </div>
         <div class="crm-stat-cards" id="crmStatCards">
-            <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_crmFilterByCat('phai_xu_ly')">
+            <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_kocFilterByCat('phai_xu_ly')">
                 <div class="stat-icon">🔥</div>
                 <div class="stat-count" id="crmStatPhaiXuLy">0</div>
                 <div class="stat-label">Phải xử lý hôm nay</div>
             </div>
-            <div class="crm-stat-card" data-cat="da_xu_ly" style="background:linear-gradient(135deg,#10b981,#059669);color:white;" onclick="_crmFilterByCat('da_xu_ly')">
+            <div class="crm-stat-card" data-cat="da_xu_ly" style="background:linear-gradient(135deg,#10b981,#059669);color:white;" onclick="_kocFilterByCat('da_xu_ly')">
                 <div class="stat-icon">✅</div>
                 <div class="stat-count" id="crmStatDaXuLy">0</div>
                 <div class="stat-label">Đã xử lý hôm nay</div>
             </div>
-            <div class="crm-stat-card" data-cat="xu_ly_tre" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;" onclick="_crmFilterByCat('xu_ly_tre')">
+            <div class="crm-stat-card" data-cat="xu_ly_tre" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;" onclick="_kocFilterByCat('xu_ly_tre')">
                 <div class="stat-icon">⚠️</div>
                 <div class="stat-count" id="crmStatXuLyTre">0</div>
                 <div class="stat-label">Khách xử lý trễ</div>
             </div>
-            <div class="crm-stat-card" data-cat="cho_xu_ly" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;" onclick="_crmFilterByCat('cho_xu_ly')">
+            <div class="crm-stat-card" data-cat="cho_xu_ly" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;" onclick="_kocFilterByCat('cho_xu_ly')">
                 <div class="stat-icon">⏳</div>
                 <div class="stat-count" id="crmStatChoXuLy">0</div>
                 <div class="stat-label">Chờ xử lý</div>
             </div>
-            <div class="crm-stat-card" data-cat="huy_khach" style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;" onclick="_crmFilterByCat('huy_khach')">
+            <div class="crm-stat-card" data-cat="huy_khach" style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;" onclick="_kocFilterByCat('huy_khach')">
                 <div class="stat-icon">🚫</div>
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
@@ -206,24 +206,24 @@ async function renderCRMNhuCauPage(container) {
         <div class="crm-date-filter" id="crmDateFilter">
             <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
             <label>Ngày</label>
-            <select id="crmDateDay" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+            <select id="crmDateDay" onchange="_kocUpdateDateFilterCounts();_kocRenderFilteredTable()">
                 <option value="">Tất Cả</option>
                 ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
             </select>
             <label>Tháng</label>
-            <select id="crmDateMonth" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+            <select id="crmDateMonth" onchange="_kocUpdateDateFilterCounts();_kocRenderFilteredTable()">
                 <option value="" selected>Tất Cả</option>
                 ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Tháng ' + m + '</option>'; return o; })()}
             </select>
             <label>Năm</label>
-            <select id="crmDateYear" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
+            <select id="crmDateYear" onchange="_kocUpdateDateFilterCounts();_kocRenderFilteredTable()">
                 ${(() => { const now = new Date(); let o = ''; for (let y = 2024; y <= now.getFullYear()+1; y++) o += '<option value="' + y + '"' + (y === now.getFullYear() ? ' selected' : '') + '>' + y + '</option>'; return o; })()}
             </select>
             <span id="crmDateFilterCount" style="color:#94a3b8;font-size:12px;margin-left:auto;"></span>
         </div>
 
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
-            <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_crmRenderFilteredTable()">
+            <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_kocRenderFilteredTable()">
                 <option value="">Tất cả trạng thái</option>
             </select>
             <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
@@ -231,7 +231,7 @@ async function renderCRMNhuCauPage(container) {
         </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
-                <table class="table crm-nhucau-table" id="crmNhuCauTable">
+                <table class="table crm-ctv-table" id="crmCtvTable">
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
@@ -253,39 +253,39 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                     </tr></thead>
-                    <tbody id="crmNhuCauTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
+                    <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
         </div>
     `;
 
-    document.getElementById('crmFilterConsultType').addEventListener('change', () => _crmRenderFilteredTable());
+    document.getElementById('crmFilterConsultType').addEventListener('change', () => _kocRenderFilteredTable());
     const topStaffEl = document.getElementById('crmTopStaffFilter');
-    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmNhuCauData());
+    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmKocData());
     let st;
-    document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmNhuCauData, 400); });
+    document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmKocData, 400); });
 
-    await loadCrmNhuCauData();
+    await loadCrmKocData();
 
     // Auto-select 'Phải xử lý hôm nay' on page load
-    _crmActiveCat = null;
-    _crmFilterByCat('phai_xu_ly');
+    _kocActiveCat = null;
+    _kocFilterByCat('phai_xu_ly');
 }
 
-var _crmActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
-var _crmAllCustomers = []; // full list for re-filtering
-var _crmAllStats = {}; // consult stats
-var _crmCurrentPage = 1;
-var _crmPageSize = 50;
+var _kocActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
+var _kocAllCustomers = []; // full list for re-filtering
+var _kocAllStats = {}; // consult stats
+var _kocCurrentPage = 1;
+var _kocPageSize = 50;
 
-function _crmFilterByCat(cat) {
-    if (_crmActiveCat === cat) { _crmActiveCat = null; } else { _crmActiveCat = cat; }
-    _crmCurrentPage = 1; // reset page on category change
+function _kocFilterByCat(cat) {
+    if (_kocActiveCat === cat) { _kocActiveCat = null; } else { _kocActiveCat = cat; }
+    _kocCurrentPage = 1; // reset page on category change
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
     const cardsContainer = document.getElementById('crmStatCards');
-    if (_crmActiveCat) {
-        const el = document.querySelector('.crm-stat-card[data-cat="' + _crmActiveCat + '"]');
+    if (_kocActiveCat) {
+        const el = document.querySelector('.crm-stat-card[data-cat="' + _kocActiveCat + '"]');
         if (el) el.classList.add('active');
         if (cardsContainer) cardsContainer.classList.add('has-active');
     } else {
@@ -302,30 +302,30 @@ function _crmFilterByCat(cat) {
     if (ys) { ys.value = new Date().getFullYear(); }
     if (ds) { ds.value = ''; }
     if (dateFilter) {
-        if (_crmActiveCat === 'cho_xu_ly') {
+        if (_kocActiveCat === 'cho_xu_ly') {
             dateFilter.classList.add('visible');
             if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:';
-            _crmUpdateDateFilterCounts();
-        } else if (_crmActiveCat === 'huy_khach') {
+            _kocUpdateDateFilterCounts();
+        } else if (_kocActiveCat === 'huy_khach') {
             dateFilter.classList.add('visible');
             if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:';
-            _crmUpdateDateFilterCounts();
-        } else if (_crmActiveCat === 'xu_ly_tre') {
+            _kocUpdateDateFilterCounts();
+        } else if (_kocActiveCat === 'xu_ly_tre') {
             dateFilter.classList.add('visible');
             if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:';
-            _crmUpdateDateFilterCounts();
+            _kocUpdateDateFilterCounts();
         } else {
             dateFilter.classList.remove('visible');
         }
     }
-    _crmUpdateConsultTypeDropdown();
-    _crmRenderFilteredTable();
+    _kocUpdateConsultTypeDropdown();
+    _kocRenderFilteredTable();
 }
 
-function _crmUpdateDateFilterCounts() {
-    const cat = _crmActiveCat;
+function _kocUpdateDateFilterCounts() {
+    const cat = _kocActiveCat;
     if (cat !== 'cho_xu_ly' && cat !== 'huy_khach' && cat !== 'xu_ly_tre') return;
-    const catCustomers = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === cat);
+    const catCustomers = _kocAllCustomers.filter(c => _kocGetCategory(c, _kocAllStats) === cat);
 
     function getDateField(c) {
         if (cat === 'cho_xu_ly' || cat === 'xu_ly_tre') return c.appointment_date;
@@ -369,7 +369,7 @@ function _crmUpdateDateFilterCounts() {
 }
 
 
-function _crmGetCategory(c, stats) {
+function _kocGetCategory(c, stats) {
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -402,7 +402,7 @@ function _crmGetCategory(c, stats) {
     }
 
     // Check if today is customer's birthday
-    const isBirthdayToday = _crmIsBirthdayToday(c.birthday);
+    const isBirthdayToday = _kocIsBirthdayToday(c.birthday);
 
     // Check created today
     let createdToday = false;
@@ -428,7 +428,7 @@ function _crmGetCategory(c, stats) {
     return 'cho_xu_ly';
 }
 
-function _crmUpdateConsultTypeDropdown(filteredList) {
+function _kocUpdateConsultTypeDropdown(filteredList) {
     const sel = document.getElementById('crmFilterConsultType');
     if (!sel) return;
     const prevVal = sel.value;
@@ -436,9 +436,9 @@ function _crmUpdateConsultTypeDropdown(filteredList) {
     // Use provided filtered list or default to category-filtered
     let custs = filteredList;
     if (!custs) {
-        custs = _crmAllCustomers;
-        if (_crmActiveCat) {
-            custs = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === _crmActiveCat);
+        custs = _kocAllCustomers;
+        if (_kocActiveCat) {
+            custs = _kocAllCustomers.filter(c => _kocGetCategory(c, _kocAllStats) === _kocActiveCat);
         }
     }
 
@@ -446,7 +446,7 @@ function _crmUpdateConsultTypeDropdown(filteredList) {
     const typeCounts = {};
     let noLogCount = 0;
     custs.forEach(c => {
-        const s = _crmAllStats[c.id] || {};
+        const s = _kocAllStats[c.id] || {};
         if (s.lastLog && s.lastLog.log_type) {
             const lt = s.lastLog.log_type;
             typeCounts[lt] = (typeCounts[lt] || 0) + 1;
@@ -460,7 +460,7 @@ function _crmUpdateConsultTypeDropdown(filteredList) {
     // Sort by count desc
     const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
     sorted.forEach(([key, count]) => {
-        const t = CONSULT_TYPES[key];
+        const t = KOC_CONSULT_TYPES[key];
         if (t) {
             html += '<option value="' + key + '">' + t.icon + ' ' + t.label + ' (' + count + ')</option>';
         }
@@ -476,26 +476,26 @@ function _crmUpdateConsultTypeDropdown(filteredList) {
         if (exists) sel.value = prevVal;
     }
 }
-function _crmRenderFilteredTable() {
-    const customers = _crmAllCustomers;
-    const stats = _crmAllStats;
-    const tbody = document.getElementById('crmNhuCauTbody');
+function _kocRenderFilteredTable() {
+    const customers = _kocAllCustomers;
+    const stats = _kocAllStats;
+    const tbody = document.getElementById('crmCtvTbody');
     
     let filtered = customers;
-    if (_crmActiveCat) {
-        if (_crmActiveCat === 'phai_xu_ly') {
+    if (_kocActiveCat) {
+        if (_kocActiveCat === 'phai_xu_ly') {
             // Include both phai_xu_ly and moi_chuyen
             filtered = customers.filter(c => {
-                const cat = _crmGetCategory(c, stats);
+                const cat = _kocGetCategory(c, stats);
                 return cat === 'phai_xu_ly' || cat === 'moi_chuyen';
             });
         } else {
-            filtered = customers.filter(c => _crmGetCategory(c, stats) === _crmActiveCat);
+            filtered = customers.filter(c => _kocGetCategory(c, stats) === _kocActiveCat);
         }
     }
 
     // Apply date filter for cho_xu_ly and huy_khach (BEFORE consult type filter)
-    const isDateCat = (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'huy_khach' || _crmActiveCat === 'xu_ly_tre');
+    const isDateCat = (_kocActiveCat === 'cho_xu_ly' || _kocActiveCat === 'huy_khach' || _kocActiveCat === 'xu_ly_tre');
     if (isDateCat) {
         const selDay = document.getElementById('crmDateDay')?.value;
         const selMonth = document.getElementById('crmDateMonth')?.value;
@@ -506,7 +506,7 @@ function _crmRenderFilteredTable() {
         if (hasYear || hasMonth || hasDay) {
             filtered = filtered.filter(c => {
                 let dateField;
-                if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
+                if (_kocActiveCat === 'cho_xu_ly' || _kocActiveCat === 'xu_ly_tre') {
                     dateField = c.appointment_date;
                 } else {
                     dateField = c.cancel_approved_at || c.created_at;
@@ -522,7 +522,7 @@ function _crmRenderFilteredTable() {
     }
 
     // Update consult type dropdown AFTER date filter
-    _crmUpdateConsultTypeDropdown(filtered);
+    _kocUpdateConsultTypeDropdown(filtered);
 
     // Card counts always show TOTAL (not date-filtered)
 
@@ -552,7 +552,7 @@ function _crmRenderFilteredTable() {
         if (pinA !== pinB) return pinB - pinA;
         // Both pinned: most recent pin first
         if (pinA && pinB) return new Date(b.pinned_at || 0) - new Date(a.pinned_at || 0);
-        if (_crmActiveCat === 'huy_khach') {
+        if (_kocActiveCat === 'huy_khach') {
             const dateA = a.cancel_approved_at || a.created_at;
             const dateB = b.cancel_approved_at || b.created_at;
             return new Date(dateB || 0) - new Date(dateA || 0);
@@ -579,58 +579,58 @@ function _crmRenderFilteredTable() {
     }
 
     // Pagination
-    const totalPages = Math.ceil(filtered.length / _crmPageSize);
-    if (_crmCurrentPage > totalPages) _crmCurrentPage = totalPages;
-    const startIdx = (_crmCurrentPage - 1) * _crmPageSize;
-    const paged = filtered.slice(startIdx, startIdx + _crmPageSize);
+    const totalPages = Math.ceil(filtered.length / _kocPageSize);
+    if (_kocCurrentPage > totalPages) _kocCurrentPage = totalPages;
+    const startIdx = (_kocCurrentPage - 1) * _kocPageSize;
+    const paged = filtered.slice(startIdx, startIdx + _kocPageSize);
 
     // Split table into two sections for phai_xu_ly
-    if (_crmActiveCat === 'phai_xu_ly') {
-        const moiChuyenRows = paged.filter(c => _crmGetCategory(c, stats) === 'moi_chuyen');
-        const phaiXuLyRows = paged.filter(c => _crmGetCategory(c, stats) === 'phai_xu_ly');
+    if (_kocActiveCat === 'phai_xu_ly') {
+        const moiChuyenRows = paged.filter(c => _kocGetCategory(c, stats) === 'moi_chuyen');
+        const phaiXuLyRows = paged.filter(c => _kocGetCategory(c, stats) === 'phai_xu_ly');
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
             html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
-            html += moiChuyenRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
+            html += moiChuyenRows.map(c => _kocRenderCustomerRow(c, stats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
             html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
-            html += phaiXuLyRows.map(c => _crmRenderCustomerRow(c, stats, stt++)).join('');
+            html += phaiXuLyRows.map(c => _kocRenderCustomerRow(c, stats, stt++)).join('');
         }
         tbody.innerHTML = html;
     } else {
-        tbody.innerHTML = paged.map((c, idx) => _crmRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
+        tbody.innerHTML = paged.map((c, idx) => _kocRenderCustomerRow(c, stats, startIdx + idx + 1)).join('');
     }
 
     // Render pagination
     const pgEl = document.getElementById('crmPagination');
     if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
-    let pgHtml = '<button ' + (_crmCurrentPage <= 1 ? 'disabled' : '') + ' onclick="_crmGoToPage(' + (_crmCurrentPage - 1) + ')">◀</button>';
+    let pgHtml = '<button ' + (_kocCurrentPage <= 1 ? 'disabled' : '') + ' onclick="_kocGoToPage(' + (_kocCurrentPage - 1) + ')">◀</button>';
     for (let p = 1; p <= totalPages; p++) {
-        pgHtml += '<button class="' + (p === _crmCurrentPage ? 'active' : '') + '" onclick="_crmGoToPage(' + p + ')">' + p + '</button>';
+        pgHtml += '<button class="' + (p === _kocCurrentPage ? 'active' : '') + '" onclick="_kocGoToPage(' + p + ')">' + p + '</button>';
     }
-    pgHtml += '<button ' + (_crmCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="_crmGoToPage(' + (_crmCurrentPage + 1) + ')">▶</button>';
-    pgHtml += '<span class="pg-info">' + (startIdx+1) + '–' + Math.min(startIdx + _crmPageSize, filtered.length) + ' / ' + filtered.length + '</span>';
+    pgHtml += '<button ' + (_kocCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="_kocGoToPage(' + (_kocCurrentPage + 1) + ')">▶</button>';
+    pgHtml += '<span class="pg-info">' + (startIdx+1) + '–' + Math.min(startIdx + _kocPageSize, filtered.length) + ' / ' + filtered.length + '</span>';
     pgEl.innerHTML = pgHtml;
 }
 
-function _crmGoToPage(page) {
-    _crmCurrentPage = page;
-    _crmRenderFilteredTable();
+function _kocGoToPage(page) {
+    _kocCurrentPage = page;
+    _kocRenderFilteredTable();
     // Scroll to table top
-    document.getElementById('crmNhuCauTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('crmCtvTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // _crmDateShowAll removed - filtering now uses dropdown values directly
 
-function _crmRenderCustomerRow(c, stats, stt) {
+function _kocRenderCustomerRow(c, stats, stt) {
     const s = stats[c.id] || { consultCount: 0, chotDonCount: 0, lastLog: null, revenue: 0 };
     const OVERRIDE_STATUSES = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
-    let lastType = s.lastLog ? CONSULT_TYPES[s.lastLog.log_type] : null;
+    let lastType = s.lastLog ? KOC_CONSULT_TYPES[s.lastLog.log_type] : null;
     // Override: special cancel statuses always show their own label
-    if (OVERRIDE_STATUSES.includes(c.order_status) && CONSULT_TYPES[c.order_status]) {
-        lastType = CONSULT_TYPES[c.order_status];
+    if (OVERRIDE_STATUSES.includes(c.order_status) && KOC_CONSULT_TYPES[c.order_status]) {
+        lastType = KOC_CONSULT_TYPES[c.order_status];
     }
     let lastContent = s.lastLog?.content || '';
     if (lastContent && lastType) {
@@ -649,11 +649,11 @@ function _crmRenderCustomerRow(c, stats, stt) {
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
     return `<tr class="${_pinClass}">
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_crmTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
+            ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_kocTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
-        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
+        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_kocOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
@@ -677,23 +677,23 @@ function _crmRenderCustomerRow(c, stats, stt) {
                     ⏳ Chờ Duyệt Hủy
                 </button>
             ` : (c.cancel_approved === -2) ? `
-                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                <button class="btn btn-sm consult-btn" onclick="_kocOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;">
                     ❌ Hủy Khách
                 </button>
             ` : (c.cancel_approved === -1) ? `
-                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                <button class="btn btn-sm consult-btn" onclick="_kocOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
                 </button>
             ` : `
-                <button class="btn btn-sm consult-btn" onclick="openConsultModal(${c.id})" 
+                <button class="btn btn-sm consult-btn" onclick="_kocOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </button>
             `}
         </td>
-        <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="openCustomerDetail(${c.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" title="${lastContent}">
+        <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_kocOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_kocSwitchCDTab('history'),100))" title="${lastContent}">
             ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
@@ -702,7 +702,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
         </td>
         <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
         <td>
-            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();openCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();_kocOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
             ${(() => {
                 const _colors = [
                     {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
@@ -718,16 +718,16 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 ];
                 const _ci = (c.id || 0) % _colors.length;
                 const _cc = _colors[_ci];
-                const _bdayIcon = _crmIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
-                return `<span onclick="openCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span>`;
+                const _bdayIcon = _kocIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
+                return `<span onclick="_kocOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span>`;
             })()}
         </td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
         <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="font-size:12px">${c.source_name || '—'}</td>
-        <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? 'openReferrerSearch(' + c.id + ')' : ''}">
-            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
+        <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? '_kocOpenReferrerSearch(' + c.id + ')' : ''}">
+            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();_kocOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
         </td>
         <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
@@ -736,18 +736,18 @@ function _crmRenderCustomerRow(c, stats, stt) {
     </tr>`;
 }
 
-async function loadCrmNhuCauData() {
+async function loadCrmKocData() {
     // Sync dynamic consult types from API (adds any new types created in settings)
-    await _crmSyncConsultTypes();
+    await _kocSyncConsultTypes();
 
-    let url = '/api/customers?crm_type=nhu_cau';
+    let url = '/api/customers?crm_type=koc_tiktok';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     const topStaff = document.getElementById('crmTopStaffFilter')?.value;
     if (topStaff) url += `&employee_id=${topStaff}`;
 
     const data = await apiCall(url);
-    const tbody = document.getElementById('crmNhuCauTbody');
+    const tbody = document.getElementById('crmCtvTbody');
 
     // Include ALL customers (including cancelled) for categorization
     const customers = data.customers || [];
@@ -771,12 +771,12 @@ async function loadCrmNhuCauData() {
     }
 
     // Store for re-filtering
-    _crmAllCustomers = customers;
-    _crmAllStats = stats;
+    _kocAllCustomers = customers;
+    _kocAllStats = stats;
 
     // Count categories
     const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
-    customers.forEach(c => { const cat = _crmGetCategory(c, stats); counts[cat]++; });
+    customers.forEach(c => { const cat = _kocGetCategory(c, stats); counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
     const el = (id) => document.getElementById(id);
@@ -788,38 +788,38 @@ async function loadCrmNhuCauData() {
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
-    if (_crmActiveCat) {
-        const activeEl = document.querySelector('.crm-stat-card[data-cat="' + _crmActiveCat + '"]');
+    if (_kocActiveCat) {
+        const activeEl = document.querySelector('.crm-stat-card[data-cat="' + _kocActiveCat + '"]');
         if (activeEl) activeEl.classList.add('active');
     }
 
     // Update consult type dropdown
-    _crmUpdateConsultTypeDropdown();
+    _kocUpdateConsultTypeDropdown();
 
     // Render table
     // Auto-select 'Phải xử lý hôm nay' on first load
-    if (!_crmActiveCat) {
-        _crmFilterByCat('phai_xu_ly');
+    if (!_kocActiveCat) {
+        _kocFilterByCat('phai_xu_ly');
     } else {
-        _crmRenderFilteredTable();
+        _kocRenderFilteredTable();
     }
 }
 
-function applyCrmNhuCauFilter() { loadCrmNhuCauData(); }
+function applyCrmKocFilter() { loadCrmKocData(); }
 
 // ========== PIN KHÁCH HÀNG ==========
-async function _crmTogglePin(customerId) {
+async function _kocTogglePin(customerId) {
     try {
         const res = await apiCall(`/api/customers/${customerId}/pin`, 'PATCH');
         if (res.success) {
             // Update local data
-            const c = _crmAllCustomers.find(x => x.id === customerId);
+            const c = _kocAllCustomers.find(x => x.id === customerId);
             if (c) {
                 c.is_pinned = res.is_pinned;
                 c.pinned_at = res.is_pinned ? new Date().toISOString() : null;
                 if (res.next_appointment) c.appointment_date = res.next_appointment;
             }
-            _crmRenderFilteredTable();
+            _kocRenderFilteredTable();
             showToast(res.message, res.is_pinned ? 'success' : 'info');
         } else {
             showToast(res.error || 'Lỗi!', 'error');
@@ -860,18 +860,18 @@ async function _crmTogglePin(customerId) {
     `;
     document.head.appendChild(style);
 })();
-function resetCrmNhuCauFilter() {
-    _crmActiveCat = null;
+function resetCrmKocFilter() {
+    _kocActiveCat = null;
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
     document.getElementById('crmFilterConsultType').value = '';
     document.getElementById('crmSearch').value = '';
     const topStaff = document.getElementById('crmTopStaffFilter');
     if (topStaff) topStaff.value = '';
-    loadCrmNhuCauData();
+    loadCrmKocData();
 }
 
 // ========== CONSULTATION MODAL ==========
-async function openConsultModal(customerId) {
+async function _kocOpenConsultModal(customerId) {
     window._currentConsultCustomerId = customerId;
     // Check if customer has a pending emergency
     let pendingEmergency = null;
@@ -903,21 +903,21 @@ async function openConsultModal(customerId) {
     let flowRules = {};
     let maxDaysPerStatus = {};
     try {
-        const frData = await apiCall('/api/consult-flow-rules');
+        const frData = await apiCall('/api/consult-flow-rules?crm_menu=koc_tiktok');
         flowRules = frData.rules || {};
         maxDaysPerStatus = frData.maxDaysPerStatus || {};
     } catch(e) {}
 
     // Determine allowed types based on order_status and consultation history
     const orderStatus = customerInfo.order_status || 'dang_tu_van';
-    const allTypes = Object.entries(CONSULT_TYPES);
+    const allTypes = Object.entries(KOC_CONSULT_TYPES);
 
     // Helper: get allowed types from flow rules for a given status
     function _getFlowRuleTypes(status) {
         const rules = flowRules[status];
         if (!rules || rules.length === 0) return null;
         return rules
-            .map(r => [r.to_type_key, CONSULT_TYPES[r.to_type_key]])
+            .map(r => [r.to_type_key, KOC_CONSULT_TYPES[r.to_type_key]])
             .filter(([k, v]) => v); // only include types that exist
     }
 
@@ -952,7 +952,7 @@ async function openConsultModal(customerId) {
     } else if (orderStatus === 'gui_stk_coc') {
         const fr = _getFlowRuleTypes('gui_stk_coc');
         if (fr) { allowedTypes = fr; }
-        else { const order = ['giuc_coc','dat_coc','nhan_tin','cap_cuu_sep']; allowedTypes = order.map(k => [k, CONSULT_TYPES[k]]).filter(([,v]) => v); }
+        else { const order = ['giuc_coc','dat_coc','nhan_tin','cap_cuu_sep']; allowedTypes = order.map(k => [k, KOC_CONSULT_TYPES[k]]).filter(([,v]) => v); }
     } else if (orderStatus === 'huy_coc') {
         allowedTypes = _getFlowRuleTypes('huy_coc') || allTypes.filter(([k]) => ['tuong_tac_ket_noi','nhan_tin','goi_dien','gap_truc_tiep','cap_cuu_sep'].includes(k));
     } else if (orderStatus === 'duyet_huy') {
@@ -990,7 +990,7 @@ async function openConsultModal(customerId) {
     const defaultRule = effectiveRules.find(r => r.is_default);
     let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
 
-    // ★ Store section key + max days for max_appointment_days enforcement in onConsultTypeChange
+    // ★ Store section key + max days for max_appointment_days enforcement in _kocOnConsultTypeChange
     window._currentConsultSectionKey = effectiveStatus;
     window._currentConsultMaxDays = maxDaysPerStatus[effectiveStatus] || 0;
 
@@ -1005,11 +1005,11 @@ async function openConsultModal(customerId) {
     // Collapsible consultation history (grouped by month)
     const historyHTML = consultLogs.length > 0 ? `
         <div style="margin-bottom:12px;">
-            <button type="button" onclick="toggleConsultHistory()" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--gray-500);cursor:pointer;display:flex;align-items:center;gap:4px;width:100%;">
+            <button type="button" onclick="_kocToggleConsultHistory()" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--gray-500);cursor:pointer;display:flex;align-items:center;gap:4px;width:100%;">
                 📜 Xem lịch sử (${consultLogs.length}) <span id="historyArrow" style="margin-left:auto;">▼</span>
             </button>
             <div id="consultHistoryPanel" style="display:none;max-height:300px;overflow-y:auto;padding:10px;background:var(--gray-50);border-radius:0 0 8px 8px;border:1px solid var(--gray-200);border-top:none;">
-                ${buildGroupedHistoryHTML(consultLogs, { compact: true })}
+                ${_kocBuildGroupedHistoryHTML(consultLogs, { compact: true })}
             </div>
         </div>
     ` : '';
@@ -1018,7 +1018,7 @@ async function openConsultModal(customerId) {
         ${historyHTML}
         <div class="form-group">
             <label>Loại Tư Vấn <span style="color:var(--danger)">*</span></label>
-            <select id="consultType" class="form-control" onchange="onConsultTypeChange()">
+            <select id="consultType" class="form-control" onchange="_kocOnConsultTypeChange()">
                 ${typeOptions}
             </select>
         </div>
@@ -1026,7 +1026,7 @@ async function openConsultModal(customerId) {
             <label>Số Tiền Đặt Cọc <span style="color:var(--danger)">*</span></label>
             <input type="text" id="consultDepositAmount" class="form-control" placeholder="Nhập số tiền đặt cọc..." 
                 style="font-size:14px;font-weight:600;color:#e65100;"
-                oninput="formatDepositInput(this)">
+                oninput="_kocFormatDepositInput(this)">
         </div>
         <div class="form-group" id="consultContentGroup">
             <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
@@ -1038,13 +1038,13 @@ async function openConsultModal(customerId) {
                 <div id="consultImagePlaceholder">📋 Click vào đây rồi Ctrl+V để dán hình ảnh</div>
                 <img id="consultImagePreview" style="display:none;max-width:100%;max-height:200px;border-radius:8px;">
                 <input type="file" id="consultImageFile" accept="image/*" style="display:none">
-                <button id="consultImageRemove" class="btn btn-sm" style="display:none;position:absolute;top:8px;right:8px;background:var(--danger);color:white;font-size:11px;padding:2px 8px;" onclick="removeConsultImage()">✕</button>
+                <button id="consultImageRemove" class="btn btn-sm" style="display:none;position:absolute;top:8px;right:8px;background:var(--danger);color:white;font-size:11px;padding:2px 8px;" onclick="_kocRemoveConsultImage()">✕</button>
             </div>
         </div>
         <div class="form-group" id="consultNextTypeGroup" style="display:none">
             <label>Tư Vấn Tiếp Theo <span style="color:var(--danger)">*</span></label>
-            <select id="consultNextType" class="form-control" onchange="updateApptLabel()">
-                ${Object.entries(CONSULT_TYPES).filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','dat_coc','chot_don','cap_cuu_sep','huy'].includes(k)).map(([k, v]) =>
+            <select id="consultNextType" class="form-control" onchange="_kocUpdateApptLabel()">
+                ${Object.entries(KOC_CONSULT_TYPES).filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','dat_coc','chot_don','cap_cuu_sep','huy'].includes(k)).map(([k, v]) =>
                     `<option value="${k}" ${k === (lastLog?.next_consult_type || 'goi_dien') ? 'selected' : ''}>${v.icon} ${v.label}</option>`
                 ).join('')}
             </select>
@@ -1092,14 +1092,14 @@ async function openConsultModal(customerId) {
                         ${existingItems.length > 0 ? existingItems.map(it => `<tr>
                             <td><input class="form-control oi-desc" value="${it.description||''}" style="font-size:13px;padding:6px 8px;"></td>
                             <td><input type="number" class="form-control oi-qty" value="${it.quantity||0}" min="0" style="font-size:13px;padding:6px 8px;width:70px;"></td>
-                            <td><input type="text" class="form-control oi-price" value="${formatCurrency(it.unit_price||0)}" style="font-size:13px;padding:6px 8px;" oninput="formatDepositInput(this);calcConsultOrderTotal()"></td>
+                            <td><input type="text" class="form-control oi-price" value="${formatCurrency(it.unit_price||0)}" style="font-size:13px;padding:6px 8px;" oninput="_kocFormatDepositInput(this);_kocCalcConsultOrderTotal()"></td>
                             <td class="oi-total" style="text-align:right;font-weight:600">${formatCurrency(it.total)}</td>
-                            <td><button class="btn btn-sm" onclick="this.closest('tr').remove();calcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
+                            <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_kocCalcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
                         </tr>`).join('') : ''}
                     </tbody>
                 </table>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                    <button class="btn btn-sm" onclick="addConsultOrderRow()" style="font-size:12px;">➕ Thêm dòng</button>
+                    <button class="btn btn-sm" onclick="_kocAddConsultOrderRow()" style="font-size:12px;">➕ Thêm dòng</button>
                     <div style="text-align:right;">
                         <div style="font-size:16px;font-weight:700;">Tổng: <span id="consultOrderTotal" style="color:#d4a843;font-size:18px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
                         <div id="consultDepositInfo" style="display:none;margin-top:4px;font-size:13px;">
@@ -1118,13 +1118,13 @@ async function openConsultModal(customerId) {
                     <label>Thành Phố <span style="color:var(--danger)">*</span></label>
                     <select id="consultCity" class="form-control">
                         <option value="">-- Chọn tỉnh/thành --</option>
-                        ${VN_PROVINCES.map(p => `<option value="${p}" ${customerInfo.province === p ? 'selected' : ''}>${p}</option>`).join('')}
+                        ${KOC_VN_PROVINCES.map(p => `<option value="${p}" ${customerInfo.province === p ? 'selected' : ''}>${p}</option>`).join('')}
                     </select>
                 </div>
             </div>
             <div class="form-group" style="display:none">
                 <label>Tư Vấn Tiếp Theo <span style="color:var(--danger)">*</span></label>
-                <select id="consultChotDonNextType" class="form-control" onchange="updateChotDonApptLabel()">
+                <select id="consultChotDonNextType" class="form-control" onchange="_kocUpdateChotDonApptLabel()">
                     <option value="dang_san_xuat">🏭 Đang Sản Xuất</option>
                     <option value="hoan_thanh">🏆 Hoàn Thành Đơn</option>
                 </select>
@@ -1138,7 +1138,7 @@ async function openConsultModal(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" id="consultSubmitBtn" onclick="submitConsultLog(${customerId})" style="width:auto;">📝 GHI NHẬN</button>
+        <button class="btn btn-primary" id="consultSubmitBtn" onclick="_kocSubmitConsultLog(${customerId})" style="width:auto;">📝 GHI NHẬN</button>
     `;
 
     openModal('📋 Ghi Nhận Tư Vấn', bodyHTML, footerHTML);
@@ -1147,17 +1147,17 @@ async function openConsultModal(customerId) {
     setTimeout(() => {
         const area = document.getElementById('consultImageArea');
         if (area) {
-            area.addEventListener('paste', handleConsultImagePaste);
+            area.addEventListener('paste', _kocHandleConsultImagePaste);
             area.addEventListener('click', () => area.focus());
         }
-        document.querySelectorAll('#consultOrderTable .oi-qty, #consultOrderTable .oi-price').forEach(el => el.addEventListener('input', calcConsultOrderTotal));
-        onConsultTypeChange(); // trigger to show/hide correct fields
+        document.querySelectorAll('#consultOrderTable .oi-qty, #consultOrderTable .oi-price').forEach(el => el.addEventListener('input', _kocCalcConsultOrderTotal));
+        _kocOnConsultTypeChange(); // trigger to show/hide correct fields
     }, 100);
 }
 
 window._consultImageBlob = null;
 
-function handleConsultImagePaste(e) {
+function _kocHandleConsultImagePaste(e) {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
@@ -1178,14 +1178,14 @@ function handleConsultImagePaste(e) {
     }
 }
 
-function removeConsultImage() {
+function _kocRemoveConsultImage() {
     window._consultImageBlob = null;
     document.getElementById('consultImagePreview').style.display = 'none';
     document.getElementById('consultImagePlaceholder').style.display = 'block';
     document.getElementById('consultImageRemove').style.display = 'none';
 }
 
-function onConsultTypeChange() {
+function _kocOnConsultTypeChange() {
     const type = document.getElementById('consultType').value;
     const cancelGroup = document.getElementById('consultCancelGroup');
     const contentGroup = document.getElementById('consultContentGroup');
@@ -1269,7 +1269,7 @@ function onConsultTypeChange() {
         // Show only the Mã Đơn field from orderGroup
         const ocGroup = document.getElementById('consultOrderCodeGroup');
         if (ocGroup) ocGroup.style.display = 'block';
-        fetchOrderCode();
+        _kocFetchOrderCode();
     }
 
     // Chốt Đơn flow
@@ -1280,7 +1280,7 @@ function onConsultTypeChange() {
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
         // Fetch order code (reuses existing from đặt cọc if any)
-        fetchOrderCode();
+        _kocFetchOrderCode();
         // Fetch deposit amount from dat_coc log
         window._currentDepositAmount = 0;
         const customerId = window._currentConsultCustomerId;
@@ -1289,7 +1289,7 @@ function onConsultTypeChange() {
                 const datCocLog = (data.logs || []).find(l => l.log_type === 'dat_coc' && l.deposit_amount > 0);
                 if (datCocLog) {
                     window._currentDepositAmount = datCocLog.deposit_amount;
-                    calcConsultOrderTotal();
+                    _kocCalcConsultOrderTotal();
                 }
             });
         }
@@ -1328,18 +1328,18 @@ function onConsultTypeChange() {
     }
 }
 
-function updateApptLabel() {
+function _kocUpdateApptLabel() {
     const sel = document.getElementById('consultNextType');
     const apptGroup = document.getElementById('consultAppointmentGroup');
     if (!sel || !apptGroup) return;
     const val = sel.value;
-    const typeInfo = CONSULT_TYPES[val];
+    const typeInfo = KOC_CONSULT_TYPES[val];
     const label = typeInfo ? typeInfo.label : 'Tiếp Theo';
     const apptLabel = apptGroup.querySelector('label');
     if (apptLabel) apptLabel.innerHTML = `Ngày Hẹn ${label} <span style="color:var(--danger)">*</span>`;
 }
 
-function updateChotDonApptLabel() {
+function _kocUpdateChotDonApptLabel() {
     const sel = document.getElementById('consultChotDonNextType');
     const lbl = document.getElementById('consultChotDonApptLabel');
     if (!sel || !lbl) return;
@@ -1348,7 +1348,7 @@ function updateChotDonApptLabel() {
 }
 
 // ========== SHARED GROUPED HISTORY BUILDER ==========
-function buildGroupedHistoryHTML(logs, options = {}) {
+function _kocBuildGroupedHistoryHTML(logs, options = {}) {
     const { compact = false } = options;
     if (logs.length === 0) return compact ? '' : '<div style="text-align:center;padding:40px 20px;"><div style="font-size:40px;margin-bottom:8px;">📭</div><div style="color:#94a3b8;font-size:14px;">Chưa có lịch sử tư vấn</div></div>';
 
@@ -1372,7 +1372,7 @@ function buildGroupedHistoryHTML(logs, options = {}) {
         const groupId = 'hg_' + key.replace('/', '_') + '_' + Math.random().toString(36).slice(2,6);
 
         const logsHTML = items.map((log, idx) => {
-            const t = CONSULT_TYPES[log.log_type] || { icon: '📋', label: log.log_type, color: '#6b7280' };
+            const t = KOC_CONSULT_TYPES[log.log_type] || { icon: '📋', label: log.log_type, color: '#6b7280' };
             const d = new Date(log.created_at);
             const days = ['CN','T2','T3','T4','T5','T6','T7'];
             const dayName = days[d.getDay()];
@@ -1439,7 +1439,7 @@ function buildGroupedHistoryHTML(logs, options = {}) {
 }
 
 // ========== SHARED ORDER CARD BUILDER ==========
-function buildOrderCardHTML(codes, customer) {
+function _kocBuildOrderCardHTML(codes, customer) {
     if (codes.length === 0) return '<p style="color:#6b7280;text-align:center;padding:20px;">Chưa có mã đơn nào</p>';
 
     let allOrdersTotal = 0;
@@ -1512,21 +1512,21 @@ function buildOrderCardHTML(codes, customer) {
 }
 
 // ========== ORDER CODES POPUP ==========
-async function openOrderCodesPopup(customerId) {
+async function _kocOpenOrderCodesPopup(customerId) {
     // Open full customer detail popup with "Đơn Hàng" tab pre-selected
-    await openCustomerDetail(customerId);
-    setTimeout(() => switchCDTab('orders'), 100);
+    await _kocOpenCustomerDetail(customerId);
+    setTimeout(() => _kocSwitchCDTab('orders'), 100);
 }
 
 // Per-order completion
-async function completeOrder(orderId, customerId) {
+async function _kocCompleteOrder(orderId, customerId) {
     if (!confirm('Xác nhận hoàn thành đơn này? Hoa hồng sẽ được tính cho affiliate.')) return;
     try {
         const res = await apiCall(`/api/order-codes/${orderId}/complete`, 'POST');
         if (res.success) {
             showToast('✅ ' + res.message);
             closeModal();
-            openOrderCodesPopup(customerId);
+            _kocOpenOrderCodesPopup(customerId);
         } else {
             showToast(res.error, 'error');
         }
@@ -1534,14 +1534,14 @@ async function completeOrder(orderId, customerId) {
 }
 
 // Per-order cancellation
-async function cancelOrder(orderId, customerId) {
+async function _kocCancelOrder(orderId, customerId) {
     if (!confirm('Xác nhận hủy đơn này?')) return;
     try {
         const res = await apiCall(`/api/order-codes/${orderId}/cancel`, 'POST');
         if (res.success) {
             showToast('🚫 ' + res.message);
             closeModal();
-            openOrderCodesPopup(customerId);
+            _kocOpenOrderCodesPopup(customerId);
         } else {
             showToast(res.error, 'error');
         }
@@ -1549,7 +1549,7 @@ async function cancelOrder(orderId, customerId) {
 }
 
 // Toggle collapsible history panel
-function toggleConsultHistory() {
+function _kocToggleConsultHistory() {
     const panel = document.getElementById('consultHistoryPanel');
     const arrow = document.getElementById('historyArrow');
     if (panel) {
@@ -1560,7 +1560,7 @@ function toggleConsultHistory() {
 }
 
 // Fetch order code for current customer (always generates new)
-function fetchOrderCode() {
+function _kocFetchOrderCode() {
     const ocGroup = document.getElementById('consultOrderCodeGroup');
     const ocInput = document.getElementById('consultOrderCode');
     if (!ocGroup || !ocInput) return;
@@ -1574,7 +1574,7 @@ function fetchOrderCode() {
             const tbody = document.querySelector('#consultOrderTable tbody');
             if (tbody) {
                 tbody.innerHTML = '';
-                addConsultOrderRow();
+                _kocAddConsultOrderRow();
             }
             // Reset totals
             const totalEl = document.getElementById('consultOrderTotal');
@@ -1588,18 +1588,18 @@ function fetchOrderCode() {
 }
 
 // Order table helpers for Chốt Đơn
-function addConsultOrderRow() {
+function _kocAddConsultOrderRow() {
     const tbody = document.querySelector('#consultOrderTable tbody');
     tbody.insertAdjacentHTML('beforeend', `<tr>
         <td><input class="form-control oi-desc" value="" style="font-size:13px;padding:6px 8px;"></td>
-        <td><input type="number" class="form-control oi-qty" value="0" min="0" style="font-size:13px;padding:6px 8px;width:70px;" oninput="calcConsultOrderTotal()"></td>
-        <td><input type="text" class="form-control oi-price" value="0" style="font-size:13px;padding:6px 8px;" oninput="formatDepositInput(this);calcConsultOrderTotal()"></td>
+        <td><input type="number" class="form-control oi-qty" value="0" min="0" style="font-size:13px;padding:6px 8px;width:70px;" oninput="_kocCalcConsultOrderTotal()"></td>
+        <td><input type="text" class="form-control oi-price" value="0" style="font-size:13px;padding:6px 8px;" oninput="_kocFormatDepositInput(this);_kocCalcConsultOrderTotal()"></td>
         <td class="oi-total" style="text-align:right;font-weight:600">0</td>
-        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();calcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
+        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_kocCalcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
     </tr>`);
 }
 
-function calcConsultOrderTotal() {
+function _kocCalcConsultOrderTotal() {
     let grand = 0;
     document.querySelectorAll('#consultOrderTable tbody tr').forEach(row => {
         const qty = Number(row.querySelector('.oi-qty')?.value) || 0;
@@ -1621,18 +1621,18 @@ function calcConsultOrderTotal() {
 }
 
 // Disable submit button to prevent double-click
-function disableSubmitBtn() {
+function _kocDisableSubmitBtn() {
     const btn = document.getElementById('consultSubmitBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
 }
-function enableSubmitBtn() {
+function _kocEnableSubmitBtn() {
     const btn = document.getElementById('consultSubmitBtn');
     if (btn) { btn.disabled = false; btn.textContent = '📝 GHI NHẬN'; }
 }
 
-async function submitConsultLog(customerId) {
+async function _kocSubmitConsultLog(customerId) {
     // Debounce: disable button immediately
-    disableSubmitBtn();
+    _kocDisableSubmitBtn();
     const log_type = document.getElementById('consultType').value;
     const content = document.getElementById('consultContent')?.value;
     const appointment_date = document.getElementById('consultAppointment')?.value;
@@ -1640,20 +1640,20 @@ async function submitConsultLog(customerId) {
     // ========== HỦY flow ==========
     if (log_type === 'huy') {
         const reason = document.getElementById('consultCancelReason')?.value;
-        if (!reason) { showToast('Vui lòng nhập lý do hủy!', 'error'); enableSubmitBtn(); return; }
+        if (!reason) { showToast('Vui lòng nhập lý do hủy!', 'error'); _kocEnableSubmitBtn(); return; }
         try {
             const data = await apiCall(`/api/customers/${customerId}/cancel`, 'POST', { reason });
-            if (data.success) { showToast('✅ ' + data.message); closeModal(); loadCrmNhuCauData(); }
-            else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
-        } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
+            if (data.success) { showToast('✅ ' + data.message); closeModal(); loadCrmKocData(); }
+            else { showToast(data.error || 'Lỗi!', 'error'); _kocEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _kocEnableSubmitBtn(); }
         return;
     }
 
     // ========== Cấp Cứu Sếp flow ==========
     if (log_type === 'cap_cuu_sep') {
         const handler_id = document.getElementById('consultHandler')?.value;
-        if (!content) { showToast('Vui lòng nhập nội dung tình huống!', 'error'); enableSubmitBtn(); return; }
-        if (!handler_id) { showToast('Vui lòng chọn Sếp xử lý!', 'error'); enableSubmitBtn(); return; }
+        if (!content) { showToast('Vui lòng nhập nội dung tình huống!', 'error'); _kocEnableSubmitBtn(); return; }
+        if (!handler_id) { showToast('Vui lòng chọn Sếp xử lý!', 'error'); _kocEnableSubmitBtn(); return; }
         try {
             // Upload image first via consultation
             const formData = new FormData();
@@ -1669,9 +1669,9 @@ async function submitConsultLog(customerId) {
                 customer_id: customerId, reason: content, handler_id: Number(handler_id)
             });
             if (data.success) {
-                showToast('🚨 ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
-            } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
-        } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
+                showToast('🚨 ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmKocData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _kocEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _kocEnableSubmitBtn(); }
         return;
     }
 
@@ -1679,7 +1679,7 @@ async function submitConsultLog(customerId) {
     if (log_type === 'dat_coc') {
         const depositAmount = Number((document.getElementById('consultDepositAmount')?.value || '').replace(/\./g, '')) || 0;
         if (depositAmount <= 0) {
-            showToast('Vui lòng nhập số tiền đặt cọc!', 'error'); enableSubmitBtn(); return;
+            showToast('Vui lòng nhập số tiền đặt cọc!', 'error'); _kocEnableSubmitBtn(); return;
         }
         const contentText = content || `Đặt cọc: ${formatCurrency(depositAmount)} VNĐ`;
 
@@ -1697,9 +1697,9 @@ async function submitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
-            } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
-        } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
+                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmKocData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _kocEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _kocEnableSubmitBtn(); }
         return;
     }
 
@@ -1709,18 +1709,18 @@ async function submitConsultLog(customerId) {
         const city = document.getElementById('consultCity')?.value;
         const phone = document.getElementById('consultPhone')?.value;
         const sbhDate = document.getElementById('consultSBHDate')?.value;
-        if (!address) { showToast('Vui lòng nhập địa chỉ!', 'error'); enableSubmitBtn(); return; }
-        if (!city) { showToast('Vui lòng chọn thành phố!', 'error'); enableSubmitBtn(); return; }
-        if (!sbhDate) { showToast('Vui lòng chọn ngày hẹn sau bán hàng!', 'error'); enableSubmitBtn(); return; }
+        if (!address) { showToast('Vui lòng nhập địa chỉ!', 'error'); _kocEnableSubmitBtn(); return; }
+        if (!city) { showToast('Vui lòng chọn thành phố!', 'error'); _kocEnableSubmitBtn(); return; }
+        if (!sbhDate) { showToast('Vui lòng chọn ngày hẹn sau bán hàng!', 'error'); _kocEnableSubmitBtn(); return; }
 
         // Phone validate
         if (phone && !/^\d{10}$/.test(phone)) {
-            showToast('SĐT phải đúng 10 chữ số', 'error'); enableSubmitBtn(); return;
+            showToast('SĐT phải đúng 10 chữ số', 'error'); _kocEnableSubmitBtn(); return;
         }
 
         // Collect order items
         const rows = document.querySelectorAll('#consultOrderTable tbody tr');
-        if (rows.length === 0) { showToast('Vui lòng thêm ít nhất 1 sản phẩm!', 'error'); enableSubmitBtn(); return; }
+        if (rows.length === 0) { showToast('Vui lòng thêm ít nhất 1 sản phẩm!', 'error'); _kocEnableSubmitBtn(); return; }
         const items = [];
         for (const row of rows) {
             const desc = row.querySelector('.oi-desc')?.value;
@@ -1728,7 +1728,7 @@ async function submitConsultLog(customerId) {
             const price = Number((row.querySelector('.oi-price')?.value || '').replace(/\./g, '')) || 0;
             if (desc && qty > 0 && price > 0) items.push({ description: desc, quantity: qty, unit_price: price });
         }
-        if (items.length === 0) { showToast('Vui lòng nhập sản phẩm hợp lệ!', 'error'); enableSubmitBtn(); return; }
+        if (items.length === 0) { showToast('Vui lòng nhập sản phẩm hợp lệ!', 'error'); _kocEnableSubmitBtn(); return; }
 
         try {
             // Generate order code FIRST so items link to new order
@@ -1756,19 +1756,19 @@ async function submitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
-            } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
-        } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
+                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmKocData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _kocEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _kocEnableSubmitBtn(); }
         return;
     }
 
     // ========== Normal consultation flow ==========
-    if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); enableSubmitBtn(); return; }
+    if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _kocEnableSubmitBtn(); return; }
     const imageRequiredTypes = ['nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'];
     if (imageRequiredTypes.includes(log_type) && !window._consultImageBlob) {
-        showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); enableSubmitBtn(); return;
+        showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _kocEnableSubmitBtn(); return;
     }
-    if (!appointment_date) { showToast('Vui lòng chọn ngày hẹn!', 'error'); enableSubmitBtn(); return; }
+    if (!appointment_date) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _kocEnableSubmitBtn(); return; }
 
     const formData = new FormData();
     formData.append('log_type', log_type);
@@ -1784,13 +1784,13 @@ async function submitConsultLog(customerId) {
         const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmNhuCauData();
-        } else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
-    } catch (err) { showToast('Lỗi kết nối!', 'error'); enableSubmitBtn(); }
+            showToast('✅ ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmKocData();
+        } else { showToast(data.error || 'Lỗi!', 'error'); _kocEnableSubmitBtn(); }
+    } catch (err) { showToast('Lỗi kết nối!', 'error'); _kocEnableSubmitBtn(); }
 }
 
 // ========== CONSULTATION HISTORY ==========
-async function openConsultHistory(customerId) {
+async function _kocOpenConsultHistory(customerId) {
     const [custData, logData, codesData] = await Promise.all([
         apiCall(`/api/customers/${customerId}`),
         apiCall(`/api/customers/${customerId}/consult`),
@@ -1806,9 +1806,9 @@ async function openConsultHistory(customerId) {
 
     let bodyHTML = `
         <div style="display:flex;gap:8px;margin-bottom:16px;">
-            <button class="btn btn-sm tab-btn active" onclick="switchConsultTab('info', this)" style="font-size:12px;">📋 Thông Tin</button>
-            <button class="btn btn-sm tab-btn" onclick="switchConsultTab('history', this)" style="font-size:12px;">📜 Lịch Sử (${logs.length})</button>
-            <button class="btn btn-sm tab-btn" onclick="switchConsultTab('order', this)" style="font-size:12px;">📦 Đơn Hàng</button>
+            <button class="btn btn-sm tab-btn active" onclick="_kocSwitchConsultTab('info', this)" style="font-size:12px;">📋 Thông Tin</button>
+            <button class="btn btn-sm tab-btn" onclick="_kocSwitchConsultTab('history', this)" style="font-size:12px;">📜 Lịch Sử (${logs.length})</button>
+            <button class="btn btn-sm tab-btn" onclick="_kocSwitchConsultTab('order', this)" style="font-size:12px;">📦 Đơn Hàng</button>
         </div>
 
         <div id="tabInfo">
@@ -1823,7 +1823,7 @@ async function openConsultHistory(customerId) {
                 <div><strong>Ngày sinh:</strong> ${c.birthday ? formatDate(c.birthday) : '—'}</div>
                 <div><strong>Ngày hẹn:</strong> ${c.appointment_date || '—'}</div>
                 <div><strong>Người nhận:</strong> ${c.assigned_to_name || '—'}</div>
-                ${(c.referrer_name || c.referrer_customer_name) ? `<div><strong>Người GT:</strong> <span style="cursor:pointer;text-decoration:underline;color:var(--info);" onclick="openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span></div>` : ''}
+                ${(c.referrer_name || c.referrer_customer_name) ? `<div><strong>Người GT:</strong> <span style="cursor:pointer;text-decoration:underline;color:var(--info);" onclick="_kocOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span></div>` : ''}
                 ${(c.referrer_user_crm_type || c.referrer_crm_type) ? `<div><strong>CRM người GT:</strong> ${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</div>` : ''}
                 ${c.notes ? `<div style="grid-column:1/-1"><strong>Ghi chú:</strong> ${c.notes}</div>` : ''}
             </div>
@@ -1832,20 +1832,20 @@ async function openConsultHistory(customerId) {
         <div id="tabHistory" style="display:none;">
             ${logs.length === 0 ? '<div class="empty-state"><div class="icon">📭</div><h3>Chưa có lịch sử</h3></div>' :
             `<div style="max-height:350px;overflow-y:auto;">
-                ${buildGroupedHistoryHTML(logs)}
+                ${_kocBuildGroupedHistoryHTML(logs)}
             </div>`}
         </div>
 
         <div id="tabOrder" style="display:none;">
-            ${buildOrderCardHTML(codes, items, c, totalDeposit)}
+            ${_kocBuildOrderCardHTML(codes, items, c, totalDeposit)}
         </div>
     `;
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="openConsultModal(${c.id})" style="width:auto;">📝 Tư Vấn</button>
-        <button class="btn btn-primary" onclick="saveOrderItems(${c.id})" style="width:auto;">💾 Lưu Đơn</button>
-        <button class="btn" onclick="requestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">❌ Hủy KH</button>
+        <button class="btn btn-primary" onclick="_kocOpenConsultModal(${c.id})" style="width:auto;">📝 Tư Vấn</button>
+        <button class="btn btn-primary" onclick="_kocSaveOrderItems(${c.id})" style="width:auto;">💾 Lưu Đơn</button>
+        <button class="btn" onclick="_kocRequestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">❌ Hủy KH</button>
     `;
 
     openModal(`📋 ${c.customer_name} — ${getCustomerCode(c)}`, bodyHTML, footerHTML);
@@ -1855,7 +1855,7 @@ async function openConsultHistory(customerId) {
     }, 100);
 }
 
-function switchConsultTab(tab, btn) {
+function _kocSwitchConsultTab(tab, btn) {
     document.getElementById('tabInfo').style.display = tab === 'info' ? 'block' : 'none';
     document.getElementById('tabHistory').style.display = tab === 'history' ? 'block' : 'none';
     document.getElementById('tabOrder').style.display = tab === 'order' ? 'block' : 'none';
@@ -1864,18 +1864,18 @@ function switchConsultTab(tab, btn) {
 }
 
 // ========== UPDATE APPOINTMENT ==========
-async function updateAppointment(customerId, date) {
+async function _kocUpdateAppointment(customerId, date) {
     const data = await apiCall(`/api/customers/${customerId}/appointment`, 'PUT', { appointment_date: date });
     if (data.success) showToast('📅 Đã cập nhật ngày hẹn!');
 }
 
 // ========== REFERRER SEARCH ==========
-let _allReferrerCustomers = [];
-async function openReferrerSearch(customerId) {
+let _kocAllReferrerCustomers = [];
+async function _kocOpenReferrerSearch(customerId) {
     const bodyHTML = `
         <div class="form-group">
             <label>Tìm Người Giới Thiệu (tên hoặc SĐT)</label>
-            <input type="text" id="referrerSearchInput" class="form-control" placeholder="Nhập tên hoặc SĐT để lọc..." oninput="filterReferrerList(${customerId})">
+            <input type="text" id="referrerSearchInput" class="form-control" placeholder="Nhập tên hoặc SĐT để lọc..." oninput="_kocFilterReferrerList(${customerId})">
         </div>
         <div id="referrerSearchResults" style="max-height:350px;overflow-y:auto;">
             <p style="color:var(--gray-400);text-align:center;padding:20px;">Đang tải...</p>
@@ -1886,24 +1886,24 @@ async function openReferrerSearch(customerId) {
     // Load all referrer-eligible customers (CTV, Hoa Hồng, Sinh Viên, Nuôi Dưỡng)
     try {
         const data = await apiCall('/api/customers/referrer-search?q=&all=1');
-        _allReferrerCustomers = data.customers || [];
-        renderReferrerList(customerId, _allReferrerCustomers);
+        _kocAllReferrerCustomers = data.customers || [];
+        _kocRenderReferrerList(customerId, _kocAllReferrerCustomers);
     } catch(e) {
         document.getElementById('referrerSearchResults').innerHTML = '<p style="color:var(--danger);text-align:center;">Lỗi tải dữ liệu</p>';
     }
     setTimeout(() => document.getElementById('referrerSearchInput')?.focus(), 200);
 }
 
-function filterReferrerList(customerId) {
+function _kocFilterReferrerList(customerId) {
     const q = (document.getElementById('referrerSearchInput')?.value || '').toLowerCase().trim();
-    const filtered = q ? _allReferrerCustomers.filter(c =>
+    const filtered = q ? _kocAllReferrerCustomers.filter(c =>
         (c.customer_name || '').toLowerCase().includes(q) ||
         (c.phone || '').includes(q)
-    ) : _allReferrerCustomers;
-    renderReferrerList(customerId, filtered);
+    ) : _kocAllReferrerCustomers;
+    _kocRenderReferrerList(customerId, filtered);
 }
 
-function renderReferrerList(customerId, customers) {
+function _kocRenderReferrerList(customerId, customers) {
     const results = document.getElementById('referrerSearchResults');
     if (!results) return;
     if (customers.length === 0) {
@@ -1915,7 +1915,7 @@ function renderReferrerList(customerId, customers) {
         const typeLabel = CRM_LABELS[c.crm_type] || c.crm_type;
         const typeColor = CRM_TYPE_COLORS[c.crm_type] || '#6b7280';
         return `
-            <div onclick="selectReferrer(${customerId}, ${c.id})" 
+            <div onclick="_kocSelectReferrer(${customerId}, ${c.id})" 
                 style="padding:10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
                 onmouseover="this.style.borderColor='#fad24c';this.style.background='#fefce8'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
                 <div>
@@ -1928,12 +1928,12 @@ function renderReferrerList(customerId, customers) {
     }).join('');
 }
 
-async function selectReferrer(customerId, referrerCustomerId) {
+async function _kocSelectReferrer(customerId, referrerCustomerId) {
     const data = await apiCall(`/api/customers/${customerId}/referrer`, 'PUT', { referrer_customer_id: referrerCustomerId });
     if (data.success) {
         showToast('✅ Đã chọn người giới thiệu: ' + data.referrer_name);
         closeModal();
-        loadCrmNhuCauData();
+        loadCrmKocData();
     } else {
         showToast(data.error || 'Lỗi!', 'error');
     }
@@ -1941,7 +1941,7 @@ async function selectReferrer(customerId, referrerCustomerId) {
 
 // ========== CẬP NHẬT THÔNG TIN KHÁCH HÀNG ==========
 // ========== DANH SÁCH TỈNH/THÀNH PHỐ ==========
-const PROVINCES = [
+const KOC_PROVINCES = [
     'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre',
     'Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng',
     'Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai',
@@ -1954,7 +1954,7 @@ const PROVINCES = [
     'Vĩnh Long','Vĩnh Phúc','Yên Bái'
 ];
 
-async function openCustomerInfo(customerId) {
+async function _kocOpenCustomerInfo(customerId) {
     const data = await apiCall(`/api/customers/${customerId}`);
     const c = data.customer || {};
     let holidays = [];
@@ -1980,7 +1980,7 @@ async function openCustomerInfo(customerId) {
     let monthOpts = '<option value="">Tháng</option>';
     for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m == bdMonth ? 'selected' : ''}>Tháng ${m}</option>`;
 
-    const provinceOptions = PROVINCES.map(p => 
+    const provinceOptions = KOC_PROVINCES.map(p => 
         `<option value="${p}" ${c.province === p ? 'selected' : ''}>${p}</option>`
     ).join('');
 
@@ -2043,19 +2043,19 @@ async function openCustomerInfo(customerId) {
                     </div>
                 `).join('') : ''}
             </div>
-            <button class="btn btn-sm" onclick="addHolidayRow()" style="font-size:12px;margin-top:6px;">➕ Thêm ngày lễ</button>
+            <button class="btn btn-sm" onclick="_kocAddHolidayRow()" style="font-size:12px;margin-top:6px;">➕ Thêm ngày lễ</button>
         </div>
     `;
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" onclick="saveCustomerInfo(${customerId})" style="width:auto;">💾 LƯU</button>
+        <button class="btn btn-primary" onclick="_kocSaveCustomerInfo(${customerId})" style="width:auto;">💾 LƯU</button>
     `;
 
     openModal('✏️ Cập Nhật Thông Tin KH', bodyHTML, footerHTML);
 }
 
-function addHolidayRow() {
+function _kocAddHolidayRow() {
     let dOpts = '<option value="">Ngày</option>';
     for (let d = 1; d <= 31; d++) dOpts += `<option value="${d}">${d}</option>`;
     let mOpts = '<option value="">Tháng</option>';
@@ -2071,7 +2071,7 @@ function addHolidayRow() {
     `);
 }
 
-async function saveCustomerInfo(customerId) {
+async function _kocSaveCustomerInfo(customerId) {
     const customer_name = document.getElementById('ciName').value;
     const phone = document.getElementById('ciPhone').value;
     if (phone && !/^\d{10}$/.test(phone)) {
@@ -2107,7 +2107,7 @@ async function saveCustomerInfo(customerId) {
         if (data.success) {
             showToast('✅ ' + data.message);
             closeModal();
-            loadCrmNhuCauData();
+            loadCrmKocData();
         } else {
             showToast(data.error || 'Lỗi!', 'error');
         }
@@ -2117,7 +2117,7 @@ async function saveCustomerInfo(customerId) {
 }
 
 // ========== CHI TIẾT KHÁCH HÀNG ==========
-async function openCustomerDetail(customerId) {
+async function _kocOpenCustomerDetail(customerId) {
     // Load all customer data in parallel
     const [data, logsData, orderData, orderCodesData] = await Promise.all([
         apiCall(`/api/customers/${customerId}`),
@@ -2142,7 +2142,7 @@ async function openCustomerDetail(customerId) {
     const cdTotalDeposit = orderCodesData.total_deposit || 0;
 
     const lastLogPopup = logs.length > 0 ? logs[0] : null;
-    const lastConsultTypePopup = lastLogPopup ? CONSULT_TYPES[lastLogPopup.log_type] : null;
+    const lastConsultTypePopup = lastLogPopup ? KOC_CONSULT_TYPES[lastLogPopup.log_type] : null;
     const statusBadge = getStatusBadge ? getStatusBadge(c.order_status) : c.order_status;
     const initials = (c.customer_name || '?').split(' ').map(w => w[0]).join('').slice(-2).toUpperCase();
 
@@ -2216,7 +2216,7 @@ async function openCustomerDetail(customerId) {
             ${(c.referrer_name || c.referrer_customer_name) ? `
                 <div style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:8px;border:1px solid #bfdbfe;font-size:13px;">
                     <strong style="color:#1e40af;">🤝 Người GT:</strong> 
-                    <span style="cursor:pointer;text-decoration:underline;color:#3b82f6;font-weight:600;" onclick="openAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>
+                    <span style="cursor:pointer;text-decoration:underline;color:#3b82f6;font-weight:600;" onclick="_kocOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>
                     ${(c.referrer_user_crm_type || c.referrer_crm_type) ? ` · <span style="color:#64748b;">${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</span>` : ''}
                 </div>
             ` : ''}
@@ -2227,20 +2227,20 @@ async function openCustomerDetail(customerId) {
     // Tab: Lịch Sử (grouped by month)
     const historyTab = `
         <div style="max-height:350px;overflow-y:auto;">
-            ${buildGroupedHistoryHTML(logs)}
+            ${_kocBuildGroupedHistoryHTML(logs)}
         </div>
     `;
 
     // Tab: Đơn Hàng (using shared helper)
-    const orderTab = buildOrderCardHTML(orderCodes, orders, c, cdTotalDeposit);
+    const orderTab = _kocBuildOrderCardHTML(orderCodes, orders, c, cdTotalDeposit);
 
     const bodyHTML = `
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-            <span class="cdtab-btn" onclick="switchCDTab('info')" id="cdtab-info-btn"
+            <span class="cdtab-btn" onclick="_kocSwitchCDTab('info')" id="cdtab-info-btn"
                 style="display:inline-block;font-size:13px;padding:8px 16px;background:var(--gold);color:#122546;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">📋 Thông Tin</span>
-            <span class="cdtab-btn" onclick="switchCDTab('history')" id="cdtab-history-btn"
+            <span class="cdtab-btn" onclick="_kocSwitchCDTab('history')" id="cdtab-history-btn"
                 style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">📝 Lịch Sử (${logs.length})</span>
-            <span class="cdtab-btn" onclick="switchCDTab('orders')" id="cdtab-orders-btn"
+            <span class="cdtab-btn" onclick="_kocSwitchCDTab('orders')" id="cdtab-orders-btn"
                 style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">🛒 Đơn Hàng</span>
         </div>
         <div id="cdtab-info">${infoTab}</div>
@@ -2250,7 +2250,7 @@ async function openCustomerDetail(customerId) {
 
     // Determine last consultation type for button label
     const lastLog = logs.length > 0 ? logs[0] : null;
-    const lastConsultType = lastLog ? CONSULT_TYPES[lastLog.log_type] : null;
+    const lastConsultType = lastLog ? KOC_CONSULT_TYPES[lastLog.log_type] : null;
     const consultBtnLabel = lastConsultType ? `${lastConsultType.icon} ${lastConsultType.label}` : '📝 TƯ VẤN';
     const consultBtnColor = lastConsultType ? lastConsultType.color : '';
 
@@ -2259,14 +2259,14 @@ async function openCustomerDetail(customerId) {
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
         ${!c.cancel_requested && !c.cancel_approved ? `
-            <button class="btn btn-primary" onclick="closeModal();openConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
+            <button class="btn btn-primary" onclick="closeModal();_kocOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
         ` : ''}
     `;
 
     openModal(``, bodyHTML, footerHTML);
 }
 
-function switchCDTab(tab) {
+function _kocSwitchCDTab(tab) {
     const activeStyle = 'display:inline-block;font-size:13px;padding:8px 16px;background:#fad24c;color:#122546;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;';
     const inactiveStyle = 'display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;';
     ['info','history','orders'].forEach(t => {
@@ -2278,10 +2278,10 @@ function switchCDTab(tab) {
 }
 
 // ========== AFFILIATE DETAIL POPUP ==========
-const CRM_LABELS_AFF = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
-const ROLE_LABELS_AFF = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
+const KOC_CRM_LABELS_AFF = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
+const KOC_ROLE_LABELS_AFF = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
 
-async function openAffiliateDetail(userId) {
+async function _kocOpenAffiliateDetail(userId) {
     if (!userId) return;
     try {
         const [userData, countData] = await Promise.all([
@@ -2349,7 +2349,7 @@ async function openAffiliateDetail(userId) {
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📋 Loại CRM</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '—'}</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${KOC_CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">👨‍💼 NV Quản lý</div>
@@ -2357,7 +2357,7 @@ async function openAffiliateDetail(userId) {
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🏷️ Vai trò</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${ROLE_LABELS_AFF[u.role] || u.role}</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${KOC_ROLE_LABELS_AFF[u.role] || u.role}</div>
                             </div>
                         </div>
                     </div>
@@ -2371,11 +2371,11 @@ async function openAffiliateDetail(userId) {
         let footerHTML = '';
         if (isGD) {
             if (isLocked) {
-                footerHTML += `<button class="btn" onclick="toggleAffiliateStatus(${u.id}, 'active')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(34,197,94,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">▶️ Tiếp tục hợp tác</button>`;
+                footerHTML += `<button class="btn" onclick="_kocToggleAffiliateStatus(${u.id}, 'active')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(34,197,94,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">▶️ Tiếp tục hợp tác</button>`;
             } else {
-                footerHTML += `<button class="btn" onclick="toggleAffiliateStatus(${u.id}, 'locked')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">⏸️ Dừng hợp tác</button>`;
+                footerHTML += `<button class="btn" onclick="_kocToggleAffiliateStatus(${u.id}, 'locked')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">⏸️ Dừng hợp tác</button>`;
             }
-            footerHTML += `<button class="btn" onclick="openEditAffiliateFromCrm(${u.id})" style="background:linear-gradient(135deg,#fad24c,#f59e0b);color:#0f172a;padding:10px 22px;border-radius:10px;font-weight:600;border:none;box-shadow:0 2px 8px rgba(250,210,76,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">✏️ Sửa tài khoản</button>`;
+            footerHTML += `<button class="btn" onclick="_kocOpenEditAffiliateFromCrm(${u.id})" style="background:linear-gradient(135deg,#fad24c,#f59e0b);color:#0f172a;padding:10px 22px;border-radius:10px;font-weight:600;border:none;box-shadow:0 2px 8px rgba(250,210,76,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">✏️ Sửa tài khoản</button>`;
         }
 
         openModal(``, bodyHTML, footerHTML);
@@ -2385,14 +2385,14 @@ async function openAffiliateDetail(userId) {
     }
 }
 
-async function toggleAffiliateStatus(userId, newStatus) {
+async function _kocToggleAffiliateStatus(userId, newStatus) {
     try {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
             showToast(`✅ ${data.message}`);
             closeModal();
             // Re-open to refresh data
-            openAffiliateDetail(userId);
+            _kocOpenAffiliateDetail(userId);
         } else {
             showToast(data.error, 'error');
         }
@@ -2401,7 +2401,7 @@ async function toggleAffiliateStatus(userId, newStatus) {
     }
 }
 
-async function openEditAffiliateFromCrm(userId) {
+async function _kocOpenEditAffiliateFromCrm(userId) {
     try {
         const userData = await apiCall(`/api/users/${userId}`);
         const u = userData.user;
@@ -2442,7 +2442,7 @@ async function openEditAffiliateFromCrm(userId) {
             </form>
         `;
 
-        const footerHTML = `<button class="btn" onclick="submitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">💾 Lưu thay đổi</button>`;
+        const footerHTML = `<button class="btn" onclick="_kocSubmitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">💾 Lưu thay đổi</button>`;
 
         openModal(`✏️ Sửa TK Affiliate: ${u.full_name}`, bodyHTML, footerHTML);
     } catch (err) {
@@ -2450,7 +2450,7 @@ async function openEditAffiliateFromCrm(userId) {
     }
 }
 
-async function submitEditAffFromCrm(userId) {
+async function _kocSubmitEditAffFromCrm(userId) {
     const body = {
         full_name: document.getElementById('eafFullName').value,
         phone: document.getElementById('eafPhone').value,
@@ -2472,7 +2472,7 @@ async function submitEditAffFromCrm(userId) {
         if (data.success) {
             showToast('✅ Cập nhật thành công!');
             closeModal();
-            openAffiliateDetail(userId);
+            _kocOpenAffiliateDetail(userId);
         } else {
             showToast(data.error, 'error');
         }

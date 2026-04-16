@@ -1549,3 +1549,18 @@ UPDATE consult_type_configs SET rule_phase='huy_capuu' WHERE rule_phase IS NULL 
 -- Migration: Add section_group for grouping multiple buttons into one Loại
 ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_group TEXT;
 ALTER TABLE consult_type_configs ADD COLUMN IF NOT EXISTS section_group_label TEXT;
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_customers_pinned ON customers(assigned_to_id, is_pinned, appointment_date);
+
+-- ========== LUỒNG HỦY KHÁCH NÂNG CẤP ==========
+-- Thêm 2 trạng thái mới: cho_duyet_huy (NV chờ sếp), duyet_huy (sếp đã duyệt hủy)
+INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, stage, rule_phase) VALUES
+    ('cho_duyet_huy', 'Chờ Duyệt Hủy', '⏳', '#6b7280', 'white', 24, 'capuu', 'huy_capuu'),
+    ('duyet_huy', 'Hủy Khách (Đã Duyệt)', '🚫', '#991b1b', 'white', 25, 'capuu', 'huy_capuu')
+ON CONFLICT (key) DO NOTHING;
+
+-- Ensure tu_van_lai has correct phase
+UPDATE consult_type_configs SET rule_phase = 'huy_capuu' WHERE key = 'tu_van_lai' AND rule_phase IS NULL;
+UPDATE consult_type_configs SET rule_phase = 'huy_capuu' WHERE key = 'huy' AND rule_phase IS NULL;

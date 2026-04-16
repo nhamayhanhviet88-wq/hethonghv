@@ -188,6 +188,28 @@ async function usersRoutes(fastify, options) {
             }
         }
 
+        // ========== AUTO-CREATE AFFILIATE CUSTOMER ==========
+        // When creating a tkaffiliate user, auto-create a customer with crm_type='affiliate'
+        if (role === 'tkaffiliate' && result.lastInsertRowid) {
+            try {
+                const newUserId = Number(result.lastInsertRowid);
+                const custResult = await db.run(
+                    `INSERT INTO customers (customer_name, phone, address, crm_type, order_status, created_at, updated_at)
+                     VALUES ($1, $2, $3, 'affiliate', 'moi', NOW(), NOW())
+                     RETURNING id`,
+                    [full_name || username, phone || '', address || '']
+                );
+                // Link user to new affiliate customer
+                const newCustId = custResult?.rows?.[0]?.id;
+                if (newCustId) {
+                    await db.run('UPDATE users SET source_customer_id = $1 WHERE id = $2', [newCustId, newUserId]);
+                    console.log(`[AUTO-AFF] Created affiliate customer #${newCustId} for user #${newUserId}`);
+                }
+            } catch (affErr) {
+                console.error('[AUTO-AFF] Error:', affErr.message);
+            }
+        }
+
         return { success: true, id: result.lastInsertRowid, message: 'Tạo tài khoản thành công' };
     });
 

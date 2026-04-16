@@ -12,11 +12,9 @@ if (!document.getElementById('emBlinkStyle')) {
 
 function emGetCountdownHTML(e) {
     if (e.status === 'resolved' || !e.created_at) return '';
-    const createdAt = new Date(e.created_at).getTime();
+    const deadlineAt = e.deadline_at ? new Date(e.deadline_at).getTime() : (new Date(e.created_at).getTime() + 24 * 3600000);
     const now = Date.now();
-    const elapsed = now - createdAt;
-    const limit = 24 * 3600000;
-    const remaining = limit - elapsed;
+    const remaining = deadlineAt - now;
     let text, bg, color, border, extra = '';
     if (remaining > 0) {
         const hrs = Math.floor(remaining / 3600000);
@@ -32,24 +30,25 @@ function emGetCountdownHTML(e) {
         text = '❌ Quá hạn ' + hrs + 'h ' + mins + 'p';
         bg='#991b1b'; color='#fff'; border='#dc2626'; extra='animation:emBlink 1s infinite;';
     }
-    return '<span class="em-countdown" data-created="' + e.created_at + '" style="display:inline-block;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';' + extra + '">' + text + '</span>';
+    const dlStr = e.deadline_at || '';
+    return '<span class="em-countdown" data-deadline="' + dlStr + '" data-created="' + e.created_at + '" style="display:inline-block;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';' + extra + '">' + text + '</span>';
 }
 
 function emIsOverdue(e) {
     if (e.status === 'resolved' || !e.created_at) return false;
-    return (Date.now() - new Date(e.created_at).getTime()) > 24 * 3600000;
+    const deadlineAt = e.deadline_at ? new Date(e.deadline_at).getTime() : (new Date(e.created_at).getTime() + 24 * 3600000);
+    return Date.now() > deadlineAt;
 }
 
 function emStartCountdown() {
     emStopCountdown();
     _emCountdownInterval = setInterval(function() {
         document.querySelectorAll('.em-countdown').forEach(function(el) {
+            var dlAttr = el.dataset.deadline;
             var created = el.dataset.created;
             if (!created) return;
-            var createdAt = new Date(created).getTime();
-            var elapsed = Date.now() - createdAt;
-            var limit = 24 * 3600000;
-            var remaining = limit - elapsed;
+            var deadlineAt = dlAttr ? new Date(dlAttr).getTime() : (new Date(created).getTime() + 24 * 3600000);
+            var remaining = deadlineAt - Date.now();
             if (remaining > 0) {
                 var hrs = Math.floor(remaining / 3600000);
                 var mins = Math.floor((remaining % 3600000) / 60000);

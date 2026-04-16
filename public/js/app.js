@@ -45,8 +45,8 @@ const MENU_CONFIG = [
     { id: 'crm-tu-tim-kiem', label: 'CRM Tự Tìm Kiếm', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
     { id: 'crm-goi-hop-tac', label: 'CRM Gọi Điện Hợp Tác', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
     { id: 'crm-goi-ban-hang', label: 'CRM Gọi Điện Bán Hàng', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-koc-tiktok', label: 'CRM KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/koctiktok' },
-    { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG', href: '/affiliate' },
+    { id: 'crm-koc-tiktok', label: 'CRM KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
@@ -90,10 +90,17 @@ const MENU_PERM_MAP = {
     'dashboard': 'tong_quan',
     'crm-nhu-cau': 'crm_nhu_cau',
     'crm-ctv': 'crm_ctv',
+    'cham-soc-affiliate': 'crm_affiliate',
     'crm-tu-tim-kiem': 'crm_tu_tim_kiem',
+    'quytacnuttuvancrmttk': 'crm_tu_tim_kiem',
     'crm-goi-hop-tac': 'crm_goi_hop_tac',
+    'quytacnuttuvancrmgdht': 'crm_goi_hop_tac',
     'crm-goi-ban-hang': 'crm_goi_ban_hang',
+    'quytacnuttuvancrmgdbh': 'crm_goi_ban_hang',
+    'crm-koc-tiktok': 'crm_koc_tiktok',
+    'quytacnuttuvancrmkoctiktok': 'crm_koc_tiktok',
     'affiliate-hv': 'affiliate_hv',
+    'quytacnuttuvancrmaffiliatehv': 'affiliate_hv',
     'huy-khach': 'huy_khach',
     'accounts': 'nhan_vien',
     'teams': 'co_cau_to_chuc',
@@ -915,10 +922,13 @@ async function handleRoute() {
         case 'chuyen-so': renderChuyenSoPage(content); break;
         case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
         case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
-        case 'crm-ctv': renderCRMPage(content, 'ctv'); break;
-        case 'crm-tu-tim-kiem': renderCRMPage(content, 'tu_tim_kiem'); break;
-        case 'crm-goi-hop-tac': renderCRMPage(content, 'goi_hop_tac'); break;
-        case 'crm-goi-ban-hang': renderCRMPage(content, 'goi_ban_hang'); break;
+        case 'crm-ctv': renderCRMCtvPage(content); break;
+        case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
+        case 'crm-tu-tim-kiem': renderCRMTtkPage(content); break;
+        case 'crm-goi-hop-tac': renderCRMGdhtPage(content); break;
+        case 'crm-goi-ban-hang': renderCRMGdbhPage(content); break;
+        case 'crm-koc-tiktok': renderCRMKocPage(content); break;
+        case 'affiliate-hv': renderCRMAffHvPage(content); break;
         case 'cap-cuu-sep': renderEmergencyPage(content); break;
         case 'huy-khach': renderCancelPage(content); break;
         case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
@@ -945,6 +955,13 @@ async function handleRoute() {
         case 'goidien': renderGoiDienPage(content); break;
         case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
         case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
+        case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
+        case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
+        case 'quytacnuttuvancrmttk': renderQuyTacTuVanTtkPage(content); break;
+        case 'quytacnuttuvancrmgdht': renderQuyTacTuVanGdhtPage(content); break;
+        case 'quytacnuttuvancrmgdbh': renderQuyTacTuVanGdbhPage(content); break;
+        case 'quytacnuttuvancrmkoctiktok': renderQuyTacTuVanKocPage(content); break;
+        case 'quytacnuttuvancrmaffiliatehv': renderQuyTacTuVanAffHvPage(content); break;
         default: renderComingSoon(content); break;
     }
 

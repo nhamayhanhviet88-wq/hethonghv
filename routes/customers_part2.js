@@ -1,5 +1,7 @@
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
+const { getNextWorkingDay } = require('../utils/workingDay');
+const { calculateRealDeadline } = require('./deadline-checker');
 
 module.exports = function(fastify, db, getManagedDeptIds) {
 
@@ -10,19 +12,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
-        // Helper: next business day (skip Sunday)
-        const getNextBizDay = () => {
-            const vnNow = new Date(Date.now() + 7*3600000);
-            const nextDay = new Date(vnNow);
-            nextDay.setDate(nextDay.getDate() + 1);
-            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
-            return nextDay.toISOString().split('T')[0];
-        };
+        // Helper: next working day (skip CN + lễ + nghỉ phép NV)
+        const vnNow = new Date(Date.now() + 7*3600000);
+        const getNextBizDay = async () => getNextWorkingDay(vnNow, customer.assigned_to_id);
 
         // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
         if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
-            const nextBizDay = getNextBizDay();
-            await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, appointment_date = ?, updated_at = NOW() WHERE id = ?`,
+            const nextBizDay = await getNextBizDay();
+            await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, cancel_approved = 0, order_status = 'cho_duyet_huy', appointment_date = ?, updated_at = NOW() WHERE id = ?`,
                 [nextBizDay, custId]);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
@@ -37,6 +34,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 `UPDATE customers SET cancel_requested = 1, cancel_approved = 0, cancel_reason = ?,
                  cancel_requested_by = ?, cancel_requested_at = NOW()::text,
                  cancel_approved_by = NULL, cancel_approved_at = NULL,
+                 order_status = 'cho_duyet_huy',
                  updated_at = NOW() WHERE id = ?`,
                 [reason, request.user.id, custId]
             );
@@ -70,6 +68,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  cancel_approved_at = NOW()::text,
                  cancel_reason = cancel_reason || ?,
                  order_status = 'duyet_huy',
+                 is_pinned = false, pinned_at = NULL,
                  updated_at = NOW() WHERE id = ?`,
                 [request.user.id, `\n📋 QL: ${manager_note}`, custId]
             );
@@ -81,17 +80,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
             return { success: true, message: 'Đã duyệt hủy khách hàng.' + (linkedUser ? ` Tài khoản ${linkedUser.full_name} đã bị khóa.` : '') };
         } else {
-            // Next business day (skip Sunday)
-            const vnNow = new Date(Date.now() + 7*3600000);
-            const nextDay = new Date(vnNow);
-            nextDay.setDate(nextDay.getDate() + 1);
-            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
-            const nextBizDay = nextDay.toISOString().split('T')[0];
+            // Next working day (skip CN + lễ + nghỉ phép NV)
+            const cust = await db.get('SELECT assigned_to_id FROM customers WHERE id = $1', [custId]);
+            const vnNow2 = new Date(Date.now() + 7*3600000);
+            const nextBizDay = await getNextWorkingDay(vnNow2, cust?.assigned_to_id);
             await db.run(
                 `UPDATE customers SET cancel_approved = -1, cancel_approved_by = ?,
                  cancel_approved_at = NOW()::text,
                  cancel_reason = cancel_reason || ?,
-                 order_status = 'dang_tu_van', appointment_date = ?,
+                 order_status = 'tu_van_lai', appointment_date = ?,
                  updated_at = NOW() WHERE id = ?`,
                 [request.user.id, `\n❌ Từ chối: ${manager_note}`, nextBizDay, custId]
             );
@@ -103,24 +100,20 @@ module.exports = function(fastify, db, getManagedDeptIds) {
     fastify.post('/api/cancel/auto-revert-expired', { preHandler: [authenticate] }, async (request, reply) => {
         // Find all pending cancel requests older than 24h
         const expired = await db.all(
-            `SELECT id, customer_name, phone, cancel_requested_by FROM customers 
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id FROM customers 
              WHERE cancel_requested = 1 AND cancel_approved = 0 
              AND cancel_requested_at IS NOT NULL 
              AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'`
         );
         if (expired.length === 0) return { success: true, reverted: 0, customers: [] };
 
-        // Next business day (skip Sunday)
         const vnNow = new Date(Date.now() + 7*3600000);
-        const nextDay = new Date(vnNow);
-        nextDay.setDate(nextDay.getDate() + 1);
-        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
-        const nextBizDay = nextDay.toISOString().split('T')[0];
         for (const c of expired) {
+            const nextBizDay = await getNextWorkingDay(vnNow, c.assigned_to_id);
             await db.run(
                 `UPDATE customers SET cancel_approved = -2,
                  cancel_reason = cancel_reason || $1,
-                 order_status = 'dang_tu_van', appointment_date = $2,
+                 order_status = 'tu_van_lai', appointment_date = $2,
                  updated_at = NOW() WHERE id = $3`,
                 ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDay, c.id]
             );
@@ -156,7 +149,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // Get customers that were auto-reverted (cancel_approved = -1) and assigned to current user
         const customers = await db.all(
             `SELECT id, customer_name, phone FROM customers 
-             WHERE cancel_approved = -1 AND assigned_to = $1 
+             WHERE cancel_approved = -1 AND assigned_to_id = $1 
              AND order_status = 'dang_tu_van'
              AND cancel_reason LIKE '%Tự động từ chối%'`, 
             [request.user.id]
@@ -316,7 +309,18 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             params.push(user.id, user.id, user.id);
         }
         query += ' ORDER BY e.created_at DESC';
-        return { emergencies: await db.all(query, params) };
+        const emergencies = await db.all(query, params);
+        // Calculate real deadline_at for pending emergencies (12h noon next working day)
+        for (const em of emergencies) {
+            if (em.status !== 'resolved' && em.created_at) {
+                try {
+                    const handlerId = em.handover_to || em.handler_id;
+                    const dl = await calculateRealDeadline(em.created_at, handlerId, 12);
+                    em.deadline_at = dl.toISOString();
+                } catch(e) { em.deadline_at = null; }
+            }
+        }
+        return { emergencies };
     });
 
     fastify.put('/api/emergencies/:id/resolve', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'truong_phong')] }, async (request, reply) => {
@@ -554,7 +558,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         if (fields.birthday) await db.run('UPDATE customers SET birthday = ? WHERE id = ?', [fields.birthday, customerId]);
         if (fields.address) await db.run('UPDATE customers SET address = ? WHERE id = ?', [fields.address, customerId]);
-        if (fields.appointment_date) await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
+
+        // Pinned customers: always set appointment to next working day (ignore user input)
+        if (customer.is_pinned) {
+            const vnNow = new Date(Date.now() + 7*3600000);
+            const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
+        } else if (fields.appointment_date) {
+            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
+        }
 
         // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
         if (log_type === 'hoan_thanh_cap_cuu' && !fields.appointment_date) {
@@ -681,5 +693,37 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             stats[cid] = { consultCount, chotDonCount: chotDon, lastLog, revenue, latestOrderCode: latestOrderCode?.order_code || null };
         }
         return { stats };
+    });
+
+    // ========== PIN KHÁCH HÀNG ==========
+    fastify.patch('/api/customers/:id/pin', { preHandler: [authenticate] }, async (request, reply) => {
+        const custId = Number(request.params.id);
+        const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
+        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+
+        // Cancelled customers cannot be pinned
+        if (customer.cancel_approved === 1) {
+            return reply.code(400).send({ error: 'Không thể pin khách đã hủy' });
+        }
+
+        const newPinned = !customer.is_pinned;
+
+        if (newPinned) {
+            // PIN ON: set appointment to next working day
+            const vnNow = new Date(Date.now() + 7*3600000);
+            const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
+            await db.run(
+                'UPDATE customers SET is_pinned = true, pinned_at = NOW(), appointment_date = ? WHERE id = ?',
+                [nextWorkDay, custId]
+            );
+            return { success: true, is_pinned: true, next_appointment: nextWorkDay, message: '📌 Đã pin khách hàng!' };
+        } else {
+            // PIN OFF: keep current appointment_date
+            await db.run(
+                'UPDATE customers SET is_pinned = false, pinned_at = NULL WHERE id = ?',
+                [custId]
+            );
+            return { success: true, is_pinned: false, message: 'Đã bỏ pin khách hàng' };
+        }
     });
 };

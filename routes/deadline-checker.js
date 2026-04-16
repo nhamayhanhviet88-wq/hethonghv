@@ -131,6 +131,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (!GPC.cv_chuoi_ql_khong_duyet) GPC.cv_chuoi_ql_khong_duyet = 50000;
     if (!GPC.cap_cuu_ql_khong_xu_ly) GPC.cap_cuu_ql_khong_xu_ly = 50000;
     if (!GPC.kh_chua_xu_ly_hom_nay) GPC.kh_chua_xu_ly_hom_nay = 100000;
+    if (!GPC.kh_chua_xu_ly_hom_nay_ctv) GPC.kh_chua_xu_ly_hom_nay_ctv = 100000;
 
     // ========== 1. CHECK SUPPORT REQUESTS ==========
     const pendingSupport = await db.all(
@@ -828,7 +829,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 await db.run(
                     `UPDATE customers SET cancel_approved = -2,
                      cancel_reason = cancel_reason || $1,
-                     order_status = 'dang_tu_van', appointment_date = $2,
+                     order_status = 'tu_van_lai', appointment_date = $2,
                      updated_at = NOW() WHERE id = $3`,
                     ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDayStr, c.id]
                 );
@@ -840,10 +841,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 8. PHẠT KH CHƯA XỬ LÝ HÔM NAY ==========
-    // Chỉ chạy sau 23:30 — check khách phải xử lý hôm nay mà không có consultation_logs
+    // Chỉ chạy lúc 23:45+ — cho NV thời gian xử lý đến gần cuối ngày
     try {
         const hour = now.getHours();
-        if (hour >= 23) {
+        const minute = now.getMinutes();
+        if (hour === 23 && minute >= 45) {
             const today = toDateStr(now);
             const todayOff = await isDayOff(today);
 
@@ -888,8 +890,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         continue;
                     }
 
-                    // Lấy mức phạt từ global config
-                    const penaltyAmt = GPC.kh_chua_xu_ly_hom_nay;
+                    // Lấy mức phạt từ global config (riêng cho CTV vs Nhu Cầu)
+                    const penaltyAmt = crmType === 'ctv' ? GPC.kh_chua_xu_ly_hom_nay_ctv : GPC.kh_chua_xu_ly_hom_nay;
 
                     // Insert penalty record (UNIQUE constraint tránh trùng)
                     try {
@@ -1142,7 +1144,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
         }
     } catch(e) {
         console.error('  ❌ [Tự Tìm Kiếm CV Điểm] Error:', e.message);
-    }
+}
+
+    const elapsed = Date.now() - now.getTime();
+    console.log(`⏰ Deadline check hoàn thành sau ${elapsed}ms (${(elapsed/1000).toFixed(1)}s)`);
 }
 
 // ===== START CRON =====

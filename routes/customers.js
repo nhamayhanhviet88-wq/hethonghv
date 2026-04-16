@@ -211,7 +211,7 @@ async function customersRoutes(fastify, options) {
             }
         }
 
-        query += ' ORDER BY c.created_at ASC';
+        query += ' ORDER BY c.is_pinned DESC NULLS LAST, c.created_at ASC';
         const customers = await db.all(query, params);
 
         if (user.role === 'quan_ly' || user.role === 'truong_phong') {

@@ -5,8 +5,9 @@ module.exports = async function (fastify) {
 
     // GET all consult types (public - no auth needed)
     fastify.get('/api/consult-types', async (req, reply) => {
+        const crmMenu = req.query.crm_menu || 'nhu_cau';
         const rows = await db.all(
-            `SELECT * FROM consult_type_configs ORDER BY sort_order`
+            `SELECT * FROM consult_type_configs WHERE crm_menu = $1 ORDER BY sort_order`, [crmMenu]
         );
         return { types: rows };
     });
@@ -15,12 +16,13 @@ module.exports = async function (fastify) {
     fastify.patch('/api/consult-types/batch/sort-order', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { orders } = req.body;
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
         if (!Array.isArray(orders)) return reply.code(400).send({ error: 'orders must be array' });
         for (const o of orders) {
             if (o.stage !== undefined) {
-                await db.run(`UPDATE consult_type_configs SET sort_order=$1, stage=$2 WHERE key=$3`, [o.sort_order, o.stage, o.key]);
+                await db.run(`UPDATE consult_type_configs SET sort_order=$1, stage=$2 WHERE key=$3 AND crm_menu=$4`, [o.sort_order, o.stage, o.key, crmMenu]);
             } else {
-                await db.run(`UPDATE consult_type_configs SET sort_order=$1 WHERE key=$2`, [o.sort_order, o.key]);
+                await db.run(`UPDATE consult_type_configs SET sort_order=$1 WHERE key=$2 AND crm_menu=$3`, [o.sort_order, o.key, crmMenu]);
             }
         }
         return { success: true };
@@ -31,9 +33,10 @@ module.exports = async function (fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { label, icon, color, text_color, is_active, stage } = req.body;
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
         await db.run(
-            `UPDATE consult_type_configs SET label=$1, icon=$2, color=$3, text_color=$4, is_active=$5, stage=$6, updated_at=NOW() WHERE key=$7`,
-            [label, icon, color, text_color || 'white', is_active !== false, stage || null, key]
+            `UPDATE consult_type_configs SET label=$1, icon=$2, color=$3, text_color=$4, is_active=$5, stage=$6, updated_at=NOW() WHERE key=$7 AND crm_menu=$8`,
+            [label, icon, color, text_color || 'white', is_active !== false, stage || null, key, crmMenu]
         );
         return { success: true };
     });
@@ -41,20 +44,21 @@ module.exports = async function (fastify) {
     // POST create new consult type (GĐ only)
     fastify.post('/api/consult-types', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
-        const { key, label, icon, color, text_color, stage } = req.body;
+        const { key, label, icon, color, text_color, stage, crm_menu } = req.body;
+        const menu = crm_menu || 'nhu_cau';
         if (!key || !label) return reply.code(400).send({ error: 'Key and label required' });
-        const max = await db.get(`SELECT COALESCE(MAX(sort_order),0)+1 as next FROM consult_type_configs`);
+        const max = await db.get(`SELECT COALESCE(MAX(sort_order),0)+1 as next FROM consult_type_configs WHERE crm_menu = $1`, [menu]);
         await db.run(
-            `INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, stage) VALUES ($1,$2,$3,$4,$5,$6,$7)
-             ON CONFLICT (key) DO NOTHING`,
-            [key, label, icon || '📋', color || '#6b7280', text_color || 'white', max.next, stage || null]
+            `INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, stage, crm_menu) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             ON CONFLICT (key, crm_menu) DO NOTHING`,
+            [key, label, icon || '📋', color || '#6b7280', text_color || 'white', max.next, stage || null, menu]
         );
         // ★ Auto-create self-referencing flow rule → tạo section "Khi ấn: [nút mới]"
         await db.run(
-            `INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order)
-             VALUES ($1, $1, true, 1)
-             ON CONFLICT (from_status, to_type_key) DO NOTHING`,
-            [key]
+            `INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order, crm_menu)
+             VALUES ($1, $1, true, 1, $2)
+             ON CONFLICT (from_status, to_type_key, crm_menu) DO NOTHING`,
+            [key, menu]
         );
         return { success: true };
     });
@@ -63,11 +67,12 @@ module.exports = async function (fastify) {
     fastify.delete('/api/consult-types/:key', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
-        // Clean up flow rules referencing this key
-        await db.run(`DELETE FROM consult_flow_rules WHERE to_type_key = $1`, [key]);
-        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [key]);
-        // Delete the type
-        await db.run(`DELETE FROM consult_type_configs WHERE key = $1`, [key]);
+        const crmMenu = req.body?.crm_menu || req.query.crm_menu || 'nhu_cau';
+        // Clean up flow rules referencing this key (scoped to crm_menu)
+        await db.run(`DELETE FROM consult_flow_rules WHERE to_type_key = $1 AND crm_menu = $2`, [key, crmMenu]);
+        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1 AND crm_menu = $2`, [key, crmMenu]);
+        // Delete the type (scoped to crm_menu)
+        await db.run(`DELETE FROM consult_type_configs WHERE key = $1 AND crm_menu = $2`, [key, crmMenu]);
         return { success: true };
     });
 
@@ -95,18 +100,38 @@ module.exports = async function (fastify) {
     // ========== FLOW RULES ==========
     // GET all flow rules (public)
     fastify.get('/api/consult-flow-rules', async (req, reply) => {
+        const crmMenu = req.query.crm_menu || 'nhu_cau';
         const rows = await db.all(
             `SELECT cfr.*, ctc.label as to_label, ctc.icon as to_icon, ctc.color as to_color
              FROM consult_flow_rules cfr
-             LEFT JOIN consult_type_configs ctc ON ctc.key = cfr.to_type_key
-             ORDER BY cfr.from_status, cfr.sort_order`
+             LEFT JOIN consult_type_configs ctc ON ctc.key = cfr.to_type_key AND ctc.crm_menu = cfr.crm_menu
+             WHERE cfr.crm_menu = $1
+             ORDER BY cfr.from_status, cfr.sort_order`, [crmMenu]
         );
         const grouped = {};
         for (const r of rows) {
             if (!grouped[r.from_status]) grouped[r.from_status] = [];
             grouped[r.from_status].push(r);
         }
-        return { rules: grouped, all: rows };
+        // Add max_appointment_days per from_status (inherit from group leader)
+        const maxDaysMap = {};
+        const sectionRows = await db.all(`SELECT key, max_appointment_days, section_group FROM consult_type_configs WHERE section_order > 0 AND crm_menu = $1`, [crmMenu]);
+        const groupMembers = await db.all(`SELECT key, section_group FROM consult_type_configs WHERE section_group IS NOT NULL AND section_order = 0 AND crm_menu = $1`, [crmMenu]);
+        // Build leader max_days by section_group
+        const groupMaxDays = {};
+        for (const s of sectionRows) {
+            maxDaysMap[s.key] = s.max_appointment_days || 0;
+            if (s.section_group && s.max_appointment_days > 0) {
+                groupMaxDays[s.section_group] = s.max_appointment_days;
+            }
+        }
+        // Propagate to group members
+        for (const m of groupMembers) {
+            if (m.section_group && groupMaxDays[m.section_group]) {
+                maxDaysMap[m.key] = groupMaxDays[m.section_group];
+            }
+        }
+        return { rules: grouped, all: rows, maxDaysPerStatus: maxDaysMap };
     });
 
     // PUT update flow rules for a specific from_status (GĐ only)
@@ -116,13 +141,14 @@ module.exports = async function (fastify) {
         const { rules } = req.body;
         if (!Array.isArray(rules)) return reply.code(400).send({ error: 'rules must be array' });
 
-        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [fromStatus]);
+        const crmMenu = req.body.crm_menu || 'nhu_cau';
+        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1 AND crm_menu = $2`, [fromStatus, crmMenu]);
 
         for (const r of rules) {
             await db.run(
-                `INSERT INTO consult_flow_rules (from_status, to_type_key, delay_days, is_default, sort_order)
-                 VALUES ($1, $2, $3, $4, $5)`,
-                [fromStatus, r.to_type_key, r.delay_days || 0, r.is_default || false, r.sort_order || 0]
+                `INSERT INTO consult_flow_rules (from_status, to_type_key, delay_days, is_default, sort_order, crm_menu)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [fromStatus, r.to_type_key, r.delay_days || 0, r.is_default || false, r.sort_order || 0, crmMenu]
             );
         }
         return { success: true };
@@ -131,7 +157,8 @@ module.exports = async function (fastify) {
     // DELETE a from_status group (GĐ only)
     fastify.delete('/api/consult-flow-rules/:fromStatus', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
-        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1`, [req.params.fromStatus]);
+        const crmMenu = req.body?.crm_menu || req.query.crm_menu || 'nhu_cau';
+        await db.run(`DELETE FROM consult_flow_rules WHERE from_status = $1 AND crm_menu = $2`, [req.params.fromStatus, crmMenu]);
         return { success: true };
     });
 
@@ -140,23 +167,24 @@ module.exports = async function (fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { section_order } = req.body;
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
         if (section_order === undefined || section_order === null || section_order < 0) return reply.code(400).send({ error: 'Invalid section_order' });
 
         if (section_order === 0) {
             // Just reset to 0 (remove from sections)
-            await db.run(`UPDATE consult_type_configs SET section_order = 0 WHERE key = $1`, [key]);
+            await db.run(`UPDATE consult_type_configs SET section_order = 0 WHERE key = $1 AND crm_menu = $2`, [key, crmMenu]);
             return { success: true };
         }
 
         // Shift existing sections at >= this position down by 1
         await db.run(
-            `UPDATE consult_type_configs SET section_order = section_order + 1 WHERE section_order >= $1 AND section_order > 0 AND key != $2`,
-            [section_order, key]
+            `UPDATE consult_type_configs SET section_order = section_order + 1 WHERE section_order >= $1 AND section_order > 0 AND key != $2 AND crm_menu = $3`,
+            [section_order, key, crmMenu]
         );
         // Set the new order
         await db.run(
-            `UPDATE consult_type_configs SET section_order = $1 WHERE key = $2`,
-            [section_order, key]
+            `UPDATE consult_type_configs SET section_order = $1 WHERE key = $2 AND crm_menu = $3`,
+            [section_order, key, crmMenu]
         );
         return { success: true };
     });
@@ -166,7 +194,8 @@ module.exports = async function (fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { max_appointment_days } = req.body;
-        await db.run(`UPDATE consult_type_configs SET max_appointment_days = $1 WHERE key = $2`, [max_appointment_days || 0, key]);
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
+        await db.run(`UPDATE consult_type_configs SET max_appointment_days = $1 WHERE key = $2 AND crm_menu = $3`, [max_appointment_days || 0, key, crmMenu]);
         return { success: true };
     });
 
@@ -202,21 +231,22 @@ module.exports = async function (fastify) {
 
     // GET sections info (types that have flow rules = have their own "Khi ấn:" section)
     fastify.get('/api/consult-sections', async (req, reply) => {
+        const crmMenu = req.query.crm_menu || 'nhu_cau';
         const rows = await db.all(`
             SELECT DISTINCT ctc.key, ctc.label, ctc.icon, ctc.color, ctc.section_order, ctc.rule_phase,
                    ctc.section_group, ctc.section_group_label, ctc.max_appointment_days,
-                   (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key) as rule_count
+                   (SELECT COUNT(*) FROM consult_flow_rules WHERE from_status = ctc.key AND crm_menu = $1) as rule_count
             FROM consult_type_configs ctc
-            INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key
-            WHERE ctc.section_order > 0
+            INNER JOIN consult_flow_rules cfr ON cfr.from_status = ctc.key AND cfr.crm_menu = $1
+            WHERE ctc.section_order > 0 AND ctc.crm_menu = $1
             ORDER BY ctc.section_order
-        `);
+        `, [crmMenu]);
         // Group members: buttons with section_group but section_order = 0
         const groupMembers = await db.all(`
             SELECT key, label, icon, color, section_group
             FROM consult_type_configs
-            WHERE section_group IS NOT NULL AND (section_order IS NULL OR section_order = 0) AND is_active = true
-        `);
+            WHERE section_group IS NOT NULL AND (section_order IS NULL OR section_order = 0) AND is_active = true AND crm_menu = $1
+        `, [crmMenu]);
         // Also return types WITHOUT a section (section_order = 0 or NULL, no group)
         const unsectioned = await db.all(`
             SELECT ctc.key, ctc.label, ctc.icon, ctc.color
@@ -224,8 +254,9 @@ module.exports = async function (fastify) {
             WHERE (ctc.section_order IS NULL OR ctc.section_order = 0)
             AND ctc.is_active = true
             AND (ctc.section_group IS NULL OR ctc.section_group = '')
+            AND ctc.crm_menu = $1
             ORDER BY ctc.sort_order
-        `);
+        `, [crmMenu]);
         return { sections: rows, unsectioned, groupMembers };
     });
 
@@ -252,7 +283,8 @@ module.exports = async function (fastify) {
     fastify.patch('/api/consult-types/:key/rule-phase', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { rule_phase } = req.body;
-        await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2`, [rule_phase || null, req.params.key]);
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
+        await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2 AND crm_menu = $3`, [rule_phase || null, req.params.key, crmMenu]);
         return { success: true };
     });
 
@@ -260,8 +292,9 @@ module.exports = async function (fastify) {
     fastify.patch('/api/consult-types/batch/rule-phase', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { updates } = req.body; // [{key, rule_phase}]
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
         for (const u of updates) {
-            await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2`, [u.rule_phase || null, u.key]);
+            await db.run(`UPDATE consult_type_configs SET rule_phase = $1 WHERE key = $2 AND crm_menu = $3`, [u.rule_phase || null, u.key, crmMenu]);
         }
         return { success: true };
     });
@@ -271,6 +304,7 @@ module.exports = async function (fastify) {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Forbidden' });
         const { key } = req.params;
         const { section_group, section_group_label } = req.body;
+        const crmMenu = req.body.crm_menu || req.query.crm_menu || 'nhu_cau';
         const sets = [];
         const vals = [];
         let idx = 1;
@@ -278,7 +312,8 @@ module.exports = async function (fastify) {
         if (section_group_label !== undefined) { sets.push(`section_group_label = $${idx++}`); vals.push(section_group_label); }
         if (sets.length === 0) return reply.code(400).send({ error: 'Nothing to update' });
         vals.push(key);
-        await db.run(`UPDATE consult_type_configs SET ${sets.join(', ')} WHERE key = $${idx}`, vals);
+        vals.push(crmMenu);
+        await db.run(`UPDATE consult_type_configs SET ${sets.join(', ')} WHERE key = $${idx} AND crm_menu = $${idx + 1}`, vals);
         return { success: true };
     });
 };
