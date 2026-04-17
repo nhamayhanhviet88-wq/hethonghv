@@ -717,10 +717,11 @@ async function taskScheduleRoutes(fastify, options) {
                 `SELECT COUNT(*) as c FROM task_support_requests WHERE status = 'pending'`
             );
         } else {
+            const supportPh = deptIds.map((_, i) => `$${i + 2}`).join(',');
             supportCount = await db.get(
                 `SELECT COUNT(*) as c FROM task_support_requests
                  WHERE status = 'pending' AND (manager_id = $1 OR manager_id IN (
-                     SELECT id FROM users WHERE department_id IN (${placeholders})
+                     SELECT id FROM users WHERE department_id IN (${supportPh})
                  ))`,
                 [userId, ...deptIds]
             );
