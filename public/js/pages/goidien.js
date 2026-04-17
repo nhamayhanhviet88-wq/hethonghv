@@ -61,8 +61,11 @@ let _gd_sidebarDeptFilter = '';
 
 async function renderGoiDienPage(container) {
     _gd_isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
-    container.innerHTML = `
-        <div style="display:flex;height:calc(100vh - 120px);gap:0;">
+    const _isNhanVien = ['nhan_vien', 'part_time'].includes(currentUser.role);
+    const _isTopAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
+
+    // NV/PT: ẩn sidebar, full-width content (chỉ xem data của mình)
+    const sidebarHTML = _isNhanVien ? '' : `
             <div id="gdSidebar" style="width:280px;min-width:280px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
                 <div style="padding:14px;border-bottom:1.5px solid #e2e8f0;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -74,65 +77,81 @@ async function renderGoiDienPage(container) {
                     </select>
                 </div>
                 <div id="gdSidebarList" class="ts-scroll" style="flex:1;overflow:auto;padding:8px;"></div>
-            </div>
+            </div>`;
+
+    container.innerHTML = `
+        <div style="display:flex;height:calc(100vh - 120px);gap:0;">
+            ${sidebarHTML}
             <div id="gdContent" style="flex:1;overflow:auto;padding:20px;">
-                <div class="ts-empty">
-                    <span class="ts-empty-icon">👈</span>
-                    <div class="ts-empty-title">Chọn nhân viên bên trái</div>
-                    <div class="ts-empty-desc">Chọn NV để xem danh sách SĐT gọi điện hôm nay</div>
-                </div>
+                <div style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải dữ liệu...</div>
             </div>
         </div>`;
 
-    const [srcRes, statusRes, usersRes, deptsRes, membersRes, locRes, visRes] = await Promise.all([
-        apiCall('/api/telesale/sources'),
-        apiCall('/api/telesale/answer-statuses'),
-        apiCall('/api/users'),
-        apiCall('/api/departments'),
-        apiCall('/api/telesale/active-members'),
-        apiCall('/api/self-search-locations'),
-        apiCall('/api/telesale/visible-members')
-    ]);
+    // Fetch data - dùng /api/users/dropdown (không yêu cầu role manager)
+    let srcRes, statusRes, usersRes, deptsRes, membersRes, locRes, visRes;
+    try {
+        [srcRes, statusRes, usersRes, deptsRes, membersRes, locRes, visRes] = await Promise.all([
+            apiCall('/api/telesale/sources'),
+            apiCall('/api/telesale/answer-statuses'),
+            apiCall('/api/users/dropdown'),
+            apiCall('/api/departments'),
+            apiCall('/api/telesale/active-members'),
+            apiCall('/api/self-search-locations'),
+            apiCall('/api/telesale/visible-members')
+        ]);
+    } catch (err) {
+        console.error('[GD] Lỗi khởi tạo trang:', err);
+        const el = document.getElementById('gdContent');
+        if (el) el.innerHTML = `<div class="ts-empty"><span class="ts-empty-icon">❌</span><div class="ts-empty-title">Lỗi tải dữ liệu</div><div class="ts-empty-desc">${err.message || 'Vui lòng thử lại'}</div></div>`;
+        return;
+    }
+
     _gd_sources = srcRes.sources || [];
     _gd_answerStatuses = statusRes.statuses || [];
-    _gd_allUsers = (usersRes.users || usersRes || []).filter(u => u.status === 'active');
+    _gd_allUsers = usersRes.users || usersRes || [];
     _gd_allDepts = deptsRes.departments || deptsRes || [];
     _gd_memberIds = new Set((membersRes.members || []).filter(m => m.is_active).map(m => m.user_id));
     _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'tu_tim_kiem');
     _gd_selfSearchLocations = locRes.locations || [];
     _gd_visibleUserIds = new Set((visRes.user_ids || []).map(Number));
-    console.log('[GD Debug] visRes=', visRes, 'visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
+    console.log('[GD Debug] visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
 
-    // Populate dept filter
-    const deptSelect = document.getElementById('gdDeptFilter');
-    if (deptSelect) {
-        const deptsWithMembers = _gd_allDepts.filter(d => _gd_allUsers.some(u => u.department_id === d.id && _gd_memberIds.has(u.id)));
-        deptsWithMembers.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.id; opt.textContent = d.name;
-            deptSelect.appendChild(opt);
-        });
+    // Populate dept filter (chỉ khi có sidebar)
+    if (!_isNhanVien) {
+        const deptSelect = document.getElementById('gdDeptFilter');
+        if (deptSelect) {
+            const deptsWithMembers = _gd_allDepts.filter(d => _gd_allUsers.some(u => u.department_id === d.id && _gd_memberIds.has(u.id)));
+            deptsWithMembers.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id; opt.textContent = d.name;
+                deptSelect.appendChild(opt);
+            });
+        }
     }
 
-    // Auto-select: NV/PT auto-select self; TP/QL auto-select self if active member, else first visible member
-    const _isTopAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
-    const _isNhanVien = ['nhan_vien', 'part_time'].includes(currentUser.role);
+    // Auto-select logic
     if (_isNhanVien) {
-        // NV/PT: always auto-select self (they only see their own data)
+        // NV/PT: luôn load data bản thân (không cần sidebar)
         _gd_selectedUserId = currentUser.id;
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
+        await _gd_loadCallsForUser(_gd_selectedUserId);
     } else if (!_isTopAdmin) {
-        // QL, TP: auto-select self if they are an active member
+        // QL, TP: auto-select self nếu là active member
         if (_gd_memberIds.has(currentUser.id)) {
             _gd_selectedUserId = currentUser.id;
             _gd_selectedUserName = currentUser.full_name || currentUser.username;
         }
-    }
-    _gd_renderSidebar();
-    if (_gd_selectedUserId) await _gd_loadCallsForUser(_gd_selectedUserId);
-    else { // auto-select first VISIBLE active member
-        const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
-        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name || first.username; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+        _gd_renderSidebar();
+        if (_gd_selectedUserId) await _gd_loadCallsForUser(_gd_selectedUserId);
+        else {
+            const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
+            if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+        }
+    } else {
+        // GĐ/QLCC: auto-select first active member
+        _gd_renderSidebar();
+        const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id));
+        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
     }
 }
 
