@@ -503,7 +503,7 @@ function _affRenderFilteredTable() {
         const hasMonth = selMonth && parseInt(selMonth);
         const hasYear = selYear && parseInt(selYear);
         const hasDay = selDay && parseInt(selDay);
-        if (hasYear || hasMonth || hasDay) {
+        if (hasMonth || hasDay) {
             filtered = filtered.filter(c => {
                 let dateField;
                 if (_affActiveCat === 'cho_xu_ly' || _affActiveCat === 'xu_ly_tre') {
