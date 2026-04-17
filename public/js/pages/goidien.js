@@ -146,12 +146,14 @@ async function renderGoiDienPage(container) {
         else {
             const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
             if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+            else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên telesale nào trong phạm vi quản lý. Vui lòng liên hệ Giám đốc để thêm NV vào danh sách active members.</div></div>'; }
         }
     } else {
         // GĐ/QLCC: auto-select first active member
         _gd_renderSidebar();
         const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id));
         if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+        else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên nào được thêm vào active telesale members.</div></div>'; }
     }
 }
 

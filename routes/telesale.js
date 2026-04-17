@@ -26,7 +26,14 @@ async function telesaleRoutes(fastify) {
         // Fetch department_id from DB (JWT doesn't include it)
         const dbUser = await db.get('SELECT department_id FROM users WHERE id = $1', [user.id]);
         const userDeptId = dbUser?.department_id;
-        if (!userDeptId) return [user.id];
+        // QL/TP without department_id: QL sees all, TP sees self
+        if (!userDeptId) {
+            if (role === 'quan_ly') {
+                const all = await db.all("SELECT id FROM users WHERE status = 'active'");
+                return all.map(u => u.id);
+            }
+            return [user.id];
+        }
         // QL: entire phòng (parent dept + all child teams)
         if (role === 'quan_ly') {
             // Find root dept: if user's dept has parent_id, use parent; else use dept itself
