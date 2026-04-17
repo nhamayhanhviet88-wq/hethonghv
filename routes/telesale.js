@@ -34,14 +34,21 @@ async function telesaleRoutes(fastify) {
             }
             return [user.id];
         }
-        // QL: entire phòng (parent dept + all child teams)
+        // QL: entire phòng (root dept + all descendants, including grandchildren)
         if (role === 'quan_ly') {
             // Find root dept: if user's dept has parent_id, use parent; else use dept itself
             const dept = await db.get('SELECT id, parent_id FROM departments WHERE id = $1', [userDeptId]);
             const rootDeptId = dept?.parent_id || userDeptId;
-            // Get root dept + all child depts
-            const childDepts = await db.all('SELECT id FROM departments WHERE id = $1 OR parent_id = $1', [rootDeptId]);
-            const deptIds = childDepts.map(d => d.id);
+            // Get ALL descendants recursively (root → children → grandchildren)
+            const allDescendants = await db.all(
+                `WITH RECURSIVE dept_tree AS (
+                    SELECT id FROM departments WHERE id = $1
+                    UNION ALL
+                    SELECT d.id FROM departments d INNER JOIN dept_tree dt ON d.parent_id = dt.id
+                ) SELECT id FROM dept_tree`,
+                [rootDeptId]
+            );
+            const deptIds = allDescendants.map(d => d.id);
             if (deptIds.length === 0) return [user.id];
             const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
             const users = await db.all(`SELECT id FROM users WHERE department_id IN (${placeholders}) AND status = 'active'`, deptIds);
