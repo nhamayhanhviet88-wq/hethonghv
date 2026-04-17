@@ -18,6 +18,7 @@ let _gd_selfSearchSources = [];
 let _gd_selfSearchLocations = [];
 let _gd_selfSearchCount = 0;
 let _gd_visibleUserIds = new Set(); // Role-based visible user IDs
+let _gd_isViewOnly = false; // true khi xem data người khác
 function _gd_filterByCard(key) {
     _gd_statusFilter = _gd_statusFilter === key ? null : key;
     if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
@@ -134,25 +135,27 @@ async function renderGoiDienPage(container) {
         // NV/PT: luôn load data bản thân (không cần sidebar)
         _gd_selectedUserId = currentUser.id;
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
+        _gd_isViewOnly = false;
         await _gd_loadCallsForUser(_gd_selectedUserId);
     } else if (!_isTopAdmin) {
         // QL, TP: auto-select self nếu là active member
         if (_gd_memberIds.has(currentUser.id)) {
             _gd_selectedUserId = currentUser.id;
             _gd_selectedUserName = currentUser.full_name || currentUser.username;
+            _gd_isViewOnly = false;
         }
         _gd_renderSidebar();
         if (_gd_selectedUserId) await _gd_loadCallsForUser(_gd_selectedUserId);
         else {
             const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
-            if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+            if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_isViewOnly = (first.id !== currentUser.id); _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
             else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên telesale nào trong phạm vi quản lý. Vui lòng liên hệ Giám đốc để thêm NV vào danh sách active members.</div></div>'; }
         }
     } else {
         // GĐ/QLCC: auto-select first active member
         _gd_renderSidebar();
         const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id));
-        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
+        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_isViewOnly = (first.id !== currentUser.id); _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
         else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên nào được thêm vào active telesale members.</div></div>'; }
     }
 }
@@ -252,6 +255,7 @@ function _gd_renderUserCard(u, indent) {
 
 async function _gd_selectUser(userId, userName) {
     _gd_selectedUserId = userId; _gd_selectedUserName = userName;
+    _gd_isViewOnly = (userId !== currentUser.id); // Chỉ chủ sở hữu mới thao tác được
     _gd_renderSidebar();
     await _gd_loadCallsForUser(userId);
 }
@@ -397,8 +401,10 @@ async function _gd_loadCallsForUser(userId) {
         <button onclick="_gd_filterByCard('${_gd_statusFilter}')" style="background:rgba(255,255,255,0.2);border:none;color:white;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;" title="Bỏ lọc">✕</button>
     </div>` : '';
 
+    const viewOnlyBanner = _gd_isViewOnly ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:linear-gradient(135deg,#fefce8,#fef9c3);border:1.5px solid #fde68a;border-radius:10px;margin-bottom:12px;font-size:12px;font-weight:600;color:#92400e;"><span style="font-size:16px;">👁️</span> Chế độ xem — Bạn đang xem dữ liệu của <strong>${_gd_selectedUserName}</strong>. Chỉ chủ sở hữu mới thao tác được.</div>` : '';
     el.innerHTML = `
         <style>@keyframes _gdFilterPulse { 0%,100%{box-shadow:0 2px 8px rgba(18,37,70,0.3)} 50%{box-shadow:0 2px 16px rgba(18,37,70,0.5)} }</style>
+        ${viewOnlyBanner}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="display:flex;align-items:center;gap:12px;"><h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">${_gd_selectedUserName}</h3>${activeFilterHtml}</div><div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div></div>
         ${dfHtml}
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
@@ -462,7 +468,7 @@ function _gd_renderCallCard(call) {
             ${call.group_name ? `<span>👥 ${call.group_name}</span>` : ''}
             ${call.address ? `<span>📍 ${call.address}</span>` : ''}
         </div>
-        ${call.call_status === 'pending' ? `
+        ${call.call_status === 'pending' && !_gd_isViewOnly ? `
         <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button class="ts-btn ts-btn-green" onclick="_gd_showAnswerStatuses(${call.id},this)">✅ Bắt máy</button>
             <button class="ts-btn ts-btn-red" onclick="_gd_markCall(${call.id},'no_answer')">📵 Không nghe</button>
@@ -478,7 +484,7 @@ function _gd_renderCallCard(call) {
             <label style="font-size:11px;font-weight:600;color:#374151;">📝 Ghi chú</label>
             <textarea id="gdNotes_${call.id}" class="ts-search" style="width:100%;margin-top:4px;padding:8px;min-height:50px;resize:vertical;" placeholder="Ghi chú cuộc gọi..."></textarea>
         </div>` : ''}
-        ${call.call_status === 'answered' && !call.answer_status_id ? `
+        ${call.call_status === 'answered' && !call.answer_status_id && !_gd_isViewOnly ? `
         <div style="padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
             <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:10px;">📋 Chọn tình trạng bắt máy:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">

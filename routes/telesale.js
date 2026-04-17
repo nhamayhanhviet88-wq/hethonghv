@@ -991,8 +991,9 @@ async function telesaleRoutes(fastify) {
         const { call_status, answer_status_id, notes, callback_date, callback_time } = req.body;
         const assign = await db.get('SELECT * FROM telesale_assignments WHERE id = ?', [req.params.assignmentId]);
         if (!assign) return reply.code(404).send({ error: 'Không tìm thấy' });
-        if (assign.user_id !== req.user.id && !['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(req.user.role))
-            return reply.code(403).send({ error: 'Không có quyền' });
+        // Chỉ chủ sở hữu (người được phân SĐT) mới được thao tác
+        if (assign.user_id !== req.user.id)
+            return reply.code(403).send({ error: 'Chỉ nhân viên được phân SĐT mới được thao tác' });
 
         // Update assignment
         await db.run(`UPDATE telesale_assignments SET call_status = ?, answer_status_id = ?,
