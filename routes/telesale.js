@@ -12,6 +12,53 @@ async function telesaleRoutes(fastify) {
     // Invalidate cache on data mutations
     function _invalidateStatsCache() { _statsCache.clear(); }
 
+    // ========== ROLE-BASED VISIBILITY ==========
+    // Returns array of user IDs that the requesting user is allowed to view
+    async function _getVisibleUserIds(user) {
+        const role = user.role;
+        // GĐ + QLCC: see everyone
+        if (['giam_doc', 'quan_ly_cap_cao'].includes(role)) {
+            const all = await db.all("SELECT id FROM users WHERE status = 'active'");
+            return all.map(u => u.id);
+        }
+        // NV: only self
+        if (role === 'nhan_vien') return [user.id];
+        // Fetch department_id from DB (JWT doesn't include it)
+        const dbUser = await db.get('SELECT department_id FROM users WHERE id = $1', [user.id]);
+        const userDeptId = dbUser?.department_id;
+        if (!userDeptId) return [user.id];
+        // QL: entire phòng (parent dept + all child teams)
+        if (role === 'quan_ly') {
+            // Find root dept: if user's dept has parent_id, use parent; else use dept itself
+            const dept = await db.get('SELECT id, parent_id FROM departments WHERE id = $1', [userDeptId]);
+            const rootDeptId = dept?.parent_id || userDeptId;
+            // Get root dept + all child depts
+            const childDepts = await db.all('SELECT id FROM departments WHERE id = $1 OR parent_id = $1', [rootDeptId]);
+            const deptIds = childDepts.map(d => d.id);
+            if (deptIds.length === 0) return [user.id];
+            const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            const users = await db.all(`SELECT id FROM users WHERE department_id IN (${placeholders}) AND status = 'active'`, deptIds);
+            const ids = users.map(u => u.id);
+            if (!ids.includes(user.id)) ids.push(user.id);
+            return ids;
+        }
+        // TP: same team (same department_id)
+        if (role === 'truong_phong') {
+            const users = await db.all("SELECT id FROM users WHERE department_id = $1 AND status = 'active'", [userDeptId]);
+            const ids = users.map(u => u.id);
+            if (!ids.includes(user.id)) ids.push(user.id);
+            return ids;
+        }
+        // Default: self only
+        return [user.id];
+    }
+
+    // Check if requester can view target user
+    async function _canViewUser(requester, targetUserId) {
+        const ids = await _getVisibleUserIds(requester);
+        return ids.includes(Number(targetUserId));
+    }
+
     // ========== SALARY FILTER (hide salary info from employees) ==========
     const _SALARY_VISIBLE_ROLES = ['giam_doc', 'quan_ly_cap_cao'];
     function _filterSalaryLines(text) {
@@ -901,10 +948,16 @@ async function telesaleRoutes(fastify) {
         return { calls, date };
     });
 
+    // ========== VISIBLE MEMBERS API ==========
+    fastify.get('/api/telesale/visible-members', { preHandler: authenticate }, async (req, reply) => {
+        const ids = await _getVisibleUserIds(req.user);
+        console.log(`[Visibility] user=${req.user.id} role=${req.user.role} => ${ids.length} visible IDs: [${ids.join(',')}]`);
+        return { user_ids: ids };
+    });
+
     fastify.get('/api/telesale/user-calls/:userId', { preHandler: authenticate }, async (req, reply) => {
-        const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
-        if (!mgr.includes(req.user.role) && String(req.user.id) !== req.params.userId)
-            return reply.code(403).send({ error: 'Không có quyền' });
+        if (!(await _canViewUser(req.user, req.params.userId)))
+            return reply.code(403).send({ error: 'Không có quyền xem data user này' });
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
@@ -994,6 +1047,8 @@ async function telesaleRoutes(fastify) {
     });
 
     fastify.get('/api/telesale/daily-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
+        if (!(await _canViewUser(req.user, req.params.userId)))
+            return reply.code(403).send({ error: 'Không có quyền' });
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
 
@@ -1254,7 +1309,7 @@ async function telesaleRoutes(fastify) {
         }
 
         const countRes = await db.get(
-            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND self_searched_at::date = $2`,
+            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND (self_searched_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date`,
             [req.user.id, today]
         );
         const todayCount = parseInt(countRes?.cnt || 0);
@@ -1265,11 +1320,13 @@ async function telesaleRoutes(fastify) {
 
     // ========== SELF-SEARCH STATS ==========
     fastify.get('/api/telesale/self-search-stats/:userId', { preHandler: authenticate }, async (req, reply) => {
+        if (!(await _canViewUser(req.user, req.params.userId)))
+            return reply.code(403).send({ error: 'Không có quyền' });
         const userId = req.params.userId;
         const { date } = req.query;
         const targetDate = date || new Date().toISOString().split('T')[0];
         const countRes = await db.get(
-            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND self_searched_at::date = $2`,
+            `SELECT COUNT(*) as cnt FROM telesale_data WHERE self_searched_by = $1 AND (self_searched_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date`,
             [userId, targetDate]
         );
 
@@ -1298,6 +1355,8 @@ async function telesaleRoutes(fastify) {
 
     // ========== TELESALE CALL PROGRESS (for Lịch Khóa Biểu + goidien progress bar) ==========
     fastify.get('/api/telesale/call-progress/:userId', { preHandler: authenticate }, async (req, reply) => {
+        if (!(await _canViewUser(req.user, req.params.userId)))
+            return reply.code(403).send({ error: 'Không có quyền' });
         const userId = req.params.userId;
         const { date } = req.query;
         const targetDate = date || new Date().toISOString().split('T')[0];

@@ -17,6 +17,7 @@ let _gd_statusFilter = null;
 let _gd_selfSearchSources = [];
 let _gd_selfSearchLocations = [];
 let _gd_selfSearchCount = 0;
+let _gd_visibleUserIds = new Set(); // Role-based visible user IDs
 function _gd_filterByCard(key) {
     _gd_statusFilter = _gd_statusFilter === key ? null : key;
     if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
@@ -83,13 +84,14 @@ async function renderGoiDienPage(container) {
             </div>
         </div>`;
 
-    const [srcRes, statusRes, usersRes, deptsRes, membersRes, locRes] = await Promise.all([
+    const [srcRes, statusRes, usersRes, deptsRes, membersRes, locRes, visRes] = await Promise.all([
         apiCall('/api/telesale/sources'),
         apiCall('/api/telesale/answer-statuses'),
         apiCall('/api/users'),
         apiCall('/api/departments'),
         apiCall('/api/telesale/active-members'),
-        apiCall('/api/self-search-locations')
+        apiCall('/api/self-search-locations'),
+        apiCall('/api/telesale/visible-members')
     ]);
     _gd_sources = srcRes.sources || [];
     _gd_answerStatuses = statusRes.statuses || [];
@@ -98,6 +100,8 @@ async function renderGoiDienPage(container) {
     _gd_memberIds = new Set((membersRes.members || []).filter(m => m.is_active).map(m => m.user_id));
     _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'tu_tim_kiem');
     _gd_selfSearchLocations = locRes.locations || [];
+    _gd_visibleUserIds = new Set((visRes.user_ids || []).map(Number));
+    console.log('[GD Debug] visRes=', visRes, 'visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
 
     // Populate dept filter
     const deptSelect = document.getElementById('gdDeptFilter');
@@ -110,17 +114,25 @@ async function renderGoiDienPage(container) {
         });
     }
 
-    // TP/NV: auto-select themselves
-    const _canSeeOthers = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser.role);
-    if (!_canSeeOthers) {
+    // Auto-select: NV/PT auto-select self; TP/QL auto-select self if active member, else first visible member
+    const _isTopAdmin = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
+    const _isNhanVien = ['nhan_vien', 'part_time'].includes(currentUser.role);
+    if (_isNhanVien) {
+        // NV/PT: always auto-select self (they only see their own data)
         _gd_selectedUserId = currentUser.id;
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
+    } else if (!_isTopAdmin) {
+        // QL, TP: auto-select self if they are an active member
+        if (_gd_memberIds.has(currentUser.id)) {
+            _gd_selectedUserId = currentUser.id;
+            _gd_selectedUserName = currentUser.full_name || currentUser.username;
+        }
     }
     _gd_renderSidebar();
     if (_gd_selectedUserId) await _gd_loadCallsForUser(_gd_selectedUserId);
-    else { // auto-select first
-        const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id));
-        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name || first.username; await _gd_loadCallsForUser(first.id); }
+    else { // auto-select first VISIBLE active member
+        const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
+        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name || first.username; _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
     }
 }
 
@@ -131,12 +143,13 @@ function _gd_renderSidebar() {
     const list = document.getElementById('gdSidebarList');
     if (!list) return;
 
-    const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'].includes(currentUser.role);
+    const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
-    // Filter members
+    // Filter members by active status and dept filter
     let filtered = _gd_allUsers.filter(u => {
         if (!_gd_memberIds.has(u.id)) return false;
-        if (!isMgr && u.id !== currentUser.id) return false; // TP/NV only see themselves
+        // Role-based visibility: if visibleUserIds loaded, apply filter; else show all (backend enforces security)
+        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id)) return false;
         if (_gd_sidebarDeptFilter && String(u.department_id) !== _gd_sidebarDeptFilter) return false;
         return true;
     });
