@@ -1253,11 +1253,13 @@ async function telesaleRoutes(fastify) {
             normalizedPhone = processed.phone;
             carrier = processed.carrier;
             if (normalizedPhone && !processed.isInvalid) {
+                // Check duplicate phone GLOBALLY (across ALL sources/CRM)
                 const dup = await db.get(
-                    `SELECT d.id FROM telesale_data d JOIN telesale_sources s ON s.id = d.source_id WHERE d.phone = $1 AND s.crm_type = $2`,
-                    [normalizedPhone, src.crm_type || 'tu_tim_kiem']
+                    `SELECT d.id, s.name as source_name FROM telesale_data d 
+                     LEFT JOIN telesale_sources s ON s.id = d.source_id WHERE d.phone = $1`,
+                    [normalizedPhone]
                 );
-                if (dup) return reply.code(400).send({ error: `SĐT ${normalizedPhone} đã tồn tại trong CRM` });
+                if (dup) return reply.code(400).send({ error: `SĐT ${normalizedPhone} đã tồn tại trong nguồn "${dup.source_name || 'Không rõ'}"` });
             }
         }
 
