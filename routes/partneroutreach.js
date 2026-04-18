@@ -321,17 +321,17 @@ module.exports = async function (fastify) {
         const role = req.user.role;
         let members = [];
 
-        // Get PHÒNG KINH DOANH + child team IDs
-        const kdDepts = await db.all("SELECT id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active'");
+        // Get PHÒNG KINH DOANH + child team IDs (ordered by display_order)
+        const kdDepts = await db.all("SELECT id, name, display_order FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id");
         const kdDeptIds = kdDepts.map(d => d.id);
         const kdPh = kdDeptIds.map((_, i) => `$${i + 1}`).join(',');
 
         if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
             members = await db.all(
-                `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name
+                `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order
                  FROM users u LEFT JOIN departments d ON u.department_id = d.id
                  WHERE u.status = 'active' AND u.department_id IN (${kdPh})
-                 ORDER BY d.name, u.full_name`,
+                 ORDER BY d.display_order, d.id, u.full_name`,
                 kdDeptIds
             );
         } else if (['quan_ly', 'truong_phong'].includes(role)) {
@@ -340,23 +340,26 @@ module.exports = async function (fastify) {
             if (filtered.length > 0) {
                 const ph = filtered.map((_, i) => `$${i + 1}`).join(',');
                 members = await db.all(
-                    `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name
+                    `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order
                      FROM users u LEFT JOIN departments d ON u.department_id = d.id
                      WHERE u.department_id IN (${ph}) AND u.status = 'active'
-                     ORDER BY d.name, u.full_name`,
+                     ORDER BY d.display_order, d.id, u.full_name`,
                     filtered
                 );
             }
         }
 
-        const depts = {};
+        // Build ordered array preserving display_order
+        const deptOrder = kdDepts.map(d => d.id);
+        const deptMap = {};
         members.forEach(m => {
             const key = m.dept_id || 0;
-            if (!depts[key]) depts[key] = { id: key, name: m.dept_name || 'Chưa phân phòng', members: [] };
-            depts[key].members.push(m);
+            if (!deptMap[key]) deptMap[key] = { id: key, name: m.dept_name || 'Chưa phân phòng', members: [] };
+            deptMap[key].members.push(m);
         });
+        const ordered = deptOrder.filter(id => deptMap[id]).map(id => deptMap[id]);
 
-        return { departments: Object.values(depts) };
+        return { departments: ordered };
     });
 
     // ===== IMAGE UPLOAD (base64 → file) =====
