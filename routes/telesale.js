@@ -1286,6 +1286,23 @@ async function telesaleRoutes(fastify) {
         } else if (actionType === 'cold') {
             const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE action_type = 'cold' ORDER BY display_order LIMIT 1");
             answerStatusId = ans?.id || null;
+        } else {
+            // For quote/meet/considering — lookup by name pattern
+            const namePatterns = {
+                quote: '%báo giá%',
+                meet: '%gặp%',
+                considering: '%cân nhắc%',
+            };
+            const pattern = namePatterns[call_disposition];
+            if (pattern) {
+                const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE name ILIKE $1 ORDER BY display_order LIMIT 1", [pattern]);
+                answerStatusId = ans?.id || null;
+            }
+            // Fallback: if still null, use the first non-transfer/non-cold answer_status
+            if (!answerStatusId) {
+                const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE action_type NOT IN ('transfer','cold','cold_ncc') ORDER BY display_order LIMIT 1");
+                answerStatusId = ans?.id || null;
+            }
         }
 
         let normalizedPhone = '';

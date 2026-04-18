@@ -484,7 +484,7 @@ function _gd_renderCallCard(call) {
             <label style="font-size:11px;font-weight:600;color:#374151;">📝 Ghi chú</label>
             <textarea id="gdNotes_${call.id}" class="ts-search" style="width:100%;margin-top:4px;padding:8px;min-height:50px;resize:vertical;" placeholder="Ghi chú cuộc gọi..."></textarea>
         </div>` : ''}
-        ${call.call_status === 'answered' && !call.answer_status_id && !_gd_isViewOnly ? `
+        ${call.call_status === 'answered' && !call.answer_status_id && !_gd_isViewOnly && !call.notes ? `
         <div style="padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
             <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:10px;">📋 Chọn tình trạng bắt máy:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
@@ -493,6 +493,11 @@ function _gd_renderCallCard(call) {
             </div>
             <label style="font-size:11px;font-weight:600;color:#374151;">📝 Ghi chú</label>
             <textarea id="gdNotes_${call.id}" class="ts-search" style="width:100%;margin-top:4px;padding:8px;min-height:50px;resize:vertical;" placeholder="Ghi chú cuộc gọi..."></textarea>
+        </div>` : ''}
+        ${call.call_status === 'answered' && !call.answer_status_id && call.notes ? `
+        <div style="padding:10px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="ts-badge" style="background:#dcfce7;color:#065f46;">✅ Đã xử lý</span>
+            <span style="color:#6b7280;">— ${call.notes}</span>
         </div>` : ''}
         ${call.answer_status_id ? `
         <div style="padding:10px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
