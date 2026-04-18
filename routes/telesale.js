@@ -1475,12 +1475,12 @@ async function telesaleRoutes(fastify) {
                 const srcName = src.name || (await db.get('SELECT name FROM telesale_sources WHERE id = ?', [source_id]))?.name || null;
 
                 // Create customer with appointment_date set to next working day
-                const custResult = await db.run(
+                const custRow = await db.get(
                     `INSERT INTO customers (crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
                     [crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay]
                 );
-                const customerId = custResult.lastInsertRowid || custResult.insertId;
+                const customerId = custRow?.id;
 
                 // ★ Create consultation_log so customer shows in "Đã xử lý hôm nay"
                 if (customerId) {
@@ -1489,6 +1489,7 @@ async function telesaleRoutes(fastify) {
                         `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'goi_dien', $2, $3)`,
                         [customerId, logContent, req.user.id]
                     );
+                    console.log(`[Self-Search] 📝 Created consultation_log for customer ${customerId}`);
                 }
 
                 console.log(`[Self-Search] ✅ Created customer in CRM ${crmType} for "${customer_name.trim()}" [${call_disposition}] appointment=${nextWorkDay}`);
