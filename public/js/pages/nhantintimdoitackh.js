@@ -44,7 +44,7 @@ function _poInit() {
             <div id="poTable"></div>
         </div>
     </div>`;
-    document.getElementById('pageTitle').textContent = 'Nhắn Tin Tìm Đối Tác KH';
+    document.getElementById('pageTitle').textContent = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
     _poLoadAll();
 }
 
