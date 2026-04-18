@@ -419,8 +419,10 @@ function _gdhtGetCategory(c, stats) {
     // Priority 4: Phải xử lý hôm nay (appointment today OR birthday today)
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
 
-    // Priority 5: Pinned customers ALWAYS show as phai_xu_ly (never xu_ly_tre)
-    if (c.is_pinned) return 'phai_xu_ly';
+    // Priority 5: Pinned customers — daily cycle
+    // If consulted today → da_xu_ly (appointment auto-set to next working day by backend)
+    // If NOT consulted today → phai_xu_ly (next day becomes xu_ly_tre if still not handled)
+    if (c.is_pinned) return consultedToday ? 'da_xu_ly' : 'phai_xu_ly';
 
     // Priority 6: Khách xử lý trễ (appointment was in the past, not consulted today)
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
