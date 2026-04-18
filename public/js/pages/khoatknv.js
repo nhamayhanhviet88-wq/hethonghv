@@ -10,7 +10,11 @@ const _CRM_LABELS = {
     nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', tu_tim_kiem: 'Tự TK',
     goi_hop_tac: 'GĐ HT', goi_ban_hang: 'GĐ BH', koc_tiktok: 'KOL/KOC',
     qua_tang: 'QT/SK/DL', affiliate: 'Affiliate GT', nguoi_than: 'NT/BB',
-    ctv_hoa_hong: 'CTV/HH'
+    ctv_hoa_hong: 'CTV/HH',
+    tre_nhu_cau: 'Trễ Nhu Cầu', tre_ctv: 'Trễ CTV', tre_tu_tim_kiem: 'Trễ Tự TK',
+    tre_goi_hop_tac: 'Trễ GĐ HT', tre_goi_ban_hang: 'Trễ GĐ BH', tre_koc_tiktok: 'Trễ KOL/KOC',
+    tre_qua_tang: 'Trễ QT/SK/DL', tre_affiliate: 'Trễ Affiliate', tre_nguoi_than: 'Trễ NT/BB',
+    tre_ctv_hoa_hong: 'Trễ CTV/HH'
 };
 
 async function renderKhoaTKNVPage(container) {
@@ -94,7 +98,8 @@ async function _penaltyLoadConfig() {
             { title: '🔒 Công Việc Khóa', icon: '🔒', keys: ['cv_khoa_khong_nop', 'cv_khoa_ql_khong_duyet', 'cv_khoa_ql_khong_ho_tro'] },
             { title: '🔗 Công Việc Chuỗi', icon: '🔗', keys: ['cv_chuoi_khong_nop', 'cv_chuoi_ql_khong_duyet'] },
             { title: '🚨 Cấp Cứu Sếp', icon: '🚨', keys: ['cap_cuu_ql_khong_xu_ly'] },
-            { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay', 'kh_chua_xu_ly_hom_nay_ctv'] }
+            { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay', 'kh_chua_xu_ly_hom_nay_ctv'] },
+            { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] }
         ];
 
         const configMap = {};
@@ -369,7 +374,8 @@ async function _penaltyLoadStats() {
             chuoi:   { icon: '🔗', label: 'CV Chuỗi', color: '#4f46e5', bg: '#eef2ff' },
             support: { icon: '🆘', label: 'Sếp Hỗ Trợ', color: '#2563eb', bg: '#eff6ff' },
             emergency: { icon: '🚨', label: 'Cấp Cứu Sếp', color: '#b91c1c', bg: '#fef2f2' },
-            customer_unhandled: { icon: '❌', label: 'KH Chưa XL', color: '#ea580c', bg: '#fff7ed' }
+            customer_unhandled: { icon: '❌', label: 'KH Chưa XL', color: '#ea580c', bg: '#fff7ed' },
+            customer_overdue: { icon: '⏰', label: 'KH Trễ', color: '#b91c1c', bg: '#fef2f2' }
         };
 
         // Build HTML tree
@@ -597,7 +603,8 @@ async function _penaltyShowSlip(managerId, month, managerName) {
                 chuoi: { bg: '#eef2ff', color: '#4f46e5', label: '🔗 CV Chuỗi' },
                 support: { bg: '#eff6ff', color: '#2563eb', label: '🆘 Hỗ trợ' },
                 emergency: { bg: '#fef2f2', color: '#b91c1c', label: '🚨 Cấp cứu' },
-                customer_unhandled: { bg: '#fff7ed', color: '#ea580c', label: '❌ KH Chưa XL' }
+                customer_unhandled: { bg: '#fff7ed', color: '#ea580c', label: '❌ KH Chưa XL' },
+                customer_overdue: { bg: '#fef2f2', color: '#b91c1c', label: '⏰ KH Trễ' }
             };
             const cfg = map[type] || { bg: '#f3f4f6', color: '#6b7280', label: type };
             return `<span style="background:${cfg.bg};color:${cfg.color};padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">${cfg.label}</span>`;

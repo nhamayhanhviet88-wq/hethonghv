@@ -132,6 +132,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (!GPC.cap_cuu_ql_khong_xu_ly) GPC.cap_cuu_ql_khong_xu_ly = 50000;
     if (!GPC.kh_chua_xu_ly_hom_nay) GPC.kh_chua_xu_ly_hom_nay = 100000;
     if (!GPC.kh_chua_xu_ly_hom_nay_ctv) GPC.kh_chua_xu_ly_hom_nay_ctv = 100000;
+    if (!GPC.kh_chua_xu_ly_tre) GPC.kh_chua_xu_ly_tre = 100000;
 
     // ========== 1. CHECK SUPPORT REQUESTS ==========
     const pendingSupport = await db.all(
@@ -937,7 +938,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 8b. AUTO-LOG "KHÔNG XỬ LÝ" VÀO LỊCH SỬ KH ==========
-    // Chạy lúc 23:45+ (cùng section 8) — ghi dòng lịch sử ⚠️ cho KH có appointment = hôm nay nhưng không được tư vấn
+    // Chạy lúc 23:45+ — ghi dòng lịch sử ⚠️ cho KH có appointment <= hôm nay nhưng không được tư vấn hôm nay
+    // Bao gồm CẢ KH hôm nay (appointment_date = today) VÀ KH trễ (appointment_date < today)
     try {
         const _alHour = now.getHours();
         const _alMinute = now.getMinutes();
@@ -946,11 +948,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
             const alTodayOff = await isDayOff(alToday);
 
             if (!alTodayOff) {
-                // Lấy tất cả KH có appointment_date = hôm nay, chưa được tư vấn hôm nay
+                // Lấy tất cả KH có appointment_date <= hôm nay, chưa được tư vấn hôm nay
                 const unhandledCustomers = await db.all(
                     `SELECT c.id, c.customer_name, c.phone, c.assigned_to_id, c.appointment_date
                      FROM customers c
-                     WHERE c.appointment_date = $1
+                     WHERE c.appointment_date <= $1
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -997,6 +999,98 @@ async function runDeadlineCheck(forceFullCheck = false) {
         }
     } catch(e) {
         console.error('  ❌ Error auto-logging unhandled customers:', e.message);
+    }
+
+    // ========== 8c. PHẠT KH XỬ LÝ TRỄ (appointment_date < hôm nay) ==========
+    // Chạy lúc 23:45+ — phạt 100k/CRM type nếu NV có KH trễ mà không tư vấn hôm nay
+    // Phạt MỖI NGÀY cho đến khi NV xử lý hết KH trễ
+    try {
+        const _treHour = now.getHours();
+        const _treMinute = now.getMinutes();
+        if (_treHour === 23 && _treMinute >= 45) {
+            const treToday = toDateStr(now);
+            const treTodayOff = await isDayOff(treToday);
+
+            if (!treTodayOff) {
+                console.log('  📋 [KH Xử Lý Trễ] Kiểm tra khách xử lý trễ...');
+
+                // Lấy tất cả KH có appointment_date < hôm nay (trễ), nhóm theo user + crm_type
+                const overdueGroups = await db.all(
+                    `SELECT c.assigned_to_id as user_id, c.crm_type,
+                            COUNT(*) as total_customers,
+                            COUNT(*) FILTER (WHERE NOT EXISTS (
+                                SELECT 1 FROM consultation_logs cl
+                                WHERE cl.customer_id = c.id
+                                AND cl.logged_by = c.assigned_to_id
+                                AND cl.created_at::date = $1::date
+                            )) as unhandled_count
+                     FROM customers c
+                     WHERE c.appointment_date < $1
+                     AND c.assigned_to_id IS NOT NULL
+                     AND c.cancel_approved != 1
+                     AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
+                     GROUP BY c.assigned_to_id, c.crm_type
+                     HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
+                         SELECT 1 FROM consultation_logs cl
+                         WHERE cl.customer_id = c.id
+                         AND cl.logged_by = c.assigned_to_id
+                         AND cl.created_at::date = $1::date
+                     )) > 0`,
+                    [treToday]
+                );
+
+                let trePenaltyCount = 0;
+                for (const group of overdueGroups) {
+                    const userId = group.user_id;
+                    const crmType = group.crm_type;
+                    const unhandled = group.unhandled_count;
+
+                    // Skip nếu user đang nghỉ phép
+                    const onLeave = await isUserOnLeave(userId, treToday);
+                    if (onLeave) {
+                        console.log(`  ⏭️ [KH Xử Lý Trễ] Skip user=${userId} (đang nghỉ phép)`);
+                        continue;
+                    }
+
+                    // Phạt cố định 100k/CRM type (bất kể số lượng KH)
+                    const penaltyAmt = GPC.kh_chua_xu_ly_tre;
+
+                    // crm_type prefix 'tre_' để phân biệt với phạt "hôm nay"
+                    const treCrmType = 'tre_' + crmType;
+
+                    try {
+                        await db.run(
+                            `INSERT INTO customer_penalty_records (user_id, penalty_date, crm_type, unhandled_count, penalty_amount)
+                             VALUES ($1, $2, $3, $4, $5)
+                             ON CONFLICT (user_id, penalty_date, crm_type) DO NOTHING`,
+                            [userId, treToday, treCrmType, unhandled, penaltyAmt]
+                        );
+
+                        const inserted = await db.get(
+                            `SELECT id FROM customer_penalty_records
+                             WHERE user_id = $1 AND penalty_date = $2 AND crm_type = $3 AND acknowledged = false`,
+                            [userId, treToday, treCrmType]
+                        );
+
+                        if (inserted) {
+                            penaltyCount++;
+                            trePenaltyCount++;
+                            console.log(`  ⚠️ [KH Xử Lý Trễ] Phạt user=${userId} — menu ${crmType} (${unhandled} KH trễ chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
+                        }
+                    } catch (insertErr) {
+                        // Conflict = already penalized today for this CRM type
+                    }
+                }
+
+                if (trePenaltyCount > 0) {
+                    console.log(`  📋 [KH Xử Lý Trễ] Tổng: ${trePenaltyCount} vi phạm`);
+                } else if (overdueGroups.length === 0) {
+                    console.log('  ✅ [KH Xử Lý Trễ] Không có vi phạm');
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ Error checking overdue customer penalties:', e.message);
     }
 
     // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 01:00) ==========

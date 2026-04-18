@@ -362,22 +362,30 @@ async function khoaTKNVRoutes(fastify, options) {
             cpParams
         );
 
-        const cpFormatted = cpPenalties.map(p => ({
-            ...p,
-            source_type: 'customer_unhandled',
-            source_label: '❌ KH Chưa XL — Không xử lý KH phải XL hôm nay',
-            task_name: `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
-            penalty_reason: `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${p.crm_type})`,
-            penalized_user_id: p.user_id,
-            penalized_name: p.user_name,
-            penalized_username: p.username,
-            penalized_dept_id: p.department_id,
-            penalized_role: p.role || 'nhan_vien',
-            manager_id: p.user_id,
-            manager_name: p.user_name,
-            manager_username: p.username,
-            acknowledged: p.acknowledged || false
-        }));
+        const cpFormatted = cpPenalties.map(p => {
+            const isTre = p.crm_type && p.crm_type.startsWith('tre_');
+            const displayCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
+            return {
+                ...p,
+                source_type: isTre ? 'customer_overdue' : 'customer_unhandled',
+                source_label: isTre ? '⏰ KH Trễ — Không xử lý KH trễ' : '❌ KH Chưa XL — Không xử lý KH phải XL hôm nay',
+                task_name: isTre
+                    ? `KH xử lý trễ: ${displayCrmType} (${p.unhandled_count} KH)`
+                    : `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
+                penalty_reason: isTre
+                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ (${displayCrmType})`
+                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${p.crm_type})`,
+                penalized_user_id: p.user_id,
+                penalized_name: p.user_name,
+                penalized_username: p.username,
+                penalized_dept_id: p.department_id,
+                penalized_role: p.role || 'nhan_vien',
+                manager_id: p.user_id,
+                manager_name: p.user_name,
+                manager_username: p.username,
+                acknowledged: p.acknowledged || false
+            };
+        });
 
         // Combine all
         const allPenalties = [...srPenalties, ...ltFormatted, ...ctFormatted, ...emFormatted, ...cpFormatted];
@@ -477,9 +485,15 @@ async function khoaTKNVRoutes(fastify, options) {
             [managerId, monthStart, monthEnd]
         );
         cpItems.forEach(item => {
-            item.source_type = 'customer_unhandled';
-            item.task_name = `KH chưa XL: ${item.crm_type} (${item.unhandled_count} KH)`;
-            item.penalty_reason = `Không xử lý ${item.unhandled_count} khách phải xử lý hôm nay`;
+            const isTre = item.crm_type && item.crm_type.startsWith('tre_');
+            const displayCrmType = isTre ? item.crm_type.replace('tre_', '') : item.crm_type;
+            item.source_type = isTre ? 'customer_overdue' : 'customer_unhandled';
+            item.task_name = isTre
+                ? `KH xử lý trễ: ${displayCrmType} (${item.unhandled_count} KH)`
+                : `KH chưa XL: ${item.crm_type} (${item.unhandled_count} KH)`;
+            item.penalty_reason = isTre
+                ? `Không xử lý ${item.unhandled_count} khách xử lý trễ`
+                : `Không xử lý ${item.unhandled_count} khách phải xử lý hôm nay`;
         });
 
         const items = [...srItems, ...ltItems, ...ctItems, ...emItems, ...cpItems];
@@ -602,12 +616,20 @@ async function khoaTKNVRoutes(fastify, options) {
                  ORDER BY cpr.penalty_date DESC`,
                 [userId, yesterdayStr]
             );
-            custPending = custRecords.map(r => ({
-                task_name: `KH chưa xử lý: ${r.crm_type} (${r.unhandled_count} KH)`,
-                task_date: r.task_date,
-                penalty_amount: r.penalty_amount,
-                penalty_reason: `Không xử lý ${r.unhandled_count} khách hàng trong ngày`
-            }));
+            custPending = custRecords.map(r => {
+                const isTre = r.crm_type && r.crm_type.startsWith('tre_');
+                const displayCrmType = isTre ? r.crm_type.replace('tre_', '') : r.crm_type;
+                return {
+                    task_name: isTre
+                        ? `KH xử lý trễ: ${displayCrmType} (${r.unhandled_count} KH)`
+                        : `KH chưa xử lý: ${r.crm_type} (${r.unhandled_count} KH)`,
+                    task_date: r.task_date,
+                    penalty_amount: r.penalty_amount,
+                    penalty_reason: isTre
+                        ? `Không xử lý ${r.unhandled_count} khách xử lý trễ`
+                        : `Không xử lý ${r.unhandled_count} khách hàng trong ngày`
+                };
+            });
         } catch(e) {}
 
         const pending = [...supportPending, ...khoaPending, ...chainPending, ...emergencyPending, ...custPending];
