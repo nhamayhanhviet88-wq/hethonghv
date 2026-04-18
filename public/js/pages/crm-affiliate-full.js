@@ -418,7 +418,10 @@ function _affGetCategory(c, stats) {
     // Priority 4: Phải xử lý hôm nay (appointment today OR birthday today)
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
 
-    // Priority 5: Khách xử lý trễ (appointment was in the past, not consulted today)
+    // Priority 5: Pinned customers ALWAYS show as phai_xu_ly (never xu_ly_tre)
+    if (c.is_pinned) return 'phai_xu_ly';
+
+    // Priority 6: Khách xử lý trễ (appointment was in the past, not consulted today)
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
 
     // Priority 6: Chờ xử lý (future appointment or remaining)
@@ -1768,7 +1771,7 @@ async function _affSubmitConsultLog(customerId) {
     if (imageRequiredTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _affEnableSubmitBtn(); return;
     }
-    if (!appointment_date) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _affEnableSubmitBtn(); return; }
+    if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _affEnableSubmitBtn(); return; }
 
     const formData = new FormData();
     formData.append('log_type', log_type);
