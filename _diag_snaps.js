@@ -1,41 +1,19 @@
-// Diagnose: compare templates vs snapshots for nhanvien
 const db = require('./db/pool');
-
 (async () => {
-    const user = await db.get("SELECT id, full_name, department_id FROM users WHERE username = 'nhanvien'");
-    if (!user) { console.log('User not found'); process.exit(1); }
-    console.log(`User: ${user.full_name} (id=${user.id}, dept=${user.department_id})`);
+    const r = await db.all("SELECT id, task_name, target_type, target_id FROM task_point_templates WHERE task_name ILIKE '%Đăng Bài%' OR task_name ILIKE '%MXH%'");
+    console.log('Templates:', r.length, JSON.stringify(r, null, 2));
 
-    // Get templates (same logic as _getTemplatesForUser)
-    const indiv = await db.all('SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start', ['individual', user.id]);
-    const team = await db.all('SELECT * FROM task_point_templates WHERE target_type = $1 AND target_id = $2 ORDER BY day_of_week, time_start', ['team', user.department_id]);
-    const all = [...team, ...indiv];
-    const mondayTpls = all.filter(t => t.day_of_week === 1);
+    const s = await db.all("SELECT id, template_id, task_name, snapshot_date, user_id FROM daily_task_snapshots WHERE task_name ILIKE '%Đăng Bài%' OR task_name ILIKE '%MXH%' ORDER BY snapshot_date");
+    console.log('Snapshots:', s.length);
+    s.forEach(x => console.log(`  snap=${x.id} tpl=${x.template_id} user=${x.user_id} date=${x.snapshot_date} "${x.task_name}"`));
 
-    console.log(`\n📋 Templates Monday (${mondayTpls.length}):`);
-    mondayTpls.forEach(t => console.log(`  id=${t.id} | ${t.time_start}-${t.time_end} | ${t.task_name} | type=${t.target_type}`));
-
-    // Get snapshots for Monday this week
-    const now = new Date(Date.now() + 7 * 3600000);
-    const today = now.toISOString().split('T')[0];
-    const d = new Date(today + 'T00:00:00');
-    const dow = d.getDay() || 7;
-    const mon = new Date(d); mon.setDate(d.getDate() - dow + 1);
-    // Also check next Monday
-    const nextMon = new Date(mon); nextMon.setDate(mon.getDate() + 7);
-    const monStr = mon.toISOString().split('T')[0];
-    const nextMonStr = nextMon.toISOString().split('T')[0];
-
-    for (const dateStr of [monStr, nextMonStr]) {
-        const snaps = await db.all(
-            'SELECT id, template_id, task_name, time_start, time_end FROM daily_task_snapshots WHERE user_id = $1 AND snapshot_date = $2 ORDER BY time_start',
-            [user.id, dateStr]
-        );
-        console.log(`\n📸 Snapshots ${dateStr} (${snaps.length}):`);
-        snaps.forEach(s => {
-            const inTpls = mondayTpls.some(t => t.id === s.template_id);
-            console.log(`  snap=${s.id} tpl=${s.template_id} | ${s.time_start}-${s.time_end} | ${s.task_name} ${inTpls ? '✅' : '❌ ORPHAN'}`);
-        });
+    // Check if those template_ids exist
+    if (s.length > 0) {
+        const tplIds = [...new Set(s.map(x => x.template_id))];
+        for (const tid of tplIds) {
+            const exists = await db.get('SELECT id, task_name FROM task_point_templates WHERE id = $1', [tid]);
+            console.log(`  tpl_id=${tid}: ${exists ? 'EXISTS: ' + exists.task_name : '❌ DELETED'}`);
+        }
     }
 
     process.exit(0);
