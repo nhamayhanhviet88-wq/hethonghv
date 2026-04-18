@@ -1161,14 +1161,14 @@ async function telesaleRoutes(fastify) {
         }
         let repumped = 0;
         for (const dataId of data_ids) {
-            // Set data back to available
+            // Set data back to available — reset all call history so it's a fresh lead
             const result = await db.run(
-                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status IN ('cold', 'answered', 'invalid')",
+                "UPDATE telesale_data SET status = 'available', last_call_status = NULL, answer_action_type = NULL, cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status != 'available'",
                 [dataId]
             );
             if (result?.changes > 0) repumped++;
         }
-        return { success: true, message: `Đã bơm lại ${repumped} SĐT về Tổng Data Sẵn Sàng`, repumped };
+        return { success: true, message: `Đã chuyển ${repumped} SĐT về Sẵn Sàng để tự động bơm`, repumped };
     });
 
     fastify.get('/api/telesale/pump-preview', { preHandler: authenticate }, async (req, reply) => {

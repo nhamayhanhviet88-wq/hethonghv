@@ -562,18 +562,22 @@ async function _htgd_loadData() {
         return;
     }
 
-    // Check if we're in a repumpable filter mode
-    const _isRepumpFilter = ['invalid','cold','cold_answered','ncc_answered'].includes(_htgd_statusFilter);
+    // Check if we're in a repumpable filter mode (all statuses except empty and available)
+    const _isRepumpFilter = _htgd_statusFilter && _htgd_statusFilter !== 'available';
     const _checkboxCol = _isRepumpFilter ? `<th style="text-align:center;width:40px;" onclick="event.stopPropagation();">
         <input type="checkbox" id="htgdSelectAll" onchange="_htgd_toggleSelectAll(this.checked)" style="cursor:pointer;width:16px;height:16px;">
     </th>` : '';
 
-    // Repump action bar
+    // Repump action bar with select all/deselect all and convert button
     const repumpBar = _isRepumpFilter ? `<div id="htgdRepumpBar" style="display:none;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:10px;margin-bottom:10px;animation:fadeIn 0.3s ease;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:12px;font-weight:700;color:#1e40af;">✅ Đã chọn <span id="htgdSelectedCount">0</span> SĐT</span>
-            <button class="ts-btn ts-btn-green" onclick="_htgd_repumpSelected()" style="padding:6px 16px;font-size:12px;font-weight:700;">
-                🔄 Bơm Lại
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:12px;font-weight:700;color:#1e40af;">✅ Đã chọn <span id="htgdSelectedCount">0</span> SĐT</span>
+                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_toggleSelectAll(true)" style="font-size:11px;">☑️ Chọn tất cả</button>
+                <button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_toggleSelectAll(false)" style="font-size:11px;">⬜ Bỏ chọn</button>
+            </div>
+            <button class="ts-btn" onclick="_htgd_repumpSelected()" style="padding:6px 16px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;border-radius:8px;">
+                🔄 Chuyển Đổi Về Sẵn Sàng
             </button>
         </div>
     </div>` : '';
@@ -594,6 +598,7 @@ async function _htgd_loadData() {
                 <th style="text-align:center;">Trạng Thái</th>
                 <th style="text-align:center;">Time Cập Nhật</th>
                 <th style="text-align:left;">Phân Cho</th>
+                <th style="text-align:left;">Nguồn</th>
                 <th style="text-align:center;width:60px;">Xóa</th>
             </tr></thead>
             <tbody>
@@ -618,6 +623,7 @@ async function _htgd_loadData() {
                     <td style="text-align:center;">${statusBadge(d)}</td>
                     <td style="text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${d.updated_at ? new Date(d.updated_at).toLocaleDateString('vi-VN') : '—'}</td>
                     <td>${nvAvatar(d.last_assigned_user_name)}</td>
+                    <td style="font-size:10px;color:#6b7280;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${(d.source_name||'').replace(/"/g,'&quot;')}">${d.source_icon||'📁'} ${d.source_name || '—'}</td>
                     <td style="text-align:center;" onclick="event.stopPropagation();"><button class="ts-btn ts-btn-ghost ts-btn-xs" onclick="_htgd_deleteData(${d.id})" title="Xóa">🗑️</button></td>
                 </tr>`;
                 }).join('')}
