@@ -1,6 +1,6 @@
-// ========== CRM G?i �i?n B�n H�ng C?U � 14-column layout with consultation system ==========
+// ========== CRM Gọi Điện Bán Hàng CẦU — 14-column layout with consultation system ==========
 
-// Format deposit input with thousand separators (500000 ? 500.000)
+// Format deposit input with thousand separators (500000 → 500.000)
 function _gdbhFormatDepositInput(el) {
     const cursor = el.selectionStart;
     const oldLen = el.value.length;
@@ -12,17 +12,17 @@ function _gdbhFormatDepositInput(el) {
 }
 
 const GDBH_VN_PROVINCES = [
-    'An Giang','B� R?a - Vung T�u','B?c Giang','B?c K?n','B?c Li�u','B?c Ninh','B?n Tre','B�nh �?nh','B�nh Duong',
-    'B�nh Phu?c','B�nh Thu?n','C� Mau','C?n Tho','Cao B?ng','�� N?ng','�?k L?k','�?k N�ng','�i?n Bi�n','�?ng Nai',
-    '�?ng Th�p','Gia Lai','H� Giang','H� Nam','H� N?i','H� Tinh','H?i Duong','H?i Ph�ng','H?u Giang','H�a B�nh',
-    'Hung Y�n','Kh�nh H�a','Ki�n Giang','Kon Tum','Lai Ch�u','L�m �?ng','L?ng Son','L�o Cai','Long An','Nam �?nh',
-    'Ngh? An','Ninh B�nh','Ninh Thu?n','Ph� Th?','Ph� Y�n','Qu?ng B�nh','Qu?ng Nam','Qu?ng Ng�i','Qu?ng Ninh','Qu?ng Tr?',
-    'S�c Trang','Son La','T�y Ninh','Th�i B�nh','Th�i Nguy�n','Thanh H�a','Th?a Thi�n Hu?','Ti?n Giang','TP. H? Ch� Minh',
-    'Tr� Vinh','Tuy�n Quang','Vinh Long','Vinh Ph�c','Y�n B�i'
+    'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương',
+    'Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai',
+    'Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình',
+    'Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định',
+    'Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị',
+    'Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh',
+    'Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'
 ];
 // Birthday countdown helper: returns { html, class } based on days until birthday
 function _gdbhGetBirthdayDisplay(birthdayStr) {
-    if (!birthdayStr) return { html: '<span style="color:var(--gray-600)">�</span>', tdClass: '' };
+    if (!birthdayStr) return { html: '<span style="color:var(--gray-600)">—</span>', tdClass: '' };
     const today = new Date();
     // Parse birthday as "day/month" format (e.g. "23/10")
     let day, month;
@@ -35,9 +35,9 @@ function _gdbhGetBirthdayDisplay(birthdayStr) {
         if (parts.length === 3) { month = parseInt(parts[1]); day = parseInt(parts[2]); }
         else { day = parseInt(parts[0]); month = parseInt(parts[1]); }
     } else {
-        return { html: '<span style="color:var(--gray-600)">�</span>', tdClass: '' };
+        return { html: '<span style="color:var(--gray-600)">—</span>', tdClass: '' };
     }
-    if (isNaN(day) || isNaN(month)) return { html: '<span style="color:var(--gray-600)">�</span>', tdClass: '' };
+    if (isNaN(day) || isNaN(month)) return { html: '<span style="color:var(--gray-600)">—</span>', tdClass: '' };
 
     let nextBday = new Date(today.getFullYear(), month - 1, day);
     if (nextBday < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
@@ -48,17 +48,17 @@ function _gdbhGetBirthdayDisplay(birthdayStr) {
     const dateStr = `${day}/${month}`;
 
     if (daysUntil === 0) {
-        return { html: `<span class="bday-today">?? ${dateStr} <b>H�M NAY!</b></span>`, tdClass: 'bday-cell-today' };
+        return { html: `<span class="bday-today">🎉 ${dateStr} <b>HÔM NAY!</b></span>`, tdClass: 'bday-cell-today' };
     } else if (daysUntil === 1) {
-        return { html: `<span class="bday-urgent">???? ${dateStr} <b>NG�Y MAI</b></span>`, tdClass: 'bday-cell-1' };
+        return { html: `<span class="bday-urgent">🎂🔥 ${dateStr} <b>NGÀY MAI</b></span>`, tdClass: 'bday-cell-1' };
     } else if (daysUntil === 2) {
-        return { html: `<span class="bday-urgent">???? ${dateStr} <small>(${daysUntil} ng�y)</small></span>`, tdClass: 'bday-cell-2' };
+        return { html: `<span class="bday-urgent">🎂🔥 ${dateStr} <small>(${daysUntil} ngày)</small></span>`, tdClass: 'bday-cell-2' };
     } else if (daysUntil === 3) {
-        return { html: `<span class="bday-warn">?? ${dateStr} <small>(${daysUntil} ng�y)</small></span>`, tdClass: 'bday-cell-3' };
+        return { html: `<span class="bday-warn">🎂 ${dateStr} <small>(${daysUntil} ngày)</small></span>`, tdClass: 'bday-cell-3' };
     } else if (daysUntil <= 5) {
-        return { html: `<span class="bday-near">?? ${dateStr} <small>(${daysUntil} ng�y)</small></span>`, tdClass: 'bday-cell-5' };
+        return { html: `<span class="bday-near">🎂 ${dateStr} <small>(${daysUntil} ngày)</small></span>`, tdClass: 'bday-cell-5' };
     } else if (daysUntil <= 7) {
-        return { html: `<span class="bday-soon">?? ${dateStr} <small>(${daysUntil} ng�y)</small></span>`, tdClass: 'bday-cell-7' };
+        return { html: `<span class="bday-soon">🎂 ${dateStr} <small>(${daysUntil} ngày)</small></span>`, tdClass: 'bday-cell-7' };
     }
     return { html: dateStr, tdClass: '' };
 }
@@ -83,29 +83,29 @@ function _gdbhIsBirthdayToday(birthdayStr) {
 }
 
 let GDBH_CONSULT_TYPES = {
-    lam_quen_tuong_tac: { label: 'L�m Quen Tuong T�c', icon: '??', color: '#14b8a6' },
-    goi_dien: { label: 'G?i �i?n', icon: '??', color: '#3b82f6' },
-    nhan_tin: { label: 'Nh?n Tin', icon: '??', color: '#8b5cf6' },
-    tuong_tac_ket_noi: { label: 'Tuong T�c K?t N?i L?i', icon: '??', color: '#6366f1' },
-    gap_truc_tiep: { label: 'G?p Tr?c Ti?p', icon: '??', color: '#10b981' },
-    gui_bao_gia: { label: 'G?i B�o Gi�', icon: '??', color: '#f59e0b' },
-    gui_mau: { label: 'G?i M?u V?i/�o', icon: '??', color: '#ec4899' },
-    thiet_ke: { label: 'Thi?t K?', icon: '??', color: '#6366f1' },
-    bao_sua: { label: 'S?a Thi?t K?', icon: '??', color: '#ef4444' },
-    gui_stk_coc: { label: 'G?i STK C?c', icon: '??', color: '#f59e0b' },
-    giuc_coc: { label: 'Gi?c C?c', icon: '?', color: '#ea580c' },
-    dat_coc: { label: '�?t C?c', icon: '??', color: '#f97316' },
-    chot_don: { label: 'Ch?t �on', icon: '?', color: '#22c55e' },
-    dang_san_xuat: { label: '�ang S?n Xu?t', icon: '??', color: '#8b5cf6' },
-    hoan_thanh: { label: 'Ho�n Th�nh �on', icon: '??', color: '#0d9488', textColor: 'white' },
-    sau_ban_hang: { label: 'Cham S�c Sau B�n', icon: '??', color: '#0ea5e9' },
-    cap_cuu_sep: { label: 'C?p C?u S?p', icon: '??', color: '#ef4444' },
-    huy_coc: { label: 'H?y C?c', icon: '??', color: '#dc2626' },
-    hoan_thanh_cap_cuu: { label: 'Ho�n Th�nh C?p C?u', icon: '??', color: '#122546', textColor: '#fad24c' },
-    huy: { label: 'H?y Kh�ch', icon: '?', color: '#dc2626' },
-    giam_gia: { label: 'Gi?m Gi�', icon: '??', color: '#e11d48' },
-    tu_van_lai: { label: 'Tu V?n L?i', icon: '??', color: '#0891b2' },
-    gui_ct_kh_cu: { label: 'G?i Chuong Tr�nh KH Cu', icon: '???', color: '#7c3aed' },
+    lam_quen_tuong_tac: { label: 'Làm Quen Tương Tác', icon: '👋', color: '#14b8a6' },
+    goi_dien: { label: 'Gọi Điện', icon: '📞', color: '#3b82f6' },
+    nhan_tin: { label: 'Nhắn Tin', icon: '💬', color: '#8b5cf6' },
+    tuong_tac_ket_noi: { label: 'Tương Tác Kết Nối Lại', icon: '🔗', color: '#6366f1' },
+    gap_truc_tiep: { label: 'Gặp Trực Tiếp', icon: '🤝', color: '#10b981' },
+    gui_bao_gia: { label: 'Gửi Báo Giá', icon: '📄', color: '#f59e0b' },
+    gui_mau: { label: 'Gửi Mẫu Vải/Áo', icon: '👔', color: '#ec4899' },
+    thiet_ke: { label: 'Thiết Kế', icon: '🎨', color: '#6366f1' },
+    bao_sua: { label: 'Sửa Thiết Kế', icon: '🔧', color: '#ef4444' },
+    gui_stk_coc: { label: 'Gửi STK Cọc', icon: '🏦', color: '#f59e0b' },
+    giuc_coc: { label: 'Giục Cọc', icon: '⏰', color: '#ea580c' },
+    dat_coc: { label: 'Đặt Cọc', icon: '💵', color: '#f97316' },
+    chot_don: { label: 'Chốt Đơn', icon: '✅', color: '#22c55e' },
+    dang_san_xuat: { label: 'Đang Sản Xuất', icon: '🏭', color: '#8b5cf6' },
+    hoan_thanh: { label: 'Hoàn Thành Đơn', icon: '🏆', color: '#0d9488', textColor: 'white' },
+    sau_ban_hang: { label: 'Chăm Sóc Sau Bán', icon: '📦', color: '#0ea5e9' },
+    cap_cuu_sep: { label: 'Cấp Cứu Sếp', icon: '🚨', color: '#ef4444' },
+    huy_coc: { label: 'Hủy Cọc', icon: '🚫', color: '#dc2626' },
+    hoan_thanh_cap_cuu: { label: 'Hoàn Thành Cấp Cứu', icon: '🏥', color: '#122546', textColor: '#fad24c' },
+    huy: { label: 'Hủy Khách', icon: '❌', color: '#dc2626' },
+    giam_gia: { label: 'Giảm Giá', icon: '🎁', color: '#e11d48' },
+    tu_van_lai: { label: 'Tư Vấn Lại', icon: '🔄', color: '#0891b2' },
+    gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
 };
 
 // Merge dynamic types from consult_type_configs API into GDBH_CONSULT_TYPES
@@ -118,14 +118,14 @@ async function _gdbhSyncConsultTypes() {
                 // Add or update (API types override defaults)
                 GDBH_CONSULT_TYPES[t.key] = {
                     label: t.label || t.key,
-                    icon: t.icon || '??',
+                    icon: t.icon || '📋',
                     color: t.color || '#6b7280',
                     textColor: t.text_color || 'white',
                     maxAppointmentDays: t.max_appointment_days || 0
                 };
             }
         }
-    } catch(e) { /* silent � fallback to hardcoded */ }
+    } catch(e) { /* silent — fallback to hardcoded */ }
 }
 
 async function renderCRMGdbhPage(container) {
@@ -173,49 +173,49 @@ async function renderCRMGdbhPage(container) {
                 background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
                 onmouseover="this.style.background='rgba(249,115,22,.18)';this.style.transform='translateY(-2px)'"
                 onmouseout="this.style.background='rgba(249,115,22,.08)';this.style.transform=''">
-                ?? Quy T?c N�t Tu V?n
+                ⚙️ Quy Tắc Nút Tư Vấn
             </a>
         </div>
         <div class="crm-stat-cards" id="crmStatCards">
             <div class="crm-stat-card" data-cat="phai_xu_ly" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="_gdbhFilterByCat('phai_xu_ly')">
-                <div class="stat-icon">??</div>
+                <div class="stat-icon">🔥</div>
                 <div class="stat-count" id="crmStatPhaiXuLy">0</div>
-                <div class="stat-label">Ph?i x? l� h�m nay</div>
+                <div class="stat-label">Phải xử lý hôm nay</div>
             </div>
             <div class="crm-stat-card" data-cat="da_xu_ly" style="background:linear-gradient(135deg,#10b981,#059669);color:white;" onclick="_gdbhFilterByCat('da_xu_ly')">
-                <div class="stat-icon">?</div>
+                <div class="stat-icon">✅</div>
                 <div class="stat-count" id="crmStatDaXuLy">0</div>
-                <div class="stat-label">�� x? l� h�m nay</div>
+                <div class="stat-label">Đã xử lý hôm nay</div>
             </div>
             <div class="crm-stat-card" data-cat="xu_ly_tre" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;" onclick="_gdbhFilterByCat('xu_ly_tre')">
-                <div class="stat-icon">??</div>
+                <div class="stat-icon">⚠️</div>
                 <div class="stat-count" id="crmStatXuLyTre">0</div>
-                <div class="stat-label">Kh�ch x? l� tr?</div>
+                <div class="stat-label">Khách xử lý trễ</div>
             </div>
             <div class="crm-stat-card" data-cat="cho_xu_ly" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;" onclick="_gdbhFilterByCat('cho_xu_ly')">
-                <div class="stat-icon">?</div>
+                <div class="stat-icon">⏳</div>
                 <div class="stat-count" id="crmStatChoXuLy">0</div>
-                <div class="stat-label">Ch? x? l�</div>
+                <div class="stat-label">Chờ xử lý</div>
             </div>
             <div class="crm-stat-card" data-cat="huy_khach" style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;" onclick="_gdbhFilterByCat('huy_khach')">
-                <div class="stat-icon">??</div>
+                <div class="stat-icon">🚫</div>
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
-                <div class="stat-label">H?y kh�ch</div>
+                <div class="stat-label">Hủy khách</div>
             </div>
         </div>
         <div class="crm-date-filter" id="crmDateFilter">
-            <span class="df-label" id="crmDateFilterLabel">?? L?c theo:</span>
-            <label>Ng�y</label>
+            <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
+            <label>Ngày</label>
             <select id="crmDateDay" onchange="_gdbhUpdateDateFilterCounts();_gdbhRenderFilteredTable()">
-                <option value="">T?t C?</option>
-                ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ng�y ' + d + '</option>'; return o; })()}
+                <option value="">Tất Cả</option>
+                ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
             </select>
-            <label>Th�ng</label>
+            <label>Tháng</label>
             <select id="crmDateMonth" onchange="_gdbhUpdateDateFilterCounts();_gdbhRenderFilteredTable()">
-                <option value="" selected>T?t C?</option>
-                ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Th�ng ' + m + '</option>'; return o; })()}
+                <option value="" selected>Tất Cả</option>
+                ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Tháng ' + m + '</option>'; return o; })()}
             </select>
-            <label>Nam</label>
+            <label>Năm</label>
             <select id="crmDateYear" onchange="_gdbhUpdateDateFilterCounts();_gdbhRenderFilteredTable()">
                 ${(() => { const now = new Date(); let o = ''; for (let y = 2024; y <= now.getFullYear()+1; y++) o += '<option value="' + y + '"' + (y === now.getFullYear() ? ' selected' : '') + '>' + y + '</option>'; return o; })()}
             </select>
@@ -224,36 +224,36 @@ async function renderCRMGdbhPage(container) {
 
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
             <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_gdbhRenderFilteredTable()">
-                <option value="">T?t c? tr?ng th�i</option>
+                <option value="">Tất cả trạng thái</option>
             </select>
-            <input type="text" id="crmSearch" class="form-control" placeholder="?? T�m t�n ho?c S�T..." style="width:auto;min-width:200px;">
-            ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">?? T?t c? NV</option>' + topStaffOptions + '</select>' : ''}
+            <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
+            ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
         </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
                 <table class="table crm-ctv-table" id="crmCtvTable">
                     <thead><tr>
-                        <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin kh�ch">??</th>
+                        <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
                         <th style="min-width:45px;text-align:center">STT</th>
-                        <th style="min-width:100px">NV Ph? Tr�ch</th>
-                        <th style="min-width:80px">M� �on</th>
-                        <th style="min-width:120px">N�t Tu V?n</th>
-                        <th style="min-width:160px">N?i Dung TV</th>
-                        <th style="min-width:70px;text-align:center">L?n Cham</th>
-                        <th style="min-width:140px">Ng�y H?n</th>
-                        <th style="min-width:80px">M� KH</th>
-                        <th style="min-width:150px">T�n KH</th>
-                        <th style="min-width:110px">S�T</th>
+                        <th style="min-width:100px">NV Phụ Trách</th>
+                        <th style="min-width:80px">Mã Đơn</th>
+                        <th style="min-width:120px">Nút Tư Vấn</th>
+                        <th style="min-width:160px">Nội Dung TV</th>
+                        <th style="min-width:70px;text-align:center">Lần Chăm</th>
+                        <th style="min-width:140px">Ngày Hẹn</th>
+                        <th style="min-width:80px">Mã KH</th>
+                        <th style="min-width:150px">Tên KH</th>
+                        <th style="min-width:110px">SĐT</th>
                         <th style="min-width:110px">Link FB</th>
-                        <th style="min-width:130px">�?a Ch?</th>
-                        <th style="min-width:100px">Ngu?n</th>
-                        <th style="min-width:120px">Ngu?i GT</th>
-                        <th style="min-width:110px">CRM Ngu?i GT</th>
-                        <th style="min-width:100px">Ch?c Danh</th>
-                        <th style="min-width:70px;text-align:center">L?n �?t</th>
-                        <th style="min-width:110px;text-align:right">Doanh S?</th>
+                        <th style="min-width:130px">Địa Chỉ</th>
+                        <th style="min-width:100px">Nguồn</th>
+                        <th style="min-width:120px">Người GT</th>
+                        <th style="min-width:110px">CRM Người GT</th>
+                        <th style="min-width:100px">Chức Danh</th>
+                        <th style="min-width:70px;text-align:center">Lần Đặt</th>
+                        <th style="min-width:110px;text-align:right">Doanh Số</th>
                     </tr></thead>
-                    <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">? �ang t?i...</td></tr></tbody>
+                    <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
@@ -268,7 +268,7 @@ async function renderCRMGdbhPage(container) {
 
     await loadCrmGdbhData();
 
-    // Auto-select 'Ph?i x? l� h�m nay' on page load
+    // Auto-select 'Phải xử lý hôm nay' on page load
     _gdbhActiveCat = null;
     _gdbhFilterByCat('phai_xu_ly');
 }
@@ -294,7 +294,7 @@ function _gdbhFilterByCat(cat) {
     // Show/hide date filter for cho_xu_ly and huy_khach
     const dateFilter = document.getElementById('crmDateFilter');
     const dateLabel = document.getElementById('crmDateFilterLabel');
-    // Reset date filter to defaults (T?t C?) when switching cards
+    // Reset date filter to defaults (Tất Cả) when switching cards
     const ms = document.getElementById('crmDateMonth');
     const ys = document.getElementById('crmDateYear');
     const ds = document.getElementById('crmDateDay');
@@ -304,15 +304,15 @@ function _gdbhFilterByCat(cat) {
     if (dateFilter) {
         if (_gdbhActiveCat === 'cho_xu_ly') {
             dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '?? L?c theo ng�y h?n:';
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:';
             _gdbhUpdateDateFilterCounts();
         } else if (_gdbhActiveCat === 'huy_khach') {
             dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '?? L?c theo ng�y h?y:';
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:';
             _gdbhUpdateDateFilterCounts();
         } else if (_gdbhActiveCat === 'xu_ly_tre') {
             dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '?? L?c theo ng�y h?n tr?:';
+            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:';
             _gdbhUpdateDateFilterCounts();
         } else {
             dateFilter.classList.remove('visible');
@@ -349,19 +349,19 @@ function _gdbhUpdateDateFilterCounts() {
     if (!monthSel || !yearSel) return;
     const selYear = yearSel.value ? parseInt(yearSel.value) : new Date().getFullYear();
 
-    // Calculate total for 'T?t C?' options
+    // Calculate total for 'Tất Cả' options
     const totalCat = catCustomers.length;
     let totalInYear = 0;
 
     for (const opt of monthSel.options) {
-        if (!opt.value) { opt.textContent = 'T?t C?' + (totalCat > 0 ? ' (' + totalCat + ')' : ''); continue; }
+        if (!opt.value) { opt.textContent = 'Tất Cả' + (totalCat > 0 ? ' (' + totalCat + ')' : ''); continue; }
         const m = parseInt(opt.value);
         const cnt = monthYearCounts[m + '_' + selYear] || 0;
-        opt.textContent = 'Th�ng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
+        opt.textContent = 'Tháng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
         totalInYear += cnt;
     }
     for (const opt of yearSel.options) {
-        if (!opt.value) { opt.textContent = 'T?t C?'; continue; }
+        if (!opt.value) { opt.textContent = 'Tất Cả'; continue; }
         const y = parseInt(opt.value);
         const cnt = yearCounts[y] || 0;
         opt.textContent = y + (cnt > 0 ? ' (' + cnt + ')' : '');
@@ -370,10 +370,10 @@ function _gdbhUpdateDateFilterCounts() {
 
 
 function _gdbhGetCategory(c, stats) {
-    // Priority 0.5: Ch? Duy?t H?y (NV d� ?n h?y, ch? s?p)
+    // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
-    // Priority 1: H?y kh�ch (s?p d� duy?t)
+    // Priority 1: Hủy khách (sếp đã duyệt)
     if (c.cancel_approved === 1) return 'huy_khach';
 
     const today = new Date();
@@ -388,7 +388,7 @@ function _gdbhGetCategory(c, stats) {
         consultedToday = (logStr === todayStr);
     }
 
-    // Priority 2: �� x? l� h�m nay
+    // Priority 2: Đã xử lý hôm nay
     if (consultedToday) return 'da_xu_ly';
 
     // Check appointment date
@@ -412,19 +412,19 @@ function _gdbhGetCategory(c, stats) {
         createdToday = (cStr === todayStr);
     }
 
-    // Priority 3: M?i chuy?n h�m nay (tru?c Ph?i x? l�)
+    // Priority 3: Mới chuyển hôm nay (trước Phải xử lý)
     if (createdToday) return 'moi_chuyen';
 
-    // Priority 4: Ph?i x? l� h�m nay (appointment today OR birthday today)
+    // Priority 4: Phải xử lý hôm nay (appointment today OR birthday today)
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
 
-    // Priority 5: Kh�ch x? l� tr? (appointment was in the past, not consulted today)
+    // Priority 5: Khách xử lý trễ (appointment was in the past, not consulted today)
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
 
-    // Priority 6: Ch? x? l� (future appointment or remaining)
+    // Priority 6: Chờ xử lý (future appointment or remaining)
     if (appointIsFuture) return 'cho_xu_ly';
 
-    // Default: ch? x? l�
+    // Default: chờ xử lý
     return 'cho_xu_ly';
 }
 
@@ -456,7 +456,7 @@ function _gdbhUpdateConsultTypeDropdown(filteredList) {
     });
 
     // Build options
-    let html = '<option value="">T?t c? tr?ng th�i (' + custs.length + ')</option>';
+    let html = '<option value="">Tất cả trạng thái (' + custs.length + ')</option>';
     // Sort by count desc
     const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
     sorted.forEach(([key, count]) => {
@@ -466,7 +466,7 @@ function _gdbhUpdateConsultTypeDropdown(filteredList) {
         }
     });
     if (noLogCount > 0) {
-        html += '<option value="__none__">?? Chua tu v?n (' + noLogCount + ')</option>';
+        html += '<option value="__none__">📋 Chưa tư vấn (' + noLogCount + ')</option>';
     }
     sel.innerHTML = html;
 
@@ -569,11 +569,11 @@ function _gdbhRenderFilteredTable() {
     // Update count display
     const countEl = document.getElementById('crmDateFilterCount');
     if (countEl && isDateCat) {
-        countEl.textContent = 'K?t qu?: ' + filtered.length;
+        countEl.textContent = 'Kết quả: ' + filtered.length;
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="19"><div class="empty-state"><div class="icon">??</div><h3>Kh�ng c� kh�ch h�ng</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="19"><div class="empty-state"><div class="icon">📭</div><h3>Không có khách hàng</h3></div></td></tr>`;
         document.getElementById('crmPagination').innerHTML = '';
         return;
     }
@@ -591,11 +591,11 @@ function _gdbhRenderFilteredTable() {
         let html = '';
         let stt = startIdx + 1;
         if (moiChuyenRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">??</span>M?i chuy?n h�m nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">📥</span>Mới chuyển hôm nay<span class="section-count">${moiChuyenRows.length}</span></td></tr>`;
             html += moiChuyenRows.map(c => _gdbhRenderCustomerRow(c, stats, stt++)).join('');
         }
         if (phaiXuLyRows.length > 0) {
-            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">??</span>Ph?i x? l� h�m nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
+            html += `<tr class="crm-section-header"><td colspan="19"><span class="section-icon">🔥</span>Phải xử lý hôm nay<span class="section-count">${phaiXuLyRows.length}</span></td></tr>`;
             html += phaiXuLyRows.map(c => _gdbhRenderCustomerRow(c, stats, stt++)).join('');
         }
         tbody.innerHTML = html;
@@ -606,12 +606,12 @@ function _gdbhRenderFilteredTable() {
     // Render pagination
     const pgEl = document.getElementById('crmPagination');
     if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
-    let pgHtml = '<button ' + (_gdbhCurrentPage <= 1 ? 'disabled' : '') + ' onclick="_gdbhGoToPage(' + (_gdbhCurrentPage - 1) + ')">?</button>';
+    let pgHtml = '<button ' + (_gdbhCurrentPage <= 1 ? 'disabled' : '') + ' onclick="_gdbhGoToPage(' + (_gdbhCurrentPage - 1) + ')">◀</button>';
     for (let p = 1; p <= totalPages; p++) {
         pgHtml += '<button class="' + (p === _gdbhCurrentPage ? 'active' : '') + '" onclick="_gdbhGoToPage(' + p + ')">' + p + '</button>';
     }
-    pgHtml += '<button ' + (_gdbhCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="_gdbhGoToPage(' + (_gdbhCurrentPage + 1) + ')">?</button>';
-    pgHtml += '<span class="pg-info">' + (startIdx+1) + '�' + Math.min(startIdx + _gdbhPageSize, filtered.length) + ' / ' + filtered.length + '</span>';
+    pgHtml += '<button ' + (_gdbhCurrentPage >= totalPages ? 'disabled' : '') + ' onclick="_gdbhGoToPage(' + (_gdbhCurrentPage + 1) + ')">▶</button>';
+    pgHtml += '<span class="pg-info">' + (startIdx+1) + '–' + Math.min(startIdx + _gdbhPageSize, filtered.length) + ' / ' + filtered.length + '</span>';
     pgEl.innerHTML = pgHtml;
 }
 
@@ -634,7 +634,7 @@ function _gdbhRenderCustomerRow(c, stats, stt) {
     }
     let lastContent = s.lastLog?.content || '';
     if (lastContent && lastType) {
-        lastContent = lastContent.replace(/^(?:?|??|??|??|??|??|??|??|?|??|??|??|??|??|??|??|??)?\s*(?:Tu v?n S?p|C?p c?u ho�n th�nh|Ch?t don|�?t c?c|Sau b�n h�ng|Ho�n Th�nh C?p C?u|C?p C?u S?p)[:\s]+/i, '').trim();
+        lastContent = lastContent.replace(/^(?:✅|🏥|📦|💵|📝|📢|🚨|🚫|❌|🔧|🎨|👔|📄|🤝|💬|📞|✔️)?\s*(?:Tư vấn Sếp|Cấp cứu hoàn thành|Chốt đơn|Đặt cọc|Sau bán hàng|Hoàn Thành Cấp Cứu|Cấp Cứu Sếp)[:\s]+/i, '').trim();
     }
     const shortContent = lastContent.length > 30 ? lastContent.substring(0, 30) + '...' : lastContent;
 
@@ -649,60 +649,60 @@ function _gdbhRenderCustomerRow(c, stats, stt) {
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
     return `<tr class="${_pinClass}">
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_gdbhTogglePin(${c.id})" title="${c.is_pinned ? 'B? pin' : 'Pin kh�ch'}">${c.is_pinned ? '??' : '<span style="opacity:0.3">??</span>'}</span>` : ''}
+            ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_gdbhTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
-        <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">�</span>'}</td>
-        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_gdbhOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '�'}</td>
+        <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
+        <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_gdbhOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
-                    ? Ch? Duy?t H?y
+                    ⏳ Chờ Duyệt Hủy
                 </span>
             ` : (c.cancel_approved === -2) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
-                    ? H?y Kh�ch (nh?c l?i)
+                    ❌ Hủy Khách (nhắc lại)
                 </span>
             ` : (c.cancel_approved === -1) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '?? Tu V?n L?i'}
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
                 </span>
             ` : `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '?? Tu V?n'}
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
             `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
-                    ? Ch? Duy?t H?y
+                    ⏳ Chờ Duyệt Hủy
                 </button>
             ` : (c.cancel_approved === -2) ? `
                 <button class="btn btn-sm consult-btn" onclick="_gdbhOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:#dc2626;color:white;animation:emBlink 2s infinite;">
-                    ? H?y Kh�ch
+                    ❌ Hủy Khách
                 </button>
             ` : (c.cancel_approved === -1) ? `
                 <button class="btn btn-sm consult-btn" onclick="_gdbhOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:${lastType?.color || '#f59e0b'};color:${lastType?.textColor || 'white'};animation:emBlink 2s infinite;">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '?? Tu V?n L?i'}
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '🔄 Tư Vấn Lại'}
                 </button>
             ` : `
                 <button class="btn btn-sm consult-btn" onclick="_gdbhOpenConsultModal(${c.id})" 
                     style="font-size:11px;padding:4px 8px;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};">
-                    ${lastType ? lastType.icon + ' ' + lastType.label : '?? Tu V?n'}
+                    ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </button>
             `}
         </td>
         <td style="font-size:12px;color:#e65100;font-weight:600;cursor:pointer;" onclick="_gdbhOpenCustomerDetail(${c.id}).then(()=>setTimeout(()=>_gdbhSwitchCDTab('history'),100))" title="${lastContent}">
-            ${shortContent || '<span style="color:var(--gray-500)">�</span>'}
+            ${shortContent || '<span style="color:var(--gray-500)">—</span>'}
         </td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.consultCount}</td>
         <td style="font-size:12px;">
-            ${appointDisplay || '<span style="color:var(--gray-500)">�</span>'}
+            ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
         <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
         <td>
-            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();_gdbhOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="C?p nh?t th�ng tin">??</button>' : ''}
+            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();_gdbhOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
             ${(() => {
                 const _colors = [
                     {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
@@ -718,19 +718,19 @@ function _gdbhRenderCustomerRow(c, stats, stt) {
                 ];
                 const _ci = (c.id || 0) % _colors.length;
                 const _cc = _colors[_ci];
-                const _bdayIcon = _gdbhIsBirthdayToday(c.birthday) ? '???? ' : '';
+                const _bdayIcon = _gdbhIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
                 return `<span onclick="_gdbhOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span>`;
             })()}
         </td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
-        <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">?? FB</a>' : '<span style="color:var(--gray-600)">�</span>'}</td>
-        <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">�</span>'}</td>
-        <td style="font-size:12px">${c.source_name || '�'}</td>
+        <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.facebook_link ? '<a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;" title="' + c.facebook_link + '">🔗 FB</a>' : '<span style="color:var(--gray-600)">—</span>'}</td>
+        <td style="font-size:12px">${c.address || '<span style="color:var(--gray-600)">—</span>'}</td>
+        <td style="font-size:12px">${c.source_name || '—'}</td>
         <td style="font-size:12px;${currentUser.role === 'giam_doc' ? 'cursor:pointer;' : ''}" onclick="${currentUser.role === 'giam_doc' && !c.referrer_id ? '_gdbhOpenReferrerSearch(' + c.id + ')' : ''}">
-            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();_gdbhOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click d? t�m">?? T�m</span>' : '<span style="color:var(--gray-500)">�</span>')}
+            ${c.referrer_id ? `<span style="cursor:pointer;text-decoration:underline;color:var(--info);font-weight:600;" onclick="event.stopPropagation();_gdbhOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>` : (currentUser.role === 'giam_doc' ? '<span style="color:var(--gray-500)" title="Click để tìm">🔍 Tìm</span>' : '<span style="color:var(--gray-500)">—</span>')}
         </td>
-        <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '�'}</td>
-        <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">�</span>'}</td>
+        <td style="font-size:11px">${(c.referrer_user_crm_type || c.referrer_crm_type) ? (CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type) : '—'}</td>
+        <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
     </tr>`;
@@ -797,7 +797,7 @@ async function loadCrmGdbhData() {
     _gdbhUpdateConsultTypeDropdown();
 
     // Render table
-    // Auto-select 'Ph?i x? l� h�m nay' on first load
+    // Auto-select 'Phải xử lý hôm nay' on first load
     if (!_gdbhActiveCat) {
         _gdbhFilterByCat('phai_xu_ly');
     } else {
@@ -807,7 +807,7 @@ async function loadCrmGdbhData() {
 
 function applyCrmGdbhFilter() { loadCrmGdbhData(); }
 
-// ========== PIN KH�CH H�NG ==========
+// ========== PIN KHÁCH HÀNG ==========
 async function _gdbhTogglePin(customerId) {
     try {
         const res = await apiCall(`/api/customers/${customerId}/pin`, 'PATCH');
@@ -822,10 +822,10 @@ async function _gdbhTogglePin(customerId) {
             _gdbhRenderFilteredTable();
             showToast(res.message, res.is_pinned ? 'success' : 'info');
         } else {
-            showToast(res.error || 'L?i!', 'error');
+            showToast(res.error || 'Lỗi!', 'error');
         }
     } catch(e) {
-        showToast('L?i pin kh�ch h�ng!', 'error');
+        showToast('Lỗi pin khách hàng!', 'error');
     }
 }
 
@@ -888,7 +888,7 @@ async function _gdbhOpenConsultModal(customerId) {
             apiCall(`/api/customers/${customerId}/consult-logs`).catch(() => ({}))
         ]);
         if (pendingData.hasPending) pendingEmergency = pendingData.emergency;
-        const ROLE_LABELS_H = { giam_doc: 'Gi�m �?c', quan_ly: 'Qu?n L�', truong_phong: 'Tru?ng Ph�ng' };
+        const ROLE_LABELS_H = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng' };
         handlerOptions = (hData.handlers || [])
             .map(u => '<option value="' + u.id + '"' + (pendingEmergency && pendingEmergency.handler_id === u.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS_H[u.role] || u.role) + ')</option>')
             .join('');
@@ -925,14 +925,14 @@ async function _gdbhOpenConsultModal(customerId) {
     const hasSauBanHang = consultLogs.some(l => l.log_type === 'sau_ban_hang');
 
     let allowedTypes;
-    // ? Use last consultation log type (represents actual workflow state)
+    // ★ Use last consultation log type (represents actual workflow state)
     const lastLogEntry = consultLogs.length > 0 ? consultLogs[0] : null;
     // Override: special cancel statuses always take priority over last log
     const OVERRIDE_STATUSES_MODAL = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
     const effectiveStatus = OVERRIDE_STATUSES_MODAL.includes(orderStatus) ? orderStatus : (lastLogEntry ? lastLogEntry.log_type : orderStatus);
     const frTypes = _getFlowRuleTypes(effectiveStatus);
 
-    // ? PRIORITY 1: Dynamic flow rules from last log type (always wins if configured)
+    // ★ PRIORITY 1: Dynamic flow rules from last log type (always wins if configured)
     if (frTypes) {
         allowedTypes = frTypes;
     } else if (hasSauBanHang && orderStatus === 'sau_ban_hang') {
@@ -970,27 +970,27 @@ async function _gdbhOpenConsultModal(customerId) {
     // Pre-select next logical type
     const lastLog = consultLogs.length > 0 ? consultLogs[0] : null;
 
-    // Override: after Ho�n Th�nh C?p C?u ? show full consultation types with Gi?m Gi�
+    // Override: after Hoàn Thành Cấp Cứu → show full consultation types with Giảm Giá
     if (lastLog && lastLog.log_type === 'hoan_thanh_cap_cuu') {
         allowedTypes = allTypes.filter(([k]) => ['giam_gia','lam_quen_tuong_tac','goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','gui_stk_coc','giuc_coc','dat_coc'].includes(k));
     }
 
-    // Override: if customer has a PENDING emergency ? lock to cap_cuu_sep only
+    // Override: if customer has a PENDING emergency → lock to cap_cuu_sep only
     if (pendingEmergency) {
         allowedTypes = allTypes.filter(([k]) => k === 'cap_cuu_sep');
     }
 
-    // Override: if customer cancel was auto-reverted (24h no response) ? lock to H?y Kh�ch only
+    // Override: if customer cancel was auto-reverted (24h no response) → lock to Hủy Khách only
     if (customerInfo.cancel_approved === -2) {
         allowedTypes = allTypes.filter(([k]) => k === 'huy');
     }
 
-    // ? Use admin-configured flow rule defaults (? M?c d?nh from Quy T?c Li�n K?t)
+    // ★ Use admin-configured flow rule defaults (⭐ Mặc định from Quy Tắc Liên Kết)
     const effectiveRules = flowRules[effectiveStatus] || [];
     const defaultRule = effectiveRules.find(r => r.is_default);
     let defaultType = defaultRule ? defaultRule.to_type_key : (allowedTypes.length > 0 ? allowedTypes[0][0] : 'goi_dien');
 
-    // ? Store section key + max days for max_appointment_days enforcement in _gdbhOnConsultTypeChange
+    // ★ Store section key + max days for max_appointment_days enforcement in _gdbhOnConsultTypeChange
     window._currentConsultSectionKey = effectiveStatus;
     window._currentConsultMaxDays = maxDaysPerStatus[effectiveStatus] || 0;
 
@@ -1006,7 +1006,7 @@ async function _gdbhOpenConsultModal(customerId) {
     const historyHTML = consultLogs.length > 0 ? `
         <div style="margin-bottom:12px;">
             <button type="button" onclick="_gdbhToggleConsultHistory()" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--gray-500);cursor:pointer;display:flex;align-items:center;gap:4px;width:100%;">
-                ?? Xem l?ch s? (${consultLogs.length}) <span id="historyArrow" style="margin-left:auto;">?</span>
+                📜 Xem lịch sử (${consultLogs.length}) <span id="historyArrow" style="margin-left:auto;">▼</span>
             </button>
             <div id="consultHistoryPanel" style="display:none;max-height:300px;overflow-y:auto;padding:10px;background:var(--gray-50);border-radius:0 0 8px 8px;border:1px solid var(--gray-200);border-top:none;">
                 ${_gdbhBuildGroupedHistoryHTML(consultLogs, { compact: true })}
@@ -1017,32 +1017,32 @@ async function _gdbhOpenConsultModal(customerId) {
     const bodyHTML = `
         ${historyHTML}
         <div class="form-group">
-            <label>Lo?i Tu V?n <span style="color:var(--danger)">*</span></label>
+            <label>Loại Tư Vấn <span style="color:var(--danger)">*</span></label>
             <select id="consultType" class="form-control" onchange="_gdbhOnConsultTypeChange()">
                 ${typeOptions}
             </select>
         </div>
         <div class="form-group" id="consultDepositGroup" style="display:none;">
-            <label>S? Ti?n �?t C?c <span style="color:var(--danger)">*</span></label>
-            <input type="text" id="consultDepositAmount" class="form-control" placeholder="Nh?p s? ti?n d?t c?c..." 
+            <label>Số Tiền Đặt Cọc <span style="color:var(--danger)">*</span></label>
+            <input type="text" id="consultDepositAmount" class="form-control" placeholder="Nhập số tiền đặt cọc..." 
                 style="font-size:14px;font-weight:600;color:#e65100;"
                 oninput="_gdbhFormatDepositInput(this)">
         </div>
         <div class="form-group" id="consultContentGroup">
-            <label>N?i Dung Tu V?n <span style="color:var(--danger)">*</span></label>
-            <textarea id="consultContent" class="form-control" rows="3" placeholder="Nh?p n?i dung tu v?n..."></textarea>
+            <label>Nội Dung Tư Vấn <span style="color:var(--danger)">*</span></label>
+            <textarea id="consultContent" class="form-control" rows="3" placeholder="Nhập nội dung tư vấn..."></textarea>
         </div>
         <div class="form-group" id="consultImageGroup">
-            <label>H�nh ?nh <span id="consultImageReq" style="color:var(--danger)">*</span> (Ctrl+V d? d�n)</label>
+            <label>Hình Ảnh <span id="consultImageReq" style="color:var(--danger)">*</span> (Ctrl+V để dán)</label>
             <div id="consultImageArea" class="image-paste-area" tabindex="0">
-                <div id="consultImagePlaceholder">?? Click v�o d�y r?i Ctrl+V d? d�n h�nh ?nh</div>
+                <div id="consultImagePlaceholder">📋 Click vào đây rồi Ctrl+V để dán hình ảnh</div>
                 <img id="consultImagePreview" style="display:none;max-width:100%;max-height:200px;border-radius:8px;">
                 <input type="file" id="consultImageFile" accept="image/*" style="display:none">
-                <button id="consultImageRemove" class="btn btn-sm" style="display:none;position:absolute;top:8px;right:8px;background:var(--danger);color:white;font-size:11px;padding:2px 8px;" onclick="_gdbhRemoveConsultImage()">?</button>
+                <button id="consultImageRemove" class="btn btn-sm" style="display:none;position:absolute;top:8px;right:8px;background:var(--danger);color:white;font-size:11px;padding:2px 8px;" onclick="_gdbhRemoveConsultImage()">✕</button>
             </div>
         </div>
         <div class="form-group" id="consultNextTypeGroup" style="display:none">
-            <label>Tu V?n Ti?p Theo <span style="color:var(--danger)">*</span></label>
+            <label>Tư Vấn Tiếp Theo <span style="color:var(--danger)">*</span></label>
             <select id="consultNextType" class="form-control" onchange="_gdbhUpdateApptLabel()">
                 ${Object.entries(GDBH_CONSULT_TYPES).filter(([k]) => ['goi_dien','nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua','dat_coc','chot_don','cap_cuu_sep','huy'].includes(k)).map(([k, v]) =>
                     `<option value="${k}" ${k === (lastLog?.next_consult_type || 'goi_dien') ? 'selected' : ''}>${v.icon} ${v.label}</option>`
@@ -1050,98 +1050,98 @@ async function _gdbhOpenConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroup">
-            <label>Ng�y H?n L�m Vi?c <span style="color:var(--danger)">*</span></label>
+            <label>Ngày Hẹn Làm Việc <span style="color:var(--danger)">*</span></label>
             <input type="date" id="consultAppointment" class="form-control" min="${(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()}">
         </div>
         <div class="form-group" id="consultCancelGroup" style="display:none">
-            <label>L� Do H?y <span style="color:var(--danger)">*</span></label>
-            <textarea id="consultCancelReason" class="form-control" rows="3" placeholder="Nh?p l� do h?y kh�ch h�ng..."></textarea>
+            <label>Lý Do Hủy <span style="color:var(--danger)">*</span></label>
+            <textarea id="consultCancelReason" class="form-control" rows="3" placeholder="Nhập lý do hủy khách hàng..."></textarea>
             <div style="margin-top:8px;padding:10px;background:rgba(220,38,38,0.15);border-radius:6px;border:1px solid rgba(220,38,38,0.3);font-size:12px;color:#fca5a5;">
-                ?? H?y kh�ch h�ng s? c?n Qu?n L�/Gi�m �?c duy?t.
+                ⚠️ Hủy khách hàng sẽ cần Quản Lý/Giám Đốc duyệt.
             </div>
         </div>
         <div class="form-group" id="consultHandlerGroup" style="display:none">
-            <label>Ch?n Ngu?i X? L� <span style="color:var(--danger)">*</span></label>
+            <label>Chọn Người Xử Lý <span style="color:var(--danger)">*</span></label>
             <select id="consultHandler" class="form-control" ${pendingEmergency ? 'disabled style="opacity:0.7;cursor:not-allowed;background:var(--gray-100);"' : ''}>
-                ${pendingEmergency ? '' : '<option value="">-- Ch?n S?p --</option>'}
+                ${pendingEmergency ? '' : '<option value="">-- Chọn Sếp --</option>'}
                 ${handlerOptions}
             </select>
             <div style="margin-top:8px;padding:10px;background:rgba(239,68,68,0.1);border-radius:6px;font-size:12px;color:#fca5a5;">
-                ?? Kh�ch h�ng s? hi?n ? trang C?p C?u S?p c?a ngu?i du?c ch?n.
+                🚨 Khách hàng sẽ hiện ở trang Cấp Cứu Sếp của người được chọn.
             </div>
         </div>
         ${pendingEmergency ? `
         <div style="margin:12px 0;padding:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;">
-            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:4px;">?? Kh�ch dang c� c?p c?u s?p chua gi?i quy?t</div>
-            <div style="font-size:11px;color:#94a3b8;">?n "GHI NH?N" s? nh?c l?i cho s?p x? l�. Ng�y h?n t? d?ng d?t sang ng�y mai.</div>
+            <div style="font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:4px;">🚨 Khách đang có cấp cứu sếp chưa giải quyết</div>
+            <div style="font-size:11px;color:#94a3b8;">Ấn "GHI NHẬN" sẽ nhắc lại cho sếp xử lý. Ngày hẹn tự động đặt sang ngày mai.</div>
         </div>` : ''}
         <div id="consultOrderGroup" style="display:none">
             <div class="form-group" id="consultOrderCodeGroup" style="display:none;">
-                <label>M� �on <span style="color:var(--gray-500);font-size:11px;">(T? d?ng)</span></label>
+                <label>Mã Đơn <span style="color:var(--gray-500);font-size:11px;">(Tự động)</span></label>
                 <input type="text" id="consultOrderCode" class="form-control" readonly style="background:var(--gray-100);font-weight:700;color:var(--navy);font-size:16px;cursor:not-allowed;border:2px solid var(--gold);">
             </div>
             <div class="form-group">
-                <label>S�T Kh�ch H�ng</label>
-                <input type="text" id="consultPhone" class="form-control" value="${customerInfo.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 ch? s?">
+                <label>SĐT Khách Hàng</label>
+                <input type="text" id="consultPhone" class="form-control" value="${customerInfo.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="10 chữ số">
             </div>
             <div class="form-group">
-                <label>�on H�ng <span style="color:var(--danger)">*</span></label>
+                <label>Đơn Hàng <span style="color:var(--danger)">*</span></label>
                 <table class="table" style="font-size:13px;" id="consultOrderTable">
-                    <thead><tr><th>M� t?</th><th style="width:80px">SL</th><th style="width:120px">�on gi�</th><th style="width:120px">Th�nh ti?n</th><th style="width:50px"></th></tr></thead>
+                    <thead><tr><th>Mô tả</th><th style="width:80px">SL</th><th style="width:120px">Đơn giá</th><th style="width:120px">Thành tiền</th><th style="width:50px"></th></tr></thead>
                     <tbody>
                         ${existingItems.length > 0 ? existingItems.map(it => `<tr>
                             <td><input class="form-control oi-desc" value="${it.description||''}" style="font-size:13px;padding:6px 8px;"></td>
                             <td><input type="number" class="form-control oi-qty" value="${it.quantity||0}" min="0" style="font-size:13px;padding:6px 8px;width:70px;"></td>
                             <td><input type="text" class="form-control oi-price" value="${formatCurrency(it.unit_price||0)}" style="font-size:13px;padding:6px 8px;" oninput="_gdbhFormatDepositInput(this);_gdbhCalcConsultOrderTotal()"></td>
                             <td class="oi-total" style="text-align:right;font-weight:600">${formatCurrency(it.total)}</td>
-                            <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_gdbhCalcConsultOrderTotal();" style="color:var(--danger)">?</button></td>
+                            <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_gdbhCalcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
                         </tr>`).join('') : ''}
                     </tbody>
                 </table>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                    <button class="btn btn-sm" onclick="_gdbhAddConsultOrderRow()" style="font-size:12px;">? Th�m d�ng</button>
+                    <button class="btn btn-sm" onclick="_gdbhAddConsultOrderRow()" style="font-size:12px;">➕ Thêm dòng</button>
                     <div style="text-align:right;">
-                        <div style="font-size:16px;font-weight:700;">T?ng: <span id="consultOrderTotal" style="color:#d4a843;font-size:18px;">${formatCurrency(grandTotal)}</span> VN�</div>
+                        <div style="font-size:16px;font-weight:700;">Tổng: <span id="consultOrderTotal" style="color:#d4a843;font-size:18px;">${formatCurrency(grandTotal)}</span> VNĐ</div>
                         <div id="consultDepositInfo" style="display:none;margin-top:4px;font-size:13px;">
-                            <span style="color:#6b7280;">�� c?c:</span> <span id="consultDepositDisplay" style="color:#10b981;font-weight:600;">0</span> VN�
-                            <br><span style="color:#6b7280;">C�n l?i:</span> <span id="consultRemainingDisplay" style="color:#e65100;font-weight:700;font-size:15px;">0</span> VN�
+                            <span style="color:#6b7280;">Đã cọc:</span> <span id="consultDepositDisplay" style="color:#10b981;font-weight:600;">0</span> VNĐ
+                            <br><span style="color:#6b7280;">Còn lại:</span> <span id="consultRemainingDisplay" style="color:#e65100;font-weight:700;font-size:15px;">0</span> VNĐ
                         </div>
                     </div>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group">
-                    <label>�?a Ch? C? Th? <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="consultAddress" class="form-control" value="${customerInfo.address || ''}" placeholder="Nh?p d?a ch? c? th?">
+                    <label>Địa Chỉ Cụ Thể <span style="color:var(--danger)">*</span></label>
+                    <input type="text" id="consultAddress" class="form-control" value="${customerInfo.address || ''}" placeholder="Nhập địa chỉ cụ thể">
                 </div>
                 <div class="form-group">
-                    <label>Th�nh Ph? <span style="color:var(--danger)">*</span></label>
+                    <label>Thành Phố <span style="color:var(--danger)">*</span></label>
                     <select id="consultCity" class="form-control">
-                        <option value="">-- Ch?n t?nh/th�nh --</option>
+                        <option value="">-- Chọn tỉnh/thành --</option>
                         ${GDBH_VN_PROVINCES.map(p => `<option value="${p}" ${customerInfo.province === p ? 'selected' : ''}>${p}</option>`).join('')}
                     </select>
                 </div>
             </div>
             <div class="form-group" style="display:none">
-                <label>Tu V?n Ti?p Theo <span style="color:var(--danger)">*</span></label>
+                <label>Tư Vấn Tiếp Theo <span style="color:var(--danger)">*</span></label>
                 <select id="consultChotDonNextType" class="form-control" onchange="_gdbhUpdateChotDonApptLabel()">
-                    <option value="dang_san_xuat">?? �ang S?n Xu?t</option>
-                    <option value="hoan_thanh">?? Ho�n Th�nh �on</option>
+                    <option value="dang_san_xuat">🏭 Đang Sản Xuất</option>
+                    <option value="hoan_thanh">🏆 Hoàn Thành Đơn</option>
                 </select>
             </div>
             <div class="form-group">
-                <label id="consultChotDonApptLabel">Ng�y H?n L�m Vi?c Kh�ch <span style="color:var(--danger)">*</span></label>
+                <label id="consultChotDonApptLabel">Ngày Hẹn Làm Việc Khách <span style="color:var(--danger)">*</span></label>
                 <input type="date" id="consultSBHDate" class="form-control" min="${(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()}">
             </div>
         </div>
     `;
 
     const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">H?y</button>
-        <button class="btn btn-primary" id="consultSubmitBtn" onclick="_gdbhSubmitConsultLog(${customerId})" style="width:auto;">?? GHI NH?N</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-primary" id="consultSubmitBtn" onclick="_gdbhSubmitConsultLog(${customerId})" style="width:auto;">📝 GHI NHẬN</button>
     `;
 
-    openModal('?? Ghi Nh?n Tu V?n', bodyHTML, footerHTML);
+    openModal('📋 Ghi Nhận Tư Vấn', bodyHTML, footerHTML);
 
     // Setup image paste + trigger initial type change
     setTimeout(() => {
@@ -1208,13 +1208,13 @@ function _gdbhOnConsultTypeChange() {
 
     // Reset labels back to default FIRST (before applying max_appointment_days)
     const contentLabel = contentGroup?.querySelector('label');
-    if (contentLabel) contentLabel.innerHTML = 'N?i Dung Tu V?n <span style="color:var(--danger)">*</span>';
+    if (contentLabel) contentLabel.innerHTML = 'Nội Dung Tư Vấn <span style="color:var(--danger)">*</span>';
     const contentArea = document.getElementById('consultContent');
-    if (contentArea) contentArea.placeholder = 'Nh?p n?i dung tu v?n...';
+    if (contentArea) contentArea.placeholder = 'Nhập nội dung tư vấn...';
     const apptLabel = appointmentGroup?.querySelector('label');
-    if (apptLabel) apptLabel.innerHTML = 'Ng�y H?n Ti?p Theo <span style="color:var(--danger)">*</span>';
+    if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span>';
 
-    // ? Apply max_appointment_days from SECTION config (customer's current status, not selected button)
+    // ★ Apply max_appointment_days from SECTION config (customer's current status, not selected button)
     const apptInput = document.getElementById('consultAppointment');
     if (apptInput) {
         const today = new Date();
@@ -1228,7 +1228,7 @@ function _gdbhOnConsultTypeChange() {
             apptInput.max = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
             // Update label to show max days
             const apptLabelEl = appointmentGroup?.querySelector('label');
-            if (apptLabelEl) apptLabelEl.innerHTML = `Ng�y H?n Ti?p Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(t?i da ${maxDays} ng�y)</span>`;
+            if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
         } else {
             apptInput.removeAttribute('max');
         }
@@ -1239,7 +1239,7 @@ function _gdbhOnConsultTypeChange() {
         const _apptInput2 = document.getElementById('consultAppointment');
         if (_apptInput2) { _apptInput2.disabled = true; _apptInput2.style.opacity = '0.5'; }
         const _apptLbl2 = appointmentGroup?.querySelector('label');
-        if (_apptLbl2) _apptLbl2.innerHTML = '?? Ng�y H?n Ti?p Theo <span style="color:#f59e0b;font-size:11px;">(Pin kh�ch � t? d?ng ng�y l�m vi?c ti?p theo)</span>';
+        if (_apptLbl2) _apptLbl2.innerHTML = '📌 Ngày Hẹn Tiếp Theo <span style="color:#f59e0b;font-size:11px;">(Pin khách — tự động ngày làm việc tiếp theo)</span>';
     }
 
     const nextTypeGroup = document.getElementById('consultNextTypeGroup');
@@ -1249,7 +1249,7 @@ function _gdbhOnConsultTypeChange() {
     const imageOptionalTypes = ['goi_dien', 'dat_coc', 'cap_cuu_sep', 'sau_ban_hang'];
     if (imageReq) imageReq.style.display = imageOptionalTypes.includes(type) ? 'none' : 'inline';
 
-    // H?Y flow
+    // HỦY flow
     if (type === 'huy') {
         if (cancelGroup) cancelGroup.style.display = 'block';
         if (contentGroup) contentGroup.style.display = 'none';
@@ -1258,7 +1258,7 @@ function _gdbhOnConsultTypeChange() {
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
     }
 
-    // �?t C?c flow � show M� �on + deposit amount + content + image + appointment
+    // Đặt Cọc flow — show Mã Đơn + deposit amount + content + image + appointment
     if (type === 'dat_coc') {
         if (contentGroup) contentGroup.style.display = 'block';
         if (imageGroup) imageGroup.style.display = 'block';
@@ -1266,20 +1266,20 @@ function _gdbhOnConsultTypeChange() {
         // Show deposit amount field
         const depositGroup = document.getElementById('consultDepositGroup');
         if (depositGroup) depositGroup.style.display = 'block';
-        // Show only the M� �on field from orderGroup
+        // Show only the Mã Đơn field from orderGroup
         const ocGroup = document.getElementById('consultOrderCodeGroup');
         if (ocGroup) ocGroup.style.display = 'block';
         _gdbhFetchOrderCode();
     }
 
-    // Ch?t �on flow
+    // Chốt Đơn flow
     if (type === 'chot_don') {
         if (orderGroup) orderGroup.style.display = 'block';
         if (contentGroup) contentGroup.style.display = 'none';
         if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
-        // Fetch order code (reuses existing from d?t c?c if any)
+        // Fetch order code (reuses existing from đặt cọc if any)
         _gdbhFetchOrderCode();
         // Fetch deposit amount from dat_coc log
         window._currentDepositAmount = 0;
@@ -1295,36 +1295,36 @@ function _gdbhOnConsultTypeChange() {
         }
     }
 
-    // C?p C?u S?p flow
+    // Cấp Cứu Sếp flow
     if (type === 'cap_cuu_sep') {
         if (handlerGroup) handlerGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
     }
 
-    // Sau B�n H�ng flow - just content + appointment
+    // Sau Bán Hàng flow - just content + appointment
     if (type === 'sau_ban_hang') {
         if (imageGroup) imageGroup.style.display = 'none';
     }
 
-    // Ho�n Th�nh �on flow - content + appointment
+    // Hoàn Thành Đơn flow - content + appointment
     if (type === 'hoan_thanh') {
         if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
     }
 
-    // H?y C?c flow - content (l� do) + appointment date
+    // Hủy Cọc flow - content (lý do) + appointment date
     if (type === 'huy_coc') {
         if (contentGroup) contentGroup.style.display = 'block';
         if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
         // Relabel
         const contentLabel = contentGroup?.querySelector('label');
-        if (contentLabel) contentLabel.innerHTML = 'L� Do H?y C?c <span style="color:var(--danger)">*</span>';
+        if (contentLabel) contentLabel.innerHTML = 'Lý Do Hủy Cọc <span style="color:var(--danger)">*</span>';
         const contentArea = document.getElementById('consultContent');
-        if (contentArea) contentArea.placeholder = 'Nh?p l� do h?y c?c...';
+        if (contentArea) contentArea.placeholder = 'Nhập lý do hủy cọc...';
         const apptLabel = appointmentGroup?.querySelector('label');
-        if (apptLabel) apptLabel.innerHTML = 'Ng�y H?n L�m Vi?c <span style="color:var(--danger)">*</span>';
+        if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Làm Việc <span style="color:var(--danger)">*</span>';
     }
 }
 
@@ -1334,23 +1334,23 @@ function _gdbhUpdateApptLabel() {
     if (!sel || !apptGroup) return;
     const val = sel.value;
     const typeInfo = GDBH_CONSULT_TYPES[val];
-    const label = typeInfo ? typeInfo.label : 'Ti?p Theo';
+    const label = typeInfo ? typeInfo.label : 'Tiếp Theo';
     const apptLabel = apptGroup.querySelector('label');
-    if (apptLabel) apptLabel.innerHTML = `Ng�y H?n ${label} <span style="color:var(--danger)">*</span>`;
+    if (apptLabel) apptLabel.innerHTML = `Ngày Hẹn ${label} <span style="color:var(--danger)">*</span>`;
 }
 
 function _gdbhUpdateChotDonApptLabel() {
     const sel = document.getElementById('consultChotDonNextType');
     const lbl = document.getElementById('consultChotDonApptLabel');
     if (!sel || !lbl) return;
-    const labels = { dang_san_xuat: '�ang S?n Xu?t', hoan_thanh: 'Ho�n Th�nh �on' };
-    lbl.innerHTML = `Ng�y H?n ${labels[sel.value] || 'Ho�n Th�nh �on'} <span style="color:var(--danger)">*</span>`;
+    const labels = { dang_san_xuat: 'Đang Sản Xuất', hoan_thanh: 'Hoàn Thành Đơn' };
+    lbl.innerHTML = `Ngày Hẹn ${labels[sel.value] || 'Hoàn Thành Đơn'} <span style="color:var(--danger)">*</span>`;
 }
 
 // ========== SHARED GROUPED HISTORY BUILDER ==========
 function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
     const { compact = false } = options;
-    if (logs.length === 0) return compact ? '' : '<div style="text-align:center;padding:40px 20px;"><div style="font-size:40px;margin-bottom:8px;">??</div><div style="color:#94a3b8;font-size:14px;">Chua c� l?ch s? tu v?n</div></div>';
+    if (logs.length === 0) return compact ? '' : '<div style="text-align:center;padding:40px 20px;"><div style="font-size:40px;margin-bottom:8px;">📭</div><div style="color:#94a3b8;font-size:14px;">Chưa có lịch sử tư vấn</div></div>';
 
     const now = new Date();
     const currentKey = `${now.getMonth()+1}/${now.getFullYear()}`;
@@ -1364,7 +1364,7 @@ function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
         groups[key].push(log);
     });
 
-    const MONTH_NAMES = ['','Th�ng 1','Th�ng 2','Th�ng 3','Th�ng 4','Th�ng 5','Th�ng 6','Th�ng 7','Th�ng 8','Th�ng 9','Th�ng 10','Th�ng 11','Th�ng 12'];
+    const MONTH_NAMES = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
     return Object.entries(groups).map(([key, items]) => {
         const [m, y] = key.split('/');
@@ -1372,7 +1372,7 @@ function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
         const groupId = 'hg_' + key.replace('/', '_') + '_' + Math.random().toString(36).slice(2,6);
 
         const logsHTML = items.map((log, idx) => {
-            const t = GDBH_CONSULT_TYPES[log.log_type] || { icon: '??', label: log.log_type, color: '#6b7280' };
+            const t = GDBH_CONSULT_TYPES[log.log_type] || { icon: '📋', label: log.log_type, color: '#6b7280' };
             const d = new Date(log.created_at);
             const days = ['CN','T2','T3','T4','T5','T6','T7'];
             const dayName = days[d.getDay()];
@@ -1385,7 +1385,7 @@ function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
                 let extra = '';
                 if (log.content) {
                     const sc = log.content.length > 80 ? log.content.substring(0,80)+'...' : log.content;
-                    extra += `<div style="font-size:10px;color:var(--gray-500);margin-top:2px;padding-left:18px;">?? ${sc}</div>`;
+                    extra += `<div style="font-size:10px;color:var(--gray-500);margin-top:2px;padding-left:18px;">📝 ${sc}</div>`;
                 }
                 if (log.image_path) {
                     extra += `<div style="margin-top:3px;padding-left:18px;"><img src="${log.image_path}" style="max-width:80px;max-height:50px;border-radius:4px;border:1px solid var(--gray-200);cursor:pointer;" onclick="window.open('${log.image_path}','_blank')"></div>`;
@@ -1427,9 +1427,9 @@ function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
             : 'cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:12px;';
 
         return `<div style="margin-bottom:${compact ? '6' : '8'}px;">
-            <div style="${headerStyle}" onclick="var p=document.getElementById('${groupId}');p.style.display=p.style.display==='none'?'block':'none';this.querySelector('.hg-arrow').textContent=p.style.display==='none'?'?':'?';">
-                <span>?? ${MONTH_NAMES[Number(m)]} ${y} <span style="background:rgba(250,210,76,0.2);color:#fad24c;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px;">${items.length}</span></span>
-                <span class="hg-arrow" style="font-size:12px;">${isCurrentMonth ? '?' : '?'}</span>
+            <div style="${headerStyle}" onclick="var p=document.getElementById('${groupId}');p.style.display=p.style.display==='none'?'block':'none';this.querySelector('.hg-arrow').textContent=p.style.display==='none'?'▶':'▼';">
+                <span>📅 ${MONTH_NAMES[Number(m)]} ${y} <span style="background:rgba(250,210,76,0.2);color:#fad24c;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px;">${items.length}</span></span>
+                <span class="hg-arrow" style="font-size:12px;">${isCurrentMonth ? '▼' : '▶'}</span>
             </div>
             <div id="${groupId}" style="display:${isCurrentMonth ? 'block' : 'none'};">
                 ${logsHTML}
@@ -1440,7 +1440,7 @@ function _gdbhBuildGroupedHistoryHTML(logs, options = {}) {
 
 // ========== SHARED ORDER CARD BUILDER ==========
 function _gdbhBuildOrderCardHTML(codes, customer) {
-    if (codes.length === 0) return '<p style="color:#6b7280;text-align:center;padding:20px;">Chua c� m� don n�o</p>';
+    if (codes.length === 0) return '<p style="color:#6b7280;text-align:center;padding:20px;">Chưa có mã đơn nào</p>';
 
     let allOrdersTotal = 0;
 
@@ -1452,10 +1452,10 @@ function _gdbhBuildOrderCardHTML(codes, customer) {
         const orderTotal = orderItems.reduce((s, i) => s + (i.total || 0), 0);
         if (oc.status !== 'cancelled') allOrdersTotal += orderTotal;
         const statusBadge = oc.status === 'completed' 
-            ? '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">? Ho�n th�nh</span>'
+            ? '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">✅ Hoàn thành</span>'
             : oc.status === 'cancelled'
-            ? '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">? �� h?y</span>'
-            : '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">?? �ang x? l�</span>';
+            ? '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">❌ Đã hủy</span>'
+            : '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;">🔄 Đang xử lý</span>';
         
         const actionBtns = '';
 
@@ -1463,15 +1463,15 @@ function _gdbhBuildOrderCardHTML(codes, customer) {
             <div style="padding:12px;border:1px solid ${oc.status === 'completed' ? '#10b981' : oc.status === 'cancelled' ? '#ef4444' : '#e5e7eb'};border-radius:10px;margin-bottom:8px;background:${oc.status === 'completed' ? '#f0fdf4' : oc.status === 'cancelled' ? '#fef2f2' : '#fafafa'};">
                 <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:8px;">
                     <div style="min-width:90px;">
-                        <div style="font-size:10px;color:#6b7280;">M� �on</div>
+                        <div style="font-size:10px;color:#6b7280;">Mã Đơn</div>
                         <div style="font-weight:700;color:#e65100;font-size:15px;">${oc.order_code}</div>
                     </div>
                     <div style="min-width:80px;">
-                        <div style="font-size:10px;color:#6b7280;">NV T?o</div>
-                        <div style="font-weight:600;color:#122546;font-size:12px;">${oc.user_name || '�'}</div>
+                        <div style="font-size:10px;color:#6b7280;">NV Tạo</div>
+                        <div style="font-weight:600;color:#122546;font-size:12px;">${oc.user_name || '—'}</div>
                     </div>
                     <div style="min-width:80px;">
-                        <div style="font-size:10px;color:#6b7280;">Ng�y</div>
+                        <div style="font-size:10px;color:#6b7280;">Ngày</div>
                         <div style="font-weight:600;color:#122546;font-size:12px;">${dateStr}</div>
                     </div>
                     <div>${statusBadge}</div>
@@ -1479,73 +1479,73 @@ function _gdbhBuildOrderCardHTML(codes, customer) {
                 ${orderItems.length > 0 ? `
                     <table style="width:100%;font-size:12px;border-collapse:collapse;border-radius:6px;overflow:hidden;">
                         <thead><tr style="background:#122546;">
-                            <th style="text-align:left;padding:6px 8px;color:#fad24c;font-weight:700;">T�N SP</th>
+                            <th style="text-align:left;padding:6px 8px;color:#fad24c;font-weight:700;">TÊN SP</th>
                             <th style="text-align:center;padding:6px 8px;color:#fad24c;font-weight:700;width:45px;">SL</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">GI�</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">TH�NH TI?N</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">C?C</th>
-                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">C�N L?I</th>
+                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">GIÁ</th>
+                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">THÀNH TIỀN</th>
+                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:90px;">CỌC</th>
+                            <th style="text-align:right;padding:6px 8px;color:#fad24c;font-weight:700;width:100px;">CÒN LẠI</th>
                         </tr></thead>
                         <tbody>
                             ${orderItems.map(it => {
                                 const itemDeposit = orderItems.length === 1 ? orderDeposit : Math.round(orderDeposit * (it.total || 0) / orderTotal);
                                 const itemRemain = Math.max(0, (it.total || 0) - itemDeposit);
                                 return `<tr style="border-top:1px solid #e5e7eb;">
-                                    <td style="padding:5px 8px;color:#122546;">${it.description || '�'}</td>
+                                    <td style="padding:5px 8px;color:#122546;">${it.description || '—'}</td>
                                     <td style="padding:5px 8px;text-align:center;color:#122546;font-weight:600;">${it.quantity}</td>
-                                    <td style="padding:5px 8px;text-align:right;color:#122546;">${formatCurrency(it.unit_price || 0)}d</td>
-                                    <td style="padding:5px 8px;text-align:right;font-weight:600;color:#e65100;">${formatCurrency(it.total)}d</td>
-                                    <td style="padding:5px 8px;text-align:right;color:#10b981;font-weight:600;">${orderDeposit > 0 ? formatCurrency(itemDeposit) + 'd' : '�'}</td>
-                                    <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e65100;">${orderDeposit > 0 ? formatCurrency(itemRemain) + 'd' : formatCurrency(it.total) + 'd'}</td>
+                                    <td style="padding:5px 8px;text-align:right;color:#122546;">${formatCurrency(it.unit_price || 0)}đ</td>
+                                    <td style="padding:5px 8px;text-align:right;font-weight:600;color:#e65100;">${formatCurrency(it.total)}đ</td>
+                                    <td style="padding:5px 8px;text-align:right;color:#10b981;font-weight:600;">${orderDeposit > 0 ? formatCurrency(itemDeposit) + 'đ' : '—'}</td>
+                                    <td style="padding:5px 8px;text-align:right;font-weight:700;color:#e65100;">${orderDeposit > 0 ? formatCurrency(itemRemain) + 'đ' : formatCurrency(it.total) + 'đ'}</td>
                                 </tr>`;
                             }).join('')}
                         </tbody>
                     </table>
-                    <div style="text-align:right;font-size:13px;font-weight:600;margin-top:4px;color:#122546;">T?ng don: <span style="color:#e65100;">${formatCurrency(orderTotal)}</span> VN�${orderDeposit > 0 ? ` | C?c: <span style="color:#10b981;">${formatCurrency(orderDeposit)}</span> VN�` : ''}</div>
-                ` : '<p style="color:#9ca3af;font-size:12px;text-align:center;">Chua c� s?n ph?m</p>'}
+                    <div style="text-align:right;font-size:13px;font-weight:600;margin-top:4px;color:#122546;">Tổng đơn: <span style="color:#e65100;">${formatCurrency(orderTotal)}</span> VNĐ${orderDeposit > 0 ? ` | Cọc: <span style="color:#10b981;">${formatCurrency(orderDeposit)}</span> VNĐ` : ''}</div>
+                ` : '<p style="color:#9ca3af;font-size:12px;text-align:center;">Chưa có sản phẩm</p>'}
                 ${actionBtns}
             </div>
         `;
     }).join('');
 
-    return cardsHTML + (allOrdersTotal > 0 ? `<div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #e5e7eb;">T?ng doanh s?: <span style="color:#e65100;">${formatCurrency(allOrdersTotal)}</span> VN�</div>` : '');
+    return cardsHTML + (allOrdersTotal > 0 ? `<div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #e5e7eb;">Tổng doanh số: <span style="color:#e65100;">${formatCurrency(allOrdersTotal)}</span> VNĐ</div>` : '');
 }
 
 // ========== ORDER CODES POPUP ==========
 async function _gdbhOpenOrderCodesPopup(customerId) {
-    // Open full customer detail popup with "�on H�ng" tab pre-selected
+    // Open full customer detail popup with "Đơn Hàng" tab pre-selected
     await _gdbhOpenCustomerDetail(customerId);
     setTimeout(() => _gdbhSwitchCDTab('orders'), 100);
 }
 
 // Per-order completion
 async function _gdbhCompleteOrder(orderId, customerId) {
-    if (!confirm('X�c nh?n ho�n th�nh don n�y? Hoa h?ng s? du?c t�nh cho affiliate.')) return;
+    if (!confirm('Xác nhận hoàn thành đơn này? Hoa hồng sẽ được tính cho affiliate.')) return;
     try {
         const res = await apiCall(`/api/order-codes/${orderId}/complete`, 'POST');
         if (res.success) {
-            showToast('? ' + res.message);
+            showToast('✅ ' + res.message);
             closeModal();
             _gdbhOpenOrderCodesPopup(customerId);
         } else {
             showToast(res.error, 'error');
         }
-    } catch(e) { showToast('L?i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 // Per-order cancellation
 async function _gdbhCancelOrder(orderId, customerId) {
-    if (!confirm('X�c nh?n h?y don n�y?')) return;
+    if (!confirm('Xác nhận hủy đơn này?')) return;
     try {
         const res = await apiCall(`/api/order-codes/${orderId}/cancel`, 'POST');
         if (res.success) {
-            showToast('?? ' + res.message);
+            showToast('🚫 ' + res.message);
             closeModal();
             _gdbhOpenOrderCodesPopup(customerId);
         } else {
             showToast(res.error, 'error');
         }
-    } catch(e) { showToast('L?i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 // Toggle collapsible history panel
@@ -1555,7 +1555,7 @@ function _gdbhToggleConsultHistory() {
     if (panel) {
         const isHidden = panel.style.display === 'none';
         panel.style.display = isHidden ? 'block' : 'none';
-        if (arrow) arrow.textContent = isHidden ? '?' : '?';
+        if (arrow) arrow.textContent = isHidden ? '▲' : '▼';
     }
 }
 
@@ -1564,7 +1564,7 @@ function _gdbhFetchOrderCode() {
     const ocGroup = document.getElementById('consultOrderCodeGroup');
     const ocInput = document.getElementById('consultOrderCode');
     if (!ocGroup || !ocInput) return;
-    ocInput.value = '�ang t?i...';
+    ocInput.value = 'Đang tải...';
     ocGroup.style.display = 'block';
     const customerId = window._currentConsultCustomerId;
     apiCall(`/api/order-codes/next${customerId ? '?customer_id=' + customerId : ''}`).then(res => {
@@ -1582,12 +1582,12 @@ function _gdbhFetchOrderCode() {
             const depInfo = document.getElementById('consultDepositInfo');
             if (depInfo) depInfo.style.display = 'none';
         } else {
-            ocInput.value = 'Chua c�i m� don';
+            ocInput.value = 'Chưa cài mã đơn';
         }
-    }).catch(() => { ocInput.value = 'L?i t?i m�'; });
+    }).catch(() => { ocInput.value = 'Lỗi tải mã'; });
 }
 
-// Order table helpers for Ch?t �on
+// Order table helpers for Chốt Đơn
 function _gdbhAddConsultOrderRow() {
     const tbody = document.querySelector('#consultOrderTable tbody');
     tbody.insertAdjacentHTML('beforeend', `<tr>
@@ -1595,7 +1595,7 @@ function _gdbhAddConsultOrderRow() {
         <td><input type="number" class="form-control oi-qty" value="0" min="0" style="font-size:13px;padding:6px 8px;width:70px;" oninput="_gdbhCalcConsultOrderTotal()"></td>
         <td><input type="text" class="form-control oi-price" value="0" style="font-size:13px;padding:6px 8px;" oninput="_gdbhFormatDepositInput(this);_gdbhCalcConsultOrderTotal()"></td>
         <td class="oi-total" style="text-align:right;font-weight:600">0</td>
-        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_gdbhCalcConsultOrderTotal();" style="color:var(--danger)">?</button></td>
+        <td><button class="btn btn-sm" onclick="this.closest('tr').remove();_gdbhCalcConsultOrderTotal();" style="color:var(--danger)">✕</button></td>
     </tr>`);
 }
 
@@ -1623,11 +1623,11 @@ function _gdbhCalcConsultOrderTotal() {
 // Disable submit button to prevent double-click
 function _gdbhDisableSubmitBtn() {
     const btn = document.getElementById('consultSubmitBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '? �ang x? l�...'; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
 }
 function _gdbhEnableSubmitBtn() {
     const btn = document.getElementById('consultSubmitBtn');
-    if (btn) { btn.disabled = false; btn.textContent = '?? GHI NH?N'; }
+    if (btn) { btn.disabled = false; btn.textContent = '📝 GHI NHẬN'; }
 }
 
 async function _gdbhSubmitConsultLog(customerId) {
@@ -1637,23 +1637,23 @@ async function _gdbhSubmitConsultLog(customerId) {
     const content = document.getElementById('consultContent')?.value;
     const appointment_date = document.getElementById('consultAppointment')?.value;
 
-    // ========== H?Y flow ==========
+    // ========== HỦY flow ==========
     if (log_type === 'huy') {
         const reason = document.getElementById('consultCancelReason')?.value;
-        if (!reason) { showToast('Vui l�ng nh?p l� do h?y!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!reason) { showToast('Vui lòng nhập lý do hủy!', 'error'); _gdbhEnableSubmitBtn(); return; }
         try {
             const data = await apiCall(`/api/customers/${customerId}/cancel`, 'POST', { reason });
-            if (data.success) { showToast('? ' + data.message); closeModal(); loadCrmGdbhData(); }
-            else { showToast(data.error || 'L?i!', 'error'); _gdbhEnableSubmitBtn(); }
-        } catch (err) { showToast('L?i k?t n?i!', 'error'); _gdbhEnableSubmitBtn(); }
+            if (data.success) { showToast('✅ ' + data.message); closeModal(); loadCrmGdbhData(); }
+            else { showToast(data.error || 'Lỗi!', 'error'); _gdbhEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _gdbhEnableSubmitBtn(); }
         return;
     }
 
-    // ========== C?p C?u S?p flow ==========
+    // ========== Cấp Cứu Sếp flow ==========
     if (log_type === 'cap_cuu_sep') {
         const handler_id = document.getElementById('consultHandler')?.value;
-        if (!content) { showToast('Vui l�ng nh?p n?i dung t�nh hu?ng!', 'error'); _gdbhEnableSubmitBtn(); return; }
-        if (!handler_id) { showToast('Vui l�ng ch?n S?p x? l�!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!content) { showToast('Vui lòng nhập nội dung tình huống!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!handler_id) { showToast('Vui lòng chọn Sếp xử lý!', 'error'); _gdbhEnableSubmitBtn(); return; }
         try {
             // Upload image first via consultation
             const formData = new FormData();
@@ -1669,19 +1669,19 @@ async function _gdbhSubmitConsultLog(customerId) {
                 customer_id: customerId, reason: content, handler_id: Number(handler_id)
             });
             if (data.success) {
-                showToast('?? ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
-            } else { showToast(data.error || 'L?i!', 'error'); _gdbhEnableSubmitBtn(); }
-        } catch (err) { showToast('L?i k?t n?i!', 'error'); _gdbhEnableSubmitBtn(); }
+                showToast('🚨 ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _gdbhEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _gdbhEnableSubmitBtn(); }
         return;
     }
 
-    // ========== �?t C?c flow ==========
+    // ========== Đặt Cọc flow ==========
     if (log_type === 'dat_coc') {
         const depositAmount = Number((document.getElementById('consultDepositAmount')?.value || '').replace(/\./g, '')) || 0;
         if (depositAmount <= 0) {
-            showToast('Vui l�ng nh?p s? ti?n d?t c?c!', 'error'); _gdbhEnableSubmitBtn(); return;
+            showToast('Vui lòng nhập số tiền đặt cọc!', 'error'); _gdbhEnableSubmitBtn(); return;
         }
-        const contentText = content || `�?t c?c: ${formatCurrency(depositAmount)} VN�`;
+        const contentText = content || `Đặt cọc: ${formatCurrency(depositAmount)} VNĐ`;
 
         try {
 
@@ -1697,30 +1697,30 @@ async function _gdbhSubmitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('? �?t c?c th�nh c�ng!'); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
-            } else { showToast(data.error || 'L?i!', 'error'); _gdbhEnableSubmitBtn(); }
-        } catch (err) { showToast('L?i k?t n?i!', 'error'); _gdbhEnableSubmitBtn(); }
+                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _gdbhEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _gdbhEnableSubmitBtn(); }
         return;
     }
 
-    // ========== Ch?t �on flow ==========
+    // ========== Chốt Đơn flow ==========
     if (log_type === 'chot_don') {
         const address = document.getElementById('consultAddress')?.value;
         const city = document.getElementById('consultCity')?.value;
         const phone = document.getElementById('consultPhone')?.value;
         const sbhDate = document.getElementById('consultSBHDate')?.value;
-        if (!address) { showToast('Vui l�ng nh?p d?a ch?!', 'error'); _gdbhEnableSubmitBtn(); return; }
-        if (!city) { showToast('Vui l�ng ch?n th�nh ph?!', 'error'); _gdbhEnableSubmitBtn(); return; }
-        if (!sbhDate) { showToast('Vui l�ng ch?n ng�y h?n sau b�n h�ng!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!address) { showToast('Vui lòng nhập địa chỉ!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!city) { showToast('Vui lòng chọn thành phố!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (!sbhDate) { showToast('Vui lòng chọn ngày hẹn sau bán hàng!', 'error'); _gdbhEnableSubmitBtn(); return; }
 
         // Phone validate
         if (phone && !/^\d{10}$/.test(phone)) {
-            showToast('S�T ph?i d�ng 10 ch? s?', 'error'); _gdbhEnableSubmitBtn(); return;
+            showToast('SĐT phải đúng 10 chữ số', 'error'); _gdbhEnableSubmitBtn(); return;
         }
 
         // Collect order items
         const rows = document.querySelectorAll('#consultOrderTable tbody tr');
-        if (rows.length === 0) { showToast('Vui l�ng th�m �t nh?t 1 s?n ph?m!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (rows.length === 0) { showToast('Vui lòng thêm ít nhất 1 sản phẩm!', 'error'); _gdbhEnableSubmitBtn(); return; }
         const items = [];
         for (const row of rows) {
             const desc = row.querySelector('.oi-desc')?.value;
@@ -1728,7 +1728,7 @@ async function _gdbhSubmitConsultLog(customerId) {
             const price = Number((row.querySelector('.oi-price')?.value || '').replace(/\./g, '')) || 0;
             if (desc && qty > 0 && price > 0) items.push({ description: desc, quantity: qty, unit_price: price });
         }
-        if (items.length === 0) { showToast('Vui l�ng nh?p s?n ph?m h?p l?!', 'error'); _gdbhEnableSubmitBtn(); return; }
+        if (items.length === 0) { showToast('Vui lòng nhập sản phẩm hợp lệ!', 'error'); _gdbhEnableSubmitBtn(); return; }
 
         try {
             // Generate order code FIRST so items link to new order
@@ -1748,7 +1748,7 @@ async function _gdbhSubmitConsultLog(customerId) {
             // Submit consultation log with chot_don type
             const formData = new FormData();
             formData.append('log_type', 'chot_don');
-            formData.append('content', `Ch?t don: ${items.length} SP � ${address}, ${city}`);
+            formData.append('content', `Chốt đơn: ${items.length} SP — ${address}, ${city}`);
             formData.append('address', address);
             formData.append('appointment_date', sbhDate);
             const chotDonNextType = document.getElementById('consultChotDonNextType')?.value;
@@ -1756,19 +1756,19 @@ async function _gdbhSubmitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('? Ch?t don th�nh c�ng! Chuy?n sang Sau B�n H�ng.'); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
-            } else { showToast(data.error || 'L?i!', 'error'); _gdbhEnableSubmitBtn(); }
-        } catch (err) { showToast('L?i k?t n?i!', 'error'); _gdbhEnableSubmitBtn(); }
+                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
+            } else { showToast(data.error || 'Lỗi!', 'error'); _gdbhEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _gdbhEnableSubmitBtn(); }
         return;
     }
 
     // ========== Normal consultation flow ==========
-    if (!content) { showToast('Vui l�ng nh?p n?i dung tu v?n!', 'error'); _gdbhEnableSubmitBtn(); return; }
+    if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _gdbhEnableSubmitBtn(); return; }
     const imageRequiredTypes = ['nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'];
     if (imageRequiredTypes.includes(log_type) && !window._consultImageBlob) {
-        showToast('Vui l�ng d�n h�nh ?nh (Ctrl+V)!', 'error'); _gdbhEnableSubmitBtn(); return;
+        showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _gdbhEnableSubmitBtn(); return;
     }
-    if (!appointment_date) { showToast('Vui l�ng ch?n ng�y h?n!', 'error'); _gdbhEnableSubmitBtn(); return; }
+    if (!appointment_date) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _gdbhEnableSubmitBtn(); return; }
 
     const formData = new FormData();
     formData.append('log_type', log_type);
@@ -1784,9 +1784,9 @@ async function _gdbhSubmitConsultLog(customerId) {
         const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            showToast('? ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
-        } else { showToast(data.error || 'L?i!', 'error'); _gdbhEnableSubmitBtn(); }
-    } catch (err) { showToast('L?i k?t n?i!', 'error'); _gdbhEnableSubmitBtn(); }
+            showToast('✅ ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmGdbhData();
+        } else { showToast(data.error || 'Lỗi!', 'error'); _gdbhEnableSubmitBtn(); }
+    } catch (err) { showToast('Lỗi kết nối!', 'error'); _gdbhEnableSubmitBtn(); }
 }
 
 // ========== CONSULTATION HISTORY ==========
@@ -1798,7 +1798,7 @@ async function _gdbhOpenConsultHistory(customerId) {
     ]);
     
     const c = custData.customer;
-    if (!c) { showToast('Kh�ng t�m th?y', 'error'); return; }
+    if (!c) { showToast('Không tìm thấy', 'error'); return; }
     const logs = logData.logs || [];
     const items = custData.items || [];
     const codes = codesData.codes || [];
@@ -1806,31 +1806,31 @@ async function _gdbhOpenConsultHistory(customerId) {
 
     let bodyHTML = `
         <div style="display:flex;gap:8px;margin-bottom:16px;">
-            <button class="btn btn-sm tab-btn active" onclick="_gdbhSwitchConsultTab('info', this)" style="font-size:12px;">?? Th�ng Tin</button>
-            <button class="btn btn-sm tab-btn" onclick="_gdbhSwitchConsultTab('history', this)" style="font-size:12px;">?? L?ch S? (${logs.length})</button>
-            <button class="btn btn-sm tab-btn" onclick="_gdbhSwitchConsultTab('order', this)" style="font-size:12px;">?? �on H�ng</button>
+            <button class="btn btn-sm tab-btn active" onclick="_gdbhSwitchConsultTab('info', this)" style="font-size:12px;">📋 Thông Tin</button>
+            <button class="btn btn-sm tab-btn" onclick="_gdbhSwitchConsultTab('history', this)" style="font-size:12px;">📜 Lịch Sử (${logs.length})</button>
+            <button class="btn btn-sm tab-btn" onclick="_gdbhSwitchConsultTab('order', this)" style="font-size:12px;">📦 Đơn Hàng</button>
         </div>
 
         <div id="tabInfo">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-                <div><strong>M�:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span></div>
-                <div><strong>Tr?ng th�i:</strong> ${getStatusBadge(c.order_status)}</div>
-                <div><strong>Kh�ch h�ng:</strong> ${c.customer_name}</div>
-                <div><strong>S�T:</strong> <a href="tel:${c.phone}">${c.phone}</a></div>
-                <div><strong>Ngu?n:</strong> ${c.source_name || '�'}</div>
-                <div><strong>Ng�y b�n giao:</strong> ${formatDate(c.handover_date)}</div>
-                <div><strong>�?a ch?:</strong> ${c.address || '�'}</div>
-                <div><strong>Ng�y sinh:</strong> ${c.birthday ? formatDate(c.birthday) : '�'}</div>
-                <div><strong>Ng�y h?n:</strong> ${c.appointment_date || '�'}</div>
-                <div><strong>Ngu?i nh?n:</strong> ${c.assigned_to_name || '�'}</div>
-                ${(c.referrer_name || c.referrer_customer_name) ? `<div><strong>Ngu?i GT:</strong> <span style="cursor:pointer;text-decoration:underline;color:var(--info);" onclick="_gdbhOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span></div>` : ''}
-                ${(c.referrer_user_crm_type || c.referrer_crm_type) ? `<div><strong>CRM ngu?i GT:</strong> ${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</div>` : ''}
-                ${c.notes ? `<div style="grid-column:1/-1"><strong>Ghi ch�:</strong> ${c.notes}</div>` : ''}
+                <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span></div>
+                <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
+                <div><strong>Khách hàng:</strong> ${c.customer_name}</div>
+                <div><strong>SĐT:</strong> <a href="tel:${c.phone}">${c.phone}</a></div>
+                <div><strong>Nguồn:</strong> ${c.source_name || '—'}</div>
+                <div><strong>Ngày bàn giao:</strong> ${formatDate(c.handover_date)}</div>
+                <div><strong>Địa chỉ:</strong> ${c.address || '—'}</div>
+                <div><strong>Ngày sinh:</strong> ${c.birthday ? formatDate(c.birthday) : '—'}</div>
+                <div><strong>Ngày hẹn:</strong> ${c.appointment_date || '—'}</div>
+                <div><strong>Người nhận:</strong> ${c.assigned_to_name || '—'}</div>
+                ${(c.referrer_name || c.referrer_customer_name) ? `<div><strong>Người GT:</strong> <span style="cursor:pointer;text-decoration:underline;color:var(--info);" onclick="_gdbhOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span></div>` : ''}
+                ${(c.referrer_user_crm_type || c.referrer_crm_type) ? `<div><strong>CRM người GT:</strong> ${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</div>` : ''}
+                ${c.notes ? `<div style="grid-column:1/-1"><strong>Ghi chú:</strong> ${c.notes}</div>` : ''}
             </div>
         </div>
 
         <div id="tabHistory" style="display:none;">
-            ${logs.length === 0 ? '<div class="empty-state"><div class="icon">??</div><h3>Chua c� l?ch s?</h3></div>' :
+            ${logs.length === 0 ? '<div class="empty-state"><div class="icon">📭</div><h3>Chưa có lịch sử</h3></div>' :
             `<div style="max-height:350px;overflow-y:auto;">
                 ${_gdbhBuildGroupedHistoryHTML(logs)}
             </div>`}
@@ -1842,13 +1842,13 @@ async function _gdbhOpenConsultHistory(customerId) {
     `;
 
     const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">��ng</button>
-        <button class="btn btn-primary" onclick="_gdbhOpenConsultModal(${c.id})" style="width:auto;">?? Tu V?n</button>
-        <button class="btn btn-primary" onclick="_gdbhSaveOrderItems(${c.id})" style="width:auto;">?? Luu �on</button>
-        <button class="btn" onclick="_gdbhRequestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">? H?y KH</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-primary" onclick="_gdbhOpenConsultModal(${c.id})" style="width:auto;">📝 Tư Vấn</button>
+        <button class="btn btn-primary" onclick="_gdbhSaveOrderItems(${c.id})" style="width:auto;">💾 Lưu Đơn</button>
+        <button class="btn" onclick="_gdbhRequestCancel(${c.id})" style="width:auto;background:var(--danger);color:white;">❌ Hủy KH</button>
     `;
 
-    openModal(`?? ${c.customer_name} � ${getCustomerCode(c)}`, bodyHTML, footerHTML);
+    openModal(`📋 ${c.customer_name} — ${getCustomerCode(c)}`, bodyHTML, footerHTML);
 
     setTimeout(() => {
         document.querySelectorAll('.oi-qty, .oi-price').forEach(el => el.addEventListener('input', calcOrderTotal));
@@ -1866,7 +1866,7 @@ function _gdbhSwitchConsultTab(tab, btn) {
 // ========== UPDATE APPOINTMENT ==========
 async function _gdbhUpdateAppointment(customerId, date) {
     const data = await apiCall(`/api/customers/${customerId}/appointment`, 'PUT', { appointment_date: date });
-    if (data.success) showToast('?? �� c?p nh?t ng�y h?n!');
+    if (data.success) showToast('📅 Đã cập nhật ngày hẹn!');
 }
 
 // ========== REFERRER SEARCH ==========
@@ -1874,22 +1874,22 @@ let _gdbhAllReferrerCustomers = [];
 async function _gdbhOpenReferrerSearch(customerId) {
     const bodyHTML = `
         <div class="form-group">
-            <label>T�m Ngu?i Gi?i Thi?u (t�n ho?c S�T)</label>
-            <input type="text" id="referrerSearchInput" class="form-control" placeholder="Nh?p t�n ho?c S�T d? l?c..." oninput="_gdbhFilterReferrerList(${customerId})">
+            <label>Tìm Người Giới Thiệu (tên hoặc SĐT)</label>
+            <input type="text" id="referrerSearchInput" class="form-control" placeholder="Nhập tên hoặc SĐT để lọc..." oninput="_gdbhFilterReferrerList(${customerId})">
         </div>
         <div id="referrerSearchResults" style="max-height:350px;overflow-y:auto;">
-            <p style="color:var(--gray-400);text-align:center;padding:20px;">�ang t?i...</p>
+            <p style="color:var(--gray-400);text-align:center;padding:20px;">Đang tải...</p>
         </div>
     `;
-    openModal('?? T�m Ngu?i Gi?i Thi?u', bodyHTML, `<button class="btn btn-secondary" onclick="closeModal()">��ng</button>`);
+    openModal('🔍 Tìm Người Giới Thiệu', bodyHTML, `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`);
 
-    // Load all referrer-eligible customers (CTV, Hoa H?ng, Sinh Vi�n, Nu�i Du?ng)
+    // Load all referrer-eligible customers (CTV, Hoa Hồng, Sinh Viên, Nuôi Dưỡng)
     try {
         const data = await apiCall('/api/customers/referrer-search?q=&all=1');
         _gdbhAllReferrerCustomers = data.customers || [];
         _gdbhRenderReferrerList(customerId, _gdbhAllReferrerCustomers);
     } catch(e) {
-        document.getElementById('referrerSearchResults').innerHTML = '<p style="color:var(--danger);text-align:center;">L?i t?i d? li?u</p>';
+        document.getElementById('referrerSearchResults').innerHTML = '<p style="color:var(--danger);text-align:center;">Lỗi tải dữ liệu</p>';
     }
     setTimeout(() => document.getElementById('referrerSearchInput')?.focus(), 200);
 }
@@ -1907,7 +1907,7 @@ function _gdbhRenderReferrerList(customerId, customers) {
     const results = document.getElementById('referrerSearchResults');
     if (!results) return;
     if (customers.length === 0) {
-        results.innerHTML = '<p style="color:var(--gray-400);text-align:center;padding:20px;">Kh�ng t�m th?y</p>';
+        results.innerHTML = '<p style="color:var(--gray-400);text-align:center;padding:20px;">Không tìm thấy</p>';
         return;
     }
     const CRM_TYPE_COLORS = { 'ctv': '#10b981', 'hoa_hong': '#f59e0b', 'sinh_vien': '#3b82f6', 'nuoi_duong': '#8b5cf6' };
@@ -1920,7 +1920,7 @@ function _gdbhRenderReferrerList(customerId, customers) {
                 onmouseover="this.style.borderColor='#fad24c';this.style.background='#fefce8'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
                 <div>
                     <div style="font-weight:600;color:#122546;">${c.customer_name}</div>
-                    <div style="font-size:12px;color:#6b7280;">${c.phone || '�'}</div>
+                    <div style="font-size:12px;color:#6b7280;">${c.phone || '—'}</div>
                 </div>
                 <span style="font-size:11px;padding:3px 8px;border-radius:12px;background:${typeColor}20;color:${typeColor};font-weight:600;">${typeLabel}</span>
             </div>
@@ -1931,27 +1931,27 @@ function _gdbhRenderReferrerList(customerId, customers) {
 async function _gdbhSelectReferrer(customerId, referrerCustomerId) {
     const data = await apiCall(`/api/customers/${customerId}/referrer`, 'PUT', { referrer_customer_id: referrerCustomerId });
     if (data.success) {
-        showToast('? �� ch?n ngu?i gi?i thi?u: ' + data.referrer_name);
+        showToast('✅ Đã chọn người giới thiệu: ' + data.referrer_name);
         closeModal();
         loadCrmGdbhData();
     } else {
-        showToast(data.error || 'L?i!', 'error');
+        showToast(data.error || 'Lỗi!', 'error');
     }
 }
 
-// ========== C?P NH?T TH�NG TIN KH�CH H�NG ==========
-// ========== DANH S�CH T?NH/TH�NH PH? ==========
+// ========== CẬP NHẬT THÔNG TIN KHÁCH HÀNG ==========
+// ========== DANH SÁCH TỈNH/THÀNH PHỐ ==========
 const GDBH_PROVINCES = [
-    'An Giang','B� R?a - Vung T�u','B?c Giang','B?c K?n','B?c Li�u','B?c Ninh','B?n Tre',
-    'B�nh �?nh','B�nh Duong','B�nh Phu?c','B�nh Thu?n','C� Mau','C?n Tho','Cao B?ng',
-    '�� N?ng','�?k L?k','�?k N�ng','�i?n Bi�n','�?ng Nai','�?ng Th�p','Gia Lai',
-    'H� Giang','H� Nam','H� N?i','H� Tinh','H?i Duong','H?i Ph�ng','H?u Giang',
-    'H�a B�nh','Hung Y�n','Kh�nh H�a','Ki�n Giang','Kon Tum','Lai Ch�u','L�m �?ng',
-    'L?ng Son','L�o Cai','Long An','Nam �?nh','Ngh? An','Ninh B�nh','Ninh Thu?n',
-    'Ph� Th?','Ph� Y�n','Qu?ng B�nh','Qu?ng Nam','Qu?ng Ng�i','Qu?ng Ninh','Qu?ng Tr?',
-    'S�c Trang','Son La','T�y Ninh','Th�i B�nh','Th�i Nguy�n','Thanh H�a',
-    'Th?a Thi�n Hu?','Ti?n Giang','TP. H? Ch� Minh','Tr� Vinh','Tuy�n Quang',
-    'Vinh Long','Vinh Ph�c','Y�n B�i'
+    'An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre',
+    'Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng',
+    'Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai',
+    'Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang',
+    'Hòa Bình','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng',
+    'Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận',
+    'Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị',
+    'Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa',
+    'Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang',
+    'Vĩnh Long','Vĩnh Phúc','Yên Bái'
 ];
 
 async function _gdbhOpenCustomerInfo(customerId) {
@@ -1975,10 +1975,10 @@ async function _gdbhOpenCustomerInfo(customerId) {
     }
 
     // Generate day and month options
-    let dayOpts = '<option value="">Ng�y</option>';
+    let dayOpts = '<option value="">Ngày</option>';
     for (let d = 1; d <= 31; d++) dayOpts += `<option value="${d}" ${d == bdDay ? 'selected' : ''}>${d}</option>`;
-    let monthOpts = '<option value="">Th�ng</option>';
-    for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m == bdMonth ? 'selected' : ''}>Th�ng ${m}</option>`;
+    let monthOpts = '<option value="">Tháng</option>';
+    for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m == bdMonth ? 'selected' : ''}>Tháng ${m}</option>`;
 
     const provinceOptions = GDBH_PROVINCES.map(p => 
         `<option value="${p}" ${c.province === p ? 'selected' : ''}>${p}</option>`
@@ -1991,9 +1991,9 @@ async function _gdbhOpenCustomerInfo(customerId) {
             if (dateStr.includes('/')) { const p = dateStr.split('/'); hDay = parseInt(p[0])||''; hMonth = parseInt(p[1])||''; }
             else if (dateStr.includes('-')) { const p = dateStr.split('-'); hMonth = parseInt(p[1])||''; hDay = parseInt(p[2])||''; }
         }
-        let dOpts = '<option value="">Ng�y</option>';
+        let dOpts = '<option value="">Ngày</option>';
         for (let d = 1; d <= 31; d++) dOpts += `<option value="${d}" ${d == hDay ? 'selected' : ''}>${d}</option>`;
-        let mOpts = '<option value="">Th�ng</option>';
+        let mOpts = '<option value="">Tháng</option>';
         for (let m = 1; m <= 12; m++) mOpts += `<option value="${m}" ${m == hMonth ? 'selected' : ''}>T${m}</option>`;
         return `<select class="form-control ci-hday" style="width:70px;font-size:13px;">${dOpts}</select>
                 <select class="form-control ci-hmonth" style="width:90px;font-size:13px;">${mOpts}</select>`;
@@ -2001,72 +2001,72 @@ async function _gdbhOpenCustomerInfo(customerId) {
 
     const bodyHTML = `
         <div class="form-group">
-            <label>T�n Kh�ch H�ng</label>
+            <label>Tên Khách Hàng</label>
             <input type="text" id="ciName" class="form-control" value="${c.customer_name || ''}">
         </div>
         <div class="form-group">
-            <label>S? �i?n Tho?i</label>
+            <label>Số Điện Thoại</label>
             <input type="text" id="ciPhone" class="form-control" value="${c.phone || ''}" maxlength="10" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div class="form-group">
-                <label>�?a Ch?</label>
+                <label>Địa Chỉ</label>
                 <input type="text" id="ciAddress" class="form-control" value="${c.address || ''}">
             </div>
             <div class="form-group">
-                <label>T?nh / Th�nh Ph?</label>
+                <label>Tỉnh / Thành Phố</label>
                 <select id="ciProvince" class="form-control">
-                    <option value="">-- Ch?n --</option>
+                    <option value="">-- Chọn --</option>
                     ${provinceOptions}
                 </select>
             </div>
         </div>
         <div class="form-group">
-            <label>C�ng Vi?c</label>
-            <input type="text" id="ciJob" class="form-control" value="${c.job || ''}" placeholder="VD: Gi�m d?c c�ng ty ABC">
+            <label>Công Việc</label>
+            <input type="text" id="ciJob" class="form-control" value="${c.job || ''}" placeholder="VD: Giám đốc công ty ABC">
         </div>
         <div class="form-group">
-            <label>Ng�y Sinh Nh?t</label>
+            <label>Ngày Sinh Nhật</label>
             <div style="display:flex;gap:8px;">
                 <select id="ciBdDay" class="form-control" style="width:80px;">${dayOpts}</select>
                 <select id="ciBdMonth" class="form-control" style="width:120px;">${monthOpts}</select>
             </div>
         </div>
         <div class="form-group">
-            <label>Ng�y L? C?a KH</label>
+            <label>Ngày Lễ Của KH</label>
             <div id="ciHolidays">
                 ${holidays.length > 0 ? holidays.map((h, i) => `
                     <div class="ci-holiday-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-                        <input type="text" class="form-control ci-hname" value="${h.name || ''}" placeholder="T�n ng�y l?" style="flex:1;font-size:13px;">
+                        <input type="text" class="form-control ci-hname" value="${h.name || ''}" placeholder="Tên ngày lễ" style="flex:1;font-size:13px;">
                         ${holidayDateSelects(h.date)}
-                        <button class="btn btn-sm" onclick="this.parentElement.remove();" style="color:var(--danger);font-size:14px;">?</button>
+                        <button class="btn btn-sm" onclick="this.parentElement.remove();" style="color:var(--danger);font-size:14px;">✕</button>
                     </div>
                 `).join('') : ''}
             </div>
-            <button class="btn btn-sm" onclick="_gdbhAddHolidayRow()" style="font-size:12px;margin-top:6px;">? Th�m ng�y l?</button>
+            <button class="btn btn-sm" onclick="_gdbhAddHolidayRow()" style="font-size:12px;margin-top:6px;">➕ Thêm ngày lễ</button>
         </div>
     `;
 
     const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">H?y</button>
-        <button class="btn btn-primary" onclick="_gdbhSaveCustomerInfo(${customerId})" style="width:auto;">?? LUU</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="_gdbhSaveCustomerInfo(${customerId})" style="width:auto;">💾 LƯU</button>
     `;
 
-    openModal('?? C?p Nh?t Th�ng Tin KH', bodyHTML, footerHTML);
+    openModal('✏️ Cập Nhật Thông Tin KH', bodyHTML, footerHTML);
 }
 
 function _gdbhAddHolidayRow() {
-    let dOpts = '<option value="">Ng�y</option>';
+    let dOpts = '<option value="">Ngày</option>';
     for (let d = 1; d <= 31; d++) dOpts += `<option value="${d}">${d}</option>`;
-    let mOpts = '<option value="">Th�ng</option>';
+    let mOpts = '<option value="">Tháng</option>';
     for (let m = 1; m <= 12; m++) mOpts += `<option value="${m}">T${m}</option>`;
     const container = document.getElementById('ciHolidays');
     container.insertAdjacentHTML('beforeend', `
         <div class="ci-holiday-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-            <input type="text" class="form-control ci-hname" value="" placeholder="T�n ng�y l?" style="flex:1;font-size:13px;">
+            <input type="text" class="form-control ci-hname" value="" placeholder="Tên ngày lễ" style="flex:1;font-size:13px;">
             <select class="form-control ci-hday" style="width:70px;font-size:13px;">${dOpts}</select>
             <select class="form-control ci-hmonth" style="width:90px;font-size:13px;">${mOpts}</select>
-            <button class="btn btn-sm" onclick="this.parentElement.remove();" style="color:var(--danger);font-size:14px;">?</button>
+            <button class="btn btn-sm" onclick="this.parentElement.remove();" style="color:var(--danger);font-size:14px;">✕</button>
         </div>
     `);
 }
@@ -2075,7 +2075,7 @@ async function _gdbhSaveCustomerInfo(customerId) {
     const customer_name = document.getElementById('ciName').value;
     const phone = document.getElementById('ciPhone').value;
     if (phone && !/^\d{10}$/.test(phone)) {
-        showToast('S? di?n tho?i ph?i d�ng 10 ch? s?', 'error');
+        showToast('Số điện thoại phải đúng 10 chữ số', 'error');
         return;
     }
     const address = document.getElementById('ciAddress').value;
@@ -2098,25 +2098,25 @@ async function _gdbhSaveCustomerInfo(customerId) {
         if (name || date) customer_holidays.push({ name: name || '', date });
     });
 
-    if (!customer_name) { showToast('T�n KH kh�ng du?c tr?ng!', 'error'); return; }
+    if (!customer_name) { showToast('Tên KH không được trống!', 'error'); return; }
 
     try {
         const data = await apiCall(`/api/customers/${customerId}/info`, 'PUT', {
             customer_name, phone, address, province, job, birthday, customer_holidays
         });
         if (data.success) {
-            showToast('? ' + data.message);
+            showToast('✅ ' + data.message);
             closeModal();
             loadCrmGdbhData();
         } else {
-            showToast(data.error || 'L?i!', 'error');
+            showToast(data.error || 'Lỗi!', 'error');
         }
     } catch (err) {
-        showToast('L?i k?t n?i!', 'error');
+        showToast('Lỗi kết nối!', 'error');
     }
 }
 
-// ========== CHI TI?T KH�CH H�NG ==========
+// ========== CHI TIẾT KHÁCH HÀNG ==========
 async function _gdbhOpenCustomerDetail(customerId) {
     // Load all customer data in parallel
     const [data, logsData, orderData, orderCodesData] = await Promise.all([
@@ -2160,9 +2160,9 @@ async function _gdbhOpenCustomerDetail(customerId) {
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <span style="font-size:13px;color:#fad24c;font-weight:700;font-family:'Courier New',monospace;letter-spacing:0.5px;background:rgba(250,210,76,0.12);padding:2px 8px;border-radius:6px;">${getCustomerCode(c)}</span>
                             ${(c.cancel_requested === 1 && c.cancel_approved === 0)
-                                ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:var(--gray-700);color:var(--gray-400);">? Ch? Duy?t H?y</span>`
+                                ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:var(--gray-700);color:var(--gray-400);">⏳ Chờ Duyệt Hủy</span>`
                                 : (c.cancel_approved === -1)
-                                    ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:#f59e0b;color:white;">?? Tu V?n L?i</span>`
+                                    ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:#f59e0b;color:white;">🔄 Tư Vấn Lại</span>`
                                     : lastConsultTypePopup
                                         ? `<span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600;background:${lastConsultTypePopup.color || 'var(--gray-600)'};color:${lastConsultTypePopup.textColor || 'white'};">${lastConsultTypePopup.icon} ${lastConsultTypePopup.label}</span>`
                                         : `<span style="font-size:12px;">${statusBadge}</span>`
@@ -2171,7 +2171,7 @@ async function _gdbhOpenCustomerDetail(customerId) {
                     </div>
                     <div style="text-align:right;flex-shrink:0;">
                         <div style="font-size:22px;font-weight:800;color:#fad24c;">${logs.length}</div>
-                        <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;">L?N CHAM</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;">LẦN CHĂM</div>
                     </div>
                 </div>
             </div>
@@ -2180,68 +2180,68 @@ async function _gdbhOpenCustomerDetail(customerId) {
             <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? S�T</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📞 SĐT</div>
                         <div style="font-size:13px;font-weight:600;color:#1e293b;"><a href="tel:${c.phone}" style="color:#3b82f6;text-decoration:none;">${c.phone}</a></div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? �?a ch?</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.address || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🏠 Địa chỉ</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.address || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? T?nh/TP</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.province || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📍 Tỉnh/TP</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.province || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? Sinh nh?t</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.birthday || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🎂 Sinh nhật</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.birthday || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? Ngu?n</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.source_name || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📡 Nguồn</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.source_name || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? C�ng vi?c</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.job || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">💼 Công việc</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.job || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;border-right:1px solid #e2e8f0;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? NV ph? tr�ch</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.assigned_to_name || '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">👤 NV phụ trách</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.assigned_to_name || '—'}</div>
                     </div>
                     <div style="padding:12px 14px;">
-                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">?? K?t n?i t?</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${createdDate ? formatDateTime(c.created_at) : '�'}</div>
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📅 Kết nối từ</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${createdDate ? formatDateTime(c.created_at) : '—'}</div>
                     </div>
                 </div>
             </div>
             ${(c.referrer_name || c.referrer_customer_name) ? `
                 <div style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:8px;border:1px solid #bfdbfe;font-size:13px;">
-                    <strong style="color:#1e40af;">?? Ngu?i GT:</strong> 
+                    <strong style="color:#1e40af;">🤝 Người GT:</strong> 
                     <span style="cursor:pointer;text-decoration:underline;color:#3b82f6;font-weight:600;" onclick="_gdbhOpenAffiliateDetail(${c.referrer_id})">${c.referrer_name || c.referrer_customer_name}</span>
-                    ${(c.referrer_user_crm_type || c.referrer_crm_type) ? ` � <span style="color:#64748b;">${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</span>` : ''}
+                    ${(c.referrer_user_crm_type || c.referrer_crm_type) ? ` · <span style="color:#64748b;">${CRM_LABELS[c.referrer_user_crm_type || c.referrer_crm_type] || c.referrer_user_crm_type || c.referrer_crm_type}</span>` : ''}
                 </div>
             ` : ''}
         </div>
-        ${holidays.length > 0 ? '<div style="margin-top:8px;font-size:12px;"><strong>Ng�y l?:</strong> ' + holidays.map(h => h.name + ' (' + h.date + ')').join(', ') + '</div>' : ''}
+        ${holidays.length > 0 ? '<div style="margin-top:8px;font-size:12px;"><strong>Ngày lễ:</strong> ' + holidays.map(h => h.name + ' (' + h.date + ')').join(', ') + '</div>' : ''}
     `;
 
-    // Tab: L?ch S? (grouped by month)
+    // Tab: Lịch Sử (grouped by month)
     const historyTab = `
         <div style="max-height:350px;overflow-y:auto;">
             ${_gdbhBuildGroupedHistoryHTML(logs)}
         </div>
     `;
 
-    // Tab: �on H�ng (using shared helper)
+    // Tab: Đơn Hàng (using shared helper)
     const orderTab = _gdbhBuildOrderCardHTML(orderCodes, orders, c, cdTotalDeposit);
 
     const bodyHTML = `
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <span class="cdtab-btn" onclick="_gdbhSwitchCDTab('info')" id="cdtab-info-btn"
-                style="display:inline-block;font-size:13px;padding:8px 16px;background:var(--gold);color:#122546;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">?? Th�ng Tin</span>
+                style="display:inline-block;font-size:13px;padding:8px 16px;background:var(--gold);color:#122546;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">📋 Thông Tin</span>
             <span class="cdtab-btn" onclick="_gdbhSwitchCDTab('history')" id="cdtab-history-btn"
-                style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">?? L?ch S? (${logs.length})</span>
+                style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">📝 Lịch Sử (${logs.length})</span>
             <span class="cdtab-btn" onclick="_gdbhSwitchCDTab('orders')" id="cdtab-orders-btn"
-                style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">?? �on H�ng</span>
+                style="display:inline-block;font-size:13px;padding:8px 16px;background:#334155;color:white;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;">🛒 Đơn Hàng</span>
         </div>
         <div id="cdtab-info">${infoTab}</div>
         <div id="cdtab-history" style="display:none;">${historyTab}</div>
@@ -2251,13 +2251,13 @@ async function _gdbhOpenCustomerDetail(customerId) {
     // Determine last consultation type for button label
     const lastLog = logs.length > 0 ? logs[0] : null;
     const lastConsultType = lastLog ? GDBH_CONSULT_TYPES[lastLog.log_type] : null;
-    const consultBtnLabel = lastConsultType ? `${lastConsultType.icon} ${lastConsultType.label}` : '?? TU V?N';
+    const consultBtnLabel = lastConsultType ? `${lastConsultType.icon} ${lastConsultType.label}` : '📝 TƯ VẤN';
     const consultBtnColor = lastConsultType ? lastConsultType.color : '';
 
     const consultBtnTextColor = lastConsultType?.textColor || 'white';
 
     const footerHTML = `
-        <button class="btn btn-secondary" onclick="closeModal()">��ng</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
         ${!c.cancel_requested && !c.cancel_approved ? `
             <button class="btn btn-primary" onclick="closeModal();_gdbhOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
         ` : ''}
@@ -2278,8 +2278,8 @@ function _gdbhSwitchCDTab(tab) {
 }
 
 // ========== AFFILIATE DETAIL POPUP ==========
-const GDBH_CRM_LABELS_AFF = { nhu_cau: 'Cham S�c KH Nhu C?u', ctv: 'Cham S�c CTV', tu_tim_kiem: 'CRM T? T�m Ki?m', goi_hop_tac: 'CRM G?i �i?n H?p T�c', goi_ban_hang: 'CRM G?i �i?n B�n H�ng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
-const GDBH_ROLE_LABELS_AFF = { giam_doc:'Gi�m �?c', quan_ly_cap_cao:'Qu?n L� C?p Cao', quan_ly:'Qu?n L�', truong_phong:'Tru?ng Ph�ng', nhan_vien:'Nh�n Vi�n', part_time:'Part Time', hoa_hong:'Hoa H?ng', ctv:'CTV', nuoi_duong:'Nu�i Du?ng', sinh_vien:'Sinh Vi�n', tkaffiliate:'TK Affiliate' };
+const GDBH_CRM_LABELS_AFF = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
+const GDBH_ROLE_LABELS_AFF = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
 
 async function _gdbhOpenAffiliateDetail(userId) {
     if (!userId) return;
@@ -2289,7 +2289,7 @@ async function _gdbhOpenAffiliateDetail(userId) {
             apiCall(`/api/customers?referrer_id_count=${userId}`)
         ]);
         const u = userData.user;
-        if (!u) { showToast('Kh�ng t�m th?y t�i kho?n', 'error'); return; }
+        if (!u) { showToast('Không tìm thấy tài khoản', 'error'); return; }
 
         const totalReferrals = countData.totalReferrals || 0;
         const createdAt = u.created_at ? new Date(u.created_at) : null;
@@ -2299,7 +2299,7 @@ async function _gdbhOpenAffiliateDetail(userId) {
         const initials = (u.full_name || '?').split(' ').map(w => w[0]).join('').slice(-2).toUpperCase();
 
         const statusColor = isLocked ? '#ef4444' : '#22c55e';
-        const statusText = isLocked ? '?? �� d?ng h?p t�c' : '? �ang h?p t�c';
+        const statusText = isLocked ? '🔒 Đã dừng hợp tác' : '✅ Đang hợp tác';
         const statusBg = isLocked ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
 
         const bodyHTML = `
@@ -2327,15 +2327,15 @@ async function _gdbhOpenAffiliateDetail(userId) {
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:18px 24px 14px;">
                     <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;padding:14px;text-align:center;border:1px solid #bfdbfe;">
                         <div style="font-size:28px;font-weight:800;color:#1e40af;line-height:1;">${totalReferrals}</div>
-                        <div style="font-size:11px;color:#3b82f6;font-weight:600;margin-top:4px;">Ngu?i gi?i thi?u</div>
+                        <div style="font-size:11px;color:#3b82f6;font-weight:600;margin-top:4px;">Người giới thiệu</div>
                     </div>
                     <div style="background:linear-gradient(135deg,#fefce8,#fef3c7);border-radius:12px;padding:14px;text-align:center;border:1px solid #fde68a;">
                         <div style="font-size:28px;font-weight:800;color:#92400e;line-height:1;">${daysCooperation}</div>
-                        <div style="font-size:11px;color:#d97706;font-weight:600;margin-top:4px;">Ng�y h?p t�c</div>
+                        <div style="font-size:11px;color:#d97706;font-weight:600;margin-top:4px;">Ngày hợp tác</div>
                     </div>
                     <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:14px;text-align:center;border:1px solid #bbf7d0;">
-                        <div style="font-size:14px;font-weight:800;color:#166534;line-height:1.2;">${createdAt ? createdAt.toLocaleDateString('vi-VN') : '�'}</div>
-                        <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:4px;">Ng�y b?t d?u</div>
+                        <div style="font-size:14px;font-weight:800;color:#166534;line-height:1.2;">${createdAt ? createdAt.toLocaleDateString('vi-VN') : '—'}</div>
+                        <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:4px;">Ngày bắt đầu</div>
                     </div>
                 </div>
 
@@ -2344,19 +2344,19 @@ async function _gdbhOpenAffiliateDetail(userId) {
                     <div style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">?? S? di?n tho?i</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.phone || '�'}</div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📞 Số điện thoại</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.phone || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
-                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">?? Lo?i CRM</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${GDBH_CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '�'}</div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📋 Loại CRM</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${GDBH_CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
-                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">????? NV Qu?n l�</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.manager_name || '�'}</div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">👨‍💼 NV Quản lý</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.manager_name || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
-                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">??? Vai tr�</div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🏷️ Vai trò</div>
                                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${GDBH_ROLE_LABELS_AFF[u.role] || u.role}</div>
                             </div>
                         </div>
@@ -2371,17 +2371,17 @@ async function _gdbhOpenAffiliateDetail(userId) {
         let footerHTML = '';
         if (isGD) {
             if (isLocked) {
-                footerHTML += `<button class="btn" onclick="_gdbhToggleAffiliateStatus(${u.id}, 'active')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(34,197,94,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">?? Ti?p t?c h?p t�c</button>`;
+                footerHTML += `<button class="btn" onclick="_gdbhToggleAffiliateStatus(${u.id}, 'active')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(34,197,94,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">▶️ Tiếp tục hợp tác</button>`;
             } else {
-                footerHTML += `<button class="btn" onclick="_gdbhToggleAffiliateStatus(${u.id}, 'locked')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">?? D?ng h?p t�c</button>`;
+                footerHTML += `<button class="btn" onclick="_gdbhToggleAffiliateStatus(${u.id}, 'locked')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:10px 22px;border-radius:10px;font-weight:600;margin-right:10px;border:none;box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">⏸️ Dừng hợp tác</button>`;
             }
-            footerHTML += `<button class="btn" onclick="_gdbhOpenEditAffiliateFromCrm(${u.id})" style="background:linear-gradient(135deg,#fad24c,#f59e0b);color:#0f172a;padding:10px 22px;border-radius:10px;font-weight:600;border:none;box-shadow:0 2px 8px rgba(250,210,76,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">?? S?a t�i kho?n</button>`;
+            footerHTML += `<button class="btn" onclick="_gdbhOpenEditAffiliateFromCrm(${u.id})" style="background:linear-gradient(135deg,#fad24c,#f59e0b);color:#0f172a;padding:10px 22px;border-radius:10px;font-weight:600;border:none;box-shadow:0 2px 8px rgba(250,210,76,0.3);transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">✏️ Sửa tài khoản</button>`;
         }
 
         openModal(``, bodyHTML, footerHTML);
     } catch (err) {
         console.error('Affiliate detail error:', err);
-        showToast('L?i t?i th�ng tin affiliate', 'error');
+        showToast('Lỗi tải thông tin affiliate', 'error');
     }
 }
 
@@ -2389,7 +2389,7 @@ async function _gdbhToggleAffiliateStatus(userId, newStatus) {
     try {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
-            showToast(`? ${data.message}`);
+            showToast(`✅ ${data.message}`);
             closeModal();
             // Re-open to refresh data
             _gdbhOpenAffiliateDetail(userId);
@@ -2397,7 +2397,7 @@ async function _gdbhToggleAffiliateStatus(userId, newStatus) {
             showToast(data.error, 'error');
         }
     } catch (err) {
-        showToast('L?i c?p nh?t tr?ng th�i', 'error');
+        showToast('Lỗi cập nhật trạng thái', 'error');
     }
 }
 
@@ -2405,48 +2405,48 @@ async function _gdbhOpenEditAffiliateFromCrm(userId) {
     try {
         const userData = await apiCall(`/api/users/${userId}`);
         const u = userData.user;
-        if (!u) { showToast('Kh�ng t�m th?y t�i kho?n', 'error'); return; }
+        if (!u) { showToast('Không tìm thấy tài khoản', 'error'); return; }
 
         const bodyHTML = `
             <form id="editAffCrmForm" style="max-width:500px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div class="form-group">
-                        <label>H? t�n</label>
+                        <label>Họ tên</label>
                         <input type="text" id="eafFullName" class="form-control" value="${u.full_name || ''}">
                     </div>
                     <div class="form-group">
-                        <label>S�T</label>
+                        <label>SĐT</label>
                         <input type="text" id="eafPhone" class="form-control" value="${u.phone || ''}">
                     </div>
                     <div class="form-group">
-                        <label>�?a ch?</label>
+                        <label>Địa chỉ</label>
                         <input type="text" id="eafAddress" class="form-control" value="${u.address || ''}">
                     </div>
                     <div class="form-group">
-                        <label>T?nh/TP</label>
+                        <label>Tỉnh/TP</label>
                         <input type="text" id="eafProvince" class="form-control" value="${u.province || ''}">
                     </div>
                     <div class="form-group">
-                        <label>Ng�n h�ng</label>
+                        <label>Ngân hàng</label>
                         <input type="text" id="eafBankName" class="form-control" value="${u.bank_name || ''}">
                     </div>
                     <div class="form-group">
-                        <label>S? TK</label>
+                        <label>Số TK</label>
                         <input type="text" id="eafBankAccount" class="form-control" value="${u.bank_account || ''}">
                     </div>
                     <div class="form-group" style="grid-column:1/-1;">
-                        <label>Ch? TK</label>
+                        <label>Chủ TK</label>
                         <input type="text" id="eafBankHolder" class="form-control" value="${u.bank_holder || ''}">
                     </div>
                 </div>
             </form>
         `;
 
-        const footerHTML = `<button class="btn" onclick="_gdbhSubmitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">?? Luu thay d?i</button>`;
+        const footerHTML = `<button class="btn" onclick="_gdbhSubmitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">💾 Lưu thay đổi</button>`;
 
-        openModal(`?? S?a TK Affiliate: ${u.full_name}`, bodyHTML, footerHTML);
+        openModal(`✏️ Sửa TK Affiliate: ${u.full_name}`, bodyHTML, footerHTML);
     } catch (err) {
-        showToast('L?i t?i th�ng tin', 'error');
+        showToast('Lỗi tải thông tin', 'error');
     }
 }
 
@@ -2463,20 +2463,20 @@ async function _gdbhSubmitEditAffFromCrm(userId) {
     };
 
     if (body.phone && !/^\d{10}$/.test(body.phone)) {
-        showToast('S�T ph?i d�ng 10 ch? s?', 'error');
+        showToast('SĐT phải đúng 10 chữ số', 'error');
         return;
     }
 
     try {
         const data = await apiCall(`/api/users/${userId}`, 'PUT', body);
         if (data.success) {
-            showToast('? C?p nh?t th�nh c�ng!');
+            showToast('✅ Cập nhật thành công!');
             closeModal();
             _gdbhOpenAffiliateDetail(userId);
         } else {
             showToast(data.error, 'error');
         }
     } catch (err) {
-        showToast('L?i c?p nh?t', 'error');
+        showToast('Lỗi cập nhật', 'error');
     }
 }
