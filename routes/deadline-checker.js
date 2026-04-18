@@ -131,7 +131,6 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (!GPC.cv_chuoi_ql_khong_duyet) GPC.cv_chuoi_ql_khong_duyet = 50000;
     if (!GPC.cap_cuu_ql_khong_xu_ly) GPC.cap_cuu_ql_khong_xu_ly = 50000;
     if (!GPC.kh_chua_xu_ly_hom_nay) GPC.kh_chua_xu_ly_hom_nay = 100000;
-    if (!GPC.kh_chua_xu_ly_hom_nay_ctv) GPC.kh_chua_xu_ly_hom_nay_ctv = 100000;
     if (!GPC.kh_chua_xu_ly_tre) GPC.kh_chua_xu_ly_tre = 100000;
 
     // ========== 1. CHECK SUPPORT REQUESTS ==========
@@ -891,8 +890,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         continue;
                     }
 
-                    // Lấy mức phạt từ global config (riêng cho CTV vs Nhu Cầu)
-                    const penaltyAmt = crmType === 'ctv' ? GPC.kh_chua_xu_ly_hom_nay_ctv : GPC.kh_chua_xu_ly_hom_nay;
+                    // Phạt cố định cho tất cả CRM types
+                    const penaltyAmt = GPC.kh_chua_xu_ly_hom_nay;
 
                     // Insert penalty record (UNIQUE constraint tránh trùng)
                     try {

@@ -98,7 +98,7 @@ async function _penaltyLoadConfig() {
             { title: '🔒 Công Việc Khóa', icon: '🔒', keys: ['cv_khoa_khong_nop', 'cv_khoa_ql_khong_duyet', 'cv_khoa_ql_khong_ho_tro'] },
             { title: '🔗 Công Việc Chuỗi', icon: '🔗', keys: ['cv_chuoi_khong_nop', 'cv_chuoi_ql_khong_duyet'] },
             { title: '🚨 Cấp Cứu Sếp', icon: '🚨', keys: ['cap_cuu_ql_khong_xu_ly'] },
-            { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay', 'kh_chua_xu_ly_hom_nay_ctv'] },
+            { title: '❌ KH Chưa Xử Lý Hôm Nay', icon: '❌', keys: ['kh_chua_xu_ly_hom_nay'] },
             { title: '⏰ KH Chưa Xử Lý Trễ', icon: '⏰', keys: ['kh_chua_xu_ly_tre'] }
         ];
 
