@@ -863,7 +863,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.created_at::date = $1::date
                             )) as unhandled_count
                      FROM customers c
-                     WHERE c.appointment_date = $1
+                     WHERE c.appointment_date = $1::text
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -951,7 +951,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const unhandledCustomers = await db.all(
                     `SELECT c.id, c.customer_name, c.phone, c.assigned_to_id, c.appointment_date
                      FROM customers c
-                     WHERE c.appointment_date <= $1
+                     WHERE c.appointment_date <= $1::text
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -1024,7 +1024,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.created_at::date = $1::date
                             )) as unhandled_count
                      FROM customers c
-                     WHERE c.appointment_date < $1
+                     WHERE c.appointment_date < $1::text
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
