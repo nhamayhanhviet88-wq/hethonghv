@@ -60,7 +60,63 @@ function _poRenderSidebar(depts) {
     if (!sb) return;
     const role = currentUser.role;
     if (role === 'nhan_vien' || role === 'part_time') { sb.style.display = 'none'; return; }
-    const c = '#2563eb';
+
+    // Inject sparkle CSS once (shared with dailylinks)
+    if (!document.getElementById('_dlSparkleCSS')) {
+        const style = document.createElement('style'); style.id = '_dlSparkleCSS';
+        style.textContent = `
+        @keyframes _dlBorderGlow {
+            0%,100% { border-color: rgba(99,102,241,0.4); box-shadow: 0 0 8px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.1); }
+            50% { border-color: rgba(168,85,247,0.6); box-shadow: 0 0 16px rgba(168,85,247,0.25), inset 0 1px 0 rgba(255,255,255,0.2); }
+        }
+        @keyframes _dlShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes _dlPulseGlow {
+            0%,100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        ._dlTeamCard {
+            position: relative; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between;
+            border: 1.5px solid rgba(99,102,241,0.3);
+            animation: _dlBorderGlow 3s ease-in-out infinite;
+            transition: all 0.25s ease; overflow: hidden;
+        }
+        ._dlTeamCard::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            background-size: 200% 100%; animation: _dlShimmer 3s ease-in-out infinite;
+            pointer-events: none; border-radius: 12px;
+        }
+        ._dlTeamCard:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.15) !important; }
+        ._dlTeamCard--0 { background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(99,102,241,0.05)); border-color: rgba(37,99,235,0.35); }
+        ._dlTeamCard--0:hover { background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(99,102,241,0.1)); }
+        ._dlTeamCard--1 { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05)); border-color: rgba(16,185,129,0.35); animation-name: _dlBorderGlow1; }
+        ._dlTeamCard--1:hover { background: linear-gradient(135deg, rgba(16,185,129,0.14), rgba(5,150,105,0.1)); }
+        ._dlTeamCard--2 { background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(217,119,6,0.05)); border-color: rgba(245,158,11,0.35); animation-name: _dlBorderGlow2; }
+        ._dlTeamCard--2:hover { background: linear-gradient(135deg, rgba(245,158,11,0.14), rgba(217,119,6,0.1)); }
+        ._dlTeamCard--3 { background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(139,92,246,0.05)); border-color: rgba(168,85,247,0.35); animation-name: _dlBorderGlow3; }
+        ._dlTeamCard--3:hover { background: linear-gradient(135deg, rgba(168,85,247,0.14), rgba(139,92,246,0.1)); }
+        @keyframes _dlBorderGlow1 { 0%,100% { border-color:rgba(16,185,129,0.35);box-shadow:0 0 8px rgba(16,185,129,0.12);} 50%{border-color:rgba(52,211,153,0.6);box-shadow:0 0 16px rgba(52,211,153,0.22);}}
+        @keyframes _dlBorderGlow2 { 0%,100% { border-color:rgba(245,158,11,0.35);box-shadow:0 0 8px rgba(245,158,11,0.12);} 50%{border-color:rgba(251,191,36,0.6);box-shadow:0 0 16px rgba(251,191,36,0.22);}}
+        @keyframes _dlBorderGlow3 { 0%,100% { border-color:rgba(168,85,247,0.35);box-shadow:0 0 8px rgba(168,85,247,0.12);} 50%{border-color:rgba(192,132,252,0.6);box-shadow:0 0 16px rgba(192,132,252,0.22);}}
+        ._dlTeamBadge { font-size:10px;font-weight:800;padding:3px 9px;border-radius:12px;color:white;min-width:20px;text-align:center;animation:_dlPulseGlow 2.5s ease-in-out infinite; }
+        ._dlTeamIcon { width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0; }
+        ._dlMemberRow { padding:7px 12px 7px 18px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin:2px 0;transition:all 0.15s ease; }
+        ._dlMemberRow:hover { background: #f1f5f9; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const TEAM_STYLES = [
+        { badge:'#3b82f6', icon:'🏢', iconBg:'linear-gradient(135deg,#3b82f6,#6366f1)' },
+        { badge:'#10b981', icon:'🚀', iconBg:'linear-gradient(135deg,#10b981,#34d399)' },
+        { badge:'#f59e0b', icon:'🌟', iconBg:'linear-gradient(135deg,#f59e0b,#fbbf24)' },
+        { badge:'#a855f7', icon:'💎', iconBg:'linear-gradient(135deg,#a855f7,#c084fc)' },
+    ];
+
     const grad = 'linear-gradient(135deg,#2563eb,#1d4ed8)';
     const isAll = !_po.selectedUser && !_po.selectedDept;
     let h = `
@@ -78,31 +134,29 @@ function _poRenderSidebar(depts) {
         </div>
     </div>
     <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
-    (depts||[]).forEach(d => {
+    (depts||[]).forEach((d, di) => {
         const isDeptSel = _po.selectedDept==d.id && !_po.selectedUser;
         const hasSelMember = d.members.some(m => _po.selectedUser == m.id);
         const isOpen = isDeptSel || hasSelMember || isAll;
+        const ts = TEAM_STYLES[di % TEAM_STYLES.length];
         h += `
-        <div style="margin-bottom:8px;">
-            <div onclick="_poSelectDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
-                background:${isDeptSel ? 'rgba(18,37,70,0.08)' : 'transparent'};
-                border-left:3px solid ${isDeptSel ? c : 'transparent'};
-                transition:all 0.15s ease;"
-                onmouseover="this.style.background='rgba(18,37,70,0.06)'" onmouseout="this.style.background='${isDeptSel?'rgba(18,37,70,0.08)':'transparent'}'">
-                <span style="font-size:11.5px;font-weight:800;color:${isDeptSel ? c : '#64748b'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
-                <span style="background:${isDeptSel ? c : '#94a3b8'};color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center;">${d.members.length}</span>
+        <div style="margin-bottom:10px;">
+            <div onclick="_poSelectDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="_dlTeamIcon" style="background:${ts.iconBg};color:white;">${ts.icon}</div>
+                    <span style="font-size:12px;font-weight:800;color:${isDeptSel ? '#1e293b' : '#475569'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
+                </div>
+                <span class="_dlTeamBadge" style="background:${ts.badge};">${d.members.length}</span>
             </div>`;
         if (isOpen) {
             d.members.forEach(m => {
                 const isSel = _po.selectedUser == m.id;
                 const initials = (m.full_name || '').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
                 h += `
-                <div onclick="_poSelectUser(${m.id})" style="padding:7px 12px 7px 16px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin:2px 0;
+                <div onclick="_poSelectUser(${m.id})" class="_dlMemberRow" style="
                     background:${isSel ? grad : 'transparent'};
-                    box-shadow:${isSel ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'};
-                    transition:all 0.15s ease;"
-                    onmouseover="if(!${isSel})this.style.background='#f1f5f9'" onmouseout="if(!${isSel})this.style.background='transparent'">
-                    <div style="width:28px;height:28px;border-radius:50%;background:${isSel ? 'rgba(255,255,255,0.25)' : '#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${isSel ? 'white' : '#64748b'};flex-shrink:0;">${initials}</div>
+                    box-shadow:${isSel ? '0 2px 10px rgba(0,0,0,0.18)' : 'none'};">
+                    <div style="width:28px;height:28px;border-radius:50%;background:${isSel ? 'rgba(255,255,255,0.25)' : 'linear-gradient(135deg,#e2e8f0,#cbd5e1)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${isSel ? 'white' : '#64748b'};flex-shrink:0;">${initials}</div>
                     <span style="font-size:13px;font-weight:${isSel ? '700' : '500'};color:${isSel ? 'white' : '#334155'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
                 </div>`;
             });
