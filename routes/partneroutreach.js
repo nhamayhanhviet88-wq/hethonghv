@@ -316,34 +316,39 @@ module.exports = async function (fastify) {
         return { success: true, crm_data_id: newDataId };
     });
 
-    // ===== TEAM MEMBERS (for sidebar filter) =====
+    // ===== TEAM MEMBERS (for sidebar filter — PHÒNG KINH DOANH only) =====
     fastify.get('/api/partner-outreach/members', { preHandler: [authenticate] }, async (req) => {
         const role = req.user.role;
         let members = [];
+
+        // Get PHÒNG KINH DOANH + child team IDs
+        const kdDepts = await db.all("SELECT id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active'");
+        const kdDeptIds = kdDepts.map(d => d.id);
+        const kdPh = kdDeptIds.map((_, i) => `$${i + 1}`).join(',');
 
         if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
             members = await db.all(
                 `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name
                  FROM users u LEFT JOIN departments d ON u.department_id = d.id
-                 WHERE u.status = 'active' AND u.role NOT IN ('giam_doc','hoa_hong','tkaffiliate')
-                 ORDER BY d.name, u.full_name`
+                 WHERE u.status = 'active' AND u.department_id IN (${kdPh})
+                 ORDER BY d.name, u.full_name`,
+                kdDeptIds
             );
         } else if (['quan_ly', 'truong_phong'].includes(role)) {
             const deptIds = await _getManagedDeptIds(req.user);
-            if (deptIds.length > 0) {
-                const ph = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            const filtered = deptIds.filter(id => kdDeptIds.includes(id));
+            if (filtered.length > 0) {
+                const ph = filtered.map((_, i) => `$${i + 1}`).join(',');
                 members = await db.all(
                     `SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name
                      FROM users u LEFT JOIN departments d ON u.department_id = d.id
                      WHERE u.department_id IN (${ph}) AND u.status = 'active'
                      ORDER BY d.name, u.full_name`,
-                    deptIds
+                    filtered
                 );
             }
         }
-        // NV: no member list (only sees own data)
 
-        // Group by department
         const depts = {};
         members.forEach(m => {
             const key = m.dept_id || 0;

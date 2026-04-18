@@ -63,15 +63,54 @@ function _dlRenderSidebar(depts) {
     const role = currentUser.role;
     if (role==='nhan_vien'||role==='part_time') { sb.style.display='none'; return; }
     const c = _dl.mod.accent;
-    let h = `<div style="font-size:14px;font-weight:700;color:#122546;margin-bottom:12px;">📂 Phòng Ban / NV</div>`;
-    h += `<div onclick="_dlSelAll()" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-bottom:8px;background:${!_dl.selUser&&!_dl.selDept?c:'#f1f5f9'};color:${!_dl.selUser&&!_dl.selDept?'white':'#374151'};">📊 Tất cả</div>`;
+    const isAll = !_dl.selUser && !_dl.selDept;
+    let h = `
+    <div style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <div style="width:32px;height:32px;border-radius:10px;background:${_dl.mod.grad};display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div>
+            <div style="font-size:15px;font-weight:800;color:#122546;">Phòng Kinh Doanh</div>
+        </div>
+        <div onclick="_dlSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;
+            background:${isAll ? _dl.mod.grad : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};
+            color:${isAll ? 'white' : '#475569'};
+            box-shadow:${isAll ? '0 3px 12px rgba(0,0,0,0.2)' : 'none'};
+            transition:all 0.2s ease;">
+            📊 Tất cả nhân viên
+        </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
     (depts||[]).forEach(d => {
-        const dA=_dl.selDept==d.id&&!_dl.selUser;
-        h+=`<div style="margin-bottom:4px;"><div onclick="_dlSelDept(${d.id})" style="padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;color:${dA?c:'#6b7280'};text-transform:uppercase;">${d.name} (${d.members.length})</div>`;
-        d.members.forEach(m=>{const a=_dl.selUser==m.id;h+=`<div onclick="_dlSelUser(${m.id})" style="padding:6px 12px 6px 24px;border-radius:6px;cursor:pointer;font-size:13px;background:${a?'#122546':'transparent'};color:${a?'white':'#374151'};font-weight:${a?'600':'400'};">${m.full_name}</div>`;});
-        h+='</div>';
+        const isDeptSel = _dl.selDept==d.id && !_dl.selUser;
+        const hasSelMember = d.members.some(m => _dl.selUser == m.id);
+        const isOpen = isDeptSel || hasSelMember || isAll;
+        h += `
+        <div style="margin-bottom:8px;">
+            <div onclick="_dlSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+                background:${isDeptSel ? 'rgba(18,37,70,0.08)' : 'transparent'};
+                border-left:3px solid ${isDeptSel ? c : 'transparent'};
+                transition:all 0.15s ease;"
+                onmouseover="this.style.background='rgba(18,37,70,0.06)'" onmouseout="this.style.background='${isDeptSel?'rgba(18,37,70,0.08)':'transparent'}'">
+                <span style="font-size:11.5px;font-weight:800;color:${isDeptSel ? c : '#64748b'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
+                <span style="background:${isDeptSel ? c : '#94a3b8'};color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center;">${d.members.length}</span>
+            </div>`;
+        if (isOpen) {
+            d.members.forEach(m => {
+                const isSel = _dl.selUser == m.id;
+                const initials = (m.full_name || '').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+                h += `
+                <div onclick="_dlSelUser(${m.id})" style="padding:7px 12px 7px 16px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin:2px 0;
+                    background:${isSel ? _dl.mod.grad : 'transparent'};
+                    box-shadow:${isSel ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'};
+                    transition:all 0.15s ease;"
+                    onmouseover="if(!${isSel})this.style.background='#f1f5f9'" onmouseout="if(!${isSel})this.style.background='transparent'">
+                    <div style="width:28px;height:28px;border-radius:50%;background:${isSel ? 'rgba(255,255,255,0.25)' : '#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${isSel ? 'white' : '#64748b'};flex-shrink:0;">${initials}</div>
+                    <span style="font-size:13px;font-weight:${isSel ? '700' : '500'};color:${isSel ? 'white' : '#334155'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
+                </div>`;
+            });
+        }
+        h += '</div>';
     });
-    sb.innerHTML=h;
+    sb.innerHTML = h;
 }
 
 function _dlSelAll(){_dl.selUser=null;_dl.selDept=null;_dlLoadAll();}
