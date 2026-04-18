@@ -560,14 +560,18 @@ async function taskPointRoutes(fastify, options) {
 
         // Sync to all task_point_templates with the same name (old or new name)
         const oldName = existing ? existing.task_name : task_name;
-        const namesToSync = [oldName];
-        if (task_name !== oldName) namesToSync.push(task_name);
-        for (const n of namesToSync) {
+        // If name changed, rename all templates first
+        if (task_name !== oldName) {
             await db.run(
-                `UPDATE task_point_templates SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6 WHERE task_name=$7`,
-                [JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), guide_url || null, Number(points) || 0, Number(min_quantity) || 1, requires_approval ? true : false, n]
+                `UPDATE task_point_templates SET task_name=$1 WHERE task_name=$2`,
+                [task_name, oldName]
             );
         }
+        // Then sync other fields on the (new) name
+        await db.run(
+            `UPDATE task_point_templates SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6 WHERE task_name=$7`,
+            [JSON.stringify(input_requirements || []), JSON.stringify(output_requirements || []), guide_url || null, Number(points) || 0, Number(min_quantity) || 1, requires_approval ? true : false, task_name]
+        );
 
         // Auto-sync telesale if library task matches patterns
         if (RE_TELESALE.test(task_name) || RE_TU_TIM_KIEM.test(task_name) || (existing && (RE_TELESALE.test(existing.task_name) || RE_TU_TIM_KIEM.test(existing.task_name)))) _syncTelesaleFromTemplates();
