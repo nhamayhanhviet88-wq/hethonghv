@@ -1163,7 +1163,7 @@ async function telesaleRoutes(fastify) {
         for (const dataId of data_ids) {
             // Set data back to available — reset all call history so it's a fresh lead
             const result = await db.run(
-                "UPDATE telesale_data SET status = 'available', last_call_status = NULL, answer_action_type = NULL, cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status != 'available'",
+                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status != 'available'",
                 [dataId]
             );
             if (result?.changes > 0) repumped++;
