@@ -1237,14 +1237,56 @@ async function telesaleRoutes(fastify) {
 
     // ========== SELF-SEARCH: Employee adds customer ==========
     fastify.post('/api/telesale/self-search', { preHandler: authenticate }, async (req, reply) => {
-        const { customer_name, fb_link, phone, source_id, search_location_id } = req.body;
+        const { customer_name, fb_link, phone, source_id, search_location_id, call_disposition, notes } = req.body;
         if (!customer_name || !customer_name.trim()) return reply.code(400).send({ error: 'Tên KH là bắt buộc' });
         if (!fb_link && !phone) return reply.code(400).send({ error: 'Cần ít nhất Link FB hoặc SĐT' });
         if (!source_id) return reply.code(400).send({ error: 'Chọn Nguồn' });
         if (!search_location_id) return reply.code(400).send({ error: 'Chọn Nơi tìm kiếm' });
+        if (!call_disposition) return reply.code(400).send({ error: 'Chọn tình trạng bắt máy' });
+
+        // Map disposition to answer_status lookup
+        const POSITIVE_DISPOSITIONS = ['transfer', 'quote', 'meet', 'considering'];
+        const NEGATIVE_DISPOSITIONS = ['has_ncc', 'no_need'];
+        const isPositive = POSITIVE_DISPOSITIONS.includes(call_disposition);
+        const isNegative = NEGATIVE_DISPOSITIONS.includes(call_disposition);
+        if (!isPositive && !isNegative) return reply.code(400).send({ error: 'Tình trạng không hợp lệ' });
+
+        // Map disposition to answer_status action_type for lookup
+        const dispToActionType = {
+            transfer: 'transfer',
+            quote: 'none',       // generic answered
+            meet: 'none',
+            considering: 'none',
+            has_ncc: 'cold_ncc',
+            no_need: 'cold',
+        };
+
+        // Disposition display labels for logs
+        const dispLabels = {
+            transfer: '🔥 Có nhu cầu — Chuyển số',
+            quote: '📨 Yêu cầu gửi báo giá',
+            meet: '🤝 Hẹn gặp trực tiếp',
+            considering: '💬 Đang cân nhắc',
+            has_ncc: '🏪 Đã có nhà cung cấp',
+            no_need: '🚫 Không có nhu cầu',
+        };
 
         const src = await db.get('SELECT id, crm_type FROM telesale_sources WHERE id = ? AND is_active = true', [source_id]);
         if (!src) return reply.code(400).send({ error: 'Nguồn không hợp lệ' });
+
+        // Find matching answer_status_id
+        let answerStatusId = null;
+        const actionType = dispToActionType[call_disposition];
+        if (actionType === 'transfer') {
+            const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE action_type = 'transfer' ORDER BY display_order LIMIT 1");
+            answerStatusId = ans?.id || null;
+        } else if (actionType === 'cold_ncc') {
+            const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE action_type = 'cold_ncc' ORDER BY display_order LIMIT 1");
+            answerStatusId = ans?.id || null;
+        } else if (actionType === 'cold') {
+            const ans = await db.get("SELECT id FROM telesale_answer_statuses WHERE action_type = 'cold' ORDER BY display_order LIMIT 1");
+            answerStatusId = ans?.id || null;
+        }
 
         let normalizedPhone = '';
         let carrier = '';
@@ -1284,13 +1326,40 @@ async function telesaleRoutes(fastify) {
                             [source_id, customer_name.trim(), fb_link?.trim() || null, search_location_id,
                              req.user.id, carrier || null, todayT, existing.id]
                         );
-                        // Create assignment
+                        // Create assignment as 'answered' (self-search = already talked)
                         try {
                             await db.run(
-                                `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
-                                [existing.id, req.user.id, todayT]
+                                `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, answer_status_id, notes, called_at, created_at)
+                                 VALUES ($1, $2, $3, 'answered', $4, $5, NOW(), NOW())`,
+                                [existing.id, req.user.id, todayT, answerStatusId, notes || null]
                             );
                         } catch(e) { /* duplicate assignment, skip */ }
+
+                        // Handle cold status for negative dispositions
+                        if (isNegative) {
+                            if (call_disposition === 'has_ncc') {
+                                const noRepumpNcc = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_no_repump'");
+                                if (noRepumpNcc?.value === 'true') {
+                                    await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = NULL, updated_at = NOW() WHERE id = ?`, [existing.id]);
+                                } else {
+                                    const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+                                    const months = parseInt(nccMonths?.value || '3');
+                                    await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [existing.id]);
+                                }
+                            } else {
+                                const noRepump = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_no_repump'");
+                                if (noRepump?.value === 'true') {
+                                    await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = NULL, updated_at = NOW() WHERE id = ?`, [existing.id]);
+                                } else {
+                                    const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
+                                    const months = parseInt(coldMonths?.value || '4');
+                                    await db.run(`UPDATE telesale_data SET status = 'cold', cold_until = CURRENT_DATE + INTERVAL '${months} months', updated_at = NOW() WHERE id = ?`, [existing.id]);
+                                }
+                            }
+                        } else {
+                            await db.run("UPDATE telesale_data SET status = 'answered', updated_at = NOW() WHERE id = ?", [existing.id]);
+                        }
+
                         transferredFromSource = existing.source_name;
                         // Skip the INSERT below — we already updated the existing record
                     } else {
@@ -1327,44 +1396,91 @@ async function telesaleRoutes(fastify) {
         const now = new Date().toISOString();
 
         // Only INSERT new record if we didn't already transfer an existing one
+        let newDataId = null;
         if (!transferredFromSource) {
+            const dataStatus = isNegative ? 'cold' : 'answered';
             const result = await db.run(
                 `INSERT INTO telesale_data (source_id, customer_name, phone, fb_link, search_location_id, self_searched_by, self_searched_at, carrier, status, last_assigned_date, last_assigned_user_id, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'assigned', $9, $10, $7)`,
-                [source_id, customer_name.trim(), normalizedPhone || '', fb_link?.trim() || null, search_location_id, req.user.id, now, carrier || null, today, req.user.id]
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $7)`,
+                [source_id, customer_name.trim(), normalizedPhone || '', fb_link?.trim() || null, search_location_id, req.user.id, now, carrier || null, dataStatus, today, req.user.id]
             );
 
-            const dataId = result.lastInsertRowid || result.insertId;
-            if (dataId) {
+            newDataId = result.lastInsertRowid || result.insertId;
+            if (newDataId) {
+                // Create assignment as 'answered' with disposition
                 await db.run(
-                    `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
-                    [dataId, req.user.id, today]
+                    `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, answer_status_id, notes, called_at, created_at)
+                     VALUES ($1, $2, $3, 'answered', $4, $5, NOW(), NOW())`,
+                    [newDataId, req.user.id, today, answerStatusId, notes || null]
                 );
+
+                // Handle cold for negative dispositions
+                if (isNegative) {
+                    if (call_disposition === 'has_ncc') {
+                        const noRepumpNcc = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_no_repump'");
+                        if (noRepumpNcc?.value === 'true') {
+                            await db.run(`UPDATE telesale_data SET cold_until = NULL WHERE id = ?`, [newDataId]);
+                        } else {
+                            const nccMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_ncc_cold_months'");
+                            const months = parseInt(nccMonths?.value || '3');
+                            await db.run(`UPDATE telesale_data SET cold_until = CURRENT_DATE + INTERVAL '${months} months' WHERE id = ?`, [newDataId]);
+                        }
+                    } else {
+                        const noRepump = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_no_repump'");
+                        if (noRepump?.value === 'true') {
+                            await db.run(`UPDATE telesale_data SET cold_until = NULL WHERE id = ?`, [newDataId]);
+                        } else {
+                            const coldMonths = await db.get("SELECT value FROM app_config WHERE key = 'telesale_cold_months'");
+                            const months = parseInt(coldMonths?.value || '4');
+                            await db.run(`UPDATE telesale_data SET cold_until = CURRENT_DATE + INTERVAL '${months} months' WHERE id = ?`, [newDataId]);
+                        }
+                    }
+                }
             }
         }
 
-        // ★ ALSO create a customer record in `customers` table so it appears in CRM Tự Tìm Kiếm
-        const crmType = src.crm_type || 'tu_tim_kiem';
-        try {
-            // Get daily order number for this user
-            const maxNum = await db.get(
-                "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
-                [today, req.user.id]
-            );
-            const dailyNum = (maxNum?.mx || 0) + 1;
+        // ★ Only create customer record for POSITIVE dispositions
+        if (isPositive) {
+            const crmType = src.crm_type || 'tu_tim_kiem';
+            try {
+                // Calculate next working day for appointment
+                const { getNextWorkingDay } = require('../utils/workingDay');
+                const nextWorkDay = await getNextWorkingDay(vnNow, req.user.id);
 
-            // Get source name for job field
-            const srcName = src.name || (await db.get('SELECT name FROM telesale_sources WHERE id = ?', [source_id]))?.name || null;
+                // Get daily order number for this user
+                const maxNum = await db.get(
+                    "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
+                    [today, req.user.id]
+                );
+                const dailyNum = (maxNum?.mx || 0) + 1;
 
-            await db.run(
-                `INSERT INTO customers (crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName]
-            );
-            console.log(`[Self-Search] ✅ Created customer in CRM ${crmType} for "${customer_name.trim()}" by user ${req.user.id}`);
-        } catch (custErr) {
-            // Non-fatal: telesale_data already created, just log the error
-            console.error('[Self-Search] ⚠️ Failed to create customer record:', custErr.message);
+                // Get source name for job field
+                const srcName = src.name || (await db.get('SELECT name FROM telesale_sources WHERE id = ?', [source_id]))?.name || null;
+
+                // Create customer with appointment_date set to next working day
+                const custResult = await db.run(
+                    `INSERT INTO customers (crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                    [crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay]
+                );
+                const customerId = custResult.lastInsertRowid || custResult.insertId;
+
+                // ★ Create consultation_log so customer shows in "Đã xử lý hôm nay"
+                if (customerId) {
+                    const logContent = `${dispLabels[call_disposition]}${notes ? ' — ' + notes : ''}`;
+                    await db.run(
+                        `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'goi_dien', $2, $3)`,
+                        [customerId, logContent, req.user.id]
+                    );
+                }
+
+                console.log(`[Self-Search] ✅ Created customer in CRM ${crmType} for "${customer_name.trim()}" [${call_disposition}] appointment=${nextWorkDay}`);
+            } catch (custErr) {
+                // Non-fatal: telesale_data already created, just log the error
+                console.error('[Self-Search] ⚠️ Failed to create customer record:', custErr.message);
+            }
+        } else {
+            console.log(`[Self-Search] ⛔ Negative disposition [${call_disposition}] for "${customer_name.trim()}" — no CRM customer created`);
         }
 
         const countRes = await db.get(
@@ -1376,7 +1492,7 @@ async function telesaleRoutes(fastify) {
         _invalidateStatsCache();
         const msg = transferredFromSource
             ? `Đã chuyển SĐT từ nguồn "${transferredFromSource}" về Tự Tìm Kiếm cho "${customer_name.trim()}"`
-            : `Đã thêm KH "${customer_name.trim()}"`;
+            : `Đã thêm KH "${customer_name.trim()}" — ${dispLabels[call_disposition] || call_disposition}`;
         return { success: true, message: msg, today_count: todayCount, transferred: !!transferredFromSource };
     });
 

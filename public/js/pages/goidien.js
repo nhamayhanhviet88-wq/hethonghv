@@ -983,10 +983,23 @@ async function _gd_loadSelfSearchProgress(userId) {
     </div>`;
 }
 
+let _gd_ssSelectedDisposition = null; // Track selected call disposition
+
 function _gd_openSelfSearchModal() {
+    _gd_ssSelectedDisposition = null;
     const srcOptions = _gd_selfSearchSources.map(s => `<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
     const locOptions = _gd_selfSearchLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
     const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+
+    // 6 call dispositions for self-searched customers (already answered)
+    const dispositions = [
+        { key: 'transfer', icon: '🔥', label: 'Có nhu cầu — Chuyển số', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', positive: true },
+        { key: 'quote', icon: '📨', label: 'Yêu cầu gửi báo giá', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', positive: true },
+        { key: 'meet', icon: '🤝', label: 'Hẹn gặp trực tiếp', color: '#059669', bg: '#f0fdf4', border: '#bbf7d0', positive: true },
+        { key: 'considering', icon: '💬', label: 'Đang cân nhắc', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', positive: true },
+        { key: 'has_ncc', icon: '🏪', label: 'Đã có nhà cung cấp', color: '#854d0e', bg: '#fefce8', border: '#fde047', positive: false },
+        { key: 'no_need', icon: '🚫', label: 'Không có nhu cầu', color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', positive: false },
+    ];
 
     openModal('🔍 Thêm KH Tự Tìm Kiếm', `
         <div style="display:flex;flex-direction:column;gap:14px;">
@@ -1015,10 +1028,76 @@ function _gd_openSelfSearchModal() {
                     ${isMgr ? `<button onclick="_gd_openLocationManager()" style="margin-top:4px;padding:3px 8px;font-size:10px;border:1px solid #6366f1;border-radius:5px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;">⚙️ Quản lý</button>` : ''}
                 </div>
             </div>
+            <div>
+                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">📞 Tình trạng bắt máy <span style="color:#dc2626;">*</span></label>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="gdSSDispositions">
+                    ${dispositions.map(d => `
+                        <button type="button" id="gdSSDisp_${d.key}" onclick="_gd_ssSelectDisposition('${d.key}')"
+                            style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;
+                            border:1.5px solid ${d.border};background:${d.bg};color:${d.color};"
+                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"
+                        >${d.icon} ${d.label}</button>
+                    `).join('')}
+                </div>
+                <div id="gdSSDispHint" style="display:none;margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;"></div>
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📝 Ghi chú</label>
+                <textarea id="gdSSNotes" class="form-control" rows="2" placeholder="Ghi chú cuộc gọi..." style="font-size:13px;resize:vertical;"></textarea>
+            </div>
             <div id="gdSSContactError" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:600;">⚠️ Cần ít nhất Link FB hoặc SĐT</div>
         </div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
         <button class="ts-btn ts-btn-green" onclick="_gd_submitSelfSearch()">💾 Thêm KH</button>`);
+}
+
+function _gd_ssSelectDisposition(key) {
+    _gd_ssSelectedDisposition = key;
+    const dispositions = {
+        transfer: { icon: '🔥', label: 'Có nhu cầu — Chuyển số', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', positive: true },
+        quote: { icon: '📨', label: 'Yêu cầu gửi báo giá', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', positive: true },
+        meet: { icon: '🤝', label: 'Hẹn gặp trực tiếp', color: '#059669', bg: '#f0fdf4', border: '#bbf7d0', positive: true },
+        considering: { icon: '💬', label: 'Đang cân nhắc', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', positive: true },
+        has_ncc: { icon: '🏪', label: 'Đã có nhà cung cấp', color: '#854d0e', bg: '#fefce8', border: '#fde047', positive: false },
+        no_need: { icon: '🚫', label: 'Không có nhu cầu', color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', positive: false },
+    };
+    // Highlight selected button, dim others
+    Object.keys(dispositions).forEach(k => {
+        const btn = document.getElementById(`gdSSDisp_${k}`);
+        if (!btn) return;
+        const d = dispositions[k];
+        if (k === key) {
+            btn.style.background = d.color;
+            btn.style.color = 'white';
+            btn.style.borderColor = d.color;
+            btn.style.boxShadow = `0 2px 10px ${d.color}40`;
+            btn.style.transform = 'scale(1.05)';
+        } else {
+            btn.style.background = d.bg;
+            btn.style.color = d.color;
+            btn.style.borderColor = d.border;
+            btn.style.boxShadow = 'none';
+            btn.style.transform = 'scale(1)';
+            btn.style.opacity = '0.5';
+        }
+    });
+    // Show hint
+    const hint = document.getElementById('gdSSDispHint');
+    const sel = dispositions[key];
+    if (hint && sel) {
+        hint.style.display = 'block';
+        if (sel.positive) {
+            hint.style.background = '#f0fdf4';
+            hint.style.color = '#065f46';
+            hint.style.border = '1px solid #bbf7d0';
+            hint.innerHTML = `✅ KH sẽ được tạo vào <b>CRM Tự Tìm Kiếm</b> → hiển thị ở "Đã xử lý hôm nay"`;
+        } else {
+            hint.style.background = '#fef2f2';
+            hint.style.color = '#991b1b';
+            hint.style.border = '1px solid #fecaca';
+            hint.innerHTML = `⛔ KH chỉ hiện ở <b>Gọi Điện Telesale</b>, không tạo vào CRM Tự Tìm Kiếm`;
+        }
+    }
 }
 
 function _gd_ssValidateContact() {
@@ -1034,14 +1113,21 @@ async function _gd_submitSelfSearch() {
     const phone = document.getElementById('gdSSPhone')?.value?.trim();
     const source_id = document.getElementById('gdSSSource')?.value;
     const search_location_id = document.getElementById('gdSSLocation')?.value;
+    const notes = document.getElementById('gdSSNotes')?.value?.trim();
+    const call_disposition = _gd_ssSelectedDisposition;
 
     if (!customer_name) return showToast('Nhập tên KH!', 'error');
     if (!fb_link && !phone) return showToast('Cần ít nhất Link FB hoặc SĐT!', 'error');
     if (!source_id) return showToast('Chọn Nguồn!', 'error');
     if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
+    if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');
 
     try {
-        const res = await apiCall('/api/telesale/self-search', 'POST', { customer_name, fb_link: fb_link || null, phone: phone || null, source_id: Number(source_id), search_location_id: Number(search_location_id) });
+        const res = await apiCall('/api/telesale/self-search', 'POST', {
+            customer_name, fb_link: fb_link || null, phone: phone || null,
+            source_id: Number(source_id), search_location_id: Number(search_location_id),
+            call_disposition, notes: notes || null
+        });
         if (res.success) {
             showToast(`✅ ${res.message} (${res.today_count} KH hôm nay)`);
             closeModal();
