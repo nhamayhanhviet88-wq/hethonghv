@@ -120,17 +120,31 @@ async function taskScheduleRoutes(fastify, options) {
             const snapTemplateIds = new Set(validExisting.map(s => s.template_id).filter(Boolean));
             const currTemplateIds = new Set(dayTasks.map(t => t.id));
 
-            // Update existing snapshots that match current templates (refresh content)
+            // Update existing snapshots that match current templates (refresh ALL fields including time)
             for (const t of dayTasks) {
                 if (snapTemplateIds.has(t.id)) {
                     await db.run(
-                        `UPDATE daily_task_snapshots SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6, task_name=$7 WHERE user_id=$8 AND snapshot_date=$9 AND template_id=$10`,
-                        [t.input_requirements || '[]', t.output_requirements || '[]', t.guide_url, t.points, t.min_quantity, t.requires_approval || false, t.task_name, userId, dateStr, t.id]
+                        `UPDATE daily_task_snapshots SET input_requirements=$1, output_requirements=$2, guide_url=$3, points=$4, min_quantity=$5, requires_approval=$6, task_name=$7, time_start=$8, time_end=$9 WHERE user_id=$10 AND snapshot_date=$11 AND template_id=$12`,
+                        [t.input_requirements || '[]', t.output_requirements || '[]', t.guide_url, t.points, t.min_quantity, t.requires_approval || false, t.task_name, t.time_start, t.time_end, userId, dateStr, t.id]
                     );
                 }
             }
 
-            // ADDITIVE: only add new templates not yet in snapshots (never delete old ones)
+            // Delete snapshots for templates that no longer exist in today's tasks
+            // (only if no report has been filed for them — preserve history)
+            for (const snap of validExisting) {
+                if (!currTemplateIds.has(snap.template_id)) {
+                    const hasReport = await db.get(
+                        'SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3 LIMIT 1',
+                        [snap.template_id, userId, dateStr]
+                    );
+                    if (!hasReport) {
+                        await db.run('DELETE FROM daily_task_snapshots WHERE id = $1', [snap.id]);
+                    }
+                }
+            }
+
+            // Add new templates not yet in snapshots
             for (const t of dayTasks) {
                 if (!snapTemplateIds.has(t.id)) {
                     await db.run(
