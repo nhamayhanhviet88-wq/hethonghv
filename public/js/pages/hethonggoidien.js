@@ -692,7 +692,7 @@ async function _htgd_repumpSelected() {
     const cbs = document.querySelectorAll('.htgd-repump-cb:checked');
     const ids = Array.from(cbs).map(cb => parseInt(cb.dataset.id));
     if (ids.length === 0) return showToast('Chưa chọn data nào', 'error');
-    if (!confirm(`Bơm lại ${ids.length} SĐT về Tổng Data Sẵn Sàng?`)) return;
+    if (!confirm(`Chuyển ${ids.length} SĐT về Sẵn Sàng? (Xóa lịch sử gọi, data trở thành mới)`)) return;
     const res = await apiCall('/api/telesale/data/repump', 'POST', { data_ids: ids });
     if (res.success) {
         showToast(res.message);

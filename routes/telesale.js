@@ -1161,13 +1161,20 @@ async function telesaleRoutes(fastify) {
         }
         let repumped = 0;
         for (const dataId of data_ids) {
-            // Set data back to available — reset all call history so it's a fresh lead
-            const result = await db.run(
-                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1 AND status != 'available'",
+            // 1. Force status back to available (regardless of current status)
+            await db.run(
+                "UPDATE telesale_data SET status = 'available', cold_until = NULL, updated_at = NOW() WHERE id = $1",
                 [dataId]
             );
-            if (result?.changes > 0) repumped++;
+            // 2. Delete all assignment history so record becomes truly fresh
+            //    (won't show in "Đã Gọi", "Không Nghe", etc. filters)
+            const delResult = await db.run(
+                "DELETE FROM telesale_assignments WHERE data_id = $1",
+                [dataId]
+            );
+            repumped++;
         }
+        _invalidateStatsCache();
         return { success: true, message: `Đã chuyển ${repumped} SĐT về Sẵn Sàng để tự động bơm`, repumped };
     });
 
