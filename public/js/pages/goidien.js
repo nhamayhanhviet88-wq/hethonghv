@@ -189,6 +189,22 @@ function _gd_renderSidebar() {
 
         // Build tree: find the top-level parent for each user's dept
         const groups = {}; // parentDeptId → { name, children: { childDeptId → { name, users[] } } }
+
+        // Pre-seed KD hierarchy: always show all KD teams (even empty), ordered by display_order
+        const kdParent = deptMap[1]; // PHÒNG KINH DOANH
+        if (kdParent) {
+            groups[1] = { name: kdParent.name, children: {} };
+            // Add direct members slot
+            groups[1].children['_direct_1'] = { name: '', users: [], order: -1 };
+            // Pre-seed all child teams sorted by display_order
+            _gd_allDepts
+                .filter(d => d.parent_id === 1 && d.status !== 'inactive')
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0) || a.id - b.id)
+                .forEach(d => {
+                    groups[1].children[d.id] = { name: d.name, users: [], order: d.display_order || 0 };
+                });
+        }
+
         filtered.forEach(u => {
             const dept = deptMap[u.department_id];
             if (!dept) {
@@ -221,7 +237,7 @@ function _gd_renderSidebar() {
             Object.entries(pData.children).forEach(([cId, cData]) => {
                 if (cData.name) {
                     html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;">
-                        <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}</span>
+                        <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length === 0 ? ' <span style="color:#9ca3af;font-size:9px;">(trống)</span>' : ''}</span>
                     </div>`;
                 }
                 cData.users.forEach(u => {
