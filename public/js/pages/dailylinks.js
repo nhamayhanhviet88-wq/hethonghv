@@ -1,4 +1,5 @@
 // ========== DAILY LINKS — UNIFIED FRONTEND ==========
+let _dlCollapsedDepts = new Set();
 const _DL_MODULES = {
     '/addcmtdoitackh':    { type:'addcmt',       label:'Add/Cmt Đối Tác KH',    icon:'👥', grad:'linear-gradient(135deg,#16a34a,#15803d)', accent:'#16a34a' },
     '/dangvideo':         { type:'dang_video',    label:'Đăng Video Isocal',      icon:'🎬', grad:'linear-gradient(135deg,#dc2626,#b91c1c)', accent:'#dc2626' },
@@ -161,11 +162,11 @@ function _dlRenderSidebar(depts) {
     (depts||[]).forEach((d, di) => {
         const isDeptSel = _dl.selDept==d.id && !_dl.selUser;
         const hasSelMember = d.members.some(m => _dl.selUser == m.id);
-        const isOpen = isDeptSel || hasSelMember || isAll;
+        const isOpen = !_dlCollapsedDepts.has(d.id); // Always open unless manually collapsed
         const ts = TEAM_STYLES[di % TEAM_STYLES.length];
         h += `
         <div style="margin-bottom:10px;">
-            <div onclick="_dlSelDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
+            <div onclick="_dlToggleDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="_dlTeamIcon" style="background:${ts.iconBg};color:white;">${ts.icon}</div>
                     <span style="font-size:12px;font-weight:800;color:${isDeptSel ? '#1e293b' : '#475569'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
@@ -193,6 +194,7 @@ function _dlRenderSidebar(depts) {
 function _dlSelAll(){_dl.selUser=null;_dl.selDept=null;_dlLoadAll();}
 function _dlSelDept(id){_dl.selUser=null;_dl.selDept=id;_dlLoadAll();}
 function _dlSelUser(id){_dl.selUser=id;_dl.selDept=null;_dlLoadAll();}
+function _dlToggleDept(id){if(_dlCollapsedDepts.has(id)){_dlCollapsedDepts.delete(id);}else{_dlCollapsedDepts.add(id);}_dlSelDept(id);}
 
 function _dlRenderStats() {
     const s=_dl.stats, el=document.getElementById('dlStats'), m=_dl.mod;

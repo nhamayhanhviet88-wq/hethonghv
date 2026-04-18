@@ -1,4 +1,5 @@
 // ========== NHẮN TIN TÌM ĐỐI TÁC KH ==========
+let _poCollapsedDepts = new Set(); // Track which depts are manually collapsed
 let _po = { entries:[], categories:[], members:[], stats:{}, selectedUser:null, selectedDept:null, imageData:null };
 
 function _poInit() {
@@ -137,11 +138,11 @@ function _poRenderSidebar(depts) {
     (depts||[]).forEach((d, di) => {
         const isDeptSel = _po.selectedDept==d.id && !_po.selectedUser;
         const hasSelMember = d.members.some(m => _po.selectedUser == m.id);
-        const isOpen = isDeptSel || hasSelMember || isAll;
+        const isOpen = !_poCollapsedDepts.has(d.id); // Always open unless manually collapsed
         const ts = TEAM_STYLES[di % TEAM_STYLES.length];
         h += `
         <div style="margin-bottom:10px;">
-            <div onclick="_poSelectDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
+            <div onclick="_poToggleDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <div class="_dlTeamIcon" style="background:${ts.iconBg};color:white;">${ts.icon}</div>
                     <span style="font-size:12px;font-weight:800;color:${isDeptSel ? '#1e293b' : '#475569'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
@@ -169,6 +170,7 @@ function _poRenderSidebar(depts) {
 function _poSelectAll() { _po.selectedUser=null; _po.selectedDept=null; _poLoadData(); _poLoadAll(); }
 function _poSelectDept(id) { _po.selectedUser=null; _po.selectedDept=id; _poLoadData(); _poLoadAll(); }
 function _poSelectUser(id) { _po.selectedUser=id; _po.selectedDept=null; _poLoadData(); _poLoadAll(); }
+function _poToggleDept(id){if(_poCollapsedDepts.has(id)){_poCollapsedDepts.delete(id);}else{_poCollapsedDepts.add(id);}_poSelectDept(id);}
 
 function _poRenderStats() {
     const s = _po.stats;
