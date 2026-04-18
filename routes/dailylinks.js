@@ -50,11 +50,18 @@ module.exports = async function (fastify) {
 
     // GET entries
     fastify.get('/api/dailylinks/entries', { preHandler: [authenticate] }, async (req) => {
-        const { date, user_id, dept_id, module_type } = req.query;
+        const { date, date_from, date_to, user_id, dept_id, module_type } = req.query;
         if (!module_type || !_validateType(module_type)) return { entries: [] };
-        const targetDate = date || _vnToday();
         const role = req.user.role;
-        let where = 'e.entry_date = $1 AND e.module_type = $2', params = [targetDate, module_type], pi = 3;
+        let where, params, pi;
+        if (date_from && date_to) {
+            where = 'e.entry_date BETWEEN $1 AND $2 AND e.module_type = $3';
+            params = [date_from, date_to, module_type]; pi = 4;
+        } else {
+            const targetDate = date || _vnToday();
+            where = 'e.entry_date = $1 AND e.module_type = $2';
+            params = [targetDate, module_type]; pi = 3;
+        }
 
         if (user_id) { where += ` AND e.user_id = $${pi}`; params.push(Number(user_id)); pi++; }
         else if (role === 'nhan_vien' || role === 'part_time') { where += ` AND e.user_id = $${pi}`; params.push(req.user.id); pi++; }
@@ -68,7 +75,7 @@ module.exports = async function (fastify) {
         const rows = await db.all(
             `SELECT e.*, u.full_name as user_name, u.username, d.name as dept_name
              FROM daily_link_entries e LEFT JOIN users u ON e.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id
-             WHERE ${where} ORDER BY e.created_at DESC`, params
+             WHERE ${where} ORDER BY e.entry_date DESC, e.created_at DESC`, params
         );
         return { entries: rows };
     });

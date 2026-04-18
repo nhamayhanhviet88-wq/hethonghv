@@ -10,6 +10,37 @@ const _DL_MODULES = {
 };
 
 let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null };
+let _dlDatePreset = 'today';
+let _dlDateFrom = '';
+let _dlDateTo = '';
+let _dlSelectedYear = new Date().getFullYear();
+
+function _dlGetDateRange() {
+    const today = new Date(); today.setHours(today.getHours()+7);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayStr = fmt(today);
+    switch (_dlDatePreset) {
+        case 'today': return { from: todayStr, to: todayStr, label: 'hôm nay' };
+        case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); const ys=fmt(y); return { from: ys, to: ys, label: 'hôm qua' }; }
+        case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: todayStr, label: '7 ngày' }; }
+        case 'this_month': { const m = new Date(_dlSelectedYear, today.getMonth(), 1); return { from: fmt(m), to: todayStr, label: 'tháng này' }; }
+        case 'last_month': { const m1 = new Date(_dlSelectedYear, today.getMonth()-1, 1); const m2 = new Date(_dlSelectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2), label: 'tháng trước' }; }
+        case 'custom': return { from: _dlDateFrom, to: _dlDateTo, label: `${_dlDateFrom} → ${_dlDateTo}` };
+        case 'all': return { from: `${_dlSelectedYear}-01-01`, to: `${_dlSelectedYear}-12-31`, label: `năm ${_dlSelectedYear}` };
+        default: return { from: todayStr, to: todayStr, label: 'hôm nay' };
+    }
+}
+
+function _dlSwitchPreset(preset) {
+    _dlDatePreset = preset;
+    if (preset === 'custom') return;
+    _dlLoadData();
+}
+function _dlApplyCustomDate() {
+    _dlDateFrom = document.getElementById('dlDateFrom')?.value || '';
+    _dlDateTo = document.getElementById('dlDateTo')?.value || '';
+    if (_dlDateFrom && _dlDateTo) _dlLoadData();
+}
 
 function _dlInit() {
     const path = window.location.pathname;
@@ -23,8 +54,9 @@ function _dlInit() {
         <div id="dlSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
         <div style="flex:1;padding:20px 24px;overflow-y:auto;">
             <div id="dlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+            <div id="dlDateFilter"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="margin:0;font-size:18px;color:#122546;">📋 Danh sách link hôm nay</h2>
+                <h2 id="dlTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách link hôm nay</h2>
                 <button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${cfg.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Thêm Link</button>
             </div>
             <div id="dlTable"></div>
@@ -42,7 +74,8 @@ async function _dlLoadAll() {
 
 async function _dlLoadData() {
     const m = _dl.mod;
-    let url = '/api/dailylinks/entries?module_type=' + m.type + '&date=' + _dlToday();
+    const dr = _dlGetDateRange();
+    let url = `/api/dailylinks/entries?module_type=${m.type}&date_from=${dr.from}&date_to=${dr.to}`;
     if (_dl.selUser) url += '&user_id=' + _dl.selUser;
     else if (_dl.selDept) url += '&dept_id=' + _dl.selDept;
     const uid = _dl.selUser || currentUser.id;
@@ -53,10 +86,12 @@ async function _dlLoadData() {
     _dl.entries = eRes.entries || [];
     _dl.stats = sRes;
     _dlRenderStats();
+    _dlRenderDateFilter();
     _dlRenderTable();
 }
 
 function _dlToday() { const n=new Date(); n.setHours(n.getHours()+7); return n.toISOString().split('T')[0]; }
+function _dlFormatDate(ds) { if (!ds) return ''; const d = new Date(ds+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 
 function _dlRenderSidebar(depts) {
     const sb = document.getElementById('dlSidebar');
@@ -206,14 +241,56 @@ function _dlRenderStats() {
     ].map(c=>`<div style="flex:1;min-width:200px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:28px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;">${c.v}</div><div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
 }
 
+function _dlRenderDateFilter() {
+    const el = document.getElementById('dlDateFilter');
+    if (!el) return;
+    const dr = _dlGetDateRange();
+    const presets = [
+        { key:'today', label:'Hôm nay', icon:'📅' },
+        { key:'yesterday', label:'Hôm qua', icon:'⏪' },
+        { key:'7days', label:'7 ngày', icon:'📆' },
+        { key:'this_month', label:'Tháng này', icon:'🗓️' },
+        { key:'last_month', label:'Tháng trước', icon:'📋' },
+        { key:'all', label:'Tất cả', icon:'♾️' },
+    ];
+    const isSingle = dr.from === dr.to;
+    el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #e2e8f0;border-radius:12px;">
+        <span style="font-size:13px;font-weight:800;color:#334155;margin-right:4px;">📅</span>
+        ${presets.map(p => { const a = _dlDatePreset === p.key; return `<button onclick="_dlSwitchPreset('${p.key}')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid ${a?'#2563eb':'#e2e8f0'};background:${a?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${a?'white':'#64748b'};box-shadow:${a?'0 2px 8px rgba(37,99,235,0.3)':'none'};">${p.icon} ${p.label}</button>`; }).join('')}
+        <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
+        <button onclick="_dlDatePreset='custom';document.getElementById('dlCustomArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_dlDatePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_dlDatePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_dlDatePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
+        <select onchange="_dlSelectedYear=parseInt(this.value);_dlSwitchPreset('all')" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
+            ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _dlSelectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
+        </select>
+        <div id="dlCustomArea" style="display:${_dlDatePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
+            <input type="date" id="dlDateFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_dlDateFrom=this.value">
+            <span style="font-size:11px;color:#9ca3af;">→</span>
+            <input type="date" id="dlDateTo" value="${dr.to}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_dlDateTo=this.value">
+            <button onclick="_dlApplyCustomDate()" style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #059669;background:linear-gradient(135deg,#059669,#10b981);color:white;">✓</button>
+        </div>
+        ${dr.from ? `<span style="margin-left:auto;font-size:10px;color:#6b7280;font-weight:600;">📊 ${dr.from}${!isSingle?' → '+dr.to:''}</span>` : ''}
+    </div>`;
+
+    // Update table title
+    const titleEl = document.getElementById('dlTableTitle');
+    if (titleEl) {
+        const titleLabels = { today:'hôm nay', yesterday:'hôm qua', '7days':'7 ngày qua', this_month:'tháng này', last_month:'tháng trước', all:`năm ${_dlSelectedYear}`, custom:`${dr.from} → ${dr.to}` };
+        titleEl.textContent = `📋 Danh sách link ${titleLabels[_dlDatePreset] || 'hôm nay'}`;
+    }
+}
+
 function _dlRenderTable() {
     const el=document.getElementById('dlTable');
     if(!el) return;
     const rows=_dl.entries, today=_dlToday(), m=_dl.mod;
-    if(!rows.length){el.innerHTML='<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu hôm nay</div>';return;}
+    const dr = _dlGetDateRange();
+    const isMultiDay = dr.from !== dr.to;
+    if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
     const showUser=!_dl.selUser&&!['nhan_vien','part_time'].includes(currentUser.role);
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
+        ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
         <th style="padding:10px 8px;">LINK</th>
         ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
@@ -224,6 +301,7 @@ function _dlRenderTable() {
         const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
         h+=`<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
+            ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
             <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>
             ${showUser?`<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>`:''}
             <td style="padding:10px 8px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>
@@ -280,6 +358,6 @@ async function _dlDel(id) {
 (function(){
     const paths=Object.keys(_DL_MODULES);
     const orig=window.handleRoute;
-    if(orig){window.handleRoute=function(){orig.apply(this,arguments);if(paths.includes(window.location.pathname)){_dl.selUser=null;_dl.selDept=null;_dlInit();}};}
+    if(orig){window.handleRoute=function(){orig.apply(this,arguments);if(paths.includes(window.location.pathname)){_dl.selUser=null;_dl.selDept=null;_dlDatePreset='today';_dlInit();}};}
     if(paths.includes(window.location.pathname)) setTimeout(_dlInit,100);
 })();

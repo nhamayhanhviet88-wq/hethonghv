@@ -94,13 +94,18 @@ module.exports = async function (fastify) {
 
     // GET entries — with permission filtering
     fastify.get('/api/partner-outreach/entries', { preHandler: [authenticate] }, async (req) => {
-        const { date, user_id, dept_id } = req.query;
-        const targetDate = date || _vnToday();
+        const { date, date_from, date_to, user_id, dept_id } = req.query;
         const role = req.user.role;
 
-        let whereClause = 'e.entry_date = $1';
-        let params = [targetDate];
-        let paramIdx = 2;
+        let whereClause, params, paramIdx;
+        if (date_from && date_to) {
+            whereClause = 'e.entry_date BETWEEN $1 AND $2';
+            params = [date_from, date_to]; paramIdx = 3;
+        } else {
+            const targetDate = date || _vnToday();
+            whereClause = 'e.entry_date = $1';
+            params = [targetDate]; paramIdx = 2;
+        }
 
         if (user_id) {
             whereClause += ` AND e.user_id = $${paramIdx}`;
@@ -138,7 +143,7 @@ module.exports = async function (fastify) {
              LEFT JOIN users u ON e.user_id = u.id
              LEFT JOIN departments d ON u.department_id = d.id
              WHERE ${whereClause}
-             ORDER BY e.created_at DESC`,
+             ORDER BY e.entry_date DESC, e.created_at DESC`,
             params
         );
         return { entries: rows };
