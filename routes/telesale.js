@@ -957,7 +957,7 @@ async function telesaleRoutes(fastify) {
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
-            d.customer_name, d.phone, d.address, d.extra_data, d.fb_link,
+            d.customer_name, d.phone, d.address, d.extra_data, d.fb_link, d.self_searched_by,
             s.name as source_name, s.icon as source_icon, s.crm_type as source_crm_type,
             ans.name as answer_status_name, ans.icon as answer_status_icon, ans.action_type
             FROM telesale_assignments a
