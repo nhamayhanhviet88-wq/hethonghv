@@ -1599,13 +1599,8 @@ async function runTelesaleRecall() {
         recalled++;
     }
 
-    // 2. No answer + busy → return to pool
-    const recallAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
-        WHERE a.assigned_date <= $1 AND a.call_status IN ('no_answer', 'busy')`, [yesterday]);
-    for (const a of recallAssigns) {
-        await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ? AND status != 'available'", [a.data_id]);
-        recalled++;
-    }
+    // 2. No answer + busy → NO LONGER auto-recalled (GĐ uses "Chuyển Đổi Về Sẵn Sàng" manually)
+    // Kept for reference — previously these were returned to pool automatically
 
     // ★ 2.1. Tự Tìm Kiếm: KH do NV tự tìm → gán lại cho NV gốc (không trả về pool chung)
     let selfReassigned = 0;
