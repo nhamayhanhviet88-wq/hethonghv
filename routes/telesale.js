@@ -471,9 +471,10 @@ async function telesaleRoutes(fastify) {
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { source_id, company_name, group_name, post_link, post_content, customer_name, phone, address } = req.body;
         if (!source_id || !phone) return reply.code(400).send({ error: 'Nguồn và SĐT là bắt buộc' });
-        // Check duplicate phone in same source
-        const exists = await db.get('SELECT id FROM telesale_data WHERE phone = ? AND source_id = ?', [phone, source_id]);
-        if (exists) return reply.code(400).send({ error: 'SĐT đã tồn tại trong nguồn này' });
+        // Check duplicate phone GLOBALLY (across all sources/CRM)
+        const exists = await db.get(`SELECT d.id, s.name as source_name FROM telesale_data d 
+            LEFT JOIN telesale_sources s ON s.id = d.source_id WHERE d.phone = ?`, [phone]);
+        if (exists) return reply.code(400).send({ error: `SĐT đã tồn tại trong nguồn "${exists.source_name || 'Không rõ'}"` });
         await db.run('INSERT INTO telesale_data (source_id, company_name, group_name, post_link, post_content, customer_name, phone, address) VALUES (?,?,?,?,?,?,?,?)',
             [source_id, company_name || '', group_name || '', post_link || '', post_content || '', customer_name || '', phone, address || '']);
         return { success: true, message: 'Đã thêm data' };
@@ -487,14 +488,8 @@ async function telesaleRoutes(fastify) {
         if (!source_id || !rows || !Array.isArray(rows) || rows.length === 0)
             return reply.code(400).send({ error: 'Cần source_id và rows[]' });
 
-        // 1. Get crm_type for this source, then get ALL existing phones across same CRM
-        const srcInfo = await db.get('SELECT crm_type FROM telesale_sources WHERE id = ?', [source_id]);
-        const crmType = srcInfo?.crm_type || '';
-        const existingRows = crmType
-            ? await db.all(
-                `SELECT phone FROM telesale_data WHERE source_id IN 
-                 (SELECT id FROM telesale_sources WHERE crm_type = ?)`, [crmType])
-            : await db.all('SELECT phone FROM telesale_data WHERE source_id = ?', [source_id]);
+        // 1. Get ALL existing phones globally (cross-CRM dedup)
+        const existingRows = await db.all('SELECT phone FROM telesale_data WHERE phone IS NOT NULL AND phone != \'\'');
         const existingPhones = new Set(existingRows.map(r => r.phone));
 
         // 2. Normalize ALL phones first, then filter duplicates using processed phone
@@ -793,59 +788,46 @@ async function telesaleRoutes(fastify) {
         return { success: true, ...results, message: `CT: ${results.companyUpdated} | Địa chỉ: ${results.addressExtracted} | Nhà mạng: ${results.carrierUpdated} | SĐT sai: ${results.invalidMarked}` };
     });
 
-    // ========== DEDUP CRM: remove duplicate phones across sources within same CRM type ==========
+    // ========== DEDUP GLOBAL: remove duplicate phones across ALL sources/CRM ==========
     fastify.post('/api/telesale/data/dedup-crm', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const { crm_type } = req.body;
-        if (!crm_type) return reply.code(400).send({ error: 'Cần crm_type' });
 
-        // Get all source IDs for this CRM type
-        const sources = await db.all('SELECT id, name FROM telesale_sources WHERE crm_type = ?', [crm_type]);
-        if (sources.length === 0) return { success: true, deleted: 0, message: 'Không có nguồn nào' };
-        const sourceIds = sources.map(s => s.id);
+        // Find ALL duplicate phones globally
+        const dupes = await db.all(`SELECT phone, COUNT(*) as cnt FROM telesale_data 
+            WHERE phone IS NOT NULL AND phone != '' GROUP BY phone HAVING COUNT(*) > 1`);
+        if (dupes.length === 0) return { success: true, deleted: 0, message: 'Không có SĐT trùng' };
 
-        // Find all records in these sources, ordered by id ASC (oldest first)
-        const allRows = await db.all(
-            `SELECT id, phone, source_id FROM telesale_data 
-             WHERE source_id IN (${sourceIds.map((_, i) => '$' + (i + 1)).join(',')})
-             AND phone IS NOT NULL AND phone != ''
-             ORDER BY id ASC`,
-            sourceIds
-        );
-
-        // Track seen phones — keep first occurrence (oldest), collect duplicates to delete
-        const seenPhones = new Set();
         const deleteIds = [];
-        for (const row of allRows) {
-            if (seenPhones.has(row.phone)) {
-                deleteIds.push(row.id);
-            } else {
-                seenPhones.add(row.phone);
-            }
+        for (const dupe of dupes) {
+            const records = await db.all(`SELECT d.id,
+                (SELECT COUNT(*) FROM telesale_assignments a WHERE a.data_id = d.id) as assign_count,
+                (SELECT COUNT(*) FROM telesale_assignments a WHERE a.data_id = d.id AND a.call_status = 'answered') as answered_count,
+                (SELECT COUNT(*) FROM telesale_assignments a 
+                 JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id 
+                 WHERE a.data_id = d.id AND ans.action_type = 'transfer') as transfer_count
+                FROM telesale_data d WHERE d.phone = $1 ORDER BY d.id ASC`, [dupe.phone]);
+            // Priority: transfer > answered > assignment > oldest
+            records.sort((a, b) => {
+                if (b.transfer_count !== a.transfer_count) return b.transfer_count - a.transfer_count;
+                if (b.answered_count !== a.answered_count) return b.answered_count - a.answered_count;
+                if (b.assign_count !== a.assign_count) return b.assign_count - a.assign_count;
+                return a.id - b.id;
+            });
+            for (let i = 1; i < records.length; i++) deleteIds.push(records[i].id);
         }
 
-        // Batch delete duplicates in chunks of 500
+        // Batch delete
         const BATCH = 500;
         for (let i = 0; i < deleteIds.length; i += BATCH) {
             const chunk = deleteIds.slice(i, i + BATCH);
-            // Also delete assignments linked to these data ids
-            await db.run(
-                `DELETE FROM telesale_assignments WHERE data_id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`,
-                chunk
-            );
-            await db.run(
-                `DELETE FROM telesale_data WHERE id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`,
-                chunk
-            );
+            await db.run(`DELETE FROM telesale_assignments WHERE data_id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`, chunk);
+            await db.run(`DELETE FROM telesale_data WHERE id IN (${chunk.map((_, j) => '$' + (j + 1)).join(',')})`, chunk);
         }
 
         return { 
-            success: true, 
-            deleted: deleteIds.length, 
-            totalBefore: allRows.length,
-            totalAfter: allRows.length - deleteIds.length,
-            message: `Đã xóa ${deleteIds.length} SĐT trùng trong CRM (giữ bản ghi cũ nhất)` 
+            success: true, deleted: deleteIds.length, 
+            message: `Đã xóa ${deleteIds.length} SĐT trùng toàn hệ thống (giữ bản có lịch sử gọi)` 
         };
     });
     // ========== DELETE ALL DATA for a source ==========

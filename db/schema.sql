@@ -1109,7 +1109,9 @@ CREATE TABLE IF NOT EXISTS telesale_data (
 );
 CREATE INDEX IF NOT EXISTS idx_telesale_data_source ON telesale_data(source_id);
 CREATE INDEX IF NOT EXISTS idx_telesale_data_status ON telesale_data(status);
-CREATE INDEX IF NOT EXISTS idx_telesale_data_phone ON telesale_data(phone);
+-- Global unique phone: no duplicate SĐT across ANY source/CRM
+DROP INDEX IF EXISTS idx_telesale_data_phone;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_telesale_data_phone_unique ON telesale_data(phone);
 
 -- 4. Phân chia hàng ngày (NV nhận SĐT)
 CREATE TABLE IF NOT EXISTS telesale_assignments (
