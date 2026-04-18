@@ -327,7 +327,9 @@ async function _gd_loadCallsForUser(userId) {
     };
     const noAB = parseInt(_gd_stats.no_answer||0)+parseInt(_gd_stats.busy||0);
     const prevNoAB = parseInt(ps.no_answer||0)+parseInt(ps.busy||0);
-    const totalAssigned = parseInt(_gd_stats.pending||0);
+    // "Đã Phân Còn Lại" chỉ đếm pending hôm nay (ngày trước đã thu hồi)
+    const _todayStr = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+    const totalAssigned = _gd_calls.filter(c => c.call_status === 'pending' && (c.assigned_date||'').split('T')[0] === _todayStr).length;
     const prevAssigned = parseInt(ps.pending||0);
     const miniCards = [
         { icon:'📤', val:totalAssigned, label:'Đã Phân Còn Lại', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:prevAssigned, fk:'total' },
