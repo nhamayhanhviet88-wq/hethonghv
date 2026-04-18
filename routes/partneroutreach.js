@@ -349,13 +349,13 @@ module.exports = async function (fastify) {
             }
         }
 
-        // Build ordered array preserving display_order
+        // Build ordered array — always include all KD depts (even empty)
         const deptOrder = kdDepts.map(d => d.id);
         const deptMap = {};
+        kdDepts.forEach(d => { deptMap[d.id] = { id: d.id, name: d.name, members: [] }; });
         members.forEach(m => {
             const key = m.dept_id || 0;
-            if (!deptMap[key]) deptMap[key] = { id: key, name: m.dept_name || 'Chưa phân phòng', members: [] };
-            deptMap[key].members.push(m);
+            if (deptMap[key]) deptMap[key].members.push(m);
         });
         const ordered = deptOrder.filter(id => deptMap[id]).map(id => deptMap[id]);
 

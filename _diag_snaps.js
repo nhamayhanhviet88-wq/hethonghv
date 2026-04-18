@@ -1,17 +1,7 @@
 const db = require('./db/pool');
 (async () => {
-    // Check table columns
-    const cols = await db.all("SELECT column_name FROM information_schema.columns WHERE table_name = 'departments' ORDER BY ordinal_position");
-    console.log('Columns:', cols.map(c => c.column_name).join(', '));
-
-    // Get all departments under PHÒNG KINH DOANH
-    const all = await db.all("SELECT * FROM departments WHERE parent_id = 1 ORDER BY id");
-    console.log('\nTeams under PHÒNG KINH DOANH:');
-    all.forEach(d => console.log(`  id=${d.id} status=${d.status} name="${d.name}"`, JSON.stringify(d)));
-
-    // Search for SINH VIÊN
-    const svkd = await db.all("SELECT * FROM departments WHERE name ILIKE '%sinh vi%'");
-    console.log('\nSINH VIÊN search:', JSON.stringify(svkd));
-
+    await db.run('UPDATE departments SET display_order = 0 WHERE id = 1');
+    const r = await db.all("SELECT id, name, display_order FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id");
+    r.forEach(d => console.log(d.display_order, d.name));
     process.exit(0);
 })();
