@@ -112,6 +112,7 @@ async function start() {
     fastify.register(require('./routes/positionsRoles'));
     fastify.register(require('./routes/telesale'));
     fastify.register(require('./routes/consultRules'));
+    fastify.register(require('./routes/partneroutreach'));
 
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {

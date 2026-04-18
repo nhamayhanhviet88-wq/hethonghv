@@ -4,6 +4,7 @@ const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'T
 
 const RE_TELESALE = /gọi\s*điện\s*telesale/i;
 const RE_TU_TIM_KIEM = /tự\s*tìm\s*kiếm/i;
+const RE_NHAN_TIN_DOI_TAC = /nhắn\s*tin.*đối\s*tác/i;
 
 /**
  * Sync telesale_active_members based on task_point_templates.
