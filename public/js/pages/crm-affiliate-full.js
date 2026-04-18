@@ -106,6 +106,7 @@ let AFF_CONSULT_TYPES = {
     giam_gia: { label: 'Giảm Giá', icon: '🎁', color: '#e11d48' },
     tu_van_lai: { label: 'Tư Vấn Lại', icon: '🔄', color: '#0891b2' },
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
+    khong_xu_ly: { label: 'Không Xử Lý', icon: '⚠️', color: '#ef4444', textColor: 'white' },
 };
 
 // Merge dynamic types from consult_type_configs API into AFF_CONSULT_TYPES

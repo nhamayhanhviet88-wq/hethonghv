@@ -936,6 +936,69 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.log(`  ✅ Tổng: ${penaltyCount} lỗi vi phạm (chỉ ghi phạt, không khóa TK)`);
     }
 
+    // ========== 8b. AUTO-LOG "KHÔNG XỬ LÝ" VÀO LỊCH SỬ KH ==========
+    // Chạy lúc 23:45+ (cùng section 8) — ghi dòng lịch sử ⚠️ cho KH có appointment = hôm nay nhưng không được tư vấn
+    try {
+        const _alHour = now.getHours();
+        const _alMinute = now.getMinutes();
+        if (_alHour === 23 && _alMinute >= 45) {
+            const alToday = toDateStr(now);
+            const alTodayOff = await isDayOff(alToday);
+
+            if (!alTodayOff) {
+                // Lấy tất cả KH có appointment_date = hôm nay, chưa được tư vấn hôm nay
+                const unhandledCustomers = await db.all(
+                    `SELECT c.id, c.customer_name, c.phone, c.assigned_to_id, c.appointment_date
+                     FROM customers c
+                     WHERE c.appointment_date = $1
+                     AND c.assigned_to_id IS NOT NULL
+                     AND c.cancel_approved != 1
+                     AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
+                     AND NOT EXISTS (
+                         SELECT 1 FROM consultation_logs cl
+                         WHERE cl.customer_id = c.id
+                         AND cl.logged_by = c.assigned_to_id
+                         AND cl.created_at::date = $1::date
+                     )`,
+                    [alToday]
+                );
+
+                let autoLogCount = 0;
+                for (const uc of unhandledCustomers) {
+                    // Skip nếu NV nghỉ phép
+                    const onLeave = await isUserOnLeave(uc.assigned_to_id, alToday);
+                    if (onLeave) continue;
+
+                    // Kiểm tra đã ghi log "khong_xu_ly" cho ngày này chưa (tránh duplicate)
+                    const alreadyLogged = await db.get(
+                        `SELECT id FROM consultation_logs
+                         WHERE customer_id = $1 AND log_type = 'khong_xu_ly'
+                         AND created_at::date = $2::date`,
+                        [uc.id, alToday]
+                    );
+                    if (alreadyLogged) continue;
+
+                    // Format ngày DD/MM/YYYY
+                    const parts = alToday.split('-');
+                    const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+                    await db.run(
+                        `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+                         VALUES ($1, 'khong_xu_ly', $2, $3)`,
+                        [uc.id, `⚠️ Không xử lý tư vấn khách ngày ${formattedDate}`, uc.assigned_to_id]
+                    );
+                    autoLogCount++;
+                }
+
+                if (autoLogCount > 0) {
+                    console.log(`  📝 [Auto-Log] Ghi ${autoLogCount} dòng lịch sử "Không xử lý" cho KH chưa được tư vấn hôm nay`);
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ Error auto-logging unhandled customers:', e.message);
+    }
+
     // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 01:00) ==========
     try {
         const tsHour = now.getHours();
