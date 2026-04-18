@@ -1248,18 +1248,68 @@ async function telesaleRoutes(fastify) {
 
         let normalizedPhone = '';
         let carrier = '';
+        let transferredFromSource = null; // Track if we transferred an existing record
         if (phone && phone.trim()) {
             const processed = _processPhone(phone.trim());
             normalizedPhone = processed.phone;
             carrier = processed.carrier;
             if (normalizedPhone && !processed.isInvalid) {
                 // Check duplicate phone GLOBALLY (across ALL sources/CRM)
-                const dup = await db.get(
-                    `SELECT d.id, s.name as source_name FROM telesale_data d 
-                     LEFT JOIN telesale_sources s ON s.id = d.source_id WHERE d.phone = $1`,
+                const existing = await db.get(
+                    `SELECT d.id, d.status, d.source_id, s.name as source_name,
+                        la.call_status as last_call_status, la.answer_action_type, la.answer_status_name
+                    FROM telesale_data d
+                    LEFT JOIN telesale_sources s ON s.id = d.source_id
+                    LEFT JOIN LATERAL (
+                        SELECT a.call_status, ans.action_type as answer_action_type, ans.name as answer_status_name
+                        FROM telesale_assignments a
+                        LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
+                        WHERE a.data_id = d.id ORDER BY a.assigned_date DESC, a.id DESC LIMIT 1
+                    ) la ON true
+                    WHERE d.phone = $1`,
                     [normalizedPhone]
                 );
-                if (dup) return reply.code(400).send({ error: `SĐT ${normalizedPhone} đã tồn tại trong nguồn "${dup.source_name || 'Không rõ'}"` });
+                if (existing) {
+                    // ★ If status = 'available' AND no call history → transfer to NV's source
+                    const hasCallHistory = existing.last_call_status && existing.last_call_status !== 'pending';
+                    if (existing.status === 'available' && !hasCallHistory) {
+                        // Transfer: update source + assign to NV
+                        const vnNowT = new Date(Date.now() + 7 * 3600000);
+                        const todayT = vnNowT.toISOString().split('T')[0];
+                        await db.run(
+                            `UPDATE telesale_data SET source_id = $1, customer_name = $2, fb_link = $3,
+                             search_location_id = $4, self_searched_by = $5, self_searched_at = NOW(),
+                             carrier = $6, status = 'assigned', last_assigned_date = $7, last_assigned_user_id = $5,
+                             updated_at = NOW() WHERE id = $8`,
+                            [source_id, customer_name.trim(), fb_link?.trim() || null, search_location_id,
+                             req.user.id, carrier || null, todayT, existing.id]
+                        );
+                        // Create assignment
+                        try {
+                            await db.run(
+                                `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
+                                [existing.id, req.user.id, todayT]
+                            );
+                        } catch(e) { /* duplicate assignment, skip */ }
+                        transferredFromSource = existing.source_name;
+                        // Skip the INSERT below — we already updated the existing record
+                    } else {
+                        // ★ Has call history or non-available status → BLOCK with detailed info
+                        let statusLabel = '';
+                        if (existing.status === 'assigned') statusLabel = 'Đã Phân Cho NV';
+                        else if (existing.status === 'invalid') statusLabel = 'Hủy K. Tồn Tại';
+                        else if (existing.status === 'cold') statusLabel = 'Kho Lạnh';
+                        else if (existing.answer_action_type === 'transfer') statusLabel = 'Chuyển Số';
+                        else if (existing.answer_action_type === 'cold') statusLabel = 'Không Có Nhu Cầu';
+                        else if (existing.answer_action_type === 'cold_ncc') statusLabel = 'Đã Có NCC';
+                        else if (existing.last_call_status === 'no_answer' || existing.last_call_status === 'busy') statusLabel = 'Không Nghe/Bận';
+                        else if (existing.last_call_status === 'answered') statusLabel = existing.answer_status_name || 'Đã Gọi Bắt Máy';
+                        else statusLabel = 'Đang xử lý';
+                        return reply.code(400).send({ 
+                            error: `SĐT ${normalizedPhone} đã tồn tại trong nguồn "${existing.source_name || 'Không rõ'}" — Tình trạng: ${statusLabel}` 
+                        });
+                    }
+                }
             }
         }
 
@@ -1276,18 +1326,21 @@ async function telesaleRoutes(fastify) {
         const today = vnNow.toISOString().split('T')[0];
         const now = new Date().toISOString();
 
-        const result = await db.run(
-            `INSERT INTO telesale_data (source_id, customer_name, phone, fb_link, search_location_id, self_searched_by, self_searched_at, carrier, status, last_assigned_date, last_assigned_user_id, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'assigned', $9, $10, $7)`,
-            [source_id, customer_name.trim(), normalizedPhone || '', fb_link?.trim() || null, search_location_id, req.user.id, now, carrier || null, today, req.user.id]
-        );
-
-        const dataId = result.lastInsertRowid || result.insertId;
-        if (dataId) {
-            await db.run(
-                `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
-                [dataId, req.user.id, today]
+        // Only INSERT new record if we didn't already transfer an existing one
+        if (!transferredFromSource) {
+            const result = await db.run(
+                `INSERT INTO telesale_data (source_id, customer_name, phone, fb_link, search_location_id, self_searched_by, self_searched_at, carrier, status, last_assigned_date, last_assigned_user_id, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'assigned', $9, $10, $7)`,
+                [source_id, customer_name.trim(), normalizedPhone || '', fb_link?.trim() || null, search_location_id, req.user.id, now, carrier || null, today, req.user.id]
             );
+
+            const dataId = result.lastInsertRowid || result.insertId;
+            if (dataId) {
+                await db.run(
+                    `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, created_at) VALUES ($1, $2, $3, 'pending', NOW())`,
+                    [dataId, req.user.id, today]
+                );
+            }
         }
 
         // ★ ALSO create a customer record in `customers` table so it appears in CRM Tự Tìm Kiếm
@@ -1321,7 +1374,10 @@ async function telesaleRoutes(fastify) {
         const todayCount = parseInt(countRes?.cnt || 0);
 
         _invalidateStatsCache();
-        return { success: true, message: `Đã thêm KH "${customer_name.trim()}"`, today_count: todayCount };
+        const msg = transferredFromSource
+            ? `Đã chuyển SĐT từ nguồn "${transferredFromSource}" về Tự Tìm Kiếm cho "${customer_name.trim()}"`
+            : `Đã thêm KH "${customer_name.trim()}"`;
+        return { success: true, message: msg, today_count: todayCount, transferred: !!transferredFromSource };
     });
 
     // ========== SELF-SEARCH STATS ==========
