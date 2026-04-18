@@ -529,7 +529,7 @@ var _sidebarSectionKeys = [];
 var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
-    { name: 'BỘ PHẬN KINH DOANH', sections: ['KINH DOANH TELESALE', 'KINH DOANH CHĂM SÓC', 'KINH DOANH CRM NUÔI DƯỠNG', 'QUẢN LÝ AFFILIATE'] },
+    { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'KINH DOANH CRM NUÔI DƯỠNG', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
 ];
 
