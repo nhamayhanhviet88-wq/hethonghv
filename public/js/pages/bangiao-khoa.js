@@ -311,7 +311,7 @@ async function _lkLoadDeptTasks(deptId) {
         } else {
             // Check if this dept has sub-teams
             const hasSubTeams = (_lkIsParentDept || _lkIsSystemDept) && (_lkTreeData?.departments || []).some(d => d.parent_id === deptId);
-            const showEdit = _lkIsSystemDept ? isDirector : _lkIsParentDept;
+            const showEdit = _lkIsSystemDept ? isDirector : isManager;
             if (tasks.length > 0) html += `<div style="padding:0 16px;">${_lkRenderTaskTable(tasks, true, showEdit, hasSubTeams)}</div>`;
 
             // Chain task instances
