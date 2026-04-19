@@ -173,6 +173,16 @@ module.exports = async function (fastify) {
     });
 
     // LIVE COUNT — for Lịch Khóa Biểu integration (mirrors partner-outreach/live-count)
+    const TASK_PATTERNS = {
+        addcmt: '%add%cmt%',
+        dang_video: '%đăng%video%',
+        dang_content: '%đăng%content%',
+        dang_group: '%đăng%tìm%kh%group%',
+        sedding: '%sedding%',
+        tuyen_dung: '%tuyển%dụng%',
+        tim_gr_zalo: '%tìm%gr%zalo%'
+    };
+
     fastify.get('/api/dailylinks/live-count/:userId', { preHandler: [authenticate] }, async (req) => {
         const uid = Number(req.params.userId);
         const date = req.query.date || _vnToday();
@@ -185,7 +195,7 @@ module.exports = async function (fastify) {
             [uid, date, moduleType]
         );
 
-        // Find target: individual → team → global template → library
+        // Find target: individual → team → global template → library → lock_tasks
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
         let tpl = null;
         if (pattern) {
@@ -193,6 +203,11 @@ module.exports = async function (fastify) {
             if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
             if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
             if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_library WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+            // Fallback: lock_tasks (CV Khóa) — for tasks like Sedding that live there
+            if (!tpl) {
+                const lockRow = await db.get(`SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1`, [pattern]);
+                if (lockRow) tpl = { min_quantity: lockRow.min_quantity, points: 10 };
+            }
         }
 
         return {
