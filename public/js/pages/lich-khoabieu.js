@@ -825,6 +825,7 @@ async function _kbLoadSchedule() {
     _kbInjectTuyenDungStats();
     _kbInjectSeddingStats();
     _kbInjectZaloStats();
+    _kbInjectDangBTStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1412,6 +1413,7 @@ function _kbRenderGrid() {
                         ${actionHtml}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -1774,6 +1776,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Tìm Gr Zalo task
     if (/tìm.*gr.*zalo/i.test(task.task_name)) {
         _kbLoadDetailZalo();
+    }
+    // If this is a Đăng Bản Thân task
+    if (/đăng.*bản.*thân/i.test(task.task_name)) {
+        _kbLoadDetailDangBT();
     }
 }
 
@@ -3177,6 +3183,10 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         if (/tìm.*gr.*zalo/i.test(t.task_name)) {
             _kbLoadLockDetailZalo();
         }
+        // Load Đăng Bản Thân progress if applicable
+        if (/đăng.*bản.*thân/i.test(t.task_name)) {
+            _kbLoadLockDetailDangBT();
+        }
     } catch(e) {
         showToast('Lỗi: ' + (e.message || ''), 'error');
     }
@@ -4234,6 +4244,101 @@ async function _kbLoadLockDetailZalo() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/timgrzalovathongke';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(2,132,199,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(2,132,199,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(2,132,199,0.3)'">
                     🔍 Mở Tìm Gr Zalo Và Join →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== ĐĂNG BẢN THÂN & SẢN PHẨM PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectDangBTStats() {
+    const placeholders = document.querySelectorAll('[data-bt-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-bt-date');
+        if (datesCalled[dateStr]) { _kbRenderDangBTMini(el, datesCalled[dateStr]); continue; }
+        try {
+            const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${dateStr}&module_type=dang_banthan_sp`);
+            datesCalled[dateStr] = res;
+            _kbRenderDangBTMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderDangBTMini(el, res) {
+    const count = res.count || 0, target = res.target || 10;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailDangBT() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=dang_banthan_sp`);
+        const count = res.count || 0, target = res.target || 10, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fdf4ff,#fae8ff);border:1.5px solid #e879f9;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#a21caf;">📸 Tiến trình Đăng Bản Thân hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#f0abfc;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#d946ef,#c026d3,#a21caf);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangbanthansp';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#d946ef,#a21caf);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(217,70,239,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(217,70,239,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(217,70,239,0.3)'">
+                    📸 Mở Đăng Bản Thân & Sản Phẩm →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== ĐĂNG BẢN THÂN PROGRESS IN CV KHÓA DETAIL MODAL ==========
+async function _kbLoadLockDetailDangBT() {
+    const el = document.getElementById('kbLockDetailProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=dang_banthan_sp`);
+        const count = res.count || 0, target = res.target || 10, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fdf4ff,#fae8ff);border:1.5px solid #e879f9;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#a21caf;">📸 Tiến trình Đăng Bản Thân hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#f0abfc;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#d946ef,#c026d3,#a21caf);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/dangbanthansp';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#d946ef,#a21caf);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(217,70,239,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(217,70,239,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(217,70,239,0.3)'">
+                    📸 Mở Đăng Bản Thân & Sản Phẩm →
                 </a>
             </div>
         </div>`;
