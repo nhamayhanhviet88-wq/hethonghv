@@ -272,6 +272,68 @@ module.exports = async function (fastify) {
         };
     });
 
+    // ===== SCHEDULE INTEGRATION (Liên kết Lịch Khóa Biểu) =====
+    fastify.get('/api/partner-outreach/schedule-info', { preHandler: [authenticate] }, async (req) => {
+        const uid = req.query.user_id ? Number(req.query.user_id) : req.user.id;
+        const today = _vnToday();
+        const d = new Date(today + 'T00:00:00');
+        const jsDow = d.getDay();
+        const dayOfWeek = jsDow === 0 ? 7 : jsDow; // 1=Mon..7=Sun
+
+        // Find matching template for this user (individual first, then team)
+        const user = await db.get('SELECT id, department_id FROM users WHERE id = $1', [uid]);
+        if (!user) return { found: false };
+
+        // Search by name pattern: "Nhắn" + "Đối Tác" (case-insensitive)
+        let template = await db.get(
+            `SELECT * FROM task_point_templates
+             WHERE target_type = 'individual' AND target_id = $1
+               AND task_name ILIKE '%Nhắn%Đối Tác%' AND day_of_week = $2
+             LIMIT 1`,
+            [uid, dayOfWeek]
+        );
+        if (!template && user.department_id) {
+            template = await db.get(
+                `SELECT * FROM task_point_templates
+                 WHERE target_type = 'team' AND target_id = $1
+                   AND task_name ILIKE '%Nhắn%Đối Tác%' AND day_of_week = $2
+                 LIMIT 1`,
+                [user.department_id, dayOfWeek]
+            );
+        }
+
+        if (!template) return { found: false };
+
+        // Count today's entries for this user
+        const entryCount = await db.get(
+            'SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2',
+            [uid, today]
+        );
+
+        // Check if report already submitted today
+        const existingReport = await db.get(
+            `SELECT id, status, quantity, redo_count FROM task_point_reports
+             WHERE template_id = $1 AND user_id = $2 AND report_date = $3
+             ORDER BY redo_count DESC LIMIT 1`,
+            [template.id, uid, today]
+        );
+
+        return {
+            found: true,
+            template_id: template.id,
+            task_name: template.task_name,
+            min_quantity: template.min_quantity || 1,
+            points: template.points || 0,
+            requires_approval: template.requires_approval || false,
+            today_count: Number(entryCount.c),
+            report: existingReport ? {
+                id: existingReport.id,
+                status: existingReport.status,
+                quantity: existingReport.quantity
+            } : null
+        };
+    });
+
     // ===== TRANSFER TO CRM TTK =====
     fastify.post('/api/partner-outreach/entries/:id/transfer', { preHandler: [authenticate] }, async (req, reply) => {
         const entry = await db.get('SELECT * FROM partner_outreach_entries WHERE id = $1', [Number(req.params.id)]);

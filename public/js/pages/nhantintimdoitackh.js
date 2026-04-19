@@ -1,6 +1,6 @@
 // ========== NHẮN TIN TÌM ĐỐI TÁC KH ==========
 let _poCollapsedDepts = new Set(); // Track which depts are manually collapsed
-let _po = { entries:[], categories:[], members:[], stats:{}, selectedUser:null, selectedDept:null, imageData:null };
+let _po = { entries:[], categories:[], members:[], stats:{}, selectedUser:null, selectedDept:null, imageData:null, scheduleInfo:null };
 let _poDatePreset = 'today';
 let _poDateFrom = '';
 let _poDateTo = '';
@@ -59,6 +59,13 @@ async function _poLoadAll() {
     await _poLoadData();
 }
 
+async function _poLoadScheduleInfo() {
+    try {
+        const uid = _po.selectedUser || currentUser.id;
+        _po.scheduleInfo = await apiCall('/api/partner-outreach/schedule-info?user_id=' + uid);
+    } catch(e) { _po.scheduleInfo = null; }
+}
+
 async function _poLoadData() {
     const dr = _poGetDateRange();
     let url = `/api/partner-outreach/entries?date_from=${dr.from}&date_to=${dr.to}`;
@@ -71,6 +78,7 @@ async function _poLoadData() {
     ]);
     _po.entries = entRes.entries || [];
     _po.stats = stRes;
+    await _poLoadScheduleInfo();
     _poRenderStats();
     _poRenderDateFilter();
     _poRenderTable();
@@ -202,8 +210,31 @@ function _poRenderStats() {
     const s = _po.stats;
     const el = document.getElementById('poStats');
     if (!el) return;
+    const si = _po.scheduleInfo;
+    const target = si?.found ? si.min_quantity : (s.target || 20);
+    const todayDone = si?.found ? si.today_count : (s.today || 0);
+    const pct = target > 0 ? Math.min(100, Math.round(todayDone / target * 100)) : 0;
+    const isComplete = todayDone >= target;
+    const isSelf = !_po.selectedUser || _po.selectedUser === currentUser.id;
+
+    // Report status
+    let reportBadge = '';
+    let reportBtn = '';
+    if (si?.found && isSelf) {
+        if (si.report) {
+            if (si.report.status === 'approved') reportBadge = '<div style="margin-top:8px;"><span style="background:#dcfce7;color:#059669;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã duyệt</span></div>';
+            else if (si.report.status === 'pending') reportBadge = '<div style="margin-top:8px;"><span style="background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">⏳ Chờ duyệt</span></div>';
+            else if (si.report.status === 'rejected') {
+                reportBadge = '<div style="margin-top:8px;"><span style="background:#fecaca;color:#dc2626;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">❌ Bị từ chối</span></div>';
+                reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(220,38,38,0.4);transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">🔄 Nộp lại</button>`;
+            }
+        } else if (todayDone > 0) {
+            reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(22,163,74,0.4);transition:all .2s;animation:_poPulse 2s infinite;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">📤 Báo Cáo (${todayDone} đối tác)</button>`;
+        }
+    }
+
     const cards = [
-        { label:'Hôm Nay', val:`${s.today||0}/${s.target||20}`, bg:'linear-gradient(135deg,#3b82f6,#2563eb)', icon:'📊' },
+        { label:'Hôm Nay', val:`${todayDone}/${target}`, bg:'linear-gradient(135deg,#3b82f6,#2563eb)', icon:'📊' },
         { label:'Tuần Này', val:s.week||0, bg:'linear-gradient(135deg,#f59e0b,#d97706)', icon:'📅' },
         { label:'Tháng Này', val:s.month||0, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', icon:'📆' },
         { label:'Đã Chuyển CRM', val:s.transferred||0, bg:'linear-gradient(135deg,#10b981,#059669)', icon:'🔄' },
@@ -213,7 +244,87 @@ function _poRenderStats() {
             <div style="font-size:28px;margin-bottom:4px;">${c.icon}</div>
             <div style="font-size:28px;font-weight:900;">${c.val}</div>
             <div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">${c.label}</div>
-        </div>`).join('');
+        </div>`).join('')
+    + (si?.found ? `
+        <div style="width:100%;margin-top:4px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:13px;font-weight:700;color:#334155;">📋 Tiến độ Lịch Khóa Biểu</span>
+                    <span style="font-size:11px;font-weight:600;color:${isComplete ? '#059669' : '#dc2626'};">${todayDone}/${target} ${isComplete ? '✅' : ''}</span>
+                    ${si.points ? `<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;">${si.points}đ</span>` : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    ${reportBadge}
+                    ${reportBtn}
+                </div>
+            </div>
+            <div style="background:#e5e7eb;border-radius:8px;height:8px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,${isComplete ? '#059669,#10b981' : '#3b82f6,#60a5fa'});height:100%;width:${pct}%;border-radius:8px;transition:width 0.5s ease;"></div>
+            </div>
+        </div>` : '');
+
+    // Inject pulse animation
+    if (!document.getElementById('_poPulseCSS')) {
+        const st = document.createElement('style'); st.id = '_poPulseCSS';
+        st.textContent = '@keyframes _poPulse { 0%,100%{box-shadow:0 3px 12px rgba(22,163,74,0.4)} 50%{box-shadow:0 3px 20px rgba(22,163,74,0.7)} }';
+        document.head.appendChild(st);
+    }
+}
+
+async function _poSubmitReport() {
+    const si = _po.scheduleInfo;
+    if (!si?.found) { showToast('Không tìm thấy công việc trong Lịch Khóa Biểu!', 'error'); return; }
+
+    const todayCount = si.today_count;
+    if (todayCount === 0) { showToast('Chưa có đối tác nào hôm nay!', 'error'); return; }
+
+    const today = _poToday();
+    const isRedo = si.report && si.report.status === 'rejected';
+
+    try {
+        if (isRedo) {
+            // Redo: PUT /api/schedule/report/:id/redo
+            const formData = new FormData();
+            formData.append('quantity', todayCount);
+            formData.append('content', `Nhắn Tìm Đối Tác: ${todayCount} đối tác`);
+            formData.append('report_value', window.location.origin + '/nhantintimdoitackh');
+            const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+            const resp = await fetch(`/api/schedule/report/${si.report.id}/redo`, {
+                method: 'PUT',
+                body: formData,
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showToast('🔄 Đã nộp lại! ⏳ Chờ duyệt');
+                await _poLoadData();
+            } else {
+                showToast('Lỗi: ' + (result.error || 'Không thể nộp lại'), 'error');
+            }
+        } else {
+            // New report: POST /api/schedule/report
+            const formData = new FormData();
+            formData.append('template_id', si.template_id);
+            formData.append('report_date', today);
+            formData.append('quantity', todayCount);
+            formData.append('content', `Nhắn Tìm Đối Tác: ${todayCount} đối tác`);
+            formData.append('report_value', window.location.origin + '/nhantintimdoitackh');
+            const token = document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1];
+            const resp = await fetch('/api/schedule/report', {
+                method: 'POST',
+                body: formData,
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const data = await resp.json();
+            if (data.success) {
+                const msg = data.status === 'pending' ? '⏳ Chờ duyệt' : `+${data.points_earned}đ`;
+                showToast(`✅ Đã nộp báo cáo! ${msg}`);
+                await _poLoadData();
+            } else {
+                showToast('Lỗi: ' + (data.error || 'Không thể nộp'), 'error');
+            }
+        }
+    } catch(e) { showToast('Lỗi gửi báo cáo: ' + (e.message || ''), 'error'); }
 }
 
 function _poRenderDateFilter() {
