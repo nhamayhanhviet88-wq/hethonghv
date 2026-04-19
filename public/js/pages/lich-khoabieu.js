@@ -1404,6 +1404,7 @@ function _kbRenderGrid() {
 
                         <div style="margin-top:6px;">${lockStatusBadge}</div>
                         ${actionHtml}
+                        ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
