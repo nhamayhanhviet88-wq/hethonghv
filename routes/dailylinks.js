@@ -33,7 +33,7 @@ module.exports = async function (fastify) {
     } catch(e) { /* ignore */ }
 
     // Valid module types
-    const VALID_TYPES = ['addcmt', 'dang_video', 'dang_content', 'dang_group', 'sedding', 'tuyen_dung', 'tim_gr_zalo'];
+    const VALID_TYPES = ['addcmt', 'dang_video', 'dang_content', 'dang_group', 'sedding', 'tuyen_dung', 'tim_gr_zalo', 'dang_banthan_sp'];
     // Task name patterns for target lookup
     const TASK_PATTERNS = {
         addcmt: '%Add%Cmt%Đối Tác%',
@@ -42,7 +42,8 @@ module.exports = async function (fastify) {
         dang_group: '%Đăng%Tìm%KH%Group%',
         sedding: '%Sedding%Cộng Đồng%',
         tuyen_dung: '%Tuyển%Dụng%SV%',
-        tim_gr_zalo: '%Tìm%Gr%Zalo%'
+        tim_gr_zalo: '%Tìm%Gr%Zalo%',
+        dang_banthan_sp: '%Đăng%Bản Thân%Sản Phẩm%'
     };
 
     function _vnToday() { const n = new Date(Date.now() + 7 * 3600000); return n.toISOString().split('T')[0]; }
