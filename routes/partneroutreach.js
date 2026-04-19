@@ -334,6 +334,23 @@ module.exports = async function (fastify) {
         };
     });
 
+    // ===== LIVE COUNT for Lịch Khóa Biểu integration =====
+    fastify.get('/api/partner-outreach/live-count/:userId', { preHandler: [authenticate] }, async (req) => {
+        const uid = Number(req.params.userId);
+        const date = req.query.date || _vnToday();
+
+        const [countResult, targetResult] = await Promise.all([
+            db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2', [uid, date]),
+            db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`)
+        ]);
+
+        return {
+            count: Number(countResult.c),
+            target: targetResult ? Number(targetResult.min_quantity) : 20,
+            total_points: targetResult ? Number(targetResult.points) : 10
+        };
+    });
+
     // ===== TRANSFER TO CRM TTK =====
     fastify.post('/api/partner-outreach/entries/:id/transfer', { preHandler: [authenticate] }, async (req, reply) => {
         const entry = await db.get('SELECT * FROM partner_outreach_entries WHERE id = $1', [Number(req.params.id)]);

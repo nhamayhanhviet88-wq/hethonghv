@@ -817,6 +817,7 @@ async function _kbLoadSchedule() {
     _kbRenderGrid();
     _kbInjectSelfSearchStats();
     _kbInjectTelesaleStats();
+    _kbInjectPartnerOutreachStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1135,6 +1136,10 @@ function _kbRenderGrid() {
                 const isTelesale = /gọi\s*điện\s*telesale/i.test(task.task_name);
                 const tsPlaceholder = isTelesale ? `<div id="kbTS_${dateStr}" data-ts-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
+                // Check if this is a "Nhắn Tìm Đối Tác" task
+                const isPartnerOutreach = /nhắn.*đối\s*tác/i.test(task.task_name);
+                const poPlaceholder = isPartnerOutreach ? `<div id="kbPO_${dateStr}" data-po-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1150,6 +1155,7 @@ function _kbRenderGrid() {
                         </div>
                         ${ssPlaceholder}
                         ${tsPlaceholder}
+                        ${poPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
@@ -1692,6 +1698,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Gọi Điện Telesale task, load call progress into the detail modal
     if (/gọi\s*điện\s*telesale/i.test(task.task_name)) {
         _kbLoadDetailTelesale();
+    }
+    // If this is a Nhắn Tìm Đối Tác task, load partner outreach progress into the detail modal
+    if (/nhắn.*đối\s*tác/i.test(task.task_name)) {
+        _kbLoadDetailPartnerOutreach();
     }
 }
 
@@ -3553,6 +3563,78 @@ async function _kbLoadDetailTelesale() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#059669,#10b981);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(5,150,105,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(5,150,105,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(5,150,105,0.3)'">
                     📞 Mở Gọi Điện Telesale →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== NHẮN TÌM ĐỐI TÁC PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectPartnerOutreachStats() {
+    const placeholders = document.querySelectorAll('[data-po-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-po-date');
+        if (datesCalled[dateStr]) {
+            _kbRenderPartnerOutreachMini(el, datesCalled[dateStr]);
+            continue;
+        }
+        try {
+            const res = await apiCall(`/api/partner-outreach/live-count/${uid}?date=${dateStr}`);
+            datesCalled[dateStr] = res;
+            _kbRenderPartnerOutreachMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderPartnerOutreachMini(el, res) {
+    const count = res.count || 0;
+    const target = res.target || 20;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    const barColor = done ? '#2563eb' : '#2563eb';
+    const statusLabel = done
+        ? `<span style="color:#2563eb;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#2563eb;font-weight:700;">💬 ${count}/${target}</span>`;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:${barColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailPartnerOutreach() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/partner-outreach/live-count/${uid}?date=${todayStr}`);
+        const count = res.count || 0;
+        const target = res.target || 20;
+        const totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#1e40af;">💬 Tiến trình Nhắn Tìm Đối Tác hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#1e40af'};">${count}/${target} đối tác — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#bfdbfe;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#2563eb,#3b82f6,#60a5fa);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();navigateTo('/nhantintimdoitackh');" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(37,99,235,0.3)'">
+                    💬 Mở Nhắn Tìm Đối Tác →
                 </a>
             </div>
         </div>`;
