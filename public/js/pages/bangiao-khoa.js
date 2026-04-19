@@ -1126,7 +1126,7 @@ async function _lkShowCreateModal(deptId, editTask) {
 
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-    _lkRecurrenceChanged();
+    _lkUpdateRecSummary();
 }
 
 function _lkRecurrenceValueHTML(type, value) {
