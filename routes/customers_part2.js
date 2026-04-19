@@ -686,7 +686,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 consultCount = (await db.get('SELECT COUNT(*) as cnt FROM consultation_logs WHERE customer_id = ?', [cid]))?.cnt || 0;
             }
             const chotDon = (await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'", [cid]))?.cnt || 0;
-            const lastLog = await db.get(`SELECT log_type, content, created_at FROM consultation_logs WHERE customer_id = ?
+            const lastLog = await db.get(`SELECT log_type, content, created_at FROM consultation_logs WHERE customer_id = ? AND log_type != 'khong_xu_ly'
                 ORDER BY created_at DESC, CASE WHEN log_type = 'hoan_thanh_cap_cuu' THEN 0 ELSE 1 END, id DESC LIMIT 1`, [cid]);
             const revenue = (await db.get("SELECT COALESCE(SUM(oi.total), 0) as t FROM order_items oi LEFT JOIN order_codes oc ON oi.order_code_id = oc.id WHERE oi.customer_id = ? AND (oc.status IS NULL OR oc.status != 'cancelled')", [cid]))?.t || 0;
             const latestOrderCode = await db.get('SELECT order_code FROM order_codes WHERE customer_id = ? ORDER BY id DESC LIMIT 1', [cid]);
