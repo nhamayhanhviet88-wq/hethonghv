@@ -822,6 +822,7 @@ async function _kbLoadSchedule() {
     _kbInjectDangVideoStats();
     _kbInjectDangContentStats();
     _kbInjectDangGroupStats();
+    _kbInjectTuyenDungStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1160,6 +1161,10 @@ function _kbRenderGrid() {
                 const isDangGroup = /đăng.*tìm.*kh.*group/i.test(task.task_name);
                 const dgPlaceholder = isDangGroup ? `<div id="kbDG_${dateStr}" data-dg-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
+                // Check if this is a "Tuyển Dụng" task
+                const isTuyenDung = /tuyển\s*dụng/i.test(task.task_name);
+                const tdPlaceholder = isTuyenDung ? `<div id="kbTD_${dateStr}" data-td-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1180,6 +1185,7 @@ function _kbRenderGrid() {
                         ${dvPlaceholder}
                         ${dcPlaceholder}
                         ${dgPlaceholder}
+                        ${tdPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
@@ -1742,6 +1748,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Đăng & Tìm KH Group task
     if (/đăng.*tìm.*kh.*group/i.test(task.task_name)) {
         _kbLoadDetailDangGroup();
+    }
+    // If this is a Tuyển Dụng task
+    if (/tuyển\s*dụng/i.test(task.task_name)) {
+        _kbLoadDetailTuyenDung();
     }
 }
 
@@ -3941,6 +3951,68 @@ async function _kbLoadDetailDangGroup() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/danggruop';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(8,145,178,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(8,145,178,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(8,145,178,0.3)'">
                     📢 Mở Đăng & Tìm KH Group →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== TUYỂN DỤNG SV KD PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectTuyenDungStats() {
+    const placeholders = document.querySelectorAll('[data-td-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-td-date');
+        if (datesCalled[dateStr]) { _kbRenderTuyenDungMini(el, datesCalled[dateStr]); continue; }
+        try {
+            const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${dateStr}&module_type=tuyen_dung`);
+            datesCalled[dateStr] = res;
+            _kbRenderTuyenDungMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderTuyenDungMini(el, res) {
+    const count = res.count || 0, target = res.target || 5;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailTuyenDung() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=tuyen_dung`);
+        const count = res.count || 0, target = res.target || 5, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fdf2f8,#fce7f3);border:1.5px solid #f9a8d4;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#9d174d;">🎓 Tiến trình Tuyển Dụng SV KD hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#9d174d'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#fbcfe8;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#be185d,#db2777,#ec4899);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/tuyendungsvkd';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#be185d,#9d174d);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(190,24,93,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(190,24,93,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(190,24,93,0.3)'">
+                    🎓 Mở Tuyển Dụng SV KD →
                 </a>
             </div>
         </div>`;
