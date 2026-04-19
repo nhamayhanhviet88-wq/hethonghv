@@ -820,6 +820,7 @@ async function _kbLoadSchedule() {
     _kbInjectPartnerOutreachStats();
     _kbInjectAddCmtStats();
     _kbInjectDangVideoStats();
+    _kbInjectDangContentStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1150,6 +1151,10 @@ function _kbRenderGrid() {
                 const isDangVideo = /đăng\s*video/i.test(task.task_name);
                 const dvPlaceholder = isDangVideo ? `<div id="kbDV_${dateStr}" data-dv-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
+                // Check if this is a "Đăng Content" task
+                const isDangContent = /đăng\s*content/i.test(task.task_name);
+                const dcPlaceholder = isDangContent ? `<div id="kbDC_${dateStr}" data-dc-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1168,6 +1173,7 @@ function _kbRenderGrid() {
                         ${poPlaceholder}
                         ${acPlaceholder}
                         ${dvPlaceholder}
+                        ${dcPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
@@ -1722,6 +1728,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Đăng Video task, load video progress into the detail modal
     if (/đăng\s*video/i.test(task.task_name)) {
         _kbLoadDetailDangVideo();
+    }
+    // If this is a Đăng Content task, load content progress into the detail modal
+    if (/đăng\s*content/i.test(task.task_name)) {
+        _kbLoadDetailDangContent();
     }
 }
 
@@ -3797,6 +3807,68 @@ async function _kbLoadDetailDangVideo() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangvideo';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(220,38,38,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(220,38,38,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(220,38,38,0.3)'">
                     🎬 Mở Đăng Video Isocal →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== ĐĂNG CONTENT ISOCAL PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectDangContentStats() {
+    const placeholders = document.querySelectorAll('[data-dc-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-dc-date');
+        if (datesCalled[dateStr]) { _kbRenderDangContentMini(el, datesCalled[dateStr]); continue; }
+        try {
+            const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${dateStr}&module_type=dang_content`);
+            datesCalled[dateStr] = res;
+            _kbRenderDangContentMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderDangContentMini(el, res) {
+    const count = res.count || 0, target = res.target || 1;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailDangContent() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=dang_content`);
+        const count = res.count || 0, target = res.target || 1, totalPts = res.total_points || 5;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1.5px solid #c4b5fd;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#7c3aed;">✍️ Tiến trình Đăng Content hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#7c3aed'};">${count}/${target} bài — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#ddd6fe;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#8b5cf6,#a78bfa,#c4b5fd);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangcontent';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(139,92,246,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(139,92,246,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(139,92,246,0.3)'">
+                    ✍️ Mở Đăng Content Isocal →
                 </a>
             </div>
         </div>`;
