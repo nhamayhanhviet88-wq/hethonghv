@@ -3633,7 +3633,7 @@ async function _kbLoadDetailPartnerOutreach() {
                 <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
-                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();navigateTo('/nhantintimdoitackh');" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(37,99,235,0.3)'">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/nhantintimdoitackh';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(37,99,235,0.3)'">
                     💬 Mở Nhắn Tìm Đối Tác →
                 </a>
             </div>
