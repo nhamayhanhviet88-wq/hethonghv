@@ -824,6 +824,7 @@ async function _kbLoadSchedule() {
     _kbInjectDangGroupStats();
     _kbInjectTuyenDungStats();
     _kbInjectSeddingStats();
+    _kbInjectZaloStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1405,6 +1406,7 @@ function _kbRenderGrid() {
                         <div style="margin-top:6px;">${lockStatusBadge}</div>
                         ${actionHtml}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -1763,6 +1765,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Sedding task
     if (/sedding/i.test(task.task_name)) {
         _kbLoadDetailSedding();
+    }
+    // If this is a Tìm Gr Zalo task
+    if (/tìm.*gr.*zalo/i.test(task.task_name)) {
+        _kbLoadDetailZalo();
     }
 }
 
@@ -3162,6 +3168,10 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         if (/sedding/i.test(t.task_name)) {
             _kbLoadLockDetailSedding();
         }
+        // Load Zalo progress if applicable
+        if (/tìm.*gr.*zalo/i.test(t.task_name)) {
+            _kbLoadLockDetailZalo();
+        }
     } catch(e) {
         showToast('Lỗi: ' + (e.message || ''), 'error');
     }
@@ -4124,6 +4134,101 @@ async function _kbLoadLockDetailSedding() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
                     🌐 Mở Sedding Cộng Đồng →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== TÌM GR ZALO VÀ JOIN PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectZaloStats() {
+    const placeholders = document.querySelectorAll('[data-zl-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-zl-date');
+        if (datesCalled[dateStr]) { _kbRenderZaloMini(el, datesCalled[dateStr]); continue; }
+        try {
+            const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${dateStr}&module_type=tim_gr_zalo`);
+            datesCalled[dateStr] = res;
+            _kbRenderZaloMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderZaloMini(el, res) {
+    const count = res.count || 0, target = res.target || 20;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailZalo() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=tim_gr_zalo`);
+        const count = res.count || 0, target = res.target || 20, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#0369a1;">🔍 Tiến trình Tìm Gr Zalo hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#bae6fd;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#0284c7,#0ea5e9,#38bdf8);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/timgrzalovathongke';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(2,132,199,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(2,132,199,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(2,132,199,0.3)'">
+                    🔍 Mở Tìm Gr Zalo Và Join →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== ZALO PROGRESS IN CV KHÓA DETAIL MODAL ==========
+async function _kbLoadLockDetailZalo() {
+    const el = document.getElementById('kbLockDetailProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=tim_gr_zalo`);
+        const count = res.count || 0, target = res.target || 20, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#0369a1;">🔍 Tiến trình Tìm Gr Zalo hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#bae6fd;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#0284c7,#0ea5e9,#38bdf8);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/timgrzalovathongke';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(2,132,199,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(2,132,199,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(2,132,199,0.3)'">
+                    🔍 Mở Tìm Gr Zalo Và Join →
                 </a>
             </div>
         </div>`;
