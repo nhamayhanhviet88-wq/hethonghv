@@ -52,6 +52,26 @@ let _kbViewUserId = null; // null = self
 let _kbColorMap = {};
 const _KB_DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
+// ===== LINKED PAGE MAPPING: tasks that report via their own page, not the "Báo cáo" button =====
+const _KB_LINKED_PAGES = [
+    { re: /add.*cmt.*đối.*tác/i, page: '/addcmtdoitackh', label: 'Add/Cmt Đối Tác KH', icon: '👥' },
+    { re: /đăng.*video/i, page: '/dangvideo', label: 'Đăng Video', icon: '🎬' },
+    { re: /đăng.*content/i, page: '/dangcontent', label: 'Đăng Content', icon: '✍️' },
+    { re: /đăng.*tìm.*kh.*group/i, page: '/danggruop', label: 'Đăng & Tìm KH Group', icon: '📢' },
+    { re: /sedding.*cộng.*đồng/i, page: '/seddingcongdong', label: 'Sedding Cộng Đồng', icon: '🌐' },
+    { re: /đăng.*bản.*thân/i, page: '/dangbanthansp', label: 'Đăng Bản Thân & SP', icon: '📸' },
+    { re: /tìm.*gr.*zalo/i, page: '/timgrzalovathongke', label: 'Tìm Gr Zalo', icon: '🔍' },
+    { re: /tuyển.*dụng.*sv/i, page: '/tuyendungsvkd', label: 'Tuyển Dụng SV KD', icon: '🎓' },
+    { re: /gọi.*điện.*telesale/i, page: '/hethonggoidien', label: 'Gọi Điện Telesale', icon: '📞' },
+    { re: /tự.*tìm.*kiếm.*telesale/i, page: '/hethonggoidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎' },
+    { re: /nhấn.*tìm.*đối.*tác.*kh/i, page: '/crm-koctiktok', label: 'Nhấn Tìm ĐT KH', icon: '🎵' },
+];
+function _kbGetLinkedPage(taskName) {
+    if (!taskName) return null;
+    for (const m of _KB_LINKED_PAGES) { if (m.re.test(taskName)) return m; }
+    return null;
+}
+
 function _kbParseJSON(val) {
     if (!val) return [];
     if (Array.isArray(val)) return val;
@@ -1049,6 +1069,13 @@ function _kbRenderGrid() {
 
                 let statusBadge = '';
                 let actionBtn = ''; // inline with guide button row
+                const _linkedPage = _kbGetLinkedPage(task.task_name);
+                if (_linkedPage && canReport) {
+                    // Task has a linked menu page → navigate there instead of showing Báo cáo
+                    actionBtn = `<a href="${_linkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Mở trang →</a>`;
+                } else if (_linkedPage && !canReport) {
+                    actionBtn = '';
+                } else
                 if (report) {
                     // HAS REPORT — make it clickable to view details
                     const rData = JSON.stringify({
@@ -1317,7 +1344,13 @@ function _kbRenderGrid() {
                 const srKey = `${lt.id}_${dateStr}`;
                 const hasSR = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
 
-                if (isSelf) {
+                const _ltLinkedPage = _kbGetLinkedPage(lt.task_name);
+                if (_ltLinkedPage && isSelf) {
+                    // Lock task has a linked menu page → navigate there instead of Báo cáo
+                    actionHtml = `<div style="margin-top:6px;text-align:center;"><a href="${_ltLinkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_ltLinkedPage.icon} Mở trang →</a></div>`;
+                } else if (_ltLinkedPage && !isSelf) {
+                    actionHtml = ''; // manager view: no report needed for linked-page tasks
+                } else if (isSelf) {
                     if (dateStr === todayStr && !realComp) {
                         // Today, not submitted: show Báo cáo (for self)
                         let srBadge = '';
