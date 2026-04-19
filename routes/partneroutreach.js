@@ -259,11 +259,12 @@ module.exports = async function (fastify) {
             db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date BETWEEN $2 AND $3', [uid, weekStart, weekEnd]),
             db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date BETWEEN $2 AND $3', [uid, monthStart, monthEnd]),
             db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND transferred_to_crm = true AND entry_date = $2', [uid, today]),
-            // Get target from task_point_templates matching "Nhắn" + "Đối Tác" — check individual first, then team
+            // Get target from task_point_templates matching "Nhắn" + "Đối Tác" — individual → team → global fallback
             (async () => {
                 const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
                 let tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
                 if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
+                if (!tpl) tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
                 return tpl;
             })()
         ]);
@@ -304,6 +305,15 @@ module.exports = async function (fastify) {
                    AND task_name ILIKE '%Nhắn%Đối Tác%' AND day_of_week = $2
                  LIMIT 1`,
                 [user.department_id, dayOfWeek]
+            );
+        }
+        // Global fallback (for GĐ or users without specific template)
+        if (!template) {
+            template = await db.get(
+                `SELECT * FROM task_point_templates
+                 WHERE task_name ILIKE '%Nhắn%Đối Tác%' AND day_of_week = $1
+                 LIMIT 1`,
+                [dayOfWeek]
             );
         }
 
@@ -347,9 +357,10 @@ module.exports = async function (fastify) {
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
         const countResult = await db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2', [uid, date]);
 
-        // Find user-specific template (individual first, then team)
+        // Find user-specific template (individual → team → global fallback)
         let tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
         if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
+        if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
 
         return {
             count: Number(countResult.c),
