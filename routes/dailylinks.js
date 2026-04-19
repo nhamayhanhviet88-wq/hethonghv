@@ -161,13 +161,14 @@ module.exports = async function (fastify) {
         return { departments: ordered };
     });
 
-    // GUIDE URL — get guide_url by module_type
+    // GUIDE URL — get guide_url by module_type (templates first, then library fallback)
     fastify.get('/api/dailylinks/guide-url', { preHandler: [authenticate] }, async (req) => {
         const { module_type } = req.query;
         if (!module_type) return { guide_url: null };
         const pattern = TASK_PATTERNS[module_type];
         if (!pattern) return { guide_url: null };
-        const tpl = await db.get('SELECT guide_url, task_name FROM task_point_templates WHERE task_name ILIKE $1 AND guide_url IS NOT NULL LIMIT 1', [pattern]);
+        let tpl = await db.get('SELECT guide_url, task_name FROM task_point_templates WHERE task_name ILIKE $1 AND guide_url IS NOT NULL LIMIT 1', [pattern]);
+        if (!tpl) tpl = await db.get('SELECT guide_url, task_name FROM task_library WHERE task_name ILIKE $1 AND guide_url IS NOT NULL LIMIT 1', [pattern]);
         return { guide_url: tpl?.guide_url || null, task_name: tpl?.task_name || null };
     });
 
