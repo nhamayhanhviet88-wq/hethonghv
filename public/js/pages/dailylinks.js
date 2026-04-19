@@ -5,7 +5,7 @@ const _DL_MODULES = {
     '/dangvideo':         { type:'dang_video',    label:'Đăng Video Isocal',      icon:'🎬', grad:'linear-gradient(135deg,#dc2626,#b91c1c)', accent:'#dc2626' },
     '/dangcontent':       { type:'dang_content',  label:'Đăng Content Isocal',    icon:'✍️', grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)', accent:'#8b5cf6' },
     '/danggruop':         { type:'dang_group',    label:'Đăng & Tìm KH Group',   icon:'📢', grad:'linear-gradient(135deg,#0891b2,#0e7490)', accent:'#0891b2' },
-    '/seddingcongdong':   { type:'sedding',       label:'Sedding Cộng Đồng',     icon:'🌐', grad:'linear-gradient(135deg,#ea580c,#c2410c)', accent:'#ea580c' },
+    '/seddingcongdong':   { type:'sedding',       label:'Sedding Cộng Đồng & Lẫn Nhau',     icon:'🌐', grad:'linear-gradient(135deg,#ea580c,#c2410c)', accent:'#ea580c' },
     '/timgrzalovathongke':{ type:'tim_gr_zalo',    label:'Tìm Gr Zalo Và Join',   icon:'🔍', grad:'linear-gradient(135deg,#0284c7,#0369a1)', accent:'#0284c7' },
     '/tuyendungsvkd':     { type:'tuyen_dung',    label:'Tuyển Dụng SV KD',      icon:'🎓', grad:'linear-gradient(135deg,#be185d,#9d174d)', accent:'#be185d' },
 };

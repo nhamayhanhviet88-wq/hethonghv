@@ -4094,7 +4094,7 @@ async function _kbLoadDetailSedding() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#c2410c;">🌐 Tiến trình Sedding Cộng Đồng hôm nay</span>
+                <span style="font-size:13px;font-weight:700;color:#c2410c;">🌐 Tiến trình Sedding hôm nay</span>
                 <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#fed7aa;border-radius:8px;height:10px;overflow:hidden;">
@@ -4105,7 +4105,7 @@ async function _kbLoadDetailSedding() {
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
-                    🌐 Mở Sedding Cộng Đồng →
+                    🌐 Mở Sedding Cộng Đồng & Lẫn Nhau →
                 </a>
             </div>
         </div>`;
@@ -4138,7 +4138,7 @@ async function _kbLoadLockDetailSedding() {
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
-                    🌐 Mở Sedding Cộng Đồng →
+                    🌐 Mở Sedding Cộng Đồng & Lẫn Nhau →
                 </a>
             </div>
         </div>`;
