@@ -130,7 +130,7 @@ module.exports = async function (fastify) {
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date=$2 AND module_type=$3', [uid, today, module_type]),
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date BETWEEN $2 AND $3 AND module_type=$4', [uid, ws, we, module_type]),
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date BETWEEN $2 AND $3 AND module_type=$4', [uid, ms, me, module_type]),
-            db.get('SELECT min_quantity FROM (SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE $1 UNION ALL SELECT min_quantity FROM task_library WHERE task_name ILIKE $1) t LIMIT 1', [pattern])
+            db.get('SELECT min_quantity FROM (SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE $1 UNION ALL SELECT min_quantity FROM task_library WHERE task_name ILIKE $1 UNION ALL SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true) t LIMIT 1', [pattern])
         ]);
         return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: tgt ? Number(tgt.min_quantity) : 20 };
     });
