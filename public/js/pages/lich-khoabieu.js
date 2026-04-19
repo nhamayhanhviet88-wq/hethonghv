@@ -3139,6 +3139,7 @@ async function _kbShowLockTaskDetail(lockTaskId) {
                     </div>
                     <a href="${t.guide_link}" target="_blank" style="font-size:18px;text-decoration:none;">→</a>
                 </div>` : ''}
+                <div id="kbLockDetailProgress"></div>
                 ${inputReqs.length > 0 ? `
                 <div style="margin-bottom:12px;">
                     <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
@@ -3157,6 +3158,10 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         </div>`;
         document.body.appendChild(modal);
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        // Load Sedding progress if applicable
+        if (/sedding/i.test(t.task_name)) {
+            _kbLoadLockDetailSedding();
+        }
     } catch(e) {
         showToast('Lỗi: ' + (e.message || ''), 'error');
     }
@@ -4085,6 +4090,39 @@ async function _kbLoadDetailSedding() {
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
+                    🌐 Mở Sedding Cộng Đồng →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== SEDDING PROGRESS IN CV KHÓA DETAIL MODAL ==========
+async function _kbLoadLockDetailSedding() {
+    const el = document.getElementById('kbLockDetailProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=sedding`);
+        const count = res.count || 0, target = res.target || 20, totalPts = res.total_points || 10;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#c2410c;">🌐 Tiến trình Sedding hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#fed7aa;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#ea580c,#f97316,#fb923c);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
                     🌐 Mở Sedding Cộng Đồng →
                 </a>
             </div>
