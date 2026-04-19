@@ -419,10 +419,11 @@ function _ahvGetCategory(c, stats) {
     // Priority 4: Phải xử lý hôm nay (appointment today OR birthday today)
     if (appointIsToday || isBirthdayToday) return 'phai_xu_ly';
 
-    // Priority 5: Pinned customers — daily cycle
-    // If consulted today → da_xu_ly (appointment auto-set to next working day by backend)
-    // If NOT consulted today → phai_xu_ly (next day becomes xu_ly_tre if still not handled)
-    if (c.is_pinned) return consultedToday ? 'da_xu_ly' : 'phai_xu_ly';
+    // Priority 5: Pinned customers — follow normal appointment flow
+    // consulted today → da_xu_ly (already handled by Priority 2)
+    // appointment today → phai_xu_ly (handled by Priority 4)
+    // appointment past → xu_ly_tre (handled by Priority 6 below)
+    // This ensures NV is accountable when missing pinned customer days
 
     // Priority 6: Khách xử lý trễ (appointment was in the past, not consulted today)
     if (c.appointment_date && !appointIsToday && !appointIsFuture) return 'xu_ly_tre';
