@@ -173,16 +173,6 @@ module.exports = async function (fastify) {
     });
 
     // LIVE COUNT — for Lịch Khóa Biểu integration (mirrors partner-outreach/live-count)
-    const TASK_PATTERNS = {
-        addcmt: '%add%cmt%',
-        dang_video: '%đăng%video%',
-        dang_content: '%đăng%content%',
-        dang_group: '%đăng%tìm%kh%group%',
-        sedding: '%sedding%',
-        tuyen_dung: '%tuyển%dụng%',
-        tim_gr_zalo: '%tìm%gr%zalo%'
-    };
-
     fastify.get('/api/dailylinks/live-count/:userId', { preHandler: [authenticate] }, async (req) => {
         const uid = Number(req.params.userId);
         const date = req.query.date || _vnToday();
