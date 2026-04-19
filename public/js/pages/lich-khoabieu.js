@@ -1171,6 +1171,10 @@ function _kbRenderGrid() {
                 const isSedding = /sedding/i.test(task.task_name);
                 const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
+                // Check if this is a "Tìm Gr Zalo" task
+                const isZalo = /tìm.*gr.*zalo/i.test(task.task_name);
+                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1193,6 +1197,7 @@ function _kbRenderGrid() {
                         ${dgPlaceholder}
                         ${tdPlaceholder}
                         ${sdPlaceholder}
+                        ${zlPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
