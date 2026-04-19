@@ -818,6 +818,7 @@ async function _kbLoadSchedule() {
     _kbInjectSelfSearchStats();
     _kbInjectTelesaleStats();
     _kbInjectPartnerOutreachStats();
+    _kbInjectAddCmtStats();
 }
 
 function _kbChangeWeek(offset) {
@@ -1140,6 +1141,10 @@ function _kbRenderGrid() {
                 const isPartnerOutreach = /nhắn.*đối\s*tác/i.test(task.task_name);
                 const poPlaceholder = isPartnerOutreach ? `<div id="kbPO_${dateStr}" data-po-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
+                // Check if this is an "Add/Cmt Đối Tác" task
+                const isAddCmt = /add.*cmt.*đối\s*tác/i.test(task.task_name);
+                const acPlaceholder = isAddCmt ? `<div id="kbAC_${dateStr}" data-ac-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
@@ -1156,6 +1161,7 @@ function _kbRenderGrid() {
                         ${ssPlaceholder}
                         ${tsPlaceholder}
                         ${poPlaceholder}
+                        ${acPlaceholder}
                         ${statusBadge}
                     </div>
                 </td>`;
@@ -1702,6 +1708,10 @@ async function _kbShowTaskDetail(templateId) {
     // If this is a Nhắn Tìm Đối Tác task, load partner outreach progress into the detail modal
     if (/nhắn.*đối\s*tác/i.test(task.task_name)) {
         _kbLoadDetailPartnerOutreach();
+    }
+    // If this is an Add/Cmt Đối Tác task, load addcmt progress into the detail modal
+    if (/add.*cmt.*đối\s*tác/i.test(task.task_name)) {
+        _kbLoadDetailAddCmt();
     }
 }
 
@@ -3635,6 +3645,77 @@ async function _kbLoadDetailPartnerOutreach() {
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/nhantintimdoitackh';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(37,99,235,0.3)'">
                     💬 Mở Nhắn Tìm Đối Tác →
+                </a>
+            </div>
+        </div>`;
+    } catch(e) {}
+}
+
+// ========== ADD/CMT ĐỐI TÁC PROGRESS IN LỊCH KHÓA BIỂU ==========
+async function _kbInjectAddCmtStats() {
+    const placeholders = document.querySelectorAll('[data-ac-date]');
+    if (placeholders.length === 0) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const datesCalled = {};
+    for (const el of placeholders) {
+        const dateStr = el.getAttribute('data-ac-date');
+        if (datesCalled[dateStr]) {
+            _kbRenderAddCmtMini(el, datesCalled[dateStr]);
+            continue;
+        }
+        try {
+            const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${dateStr}&module_type=addcmt`);
+            datesCalled[dateStr] = res;
+            _kbRenderAddCmtMini(el, res);
+        } catch(e) {}
+    }
+}
+
+function _kbRenderAddCmtMini(el, res) {
+    const count = res.count || 0;
+    const target = res.target || 10;
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    const statusLabel = done
+        ? `<span style="color:#16a34a;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#16a34a;font-weight:700;">👥 ${count}/${target}</span>`;
+    el.innerHTML = `
+        <div style="margin-top:4px;">
+            <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
+            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
+                <div style="background:#16a34a;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+        </div>`;
+}
+
+async function _kbLoadDetailAddCmt() {
+    const el = document.getElementById('kbTaskDetailSSProgress');
+    if (!el) return;
+    const uid = _kbViewUserId || currentUser.id;
+    const todayStr = _kbDateStr(new Date());
+    try {
+        const res = await apiCall(`/api/dailylinks/live-count/${uid}?date=${todayStr}&module_type=addcmt`);
+        const count = res.count || 0;
+        const target = res.target || 10;
+        const totalPts = res.total_points || 5;
+        const pct = Math.min(100, Math.round(count / target * 100));
+        const done = count >= target;
+        const earned = Math.round(Math.min(count, target) / target * totalPts);
+        el.innerHTML = `
+        <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:700;color:#15803d;">👥 Tiến trình Add/Cmt Đối Tác hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#15803d'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
+            </div>
+            <div style="background:#bbf7d0;border-radius:8px;height:10px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#16a34a,#22c55e,#4ade80);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
+            </div>
+            <div style="margin-top:10px;text-align:center;">
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/addcmtdoitackh';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(22,163,74,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(22,163,74,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(22,163,74,0.3)'">
+                    👥 Mở Add/Cmt Đối Tác →
                 </a>
             </div>
         </div>`;

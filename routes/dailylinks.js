@@ -172,6 +172,36 @@ module.exports = async function (fastify) {
         return { guide_url: tpl?.guide_url || null, task_name: tpl?.task_name || null };
     });
 
+    // LIVE COUNT — for Lịch Khóa Biểu integration (mirrors partner-outreach/live-count)
+    fastify.get('/api/dailylinks/live-count/:userId', { preHandler: [authenticate] }, async (req) => {
+        const uid = Number(req.params.userId);
+        const date = req.query.date || _vnToday();
+        const moduleType = req.query.module_type;
+        if (!moduleType) return { count: 0, target: 20, total_points: 5 };
+
+        const pattern = TASK_PATTERNS[moduleType];
+        const countResult = await db.get(
+            'SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+            [uid, date, moduleType]
+        );
+
+        // Find target: individual → team → global template → library
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+        let tpl = null;
+        if (pattern) {
+            tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [uid, pattern]);
+            if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
+            if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+            if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_library WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+        }
+
+        return {
+            count: Number(countResult.c),
+            target: tpl ? Number(tpl.min_quantity) : 20,
+            total_points: tpl ? Number(tpl.points) : 5
+        };
+    });
+
     async function _getDeptIds(user) {
         const a = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
         const s = new Set(a.map(x => x.department_id));
