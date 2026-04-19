@@ -289,14 +289,19 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 } else if (la.recurrence_type === 'daily') {
                     applies = !isCheckHoliday;
                 } else if (la.recurrence_type === 'weekly') {
-                    applies = checkDow === Number(la.recurrence_value) && !isCheckHoliday;
+                    const wDays = (la.recurrence_value || '').split(',').map(Number);
+                    applies = wDays.includes(checkDow) && !isCheckHoliday;
                 } else if (la.recurrence_type === 'monthly') {
-                    // Monthly: ngày gốc rơi CN/Lễ/Nghỉ → tự dời sang ngày đi làm tiếp theo
-                    const scheduledDay = Number(la.recurrence_value);
-                    const originalMonthlyDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), scheduledDay);
-                    if (originalMonthlyDate.getMonth() === checkDate.getMonth()) {
-                        const effectiveDay = await getEffectiveWorkingDay(originalMonthlyDate, la.user_id, holidays);
-                        applies = effectiveDay === checkDateStr;
+                    // Monthly multi-day: check each scheduled day, handle short months
+                    const scheduledDays = (la.recurrence_value || '').split(',').map(Number).filter(n => !isNaN(n));
+                    const lastDay = new Date(checkDate.getFullYear(), checkDate.getMonth() + 1, 0).getDate();
+                    for (const scheduledDay of scheduledDays) {
+                        const effectiveDay = Math.min(scheduledDay, lastDay);
+                        const originalMonthlyDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), effectiveDay);
+                        if (originalMonthlyDate.getMonth() === checkDate.getMonth()) {
+                            const effectiveWorkDay = await getEffectiveWorkingDay(originalMonthlyDate, la.user_id, holidays);
+                            if (effectiveWorkDay === checkDateStr) { applies = true; break; }
+                        }
                     }
                 } else if (la.recurrence_type === 'once') {
                     applies = checkDateStr === la.recurrence_value && !isCheckHoliday;

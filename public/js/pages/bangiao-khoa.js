@@ -876,8 +876,14 @@ function _lkRenderTaskTable(tasks, showAssignees, showEditBtns = true, showTeamC
 
     tasks.forEach((t, i) => {
         const recLabel = _LK_RECURRENCE_LABELS[t.recurrence_type] || t.recurrence_type;
-        const recDetail = t.recurrence_type === 'weekly' ? ` (${_LK_DAY_NAMES[Number(t.recurrence_value)] || ''})` :
-                          t.recurrence_type === 'monthly' ? ` (ngày ${t.recurrence_value})` : '';
+        let recDetail = '';
+        if (t.recurrence_type === 'weekly' && t.recurrence_value) {
+            const days = t.recurrence_value.split(',').map(Number).filter(n => !isNaN(n));
+            recDetail = ` (${days.map(d => _LK_DAY_NAMES[d] || '').filter(Boolean).join(', ')})`;
+        } else if (t.recurrence_type === 'monthly' && t.recurrence_value) {
+            const dates = t.recurrence_value.split(',').map(Number).filter(n => !isNaN(n)).sort((a,b) => a-b);
+            recDetail = ` (ngày ${dates.join(', ')})`;
+        }
 
         // Group users by team for team column
         let teamColHtml = '';
@@ -1124,23 +1130,43 @@ async function _lkShowCreateModal(deptId, editTask) {
 }
 
 function _lkRecurrenceValueHTML(type, value) {
+    const selectedVals = (value || '').split(',').map(v => v.trim()).filter(Boolean);
     if (type === 'weekly') {
+        const weekDays = [
+            { val: '1', label: 'T2' }, { val: '2', label: 'T3' }, { val: '3', label: 'T4' },
+            { val: '4', label: 'T5' }, { val: '5', label: 'T6' }, { val: '6', label: 'T7' },
+            { val: '0', label: 'CN' }
+        ];
+        let pills = weekDays.map(d => {
+            const checked = selectedVals.includes(d.val);
+            return `<label style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:36px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;user-select:none;
+                ${checked ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:2px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.3);' : 'background:#f8fafc;color:#64748b;border:2px solid #e2e8f0;'}"
+                onmouseover="if(!this.querySelector('input').checked)this.style.borderColor='#dc2626';this.style.transform='scale(1.05)'"
+                onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='#e2e8f0';this.style.transform='none'"
+                onclick="setTimeout(()=>{const cb=this.querySelector('input');const on=cb.checked;this.style.background=on?'linear-gradient(135deg,#dc2626,#ef4444)':'#f8fafc';this.style.color=on?'white':'#64748b';this.style.border=on?'2px solid #b91c1c':'2px solid #e2e8f0';this.style.boxShadow=on?'0 2px 8px rgba(220,38,38,0.3)':'none';_lkUpdateRecSummary()},10)"
+                ><input type="checkbox" class="lkf-recval-cb" value="${d.val}" ${checked ? 'checked' : ''} style="display:none;">${d.label}</label>`;
+        }).join('');
         return `<div>
-            <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Thứ mấy?</label>
-            <select id="lkf_recval" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
-                <option value="1" ${value==='1'?'selected':''}>Thứ 2</option>
-                <option value="2" ${value==='2'?'selected':''}>Thứ 3</option>
-                <option value="3" ${value==='3'?'selected':''}>Thứ 4</option>
-                <option value="4" ${value==='4'?'selected':''}>Thứ 5</option>
-                <option value="5" ${value==='5'?'selected':''}>Thứ 6</option>
-                <option value="6" ${value==='6'?'selected':''}>Thứ 7</option>
-                <option value="0" ${value==='0'?'selected':''}>Chủ nhật</option>
-            </select>
+            <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">Chọn các ngày trong tuần *</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">${pills}</div>
+            <div id="lkf_rec_summary" style="margin-top:6px;font-size:10px;color:#6b7280;min-height:14px;"></div>
         </div>`;
     } else if (type === 'monthly') {
+        let grid = '';
+        for (let d = 1; d <= 31; d++) {
+            const checked = selectedVals.includes(String(d));
+            grid += `<label style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;user-select:none;
+                ${checked ? 'background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:2px solid #b91c1c;box-shadow:0 2px 6px rgba(220,38,38,0.25);' : 'background:#f8fafc;color:#64748b;border:2px solid #e2e8f0;'}"
+                onmouseover="if(!this.querySelector('input').checked)this.style.borderColor='#dc2626';this.style.transform='scale(1.08)'"
+                onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='#e2e8f0';this.style.transform='none'"
+                onclick="setTimeout(()=>{const cb=this.querySelector('input');const on=cb.checked;this.style.background=on?'linear-gradient(135deg,#dc2626,#ef4444)':'#f8fafc';this.style.color=on?'white':'#64748b';this.style.border=on?'2px solid #b91c1c':'2px solid #e2e8f0';this.style.boxShadow=on?'0 2px 6px rgba(220,38,38,0.25)':'none';_lkUpdateRecSummary()},10)"
+                ><input type="checkbox" class="lkf-recval-cb" value="${d}" ${checked ? 'checked' : ''} style="display:none;">${d}</label>`;
+        }
         return `<div>
-            <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Ngày mấy?</label>
-            <input id="lkf_recval" type="number" value="${value || '1'}" min="1" max="31" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+            <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">Chọn các ngày trong tháng *</label>
+            <div style="display:flex;gap:3px;flex-wrap:wrap;max-width:280px;">${grid}</div>
+            <div id="lkf_rec_summary" style="margin-top:6px;font-size:10px;color:#6b7280;min-height:14px;"></div>
+            <div style="margin-top:4px;font-size:9px;color:#d97706;font-style:italic;">⚠️ Tháng ngắn (28-30 ngày): tự dời sang ngày cuối tháng</div>
         </div>`;
     } else if (type === 'once') {
         return `<div>
@@ -1208,6 +1234,31 @@ function _lkRecurrenceChanged() {
     const type = document.getElementById('lkf_recurrence')?.value;
     const wrap = document.getElementById('lkf_recurrence_value_wrap');
     if (wrap) wrap.innerHTML = _lkRecurrenceValueHTML(type, '');
+    _lkUpdateRecSummary();
+}
+
+function _lkUpdateRecSummary() {
+    const el = document.getElementById('lkf_rec_summary');
+    if (!el) return;
+    const type = document.getElementById('lkf_recurrence')?.value;
+    const vals = [...document.querySelectorAll('.lkf-recval-cb:checked')].map(cb => cb.value);
+    if (vals.length === 0) { el.innerHTML = '<span style="color:#dc2626;">⚠️ Chưa chọn ngày nào</span>'; return; }
+    if (type === 'weekly') {
+        const dayNames = { '1':'T2','2':'T3','3':'T4','4':'T5','5':'T6','6':'T7','0':'CN' };
+        el.innerHTML = `✅ Đã chọn: <b>${vals.map(v => dayNames[v]||v).join(', ')}</b> (${vals.length} ngày/tuần)`;
+    } else if (type === 'monthly') {
+        const sorted = vals.map(Number).sort((a,b) => a-b);
+        el.innerHTML = `✅ Đã chọn: <b>Ngày ${sorted.join(', ')}</b> (${sorted.length} ngày/tháng)`;
+    }
+}
+
+function _lkCollectRecurrenceValue() {
+    const type = document.getElementById('lkf_recurrence')?.value;
+    if (type === 'weekly' || type === 'monthly') {
+        const vals = [...document.querySelectorAll('.lkf-recval-cb:checked')].map(cb => cb.value);
+        return vals.join(',');
+    }
+    return document.getElementById('lkf_recval')?.value || '';
 }
 
 function _lkToggleAll(checked) {
@@ -1226,6 +1277,13 @@ async function _lkSaveTask(taskId, deptId) {
     const outputReqs = _lkCollectReqItems('lkf_output_list');
     if (outputReqs.length === 0) { alert('Nhập ít nhất 1 yêu cầu đầu ra!'); return; }
 
+    const recType = document.getElementById('lkf_recurrence')?.value || 'administrative';
+    const recValue = _lkCollectRecurrenceValue();
+    if ((recType === 'weekly' || recType === 'monthly') && !recValue) {
+        alert(recType === 'weekly' ? 'Chọn ít nhất 1 ngày trong tuần!' : 'Chọn ít nhất 1 ngày trong tháng!');
+        return;
+    }
+
     const userIds = [];
     document.querySelectorAll('.lkf-user-cb:checked').forEach(cb => userIds.push(Number(cb.value)));
     if (userIds.length === 0) { alert('Chọn ít nhất 1 nhân viên!'); return; }
@@ -1236,8 +1294,8 @@ async function _lkSaveTask(taskId, deptId) {
         guide_link: guideLink,
         input_requirements: JSON.stringify(inputReqs),
         output_requirements: JSON.stringify(outputReqs),
-        recurrence_type: document.getElementById('lkf_recurrence')?.value || 'administrative',
-        recurrence_value: document.getElementById('lkf_recval')?.value || '',
+        recurrence_type: recType,
+        recurrence_value: recValue,
         requires_approval: document.getElementById('lkf_approval')?.checked || false,
         max_redo_count: Number(document.getElementById('lkf_redo_max')?.value) || 3,
         penalty_amount: 50000,

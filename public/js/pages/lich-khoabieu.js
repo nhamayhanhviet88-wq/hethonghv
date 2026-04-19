@@ -1203,9 +1203,12 @@ function _kbRenderGrid() {
                 } else if (lt.recurrence_type === 'daily') {
                     applies = !_kbLockHolidays.has(dateStr); // Every day except holidays
                 } else if (lt.recurrence_type === 'weekly') {
-                    applies = dayOfWeek === Number(lt.recurrence_value);
+                    const wDays = (lt.recurrence_value || '').split(',').map(Number);
+                    applies = wDays.includes(dayOfWeek);
                 } else if (lt.recurrence_type === 'monthly') {
-                    applies = colDate.getDate() === Number(lt.recurrence_value);
+                    const mDates = (lt.recurrence_value || '').split(',').map(Number);
+                    const lastDay = new Date(colDate.getFullYear(), colDate.getMonth() + 1, 0).getDate();
+                    applies = mDates.some(d => Math.min(d, lastDay) === colDate.getDate());
                 } else if (lt.recurrence_type === 'once') {
                     applies = dateStr === lt.recurrence_value;
                 }
