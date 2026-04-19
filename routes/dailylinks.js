@@ -33,7 +33,7 @@ module.exports = async function (fastify) {
     } catch(e) { /* ignore */ }
 
     // Valid module types
-    const VALID_TYPES = ['addcmt', 'dang_video', 'dang_content', 'dang_group', 'sedding', 'tuyen_dung'];
+    const VALID_TYPES = ['addcmt', 'dang_video', 'dang_content', 'dang_group', 'sedding', 'tuyen_dung', 'tim_gr_zalo'];
     // Task name patterns for target lookup
     const TASK_PATTERNS = {
         addcmt: '%Add%Cmt%Đối Tác%',
@@ -41,7 +41,8 @@ module.exports = async function (fastify) {
         dang_content: '%Đăng%Content%',
         dang_group: '%Đăng%Tìm%KH%Group%',
         sedding: '%Sedding%Cộng Đồng%',
-        tuyen_dung: '%Tuyển%Dụng%SV%'
+        tuyen_dung: '%Tuyển%Dụng%SV%',
+        tim_gr_zalo: '%Tìm%Gr%Zalo%'
     };
 
     function _vnToday() { const n = new Date(Date.now() + 7 * 3600000); return n.toISOString().split('T')[0]; }
@@ -158,6 +159,16 @@ module.exports = async function (fastify) {
         members.forEach(m => { const k = m.dept_id || 0; if (deptMap[k]) deptMap[k].members.push(m); });
         const ordered = deptOrder.filter(id => deptMap[id]).map(id => deptMap[id]);
         return { departments: ordered };
+    });
+
+    // GUIDE URL — get guide_url by module_type
+    fastify.get('/api/dailylinks/guide-url', { preHandler: [authenticate] }, async (req) => {
+        const { module_type } = req.query;
+        if (!module_type) return { guide_url: null };
+        const pattern = TASK_PATTERNS[module_type];
+        if (!pattern) return { guide_url: null };
+        const tpl = await db.get('SELECT guide_url, task_name FROM task_point_templates WHERE task_name ILIKE $1 AND guide_url IS NOT NULL LIMIT 1', [pattern]);
+        return { guide_url: tpl?.guide_url || null, task_name: tpl?.task_name || null };
     });
 
     async function _getDeptIds(user) {

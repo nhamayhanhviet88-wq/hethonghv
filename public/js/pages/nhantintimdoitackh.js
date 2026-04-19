@@ -32,6 +32,7 @@ function _poInit() {
     <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
         <div id="poSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
         <div style="flex:1;padding:20px 24px;overflow-y:auto;">
+            <div id="poGuide"></div>
             <div id="poStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div id="poDateFilter"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -46,6 +47,20 @@ function _poInit() {
     </div>`;
     document.getElementById('pageTitle').textContent = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
     _poLoadAll();
+}
+
+function _poRenderGuide() {
+    const el = document.getElementById('poGuide');
+    if (!el) return;
+    const si = _po.scheduleInfo;
+    const guideUrl = si?.guide_url;
+    if (!guideUrl) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+    <a href="${guideUrl}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 18px;margin-bottom:16px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;text-decoration:none;color:white;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(245,158,11,0.35);transition:all .2s;border:2px solid #fbbf24;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(245,158,11,0.5)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 15px rgba(245,158,11,0.35)'">
+        <span style="font-size:18px;">📘</span>
+        HƯỚNG DẪN CÔNG VIỆC: NHẮN TÌM ĐỐI TÁC KH KOL TIKTOK
+        <span style="margin-left:auto;font-size:16px;">→</span>
+    </a>`;
 }
 
 async function _poLoadAll() {
@@ -79,6 +94,7 @@ async function _poLoadData() {
     _po.entries = entRes.entries || [];
     _po.stats = stRes;
     await _poLoadScheduleInfo();
+    _poRenderGuide();
     _poRenderStats();
     _poRenderDateFilter();
     _poRenderTable();

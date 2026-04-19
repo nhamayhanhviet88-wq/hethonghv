@@ -54,6 +54,7 @@ function _dlInit() {
     <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
         <div id="dlSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
         <div style="flex:1;padding:20px 24px;overflow-y:auto;">
+            <div id="dlGuide"></div>
             <div id="dlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div id="dlDateFilter"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -64,7 +65,25 @@ function _dlInit() {
         </div>
     </div>`;
     document.getElementById('pageTitle').textContent = cfg.label;
+    _dlLoadGuide();
     _dlLoadAll();
+}
+
+async function _dlLoadGuide() {
+    const m = _dl.mod;
+    if (!m) return;
+    try {
+        const res = await apiCall('/api/dailylinks/guide-url?module_type=' + m.type);
+        const el = document.getElementById('dlGuide');
+        if (!el || !res.guide_url) return;
+        const taskLabel = (res.task_name || m.label).toUpperCase();
+        el.innerHTML = `
+        <a href="${res.guide_url}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 18px;margin-bottom:16px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;text-decoration:none;color:white;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(245,158,11,0.35);transition:all .2s;border:2px solid #fbbf24;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(245,158,11,0.5)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 15px rgba(245,158,11,0.35)'">
+            <span style="font-size:18px;">📘</span>
+            HƯỚNG DẪN CÔNG VIỆC: ${taskLabel}
+            <span style="margin-left:auto;font-size:16px;">→</span>
+        </a>`;
+    } catch(e) {}
 }
 
 async function _dlLoadAll() {

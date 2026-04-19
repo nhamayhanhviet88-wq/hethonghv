@@ -339,6 +339,7 @@ module.exports = async function (fastify) {
             task_name: template.task_name,
             min_quantity: template.min_quantity || 1,
             points: template.points || 0,
+            guide_url: template.guide_url || null,
             requires_approval: template.requires_approval || false,
             today_count: Number(entryCount.c),
             report: existingReport ? {
