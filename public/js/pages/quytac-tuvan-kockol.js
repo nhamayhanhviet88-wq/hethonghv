@@ -1,7 +1,7 @@
 ﻿// ========== TRANG QUáº¢N LÃ QUY Táº®C NÃšT TÆ¯ Váº¤N â€” PREMIUM UI v2 ==========
 
 // Status labels for display
-const CTV_FLOW_STATUS_LABELS = {
+const KOCKOL_FLOW_STATUS_LABELS = {
     dang_tu_van: 'ðŸ†• KhÃ¡ch má»›i / Máº·c Ä‘á»‹nh',
     lam_quen_tuong_tac: 'ðŸ‘‹ LÃ m Quen TÆ°Æ¡ng TÃ¡c',
     gui_stk_coc: 'ðŸ¦ Gá»­i STK Cá»c',
@@ -22,7 +22,7 @@ const CTV_FLOW_STATUS_LABELS = {
 };
 
 // Preset gradient colors for stages
-const CTV_STAGE_PRESETS = [
+const KOCKOL_STAGE_PRESETS = [
     { id: 'blue', name: 'ðŸ”µ Ocean Blue', gradient: 'linear-gradient(135deg,#dbeafe,#eff6ff)', textColor: '#1e40af', countBg: '#bfdbfe', countColor: '#1e40af' },
     { id: 'gold', name: 'ðŸŸ¡ Golden Sun', gradient: 'linear-gradient(135deg,#fef3c7,#fffbeb)', textColor: '#92400e', countBg: '#fde68a', countColor: '#92400e' },
     { id: 'green', name: 'ðŸŸ¢ Forest Green', gradient: 'linear-gradient(135deg,#d1fae5,#ecfdf5)', textColor: '#065f46', countBg: '#a7f3d0', countColor: '#065f46' },
@@ -252,7 +252,7 @@ function _qtCOnButtonSortEnd() {
 
 // ========== STAGE MANAGEMENT ==========
 function _qtCShowAddStageModal() {
-    const presetsHTML = CTV_STAGE_PRESETS.map((p, i) => `
+    const presetsHTML = KOCKOL_STAGE_PRESETS.map((p, i) => `
         <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;cursor:pointer;border:2px solid transparent;transition:all .2s;" class="qt-preset-opt" onclick="document.querySelectorAll('.qt-preset-opt').forEach(x=>x.style.borderColor='transparent');this.style.borderColor='#2563eb';document.getElementById('qtStagePresetIdx').value=${i}">
             <div style="width:60px;height:28px;border-radius:6px;background:${p.gradient};flex-shrink:0;"></div>
             <span style="font-size:12px;font-weight:600;color:#334155;">${p.name}</span>
@@ -302,7 +302,7 @@ async function _qtCAddStage() {
     if (!title) return showToast('âŒ Vui lÃ²ng nháº­p tÃªn giai Ä‘oáº¡n!', 'error');
 
     const presetIdx = parseInt(document.getElementById('qtStagePresetIdx').value) || 0;
-    const preset = CTV_STAGE_PRESETS[presetIdx];
+    const preset = KOCKOL_STAGE_PRESETS[presetIdx];
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('stage_' + Date.now());
 
     const newStage = {
@@ -323,7 +323,7 @@ function _qtCShowEditStageModal(stageId) {
     const stage = _qtCStages.find(s => s.id === stageId);
     if (!stage) return;
 
-    const presetsHTML = CTV_STAGE_PRESETS.map((p, i) => {
+    const presetsHTML = KOCKOL_STAGE_PRESETS.map((p, i) => {
         const isSelected = stage.gradient === p.gradient;
         return `
         <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;cursor:pointer;border:2px solid ${isSelected ? '#2563eb' : 'transparent'};transition:all .2s;" class="qt-preset-opt" onclick="document.querySelectorAll('.qt-preset-opt').forEach(x=>x.style.borderColor='transparent');this.style.borderColor='#2563eb';document.getElementById('qtStagePresetIdx').value=${i}">
@@ -332,7 +332,7 @@ function _qtCShowEditStageModal(stageId) {
         </label>
     `}).join('');
 
-    const currentPresetIdx = CTV_STAGE_PRESETS.findIndex(p => p.gradient === stage.gradient);
+    const currentPresetIdx = KOCKOL_STAGE_PRESETS.findIndex(p => p.gradient === stage.gradient);
 
     const overlay = document.createElement('div');
     overlay.className = 'qt-modal-overlay';
@@ -371,7 +371,7 @@ async function _qtCSaveStage(stageId) {
     if (!stage) return;
 
     const presetIdx = parseInt(document.getElementById('qtStagePresetIdx').value) || 0;
-    const preset = CTV_STAGE_PRESETS[presetIdx];
+    const preset = KOCKOL_STAGE_PRESETS[presetIdx];
 
     stage.title = document.getElementById('qtStageTitle').value.trim() || stage.title;
     stage.icon = document.getElementById('qtStageIcon').value.trim() || stage.icon;
@@ -806,7 +806,7 @@ function _qtCGetGroupKeys(groupId) {
 
 // ========== PHASE MANAGEMENT ==========
 function _qtCShowAddPhaseModal() {
-    const presetsHTML = CTV_STAGE_PRESETS.map((p, i) => `
+    const presetsHTML = KOCKOL_STAGE_PRESETS.map((p, i) => `
         <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .2s;" class="qt-preset-opt" onclick="document.querySelectorAll('.qt-preset-opt').forEach(x=>x.style.borderColor='transparent');this.style.borderColor='#2563eb';document.getElementById('qtPhasePresetIdx').value=${i}">
             <div style="width:50px;height:24px;border-radius:4px;background:${p.gradient};flex-shrink:0;"></div>
             <span style="font-size:11px;font-weight:600;color:#334155;">${p.name}</span>
@@ -868,7 +868,7 @@ async function _qtCAddPhase() {
     if (!title) return showToast('âŒ Vui lÃ²ng nháº­p tÃªn pháº§n!', 'error');
 
     const presetIdx = parseInt(document.getElementById('qtPhasePresetIdx').value) || 0;
-    const preset = CTV_STAGE_PRESETS[presetIdx];
+    const preset = KOCKOL_STAGE_PRESETS[presetIdx];
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('phase_' + Date.now());
     const nextOrder = _qtCRulePhases.length > 0 ? Math.max(..._qtCRulePhases.map(p => p.sort_order)) + 1 : 1;
 
@@ -1253,7 +1253,7 @@ function _qtCScrollToRule(key) {
 // ========== EDIT RULES MODAL ==========
 function _qtCShowEditRulesModal(fromStatus) {
     const rules = _qtCAllRules[fromStatus] || [];
-    const statusLabel = CTV_FLOW_STATUS_LABELS[fromStatus] || _qtCGetTypeLabel(fromStatus) || fromStatus;
+    const statusLabel = KOCKOL_FLOW_STATUS_LABELS[fromStatus] || _qtCGetTypeLabel(fromStatus) || fromStatus;
 
     // â˜… Show ALL active types as eligible targets
     const eligibleTypes = _qtCAllTypes.filter(t => {

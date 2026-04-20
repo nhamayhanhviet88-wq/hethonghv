@@ -1948,7 +1948,7 @@ async function _kockolSelectReferrer(customerId, referrerCustomerId) {
 
 // ========== Cáº¬P NHáº¬T THÃ”NG TIN KHÃCH HÃ€NG ==========
 // ========== DANH SÃCH Tá»ˆNH/THÃ€NH PHá» ==========
-const CTV_PROVINCES = [
+const KOCKOL_CTV_PROVINCES = [
     'An Giang','BÃ  Rá»‹a - VÅ©ng TÃ u','Báº¯c Giang','Báº¯c Káº¡n','Báº¡c LiÃªu','Báº¯c Ninh','Báº¿n Tre',
     'BÃ¬nh Äá»‹nh','BÃ¬nh DÆ°Æ¡ng','BÃ¬nh PhÆ°á»›c','BÃ¬nh Thuáº­n','CÃ  Mau','Cáº§n ThÆ¡','Cao Báº±ng',
     'ÄÃ  Náºµng','Äáº¯k Láº¯k','Äáº¯k NÃ´ng','Äiá»‡n BiÃªn','Äá»“ng Nai','Äá»“ng ThÃ¡p','Gia Lai',
@@ -1987,7 +1987,7 @@ async function _kockolOpenCustomerInfo(customerId) {
     let monthOpts = '<option value="">ThÃ¡ng</option>';
     for (let m = 1; m <= 12; m++) monthOpts += `<option value="${m}" ${m == bdMonth ? 'selected' : ''}>ThÃ¡ng ${m}</option>`;
 
-    const provinceOptions = CTV_PROVINCES.map(p => 
+    const provinceOptions = KOCKOL_CTV_PROVINCES.map(p => 
         `<option value="${p}" ${c.province === p ? 'selected' : ''}>${p}</option>`
     ).join('');
 
@@ -2286,7 +2286,7 @@ function _kockolSwitchCDTab(tab) {
 
 // ========== AFFILIATE DETAIL POPUP ==========
 const KOCKOL_CRM_LABELS_AFF = { nhu_cau: 'ChÄƒm SÃ³c KH Nhu Cáº§u', ctv: 'ChÄƒm SÃ³c CTV', tu_tim_kiem: 'CRM Tá»± TÃ¬m Kiáº¿m', goi_hop_tac: 'CRM Gá»i Äiá»‡n Há»£p TÃ¡c', goi_ban_hang: 'CRM Gá»i Äiá»‡n BÃ¡n HÃ ng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
-const CTV_ROLE_LABELS_AFF = { giam_doc:'GiÃ¡m Äá»‘c', quan_ly_cap_cao:'Quáº£n LÃ½ Cáº¥p Cao', quan_ly:'Quáº£n LÃ½', truong_phong:'TrÆ°á»Ÿng PhÃ²ng', nhan_vien:'NhÃ¢n ViÃªn', part_time:'Part Time', hoa_hong:'Hoa Há»“ng', ctv:'CTV', nuoi_duong:'NuÃ´i DÆ°á»¡ng', sinh_vien:'Sinh ViÃªn', tkaffiliate:'TK Affiliate' };
+const KOCKOL_ROLE_LABELS = { giam_doc:'GiÃ¡m Äá»‘c', quan_ly_cap_cao:'Quáº£n LÃ½ Cáº¥p Cao', quan_ly:'Quáº£n LÃ½', truong_phong:'TrÆ°á»Ÿng PhÃ²ng', nhan_vien:'NhÃ¢n ViÃªn', part_time:'Part Time', hoa_hong:'Hoa Há»“ng', ctv:'CTV', nuoi_duong:'NuÃ´i DÆ°á»¡ng', sinh_vien:'Sinh ViÃªn', tkaffiliate:'TK Affiliate' };
 
 async function _kockolOpenAffiliateDetail(userId) {
     if (!userId) return;
@@ -2364,7 +2364,7 @@ async function _kockolOpenAffiliateDetail(userId) {
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">ðŸ·ï¸ Vai trÃ²</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${CTV_ROLE_LABELS_AFF[u.role] || u.role}</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${KOCKOL_ROLE_LABELS[u.role] || u.role}</div>
                             </div>
                         </div>
                     </div>
