@@ -90,8 +90,10 @@ module.exports = async function (fastify) {
         }
 
         const rows = await db.all(
-            `SELECT e.*, e.links_json, u.full_name as user_name, u.username, d.name as dept_name
+            `SELECT e.*, e.links_json, u.full_name as user_name, u.username, d.name as dept_name,
+             c.name as category_name, c.color as category_color
              FROM daily_link_entries e LEFT JOIN users u ON e.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id
+             LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
              WHERE ${where} ORDER BY e.entry_date DESC, e.created_at DESC`, params
         );
         return { entries: rows };
@@ -231,8 +233,13 @@ module.exports = async function (fastify) {
         }
         console.log('[DailyLinks POST] STAGE 3 — images processed');
 
-        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json) VALUES ($1, $2, $3, $4, $5, $6)',
-            [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null]);
+        const categoryId = req.body?.category_id ? Number(req.body.category_id) : null;
+        if (module_type === 'dang_group' && !categoryId) {
+            return reply.code(400).send({ error: 'Vui lòng chọn lĩnh vực!' });
+        }
+
+        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null, categoryId]);
         console.log(`[DailyLinks POST] STAGE 4 — INSERT SUCCESS for ${module_type}, user ${req.user.id}`);
         return { success: true };
       } catch(globalErr) {
@@ -249,6 +256,27 @@ module.exports = async function (fastify) {
         const ed = typeof e.entry_date === 'string' ? e.entry_date.split('T')[0] : e.entry_date?.toISOString?.()?.split('T')[0];
         if (ed !== _vnToday() && req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ xóa được trong ngày' });
         await db.run('DELETE FROM daily_link_entries WHERE id = $1', [Number(req.params.id)]);
+        return { success: true };
+    });
+
+    // ===== CATEGORIES (reuse partner_outreach_categories) =====
+    fastify.get('/api/dailylinks/categories', { preHandler: [authenticate] }, async () => {
+        const rows = await db.all('SELECT * FROM partner_outreach_categories WHERE is_active = true ORDER BY sort_order, name');
+        return { categories: rows };
+    });
+
+    fastify.post('/api/dailylinks/categories', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { name, color } = req.body || {};
+        if (!name?.trim()) return reply.code(400).send({ error: 'Thiếu tên lĩnh vực' });
+        const maxOrder = await db.get('SELECT COALESCE(MAX(sort_order), 0) as m FROM partner_outreach_categories');
+        await db.run('INSERT INTO partner_outreach_categories (name, color, sort_order) VALUES ($1, $2, $3)', [name.trim(), color || '#3b82f6', (maxOrder.m || 0) + 1]);
+        return { success: true };
+    });
+
+    fastify.delete('/api/dailylinks/categories/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        await db.run('UPDATE partner_outreach_categories SET is_active = false WHERE id = $1', [Number(req.params.id)]);
         return { success: true };
     });
 

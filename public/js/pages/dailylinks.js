@@ -11,7 +11,7 @@ const _DL_MODULES = {
     '/tuyendungsvkd':     { type:'tuyen_dung',    label:'Tuyển Dụng SV KD',      icon:'🎓', grad:'linear-gradient(135deg,#be185d,#9d174d)', accent:'#be185d' },
 };
 
-let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null };
+let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null, categories:[] };
 let _dlPlatFilter = 'all'; // platform filter for dangvideo
 let _dlOverrideUserIds = new Set();
 let _dlDatePreset = 'today';
@@ -145,12 +145,17 @@ async function _dlLoadGuide() {
 }
 
 async function _dlLoadAll() {
-    const [memRes, ovRes] = await Promise.all([
+    const loads = [
         apiCall('/api/dailylinks/members'),
         apiCall('/api/schedule/override-users').catch(() => ({ user_ids: [] }))
-    ]);
+    ];
+    // Load categories for dang_group
+    if (_dl.mod?.type === 'dang_group') loads.push(apiCall('/api/dailylinks/categories').catch(() => ({ categories: [] })));
+    const results = await Promise.all(loads);
+    const [memRes, ovRes] = results;
     _dlOverrideUserIds = new Set((ovRes.user_ids || []).map(Number));
     _dlCachedDepts = memRes.departments || [];
+    if (_dl.mod?.type === 'dang_group' && results[2]) _dl.categories = results[2].categories || [];
     _dlRenderSidebar(_dlCachedDepts);
     await _dlLoadData();
 }
@@ -187,6 +192,10 @@ function _dlUpdateActions() {
     const m = _dl.mod;
     const canAdd = _dlIsViewingSelf();
     let h = '';
+    // Category management button for dang_group (GD only)
+    if (m.type === 'dang_group' && currentUser.role === 'giam_doc') {
+        h += `<button onclick="_dlCatModal()" style="padding:8px 14px;border:1px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Lĩnh Vực</button>`;
+    }
     if (canAdd) {
         h += `<button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${m.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Báo cáo công việc</button>`;
     } else if (_dl.selDept || (!_dl.selUser && !['nhan_vien','part_time'].includes(currentUser.role))) {
@@ -486,10 +495,12 @@ function _dlRenderTable() {
     }
 
     // ===== DEFAULT TABLE =====
+    const hasCat = m.type === 'dang_group';
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
         ${hasLink?'<th style="padding:10px 8px;">LINK</th>':''}
+        ${hasCat?'<th style="padding:10px 8px;text-align:center;">LĨNH VỰC</th>':''}
         ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         ${hasImg?'<th style="padding:10px 8px;text-align:center;">ẢNH CHỤP</th>':''}
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
@@ -499,10 +510,12 @@ function _dlRenderTable() {
         const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
         const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
         const imgCell = hasImg ? (r.image_path ? `<img src="${r.image_path}" class="dl-thumb" onclick="_dlOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">` : '<span style="color:#d1d5db;">—</span>') : '';
+        const catBadge = hasCat && r.category_name ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:${r.category_color||'#6366f1'}20;color:${r.category_color||'#6366f1'};font-size:11px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:${r.category_color||'#6366f1'};"></span>${r.category_name}</span>` : (hasCat ? '<span style="color:#d1d5db;font-size:11px;">—</span>' : '');
         h+=`<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
             ${hasLink?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
+            ${hasCat?`<td style="padding:10px 8px;text-align:center;">${catBadge}</td>`:''}
             ${showUser?`<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>`:''}
             ${hasImg?`<td style="padding:10px 8px;text-align:center;">${imgCell}</td>`:''}
             <td style="padding:10px 8px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>
@@ -689,6 +702,13 @@ function _dlAddModal() {
                 <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
                 <div id="dlFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
             </div>` : ''}
+            ${m.type === 'dang_group' ? `<div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh vực <span style="color:#dc2626;">*</span></label>
+                <select id="dlFCategory" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;background:white;cursor:pointer;">
+                    <option value="">-- Chọn lĩnh vực --</option>
+                    ${(_dl.categories||[]).map(c => '<option value="'+c.id+'">'+c.name+'</option>').join('')}
+                </select>
+            </div>` : ''}
             ${(needImg || needScreenshot) ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">📸 Dán Ảnh Chụp Màn Hình <span style="color:#dc2626;">*</span></label>
                 <div id="dlFImgZone" tabindex="0" style="margin-top:6px;border:2px dashed #86efac;border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;background:#f0fdf4;min-height:90px;outline:none;transition:all .2s;" onclick="this.focus()">
@@ -826,14 +846,73 @@ async function _dlSave() {
     if(linkRule && !linkRule.validate(link)){
         showToast(`❌ ${linkRule.errHint}`,'error');return;
     }
+    // Category validation for dang_group
+    const catEl = document.getElementById('dlFCategory');
+    const categoryId = catEl ? catEl.value : null;
+    if(m.type === 'dang_group' && !categoryId){showToast('Vui lòng chọn lĩnh vực!','error');return;}
     try{
         const body = {fb_link:link, module_type:m.type};
         if((needImg || needScreenshot) && _dl.imageData) body.image_data = _dl.imageData;
+        if(categoryId) body.category_id = Number(categoryId);
         const res = await apiCall('/api/dailylinks/entries','POST', body);
         if(res?.error){showToast('❌ '+res.error,'error');return;}
         document.getElementById('dlModal')?.remove();
         showToast('✅ Đã thêm thành công!');_dlLoadData();
     }catch(e){showToast(e.message||'Lỗi','error');}
+}
+
+// ===== CATEGORY MANAGEMENT MODAL =====
+function _dlCatModal() {
+    document.getElementById('dlCatModal')?.remove();
+    const m = document.createElement('div'); m.id = 'dlCatModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    m.onclick = e => { if(e.target===m) m.remove(); };
+    let listHtml = (_dl.categories||[]).map(c => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8fafc;border-radius:8px;margin-bottom:6px;">
+            <span style="width:16px;height:16px;border-radius:50%;background:${c.color};flex-shrink:0;"></span>
+            <span style="flex:1;font-weight:600;font-size:13px;">${c.name}</span>
+            <button onclick="_dlCatDel(${c.id})" style="padding:2px 8px;border:1px solid #fecaca;border-radius:4px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+        </div>`).join('');
+    m.innerHTML = `
+    <div style="background:white;border-radius:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:18px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:16px;font-weight:800;">⚙️ Quản Lý Lĩnh Vực</div>
+            <button onclick="document.getElementById('dlCatModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;">×</button>
+        </div>
+        <div style="padding:20px 24px;max-height:60vh;overflow-y:auto;">
+            <div style="margin-bottom:14px;">${listHtml||'<div style="color:#9ca3af;text-align:center;">Chưa có lĩnh vực</div>'}</div>
+            <div style="display:flex;gap:8px;">
+                <input id="dlCatName" placeholder="Tên lĩnh vực mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <input id="dlCatColor" type="color" value="#3b82f6" style="width:40px;height:36px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;">
+                <button onclick="_dlCatAdd()" style="padding:8px 16px;border:none;border-radius:8px;background:#16a34a;color:white;cursor:pointer;font-weight:700;font-size:13px;">＋</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(m);
+}
+
+async function _dlCatAdd() {
+    const name = document.getElementById('dlCatName').value.trim();
+    const color = document.getElementById('dlCatColor').value;
+    if (!name) return;
+    try {
+        await apiCall('/api/dailylinks/categories', 'POST', { name, color });
+        showToast('✅ Đã thêm'); document.getElementById('dlCatModal')?.remove();
+        const res = await apiCall('/api/dailylinks/categories');
+        _dl.categories = res.categories || [];
+        _dlCatModal();
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
+}
+
+async function _dlCatDel(id) {
+    if (!confirm('Xóa lĩnh vực này?')) return;
+    try {
+        await apiCall('/api/dailylinks/categories/' + id, 'DELETE');
+        showToast('✅ Đã xóa'); document.getElementById('dlCatModal')?.remove();
+        const res = await apiCall('/api/dailylinks/categories');
+        _dl.categories = res.categories || [];
+        _dlCatModal();
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
 }
 
 async function _dlDel(id) {

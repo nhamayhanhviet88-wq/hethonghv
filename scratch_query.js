@@ -1,5 +1,5 @@
 const {Pool} = require('pg');
 const p = new Pool({connectionString: 'postgresql://adminhv:hvadmin2026@192.168.0.201:5555/dongphuchv'});
-p.query("SELECT id, user_id, entry_date, module_type, fb_link, LEFT(links_json::text, 200) as lj FROM daily_link_entries ORDER BY id DESC LIMIT 10")
-  .then(r => { console.log(JSON.stringify(r.rows, null, 2)); p.end(); })
-  .catch(e => { console.error(e); p.end(); });
+p.query("ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS category_id INTEGER")
+  .then(() => { console.log('OK: category_id added'); p.end(); })
+  .catch(e => { console.error(e.message); p.end(); });
