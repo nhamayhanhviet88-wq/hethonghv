@@ -66,7 +66,7 @@ function _poInit() {
         `;
         document.head.appendChild(st);
     }
-    document.getElementById('pageTitle').textContent = 'Add/Cmt Đối Tác KH';
+    document.getElementById('pageTitle').textContent = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
     _poLoadAll();
 }
 
@@ -312,8 +312,10 @@ function _poRenderStats() {
     const el = document.getElementById('poStats');
     if (!el) return;
     const si = _po.scheduleInfo;
-    const target = si?.found ? si.min_quantity : (s.target || 20);
-    const todayDone = si?.found ? si.today_count : (s.today || 0);
+    const isDeptView = _po.selectedDept && !_po.selectedUser;
+    // Khi xem dept/team: dùng target tổng hợp từ stats API, không dùng scheduleInfo cá nhân
+    const target = isDeptView ? (s.target || 20) : (si?.found ? si.min_quantity : (s.target || 20));
+    const todayDone = isDeptView ? (s.today || 0) : (si?.found ? si.today_count : (s.today || 0));
     const pct = target > 0 ? Math.min(100, Math.round(todayDone / target * 100)) : 0;
     const isComplete = todayDone >= target;
     const isSelf = _poIsViewingSelf();
