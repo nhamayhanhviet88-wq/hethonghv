@@ -422,7 +422,8 @@ function _dlRenderTable() {
     const isMultiDay = dr.from !== dr.to;
     if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
     const showUser=!_dl.selUser&&!['nhan_vien','part_time'].includes(currentUser.role);
-    const hasImg = m.type === 'addcmt';
+    const hasImg = m.type === 'addcmt' || _DL_NEED_SCREENSHOT.includes(m.type);
+    const hasLink = m.type !== 'addcmt'; // addcmt has no visible link
     const multiPlatforms = _dlGetMultiPlatforms(m.type);
 
     // ===== MULTI-LINK: custom card-based layout =====
@@ -488,7 +489,7 @@ function _dlRenderTable() {
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
-        ${!hasImg?'<th style="padding:10px 8px;">LINK</th>':''}
+        ${hasLink?'<th style="padding:10px 8px;">LINK</th>':''}
         ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         ${hasImg?'<th style="padding:10px 8px;text-align:center;">ẢNH CHỤP</th>':''}
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
@@ -501,7 +502,7 @@ function _dlRenderTable() {
         h+=`<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
-            ${!hasImg?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
+            ${hasLink?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
             ${showUser?`<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>`:''}
             ${hasImg?`<td style="padding:10px 8px;text-align:center;">${imgCell}</td>`:''}
             <td style="padding:10px 8px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>

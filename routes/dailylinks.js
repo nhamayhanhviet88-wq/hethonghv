@@ -108,11 +108,25 @@ module.exports = async function (fastify) {
         const linkLower = fb_link.trim().toLowerCase();
         // Skip single-link dup check for addcmt and multi-link modules
         const isMultiLink = ['dang_video', 'dang_content'].includes(module_type);
+        // Modules that require GLOBAL uniqueness (no date filter)
+        const globalUnique = ['dang_group'];
         if (module_type !== 'addcmt' && !isMultiLink) {
-            const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
-            if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
-            const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
-            if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+            if (globalUnique.includes(module_type)) {
+                // Global dup: check across ALL users and ALL dates
+                const dupGlobal = await db.get(
+                    `SELECT e.id, e.user_id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id
+                     WHERE LOWER(e.fb_link) = $1 AND e.module_type = $2 LIMIT 1`, [linkLower, module_type]
+                );
+                if (dupGlobal) {
+                    const who = dupGlobal.user_id === req.user.id ? 'chính bạn' : dupGlobal.full_name;
+                    return reply.code(400).send({ error: `Link này đã được nhập bởi ${who}. Mỗi link Group chỉ được nhập 1 lần duy nhất!` });
+                }
+            } else {
+                const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
+                if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
+                const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
+                if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+            }
         }
         console.log('[DailyLinks POST] STAGE 1 — basic validation passed');
 
