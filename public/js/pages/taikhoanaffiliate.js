@@ -17,9 +17,7 @@ async function renderTaiKhoanAffiliatePage(container) {
                     <option value="">Tất cả CRM</option>
                     <option value="nhu_cau">KH Nhu Cầu</option>
                     <option value="ctv">CTV</option>
-                    <option value="tu_tim_kiem">GV / HS / SV</option>
-                    <option value="goi_hop_tac">NS/KT/P.Mua Hàng</option>
-                    <option value="goi_ban_hang">TT/Thời Trang</option>
+
                     <option value="koc_tiktok">KOC/KOL Tiktok</option>
                 </select>
                 <input type="text" class="form-control" id="affFilterSearch" placeholder="🔍 Tìm tên, SĐT..." oninput="loadAffAccounts()" style="min-width:180px;">
@@ -65,7 +63,7 @@ async function loadAffAccounts() {
     const statusFilter = document.getElementById('affFilterStatus')?.value || '';
     const crmFilter = document.getElementById('affFilterCrm')?.value || '';
     const searchQ = (document.getElementById('affFilterSearch')?.value || '').toLowerCase().trim();
-    const CRM_MAP = {nhu_cau:'KH Nhu Cầu',ctv:'CTV',tu_tim_kiem:'Tự Tìm Kiếm',goi_hop_tac:'GĐ Hợp Tác',goi_ban_hang:'GĐ Bán Hàng',koc_tiktok:'KOC Tiktok'};
+    const CRM_MAP = {nhu_cau:'KH Nhu Cầu',ctv:'CTV',ctv_hoa_hong:'Affiliate',koc_tiktok:'KOL/KOC Tiktok'};
     const tbody = document.getElementById('affTableBody');
 
     const data = await apiCall('/api/affiliate/org-tree');
@@ -471,7 +469,7 @@ async function showCreateAffModal() {
                             });
                         });
                         return (staffList.users || [])
-                            .filter(u => !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role))
+                            .filter(u => !['hoa_hong','ctv','tkaffiliate'].includes(u.role))
                             .filter(u => allVisibleDeptIds.size === 0 || allVisibleDeptIds.has(u.department_id))
                             .map(e => `<option value="${e.id}">${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`)
                             .join('');
@@ -654,7 +652,7 @@ function affSelectSource(index) {
     document.getElementById('affSourceSearch').value = `${c.customer_name} - ${c.phone || ''}`;
     document.getElementById('affSourceResults').style.display = 'none';
 
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
     document.getElementById('affSourceCrmType').value = c.crm_type || '';
     document.getElementById('affSourceCrmLabel').value = CRM_L[c.crm_type] || c.crm_type || '';
     document.getElementById('affSourceJobTitle').value = c.job || '';
@@ -747,7 +745,7 @@ async function showEditAffModal(userId) {
     if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
     const depts = deptData.departments || [];
     const deptOptionsHTML = buildAffDeptOptions(depts, user.department_id);
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
 
     const bodyHTML = `
         <div class="form-row">
@@ -788,7 +786,7 @@ async function showEditAffModal(userId) {
                             });
                         });
                         return (staffList.users || [])
-                            .filter(u => !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role))
+                            .filter(u => !['hoa_hong','ctv','tkaffiliate'].includes(u.role))
                             .filter(u => allVisibleDeptIds.size === 0 || allVisibleDeptIds.has(u.department_id))
                             .map(e => `<option value="${e.id}" ${user.managed_by_user_id==e.id?'selected':''}>${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`)
                             .join('');
@@ -991,7 +989,7 @@ function editAffSelectSource(index) {
     document.getElementById('editAffSourceCustomerId').value = c.id;
     document.getElementById('editAffSourceSearch').value = `${c.customer_name} - ${c.phone || ''}`;
     document.getElementById('editAffSourceResults').style.display = 'none';
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
     document.getElementById('editAffSourceCrmType').value = c.crm_type || '';
     document.getElementById('editAffSourceCrmLabel').value = CRM_L[c.crm_type] || c.crm_type || '';
 }
@@ -1044,7 +1042,7 @@ async function showAffDetail(userId) {
     const { user } = await apiCall(`/api/users/${userId}`);
     if (!user) { showToast('Không tìm thấy', 'error'); return; }
 
-    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
 
     const initials = user.full_name.split(' ').map(w => w[0]).join('').slice(-2).toUpperCase();
     const statusBadge = user.status === 'active'
@@ -1248,7 +1246,7 @@ async function showTransferAffModal(affId, affName) {
     });
 
     const managers = (staffList.users || [])
-        .filter(u => !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role))
+        .filter(u => !['hoa_hong','ctv','tkaffiliate'].includes(u.role))
         .filter(u => allVisibleDeptIds.size === 0 || allVisibleDeptIds.has(u.department_id));
 
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`).join('');

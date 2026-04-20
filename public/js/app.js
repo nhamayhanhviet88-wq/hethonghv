@@ -29,10 +29,7 @@ const CRM_LABELS = {
     nhu_cau: 'Chăm Sóc KH Nhu Cầu',
     ctv_hoa_hong: 'Chăm Sóc CTV / Hoa Hồng',
     ctv: 'Chăm Sóc CTV',
-    hoa_hong_crm: 'CRM Tự Tìm Kiếm',
-    nuoi_duong: 'CRM Gọi Điện Hợp Tác',
-    sinh_vien: 'CRM Gọi Điện Bán Hàng',
-    koc_tiktok: 'CRM KOL/KOC Tiktok'
+    koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok'
 };
 
 const MENU_CONFIG = [
@@ -51,11 +48,7 @@ const MENU_CONFIG = [
     { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
-    { id: 'crm-tu-tim-kiem', label: 'CRM Tự Tìm Kiếm', icon: '🌹', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-goi-hop-tac', label: 'CRM Gọi Điện Hợp Tác', icon: '🌱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-goi-ban-hang', label: 'CRM Gọi Điện Bán Hàng', icon: '👟', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'crm-koc-tiktok', label: 'CRM KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
-    { id: 'affiliate-hv', label: 'CRM Affiliate Giới Thiệu', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CRM NUÔI DƯỠNG' },
+    { id: 'cham-soc-koc-kol', label: 'Chăm Sóc KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsockockol' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
@@ -100,16 +93,7 @@ const MENU_PERM_MAP = {
     'crm-nhu-cau': 'crm_nhu_cau',
     'crm-ctv': 'crm_ctv',
     'cham-soc-affiliate': 'crm_affiliate',
-    'crm-tu-tim-kiem': 'crm_tu_tim_kiem',
-    'quytacnuttuvancrmttk': 'crm_tu_tim_kiem',
-    'crm-goi-hop-tac': 'crm_goi_hop_tac',
-    'quytacnuttuvancrmgdht': 'crm_goi_hop_tac',
-    'crm-goi-ban-hang': 'crm_goi_ban_hang',
-    'quytacnuttuvancrmgdbh': 'crm_goi_ban_hang',
-    'crm-koc-tiktok': 'crm_koc_tiktok',
-    'quytacnuttuvancrmkoctiktok': 'crm_koc_tiktok',
-    'affiliate-hv': 'affiliate_hv',
-    'quytacnuttuvancrmaffiliatehv': 'affiliate_hv',
+    'cham-soc-koc-kol': 'crm_koc_kol',
     'huy-khach': 'huy_khach',
     'accounts': 'nhan_vien',
     'teams': 'co_cau_to_chuc',
@@ -531,7 +515,7 @@ var _sidebarSectionKeys = [];
 var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
-    { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'KINH DOANH CRM NUÔI DƯỠNG', 'QUẢN LÝ AFFILIATE'] },
+    { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
 ];
 
@@ -933,11 +917,7 @@ async function handleRoute() {
         case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
         case 'crm-ctv': renderCRMCtvPage(content); break;
         case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
-        case 'crm-tu-tim-kiem': renderCRMTtkPage(content); break;
-        case 'crm-goi-hop-tac': renderCRMGdhtPage(content); break;
-        case 'crm-goi-ban-hang': renderCRMGdbhPage(content); break;
-        case 'crm-koc-tiktok': renderCRMKocPage(content); break;
-        case 'affiliate-hv': renderCRMAffHvPage(content); break;
+        case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
         case 'cap-cuu-sep': renderEmergencyPage(content); break;
         case 'huy-khach': renderCancelPage(content); break;
         case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
@@ -966,11 +946,7 @@ async function handleRoute() {
         case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
         case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
         case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
-        case 'quytacnuttuvancrmttk': renderQuyTacTuVanTtkPage(content); break;
-        case 'quytacnuttuvancrmgdht': renderQuyTacTuVanGdhtPage(content); break;
-        case 'quytacnuttuvancrmgdbh': renderQuyTacTuVanGdbhPage(content); break;
-        case 'quytacnuttuvancrmkoctiktok': renderQuyTacTuVanKocPage(content); break;
-        case 'quytacnuttuvancrmaffiliatehv': renderQuyTacTuVanAffHvPage(content); break;
+        case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
         default: renderComingSoon(content); break;
     }
 

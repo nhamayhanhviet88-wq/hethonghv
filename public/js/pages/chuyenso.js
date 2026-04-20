@@ -67,7 +67,7 @@ async function renderChuyenSoPage(container) {
     }
 
     // Build affiliate users list (all affiliate-type roles)
-    const affiliateRoles = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien', 'koc_tiktok', 'tkaffiliate'];
+    const affiliateRoles = ['hoa_hong', 'ctv', 'tkaffiliate'];
     const allAffiliateUsers = (users.users || []).filter(u => affiliateRoles.includes(u.role));
     const affiliateCrmMap = {};
     allAffiliateUsers.forEach(u => { affiliateCrmMap[u.id] = u.source_crm_type || ''; });
@@ -90,7 +90,7 @@ async function renderChuyenSoPage(container) {
             filtered.map(u => `<option value="${u.id}" data-crm="${u.source_crm_type || ''}">${u.full_name} (${ROLE_LABELS_CSO[u.role] || u.role})</option>`).join('');
         document.getElementById('csoAffiliateCrm').value = '';
     }
-    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
+    const CRM_TYPE_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
     // Build display label for each user
     function userLabel(u) {
@@ -131,11 +131,9 @@ async function renderChuyenSoPage(container) {
                             <select id="csoCrm" class="form-control" required>
                                 <option value="">-- Chọn CRM --</option>
                                 <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
-                                <option value="tu_tim_kiem">CRM Tự Tìm Kiếm</option>
-                                <option value="goi_hop_tac">CRM Gọi Điện Hợp Tác</option>
-                                <option value="goi_ban_hang">CRM Gọi Điện Bán Hàng</option>
-                                <option value="koc_tiktok">CRM KOL/KOC Tiktok</option>
-                                <option value="affiliate">CRM Affiliate Giới Thiệu</option>
+                                <option value="ctv">Chăm Sóc CTV</option>
+                                <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                                <option value="koc_tiktok">Chăm Sóc KOL/KOC Tiktok</option>
                             </select>
                             `}
                         </div>
@@ -307,7 +305,7 @@ async function renderChuyenSoPage(container) {
                 document.getElementById('csoAffiliateCrm').value = '';
             }
             // Load job titles for selected CRM
-            const crmTypesWithJobs = ['goi_hop_tac','goi_ban_hang','tu_tim_kiem','koc_tiktok','affiliate'];
+            const crmTypesWithJobs = [];
             if (crmTypesWithJobs.includes(this.value)) {
                 const data = await apiCall(`/api/telesale/sources?crm_type=${this.value}`);
                 jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>' +

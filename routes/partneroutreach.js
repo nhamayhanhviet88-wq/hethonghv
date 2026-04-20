@@ -262,19 +262,26 @@ module.exports = async function (fastify) {
             // Get target from task_point_templates matching "Nhắn" + "Đối Tác" — individual → team → global fallback
             (async () => {
                 const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
-                let tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
-                if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
-                if (!tpl) tpl = await db.get(`SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
+                let tpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
+                if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
+                if (!tpl) tpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
                 return tpl;
             })()
         ]);
+
+        // Check for user override
+        let targetVal = targetResult ? Number(targetResult.min_quantity) : 20;
+        if (targetResult) {
+            const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', targetResult.id]);
+            if (ov?.custom_min_quantity != null) targetVal = Number(ov.custom_min_quantity);
+        }
 
         return {
             today: Number(todayCount.c),
             week: Number(weekCount.c),
             month: Number(monthCount.c),
             transferred: Number(transferredCount.c),
-            target: targetResult ? Number(targetResult.min_quantity) : 20
+            target: targetVal
         };
     });
 
@@ -333,12 +340,21 @@ module.exports = async function (fastify) {
             [template.id, uid, today]
         );
 
+        // Check for user override
+        let finalMinQty = template.min_quantity || 1;
+        let finalPoints = template.points || 0;
+        const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', template.id]);
+        if (ov) {
+            if (ov.custom_min_quantity != null) finalMinQty = Number(ov.custom_min_quantity);
+            if (ov.custom_points != null) finalPoints = Number(ov.custom_points);
+        }
+
         return {
             found: true,
             template_id: template.id,
             task_name: template.task_name,
-            min_quantity: template.min_quantity || 1,
-            points: template.points || 0,
+            min_quantity: finalMinQty,
+            points: finalPoints,
             guide_url: template.guide_url || null,
             requires_approval: template.requires_approval || false,
             today_count: Number(entryCount.c),
@@ -359,26 +375,42 @@ module.exports = async function (fastify) {
         const countResult = await db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2', [uid, date]);
 
         // Find user-specific template (individual → team → global fallback)
-        let tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
-        if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
-        if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
+        let tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [uid]);
+        if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`, [user.department_id]);
+        if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Đối Tác%' LIMIT 1`);
+
+        // Check for user override
+        let targetVal = tpl ? Number(tpl.min_quantity) : 20;
+        let pointsVal = tpl ? Number(tpl.points) : 10;
+        if (tpl) {
+            const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+            if (ov) {
+                if (ov.custom_min_quantity != null) targetVal = Number(ov.custom_min_quantity);
+                if (ov.custom_points != null) pointsVal = Number(ov.custom_points);
+            }
+        }
 
         return {
             count: Number(countResult.c),
-            target: tpl ? Number(tpl.min_quantity) : 20,
-            total_points: tpl ? Number(tpl.points) : 10
+            target: targetVal,
+            total_points: pointsVal
         };
     });
 
-    // ===== TRANSFER TO CRM TTK =====
+    // ===== TRANSFER TO CRM =====
     fastify.post('/api/partner-outreach/entries/:id/transfer', { preHandler: [authenticate] }, async (req, reply) => {
         const entry = await db.get('SELECT * FROM partner_outreach_entries WHERE id = $1', [Number(req.params.id)]);
         if (!entry) return reply.code(404).send({ error: 'Không tìm thấy' });
         if (entry.transferred_to_crm) return reply.code(400).send({ error: 'Đã chuyển CRM rồi' });
 
-        // Find TTK source
+        // Accept target CRM type from frontend (default: nhu_cau)
+        const targetCrmType = req.body?.target_crm_type || 'nhu_cau';
+        const allowedTypes = ['nhu_cau', 'ctv_hoa_hong'];
+        if (!allowedTypes.includes(targetCrmType)) return reply.code(400).send({ error: 'CRM type không hợp lệ' });
+
+        // Find source for telesale_data (use tu_tim_kiem source for data storage)
         const ttkSource = await db.get("SELECT id, crm_type FROM telesale_sources WHERE crm_type = 'tu_tim_kiem' LIMIT 1");
-        if (!ttkSource) return reply.code(500).send({ error: 'Chưa có nguồn CRM Tự Tìm Kiếm' });
+        if (!ttkSource) return reply.code(500).send({ error: 'Chưa có nguồn CRM' });
 
         const today = _vnToday();
         const now = new Date().toISOString();
@@ -389,7 +421,7 @@ module.exports = async function (fastify) {
                 'SELECT id FROM telesale_data WHERE fb_link = $1 AND source_id = $2',
                 [entry.fb_link, ttkSource.id]
             );
-            if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM TTK' });
+            if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM' });
         }
 
         // Create telesale_data record
@@ -407,6 +439,14 @@ module.exports = async function (fastify) {
                 `INSERT INTO telesale_assignments (data_id, user_id, assigned_date, call_status, notes, called_at, created_at)
                  VALUES ($1, $2, $3, 'answered', 'Chuyển từ Nhắn Tin Đối Tác', NOW(), NOW())`,
                 [newDataId, req.user.id, today]
+            );
+
+            // Also create customer record in target CRM
+            const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong: 'Chăm Sóc Affiliate' };
+            await db.run(
+                `INSERT INTO customers (customer_name, phone, facebook_link, crm_type, assigned_to, source_name, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                [entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, 'Nhắn Tìm Đối Tác']
             );
         }
 

@@ -127,13 +127,34 @@ module.exports = async function (fastify) {
         const me = today.substring(0, 7) + '-' + String(ld).padStart(2, '0');
 
         const pattern = TASK_PATTERNS[module_type] || '%';
-        const [tc, wc, mc, tgt] = await Promise.all([
+        const [tc, wc, mc] = await Promise.all([
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date=$2 AND module_type=$3', [uid, today, module_type]),
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date BETWEEN $2 AND $3 AND module_type=$4', [uid, ws, we, module_type]),
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date BETWEEN $2 AND $3 AND module_type=$4', [uid, ms, me, module_type]),
-            db.get('SELECT min_quantity FROM (SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE $1 UNION ALL SELECT min_quantity FROM task_library WHERE task_name ILIKE $1 UNION ALL SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true) t LIMIT 1', [pattern])
         ]);
-        return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: tgt ? Number(tgt.min_quantity) : 20 };
+
+        // Find target: individual → team → global template → library → lock_tasks (same logic as live-count)
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+        let tpl = null;
+        if (pattern) {
+            tpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [uid, pattern]);
+            if (!tpl && user?.department_id) tpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [user.department_id, pattern]);
+            if (!tpl) tpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+            if (!tpl) tpl = await db.get("SELECT id, min_quantity FROM task_library WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+            if (!tpl) {
+                const lockRow = await db.get("SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1", [pattern]);
+                if (lockRow) tpl = { id: null, min_quantity: lockRow.min_quantity };
+            }
+        }
+
+        // Check for user override
+        let targetVal = tpl ? Number(tpl.min_quantity) : 20;
+        if (tpl && tpl.id) {
+            const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+            if (ov && ov.custom_min_quantity != null) targetVal = Number(ov.custom_min_quantity);
+        }
+
+        return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: targetVal };
     });
 
     // MEMBERS — PHÒNG KINH DOANH only
@@ -190,21 +211,32 @@ module.exports = async function (fastify) {
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
         let tpl = null;
         if (pattern) {
-            tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [uid, pattern]);
-            if (!tpl && user?.department_id) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
-            if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
-            if (!tpl) tpl = await db.get(`SELECT min_quantity, points FROM task_library WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+            tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [uid, pattern]);
+            if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
+            if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+            if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_library WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
             // Fallback: lock_tasks (CV Khóa) — for tasks like Sedding that live there
             if (!tpl) {
                 const lockRow = await db.get(`SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1`, [pattern]);
-                if (lockRow) tpl = { min_quantity: lockRow.min_quantity, points: 10 };
+                if (lockRow) tpl = { id: null, min_quantity: lockRow.min_quantity, points: 10 };
+            }
+        }
+
+        // Check for user override
+        let targetVal = tpl ? Number(tpl.min_quantity) : 20;
+        let pointsVal = tpl ? Number(tpl.points) : 5;
+        if (tpl && tpl.id) {
+            const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+            if (ov) {
+                if (ov.custom_min_quantity != null) targetVal = Number(ov.custom_min_quantity);
+                if (ov.custom_points != null) pointsVal = Number(ov.custom_points);
             }
         }
 
         return {
             count: Number(countResult.c),
-            target: tpl ? Number(tpl.min_quantity) : 20,
-            total_points: tpl ? Number(tpl.points) : 5
+            target: targetVal,
+            total_points: pointsVal
         };
     });
 

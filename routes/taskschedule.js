@@ -388,8 +388,11 @@ async function taskScheduleRoutes(fastify, options) {
         
         // NOTE: head_user_id injection removed — only department_id + task_approvers control sidebar membership
 
-        
-        return { members };
+        // Get user IDs that have at least one override (for ✏️ badge in sidebar)
+        const overrideRows = await db.all('SELECT DISTINCT user_id FROM task_user_overrides');
+        const overrideUserIds = overrideRows.map(r => r.user_id);
+
+        return { members, override_user_ids: overrideUserIds };
     });
 
     // GET reports for a user + date range
@@ -1500,36 +1503,87 @@ async function taskScheduleRoutes(fastify, options) {
         return { overrides: rows };
     });
 
-    // POST create/update override
+    // POST create/update override — BULK: applies to ALL templates with the same task_name for this user
     fastify.post('/api/schedule/user-override', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tùy chỉnh' });
         const { user_id, source_type, source_id, custom_points, custom_min_quantity } = req.body;
         if (!user_id || !source_type || !source_id) return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         if (!['diem', 'khoa'].includes(source_type)) return reply.code(400).send({ error: 'source_type phải là diem hoặc khoa' });
 
-        const result = await db.get(
-            `INSERT INTO task_user_overrides (user_id, source_type, source_id, custom_points, custom_min_quantity, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (user_id, source_type, source_id)
-             DO UPDATE SET custom_points = $4, custom_min_quantity = $5, updated_at = NOW()
-             RETURNING *`,
-            [user_id, source_type, source_id,
-             custom_points != null ? Number(custom_points) : null,
-             custom_min_quantity != null ? Number(custom_min_quantity) : null,
-             req.user.id]
-        );
-        return { success: true, override: result };
+        const cpVal = custom_points != null ? Number(custom_points) : null;
+        const cmqVal = custom_min_quantity != null ? Number(custom_min_quantity) : null;
+
+        if (source_type === 'diem') {
+            // Find the task_name from the source template
+            const srcTemplate = await db.get('SELECT task_name FROM task_point_templates WHERE id = $1', [Number(source_id)]);
+            if (!srcTemplate) return reply.code(404).send({ error: 'Template không tồn tại' });
+
+            // Find ALL templates with the same task_name assigned to this user
+            const allTemplates = await _getTemplatesForUser(Number(user_id), null);
+            const sameNameTemplates = allTemplates.filter(t => t.task_name === srcTemplate.task_name);
+
+            // Bulk upsert overrides for ALL matching templates
+            const results = [];
+            for (const tpl of sameNameTemplates) {
+                // Merge with existing override for this template (preserve fields not being edited)
+                const existing = await db.get(
+                    'SELECT * FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
+                    [user_id, 'diem', tpl.id]
+                );
+                const finalCp = cpVal !== null ? cpVal : (existing?.custom_points ?? null);
+                const finalCmq = cmqVal !== null ? cmqVal : (existing?.custom_min_quantity ?? null);
+
+                const row = await db.get(
+                    `INSERT INTO task_user_overrides (user_id, source_type, source_id, custom_points, custom_min_quantity, created_by)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+                     ON CONFLICT (user_id, source_type, source_id)
+                     DO UPDATE SET custom_points = $4, custom_min_quantity = $5, updated_at = NOW()
+                     RETURNING *`,
+                    [user_id, 'diem', tpl.id, finalCp, finalCmq, req.user.id]
+                );
+                results.push(row);
+            }
+            return { success: true, override: results[0], total_updated: results.length };
+        } else {
+            // For 'khoa' type — single override (lock tasks don't repeat by name)
+            const result = await db.get(
+                `INSERT INTO task_user_overrides (user_id, source_type, source_id, custom_points, custom_min_quantity, created_by)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (user_id, source_type, source_id)
+                 DO UPDATE SET custom_points = $4, custom_min_quantity = $5, updated_at = NOW()
+                 RETURNING *`,
+                [user_id, source_type, Number(source_id), cpVal, cmqVal, req.user.id]
+            );
+            return { success: true, override: result };
+        }
     });
 
-    // DELETE remove override (restore default)
+    // DELETE remove override (restore default) — BULK: removes ALL overrides with same task_name
     fastify.delete('/api/schedule/user-override', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa tùy chỉnh' });
         const { user_id, source_type, source_id } = req.query;
         if (!user_id || !source_type || !source_id) return reply.code(400).send({ error: 'Thiếu thông tin' });
-        await db.run(
-            'DELETE FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
-            [Number(user_id), source_type, Number(source_id)]
-        );
+
+        if (source_type === 'diem') {
+            // Find task_name from source template, then delete ALL overrides with same task_name
+            const srcTemplate = await db.get('SELECT task_name FROM task_point_templates WHERE id = $1', [Number(source_id)]);
+            if (srcTemplate) {
+                const allTemplates = await _getTemplatesForUser(Number(user_id), null);
+                const sameNameIds = allTemplates.filter(t => t.task_name === srcTemplate.task_name).map(t => t.id);
+                if (sameNameIds.length > 0) {
+                    const ph = sameNameIds.map((_, i) => `$${i + 3}`).join(',');
+                    await db.run(
+                        `DELETE FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id IN (${ph})`,
+                        [Number(user_id), 'diem', ...sameNameIds]
+                    );
+                }
+            }
+        } else {
+            await db.run(
+                'DELETE FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
+                [Number(user_id), source_type, Number(source_id)]
+            );
+        }
         return { success: true };
     });
 

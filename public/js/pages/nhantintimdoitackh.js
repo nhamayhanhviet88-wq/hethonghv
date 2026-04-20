@@ -539,10 +539,36 @@ async function _poDelete(id) {
 }
 
 async function _poTransfer(id) {
-    if (!confirm('Chuyển đối tác này vào CRM Tự Tìm Kiếm?')) return;
+    // Show dropdown to choose CRM destination
+    const old = document.getElementById('poTransferModal');
+    if (old) old.remove();
+    const m = document.createElement('div'); m.id = 'poTransferModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    m.onclick = e => { if(e.target===m) m.remove(); };
+    m.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="font-size:16px;font-weight:800;color:#122546;margin-bottom:16px;text-align:center;">📋 Chuyển vào CRM nào?</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button onclick="_poDoTransfer(${id},'nhu_cau')" style="padding:14px;border:2px solid #3b82f6;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(59,130,246,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                    📋 Chăm Sóc KH Nhu Cầu
+                </button>
+                <button onclick="_poDoTransfer(${id},'ctv_hoa_hong')" style="padding:14px;border:2px solid #ec4899;border-radius:12px;background:linear-gradient(135deg,#fdf2f8,#fce7f3);color:#9d174d;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(236,72,153,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                    💝 Chăm Sóc Affiliate
+                </button>
+            </div>
+            <div style="text-align:center;margin-top:14px;">
+                <button onclick="document.getElementById('poTransferModal').remove()" style="padding:8px 20px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-size:13px;">Hủy</button>
+            </div>
+        </div>`;
+    document.body.appendChild(m);
+}
+
+async function _poDoTransfer(id, targetCrmType) {
+    document.getElementById('poTransferModal')?.remove();
     try {
-        await apiCall('/api/partner-outreach/entries/' + id + '/transfer', 'POST');
-        showToast('✅ Đã chuyển vào CRM TTK'); _poLoadData();
+        await apiCall('/api/partner-outreach/entries/' + id + '/transfer', 'POST', { target_crm_type: targetCrmType });
+        const label = targetCrmType === 'nhu_cau' ? 'Chăm Sóc KH Nhu Cầu' : 'Chăm Sóc Affiliate';
+        showToast('✅ Đã chuyển vào ' + label); _poLoadData();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 

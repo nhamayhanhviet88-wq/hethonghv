@@ -286,8 +286,6 @@ const JOB_CRM_OPTIONS = [
     { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm' },
     { value: 'goi_hop_tac', label: 'CRM Gọi Điện Hợp Tác' },
     { value: 'goi_ban_hang', label: 'CRM Gọi Điện Bán Hàng' },
-    { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
-    { value: 'affiliate', label: 'CRM Affiliate Giới Thiệu' },
 ];
 
 let currentJobCrm = '';

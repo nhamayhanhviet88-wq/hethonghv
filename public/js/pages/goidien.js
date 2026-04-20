@@ -693,10 +693,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
     const source = _gd_sources.find(s => s.name === call.source_name);
     const crmType = source?.crm_type || '';
     const crmOptions = [
-        {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'tu_tim_kiem',label:'CRM Tự Tìm Kiếm'},
-        {value:'goi_hop_tac',label:'CRM Gọi Điện Hợp Tác'},{value:'goi_ban_hang',label:'CRM Gọi Điện Bán Hàng'},
-        {value:'koc_tiktok',label:'CRM KOL/KOC Tiktok'},
-        {value:'affiliate',label:'CRM Affiliate Giới Thiệu'},
+        {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'ctv_hoa_hong',label:'Chăm Sóc Affiliate'},
     ];
     const hasPhone = !!(call.phone && call.phone.trim());
     const hasFb = !!(call.fb_link && call.fb_link.trim());
@@ -715,7 +712,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                     <input type="text" class="form-control" value="GỌI ĐIỆN TELESALE" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                 </div>
             </div>
-            <div id="gdCSJobTitleRow" style="display:${['tu_tim_kiem','goi_hop_tac','goi_ban_hang','koc_tiktok','affiliate'].includes(crmType)?'grid':'none'};grid-template-columns:1fr 1fr;gap:14px;">
+            <div id="gdCSJobTitleRow" style="display:none;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">Chức Danh <span style="color:#dc2626;">*</span></label>
                     <select id="gdCSJobTitle" class="form-control">
@@ -762,7 +759,7 @@ async function _gd_csLoadJobTitles(crmType, preselect) {
     const jobRow = document.getElementById('gdCSJobTitleRow');
     const jobSel = document.getElementById('gdCSJobTitle');
     if (!jobRow || !jobSel) return;
-    const crmTypesWithJobs = ['goi_hop_tac','goi_ban_hang','tu_tim_kiem','koc_tiktok','affiliate'];
+    const crmTypesWithJobs = [];
     if (crmTypesWithJobs.includes(crmType)) {
         const data = await apiCall(`/api/telesale/sources?crm_type=${crmType}`);
         const sources = data.sources || [];

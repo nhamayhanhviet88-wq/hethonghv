@@ -479,6 +479,7 @@ async function renderLichKhoaBieuPage(container) {
                 apiCall('/api/task-points/departments')
             ]);
             const members = m.members || [];
+            const overrideUserIds = new Set(m.override_user_ids || []);
             const rawDepts = (dData.departments || []).filter(d => !d.name.toUpperCase().includes('AFFILIATE'));
             const activeDeptIds = new Set(dData.active_dept_ids || []);
             _kbAllDepts = rawDepts;
@@ -532,7 +533,7 @@ async function renderLichKhoaBieuPage(container) {
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
-                                <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                                <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name}${overrideUserIds.has(u.id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
                                 <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
                             </div>
                         </div>`;
@@ -579,7 +580,7 @@ async function renderLichKhoaBieuPage(container) {
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
-                                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.full_name}</div>
+                                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${a.full_name}${overrideUserIds.has(a.user_id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
                                 <div style="font-size:10px;color:#d97706;font-weight:700;margin-top:1px;">⭐ Quản lý cấp cao</div>
                             </div>
                         </div>`;
@@ -3630,8 +3631,8 @@ async function _kbLoadDetailSelfSearch() {
                 <div style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a78bfa);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="margin-top:10px;text-align:center;">
-                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();setTimeout(()=>{if(typeof _gd_activeCrmTab!=='undefined'){_gd_activeCrmTab='tu_tim_kiem';if(_gd_selectedUserId)_gd_loadCallsForUser(_gd_selectedUserId);}},500);" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(99,102,241,0.3)'">
-                    📞 Mở CRM Tự Tìm Kiếm →
+                <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(99,102,241,0.3)'">
+                    📞 Mở Gọi Điện Telesale →
                 </a>
             </div>
         </div>`;

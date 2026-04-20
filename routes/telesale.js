@@ -1536,14 +1536,19 @@ async function telesaleRoutes(fastify) {
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
         if (user) {
             const tmpl = await db.get(
-                `SELECT min_quantity FROM task_point_templates
+                `SELECT id, min_quantity FROM task_point_templates
                  WHERE task_name ILIKE '%Tự Tìm Kiếm%'
                  AND day_of_week = $3
                  AND ((target_type = 'team' AND target_id = $1) OR (target_type = 'individual' AND target_id = $2))
                  ORDER BY min_quantity DESC LIMIT 1`,
                 [user.department_id, userId, dbDay]
             );
-            if (tmpl && tmpl.min_quantity > 0) target = tmpl.min_quantity;
+            if (tmpl && tmpl.min_quantity > 0) {
+                target = tmpl.min_quantity;
+                // Check for user override
+                const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [userId, 'diem', tmpl.id]);
+                if (ov?.custom_min_quantity != null) target = Number(ov.custom_min_quantity);
+            }
         }
 
         return { count: parseInt(countRes?.cnt || 0), date: targetDate, target };
@@ -1576,15 +1581,23 @@ async function telesaleRoutes(fastify) {
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
         if (user) {
             const tmpls = await db.all(
-                `SELECT min_quantity, points FROM task_point_templates
+                `SELECT id, min_quantity, points FROM task_point_templates
                  WHERE task_name ILIKE '%Gọi Điện Telesale%'
                  AND day_of_week = $3
                  AND ((target_type = 'team' AND target_id = $1) OR (target_type = 'individual' AND target_id = $2))`,
                 [user.department_id, userId, dbDay]
             );
             if (tmpls.length > 0) {
-                target = tmpls.reduce((sum, t) => sum + (t.min_quantity || 0), 0) || 100;
-                total_points = tmpls.reduce((sum, t) => sum + (t.points || 0), 0) || 50;
+                // Check for user override on the first matching template
+                const firstTpl = tmpls[0];
+                const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [userId, 'diem', firstTpl.id]);
+                if (ov) {
+                    target = ov.custom_min_quantity != null ? Number(ov.custom_min_quantity) : (tmpls.reduce((sum, t) => sum + (t.min_quantity || 0), 0) || 100);
+                    total_points = ov.custom_points != null ? Number(ov.custom_points) : (tmpls.reduce((sum, t) => sum + (t.points || 0), 0) || 50);
+                } else {
+                    target = tmpls.reduce((sum, t) => sum + (t.min_quantity || 0), 0) || 100;
+                    total_points = tmpls.reduce((sum, t) => sum + (t.points || 0), 0) || 50;
+                }
             }
         }
 

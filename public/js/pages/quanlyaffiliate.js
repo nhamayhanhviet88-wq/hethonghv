@@ -2,7 +2,7 @@
 
 const AFF_ROLE_LABELS = {
     hoa_hong: 'Hoa Hồng', ctv: 'CTV',
-    nuoi_duong: 'Nuôi Dưỡng', sinh_vien: 'Sinh Viên'
+
 };
 
 let _affData = { departments: [], employees: [], affiliates: [] };
@@ -67,8 +67,7 @@ function renderQuanLyAffiliatePage(container) {
             .aff-row .aff-role { font-size:10px; padding:1px 8px; border-radius:10px; font-weight:600; }
             .aff-row .aff-role.hoa_hong { background:#fce7f3; color:#be185d; }
             .aff-row .aff-role.ctv { background:#dbeafe; color:#1d4ed8; }
-            .aff-row .aff-role.nuoi_duong { background:#d1fae5; color:#065f46; }
-            .aff-row .aff-role.sinh_vien { background:#ede9fe; color:#5b21b6; }
+
             .aff-row .aff-stats { display:flex; gap:14px; font-size:11px; color:#6b7280; }
             .btn-aff-assign { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:4px 12px; border-radius:8px; font-size:11px; cursor:pointer; font-weight:600; transition:all .2s; }
             .btn-aff-assign:hover { background:#d1fae5; }
@@ -327,9 +326,7 @@ function affRenderStats() {
     const CRM_TYPES = [
         { key: 'nhu_cau', label: 'Nhu Cầu', color: '#f59e0b', bg: '#fffbeb' },
         { key: 'ctv', label: 'CTV', color: '#1d4ed8', bg: '#dbeafe' },
-        { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', color: '#be185d', bg: '#fce7f3' },
-        { key: 'goi_hop_tac', label: 'GĐ Hợp Tác', color: '#065f46', bg: '#d1fae5' },
-        { key: 'goi_ban_hang', label: 'GĐ Bán Hàng', color: '#5b21b6', bg: '#ede9fe' },
+
         { key: 'koc_tiktok', label: 'KOC Tiktok', color: '#dc2626', bg: '#fef2f2' },
     ];
     const crmCounts = {};
@@ -377,9 +374,7 @@ function affRenderTree() {
     const CRM_BADGE_MAP = {
         nhu_cau: { label:'NC', color:'#f59e0b', bg:'#fffbeb' },
         ctv: { label:'CTV', color:'#1d4ed8', bg:'#dbeafe' },
-        tu_tim_kiem: { label:'TTK', color:'#be185d', bg:'#fce7f3' },
-        goi_hop_tac: { label:'HT', color:'#065f46', bg:'#d1fae5' },
-        goi_ban_hang: { label:'BH', color:'#5b21b6', bg:'#ede9fe' },
+
         koc_tiktok: { label:'KOC', color:'#dc2626', bg:'#fef2f2' },
     };
     function crmBadges(affList) {
@@ -736,8 +731,8 @@ async function affShowDetail(userId) {
     if (!data.user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
     const user = data.user;
 
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',tu_tim_kiem:'CRM Tự Tìm Kiếm',goi_hop_tac:'CRM Gọi Điện Hợp Tác',goi_ban_hang:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
-    const ROLE_MAP = {hoa_hong:'Hoa Hồng',ctv:'CTV',nuoi_duong:'Nuôi Dưỡng',sinh_vien:'Sinh Viên'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
+    const ROLE_MAP = {hoa_hong:'Hoa Hồng',ctv:'CTV'};
 
     // Get department name
     const depts = _affData.departments || [];

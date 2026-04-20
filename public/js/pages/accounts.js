@@ -21,9 +21,7 @@ async function renderAccountsPage(container) {
                     <option value="">Tất cả CRM</option>
                     <option value="nhu_cau">KH Nhu Cầu</option>
                     <option value="ctv">CTV</option>
-                    <option value="hoa_hong_crm">GV / HS / SV</option>
-                    <option value="nuoi_duong">NS/KT/P.Mua Hàng</option>
-                    <option value="sinh_vien">TT/Thời Trang</option>
+
                     <option value="koc_tiktok">KOC/KOL Tiktok</option>
                 </select>
                 <input type="text" class="form-control" id="filterSearch" placeholder="🔍 Tìm tên, SĐT..." oninput="loadAccounts()" style="min-width:180px;">
@@ -435,7 +433,7 @@ function onRoleChange() {
     const hhFields = document.getElementById('hoaHongFields');
     if (hhFields) hhFields.style.display = role === 'hoa_hong' ? 'block' : 'none';
     
-    const AFFILIATE_ROLES = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+    const AFFILIATE_ROLES = ['hoa_hong', 'ctv'];
     const isAff = AFFILIATE_ROLES.includes(role);
 
     const affFields = document.getElementById('affiliateFields');
@@ -578,7 +576,7 @@ function selectSourceCustomer(index) {
     document.getElementById('accSourceResults').style.display = 'none';
 
     // Auto-fill CRM source type
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
     document.getElementById('accSourceCrmType').value = c.crm_type || '';
     document.getElementById('accSourceCrmLabel').value = CRM_LABELS[c.crm_type] || c.crm_type || '';
 
@@ -604,7 +602,7 @@ async function submitCreateAccount() {
     const cccdFront = document.getElementById('accCCCDFront').files[0];
     const cccdBack = document.getElementById('accCCCDBack').files[0];
     const selectedRole = document.getElementById('accRole').value;
-    const AFFILIATE_ROLES_CHECK = ['hoa_hong','ctv','nuoi_duong','sinh_vien'];
+    const AFFILIATE_ROLES_CHECK = ['hoa_hong','ctv'];
     const isAffiliate = AFFILIATE_ROLES_CHECK.includes(selectedRole);
 
     if (!isAffiliate) {
@@ -726,7 +724,7 @@ async function showEditAccountModal(userId) {
     const socialItems = socialData.items || [];
     const toolItems = toolData.items || [];
 
-    const EDIT_AFF_ROLES = ['hoa_hong','ctv','nuoi_duong','sinh_vien'];
+    const EDIT_AFF_ROLES = ['hoa_hong','ctv'];
     const isEditAff = EDIT_AFF_ROLES.includes(user.role);
     const editSysRoles = rpData.roles || [];
     const editPositions = rpData.positions || [];
@@ -807,7 +805,7 @@ async function showEditAccountModal(userId) {
         </div>
         <div class="form-group">
             <label>📌 Khách CRM từ đâu?</label>
-            <input type="text" id="editSourceCrmLabel" class="form-control" disabled value="${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}" style="background:#f9fafb;color:var(--navy);font-weight:600;">
+            <input type="text" id="editSourceCrmLabel" class="form-control" disabled value="${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}" style="background:#f9fafb;color:var(--navy);font-weight:600;">
         </div>
         ` : ''}
         <div class="form-row">
@@ -1033,7 +1031,7 @@ function editSelectSourceCustomer(index) {
     document.getElementById('editSourceResults').style.display = 'none';
 
     // Auto-fill CRM source type
-    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'};
+    const CRM_LABELS = {nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
     document.getElementById('editSourceCrmType').value = c.crm_type || '';
     document.getElementById('editSourceCrmLabel').value = CRM_LABELS[c.crm_type] || c.crm_type || '';
 }
@@ -1199,7 +1197,7 @@ async function showAccountDetail(userId) {
     const socialItems = socialData.items || [];
     const toolItems = toolData.items || [];
 
-    const VIEW_AFF_ROLES = ['hoa_hong','ctv','nuoi_duong','sinh_vien'];
+    const VIEW_AFF_ROLES = ['hoa_hong','ctv'];
     const isViewAff = VIEW_AFF_ROLES.includes(user.role);
     const initials = (user.full_name || '?').split(' ').map(w => w[0]).join('').slice(-2).toUpperCase();
     const isActive = user.status === 'active';
@@ -1274,7 +1272,7 @@ async function showAccountDetail(userId) {
                         </div>
                         <div style="padding:12px 14px;">
                             <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📌 CRM Nguồn</div>
-                            <div style="font-size:13px;font-weight:600;color:#1e293b;">${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',hoa_hong_crm:'CRM Tự Tìm Kiếm',nuoi_duong:'CRM Gọi Điện Hợp Tác',sinh_vien:'CRM Gọi Điện Bán Hàng',koc_tiktok:'CRM KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}</div>
+                            <div style="font-size:13px;font-weight:600;color:#1e293b;">${({nhu_cau:'Chăm Sóc KH Nhu Cầu',ctv:'Chăm Sóc CTV',ctv_hoa_hong:'Chăm Sóc Affiliate',koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'})[user.source_crm_type] || user.source_crm_type || '—'}</div>
                         </div>
                         ` : `
                         <div style="padding:12px 14px;">
@@ -1431,7 +1429,7 @@ async function showHandoverModal(userId, managed) {
     const staffRes = await fetch('/api/staff-list', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
     const staffList = await staffRes.json();
     const managers = (staffList.users || []).filter(u => 
-        !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(u.role) && u.id !== userId
+        !['hoa_hong','ctv','tkaffiliate'].includes(u.role) && u.id !== userId
     );
     const ROLE_MAP = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time' };
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_MAP[e.role] || e.role})</option>`).join('');
