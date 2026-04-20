@@ -40,10 +40,7 @@ function _poInit() {
             <div id="poCatFilter" style="margin-bottom:14px;"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h2 id="poTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách hôm nay</h2>
-                <div style="display:flex;gap:8px;">
-                    ${currentUser?.role==='giam_doc'?'<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Lĩnh Vực</button>':''}
-                    <button onclick="_poAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">＋ Thêm Đối Tác</button>
-                </div>
+                <div id="poActionButtons" style="display:flex;gap:8px;"></div>
             </div>
             <div id="poTable"></div>
         </div>
@@ -104,6 +101,33 @@ async function _poLoadData() {
     _poRenderDateFilter();
     _poRenderCategoryFilter();
     _poRenderTable();
+    _poUpdateActionButtons();
+}
+
+// Check if currently viewing own data (can add entries)
+function _poIsViewingSelf() {
+    // If a specific user is selected, it must be the current user
+    if (_po.selectedUser) return _po.selectedUser === currentUser.id;
+    // If a dept is selected (not a specific user), viewing team/dept aggregate → can't add
+    if (_po.selectedDept) return false;
+    // "Tất cả nhân viên" selected → aggregate view → can't add
+    // UNLESS user is nhan_vien/part_time (they only see themselves)
+    if (['nhan_vien','part_time'].includes(currentUser.role)) return true;
+    return false;
+}
+
+function _poUpdateActionButtons() {
+    const el = document.getElementById('poActionButtons');
+    if (!el) return;
+    const canAdd = _poIsViewingSelf();
+    let h = '';
+    if (currentUser?.role === 'giam_doc') {
+        h += '<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Lĩnh Vực</button>';
+    }
+    if (canAdd) {
+        h += '<button onclick="_poAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">＋ Thêm Đối Tác</button>';
+    }
+    el.innerHTML = h;
 }
 
 function _poToday() {
@@ -237,7 +261,7 @@ function _poRenderStats() {
     const todayDone = si?.found ? si.today_count : (s.today || 0);
     const pct = target > 0 ? Math.min(100, Math.round(todayDone / target * 100)) : 0;
     const isComplete = todayDone >= target;
-    const isSelf = !_po.selectedUser || _po.selectedUser === currentUser.id;
+    const isSelf = _poIsViewingSelf();
 
     // Report status
     let reportBadge = '';
@@ -537,23 +561,12 @@ function _poAddModal(editEntry) {
                 </div>
                 <div>
                     <label style="font-weight:600;font-size:13px;color:#374151;">Kênh Isocal <span style="color:#dc2626;">*</span></label>
-                    <select id="poFChannel" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;">
-                        <option value="">-- Chọn --</option>
-                        <option value="Facebook Cá Nhân" ${editEntry?.channel==='Facebook Cá Nhân'?'selected':''}>Facebook Cá Nhân</option>
-                        <option value="Page Facebook" ${editEntry?.channel==='Page Facebook'?'selected':''}>Page Facebook</option>
-                        <option value="Tiktok" ${editEntry?.channel==='Tiktok'?'selected':''}>Tiktok</option>
-                        <option value="Instagram" ${editEntry?.channel==='Instagram'?'selected':''}>Instagram</option>
-                        <option value="Threads" ${editEntry?.channel==='Threads'?'selected':''}>Threads</option>
-                        <option value="Linkedin" ${editEntry?.channel==='Linkedin'?'selected':''}>Linkedin</option>
-                        <option value="Twitter" ${editEntry?.channel==='Twitter'?'selected':''}>Twitter</option>
-                    </select>
+                    <div id="poFChannelWrap" style="position:relative;margin-top:4px;"></div>
                 </div>
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh Vực <span style="color:#dc2626;">*</span></label>
-                <select id="poFCat" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;">
-                    <option value="">-- Chọn --</option>${catOpts}
-                </select>
+                <div id="poFCatWrap" style="position:relative;margin-top:4px;"></div>
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Hình Ảnh <span style="color:#dc2626;">*</span> (Ctrl+V để dán)</label>
@@ -606,6 +619,65 @@ function _poAddModal(editEntry) {
                 nameInput.value = url.match(/profile\.php.*id=(\d+)/)[1];
             }
         } catch(e) {}
+    });
+    // Init searchable dropdowns
+    const channelOpts = ['Facebook Cá Nhân','Page Facebook','Tiktok','Instagram','Threads','Linkedin','Twitter'];
+    _poInitSearchDropdown('poFChannelWrap', 'poFChannel', channelOpts, editEntry?.channel || '');
+    const catItems = (_po.categories||[]).map(c => ({value: String(c.id), label: c.name}));
+    _poInitSearchDropdown('poFCatWrap', 'poFCat', catItems, editEntry?.category_id ? String(editEntry.category_id) : '');
+}
+
+// Reusable searchable dropdown component
+function _poInitSearchDropdown(wrapperId, hiddenId, options, initialValue) {
+    const wrap = document.getElementById(wrapperId);
+    if (!wrap) return;
+    // options can be [{value, label}] or ['string', ...]
+    const items = options.map(o => typeof o === 'string' ? {value: o, label: o} : o);
+    const initItem = items.find(i => i.value === initialValue);
+    wrap.innerHTML = `
+        <input type="hidden" id="${hiddenId}" value="${initialValue||''}">
+        <input id="${hiddenId}_search" type="text" autocomplete="off" value="${initItem?.label||''}"
+            style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;background:white;"
+            placeholder="Gõ để tìm...">
+        <div id="${hiddenId}_list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:10000;background:white;border:1px solid #d1d5db;border-radius:8px;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.15);margin-top:2px;"></div>
+    `;
+    const searchInput = document.getElementById(hiddenId + '_search');
+    const listEl = document.getElementById(hiddenId + '_list');
+    const hiddenInput = document.getElementById(hiddenId);
+
+    function renderList(filter) {
+        const q = (filter||'').toLowerCase();
+        const filtered = q ? items.filter(i => i.label.toLowerCase().includes(q)) : items;
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#9ca3af;">Không tìm thấy</div>';
+        } else {
+            listEl.innerHTML = filtered.map(i => `
+                <div class="po-dd-item" data-value="${i.value}" style="padding:9px 14px;font-size:13px;cursor:pointer;transition:background .15s;${hiddenInput.value===i.value?'background:#eff6ff;color:#2563eb;font-weight:700;':''}"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${hiddenInput.value===i.value?'#eff6ff':'white'}'">${i.label}</div>
+            `).join('');
+        }
+        listEl.querySelectorAll('.po-dd-item').forEach(el => {
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                hiddenInput.value = el.dataset.value;
+                searchInput.value = el.textContent.trim();
+                listEl.style.display = 'none';
+            });
+        });
+    }
+
+    searchInput.addEventListener('focus', () => { renderList(searchInput.value); listEl.style.display = 'block'; });
+    searchInput.addEventListener('input', () => { hiddenInput.value = ''; renderList(searchInput.value); listEl.style.display = 'block'; });
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            listEl.style.display = 'none';
+            // If no valid selection, reset
+            if (!hiddenInput.value) {
+                const match = items.find(i => i.label.toLowerCase() === searchInput.value.toLowerCase().trim());
+                if (match) { hiddenInput.value = match.value; searchInput.value = match.label; }
+                else searchInput.value = '';
+            }
+        }, 200);
     });
 }
 
