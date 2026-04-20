@@ -4455,7 +4455,7 @@ async function _kbSaveOverrideDiem(templateId, field) {
         showToast('✅ Đã lưu tùy chỉnh!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var dm = document.getElementById('kbDetailModal'); if (dm) dm.remove();
-        _kbInit();
+        _kbLoadSchedule();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
@@ -4466,7 +4466,7 @@ async function _kbResetOverrideDiem(templateId) {
         showToast('🔄 Đã khôi phục mặc định!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var dm = document.getElementById('kbDetailModal'); if (dm) dm.remove();
-        _kbInit();
+        _kbLoadSchedule();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
@@ -4516,7 +4516,7 @@ async function _kbSaveOverrideKhoa(lockTaskId) {
         showToast('✅ Đã lưu!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
-        _kbInit();
+        _kbLoadSchedule();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
@@ -4527,6 +4527,6 @@ async function _kbResetOverrideKhoa(lockTaskId) {
         showToast('🔄 Đã khôi phục!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
-        _kbInit();
+        _kbLoadSchedule();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
