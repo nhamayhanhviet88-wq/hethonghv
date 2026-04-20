@@ -467,14 +467,28 @@ function _dlRenderTable() {
 
 // ===== VIDEO LINK PLATFORMS CONFIG =====
 const _DL_VIDEO_PLATFORMS = [
-    { key:'zalo',       label:'Zalo Video',        pattern:'video.zalo.me',          icon:'💬', color:'#0068FF', placeholder:'https://video.zalo.me/...' },
-    { key:'tiktok',     label:'Tiktok Video',       pattern:'tiktok.com',             icon:'🎵', color:'#000000', placeholder:'https://www.tiktok.com/...' },
-    { key:'fb_canhan',  label:'Facebook Cá Nhân',   pattern:'facebook.com/reel',      icon:'👤', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...' },
-    { key:'fb_page',    label:'Page Facebook',       pattern:'facebook.com/reel',      icon:'📄', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...' },
-    { key:'fb_stories', label:'Facebook Stories',    pattern:'facebook.com/stories',   icon:'📖', color:'#E4405F', placeholder:'https://www.facebook.com/stories/...' },
-    { key:'instagram',  label:'Instagram',           pattern:'instagram.com/reel',     icon:'📷', color:'#E4405F', placeholder:'https://www.instagram.com/reel/...' },
-    { key:'youtube',    label:'Youtube',             pattern:'youtube.com',            icon:'▶️', color:'#FF0000', placeholder:'https://www.youtube.com/...' },
+    { key:'zalo',       label:'Zalo Video',        pattern:'video.zalo.me/creator/phan-tich', icon:'💬', color:'#0068FF', placeholder:'https://video.zalo.me/creator/phan-tich/...',
+      errHint:'Link phải là trang phân tích Zalo Video (chứa video.zalo.me/creator/phan-tich/)' },
+    { key:'tiktok',     label:'Tiktok Video',       pattern:'tiktok.com',             icon:'🎵', color:'#000000', placeholder:'https://www.tiktok.com/@user/video/123...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('tiktok.com') && (l.includes('/video/') || l.includes('/photo/')); },
+      errHint:'Link phải là video hoặc ảnh TikTok (chứa /video/ hoặc /photo/), không phải link kênh @user' },
+    { key:'fb_canhan',  label:'Facebook Cá Nhân',   pattern:'facebook.com/reel',      icon:'👤', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...',
+      errHint:'Link phải là Reel Facebook cá nhân (chứa facebook.com/reel/)' },
+    { key:'fb_page',    label:'Page Facebook',       pattern:'facebook.com/reel',      icon:'📄', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...',
+      errHint:'Link phải là Reel Page Facebook (chứa facebook.com/reel/)' },
+    { key:'fb_stories', label:'Facebook Stories',    pattern:'facebook.com/stories',   icon:'📖', color:'#E4405F', placeholder:'https://www.facebook.com/stories/...',
+      errHint:'Link phải là Facebook Stories (chứa facebook.com/stories)' },
+    { key:'instagram',  label:'Instagram',           pattern:'instagram.com/reel',     icon:'📷', color:'#E4405F', placeholder:'https://www.instagram.com/reel/...',
+      errHint:'Link phải là Instagram Reel (chứa instagram.com/reel)' },
+    { key:'youtube',    label:'Youtube',             pattern:'youtube.com/watch',      icon:'▶️', color:'#FF0000', placeholder:'https://www.youtube.com/watch?v=...',
+      errHint:'Link phải là video YouTube cụ thể (chứa youtube.com/watch)' },
 ];
+// Validate a video link against platform config
+function _dlValidateVideoLink(p, val) {
+    if (!val) return false;
+    if (p.validate) return p.validate(val);
+    return val.toLowerCase().includes(p.pattern.toLowerCase());
+}
 
 function _dlAddModal() {
     const m=_dl.mod;
@@ -524,9 +538,9 @@ function _dlAddModal() {
             inp.addEventListener('input', () => {
                 const errEl = document.getElementById('dlVErr_' + p.key);
                 const val = inp.value.trim();
-                if (val && !val.toLowerCase().includes(p.pattern.toLowerCase())) {
+                if (val && !_dlValidateVideoLink(p, val)) {
                     errEl.style.display = 'block';
-                    errEl.textContent = `⚠️ Link phải chứa "${p.pattern}" — Vui lòng dán đúng link ${p.label}`;
+                    errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')}`;
                     inp.style.borderColor = '#dc2626';
                 } else {
                     errEl.style.display = 'none';
@@ -615,9 +629,9 @@ async function _dlSave() {
                 hasError = true;
                 continue;
             }
-            if (!val.toLowerCase().includes(p.pattern.toLowerCase())) {
+            if (!_dlValidateVideoLink(p, val)) {
                 errEl.style.display = 'block';
-                errEl.textContent = `⚠️ Link phải chứa "${p.pattern}" — Đây không phải link ${p.label} hợp lệ`;
+                errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')} — Đây không phải link ${p.label} hợp lệ`;
                 inp.style.borderColor = '#dc2626';
                 hasError = true;
                 continue;
