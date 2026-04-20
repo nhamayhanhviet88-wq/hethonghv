@@ -1490,7 +1490,6 @@ async function taskScheduleRoutes(fastify, options) {
             console.error('Auto-lock cron error:', e.message);
         }
     }, 30 * 60 * 1000); // every 30 minutes
-}
 
     // ========== TASK USER OVERRIDES (GĐ only) ==========
 
