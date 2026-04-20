@@ -403,37 +403,35 @@ function _dlRenderTable() {
     const hasImg = m.type === 'addcmt';
     const isVideo = m.type === 'dang_video';
 
-    // ===== DANGVIDEO: custom table with 7 platform columns =====
+    // ===== DANGVIDEO: custom card-based layout =====
     if (isVideo) {
-        const platHeaders = (_DL_VIDEO_PLATFORMS||[]).map(p => `<th style="padding:8px 4px;text-align:center;font-size:11px;white-space:nowrap;" title="${p.label}"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:${p.color};color:white;font-size:10px;">${p.icon}</span></th>`).join('');
-        let h=`<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
-            <th style="padding:8px 6px;text-align:center;width:40px;">STT</th>
-            ${isMultiDay?'<th style="padding:8px 6px;width:80px;">NGÀY</th>':''}
-            ${showUser?'<th style="padding:8px 6px;">NV</th>':''}
-            ${platHeaders}
-            <th style="padding:8px 6px;text-align:center;width:50px;">XÓA</th>
-        </tr></thead><tbody>`;
+        let h = '';
         rows.forEach((r,i)=>{
             const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
             const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
             let lj = r.links_json;
             if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
-            const platCells = (_DL_VIDEO_PLATFORMS||[]).map(p => {
+            const platRows = (_DL_VIDEO_PLATFORMS||[]).map(p => {
                 const link = lj?.[p.key];
-                if (link) {
-                    return `<td style="padding:6px 4px;text-align:center;"><a href="${link}" target="_blank" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;background:${p.color};color:white;font-size:11px;text-decoration:none;transition:all .15s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="${p.label}: ${link}">✓</a></td>`;
-                }
-                return `<td style="padding:6px 4px;text-align:center;"><span style="color:#d1d5db;">—</span></td>`;
+                const short = link ? (link.length > 55 ? link.substring(0,55)+'...' : link) : '—';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:6px;background:${p.color};color:white;font-size:11px;">${p.icon}</span>
+                    <span style="font-weight:700;font-size:12px;color:#374151;min-width:120px;">${p.label}</span>
+                    ${link ? `<a href="${link}" target="_blank" style="color:${p.color};font-size:12px;font-weight:500;word-break:break-all;text-decoration:none;border-bottom:1px dashed ${p.color};" title="${link}">${short}</a>` : '<span style="color:#d1d5db;font-size:12px;">Chưa có</span>'}
+                </div>`;
             }).join('');
-            h+=`<tr style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:8px 6px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
-                ${isMultiDay?`<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
-                ${showUser?`<td style="padding:8px 6px;font-size:11px;color:#6b7280;">${r.user_name||''}</td>`:''}
-                ${platCells}
-                <td style="padding:8px 6px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:2px 6px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:10px;">🗑️</button>`:''}</td>
-            </tr>`;
+            h += `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f3f4f6;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="background:${m.grad};color:white;font-weight:800;font-size:13px;padding:4px 10px;border-radius:8px;">#${i+1}</span>
+                        ${showUser ? `<span style="font-weight:700;font-size:13px;color:#1e293b;">${r.user_name||''}</span>` : ''}
+                        ${isMultiDay ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${_dlFormatDate(ed)}</span>` : ''}
+                    </div>
+                    ${canDel?`<button onclick="_dlDel(${r.id})" style="padding:4px 10px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600;">🗑️ Xóa</button>`:''}
+                </div>
+                ${platRows}
+            </div>`;
         });
-        h+='</tbody></table>';
         el.innerHTML=h;
         return;
     }

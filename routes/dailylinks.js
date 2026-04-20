@@ -104,12 +104,47 @@ module.exports = async function (fastify) {
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
         const today = _vnToday();
         const linkLower = fb_link.trim().toLowerCase();
-        // Skip dup check for addcmt (auto-generated links) and dang_video (multi-link)
+        // Skip dup check for addcmt (auto-generated links)
         if (module_type !== 'addcmt' && module_type !== 'dang_video') {
             const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
             if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
             const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
             if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+        }
+
+        // ===== DANG_VIDEO: Cross-user + self duplicate check for all 7 links =====
+        if (module_type === 'dang_video' && req.body?.links_json) {
+            const lj = req.body.links_json;
+            const allLinks = Object.values(lj).map(v => v?.trim()?.toLowerCase()).filter(Boolean);
+            // Check for duplicates within same submission
+            const seen = new Set();
+            for (const [key, val] of Object.entries(lj)) {
+                const lower = val?.trim()?.toLowerCase();
+                if (!lower) continue;
+                if (seen.has(lower)) {
+                    return reply.code(400).send({ error: `Link bị trùng trong cùng 1 lần báo cáo: ${val}` });
+                }
+                seen.add(lower);
+            }
+            // Check against ALL existing dang_video entries (cross-user + self)
+            const existing = await db.all(
+                `SELECT e.links_json, e.user_id, u.full_name FROM daily_link_entries e
+                 JOIN users u ON e.user_id = u.id
+                 WHERE e.module_type = 'dang_video' AND e.links_json IS NOT NULL`
+            );
+            for (const row of existing) {
+                let eLj = row.links_json;
+                if (typeof eLj === 'string') try { eLj = JSON.parse(eLj); } catch(e) { continue; }
+                if (!eLj) continue;
+                for (const [eKey, eVal] of Object.entries(eLj)) {
+                    const eLower = eVal?.trim()?.toLowerCase();
+                    if (!eLower) continue;
+                    if (allLinks.includes(eLower)) {
+                        const who = row.user_id === req.user.id ? 'chính bạn' : row.full_name;
+                        return reply.code(400).send({ error: `Link "${eVal}" đã được nhập bởi ${who}` });
+                    }
+                }
+            }
         }
 
         // Handle image upload for addcmt module
