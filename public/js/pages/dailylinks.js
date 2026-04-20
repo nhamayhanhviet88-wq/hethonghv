@@ -12,6 +12,7 @@ const _DL_MODULES = {
 };
 
 let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null };
+let _dlPlatFilter = 'all'; // platform filter for dangvideo
 let _dlOverrideUserIds = new Set();
 let _dlDatePreset = 'today';
 let _dlDateFrom = '';
@@ -97,10 +98,11 @@ function _dlInit() {
             <div id="dlGuide"></div>
             <div id="dlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div id="dlDateFilter"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <h2 id="dlTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách link hôm nay</h2>
                 <div id="dlActionBtns" style="display:flex;gap:8px;align-items:center;"></div>
             </div>
+            <div id="dlPlatformFilter" style="margin-bottom:12px;"></div>
             <div id="dlTable"></div>
         </div>
     </div>
@@ -171,6 +173,7 @@ async function _dlLoadData() {
     _dl.stats = sRes;
     _dlRenderStats();
     _dlRenderDateFilter();
+    _dlRenderPlatformFilter();
     _dlRenderTable();
     _dlUpdateActions();
     // Save state for F5 persistence
@@ -392,6 +395,24 @@ function _dlRenderDateFilter() {
     }
 }
 
+// ===== Platform filter for dangvideo =====
+function _dlRenderPlatformFilter() {
+    const el = document.getElementById('dlPlatformFilter');
+    if (!el) return;
+    if (_dl.mod?.type !== 'dang_video') { el.innerHTML = ''; return; }
+    const all = _dlPlatFilter === 'all';
+    let h = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">`;
+    h += `<button onclick="_dlPlatFilter='all';_dlRenderPlatformFilter();_dlRenderTable()" style="padding:4px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${all?'#2563eb':'#e2e8f0'};background:${all?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${all?'white':'#64748b'};transition:all .2s;">📋 Tất cả</button>`;
+    h += (_DL_VIDEO_PLATFORMS||[]).map(p => {
+        const active = _dlPlatFilter === p.key;
+        return `<button onclick="_dlPlatFilter='${p.key}';_dlRenderPlatformFilter();_dlRenderTable()" style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:1.5px solid ${active?p.color:'#e2e8f0'};background:${active?p.color:'white'};color:${active?'white':'#64748b'};transition:all .2s;">
+            <span style="font-size:12px;">${p.icon}</span> ${p.label}
+        </button>`;
+    }).join('');
+    h += '</div>';
+    el.innerHTML = h;
+}
+
 function _dlRenderTable() {
     const el=document.getElementById('dlTable');
     if(!el) return;
@@ -405,8 +426,22 @@ function _dlRenderTable() {
 
     // ===== DANGVIDEO: custom card-based layout =====
     if (isVideo) {
+        // Apply platform filter
+        let filteredRows = rows;
+        if (_dlPlatFilter && _dlPlatFilter !== 'all') {
+            filteredRows = rows.filter(r => {
+                let lj = r.links_json;
+                if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
+                return lj && lj[_dlPlatFilter];
+            });
+        }
+        if (!filteredRows.length) {
+            const platName = (_DL_VIDEO_PLATFORMS||[]).find(p => p.key === _dlPlatFilter)?.label || '';
+            el.innerHTML = `<div style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu${platName ? ' cho ' + platName : ''}</div>`;
+            return;
+        }
         let h = '';
-        rows.forEach((r,i)=>{
+        filteredRows.forEach((r,i)=>{
             const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
             const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
             let lj = r.links_json;
