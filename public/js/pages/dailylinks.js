@@ -446,7 +446,11 @@ function _dlRenderTable() {
             const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
             let lj = r.links_json;
             if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
-            const platRows = (_DL_VIDEO_PLATFORMS||[]).map(p => {
+            // Show only filtered platform or all platforms
+            const platsToShow = (_dlPlatFilter && _dlPlatFilter !== 'all')
+                ? (_DL_VIDEO_PLATFORMS||[]).filter(p => p.key === _dlPlatFilter)
+                : (_DL_VIDEO_PLATFORMS||[]);
+            const platRows = platsToShow.map(p => {
                 const link = lj?.[p.key];
                 const short = link ? (link.length > 55 ? link.substring(0,55)+'...' : link) : '—';
                 return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
