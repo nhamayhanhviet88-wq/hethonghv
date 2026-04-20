@@ -496,9 +496,10 @@ function _dlAddModal() {
     document.getElementById('dlModal')?.remove();
     const d=document.createElement('div');d.id='dlModal';
     d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    d.onclick=e=>{if(e.target===d)d.remove();};
     const needImg = m.type === 'addcmt';
     const isVideo = m.type === 'dang_video';
+    // Dangvideo: chỉ đóng bằng nút Hủy/Lưu, không đóng khi click nền tối
+    if (!isVideo) d.onclick=e=>{if(e.target===d)d.remove();};
 
     if (isVideo) {
         // ===== DANGVIDEO: 7 platform link fields =====
