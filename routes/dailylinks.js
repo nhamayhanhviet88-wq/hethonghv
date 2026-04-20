@@ -21,8 +21,9 @@ module.exports = async function (fastify) {
         CREATE INDEX IF NOT EXISTS idx_dle_module ON daily_link_entries(module_type);
         CREATE INDEX IF NOT EXISTS idx_dle_date ON daily_link_entries(entry_date);
     `);
-    // Add image_path column if missing
+    // Add columns if missing
     try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
+    try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS links_json JSONB'); } catch(e) {}
 
     // Migrate old addcmt_entries if exists
     try {
@@ -89,7 +90,7 @@ module.exports = async function (fastify) {
         }
 
         const rows = await db.all(
-            `SELECT e.*, u.full_name as user_name, u.username, d.name as dept_name
+            `SELECT e.*, e.links_json, u.full_name as user_name, u.username, d.name as dept_name
              FROM daily_link_entries e LEFT JOIN users u ON e.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id
              WHERE ${where} ORDER BY e.entry_date DESC, e.created_at DESC`, params
         );
@@ -103,12 +104,10 @@ module.exports = async function (fastify) {
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
         const today = _vnToday();
         const linkLower = fb_link.trim().toLowerCase();
-        // Skip dup check for addcmt (auto-generated links)
-        if (module_type !== 'addcmt') {
-            // Same user same day same link - block
+        // Skip dup check for addcmt (auto-generated links) and dang_video (multi-link)
+        if (module_type !== 'addcmt' && module_type !== 'dang_video') {
             const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
             if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
-            // Cross-user dup (same module)
             const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
             if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
         }
@@ -125,8 +124,6 @@ module.exports = async function (fastify) {
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                     const filename = `${req.user.id}_${Date.now()}.${ext}`;
                     const filePath = path.join(uploadDir, filename);
-                    
-                    // Try to compress with sharp if available
                     try {
                         const sharp = require('sharp');
                         await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(filePath.replace(/\.[^.]+$/, '.jpg'));
@@ -139,7 +136,8 @@ module.exports = async function (fastify) {
             } catch(imgErr) { console.error('[DailyLinks] Image save error:', imgErr.message); }
         }
 
-        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path) VALUES ($1, $2, $3, $4, $5)', [req.user.id, today, module_type, fb_link.trim(), imagePath]);
+        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json) VALUES ($1, $2, $3, $4, $5, $6)',
+            [req.user.id, today, module_type, fb_link.trim(), imagePath, req.body?.links_json ? JSON.stringify(req.body.links_json) : null]);
         return { success: true };
     });
 

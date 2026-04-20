@@ -401,6 +401,44 @@ function _dlRenderTable() {
     if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
     const showUser=!_dl.selUser&&!['nhan_vien','part_time'].includes(currentUser.role);
     const hasImg = m.type === 'addcmt';
+    const isVideo = m.type === 'dang_video';
+
+    // ===== DANGVIDEO: custom table with 7 platform columns =====
+    if (isVideo) {
+        const platHeaders = (_DL_VIDEO_PLATFORMS||[]).map(p => `<th style="padding:8px 4px;text-align:center;font-size:11px;white-space:nowrap;" title="${p.label}"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:${p.color};color:white;font-size:10px;">${p.icon}</span></th>`).join('');
+        let h=`<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
+            <th style="padding:8px 6px;text-align:center;width:40px;">STT</th>
+            ${isMultiDay?'<th style="padding:8px 6px;width:80px;">NGÀY</th>':''}
+            ${showUser?'<th style="padding:8px 6px;">NV</th>':''}
+            ${platHeaders}
+            <th style="padding:8px 6px;text-align:center;width:50px;">XÓA</th>
+        </tr></thead><tbody>`;
+        rows.forEach((r,i)=>{
+            const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
+            const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
+            let lj = r.links_json;
+            if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
+            const platCells = (_DL_VIDEO_PLATFORMS||[]).map(p => {
+                const link = lj?.[p.key];
+                if (link) {
+                    return `<td style="padding:6px 4px;text-align:center;"><a href="${link}" target="_blank" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;background:${p.color};color:white;font-size:11px;text-decoration:none;transition:all .15s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="${p.label}: ${link}">✓</a></td>`;
+                }
+                return `<td style="padding:6px 4px;text-align:center;"><span style="color:#d1d5db;">—</span></td>`;
+            }).join('');
+            h+=`<tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:8px 6px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
+                ${isMultiDay?`<td style="padding:8px 6px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
+                ${showUser?`<td style="padding:8px 6px;font-size:11px;color:#6b7280;">${r.user_name||''}</td>`:''}
+                ${platCells}
+                <td style="padding:8px 6px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:2px 6px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:10px;">🗑️</button>`:''}</td>
+            </tr>`;
+        });
+        h+='</tbody></table>';
+        el.innerHTML=h;
+        return;
+    }
+
+    // ===== DEFAULT TABLE =====
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
@@ -427,6 +465,17 @@ function _dlRenderTable() {
     el.innerHTML=h;
 }
 
+// ===== VIDEO LINK PLATFORMS CONFIG =====
+const _DL_VIDEO_PLATFORMS = [
+    { key:'zalo',       label:'Zalo Video',        pattern:'video.zalo.me',          icon:'💬', color:'#0068FF', placeholder:'https://video.zalo.me/...' },
+    { key:'tiktok',     label:'Tiktok Video',       pattern:'tiktok.com',             icon:'🎵', color:'#000000', placeholder:'https://www.tiktok.com/...' },
+    { key:'fb_canhan',  label:'Facebook Cá Nhân',   pattern:'facebook.com/reel',      icon:'👤', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...' },
+    { key:'fb_page',    label:'Page Facebook',       pattern:'facebook.com/reel',      icon:'📄', color:'#1877F2', placeholder:'https://www.facebook.com/reel/...' },
+    { key:'fb_stories', label:'Facebook Stories',    pattern:'facebook.com/stories',   icon:'📖', color:'#E4405F', placeholder:'https://www.facebook.com/stories/...' },
+    { key:'instagram',  label:'Instagram',           pattern:'instagram.com/reel',     icon:'📷', color:'#E4405F', placeholder:'https://www.instagram.com/reel/...' },
+    { key:'youtube',    label:'Youtube',             pattern:'youtube.com',            icon:'▶️', color:'#FF0000', placeholder:'https://www.youtube.com/...' },
+];
+
 function _dlAddModal() {
     const m=_dl.mod;
     _dl.imageData = null;
@@ -435,6 +484,61 @@ function _dlAddModal() {
     d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     d.onclick=e=>{if(e.target===d)d.remove();};
     const needImg = m.type === 'addcmt';
+    const isVideo = m.type === 'dang_video';
+
+    if (isVideo) {
+        // ===== DANGVIDEO: 7 platform link fields =====
+        let fieldsHtml = _DL_VIDEO_PLATFORMS.map(p => `
+            <div style="margin-bottom:12px;">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:#374151;margin-bottom:4px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${p.color};color:white;font-size:12px;">${p.icon}</span>
+                    ${p.label} <span style="color:#dc2626;">*</span>
+                </label>
+                <input id="dlV_${p.key}" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border-color .2s;" placeholder="${p.placeholder}">
+                <div id="dlVErr_${p.key}" style="display:none;margin-top:4px;padding:4px 10px;border-radius:6px;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:600;"></div>
+            </div>
+        `).join('');
+
+        d.innerHTML=`
+        <div style="background:white;border-radius:16px;width:min(560px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+            <div style="background:${m.grad};padding:20px 24px;border-radius:16px 16px 0 0;color:white;position:sticky;top:0;z-index:1;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-size:18px;font-weight:800;">${m.icon} Báo cáo công việc - ${m.label}</div>
+                    <button onclick="document.getElementById('dlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
+                </div>
+                <div style="font-size:12px;opacity:0.85;margin-top:6px;">Điền đầy đủ 7 link nền tảng bên dưới</div>
+            </div>
+            <div style="padding:24px;">
+                ${fieldsHtml}
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #f3f4f6;">
+                    <button onclick="document.getElementById('dlModal').remove()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+                    <button onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
+                </div>
+            </div>
+        </div>`;
+        document.body.appendChild(d);
+        // Add real-time validation hints
+        _DL_VIDEO_PLATFORMS.forEach(p => {
+            const inp = document.getElementById('dlV_' + p.key);
+            if (!inp) return;
+            inp.addEventListener('input', () => {
+                const errEl = document.getElementById('dlVErr_' + p.key);
+                const val = inp.value.trim();
+                if (val && !val.toLowerCase().includes(p.pattern.toLowerCase())) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = `⚠️ Link phải chứa "${p.pattern}" — Vui lòng dán đúng link ${p.label}`;
+                    inp.style.borderColor = '#dc2626';
+                } else {
+                    errEl.style.display = 'none';
+                    inp.style.borderColor = val ? '#16a34a' : '#d1d5db';
+                }
+            });
+        });
+        setTimeout(() => document.getElementById('dlV_zalo')?.focus(), 100);
+        return;
+    }
+
+    // ===== DEFAULT MODAL (other modules) =====
     d.innerHTML=`
     <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:${m.grad};padding:20px 24px;border-radius:16px 16px 0 0;color:white;">
@@ -492,13 +596,56 @@ function _dlAddModal() {
 }
 
 async function _dlSave() {
-    const needImg = _dl.mod.type === 'addcmt';
+    const m = _dl.mod;
+    const needImg = m.type === 'addcmt';
+    const isVideo = m.type === 'dang_video';
+
+    if (isVideo) {
+        // ===== DANGVIDEO: validate all 7 fields =====
+        const linksJson = {};
+        let hasError = false;
+        for (const p of _DL_VIDEO_PLATFORMS) {
+            const inp = document.getElementById('dlV_' + p.key);
+            const errEl = document.getElementById('dlVErr_' + p.key);
+            const val = inp?.value?.trim() || '';
+            if (!val) {
+                errEl.style.display = 'block';
+                errEl.textContent = `⚠️ Bắt buộc — Vui lòng nhập link ${p.label}`;
+                inp.style.borderColor = '#dc2626';
+                hasError = true;
+                continue;
+            }
+            if (!val.toLowerCase().includes(p.pattern.toLowerCase())) {
+                errEl.style.display = 'block';
+                errEl.textContent = `⚠️ Link phải chứa "${p.pattern}" — Đây không phải link ${p.label} hợp lệ`;
+                inp.style.borderColor = '#dc2626';
+                hasError = true;
+                continue;
+            }
+            errEl.style.display = 'none';
+            inp.style.borderColor = '#16a34a';
+            linksJson[p.key] = val;
+        }
+        if (hasError) { showToast('Vui lòng điền đầy đủ 7 link hợp lệ!', 'error'); return; }
+        try {
+            await apiCall('/api/dailylinks/entries', 'POST', {
+                fb_link: linksJson.zalo, // primary link = Zalo
+                module_type: m.type,
+                links_json: linksJson
+            });
+            document.getElementById('dlModal')?.remove();
+            showToast('✅ Đã thêm thành công!'); _dlLoadData();
+        } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+        return;
+    }
+
+    // ===== DEFAULT SAVE (other modules) =====
     const linkEl = document.getElementById('dlFLink');
     const link = needImg ? ('addcmt_' + Date.now()) : (linkEl?.value?.trim() || '');
     if(!needImg && !link){showToast('Vui lòng nhập link!','error');return;}
     if(needImg && !_dl.imageData){showToast('Vui lòng dán hình ảnh (Ctrl+V)!','error');return;}
     try{
-        const body = {fb_link:link, module_type:_dl.mod.type};
+        const body = {fb_link:link, module_type:m.type};
         if(needImg && _dl.imageData) body.image_data = _dl.imageData;
         await apiCall('/api/dailylinks/entries','POST', body);
         document.getElementById('dlModal')?.remove();
