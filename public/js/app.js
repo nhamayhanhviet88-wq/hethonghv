@@ -905,49 +905,56 @@ async function handleRoute() {
     // Use setTimeout to let spinner render before heavy sync work
     await new Promise(r => setTimeout(r, 10));
 
-    switch (currentPage) {
-        case 'accounts': renderAccountsPage(content); break;
-        case 'teams': renderTeamsPage(content); break;
-        case 'permissions': renderPermissionsPage(content); break;
-        case 'quan-ly-affiliate': renderQuanLyAffiliatePage(content); break;
-        case 'settings': renderSettingsPage(content); break;
-        case 'dashboard': renderDashboardPage(content); break;
-        case 'chuyen-so': renderChuyenSoPage(content); break;
-        case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
-        case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
-        case 'crm-ctv': renderCRMCtvPage(content); break;
-        case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
-        case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
-        case 'cap-cuu-sep': renderEmergencyPage(content); break;
-        case 'huy-khach': renderCancelPage(content); break;
-        case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
-        case 'my-customers': renderMyCustomersPage(content); break;
-        case 'withdraw': renderWithdrawPage(content); break;
-        case 'withdraw-manage': renderWithdrawManagePage(content); break;
-        case 'rut-tien-affiliate': renderWithdrawAffiliatePage(content); break;
-        case 'bang-xep-hang-affiliate': case 'bangxephangaffiliate': renderBangXepHangAffiliatePage(content); break;
-        case 'bang-xep-hang-kinh-doanh': case 'bangxephangkinhdoanh': renderBangXepHangKinhDoanhPage(content); break;
-        case 'bang-xep-hang-sale': case 'bangxephangsale': renderBangXepHangSalePage(content); break;
-        case 'bang-xep-hang-ctv': case 'bangxephangctv': renderBangXepHangCtvPage(content); break;
-        case 'bxh-san-xuat': case 'bxhsanxuat': renderBangXepHangSanXuatPage(content); break;
-        case 'bxh-van-phong': case 'bxhvanphong': renderBangXepHangVanPhongPage(content); break;
-        case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
-        case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
-        case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
-        case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
-        case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
-        case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
-        case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
-        case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
-        case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
-        case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
-        case 'goidien': renderGoiDienPage(content); break;
-        case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
-        case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
-        case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
-        case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
-        case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
-        default: renderComingSoon(content); break;
+    try {
+        switch (currentPage) {
+            case 'accounts': renderAccountsPage(content); break;
+            case 'teams': renderTeamsPage(content); break;
+            case 'permissions': renderPermissionsPage(content); break;
+            case 'quan-ly-affiliate': renderQuanLyAffiliatePage(content); break;
+            case 'settings': renderSettingsPage(content); break;
+            case 'dashboard': renderDashboardPage(content); break;
+            case 'chuyen-so': renderChuyenSoPage(content); break;
+            case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
+            case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
+            case 'crm-ctv': renderCRMCtvPage(content); break;
+            case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
+            case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
+            case 'cap-cuu-sep': renderEmergencyPage(content); break;
+            case 'huy-khach': renderCancelPage(content); break;
+            case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
+            case 'my-customers': renderMyCustomersPage(content); break;
+            case 'withdraw': renderWithdrawPage(content); break;
+            case 'withdraw-manage': renderWithdrawManagePage(content); break;
+            case 'rut-tien-affiliate': renderWithdrawAffiliatePage(content); break;
+            case 'bang-xep-hang-affiliate': case 'bangxephangaffiliate': renderBangXepHangAffiliatePage(content); break;
+            case 'bang-xep-hang-kinh-doanh': case 'bangxephangkinhdoanh': renderBangXepHangKinhDoanhPage(content); break;
+            case 'bang-xep-hang-sale': case 'bangxephangsale': renderBangXepHangSalePage(content); break;
+            case 'bang-xep-hang-ctv': case 'bangxephangctv': renderBangXepHangCtvPage(content); break;
+            case 'bxh-san-xuat': case 'bxhsanxuat': renderBangXepHangSanXuatPage(content); break;
+            case 'bxh-van-phong': case 'bxhvanphong': renderBangXepHangVanPhongPage(content); break;
+            case 'giai-thuong-game': case 'giaithuonggame': renderGiaiThuongGamePage(content); break;
+            case 'trao-giai-thuong': case 'traogiaithuong': renderTraoGiaiThuongPage(content); break;
+            case 'bangiao-diem-kd': case 'bangiaodiem': renderBanGiaoDiemPage(content); break;
+            case 'lich-khoa-bieu': case 'lichkhoabieu': renderLichKhoaBieuPage(content); break;
+            case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
+            case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
+            case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
+            case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
+            case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
+            case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
+            case 'goidien': renderGoiDienPage(content); break;
+            case 'hethonggoidien': renderHeThongGoiDienPage(content); break;
+            case 'quytacnuttuvancrmnhucau': renderQuyTacTuVanPage(content); break;
+            case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
+            case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
+            case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
+            case 'nhantintimdoitackh': renderNhanTinTimDoiTacKHPage(content); break;
+            case 'dailylinks': renderDailyLinksPage(content); break;
+            default: renderComingSoon(content); break;
+        }
+    } catch (err) {
+        console.error('❌ Page render error:', err);
+        content.innerHTML = '<div class="card"><div class="card-body"><div class="empty-state"><div class="icon">⚠️</div><h3>Lỗi tải trang</h3><p>' + (err.message || 'Không thể tải trang. Vui lòng thử lại.') + '</p><button class="btn btn-primary" onclick="handleRoute()" style="margin-top:12px;">🔄 Thử lại</button></div></div></div>';
     }
 
     // Refresh sidebar badges after every navigation
