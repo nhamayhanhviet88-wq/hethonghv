@@ -4445,16 +4445,12 @@ async function _kbSaveOverrideDiem(templateId, field) {
     if (isNaN(val) || val < 0) { showToast('Giá trị không hợp lệ', 'error'); return; }
     var existing = _kbOverridesDiem[templateId];
     try {
-        await apiCall('/api/schedule/user-override', {
-            method: 'POST',
-            body: JSON.stringify({
-                user_id: _kbViewUserId,
-                source_type: 'diem',
-                source_id: templateId,
-                custom_points: field === 'points' ? val : (existing && existing.custom_points != null ? existing.custom_points : null),
-                custom_min_quantity: field === 'min_quantity' ? val : (existing && existing.custom_min_quantity != null ? existing.custom_min_quantity : null)
-            }),
-            headers: { 'Content-Type': 'application/json' }
+        await apiCall('/api/schedule/user-override', 'POST', {
+            user_id: _kbViewUserId,
+            source_type: 'diem',
+            source_id: templateId,
+            custom_points: field === 'points' ? val : (existing && existing.custom_points != null ? existing.custom_points : null),
+            custom_min_quantity: field === 'min_quantity' ? val : (existing && existing.custom_min_quantity != null ? existing.custom_min_quantity : null)
         });
         showToast('✅ Đã lưu tùy chỉnh!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
@@ -4466,7 +4462,7 @@ async function _kbSaveOverrideDiem(templateId, field) {
 async function _kbResetOverrideDiem(templateId) {
     if (!confirm('Khôi phục giá trị mặc định cho công việc này?')) return;
     try {
-        await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=diem&source_id=' + templateId, { method: 'DELETE' });
+        await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=diem&source_id=' + templateId, 'DELETE');
         showToast('🔄 Đã khôi phục mặc định!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var dm = document.getElementById('kbDetailModal'); if (dm) dm.remove();
@@ -4514,10 +4510,8 @@ async function _kbSaveOverrideKhoa(lockTaskId) {
     var val = Number(inp.value);
     if (isNaN(val) || val < 0) { showToast('Giá trị không hợp lệ', 'error'); return; }
     try {
-        await apiCall('/api/schedule/user-override', {
-            method: 'POST',
-            body: JSON.stringify({ user_id: _kbViewUserId, source_type: 'khoa', source_id: lockTaskId, custom_points: null, custom_min_quantity: val }),
-            headers: { 'Content-Type': 'application/json' }
+        await apiCall('/api/schedule/user-override', 'POST', {
+            user_id: _kbViewUserId, source_type: 'khoa', source_id: lockTaskId, custom_points: null, custom_min_quantity: val
         });
         showToast('✅ Đã lưu!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
@@ -4529,7 +4523,7 @@ async function _kbSaveOverrideKhoa(lockTaskId) {
 async function _kbResetOverrideKhoa(lockTaskId) {
     if (!confirm('Khôi phục mặc định?')) return;
     try {
-        await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=khoa&source_id=' + lockTaskId, { method: 'DELETE' });
+        await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=khoa&source_id=' + lockTaskId, 'DELETE');
         showToast('🔄 Đã khôi phục!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
