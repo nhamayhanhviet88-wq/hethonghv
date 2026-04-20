@@ -122,9 +122,13 @@ module.exports = async function (fastify) {
             params.push(req.user.id);
             paramIdx++;
         } else if (dept_id) {
-            whereClause += ` AND u.department_id = $${paramIdx}`;
-            params.push(Number(dept_id));
-            paramIdx++;
+            const deptIdNum = Number(dept_id);
+            const childDepts = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptIdNum, 'active']);
+            const allDeptIds = [deptIdNum, ...childDepts.map(dd => dd.id)];
+            const ph = allDeptIds.map((_, i) => `$${paramIdx + i}`).join(',');
+            whereClause += ` AND u.department_id IN (${ph})`;
+            params.push(...allDeptIds);
+            paramIdx += allDeptIds.length;
         } else if (!['giam_doc', 'quan_ly_cap_cao'].includes(role)) {
             // QL/TP see their team
             const deptIds = await _getManagedDeptIds(req.user);
