@@ -241,6 +241,58 @@ module.exports = async function (fastify) {
         await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
             [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null, categoryId]);
         console.log(`[DailyLinks POST] STAGE 4 — INSERT SUCCESS for ${module_type}, user ${req.user.id}`);
+
+        // ===== IMMEDIATE AUTO-SCORING — update task_point_reports right away =====
+        try {
+            const pattern = TASK_PATTERNS[module_type];
+            if (pattern) {
+                const uid = req.user.id;
+                const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+
+                // Find matching template (individual → team → global)
+                let tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [uid, pattern]);
+                if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
+                if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+
+                if (tpl && tpl.id) {
+                    // Check for user override
+                    let tmplTarget = tpl.min_quantity || 1;
+                    let tmplPoints = tpl.points || 10;
+                    const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+                    if (ov) {
+                        if (ov.custom_min_quantity != null) tmplTarget = Number(ov.custom_min_quantity);
+                        if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
+                    }
+
+                    // Count total entries today
+                    const countRes = await db.get('SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3', [uid, today, module_type]);
+                    const entryCount = parseInt(countRes?.cnt || 0);
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplQty = Math.min(entryCount, tmplTarget);
+
+                    const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, today]);
+                    if (existing) {
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                             updated_at = NOW() WHERE id = $5`,
+                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                        );
+                    } else {
+                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        await db.run(
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            [tpl.id, uid, today, tmplQty, tmplEarned, status, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, 'link']
+                        );
+                    }
+                    console.log(`[DailyLinks] Auto-scored: user=${uid}, module=${module_type}, count=${entryCount}/${tmplTarget}, pts=${tmplEarned}/${tmplPoints}`);
+                }
+            }
+        } catch(scoreErr) {
+            console.error('[DailyLinks] Auto-score error (non-fatal):', scoreErr.message);
+        }
+
         return { success: true };
       } catch(globalErr) {
         console.error(`[DailyLinks POST] GLOBAL ERROR:`, globalErr.message, globalErr.stack);
