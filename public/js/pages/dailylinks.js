@@ -399,11 +399,12 @@ function _dlRenderDateFilter() {
 function _dlRenderPlatformFilter() {
     const el = document.getElementById('dlPlatformFilter');
     if (!el) return;
-    if (_dl.mod?.type !== 'dang_video') { el.innerHTML = ''; return; }
+    if (!_dlGetMultiPlatforms(_dl.mod?.type)) { el.innerHTML = ''; return; }
+    const multiPlatforms = _dlGetMultiPlatforms(_dl.mod.type);
     const all = _dlPlatFilter === 'all';
     let h = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">`;
     h += `<button onclick="_dlPlatFilter='all';_dlRenderPlatformFilter();_dlRenderTable()" style="padding:4px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${all?'#2563eb':'#e2e8f0'};background:${all?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${all?'white':'#64748b'};transition:all .2s;">📋 Tất cả</button>`;
-    h += (_DL_VIDEO_PLATFORMS||[]).map(p => {
+    h += (multiPlatforms||[]).map(p => {
         const active = _dlPlatFilter === p.key;
         return `<button onclick="_dlPlatFilter='${p.key}';_dlRenderPlatformFilter();_dlRenderTable()" style="padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:1.5px solid ${active?p.color:'#e2e8f0'};background:${active?p.color:'white'};color:${active?'white':'#64748b'};transition:all .2s;">
             <span style="font-size:12px;">${p.icon}</span> ${p.label}
@@ -422,10 +423,10 @@ function _dlRenderTable() {
     if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
     const showUser=!_dl.selUser&&!['nhan_vien','part_time'].includes(currentUser.role);
     const hasImg = m.type === 'addcmt';
-    const isVideo = m.type === 'dang_video';
+    const multiPlatforms = _dlGetMultiPlatforms(m.type);
 
-    // ===== DANGVIDEO: custom card-based layout =====
-    if (isVideo) {
+    // ===== MULTI-LINK: custom card-based layout =====
+    if (multiPlatforms) {
         // Apply platform filter
         let filteredRows = rows;
         if (_dlPlatFilter && _dlPlatFilter !== 'all') {
@@ -448,15 +449,23 @@ function _dlRenderTable() {
             if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
             // Show only filtered platform or all platforms
             const platsToShow = (_dlPlatFilter && _dlPlatFilter !== 'all')
-                ? (_DL_VIDEO_PLATFORMS||[]).filter(p => p.key === _dlPlatFilter)
-                : (_DL_VIDEO_PLATFORMS||[]);
+                ? (multiPlatforms||[]).filter(p => p.key === _dlPlatFilter)
+                : (multiPlatforms||[]);
             const platRows = platsToShow.map(p => {
                 const link = lj?.[p.key];
-                const short = link ? (link.length > 55 ? link.substring(0,55)+'...' : link) : '—';
+                if (!link) return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:6px;background:${p.color};color:white;font-size:11px;">${p.icon}</span>
+                    <span style="font-weight:700;font-size:12px;color:#374151;min-width:120px;">${p.label}</span>
+                    <span style="color:#d1d5db;font-size:12px;">Chưa có</span>
+                </div>`;
+                const short = link.length > 55 ? link.substring(0,55)+'...' : link;
+                const valueCell = p.isImage
+                    ? `<img src="${link}" style="max-height:60px;border-radius:4px;cursor:pointer;" onclick="_dlOpenLB('${link}')" loading="lazy">`
+                    : `<a href="${link}" target="_blank" style="color:${p.color};font-size:12px;font-weight:500;word-break:break-all;text-decoration:none;border-bottom:1px dashed ${p.color};" title="${link}">${short}</a>`;
                 return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
                     <span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:6px;background:${p.color};color:white;font-size:11px;">${p.icon}</span>
                     <span style="font-weight:700;font-size:12px;color:#374151;min-width:120px;">${p.label}</span>
-                    ${link ? `<a href="${link}" target="_blank" style="color:${p.color};font-size:12px;font-weight:500;word-break:break-all;text-decoration:none;border-bottom:1px dashed ${p.color};" title="${link}">${short}</a>` : '<span style="color:#d1d5db;font-size:12px;">Chưa có</span>'}
+                    ${valueCell}
                 </div>`;
             }).join('');
             h += `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
@@ -502,7 +511,7 @@ function _dlRenderTable() {
     el.innerHTML=h;
 }
 
-// ===== VIDEO LINK PLATFORMS CONFIG =====
+// ===== MULTI-LINK MODULES CONFIG =====
 const _DL_VIDEO_PLATFORMS = [
     { key:'zalo',       label:'Zalo Video',        pattern:'video.zalo.me/creator/phan-tich', icon:'💬', color:'#0068FF', placeholder:'https://video.zalo.me/creator/phan-tich/...',
       errHint:'Link phải là trang phân tích Zalo Video (chứa video.zalo.me/creator/phan-tich/)' },
@@ -520,9 +529,30 @@ const _DL_VIDEO_PLATFORMS = [
     { key:'youtube',    label:'Youtube',             pattern:'youtube.com/watch',      icon:'▶️', color:'#FF0000', placeholder:'https://www.youtube.com/watch?v=...',
       errHint:'Link phải là video YouTube cụ thể (chứa youtube.com/watch)' },
 ];
-// Validate a video link against platform config
-function _dlValidateVideoLink(p, val) {
+const _DL_CONTENT_PLATFORMS = [
+    { key:'zalo',       label:'Zalo Ảnh',           pattern:'', icon:'💬', color:'#0068FF', placeholder:'Dán ảnh chụp màn hình (Ctrl+V)',
+      isImage: true, errHint:'Vui lòng dán ảnh chụp màn hình Zalo (Ctrl+V)' },
+    { key:'tiktok',     label:'Tiktok Ảnh',         pattern:'tiktok.com', icon:'🎵', color:'#000000', placeholder:'https://www.tiktok.com/@user/photo/123...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('tiktok.com') && l.includes('/photo/'); },
+      errHint:'Link phải là ảnh TikTok (chứa /photo/), không phải video hay link kênh @user' },
+    { key:'fb_canhan',  label:'Facebook Cá Nhân',   pattern:'facebook.com/', icon:'👤', color:'#1877F2', placeholder:'https://www.facebook.com/username/posts/...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('facebook.com/') && l.includes('/posts/'); },
+      errHint:'Link phải là bài đăng Facebook cá nhân (chứa facebook.com/ và /posts/)' },
+    { key:'fb_page',    label:'Page Facebook',       pattern:'facebook.com/', icon:'📄', color:'#1877F2', placeholder:'https://www.facebook.com/pagename/posts/...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('facebook.com/') && l.includes('/posts/'); },
+      errHint:'Link phải là bài đăng Page Facebook (chứa facebook.com/ và /posts/)' },
+    { key:'instagram',  label:'Instagram',           pattern:'instagram.com/p', icon:'📷', color:'#E4405F', placeholder:'https://www.instagram.com/p/...',
+      errHint:'Link phải là bài đăng Instagram (chứa instagram.com/p)' },
+    { key:'threads',    label:'Threads',             pattern:'threads.com/', icon:'🧵', color:'#000000', placeholder:'https://www.threads.com/@user/post/...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('threads.com/') && l.includes('/post/'); },
+      errHint:'Link phải là bài đăng Threads (chứa threads.com/ và /post/)' },
+];
+// Map module_type -> platforms config
+const _DL_MULTI_LINK_MODULES = { dang_video: _DL_VIDEO_PLATFORMS, dang_content: _DL_CONTENT_PLATFORMS };
+function _dlGetMultiPlatforms(type) { return _DL_MULTI_LINK_MODULES[type] || null; }
+function _dlValidateMultiLink(p, val) {
     if (!val) return false;
+    if (p.isImage) return true; // image fields validated separately
     if (p.validate) return p.validate(val);
     return val.toLowerCase().includes(p.pattern.toLowerCase());
 }
@@ -534,22 +564,37 @@ function _dlAddModal() {
     const d=document.createElement('div');d.id='dlModal';
     d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     const needImg = m.type === 'addcmt';
-    const isVideo = m.type === 'dang_video';
-    // Dangvideo: chỉ đóng bằng nút Hủy/Lưu, không đóng khi click nền tối
-    if (!isVideo) d.onclick=e=>{if(e.target===d)d.remove();};
+    const multiPlatforms = _dlGetMultiPlatforms(m.type);
+    // Multi-link modals: chỉ đóng bằng nút Hủy/Lưu, không đóng khi click nền tối
+    if (!multiPlatforms) d.onclick=e=>{if(e.target===d)d.remove();};
 
-    if (isVideo) {
-        // ===== DANGVIDEO: 7 platform link fields =====
-        let fieldsHtml = _DL_VIDEO_PLATFORMS.map(p => `
-            <div style="margin-bottom:12px;">
+    if (multiPlatforms) {
+        // ===== MULTI-LINK MODAL (dang_video / dang_content) =====
+        _dl.contentImages = {}; // store image data for image-type fields
+        const platCount = multiPlatforms.length;
+        let fieldsHtml = multiPlatforms.map(p => {
+            if (p.isImage) {
+                // Image paste field
+                return `<div style="margin-bottom:12px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:#374151;margin-bottom:4px;">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${p.color};color:white;font-size:12px;">${p.icon}</span>
+                        ${p.label} <span style="color:#dc2626;">*</span>
+                    </label>
+                    <div id="dlV_${p.key}" tabindex="0" style="width:100%;min-height:80px;padding:12px;border:2px dashed #d1d5db;border-radius:8px;box-sizing:border-box;cursor:pointer;text-align:center;color:#9ca3af;font-size:12px;transition:border-color .2s;outline:none;" onclick="this.focus()">
+                        📋 Click vào đây rồi Ctrl+V để dán ảnh chụp màn hình
+                    </div>
+                    <div id="dlVErr_${p.key}" style="display:none;margin-top:4px;padding:4px 10px;border-radius:6px;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:600;"></div>
+                </div>`;
+            }
+            return `<div style="margin-bottom:12px;">
                 <label style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:#374151;margin-bottom:4px;">
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${p.color};color:white;font-size:12px;">${p.icon}</span>
                     ${p.label} <span style="color:#dc2626;">*</span>
                 </label>
                 <input id="dlV_${p.key}" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border-color .2s;" placeholder="${p.placeholder}">
                 <div id="dlVErr_${p.key}" style="display:none;margin-top:4px;padding:4px 10px;border-radius:6px;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:600;"></div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         d.innerHTML=`
         <div style="background:white;border-radius:16px;width:min(560px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -558,7 +603,7 @@ function _dlAddModal() {
                     <div style="font-size:18px;font-weight:800;">${m.icon} Báo cáo công việc - ${m.label}</div>
                     <button onclick="document.getElementById('dlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
                 </div>
-                <div style="font-size:12px;opacity:0.85;margin-top:6px;">Điền đầy đủ 7 link nền tảng bên dưới</div>
+                <div style="font-size:12px;opacity:0.85;margin-top:6px;">Điền đầy đủ ${platCount} mục bên dưới</div>
             </div>
             <div style="padding:24px;">
                 ${fieldsHtml}
@@ -569,24 +614,52 @@ function _dlAddModal() {
             </div>
         </div>`;
         document.body.appendChild(d);
-        // Add real-time validation hints
-        _DL_VIDEO_PLATFORMS.forEach(p => {
-            const inp = document.getElementById('dlV_' + p.key);
-            if (!inp) return;
-            inp.addEventListener('input', () => {
-                const errEl = document.getElementById('dlVErr_' + p.key);
-                const val = inp.value.trim();
-                if (val && !_dlValidateVideoLink(p, val)) {
-                    errEl.style.display = 'block';
-                    errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')}`;
-                    inp.style.borderColor = '#dc2626';
-                } else {
-                    errEl.style.display = 'none';
-                    inp.style.borderColor = val ? '#16a34a' : '#d1d5db';
-                }
-            });
+        // Add real-time validation + image paste handlers
+        multiPlatforms.forEach(p => {
+            if (p.isImage) {
+                // Image paste handler
+                const zone = document.getElementById('dlV_' + p.key);
+                if (!zone) return;
+                zone.addEventListener('paste', (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                        if (item.type.startsWith('image/')) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                _dl.contentImages[p.key] = reader.result;
+                                zone.innerHTML = `<img src="${reader.result}" style="max-width:100%;max-height:120px;border-radius:6px;">`;
+                                zone.style.borderColor = '#16a34a';
+                                document.getElementById('dlVErr_' + p.key).style.display = 'none';
+                            };
+                            reader.readAsDataURL(file);
+                            break;
+                        }
+                    }
+                });
+            } else {
+                const inp = document.getElementById('dlV_' + p.key);
+                if (!inp) return;
+                inp.addEventListener('input', () => {
+                    const errEl = document.getElementById('dlVErr_' + p.key);
+                    const val = inp.value.trim();
+                    if (val && !_dlValidateMultiLink(p, val)) {
+                        errEl.style.display = 'block';
+                        errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')}`;
+                        inp.style.borderColor = '#dc2626';
+                    } else {
+                        errEl.style.display = 'none';
+                        inp.style.borderColor = val ? '#16a34a' : '#d1d5db';
+                    }
+                });
+            }
         });
-        setTimeout(() => document.getElementById('dlV_zalo')?.focus(), 100);
+        // Focus first non-image field
+        const firstLink = multiPlatforms.find(p => !p.isImage);
+        if (firstLink) setTimeout(() => document.getElementById('dlV_' + firstLink.key)?.focus(), 100);
+        else setTimeout(() => document.getElementById('dlV_' + multiPlatforms[0].key)?.focus(), 100);
         return;
     }
 
@@ -650,41 +723,60 @@ function _dlAddModal() {
 async function _dlSave() {
     const m = _dl.mod;
     const needImg = m.type === 'addcmt';
-    const isVideo = m.type === 'dang_video';
+    const multiPlatforms = _dlGetMultiPlatforms(m.type);
 
-    if (isVideo) {
-        // ===== DANGVIDEO: validate all 7 fields =====
+    if (multiPlatforms) {
+        // ===== MULTI-LINK: validate all fields =====
         const linksJson = {};
         let hasError = false;
-        for (const p of _DL_VIDEO_PLATFORMS) {
-            const inp = document.getElementById('dlV_' + p.key);
+        for (const p of multiPlatforms) {
             const errEl = document.getElementById('dlVErr_' + p.key);
-            const val = inp?.value?.trim() || '';
-            if (!val) {
-                errEl.style.display = 'block';
-                errEl.textContent = `⚠️ Bắt buộc — Vui lòng nhập link ${p.label}`;
-                inp.style.borderColor = '#dc2626';
-                hasError = true;
-                continue;
+            if (p.isImage) {
+                // Image field — check _dl.contentImages
+                if (!_dl.contentImages?.[p.key]) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = `⚠️ ${p.errHint || 'Bắt buộc — Vui lòng dán ảnh (Ctrl+V)'}`;
+                    document.getElementById('dlV_' + p.key).style.borderColor = '#dc2626';
+                    hasError = true;
+                    continue;
+                }
+                errEl.style.display = 'none';
+                linksJson[p.key] = '__IMAGE__'; // placeholder, actual image sent separately
+            } else {
+                const inp = document.getElementById('dlV_' + p.key);
+                const val = inp?.value?.trim() || '';
+                if (!val) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = `⚠️ Bắt buộc — Vui lòng nhập link ${p.label}`;
+                    inp.style.borderColor = '#dc2626';
+                    hasError = true;
+                    continue;
+                }
+                if (!_dlValidateMultiLink(p, val)) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')} — Đây không phải link ${p.label} hợp lệ`;
+                    inp.style.borderColor = '#dc2626';
+                    hasError = true;
+                    continue;
+                }
+                errEl.style.display = 'none';
+                inp.style.borderColor = '#16a34a';
+                linksJson[p.key] = val;
             }
-            if (!_dlValidateVideoLink(p, val)) {
-                errEl.style.display = 'block';
-                errEl.textContent = `⚠️ ${p.errHint || ('Link phải chứa "' + p.pattern + '"')} — Đây không phải link ${p.label} hợp lệ`;
-                inp.style.borderColor = '#dc2626';
-                hasError = true;
-                continue;
-            }
-            errEl.style.display = 'none';
-            inp.style.borderColor = '#16a34a';
-            linksJson[p.key] = val;
         }
-        if (hasError) { showToast('Vui lòng điền đầy đủ 7 link hợp lệ!', 'error'); return; }
+        if (hasError) { showToast(`Vui lòng điền đầy đủ ${multiPlatforms.length} mục hợp lệ!`, 'error'); return; }
         try {
-            await apiCall('/api/dailylinks/entries', 'POST', {
-                fb_link: linksJson.zalo, // primary link = Zalo
+            const firstLink = Object.values(linksJson).find(v => v !== '__IMAGE__') || ('multilink_' + Date.now());
+            const body = {
+                fb_link: firstLink,
                 module_type: m.type,
                 links_json: linksJson
-            });
+            };
+            // Attach image data if any
+            if (_dl.contentImages && Object.keys(_dl.contentImages).length > 0) {
+                body.content_images = _dl.contentImages;
+            }
+            await apiCall('/api/dailylinks/entries', 'POST', body);
             document.getElementById('dlModal')?.remove();
             showToast('✅ Đã thêm thành công!'); _dlLoadData();
         } catch(e) { showToast(e.message || 'Lỗi', 'error'); }

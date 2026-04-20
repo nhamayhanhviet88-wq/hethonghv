@@ -104,44 +104,48 @@ module.exports = async function (fastify) {
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
         const today = _vnToday();
         const linkLower = fb_link.trim().toLowerCase();
-        // Skip dup check for addcmt (auto-generated links)
-        if (module_type !== 'addcmt' && module_type !== 'dang_video') {
+        // Skip single-link dup check for addcmt and multi-link modules
+        const isMultiLink = ['dang_video', 'dang_content'].includes(module_type);
+        if (module_type !== 'addcmt' && !isMultiLink) {
             const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
             if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
             const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
             if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
         }
 
-        // ===== DANG_VIDEO: Cross-user + self duplicate check for all 7 links =====
-        if (module_type === 'dang_video' && req.body?.links_json) {
+        // ===== MULTI-LINK: Cross-user + self duplicate check for all links =====
+        if (isMultiLink && req.body?.links_json) {
             const lj = req.body.links_json;
-            const allLinks = Object.values(lj).map(v => v?.trim()?.toLowerCase()).filter(Boolean);
+            // Only check non-image links (skip __IMAGE__ placeholders)
+            const allLinks = Object.values(lj).map(v => v?.trim()?.toLowerCase()).filter(v => v && v !== '__image__');
             // Check for duplicates within same submission
             const seen = new Set();
             for (const [key, val] of Object.entries(lj)) {
                 const lower = val?.trim()?.toLowerCase();
-                if (!lower) continue;
+                if (!lower || lower === '__image__') continue;
                 if (seen.has(lower)) {
                     return reply.code(400).send({ error: `Link bị trùng trong cùng 1 lần báo cáo: ${val}` });
                 }
                 seen.add(lower);
             }
-            // Check against ALL existing dang_video entries (cross-user + self)
-            const existing = await db.all(
-                `SELECT e.links_json, e.user_id, u.full_name FROM daily_link_entries e
-                 JOIN users u ON e.user_id = u.id
-                 WHERE e.module_type = 'dang_video' AND e.links_json IS NOT NULL`
-            );
-            for (const row of existing) {
-                let eLj = row.links_json;
-                if (typeof eLj === 'string') try { eLj = JSON.parse(eLj); } catch(e) { continue; }
-                if (!eLj) continue;
-                for (const [eKey, eVal] of Object.entries(eLj)) {
-                    const eLower = eVal?.trim()?.toLowerCase();
-                    if (!eLower) continue;
-                    if (allLinks.includes(eLower)) {
-                        const who = row.user_id === req.user.id ? 'chính bạn' : row.full_name;
-                        return reply.code(400).send({ error: `Link "${eVal}" đã được nhập bởi ${who}` });
+            // Check against ALL existing entries of same module_type (cross-user + self)
+            if (allLinks.length > 0) {
+                const existing = await db.all(
+                    `SELECT e.links_json, e.user_id, u.full_name FROM daily_link_entries e
+                     JOIN users u ON e.user_id = u.id
+                     WHERE e.module_type = $1 AND e.links_json IS NOT NULL`, [module_type]
+                );
+                for (const row of existing) {
+                    let eLj = row.links_json;
+                    if (typeof eLj === 'string') try { eLj = JSON.parse(eLj); } catch(e) { continue; }
+                    if (!eLj) continue;
+                    for (const [eKey, eVal] of Object.entries(eLj)) {
+                        const eLower = eVal?.trim()?.toLowerCase();
+                        if (!eLower || eLower === '__image__') continue;
+                        if (allLinks.includes(eLower)) {
+                            const who = row.user_id === req.user.id ? 'chính bạn' : row.full_name;
+                            return reply.code(400).send({ error: `Link "${eVal}" đã được nhập bởi ${who}` });
+                        }
                     }
                 }
             }
@@ -171,8 +175,35 @@ module.exports = async function (fastify) {
             } catch(imgErr) { console.error('[DailyLinks] Image save error:', imgErr.message); }
         }
 
+        // Handle content_images for multi-link modules (e.g., Zalo Ảnh in dang_content)
+        let linksJsonFinal = req.body?.links_json;
+        if (isMultiLink && req.body?.content_images) {
+            const ci = req.body.content_images;
+            const uploadDir = path.join(__dirname, '..', 'uploads', 'content');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+            for (const [key, dataUrl] of Object.entries(ci)) {
+                try {
+                    const matches = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+                    if (matches) {
+                        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+                        const buffer = Buffer.from(matches[2], 'base64');
+                        const filename = `${req.user.id}_${key}_${Date.now()}.${ext}`;
+                        const filePath = path.join(uploadDir, filename);
+                        try {
+                            const sharp = require('sharp');
+                            await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(filePath.replace(/\.[^.]+$/, '.jpg'));
+                            linksJsonFinal[key] = '/uploads/content/' + filename.replace(/\.[^.]+$/, '.jpg');
+                        } catch(sharpErr) {
+                            fs.writeFileSync(filePath, buffer);
+                            linksJsonFinal[key] = '/uploads/content/' + filename;
+                        }
+                    }
+                } catch(imgErr) { console.error('[DailyLinks] Content image save error:', imgErr.message); }
+            }
+        }
+
         await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json) VALUES ($1, $2, $3, $4, $5, $6)',
-            [req.user.id, today, module_type, fb_link.trim(), imagePath, req.body?.links_json ? JSON.stringify(req.body.links_json) : null]);
+            [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null]);
         return { success: true };
     });
 
