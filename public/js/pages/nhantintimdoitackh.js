@@ -465,6 +465,7 @@ function _poRenderTable() {
             <th style="padding:10px 8px;">TÊN KHÁCH</th>
             <th style="padding:10px 8px;">LINK FACEBOOK</th>
             <th style="padding:10px 8px;">SĐT</th>
+            <th style="padding:10px 8px;">KÊNH ISOCAL</th>
             <th style="padding:10px 8px;">LĨNH VỰC</th>
             <th style="padding:10px 8px;text-align:center;">ẢNH TIN NHẮN</th>
             <th style="padding:10px 8px;text-align:center;">THAO TÁC</th>
@@ -474,6 +475,9 @@ function _poRenderTable() {
         const imgBtn = r.image_path ? `<a href="${r.image_path}" target="_blank" style="color:#2563eb;font-weight:600;">📷 Xem</a>` : '<span style="color:#d1d5db;">—</span>';
         const fbShort = r.fb_link.length > 30 ? r.fb_link.substring(0,30)+'...' : r.fb_link;
         const entryDate = typeof r.entry_date === 'string' ? r.entry_date.split('T')[0] : r.entry_date;
+        const channelColors = {'Facebook Cá Nhân':'#1877f2','Page Facebook':'#4267b2','Tiktok':'#000000','Instagram':'#e4405f','Threads':'#333333'};
+        const chColor = channelColors[r.channel] || '#6b7280';
+        const channelBadge = r.channel ? `<span style="background:${chColor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.channel}</span>` : '—';
         let actions = '';
         if (r.transferred_to_crm) {
             actions = '<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã CRM</span>';
@@ -488,9 +492,10 @@ function _poRenderTable() {
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_poFormatDate(entryDate)}</td>`:''}
-            <td style="padding:10px 8px;font-weight:600;color:#122546;">${r.partner_name}${showUser}</td>
+            <td style="padding:10px 8px;font-weight:600;color:#122546;">${r.partner_name||'—'}${showUser}</td>
             <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:#2563eb;">${fbShort}</a></td>
             <td style="padding:10px 8px;">${r.phone||'—'}</td>
+            <td style="padding:10px 8px;">${channelBadge}</td>
             <td style="padding:10px 8px;">${catBadge}</td>
             <td style="padding:10px 8px;text-align:center;">${imgBtn}</td>
             <td style="padding:10px 8px;text-align:center;white-space:nowrap;">${actions}</td>
@@ -518,8 +523,8 @@ function _poAddModal(editEntry) {
         </div>
         <div style="padding:24px;">
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH <span style="color:#dc2626;">*</span></label>
-                <input id="poFName" value="${editEntry?.partner_name||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="VD: Nguyễn Văn A">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH</label>
+                <input id="poFName" value="${editEntry?.partner_name||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="VD: Nguyễn Văn A (không bắt buộc)">
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link Facebook <span style="color:#dc2626;">*</span></label>
@@ -531,11 +536,22 @@ function _poAddModal(editEntry) {
                     <input id="poFPhone" value="${editEntry?.phone||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="09xx...">
                 </div>
                 <div>
-                    <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh Vực</label>
-                    <select id="poFCat" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;">
-                        <option value="">-- Chọn --</option>${catOpts}
+                    <label style="font-weight:600;font-size:13px;color:#374151;">Kênh Isocal <span style="color:#dc2626;">*</span></label>
+                    <select id="poFChannel" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+                        <option value="">-- Chọn --</option>
+                        <option value="Facebook Cá Nhân" ${editEntry?.channel==='Facebook Cá Nhân'?'selected':''}>Facebook Cá Nhân</option>
+                        <option value="Page Facebook" ${editEntry?.channel==='Page Facebook'?'selected':''}>Page Facebook</option>
+                        <option value="Tiktok" ${editEntry?.channel==='Tiktok'?'selected':''}>Tiktok</option>
+                        <option value="Instagram" ${editEntry?.channel==='Instagram'?'selected':''}>Instagram</option>
+                        <option value="Threads" ${editEntry?.channel==='Threads'?'selected':''}>Threads</option>
                     </select>
                 </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh Vực <span style="color:#dc2626;">*</span></label>
+                <select id="poFCat" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;">
+                    <option value="">-- Chọn --</option>${catOpts}
+                </select>
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Hình Ảnh <span style="color:#dc2626;">*</span> (Ctrl+V để dán)</label>
@@ -586,9 +602,12 @@ async function _poSave(editId) {
     const fb = document.getElementById('poFFb').value.trim();
     const phone = document.getElementById('poFPhone').value.trim();
     const catId = document.getElementById('poFCat').value;
-    if (!name || !fb) { showToast('Vui lòng nhập tên và link FB!', 'error'); return; }
+    const channel = document.getElementById('poFChannel').value;
+    if (!fb) { showToast('Vui lòng nhập link FB!', 'error'); return; }
+    if (!channel) { showToast('Vui lòng chọn Kênh Isocal!', 'error'); return; }
+    if (!catId) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
     if (!editId && !_po.imageData) { showToast('Vui lòng dán hình ảnh chụp tin nhắn!', 'error'); return; }
-    const payload = { partner_name: name, fb_link: fb, phone, category_id: catId || null, image_data: _po.imageData };
+    const payload = { partner_name: name, fb_link: fb, phone, category_id: catId || null, channel, image_data: _po.imageData };
     try {
         if (editId) await apiCall('/api/partner-outreach/entries/' + editId, 'PUT', payload);
         else await apiCall('/api/partner-outreach/entries', 'POST', payload);

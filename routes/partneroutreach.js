@@ -38,6 +38,11 @@ module.exports = async function (fastify) {
         CREATE INDEX IF NOT EXISTS idx_poe_fb ON partner_outreach_entries(fb_link);
     `);
 
+    // Add channel column if not exists
+    try {
+        await db.exec(`ALTER TABLE partner_outreach_entries ADD COLUMN IF NOT EXISTS channel TEXT`);
+    } catch(e) { /* column already exists */ }
+
     // Seed default categories if empty
     const catCount = await db.get('SELECT COUNT(*) as c FROM partner_outreach_categories');
     if (Number(catCount.c) === 0) {
@@ -136,7 +141,7 @@ module.exports = async function (fastify) {
         }
 
         const rows = await db.all(
-            `SELECT e.*, c.name as category_name, c.color as category_color,
+            `SELECT e.*, e.channel, c.name as category_name, c.color as category_color,
                     u.full_name as user_name, u.username, d.name as dept_name
              FROM partner_outreach_entries e
              LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
@@ -151,8 +156,10 @@ module.exports = async function (fastify) {
 
     // POST create entry
     fastify.post('/api/partner-outreach/entries', { preHandler: [authenticate] }, async (req, reply) => {
-        const { partner_name, fb_link, phone, category_id, image_data } = req.body || {};
-        if (!partner_name?.trim() || !fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu tên hoặc link FB' });
+        const { partner_name, fb_link, phone, category_id, channel, image_data } = req.body || {};
+        if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link FB' });
+        if (!category_id) return reply.code(400).send({ error: 'Vui lòng chọn Lĩnh Vực' });
+        if (!channel?.trim()) return reply.code(400).send({ error: 'Vui lòng chọn Kênh Isocal' });
 
         const today = _vnToday();
         const normalizedFb = fb_link.trim().toLowerCase();
@@ -190,9 +197,9 @@ module.exports = async function (fastify) {
         }
 
         const result = await db.run(
-            `INSERT INTO partner_outreach_entries (user_id, entry_date, partner_name, fb_link, phone, category_id, image_path)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [req.user.id, today, partner_name.trim(), fb_link.trim(), phone?.trim() || null, category_id ? Number(category_id) : null, imagePath]
+            `INSERT INTO partner_outreach_entries (user_id, entry_date, partner_name, fb_link, phone, category_id, channel, image_path)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [req.user.id, today, partner_name?.trim() || '', fb_link.trim(), phone?.trim() || null, Number(category_id), channel.trim(), imagePath]
         );
 
         return { success: true, id: result.lastInsertRowid || result.insertId };
@@ -214,10 +221,11 @@ module.exports = async function (fastify) {
             imagePath = await _saveImage(image_data, req.user.id);
         }
 
+        const channel = req.body?.channel;
         await db.run(
             `UPDATE partner_outreach_entries SET partner_name = COALESCE($1, partner_name), fb_link = COALESCE($2, fb_link),
-             phone = $3, category_id = $4, image_path = COALESCE($5, image_path), updated_at = NOW() WHERE id = $6`,
-            [partner_name?.trim(), fb_link?.trim(), phone?.trim() || null, category_id ? Number(category_id) : null, imagePath, Number(req.params.id)]
+             phone = $3, category_id = $4, channel = COALESCE($5, channel), image_path = COALESCE($6, image_path), updated_at = NOW() WHERE id = $7`,
+            [partner_name?.trim(), fb_link?.trim(), phone?.trim() || null, category_id ? Number(category_id) : null, channel?.trim(), imagePath, Number(req.params.id)]
         );
         return { success: true };
     });
