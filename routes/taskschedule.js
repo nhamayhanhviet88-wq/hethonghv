@@ -162,7 +162,7 @@ async function taskScheduleRoutes(fastify, options) {
         // Run ALL queries in parallel
         const templates = await _getTemplatesForUser(uid, week_start);
 
-        const [reportsResult, weeklySummary, monthlySummary, weekHolidays, yearHolidays] = await Promise.all([
+        const [reportsResult, weeklySummary, monthlySummary, weekHolidays, yearHolidays, userOverrides] = await Promise.all([
             // Reports — latest redo per task+date
             db.all(
                 `SELECT DISTINCT ON (r.template_id, r.report_date)
@@ -201,8 +201,21 @@ async function taskScheduleRoutes(fastify, options) {
             db.all(
                 "SELECT * FROM holidays WHERE EXTRACT(YEAR FROM holiday_date) = $1 ORDER BY holiday_date",
                 [viewYear]
+            ),
+            // User overrides for both CV Điểm and CV Khóa
+            db.all(
+                'SELECT * FROM task_user_overrides WHERE user_id = $1',
+                [uid]
             )
         ]);
+
+        // Build override lookup maps
+        const overrideDiem = {}; // key: template_id → { custom_points, custom_min_quantity }
+        const overrideKhoa = {}; // key: lock_task_id → { custom_points, custom_min_quantity }
+        (userOverrides || []).forEach(o => {
+            const map = o.source_type === 'diem' ? overrideDiem : overrideKhoa;
+            map[o.source_id] = o;
+        });
 
         // Build tasks: today+future → live templates, past → existing snapshots
         let allTasks = [];
@@ -217,9 +230,18 @@ async function taskScheduleRoutes(fastify, options) {
             if (deptJoinedStr && dateStr < deptJoinedStr) continue;
 
             if (dateStr >= todayStr) {
-                // Today + Future: use live templates (same as Bàn Giao CV Điểm)
+                // Today + Future: use live templates with user overrides applied
                 const dayTasks = templates.filter(t => t.day_of_week === dayOfWeek);
-                dayTasks.forEach(t => { allTasks.push({ ...t, _source: 'template', _date: dateStr }); });
+                dayTasks.forEach(t => {
+                    const ov = overrideDiem[t.id];
+                    const taskData = { ...t, _source: 'template', _date: dateStr };
+                    if (ov) {
+                        if (ov.custom_points != null) { taskData._orig_points = t.points; taskData.points = ov.custom_points; }
+                        if (ov.custom_min_quantity != null) { taskData._orig_min_quantity = t.min_quantity; taskData.min_quantity = ov.custom_min_quantity; }
+                        taskData._has_override = true;
+                    }
+                    allTasks.push(taskData);
+                });
                 // For today: also sync snapshots in background (for penalty/deadline system)
                 if (dateStr === todayStr) {
                     _ensureSnapshots(uid, dateStr, dayOfWeek, week_start).catch(() => {});
@@ -251,7 +273,9 @@ async function taskScheduleRoutes(fastify, options) {
             holidays_week: holidayMap,
             holidays_year: yearHolidays,
             month_start: monthStart,
-            month_end: monthEnd
+            month_end: monthEnd,
+            overrides_diem: overrideDiem,
+            overrides_khoa: overrideKhoa
         };
     });
 
@@ -1466,6 +1490,55 @@ async function taskScheduleRoutes(fastify, options) {
             console.error('Auto-lock cron error:', e.message);
         }
     }, 30 * 60 * 1000); // every 30 minutes
+}
+
+    // ========== TASK USER OVERRIDES (GĐ only) ==========
+
+    // GET overrides for a user
+    fastify.get('/api/schedule/user-overrides', { preHandler: [authenticate] }, async (req) => {
+        const uid = Number(req.query.user_id) || req.user.id;
+        const rows = await db.all('SELECT * FROM task_user_overrides WHERE user_id = $1', [uid]);
+        return { overrides: rows };
+    });
+
+    // POST create/update override
+    fastify.post('/api/schedule/user-override', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tùy chỉnh' });
+        const { user_id, source_type, source_id, custom_points, custom_min_quantity } = req.body;
+        if (!user_id || !source_type || !source_id) return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
+        if (!['diem', 'khoa'].includes(source_type)) return reply.code(400).send({ error: 'source_type phải là diem hoặc khoa' });
+
+        const result = await db.get(
+            `INSERT INTO task_user_overrides (user_id, source_type, source_id, custom_points, custom_min_quantity, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (user_id, source_type, source_id)
+             DO UPDATE SET custom_points = $4, custom_min_quantity = $5, updated_at = NOW()
+             RETURNING *`,
+            [user_id, source_type, source_id,
+             custom_points != null ? Number(custom_points) : null,
+             custom_min_quantity != null ? Number(custom_min_quantity) : null,
+             req.user.id]
+        );
+        return { success: true, override: result };
+    });
+
+    // DELETE remove override (restore default)
+    fastify.delete('/api/schedule/user-override', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa tùy chỉnh' });
+        const { user_id, source_type, source_id } = req.query;
+        if (!user_id || !source_type || !source_id) return reply.code(400).send({ error: 'Thiếu thông tin' });
+        await db.run(
+            'DELETE FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
+            [Number(user_id), source_type, Number(source_id)]
+        );
+        return { success: true };
+    });
+
+    // GET all users who have overrides (for sidebar badge)
+    fastify.get('/api/schedule/override-users', { preHandler: [authenticate] }, async (req) => {
+        const rows = await db.all('SELECT DISTINCT user_id FROM task_user_overrides');
+        return { user_ids: rows.map(r => r.user_id) };
+    });
 }
 
 module.exports = taskScheduleRoutes;
