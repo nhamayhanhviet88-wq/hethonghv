@@ -37,7 +37,16 @@ module.exports = async function (fastify) {
 
         if (user_id) { where += ` AND e.user_id = $${pi}`; params.push(Number(user_id)); pi++; }
         else if (role === 'nhan_vien' || role === 'part_time') { where += ` AND e.user_id = $${pi}`; params.push(req.user.id); pi++; }
-        else if (dept_id) { where += ` AND u.department_id = $${pi}`; params.push(Number(dept_id)); pi++; }
+        else if (dept_id) {
+            // Expand parent dept to include all child departments
+            const deptIdNum = Number(dept_id);
+            const childDepts = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptIdNum, 'active']);
+            const allDeptIds = [deptIdNum, ...childDepts.map(d => d.id)];
+            const ph = allDeptIds.map((_, i) => `$${pi + i}`).join(',');
+            where += ` AND u.department_id IN (${ph})`;
+            params.push(...allDeptIds);
+            pi += allDeptIds.length;
+        }
         else if (!['giam_doc','quan_ly_cap_cao'].includes(role)) {
             const dIds = await _getDeptIds(req.user);
             if (dIds.length > 0) { const ph = dIds.map((_,i)=>`$${pi+i}`).join(','); where += ` AND u.department_id IN (${ph})`; params.push(...dIds); pi += dIds.length; }
