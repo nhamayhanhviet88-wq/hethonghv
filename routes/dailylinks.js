@@ -169,9 +169,10 @@ module.exports = async function (fastify) {
         }
         console.log('[DailyLinks POST] STAGE 2 — dup check passed');
 
-        // Handle image upload for addcmt module
+        // Handle image upload (addcmt, dang_group, etc.)
         let imagePath = null;
-        if (module_type === 'addcmt' && image_data) {
+        const imgModules = ['addcmt', 'dang_group'];
+        if (imgModules.includes(module_type) && image_data) {
             try {
                 const commaIdx = image_data.indexOf(',');
                 if (commaIdx > -1) {
@@ -179,17 +180,18 @@ module.exports = async function (fastify) {
                     const extMatch = header.match(/image\/(\w+)/);
                     const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
                     const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
-                    const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
+                    const subDir = module_type === 'addcmt' ? 'addcmt' : 'group';
+                    const uploadDir = path.join(__dirname, '..', 'uploads', subDir);
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                     const filename = `${req.user.id}_${Date.now()}.${ext}`;
                     const filePath = path.join(uploadDir, filename);
                     try {
                         const sharp = require('sharp');
                         await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(filePath.replace(/\.[^.]+$/, '.jpg'));
-                        imagePath = '/uploads/addcmt/' + filename.replace(/\.[^.]+$/, '.jpg');
+                        imagePath = `/uploads/${subDir}/` + filename.replace(/\.[^.]+$/, '.jpg');
                     } catch(sharpErr) {
                         fs.writeFileSync(filePath, buffer);
-                        imagePath = '/uploads/addcmt/' + filename;
+                        imagePath = `/uploads/${subDir}/` + filename;
                     }
                 }
             } catch(imgErr) { console.error('[DailyLinks] Image save error:', imgErr.message); }
