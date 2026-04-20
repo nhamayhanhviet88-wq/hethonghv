@@ -553,6 +553,12 @@ const _DL_CONTENT_PLATFORMS = [
 // Map module_type -> platforms config
 const _DL_MULTI_LINK_MODULES = { dang_video: _DL_VIDEO_PLATFORMS, dang_content: _DL_CONTENT_PLATFORMS };
 function _dlGetMultiPlatforms(type) { return _DL_MULTI_LINK_MODULES[type] || null; }
+// Link validation rules for DEFAULT (single-link) modules
+const _DL_LINK_RULES = {
+    dang_group: { validate: v => v.toLowerCase().includes('facebook.com/groups/'), errHint: 'Link phải là Facebook Group (chứa facebook.com/groups/), không phải link facebook thường' },
+};
+// Modules that need screenshot in addition to link
+const _DL_NEED_SCREENSHOT = ['dang_group'];
 function _dlValidateMultiLink(p, val) {
     if (!val) return false;
     if (p.isImage) return true; // image fields validated separately
@@ -567,6 +573,7 @@ function _dlAddModal() {
     const d=document.createElement('div');d.id='dlModal';
     d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     const needImg = m.type === 'addcmt';
+    const needScreenshot = _DL_NEED_SCREENSHOT.includes(m.type);
     const multiPlatforms = _dlGetMultiPlatforms(m.type);
     // Multi-link modals: chỉ đóng bằng nút Hủy/Lưu, không đóng khi click nền tối
     if (!multiPlatforms) d.onclick=e=>{if(e.target===d)d.remove();};
@@ -678,9 +685,10 @@ function _dlAddModal() {
         <div style="padding:24px;">
             ${!needImg ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
-                <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://..." autofocus>
+                <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
+                <div id="dlFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
             </div>` : ''}
-            ${needImg ? `<div style="margin-bottom:14px;">
+            ${(needImg || needScreenshot) ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">📸 Dán Ảnh Chụp Màn Hình <span style="color:#dc2626;">*</span></label>
                 <div id="dlFImgZone" tabindex="0" style="margin-top:6px;border:2px dashed #86efac;border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;background:#f0fdf4;min-height:90px;outline:none;transition:all .2s;" onclick="this.focus()">
                     <div id="dlFImgPreview" style="font-size:14px;color:#166534;">
@@ -697,7 +705,7 @@ function _dlAddModal() {
         </div>
     </div>`;
     document.body.appendChild(d);
-    if (needImg) {
+    if (needImg || needScreenshot) {
         const zone = document.getElementById('dlFImgZone');
         zone?.addEventListener('paste', e => {
             const items = e.clipboardData?.items;
@@ -717,6 +725,25 @@ function _dlAddModal() {
                 }
             }
         });
+    }
+    // Link validation on input
+    const linkRule = _DL_LINK_RULES[m.type];
+    if (linkRule) {
+        const linkEl = document.getElementById('dlFLink');
+        linkEl?.addEventListener('input', () => {
+            const val = linkEl.value.trim();
+            const errEl = document.getElementById('dlFLinkErr');
+            if (val && !linkRule.validate(val)) {
+                errEl.style.display = 'block';
+                errEl.textContent = `⚠️ ${linkRule.errHint}`;
+                linkEl.style.borderColor = '#dc2626';
+            } else {
+                errEl.style.display = 'none';
+                linkEl.style.borderColor = val ? '#16a34a' : '#d1d5db';
+            }
+        });
+    }
+    if (needImg) {
         setTimeout(()=>document.getElementById('dlFImgZone')?.focus(),100);
     } else {
         setTimeout(()=>document.getElementById('dlFLink')?.focus(),100);
@@ -788,14 +815,21 @@ async function _dlSave() {
     }
 
     // ===== DEFAULT SAVE (other modules) =====
+    const needScreenshot = _DL_NEED_SCREENSHOT.includes(m.type);
     const linkEl = document.getElementById('dlFLink');
     const link = needImg ? ('addcmt_' + Date.now()) : (linkEl?.value?.trim() || '');
     if(!needImg && !link){showToast('Vui lòng nhập link!','error');return;}
-    if(needImg && !_dl.imageData){showToast('Vui lòng dán hình ảnh (Ctrl+V)!','error');return;}
+    if((needImg || needScreenshot) && !_dl.imageData){showToast('Vui lòng dán hình ảnh chụp màn hình (Ctrl+V)!','error');return;}
+    // Link validation
+    const linkRule = _DL_LINK_RULES[m.type];
+    if(linkRule && !linkRule.validate(link)){
+        showToast(`❌ ${linkRule.errHint}`,'error');return;
+    }
     try{
         const body = {fb_link:link, module_type:m.type};
-        if(needImg && _dl.imageData) body.image_data = _dl.imageData;
-        await apiCall('/api/dailylinks/entries','POST', body);
+        if((needImg || needScreenshot) && _dl.imageData) body.image_data = _dl.imageData;
+        const res = await apiCall('/api/dailylinks/entries','POST', body);
+        if(res?.error){showToast('❌ '+res.error,'error');return;}
         document.getElementById('dlModal')?.remove();
         showToast('✅ Đã thêm thành công!');_dlLoadData();
     }catch(e){showToast(e.message||'Lỗi','error');}
