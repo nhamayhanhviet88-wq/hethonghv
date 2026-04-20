@@ -1307,6 +1307,216 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ [Tự Tìm Kiếm CV Điểm] Error:', e.message);
 }
 
+    // ========== 13. DAILYLINKS — CV ĐIỂM AUTO-SCORING ==========
+    // Auto-score ALL DailyLinks module types: dang_video, dang_content, dang_group,
+    // addcmt, sedding, tuyen_dung, tim_gr_zalo, dang_banthan_sp
+    // These tasks show progress via _kbInject*Stats() but previously never created
+    // task_point_reports entries, causing ĐIỂM NGÀY = 0 despite completion.
+    try {
+        const todayDL = toDateStr(now);
+
+        // Module type → ILIKE pattern for matching task_point_templates
+        const DL_MODULES = {
+            dang_video:      '%Đăng%Video%',
+            dang_content:    '%Đăng%Content%',
+            dang_group:      '%Đăng%Tìm%KH%Group%',
+            addcmt:          '%Add%Cmt%Đối Tác%',
+            sedding:         '%Sedding%Cộng Đồng%',
+            tuyen_dung:      '%Tuyển%Dụng%SV%',
+            tim_gr_zalo:     '%Tìm%Gr%Zalo%',
+            dang_banthan_sp: '%Đăng%Bản Thân%'
+        };
+
+        for (const [moduleType, taskPattern] of Object.entries(DL_MODULES)) {
+            // Find all matching task_point_templates
+            const dlTemplates = await db.all(
+                "SELECT * FROM task_point_templates WHERE task_name ILIKE $1",
+                [taskPattern]
+            );
+
+            // For each template, find applicable users
+            const dlTasks = [];
+            for (const tpl of dlTemplates) {
+                if (tpl.target_type === 'team') {
+                    const users = await db.all(
+                        "SELECT id as user_id, full_name FROM users WHERE department_id = $1 AND status = 'active'",
+                        [tpl.target_id]
+                    );
+                    for (const u of users) {
+                        dlTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+                    }
+                } else if (tpl.target_type === 'individual') {
+                    const u = await db.get("SELECT id as user_id, full_name FROM users WHERE id = $1 AND status = 'active'", [tpl.target_id]);
+                    if (u) dlTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+                }
+            }
+
+            if (dlTasks.length === 0) continue;
+
+            // Group by user
+            const dlUserTargets = {};
+            for (const t of dlTasks) {
+                if (!dlUserTargets[t.user_id]) {
+                    dlUserTargets[t.user_id] = { name: t.full_name, totalTarget: 0, totalPoints: 0, templates: [] };
+                }
+                dlUserTargets[t.user_id].totalTarget += (t.min_quantity || 0);
+                dlUserTargets[t.user_id].totalPoints += (t.points || 0);
+                dlUserTargets[t.user_id].templates.push(t);
+            }
+
+            for (const [userId, info] of Object.entries(dlUserTargets)) {
+                // Count entries in daily_link_entries for today
+                const dlCount = await db.get(
+                    'SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                    [userId, todayDL, moduleType]
+                );
+                const entryCount = parseInt(dlCount?.cnt || 0);
+                if (entryCount === 0) continue;
+
+                const target = info.totalTarget || 1;
+                const maxPoints = info.totalPoints || 10;
+                const reachedTarget = entryCount >= target;
+
+                for (const tmpl of info.templates) {
+                    // Check for user override
+                    let tmplTarget = tmpl.min_quantity || 1;
+                    let tmplPoints = tmpl.points || 10;
+                    if (tmpl.id) {
+                        const ov = await db.get(
+                            'SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
+                            [userId, 'diem', tmpl.id]
+                        );
+                        if (ov) {
+                            if (ov.custom_min_quantity != null) tmplTarget = Number(ov.custom_min_quantity);
+                            if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
+                        }
+                    }
+
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplQty = Math.min(entryCount, tmplTarget);
+
+                    const existing = await db.get(
+                        "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
+                        [tmpl.id, userId, todayDL]
+                    );
+
+                    if (existing) {
+                        // Update existing — always update quantity and points, upgrade status to approved if target met
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                             updated_at = NOW()
+                             WHERE id = $5`,
+                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                        );
+                    } else {
+                        // Create new auto-scored report
+                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        await db.run(
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            [tmpl.id, userId, todayDL, tmplQty, tmplEarned, status,
+                             `[Tự động] ${entryCount}/${tmplTarget} ${moduleType}`, 'link']
+                        );
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ [DailyLinks CV Điểm] Error:', e.message);
+    }
+
+    // ========== 14. NHẮN TÌM ĐỐI TÁC KH — CV ĐIỂM AUTO-SCORING ==========
+    try {
+        const todayPO = toDateStr(now);
+
+        const poTemplates = await db.all(
+            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Tìm%Đối Tác%'"
+        );
+
+        const poTasks = [];
+        for (const tpl of poTemplates) {
+            if (tpl.target_type === 'team') {
+                const users = await db.all(
+                    "SELECT id as user_id, full_name FROM users WHERE department_id = $1 AND status = 'active'",
+                    [tpl.target_id]
+                );
+                for (const u of users) poTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+            } else if (tpl.target_type === 'individual') {
+                const u = await db.get("SELECT id as user_id, full_name FROM users WHERE id = $1 AND status = 'active'", [tpl.target_id]);
+                if (u) poTasks.push({ ...tpl, user_id: u.user_id, full_name: u.full_name });
+            }
+        }
+
+        if (poTasks.length > 0) {
+            const poUserTargets = {};
+            for (const t of poTasks) {
+                if (!poUserTargets[t.user_id]) {
+                    poUserTargets[t.user_id] = { name: t.full_name, totalTarget: 0, totalPoints: 0, templates: [] };
+                }
+                poUserTargets[t.user_id].totalTarget += (t.min_quantity || 0);
+                poUserTargets[t.user_id].totalPoints += (t.points || 0);
+                poUserTargets[t.user_id].templates.push(t);
+            }
+
+            for (const [userId, info] of Object.entries(poUserTargets)) {
+                const poCount = await db.get(
+                    'SELECT COUNT(*) as cnt FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2',
+                    [userId, todayPO]
+                );
+                const poEntryCount = parseInt(poCount?.cnt || 0);
+                if (poEntryCount === 0) continue;
+
+                const target = info.totalTarget || 20;
+                const maxPoints = info.totalPoints || 10;
+                const reachedTarget = poEntryCount >= target;
+
+                for (const tmpl of info.templates) {
+                    let tmplTarget = tmpl.min_quantity || 20;
+                    let tmplPoints = tmpl.points || 10;
+                    if (tmpl.id) {
+                        const ov = await db.get(
+                            'SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3',
+                            [userId, 'diem', tmpl.id]
+                        );
+                        if (ov) {
+                            if (ov.custom_min_quantity != null) tmplTarget = Number(ov.custom_min_quantity);
+                            if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
+                        }
+                    }
+
+                    const tmplEarned = poEntryCount >= tmplTarget ? tmplPoints : Math.round(poEntryCount / tmplTarget * tmplPoints);
+                    const tmplQty = Math.min(poEntryCount, tmplTarget);
+
+                    const existing = await db.get(
+                        "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
+                        [tmpl.id, userId, todayPO]
+                    );
+
+                    if (existing) {
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                             updated_at = NOW()
+                             WHERE id = $5`,
+                            [tmplQty, tmplEarned, poEntryCount, tmplTarget, existing.id]
+                        );
+                    } else {
+                        const status = reachedTarget ? 'approved' : 'pending';
+                        await db.run(
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            [tmpl.id, userId, todayPO, tmplQty, tmplEarned, status,
+                             `[Tự động] ${poEntryCount}/${tmplTarget} nhắn tin đối tác`, 'link']
+                        );
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        console.error('  ❌ [Nhắn Tìm ĐT CV Điểm] Error:', e.message);
+    }
+
     const elapsed = Date.now() - now.getTime();
     console.log(`⏰ Deadline check hoàn thành sau ${elapsed}ms (${(elapsed/1000).toFixed(1)}s)`);
 }
