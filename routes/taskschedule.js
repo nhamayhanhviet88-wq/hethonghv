@@ -1592,6 +1592,20 @@ async function taskScheduleRoutes(fastify, options) {
         const rows = await db.all('SELECT DISTINCT user_id FROM task_user_overrides');
         return { user_ids: rows.map(r => r.user_id) };
     });
+
+    // GET task names with overrides for current user (for sidebar menu badges)
+    fastify.get('/api/schedule/my-override-tasks', { preHandler: [authenticate] }, async (req) => {
+        const uid = req.user.id;
+        const rows = await db.all(
+            `SELECT o.source_type, o.source_id, o.custom_points, o.custom_min_quantity,
+                    t.task_name, t.points as orig_points, t.min_quantity as orig_min_quantity
+             FROM task_user_overrides o
+             LEFT JOIN task_point_templates t ON o.source_type = 'diem' AND o.source_id = t.id
+             WHERE o.user_id = $1`,
+            [uid]
+        );
+        return { overrides: rows };
+    });
 }
 
 module.exports = taskScheduleRoutes;

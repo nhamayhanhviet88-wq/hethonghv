@@ -994,6 +994,9 @@ async function _globalRefreshBadges() {
         _setBadge('CV Phạt Phải Xử Lý', penaltyRes.count || 0);
     } catch(e) {}
 
+    // Override badges for ALL users (show ✏️ TC on sidebar menu items with custom points/quantity)
+    _refreshOverrideBadges();
+
     const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser?.role);
     if (!isManager) return;
     try {
@@ -1013,6 +1016,84 @@ async function _globalRefreshBadges() {
         // Cấp Cứu Sếp
         _setBadge('Cấp Cứu Sếp', emergencyRes.count || 0);
     } catch(e) {}
+}
+
+// ========== OVERRIDE BADGES ON SIDEBAR MENU ==========
+// Map task_name from schedule → sidebar menu item data-page
+const _OVERRIDE_TASK_MAP = [
+    { re: /gọi.*điện.*telesale/i, page: 'goidien' },
+    { re: /tự.*tìm.*kiếm.*telesale/i, page: 'goidien' },
+    { re: /nh[ắấ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c/i, page: 'nhantintimdoitackh' },
+    { re: /add.*cmt.*đối.*tác/i, page: 'addcmtdoitackh' },
+    { re: /đăng.*video/i, page: 'dangvideo' },
+    { re: /đăng.*content/i, page: 'dangcontent' },
+    { re: /đăng.*tìm.*kh.*group/i, page: 'danggruop' },
+    { re: /sedding.*cộng.*đồng/i, page: 'seddingcongdong' },
+    { re: /đăng.*bản.*thân/i, page: 'dangbanthansp' },
+    { re: /tìm.*gr.*zalo/i, page: 'timgrzalovathongke' },
+    { re: /tuyển.*dụng.*sv/i, page: 'tuyendungsvkd' },
+];
+
+function _getOverrideMenuPage(taskName) {
+    if (!taskName) return null;
+    for (const m of _OVERRIDE_TASK_MAP) { if (m.re.test(taskName)) return m.page; }
+    return null;
+}
+
+async function _refreshOverrideBadges() {
+    try {
+        const data = await apiCall('/api/schedule/my-override-tasks').catch(() => ({ overrides: [] }));
+        const overrides = data.overrides || [];
+
+        // Remove all existing override badges first
+        document.querySelectorAll('.nav-override-badge').forEach(el => el.remove());
+
+        if (overrides.length === 0) return;
+
+        // Collect unique page IDs that have overrides
+        const overridePages = new Set();
+        overrides.forEach(ov => {
+            if (ov.task_name) {
+                const page = _getOverrideMenuPage(ov.task_name);
+                if (page) overridePages.add(page);
+            }
+        });
+
+        if (overridePages.size === 0) return;
+
+        // Inject badge CSS once
+        if (!document.getElementById('_overrideBadgeCSS')) {
+            const st = document.createElement('style');
+            st.id = '_overrideBadgeCSS';
+            st.textContent = `
+                .nav-override-badge {
+                    display:inline-flex;align-items:center;justify-content:center;
+                    background:linear-gradient(135deg,#f59e0b,#d97706);color:white;
+                    font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;
+                    line-height:1;margin-left:4px;flex-shrink:0;
+                    box-shadow:0 1px 3px rgba(217,119,6,0.3);
+                    animation:_ovBadgePulse 3s ease-in-out infinite;
+                }
+                @keyframes _ovBadgePulse {
+                    0%,100% { opacity:0.85; }
+                    50% { opacity:1; }
+                }
+            `;
+            document.head.appendChild(st);
+        }
+
+        // Add badge to matching nav items
+        overridePages.forEach(pageId => {
+            const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+            if (navItem && !navItem.querySelector('.nav-override-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'nav-override-badge';
+                badge.title = 'Đã tùy chỉnh điểm/số lượng';
+                badge.textContent = '✏️ TC';
+                navItem.appendChild(badge);
+            }
+        });
+    } catch(e) { /* silent */ }
 }
 
 // ========== DASHBOARD ==========
