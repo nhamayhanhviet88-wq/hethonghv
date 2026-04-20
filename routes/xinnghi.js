@@ -32,19 +32,17 @@ async function xinnghiRoutes(fastify, options) {
 
         for await (const part of parts) {
             if (part.file) {
-                // Save uploaded file
+                // Save uploaded file (with compression)
                 const uploadsDir = path.join(__dirname, '..', 'uploads', 'leave');
                 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-                const ext = path.extname(part.filename) || '.jpg';
-                const filename = `leave_${userId}_${Date.now()}${ext}`;
+                const { compressImage } = require('../utils/imageCompressor');
+                const chunks = [];
+                for await (const chunk of part.file) chunks.push(chunk);
+                let fileBuffer = Buffer.concat(chunks);
+                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const filename = `leave_${userId}_${Date.now()}.jpg`;
                 const filepath = path.join(uploadsDir, filename);
-                const writeStream = fs.createWriteStream(filepath);
-                await part.file.pipe(writeStream);
-                await new Promise((resolve, reject) => {
-                    writeStream.on('finish', resolve);
-                    writeStream.on('error', reject);
-                });
+                fs.writeFileSync(filepath, fileBuffer);
                 proofPath = `/uploads/leave/${filename}`;
             } else {
                 fields[part.fieldname] = part.value;

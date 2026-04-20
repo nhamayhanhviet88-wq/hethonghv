@@ -548,14 +548,14 @@ async function chainTaskRoutes(fastify, options) {
                 if (part.file) {
                     const uploadDir = path.join(__dirname, '..', 'uploads', 'chain-tasks');
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-                    const filename = `${Date.now()}_${part.filename}`;
+                    const { compressImage } = require('../utils/imageCompressor');
+                    const chunks = [];
+                    for await (const chunk of part.file) chunks.push(chunk);
+                    let fileBuffer = Buffer.concat(chunks);
+                    fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                    const filename = `${Date.now()}_proof.jpg`;
                     const filepath = path.join(uploadDir, filename);
-                    const writeStream = fs.createWriteStream(filepath);
-                    await part.file.pipe(writeStream);
-                    await new Promise((resolve, reject) => {
-                        writeStream.on('finish', resolve);
-                        writeStream.on('error', reject);
-                    });
+                    fs.writeFileSync(filepath, fileBuffer);
                     proofUrl = `/uploads/chain-tasks/${filename}`;
                 } else {
                     if (part.fieldname === 'content') content = part.value;

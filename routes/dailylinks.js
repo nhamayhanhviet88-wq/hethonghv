@@ -3,6 +3,8 @@
 module.exports = async function (fastify) {
     const db = require('../db/pool');
     const { authenticate } = require('../middleware/auth');
+    const fs = require('fs');
+    const path = require('path');
 
     // ===== AUTO-CREATE TABLE =====
     await db.exec(`
@@ -12,12 +14,15 @@ module.exports = async function (fastify) {
             entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
             module_type TEXT NOT NULL,
             fb_link TEXT NOT NULL,
+            image_path TEXT,
             created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_dle_user_date ON daily_link_entries(user_id, entry_date);
         CREATE INDEX IF NOT EXISTS idx_dle_module ON daily_link_entries(module_type);
         CREATE INDEX IF NOT EXISTS idx_dle_date ON daily_link_entries(entry_date);
     `);
+    // Add image_path column if missing
+    try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
 
     // Migrate old addcmt_entries if exists
     try {
@@ -84,19 +89,48 @@ module.exports = async function (fastify) {
 
     // POST create
     fastify.post('/api/dailylinks/entries', { preHandler: [authenticate] }, async (req, reply) => {
-        const { fb_link, module_type } = req.body || {};
+        const { fb_link, module_type, image_data } = req.body || {};
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link' });
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
         const today = _vnToday();
         const linkLower = fb_link.trim().toLowerCase();
-        // Same user same day same link - block
-        const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
-        if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
-        // Cross-user dup (same module)
-        const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
-        if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+        // Skip dup check for addcmt (auto-generated links)
+        if (module_type !== 'addcmt') {
+            // Same user same day same link - block
+            const dup = await db.get('SELECT id FROM daily_link_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3 AND module_type = $4', [linkLower, req.user.id, today, module_type]);
+            if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
+            // Cross-user dup (same module)
+            const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
+            if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+        }
 
-        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link) VALUES ($1, $2, $3, $4)', [req.user.id, today, module_type, fb_link.trim()]);
+        // Handle image upload for addcmt module
+        let imagePath = null;
+        if (module_type === 'addcmt' && image_data) {
+            try {
+                const matches = image_data.match(/^data:image\/(\w+);base64,(.+)$/);
+                if (matches) {
+                    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+                    const buffer = Buffer.from(matches[2], 'base64');
+                    const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
+                    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                    const filename = `${req.user.id}_${Date.now()}.${ext}`;
+                    const filePath = path.join(uploadDir, filename);
+                    
+                    // Try to compress with sharp if available
+                    try {
+                        const sharp = require('sharp');
+                        await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(filePath.replace(/\.[^.]+$/, '.jpg'));
+                        imagePath = '/uploads/addcmt/' + filename.replace(/\.[^.]+$/, '.jpg');
+                    } catch(sharpErr) {
+                        fs.writeFileSync(filePath, buffer);
+                        imagePath = '/uploads/addcmt/' + filename;
+                    }
+                }
+            } catch(imgErr) { console.error('[DailyLinks] Image save error:', imgErr.message); }
+        }
+
+        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path) VALUES ($1, $2, $3, $4, $5)', [req.user.id, today, module_type, fb_link.trim(), imagePath]);
         return { success: true };
     });
 

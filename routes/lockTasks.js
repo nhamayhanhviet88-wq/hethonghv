@@ -322,12 +322,14 @@ async function lockTaskRoutes(fastify, options) {
                     // It's a file field - collect buffer
                     const uploadsDir = path.join(__dirname, '..', 'uploads', 'lock-tasks');
                     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-                    const ext = path.extname(part.filename) || '.jpg';
-                    const filename = `lt_${taskId}_${userId}_${todayStr}_${Date.now()}${ext}`;
-                    const filePath = path.join(uploadsDir, filename);
+                    const { compressImage } = require('../utils/imageCompressor');
                     const chunks = [];
                     for await (const chunk of part.file) { chunks.push(chunk); }
-                    fs.writeFileSync(filePath, Buffer.concat(chunks));
+                    let fileBuffer = Buffer.concat(chunks);
+                    fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                    const filename = `lt_${taskId}_${userId}_${todayStr}_${Date.now()}.jpg`;
+                    const filePath = path.join(uploadsDir, filename);
+                    fs.writeFileSync(filePath, fileBuffer);
                     fileData = `/uploads/lock-tasks/${filename}`;
                 } else {
                     // It's a regular field

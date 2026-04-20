@@ -13,11 +13,15 @@ module.exports = async function (fastify) {
             user_id INTEGER NOT NULL REFERENCES users(id),
             entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
             fb_link TEXT NOT NULL,
+            image_path TEXT,
             created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_addcmt_user_date ON addcmt_entries(user_id, entry_date);
         CREATE INDEX IF NOT EXISTS idx_addcmt_date ON addcmt_entries(entry_date);
     `);
+
+    // Add image_path column if not exists
+    try { await db.exec('ALTER TABLE addcmt_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
 
     function _vnToday() {
         const now = new Date(Date.now() + 7 * 3600000);
@@ -48,9 +52,62 @@ module.exports = async function (fastify) {
         return { entries: rows };
     });
 
-    // POST create
+    // POST create (supports multipart image upload)
     fastify.post('/api/addcmt/entries', { preHandler: [authenticate] }, async (req, reply) => {
-        const { fb_link } = req.body || {};
+        const ct = req.headers['content-type'] || '';
+        let fb_link = '';
+        let imagePath = '';
+
+        if (ct.includes('multipart')) {
+            const parts = req.parts();
+            let fileBuffer = null;
+            for await (const part of parts) {
+                if (part.file) {
+                    const chunks = [];
+                    for await (const chunk of part.file) chunks.push(chunk);
+                    fileBuffer = Buffer.concat(chunks);
+                } else {
+                    if (part.fieldname === 'fb_link') fb_link = part.value || '';
+                    if (part.fieldname === 'image_data') {
+                        // base64 image from paste
+                        const base64 = part.value;
+                        if (base64 && base64.startsWith('data:image')) {
+                            const matches = base64.match(/^data:image\/\w+;base64,(.+)$/);
+                            if (matches) fileBuffer = Buffer.from(matches[1], 'base64');
+                        }
+                    }
+                }
+            }
+            // Compress and save image
+            if (fileBuffer && fileBuffer.length > 0) {
+                const { compressImage } = require('../utils/imageCompressor');
+                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const fileName = `addcmt_${req.user.id}_${Date.now()}.jpg`;
+                fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
+                imagePath = `/uploads/addcmt/${fileName}`;
+            }
+        } else {
+            // JSON body
+            fb_link = req.body?.fb_link || '';
+            // Handle base64 image from JSON
+            const imageData = req.body?.image_data;
+            if (imageData && imageData.startsWith('data:image')) {
+                const matches = imageData.match(/^data:image\/\w+;base64,(.+)$/);
+                if (matches) {
+                    const { compressImage } = require('../utils/imageCompressor');
+                    let buf = Buffer.from(matches[1], 'base64');
+                    buf = await compressImage(buf, { maxWidth: 1200, quality: 80 });
+                    const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
+                    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                    const fileName = `addcmt_${req.user.id}_${Date.now()}.jpg`;
+                    fs.writeFileSync(path.join(uploadDir, fileName), buf);
+                    imagePath = `/uploads/addcmt/${fileName}`;
+                }
+            }
+        }
+
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link FB' });
         const today = _vnToday();
         // Same user same day same link - block
@@ -60,7 +117,7 @@ module.exports = async function (fastify) {
         const dupOther = await db.get('SELECT e.id, u.full_name FROM addcmt_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 LIMIT 1', [fb_link.trim().toLowerCase(), req.user.id]);
         if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
 
-        await db.run('INSERT INTO addcmt_entries (user_id, entry_date, fb_link) VALUES ($1, $2, $3)', [req.user.id, today, fb_link.trim()]);
+        await db.run('INSERT INTO addcmt_entries (user_id, entry_date, fb_link, image_path) VALUES ($1, $2, $3, $4)', [req.user.id, today, fb_link.trim(), imagePath || null]);
         return { success: true };
     });
 
@@ -110,6 +167,30 @@ module.exports = async function (fastify) {
         const depts = {};
         members.forEach(m => { const k = m.dept_id||0; if(!depts[k]) depts[k]={id:k,name:m.dept_name||'Chưa phân phòng',members:[]}; depts[k].members.push(m); });
         return { departments: Object.values(depts) };
+    });
+
+    // SCHEDULE INFO for report integration
+    fastify.get('/api/addcmt/schedule-info', { preHandler: [authenticate] }, async (req) => {
+        const uid = req.query.user_id ? Number(req.query.user_id) : req.user.id;
+        const today = _vnToday();
+        // Find schedule template matching this task
+        const tmpl = await db.get(`SELECT * FROM task_point_templates WHERE task_name ILIKE '%Add%Cmt%Đối Tác%' LIMIT 1`);
+        if (!tmpl) return { found: false };
+
+        const todayCount = await db.get('SELECT COUNT(*) as c FROM addcmt_entries WHERE user_id=$1 AND entry_date=$2', [uid, today]);
+        // Check existing report
+        const report = await db.get(
+            `SELECT * FROM task_point_reports WHERE template_id=$1 AND user_id=$2 AND report_date=$3 ORDER BY id DESC LIMIT 1`,
+            [tmpl.id, uid, today]
+        );
+        return {
+            found: true,
+            template_id: tmpl.id,
+            min_quantity: tmpl.min_quantity || 20,
+            today_count: Number(todayCount.c),
+            points: tmpl.points,
+            report: report || null
+        };
     });
 
     async function _getDeptIds(user) {

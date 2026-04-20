@@ -439,9 +439,11 @@ async function taskScheduleRoutes(fastify, options) {
                 }
             }
 
-            // Save image if present
+            // Save image if present (with compression)
             if (fileBuffer && fileBuffer.length > 0) {
-                const fileName = `report_${request.user.id}_${Date.now()}${fileExt}`;
+                const { compressImage } = require('../utils/imageCompressor');
+                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const fileName = `report_${request.user.id}_${Date.now()}.jpg`;
                 const uploadDir = path.join(__dirname, '..', 'uploads', 'reports');
                 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                 fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
@@ -868,7 +870,9 @@ async function taskScheduleRoutes(fastify, options) {
                 }
             }
             if (fileBuffer && fileBuffer.length > 0) {
-                const fileName = `redo_${request.user.id}_${Date.now()}${fileExt}`;
+                const { compressImage } = require('../utils/imageCompressor');
+                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const fileName = `redo_${request.user.id}_${Date.now()}.jpg`;
                 const uploadDir = path.join(__dirname, '..', 'uploads', 'reports');
                 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                 fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);

@@ -513,23 +513,26 @@ module.exports = async function (fastify) {
         return { departments: ordered };
     });
 
-    // ===== IMAGE UPLOAD (base64 → file) =====
+    // ===== IMAGE UPLOAD (base64 → file, with compression) =====
+    const { compressImage } = require('../utils/imageCompressor');
     async function _saveImage(base64Data, userId) {
         try {
             const matches = base64Data.match(/^data:image\/(\w+);base64,(.+)$/);
             if (!matches) return null;
-            const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-            const buffer = Buffer.from(matches[2], 'base64');
+            let buffer = Buffer.from(matches[2], 'base64');
 
-            // Max 2MB
-            if (buffer.length > 2 * 1024 * 1024) return null;
+            // Max 5MB raw (will be compressed)
+            if (buffer.length > 5 * 1024 * 1024) return null;
+
+            // Compress: resize to 1200px max, JPEG 80%
+            buffer = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
 
             const now = new Date(Date.now() + 7 * 3600000);
             const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             const uploadDir = path.join(__dirname, '..', 'uploads', 'partner-outreach', month);
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-            const fileName = `po_${userId}_${Date.now()}.${ext}`;
+            const fileName = `po_${userId}_${Date.now()}.jpg`;
             fs.writeFileSync(path.join(uploadDir, fileName), buffer);
             return `/uploads/partner-outreach/${month}/${fileName}`;
         } catch (e) {

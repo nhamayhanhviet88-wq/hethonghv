@@ -44,9 +44,47 @@ function _poInit() {
             </div>
             <div id="poTable"></div>
         </div>
+    </div>
+    <!-- Lightbox -->
+    <div id="poLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;cursor:zoom-out;" onclick="_poCloseLightbox()">
+        <img id="poLightboxImg" src="" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.5);transition:transform .3s ease;" onclick="event.stopPropagation()">
+        <button onclick="_poCloseLightbox()" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;backdrop-filter:blur(8px);transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+        <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;">
+            <button onclick="event.stopPropagation();_poLightboxZoom(1.5)" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;backdrop-filter:blur(8px);">🔍+ Phóng to</button>
+            <button onclick="event.stopPropagation();_poLightboxZoom(1)" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;backdrop-filter:blur(8px);">↺ Gốc</button>
+        </div>
     </div>`;
-    document.getElementById('pageTitle').textContent = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
+    // Lightbox CSS
+    if (!document.getElementById('_poLightboxCSS')) {
+        const st = document.createElement('style'); st.id = '_poLightboxCSS';
+        st.textContent = `
+        .po-thumb { width:52px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e2e8f0;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+        .po-thumb:hover { transform:scale(1.15);border-color:#3b82f6;box-shadow:0 4px 16px rgba(37,99,235,0.25); }
+        #poLightbox { display:none; }
+        #poLightbox.active { display:flex !important; animation:_poFadeIn .2s ease; }
+        @keyframes _poFadeIn { from{opacity:0} to{opacity:1} }
+        `;
+        document.head.appendChild(st);
+    }
+    document.getElementById('pageTitle').textContent = 'Add/Cmt Đối Tác KH';
     _poLoadAll();
+}
+
+let _poCurrentZoom = 1;
+function _poOpenLightbox(src) {
+    const lb = document.getElementById('poLightbox');
+    const img = document.getElementById('poLightboxImg');
+    img.src = src; img.style.transform = 'scale(1)'; _poCurrentZoom = 1;
+    lb.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function _poCloseLightbox() {
+    document.getElementById('poLightbox')?.classList.remove('active');
+    document.body.style.overflow = '';
+}
+function _poLightboxZoom(z) {
+    _poCurrentZoom = z;
+    document.getElementById('poLightboxImg').style.transform = `scale(${z})`;
 }
 
 function _poRenderGuide() {
@@ -104,13 +142,14 @@ async function _poLoadData() {
     _poUpdateActionButtons();
 }
 
-// Check if currently viewing own data (can add entries)
+// Check if currently viewing own data (can add entries + report)
+// RULE: Mỗi tài khoản chỉ được báo cáo/thêm cho chính mình
 function _poIsViewingSelf() {
     // If a specific user is selected, it must be the current user
     if (_po.selectedUser) return _po.selectedUser === currentUser.id;
-    // If a dept is selected (not a specific user), viewing team/dept aggregate → can't add
+    // If a dept is selected (not a specific user), viewing team/dept aggregate → can't add/report
     if (_po.selectedDept) return false;
-    // "Tất cả nhân viên" selected → aggregate view → can't add
+    // "Tất cả nhân viên" selected → aggregate view → can't add/report
     // UNLESS user is nhan_vien/part_time (they only see themselves)
     if (['nhan_vien','part_time'].includes(currentUser.role)) return true;
     return false;
@@ -124,8 +163,13 @@ function _poUpdateActionButtons() {
     if (currentUser?.role === 'giam_doc') {
         h += '<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Lĩnh Vực</button>';
     }
+    // Chỉ hiện nút Thêm khi xem chính tài khoản mình
     if (canAdd) {
         h += '<button onclick="_poAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">＋ Thêm Đối Tác</button>';
+    }
+    // Hiện nhãn khi xem phòng/team tổng hợp
+    if (!canAdd && (_po.selectedDept || (!_po.selectedUser && !['nhan_vien','part_time'].includes(currentUser.role)))) {
+        h += '<span style="padding:8px 16px;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:600;border:1px solid #e2e8f0;">👁️ Chế độ xem tổng hợp</span>';
     }
     el.innerHTML = h;
 }
@@ -263,7 +307,7 @@ function _poRenderStats() {
     const isComplete = todayDone >= target;
     const isSelf = _poIsViewingSelf();
 
-    // Report status
+    // Report status — CHỈ hiện khi xem chính tài khoản mình
     let reportBadge = '';
     let reportBtn = '';
     if (si?.found && isSelf) {
@@ -496,7 +540,10 @@ function _poRenderTable() {
         </tr></thead><tbody>`;
     rows.forEach((r, i) => {
         const catBadge = r.category_name ? `<span style="background:${r.category_color||'#e5e7eb'};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.category_name}</span>` : '-';
-        const imgBtn = r.image_path ? `<a href="${r.image_path}" target="_blank" style="color:#2563eb;font-weight:600;">📷 Xem</a>` : '<span style="color:#d1d5db;">—</span>';
+        // Thumbnail ảnh thay vì link text
+        const imgCell = r.image_path 
+            ? `<img src="${r.image_path}" class="po-thumb" onclick="_poOpenLightbox('${r.image_path}')" alt="Ảnh tin nhắn" loading="lazy">` 
+            : '<span style="color:#d1d5db;font-size:12px;">—</span>';
         const fbShort = r.fb_link.length > 30 ? r.fb_link.substring(0,30)+'...' : r.fb_link;
         const entryDate = typeof r.entry_date === 'string' ? r.entry_date.split('T')[0] : r.entry_date;
         const channelColors = {'Facebook Cá Nhân':'#1877f2','Page Facebook':'#4267b2','Tiktok':'#000000','Instagram':'#e4405f','Threads':'#333333','Linkedin':'#0a66c2','Twitter':'#1da1f2'};
@@ -521,7 +568,7 @@ function _poRenderTable() {
             <td style="padding:10px 8px;">${r.phone||'—'}</td>
             <td style="padding:10px 8px;">${channelBadge}</td>
             <td style="padding:10px 8px;">${catBadge}</td>
-            <td style="padding:10px 8px;text-align:center;">${imgBtn}</td>
+            <td style="padding:10px 8px;text-align:center;">${imgCell}</td>
             <td style="padding:10px 8px;text-align:center;white-space:nowrap;">${actions}</td>
         </tr>`;
     });

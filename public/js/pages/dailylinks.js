@@ -11,12 +11,47 @@ const _DL_MODULES = {
     '/tuyendungsvkd':     { type:'tuyen_dung',    label:'Tuyển Dụng SV KD',      icon:'🎓', grad:'linear-gradient(135deg,#be185d,#9d174d)', accent:'#be185d' },
 };
 
-let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null };
+let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null };
 let _dlOverrideUserIds = new Set();
 let _dlDatePreset = 'today';
 let _dlDateFrom = '';
 let _dlDateTo = '';
 let _dlSelectedYear = new Date().getFullYear();
+
+// ===== Helper: đang xem chính mình? =====
+function _dlIsViewingSelf() {
+    if (_dl.selUser) return _dl.selUser == currentUser.id;
+    if (_dl.selDept) return false; // viewing a dept/team = not self
+    if (['nhan_vien','part_time'].includes(currentUser.role)) return true;
+    return false;
+}
+
+// ===== Persist / Restore selection in sessionStorage (F5 support) =====
+function _dlSaveState() {
+    const path = window.location.pathname;
+    sessionStorage.setItem('dl_sel_' + path, JSON.stringify({
+        selUser: _dl.selUser,
+        selDept: _dl.selDept,
+        datePreset: _dlDatePreset,
+        dateFrom: _dlDateFrom,
+        dateTo: _dlDateTo,
+        selectedYear: _dlSelectedYear
+    }));
+}
+function _dlRestoreState() {
+    const path = window.location.pathname;
+    try {
+        const raw = sessionStorage.getItem('dl_sel_' + path);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.selUser != null) _dl.selUser = s.selUser;
+        if (s.selDept != null) _dl.selDept = s.selDept;
+        if (s.datePreset) _dlDatePreset = s.datePreset;
+        if (s.dateFrom) _dlDateFrom = s.dateFrom;
+        if (s.dateTo) _dlDateTo = s.dateTo;
+        if (s.selectedYear) _dlSelectedYear = s.selectedYear;
+    } catch(e) {}
+}
 
 function _dlGetDateRange() {
     const today = new Date();
@@ -50,6 +85,9 @@ function _dlInit() {
     const cfg = _DL_MODULES[path];
     if (!cfg) return;
     _dl.mod = cfg;
+    _dl.imageData = null;
+    // Restore selection state from sessionStorage (F5 persistence)
+    _dlRestoreState();
     const area = document.getElementById('contentArea');
     if (!area) return;
     area.innerHTML = `
@@ -61,15 +99,31 @@ function _dlInit() {
             <div id="dlDateFilter"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h2 id="dlTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách link hôm nay</h2>
-                <button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${cfg.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Thêm Link</button>
+                <div id="dlActionBtns" style="display:flex;gap:8px;align-items:center;"></div>
             </div>
             <div id="dlTable"></div>
         </div>
+    </div>
+    <div id="dlLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;cursor:zoom-out;" onclick="_dlCloseLB()">
+        <img id="dlLBImg" src="" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.5);transition:transform .3s;" onclick="event.stopPropagation()">
+        <button onclick="_dlCloseLB()" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.15);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;backdrop-filter:blur(8px);">✕</button>
+        <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;">
+            <button onclick="event.stopPropagation();document.getElementById('dlLBImg').style.transform='scale(1.8)'" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;backdrop-filter:blur(8px);">🔍+ Phóng to</button>
+            <button onclick="event.stopPropagation();document.getElementById('dlLBImg').style.transform='scale(1)'" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;backdrop-filter:blur(8px);">↺ Gốc</button>
+        </div>
     </div>`;
+    if (!document.getElementById('_dlLBCSS')) {
+        const st = document.createElement('style'); st.id = '_dlLBCSS';
+        st.textContent = `.dl-thumb{width:52px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e2e8f0;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,0.08)}.dl-thumb:hover{transform:scale(1.15);border-color:#16a34a;box-shadow:0 4px 16px rgba(22,163,74,0.25)}#dlLightbox.active{display:flex!important;animation:_dlFI .2s}@keyframes _dlFI{from{opacity:0}to{opacity:1}}`;
+        document.head.appendChild(st);
+    }
     document.getElementById('pageTitle').textContent = cfg.label;
     _dlLoadGuide();
     _dlLoadAll();
 }
+function _dlOpenLB(src){const lb=document.getElementById('dlLightbox'),img=document.getElementById('dlLBImg');img.src=src;img.style.transform='scale(1)';lb.classList.add('active');document.body.style.overflow='hidden';}
+function _dlCloseLB(){document.getElementById('dlLightbox')?.classList.remove('active');document.body.style.overflow='';}
+
 
 async function _dlLoadGuide() {
     const m = _dl.mod;
@@ -114,6 +168,24 @@ async function _dlLoadData() {
     _dlRenderStats();
     _dlRenderDateFilter();
     _dlRenderTable();
+    _dlUpdateActions();
+    // Save state for F5 persistence
+    _dlSaveState();
+}
+
+// ===== Update action buttons based on role and selection =====
+function _dlUpdateActions() {
+    const el = document.getElementById('dlActionBtns');
+    if (!el) return;
+    const m = _dl.mod;
+    const canAdd = _dlIsViewingSelf();
+    let h = '';
+    if (canAdd) {
+        h += `<button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${m.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Báo cáo công việc</button>`;
+    } else if (_dl.selDept || (!_dl.selUser && !['nhan_vien','part_time'].includes(currentUser.role))) {
+        h += '<span style="padding:8px 16px;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:600;border:1px solid #e2e8f0;">👁️ Chế độ xem tổng hợp</span>';
+    }
+    el.innerHTML = h;
 }
 
 function _dlToday() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; }
@@ -252,9 +324,9 @@ function _dlRenderSidebar(depts) {
     sb.innerHTML = h;
 }
 
-function _dlSelAll(){_dl.selUser=null;_dl.selDept=null;_dlLoadAll();}
-function _dlSelDept(id){_dl.selUser=null;_dl.selDept=id;_dlLoadAll();}
-function _dlSelUser(id){_dl.selUser=id;_dl.selDept=null;_dlLoadAll();}
+function _dlSelAll(){_dl.selUser=null;_dl.selDept=null;_dlSaveState();_dlLoadAll();}
+function _dlSelDept(id){_dl.selUser=null;_dl.selDept=id;_dlSaveState();_dlLoadAll();}
+function _dlSelUser(id){_dl.selUser=id;_dl.selDept=null;_dlSaveState();_dlLoadAll();}
 function _dlToggleDept(id){if(_dlCollapsedDepts.has(id)){_dlCollapsedDepts.delete(id);}else{_dlCollapsedDepts.add(id);}_dlSelDept(id);}
 
 function _dlRenderStats() {
@@ -314,22 +386,26 @@ function _dlRenderTable() {
     const isMultiDay = dr.from !== dr.to;
     if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
     const showUser=!_dl.selUser&&!['nhan_vien','part_time'].includes(currentUser.role);
+    const hasImg = m.type === 'addcmt';
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
-        <th style="padding:10px 8px;">LINK</th>
+        ${!hasImg?'<th style="padding:10px 8px;">LINK</th>':''}
         ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
+        ${hasImg?'<th style="padding:10px 8px;text-align:center;">ẢNH CHỤP</th>':''}
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
     </tr></thead><tbody>`;
     rows.forEach((r,i)=>{
         const fbShort=r.fb_link.length>60?r.fb_link.substring(0,60)+'...':r.fb_link;
         const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
         const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
+        const imgCell = hasImg ? (r.image_path ? `<img src="${r.image_path}" class="dl-thumb" onclick="_dlOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">` : '<span style="color:#d1d5db;">—</span>') : '';
         h+=`<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
-            <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>
+            ${!hasImg?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
             ${showUser?`<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>`:''}
+            ${hasImg?`<td style="padding:10px 8px;text-align:center;">${imgCell}</td>`:''}
             <td style="padding:10px 8px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>
         </tr>`;
     });
@@ -339,38 +415,80 @@ function _dlRenderTable() {
 
 function _dlAddModal() {
     const m=_dl.mod;
+    _dl.imageData = null;
     document.getElementById('dlModal')?.remove();
     const d=document.createElement('div');d.id='dlModal';
     d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     d.onclick=e=>{if(e.target===d)d.remove();};
+    const needImg = m.type === 'addcmt';
     d.innerHTML=`
     <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:${m.grad};padding:20px 24px;border-radius:16px 16px 0 0;color:white;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:18px;font-weight:800;">${m.icon} Thêm Link ${m.label}</div>
+                <div style="font-size:18px;font-weight:800;">${m.icon} Báo cáo công việc - ${m.label}</div>
                 <button onclick="document.getElementById('dlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
             </div>
         </div>
         <div style="padding:24px;">
-            <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
-            <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://..." autofocus>
-            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+            ${!needImg ? `<div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
+                <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://..." autofocus>
+            </div>` : ''}
+            ${needImg ? `<div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">📸 Dán Ảnh Chụp Màn Hình <span style="color:#dc2626;">*</span></label>
+                <div id="dlFImgZone" tabindex="0" style="margin-top:6px;border:2px dashed #86efac;border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;background:#f0fdf4;min-height:90px;outline:none;transition:all .2s;" onclick="this.focus()">
+                    <div id="dlFImgPreview" style="font-size:14px;color:#166534;">
+                        <div style="font-size:36px;margin-bottom:8px;">📋</div>
+                        <div style="font-weight:700;">Click vào đây rồi Ctrl+V</div>
+                        <div style="font-size:12px;color:#4ade80;margin-top:4px;">Dán ảnh chụp màn hình từ clipboard</div>
+                    </div>
+                </div>
+            </div>` : ''}
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
                 <button onclick="document.getElementById('dlModal').remove()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
                 <button onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
             </div>
         </div>
     </div>`;
     document.body.appendChild(d);
-    setTimeout(()=>document.getElementById('dlFLink')?.focus(),100);
+    if (needImg) {
+        const zone = document.getElementById('dlFImgZone');
+        zone?.addEventListener('paste', e => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        _dl.imageData = ev.target.result;
+                        document.getElementById('dlFImgPreview').innerHTML = `<img src="${ev.target.result}" style="max-width:100%;max-height:200px;border-radius:8px;">`;
+                        zone.style.borderColor = '#16a34a';
+                    };
+                    reader.readAsDataURL(file);
+                    break;
+                }
+            }
+        });
+        setTimeout(()=>document.getElementById('dlFImgZone')?.focus(),100);
+    } else {
+        setTimeout(()=>document.getElementById('dlFLink')?.focus(),100);
+    }
 }
 
 async function _dlSave() {
-    const link=document.getElementById('dlFLink').value.trim();
-    if(!link){showToast('Vui lòng nhập link!','error');return;}
+    const needImg = _dl.mod.type === 'addcmt';
+    const linkEl = document.getElementById('dlFLink');
+    const link = needImg ? ('addcmt_' + Date.now()) : (linkEl?.value?.trim() || '');
+    if(!needImg && !link){showToast('Vui lòng nhập link!','error');return;}
+    if(needImg && !_dl.imageData){showToast('Vui lòng dán hình ảnh (Ctrl+V)!','error');return;}
     try{
-        await apiCall('/api/dailylinks/entries','POST',{fb_link:link,module_type:_dl.mod.type});
+        const body = {fb_link:link, module_type:_dl.mod.type};
+        if(needImg && _dl.imageData) body.image_data = _dl.imageData;
+        await apiCall('/api/dailylinks/entries','POST', body);
         document.getElementById('dlModal')?.remove();
-        showToast('✅ Đã thêm link!');_dlLoadData();
+        showToast('✅ Đã thêm thành công!');_dlLoadData();
     }catch(e){showToast(e.message||'Lỗi','error');}
 }
 
@@ -380,10 +498,11 @@ async function _dlDel(id) {
     catch(e){showToast(e.message||'Lỗi','error');}
 }
 
-// SPA Router Hook
+// SPA Router Hook — preserve state on F5, reset on SPA nav
 (function(){
     const paths=Object.keys(_DL_MODULES);
     const orig=window.handleRoute;
     if(orig){window.handleRoute=function(){orig.apply(this,arguments);if(paths.includes(window.location.pathname)){_dl.selUser=null;_dl.selDept=null;_dlDatePreset='today';_dlInit();}};}
+    // On F5/direct load: DO NOT reset state, _dlInit will restore from sessionStorage
     if(paths.includes(window.location.pathname)) setTimeout(_dlInit,100);
 })();
