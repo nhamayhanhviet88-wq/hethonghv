@@ -245,8 +245,7 @@ module.exports = async function (fastify) {
 
     // ===== STATS =====
     fastify.get('/api/partner-outreach/stats', { preHandler: [authenticate] }, async (req) => {
-        const { user_id } = req.query;
-        const uid = user_id ? Number(user_id) : req.user.id;
+        const { user_id, dept_id } = req.query;
         const today = _vnToday();
 
         // Get week range (Mon-Sun)
@@ -262,6 +261,63 @@ module.exports = async function (fastify) {
         const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
         const monthEnd = today.substring(0, 7) + '-' + String(lastDay).padStart(2, '0');
 
+        const PATTERN = '%Nhắn%Đối Tác%';
+
+        // Helper: count working days (Mon-Sat)
+        function countWorkDays(startStr, endStr) {
+            let count = 0;
+            const s = new Date(startStr + 'T00:00:00'), e = new Date(endStr + 'T00:00:00');
+            for (let cur = new Date(s); cur <= e; cur.setDate(cur.getDate() + 1)) {
+                const dw = cur.getDay();
+                if (dw >= 1 && dw <= 6) count++;
+            }
+            return count;
+        }
+        const wwd = countWorkDays(weekStart, weekEnd);
+        const mwd = countWorkDays(monthStart, monthEnd);
+
+        // ===== DEPARTMENT AGGREGATE MODE =====
+        if (dept_id) {
+            const deptIdNum = Number(dept_id);
+            const childDepts = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptIdNum, 'active']);
+            const allDeptIds = [deptIdNum, ...childDepts.map(dd => dd.id)];
+            const ph = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
+            const userFilter = `e.user_id IN (SELECT id FROM users WHERE department_id IN (${ph}) AND status = 'active')`;
+            const baseParams = [...allDeptIds];
+            const pi = allDeptIds.length + 1;
+            const [tc, wc, mc, trc] = await Promise.all([
+                db.get(`SELECT COUNT(*) as c FROM partner_outreach_entries e WHERE ${userFilter} AND e.entry_date = $${pi}`, [...baseParams, today]),
+                db.get(`SELECT COUNT(*) as c FROM partner_outreach_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1}`, [...baseParams, weekStart, weekEnd]),
+                db.get(`SELECT COUNT(*) as c FROM partner_outreach_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1}`, [...baseParams, monthStart, monthEnd]),
+                db.get(`SELECT COUNT(*) as c FROM partner_outreach_entries e WHERE ${userFilter} AND e.transferred_to_crm = true AND e.entry_date = $${pi}`, [...baseParams, today]),
+            ]);
+
+            // Calculate per-user targets and sum
+            const users = await db.all(`SELECT id, department_id FROM users WHERE department_id IN (${ph}) AND status = 'active'`, allDeptIds);
+            let totalDailyTarget = 0;
+            for (const u of users) {
+                let uTpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [u.id, PATTERN]);
+                if (!uTpl && u.department_id) uTpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [u.department_id, PATTERN]);
+                if (!uTpl) uTpl = await db.get(`SELECT id, min_quantity FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [PATTERN]);
+                let uTarget = uTpl ? Number(uTpl.min_quantity) : 20;
+                if (uTpl && uTpl.id) {
+                    const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [u.id, 'diem', uTpl.id]);
+                    if (ov && ov.custom_min_quantity != null) uTarget = Number(ov.custom_min_quantity);
+                }
+                totalDailyTarget += uTarget;
+            }
+
+            return {
+                today: Number(tc.c), week: Number(wc.c), month: Number(mc.c),
+                transferred: Number(trc.c),
+                target: totalDailyTarget,
+                week_target: totalDailyTarget * wwd,
+                month_target: totalDailyTarget * mwd
+            };
+        }
+
+        // ===== SINGLE USER MODE =====
+        const uid = user_id ? Number(user_id) : req.user.id;
         const [todayCount, weekCount, monthCount, transferredCount, targetResult] = await Promise.all([
             db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date = $2', [uid, today]),
             db.get('SELECT COUNT(*) as c FROM partner_outreach_entries WHERE user_id = $1 AND entry_date BETWEEN $2 AND $3', [uid, weekStart, weekEnd]),
@@ -289,7 +345,9 @@ module.exports = async function (fastify) {
             week: Number(weekCount.c),
             month: Number(monthCount.c),
             transferred: Number(transferredCount.c),
-            target: targetVal
+            target: targetVal,
+            week_target: targetVal * wwd,
+            month_target: targetVal * mwd
         };
     });
 

@@ -126,10 +126,13 @@ async function _poLoadData() {
     let url = `/api/partner-outreach/entries?date_from=${dr.from}&date_to=${dr.to}`;
     if (_po.selectedUser) url += '&user_id=' + _po.selectedUser;
     else if (_po.selectedDept) url += '&dept_id=' + _po.selectedDept;
-    const uid = _po.selectedUser || currentUser.id;
+    // Stats: dept aggregate when viewing dept, user-specific otherwise
+    let statsUrl = '/api/partner-outreach/stats?';
+    if (_po.selectedDept && !_po.selectedUser) statsUrl += 'dept_id=' + _po.selectedDept;
+    else statsUrl += 'user_id=' + (_po.selectedUser || currentUser.id);
     const [entRes, stRes] = await Promise.all([
         apiCall(url),
-        apiCall('/api/partner-outreach/stats?user_id=' + uid)
+        apiCall(statsUrl)
     ]);
     _po.entries = entRes.entries || [];
     _po.stats = stRes;
@@ -331,10 +334,12 @@ function _poRenderStats() {
         }
     }
 
+    const wt = s.week_target || s.target || 20;
+    const mt = s.month_target || s.target || 20;
     const cards = [
         { label:'Hôm Nay', val:`${todayDone}/${target}`, bg:'linear-gradient(135deg,#3b82f6,#2563eb)', icon:'📊' },
-        { label:'Tuần Này', val:s.week||0, bg:'linear-gradient(135deg,#f59e0b,#d97706)', icon:'📅' },
-        { label:'Tháng Này', val:s.month||0, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', icon:'📆' },
+        { label:'Tuần Này', val:`${s.week||0}/${wt}`, bg:'linear-gradient(135deg,#f59e0b,#d97706)', icon:'📅' },
+        { label:'Tháng Này', val:`${s.month||0}/${mt}`, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', icon:'📆' },
         { label:'Đã Chuyển CRM', val:s.transferred||0, bg:'linear-gradient(135deg,#10b981,#059669)', icon:'🔄' },
     ];
     el.innerHTML = cards.map(c => `

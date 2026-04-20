@@ -344,10 +344,12 @@ function _dlRenderSidebarFromCache() { _dlRenderSidebar(_dlCachedDepts); }
 function _dlRenderStats() {
     const s=_dl.stats, el=document.getElementById('dlStats'), m=_dl.mod;
     if(!el) return;
+    const wt = s.week_target || s.target || 20;
+    const mt = s.month_target || s.target || 20;
     el.innerHTML=[
         {l:'Hôm Nay',v:`${s.today||0}/${s.target||20}`,bg:m.grad,icon:'📊'},
-        {l:'Tuần Này',v:s.week||0,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'📅'},
-        {l:'Tháng Này',v:s.month||0,bg:'linear-gradient(135deg,#6366f1,#4f46e5)',icon:'📆'},
+        {l:'Tuần Này',v:`${s.week||0}/${wt}`,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'📅'},
+        {l:'Tháng Này',v:`${s.month||0}/${mt}`,bg:'linear-gradient(135deg,#6366f1,#4f46e5)',icon:'📆'},
     ].map(c=>`<div style="flex:1;min-width:200px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:28px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;">${c.v}</div><div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
 }
 

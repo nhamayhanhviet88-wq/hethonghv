@@ -184,14 +184,46 @@ module.exports = async function (fastify) {
                 db.get(`SELECT COUNT(*) as c FROM daily_link_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1} AND e.module_type = $${pi+2}`, [...baseParams, ws, we, module_type]),
                 db.get(`SELECT COUNT(*) as c FROM daily_link_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1} AND e.module_type = $${pi+2}`, [...baseParams, ms, me, module_type]),
             ]);
-            // Count active users in dept for target
-            const userCount = await db.get(`SELECT COUNT(*) as c FROM users WHERE department_id IN (${ph}) AND status = 'active'`, allDeptIds);
-            let targetVal = 20;
-            let tpl = await db.get("SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
-            if (!tpl) tpl = await db.get("SELECT min_quantity FROM task_library WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
-            if (tpl) targetVal = Number(tpl.min_quantity);
-            const totalTarget = targetVal * Number(userCount.c);
-            return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: totalTarget };
+
+            // Calculate per-user targets and sum them
+            const users = await db.all(`SELECT id, department_id FROM users WHERE department_id IN (${ph}) AND status = 'active'`, allDeptIds);
+            let totalDailyTarget = 0;
+            for (const u of users) {
+                let uTpl = null;
+                if (pattern) {
+                    uTpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [u.id, pattern]);
+                    if (!uTpl && u.department_id) uTpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [u.department_id, pattern]);
+                    if (!uTpl) uTpl = await db.get("SELECT id, min_quantity FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+                    if (!uTpl) uTpl = await db.get("SELECT id, min_quantity FROM task_library WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+                    if (!uTpl) { const lr = await db.get("SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1", [pattern]); if (lr) uTpl = { id: null, min_quantity: lr.min_quantity }; }
+                }
+                let uTarget = uTpl ? Number(uTpl.min_quantity) : 20;
+                if (uTpl && uTpl.id) {
+                    const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [u.id, 'diem', uTpl.id]);
+                    if (ov && ov.custom_min_quantity != null) uTarget = Number(ov.custom_min_quantity);
+                }
+                totalDailyTarget += uTarget;
+            }
+
+            // Calculate working days (Mon-Sat) for week and month
+            function countWorkingDays(startStr, endStr) {
+                let count = 0;
+                const s = new Date(startStr + 'T00:00:00'), e = new Date(endStr + 'T00:00:00');
+                for (let cur = new Date(s); cur <= e; cur.setDate(cur.getDate() + 1)) {
+                    const dow = cur.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+                    if (dow >= 1 && dow <= 6) count++;
+                }
+                return count;
+            }
+            const weekWorkDays = countWorkingDays(ws, we);
+            const monthWorkDays = countWorkingDays(ms, me);
+
+            return {
+                today: Number(tc.c), week: Number(wc.c), month: Number(mc.c),
+                target: totalDailyTarget,
+                week_target: totalDailyTarget * weekWorkDays,
+                month_target: totalDailyTarget * monthWorkDays
+            };
         }
 
         // ===== SINGLE USER MODE =====
@@ -223,7 +255,20 @@ module.exports = async function (fastify) {
             if (ov && ov.custom_min_quantity != null) targetVal = Number(ov.custom_min_quantity);
         }
 
-        return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: targetVal };
+        // Calculate working days (Mon-Sat) for week and month targets
+        function countWorkDays(startStr, endStr) {
+            let count = 0;
+            const s = new Date(startStr + 'T00:00:00'), e = new Date(endStr + 'T00:00:00');
+            for (let cur = new Date(s); cur <= e; cur.setDate(cur.getDate() + 1)) {
+                const dow = cur.getDay();
+                if (dow >= 1 && dow <= 6) count++;
+            }
+            return count;
+        }
+        const wwd = countWorkDays(ws, we);
+        const mwd = countWorkDays(ms, me);
+
+        return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: targetVal, week_target: targetVal * wwd, month_target: targetVal * mwd };
     });
 
     // MEMBERS — PHÒNG KINH DOANH only
