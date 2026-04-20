@@ -279,6 +279,146 @@ async function taskScheduleRoutes(fastify, options) {
         };
     });
 
+    // ===== ONE-TIME BACKFILL: Create task_point_reports for historical DailyLinks entries =====
+    fastify.get('/api/schedule/backfill-scores', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+
+        const DL_MODULES = {
+            dang_video:      '%Đăng%Video%',
+            dang_content:    '%Đăng%Content%',
+            dang_group:      '%Đăng%Tìm%KH%Group%',
+            addcmt:          '%Add%Cmt%Đối Tác%',
+            sedding:         '%Sedding%Cộng Đồng%',
+            tuyen_dung:      '%Tuyển%Dụng%SV%',
+            tim_gr_zalo:     '%Tìm%Gr%Zalo%',
+            dang_banthan_sp: '%Đăng%Bản Thân%'
+        };
+
+        let created = 0, updated = 0, errors = 0;
+
+        for (const [moduleType, taskPattern] of Object.entries(DL_MODULES)) {
+            // Find all templates
+            const templates = await db.all("SELECT * FROM task_point_templates WHERE task_name ILIKE $1", [taskPattern]);
+            if (templates.length === 0) continue;
+
+            // Find all dates+users with entries for this module
+            const entries = await db.all(
+                `SELECT user_id, entry_date::text as entry_date, COUNT(*) as cnt
+                 FROM daily_link_entries WHERE module_type = $1
+                 GROUP BY user_id, entry_date ORDER BY entry_date`,
+                [moduleType]
+            );
+
+            for (const entry of entries) {
+                const uid = entry.user_id;
+                const dateStr = entry.entry_date.slice(0,10);
+                const entryCount = Number(entry.cnt);
+                const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+
+                // Find matching template for this user
+                let tpl = null;
+                for (const t of templates) {
+                    if (t.target_type === 'individual' && t.target_id === uid) { tpl = t; break; }
+                    if (t.target_type === 'team' && user?.department_id === t.target_id) { tpl = t; break; }
+                }
+                if (!tpl) tpl = templates[0]; // fallback
+                if (!tpl?.id) continue;
+
+                // Check override
+                let tmplTarget = tpl.min_quantity || 1;
+                let tmplPoints = tpl.points || 10;
+                const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+                if (ov) {
+                    if (ov.custom_min_quantity != null) tmplTarget = Number(ov.custom_min_quantity);
+                    if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
+                }
+
+                const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                const tmplQty = Math.min(entryCount, tmplTarget);
+
+                try {
+                    const existing = await db.get("SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
+                    if (existing) {
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                             updated_at = NOW() WHERE id = $5`,
+                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                        );
+                        updated++;
+                    } else {
+                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        await db.run(
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} ${moduleType}`, 'link']
+                        );
+                        created++;
+                    }
+                } catch(e) { errors++; }
+            }
+        }
+
+        // Also backfill partner_outreach_entries
+        try {
+            const poTemplates = await db.all("SELECT * FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Tìm%Đối Tác%'");
+            if (poTemplates.length > 0) {
+                const poEntries = await db.all(
+                    `SELECT user_id, entry_date::text as entry_date, COUNT(*) as cnt
+                     FROM partner_outreach_entries GROUP BY user_id, entry_date`
+                );
+                for (const entry of poEntries) {
+                    const uid = entry.user_id;
+                    const dateStr = entry.entry_date.slice(0,10);
+                    const entryCount = Number(entry.cnt);
+                    const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+
+                    let tpl = null;
+                    for (const t of poTemplates) {
+                        if (t.target_type === 'individual' && t.target_id === uid) { tpl = t; break; }
+                        if (t.target_type === 'team' && user?.department_id === t.target_id) { tpl = t; break; }
+                    }
+                    if (!tpl) tpl = poTemplates[0];
+                    if (!tpl?.id) continue;
+
+                    let tmplTarget = tpl.min_quantity || 20;
+                    let tmplPoints = tpl.points || 10;
+                    const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [uid, 'diem', tpl.id]);
+                    if (ov) {
+                        if (ov.custom_min_quantity != null) tmplTarget = Number(ov.custom_min_quantity);
+                        if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
+                    }
+
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplQty = Math.min(entryCount, tmplTarget);
+
+                    try {
+                        const existing = await db.get("SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
+                        if (existing) {
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
+                                 updated_at = NOW() WHERE id = $5`,
+                                [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                            );
+                            updated++;
+                        } else {
+                            const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                            await db.run(
+                                `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
+                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                                [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} nhắn tin ĐT`, 'link']
+                            );
+                            created++;
+                        }
+                    } catch(e) { errors++; }
+                }
+            }
+        } catch(e) { errors++; }
+
+        return { success: true, created, updated, errors, message: `Backfill hoàn thành: ${created} tạo mới, ${updated} cập nhật, ${errors} lỗi` };
+    });
+
     fastify.get('/api/schedule/week-tasks', { preHandler: [authenticate] }, async (request, reply) => {
         const { user_id, week_start } = request.query;
         const uid = Number(user_id) || request.user.id;
