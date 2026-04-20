@@ -1,6 +1,7 @@
 // ========== NHẮN TIN TÌM ĐỐI TÁC KH ==========
 let _poCollapsedDepts = new Set(); // Track which depts are manually collapsed
 let _po = { entries:[], categories:[], members:[], stats:{}, selectedUser:null, selectedDept:null, imageData:null, scheduleInfo:null };
+let _poSelectedCat = null; // null = all, or category id
 let _poDatePreset = 'today';
 let _poDateFrom = '';
 let _poDateTo = '';
@@ -35,6 +36,7 @@ function _poInit() {
             <div id="poGuide"></div>
             <div id="poStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div id="poDateFilter"></div>
+            <div id="poCatFilter" style="margin-bottom:14px;"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h2 id="poTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách hôm nay</h2>
                 <div style="display:flex;gap:8px;">
@@ -97,6 +99,7 @@ async function _poLoadData() {
     _poRenderGuide();
     _poRenderStats();
     _poRenderDateFilter();
+    _poRenderCategoryFilter();
     _poRenderTable();
 }
 
@@ -381,10 +384,72 @@ function _poRenderDateFilter() {
     }
 }
 
+function _poSelectCat(catId) {
+    _poSelectedCat = _poSelectedCat === catId ? null : catId;
+    _poRenderCategoryFilter();
+    _poRenderTable();
+}
+
+function _poRenderCategoryFilter() {
+    const el = document.getElementById('poCatFilter');
+    if (!el) return;
+    const cats = _po.categories || [];
+    const entries = _po.entries || [];
+
+    // Count entries per category
+    const catCounts = {};
+    let noCatCount = 0;
+    entries.forEach(e => {
+        if (e.category_id) catCounts[e.category_id] = (catCounts[e.category_id] || 0) + 1;
+        else noCatCount++;
+    });
+
+    const isAll = _poSelectedCat === null;
+    let h = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;">`;
+    // "Tất Cả" box
+    h += `<div onclick="_poSelectCat(null)" style="
+        min-width:100px;padding:10px 16px;border-radius:10px;cursor:pointer;text-align:center;
+        font-size:12px;font-weight:700;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+        background:${isAll ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'white'};
+        color:${isAll ? 'white' : '#475569'};
+        border:2px solid ${isAll ? '#2563eb' : '#e2e8f0'};
+        box-shadow:${isAll ? '0 4px 12px rgba(37,99,235,0.3)' : '0 1px 4px rgba(0,0,0,0.06)'};
+    " onmouseover="if(!${isAll})this.style.borderColor='#93c5fd'" onmouseout="if(!${isAll})this.style.borderColor='#e2e8f0'">
+        <span style="font-size:16px;">📋</span>
+        <span>Tất Cả</span>
+        <span style="font-size:10px;opacity:0.8;font-weight:600;">${entries.length}</span>
+    </div>`;
+
+    // Each category box
+    cats.forEach(c => {
+        const isSel = _poSelectedCat === c.id;
+        const count = catCounts[c.id] || 0;
+        h += `<div onclick="_poSelectCat(${c.id})" style="
+            min-width:100px;padding:10px 16px;border-radius:10px;cursor:pointer;text-align:center;
+            font-size:12px;font-weight:700;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+            background:${isSel ? c.color : 'white'};
+            color:${isSel ? 'white' : '#475569'};
+            border:2px solid ${isSel ? c.color : '#e2e8f0'};
+            box-shadow:${isSel ? '0 4px 12px ' + c.color + '50' : '0 1px 4px rgba(0,0,0,0.06)'};
+        " onmouseover="if(!${isSel})this.style.borderColor='${c.color}'" onmouseout="if(!${isSel})this.style.borderColor='#e2e8f0'">
+            <span style="width:12px;height:12px;border-radius:50%;background:${isSel ? 'rgba(255,255,255,0.5)' : c.color};flex-shrink:0;"></span>
+            <span>${c.name}</span>
+            <span style="font-size:10px;opacity:0.8;font-weight:600;">${count}</span>
+        </div>`;
+    });
+
+    h += '</div>';
+    el.innerHTML = h;
+}
+
 function _poRenderTable() {
     const el = document.getElementById('poTable');
     if (!el) return;
-    const rows = _po.entries;
+    let rows = _po.entries;
+    // Filter by selected category
+    if (_poSelectedCat !== null) {
+        rows = rows.filter(r => r.category_id === _poSelectedCat);
+    }
     const dr = _poGetDateRange();
     const isMultiDay = dr.from !== dr.to;
     if (!rows.length) { el.innerHTML = `<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_poDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`; return; }
