@@ -2285,7 +2285,7 @@ function _kockolSwitchCDTab(tab) {
 }
 
 // ========== AFFILIATE DETAIL POPUP ==========
-const CTV_CRM_LABELS_AFF = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
+const KOCKOL_CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', tu_tim_kiem: 'CRM Tự Tìm Kiếm', goi_hop_tac: 'CRM Gọi Điện Hợp Tác', goi_ban_hang: 'CRM Gọi Điện Bán Hàng', koc_tiktok: 'CRM KOL/KOC Tiktok' };
 const KOCKOL_ROLE_LABELS = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time', hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
 
 async function _kockolOpenAffiliateDetail(userId) {
@@ -2356,7 +2356,7 @@ async function _kockolOpenAffiliateDetail(userId) {
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📋 Loại CRM</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${CTV_CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '—'}</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${KOCKOL_CRM_LABELS[u.source_crm_type] || u.source_crm_type || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">👨‍💼 NV Quản lý</div>
