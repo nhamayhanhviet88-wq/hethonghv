@@ -148,7 +148,8 @@ async function _dlLoadAll() {
         apiCall('/api/schedule/override-users').catch(() => ({ user_ids: [] }))
     ]);
     _dlOverrideUserIds = new Set((ovRes.user_ids || []).map(Number));
-    _dlRenderSidebar(memRes.departments || []);
+    _dlCachedDepts = memRes.departments || [];
+    _dlRenderSidebar(_dlCachedDepts);
     await _dlLoadData();
 }
 
@@ -302,12 +303,15 @@ function _dlRenderSidebar(depts) {
         const ts = TEAM_STYLES[di % TEAM_STYLES.length];
         h += `
         <div style="margin-bottom:10px;">
-            <div onclick="_dlToggleDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
-                <div style="display:flex;align-items:center;gap:8px;">
+            <div class="_dlTeamCard _dlTeamCard--${di % 4}" style="${isDeptSel ? 'transform:scale(1.02);ring:2px solid #1e293b;' : ''}">
+                <div onclick="_dlSelDept(${d.id})" style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">
                     <div class="_dlTeamIcon" style="background:${ts.iconBg};color:white;">${ts.icon}</div>
                     <span style="font-size:12px;font-weight:800;color:${isDeptSel ? '#1e293b' : '#475569'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
                 </div>
-                <span class="_dlTeamBadge" style="background:${ts.badge};">${d.members.length}</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span class="_dlTeamBadge" style="background:${ts.badge};">${d.members.length}</span>
+                    <div onclick="event.stopPropagation();_dlToggleOnly(${d.id})" style="width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;font-size:11px;color:#475569;flex-shrink:0;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'" title="${isOpen ? 'Thu gọn' : 'Mở rộng'}">${isOpen ? '▼' : '▶'}</div>
+                </div>
             </div>`;
         if (isOpen) {
             d.members.forEach(m => {
@@ -328,9 +332,14 @@ function _dlRenderSidebar(depts) {
 }
 
 function _dlSelAll(){_dl.selUser=null;_dl.selDept=null;_dlSaveState();_dlLoadAll();}
-function _dlSelDept(id){_dl.selUser=null;_dl.selDept=id;_dlSaveState();_dlLoadAll();}
-function _dlSelUser(id){_dl.selUser=id;_dl.selDept=null;_dlSaveState();_dlLoadAll();}
+function _dlSelDept(id){_dl.selUser=null;_dl.selDept=id;_dlSaveState();_dlRenderSidebarFromCache();_dlLoadData();}
+function _dlSelUser(id){_dl.selUser=id;_dl.selDept=null;_dlSaveState();_dlRenderSidebarFromCache();_dlLoadData();}
+function _dlToggleOnly(id){if(_dlCollapsedDepts.has(id)){_dlCollapsedDepts.delete(id);}else{_dlCollapsedDepts.add(id);}_dlRenderSidebarFromCache();}
 function _dlToggleDept(id){if(_dlCollapsedDepts.has(id)){_dlCollapsedDepts.delete(id);}else{_dlCollapsedDepts.add(id);}_dlSelDept(id);}
+
+// Cache departments for re-rendering sidebar without re-fetching
+let _dlCachedDepts = [];
+function _dlRenderSidebarFromCache() { _dlRenderSidebar(_dlCachedDepts); }
 
 function _dlRenderStats() {
     const s=_dl.stats, el=document.getElementById('dlStats'), m=_dl.mod;

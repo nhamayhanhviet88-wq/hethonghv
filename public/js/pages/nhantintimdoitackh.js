@@ -109,8 +109,8 @@ async function _poLoadAll() {
     ]);
     _po.categories = catRes.categories || [];
     _poOverrideUserIds = new Set((ovRes.user_ids || []).map(Number));
-    const depts = memRes.departments || [];
-    _poRenderSidebar(depts);
+    _poCachedDepts = memRes.departments || [];
+    _poRenderSidebar(_poCachedDepts);
     await _poLoadData();
 }
 
@@ -266,12 +266,15 @@ function _poRenderSidebar(depts) {
         const ts = TEAM_STYLES[di % TEAM_STYLES.length];
         h += `
         <div style="margin-bottom:10px;">
-            <div onclick="_poToggleDept(${d.id})" class="_dlTeamCard _dlTeamCard--${di % 4}" ${isDeptSel ? 'style="transform:scale(1.02);"' : ''}>
-                <div style="display:flex;align-items:center;gap:8px;">
+            <div class="_dlTeamCard _dlTeamCard--${di % 4}" style="${isDeptSel ? 'transform:scale(1.02);' : ''}">
+                <div onclick="_poSelectDept(${d.id})" style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">
                     <div class="_dlTeamIcon" style="background:${ts.iconBg};color:white;">${ts.icon}</div>
                     <span style="font-size:12px;font-weight:800;color:${isDeptSel ? '#1e293b' : '#475569'};text-transform:uppercase;letter-spacing:0.5px;">${d.name}</span>
                 </div>
-                <span class="_dlTeamBadge" style="background:${ts.badge};">${d.members.length}</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span class="_dlTeamBadge" style="background:${ts.badge};">${d.members.length}</span>
+                    <div onclick="event.stopPropagation();_poToggleOnly(${d.id})" style="width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;font-size:11px;color:#475569;flex-shrink:0;" onmouseover="this.style.background='rgba(0,0,0,0.15)'" onmouseout="this.style.background='rgba(0,0,0,0.08)'" title="${isOpen ? 'Thu gọn' : 'Mở rộng'}">${isOpen ? '▼' : '▶'}</div>
+                </div>
             </div>`;
         if (isOpen) {
             d.members.forEach(m => {
@@ -291,10 +294,15 @@ function _poRenderSidebar(depts) {
     sb.innerHTML = h;
 }
 
-function _poSelectAll() { _po.selectedUser=null; _po.selectedDept=null; _poLoadData(); _poLoadAll(); }
-function _poSelectDept(id) { _po.selectedUser=null; _po.selectedDept=id; _poLoadData(); _poLoadAll(); }
-function _poSelectUser(id) { _po.selectedUser=id; _po.selectedDept=null; _poLoadData(); _poLoadAll(); }
+function _poSelectAll() { _po.selectedUser=null; _po.selectedDept=null; _poRenderSidebarFromCache(); _poLoadData(); _poLoadAll(); }
+function _poSelectDept(id) { _po.selectedUser=null; _po.selectedDept=id; _poRenderSidebarFromCache(); _poLoadData(); }
+function _poSelectUser(id) { _po.selectedUser=id; _po.selectedDept=null; _poRenderSidebarFromCache(); _poLoadData(); }
+function _poToggleOnly(id){if(_poCollapsedDepts.has(id)){_poCollapsedDepts.delete(id);}else{_poCollapsedDepts.add(id);}_poRenderSidebarFromCache();}
 function _poToggleDept(id){if(_poCollapsedDepts.has(id)){_poCollapsedDepts.delete(id);}else{_poCollapsedDepts.add(id);}_poSelectDept(id);}
+
+// Cache departments for re-rendering sidebar without re-fetching
+let _poCachedDepts = [];
+function _poRenderSidebarFromCache() { _poRenderSidebar(_poCachedDepts); }
 
 function _poRenderStats() {
     const s = _po.stats;
