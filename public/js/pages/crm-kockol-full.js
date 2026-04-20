@@ -168,7 +168,7 @@ async function renderCRMKocKolPage(container) {
         </style>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div></div>
-            <a href="/quytacnuttuvancrmctv" onclick="event.preventDefault();navigate('quytacnuttuvancrmctv')"
+            <a href="/quytacnuttuvancrmkockol" onclick="event.preventDefault();navigate('quytacnuttuvancrmkockol')"
                 style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
                 border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
                 background:rgba(249,115,22,.08);text-decoration:none;transition:all .2s;"
