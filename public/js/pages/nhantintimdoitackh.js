@@ -475,7 +475,7 @@ function _poRenderTable() {
         const imgBtn = r.image_path ? `<a href="${r.image_path}" target="_blank" style="color:#2563eb;font-weight:600;">📷 Xem</a>` : '<span style="color:#d1d5db;">—</span>';
         const fbShort = r.fb_link.length > 30 ? r.fb_link.substring(0,30)+'...' : r.fb_link;
         const entryDate = typeof r.entry_date === 'string' ? r.entry_date.split('T')[0] : r.entry_date;
-        const channelColors = {'Facebook Cá Nhân':'#1877f2','Page Facebook':'#4267b2','Tiktok':'#000000','Instagram':'#e4405f','Threads':'#333333'};
+        const channelColors = {'Facebook Cá Nhân':'#1877f2','Page Facebook':'#4267b2','Tiktok':'#000000','Instagram':'#e4405f','Threads':'#333333','Linkedin':'#0a66c2','Twitter':'#1da1f2'};
         const chColor = channelColors[r.channel] || '#6b7280';
         const channelBadge = r.channel ? `<span style="background:${chColor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.channel}</span>` : '—';
         let actions = '';
@@ -488,7 +488,7 @@ function _poRenderTable() {
                 actions += `<button onclick="_poDelete(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`;
             }
         }
-        const showUser = (_po.selectedUser !== r.user_id && !['nhan_vien','part_time'].includes(currentUser.role)) ? `<div style="font-size:10px;color:#6b7280;">${r.user_name||''}</div>` : '';
+        const showUser = (_po.selectedUser !== r.user_id && r.user_id !== currentUser.id && !['nhan_vien','part_time'].includes(currentUser.role)) ? `<div style="font-size:10px;color:#6b7280;">${r.user_name||''}</div>` : '';
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_poFormatDate(entryDate)}</td>`:''}
@@ -544,6 +544,8 @@ function _poAddModal(editEntry) {
                         <option value="Tiktok" ${editEntry?.channel==='Tiktok'?'selected':''}>Tiktok</option>
                         <option value="Instagram" ${editEntry?.channel==='Instagram'?'selected':''}>Instagram</option>
                         <option value="Threads" ${editEntry?.channel==='Threads'?'selected':''}>Threads</option>
+                        <option value="Linkedin" ${editEntry?.channel==='Linkedin'?'selected':''}>Linkedin</option>
+                        <option value="Twitter" ${editEntry?.channel==='Twitter'?'selected':''}>Twitter</option>
                     </select>
                 </div>
             </div>
@@ -589,6 +591,22 @@ function _poAddModal(editEntry) {
     if (editEntry?.image_path) {
         document.getElementById('poFImgPreview').innerHTML = `<img src="${editEntry.image_path}" style="max-width:100%;max-height:200px;border-radius:8px;">`;
     }
+    // Auto-extract FB username when link is pasted/typed
+    const fbInput = document.getElementById('poFFb');
+    fbInput.addEventListener('input', () => {
+        const nameInput = document.getElementById('poFName');
+        if (nameInput.value.trim()) return; // already has name, skip
+        const url = fbInput.value.trim();
+        if (!url) return;
+        try {
+            const match = url.match(/facebook\.com\/([^/?&#]+)/i) || url.match(/fb\.com\/([^/?&#]+)/i);
+            if (match && match[1] && !['profile.php','pages','groups','watch','reel','share','photo','video','story'].includes(match[1].toLowerCase())) {
+                nameInput.value = decodeURIComponent(match[1]);
+            } else if (url.match(/profile\.php.*id=(\d+)/)) {
+                nameInput.value = url.match(/profile\.php.*id=(\d+)/)[1];
+            }
+        } catch(e) {}
+    });
 }
 
 function _poEditModal(id) {
