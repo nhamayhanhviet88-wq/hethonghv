@@ -19,7 +19,7 @@ let _dlDateTo = '';
 let _dlSelectedYear = new Date().getFullYear();
 
 function _dlGetDateRange() {
-    const today = new Date(); today.setHours(today.getHours()+7);
+    const today = new Date();
     const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayStr = fmt(today);
     switch (_dlDatePreset) {
@@ -116,7 +116,7 @@ async function _dlLoadData() {
     _dlRenderTable();
 }
 
-function _dlToday() { const n=new Date(); n.setHours(n.getHours()+7); return n.toISOString().split('T')[0]; }
+function _dlToday() { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; }
 function _dlFormatDate(ds) { if (!ds) return ''; const d = new Date(ds+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 
 function _dlRenderSidebar(depts) {

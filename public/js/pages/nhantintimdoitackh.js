@@ -9,7 +9,7 @@ let _poDateTo = '';
 let _poSelectedYear = new Date().getFullYear();
 
 function _poGetDateRange() {
-    const today = new Date(); today.setHours(today.getHours()+7);
+    const today = new Date();
     const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayStr = fmt(today);
     switch (_poDatePreset) {
@@ -107,8 +107,8 @@ async function _poLoadData() {
 }
 
 function _poToday() {
-    const n = new Date(); n.setHours(n.getHours()+7);
-    return n.toISOString().split('T')[0];
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
 }
 function _poFormatDate(ds) { if (!ds) return ''; const d = new Date(ds+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 
