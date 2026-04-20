@@ -54,7 +54,7 @@ async function renderQuyTacTuVanKocKolPage(container) {
 
     container.innerHTML = `
         <div class="qt-page">
-            <a class="qt-back" href="/crm-ctv" onclick="event.preventDefault();navigate('crm-ctv')">← Quay lại Chăm Sóc KOL/KOC Tiktok</a>
+            <a class="qt-back" href="/chamsockockol" onclick="event.preventDefault();navigate('chamsockockol')">← Quay lại Chăm Sóc KOL/KOC Tiktok</a>
             <div class="qt-header">
                 <h2 class="qt-header-title">⚙️ Quy Tắc Nút Tư Vấn</h2>
                 <span class="qt-header-badge">
