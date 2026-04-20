@@ -13,6 +13,7 @@ const _DL_MODULES = {
 
 let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null, categories:[] };
 let _dlPlatFilter = 'all'; // platform filter for dangvideo
+let _dlCatFilter = 'all'; // category filter for dang_group
 let _dlOverrideUserIds = new Set();
 let _dlDatePreset = 'today';
 let _dlDateFrom = '';
@@ -404,10 +405,34 @@ function _dlRenderDateFilter() {
     }
 }
 
-// ===== Platform filter for dangvideo =====
+// ===== Platform filter for dangvideo / Category filter for dang_group =====
 function _dlRenderPlatformFilter() {
     const el = document.getElementById('dlPlatformFilter');
     if (!el) return;
+
+    // ===== Category filter for dang_group =====
+    if (_dl.mod?.type === 'dang_group' && _dl.categories?.length) {
+        const cats = _dl.categories;
+        const allActive = _dlCatFilter === 'all';
+        const counts = {};
+        (_dl.entries||[]).forEach(r => { const cid = r.category_id || 0; counts[cid] = (counts[cid]||0) + 1; });
+        let h = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">`;
+        h += `<button onclick="_dlCatFilter='all';_dlRenderPlatformFilter();_dlRenderTable()" style="padding:5px 14px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:1.5px solid ${allActive?'#2563eb':'#e2e8f0'};background:${allActive?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${allActive?'white':'#64748b'};transition:all .2s;">`;
+        h += `<span style="font-size:13px;">📊</span> Tất cả</button>`;
+        h += cats.map(c => {
+            const active = _dlCatFilter == c.id;
+            const cnt = counts[c.id] || 0;
+            return `<button onclick="_dlCatFilter=${c.id};_dlRenderPlatformFilter();_dlRenderTable()" style="padding:5px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;border:1.5px solid ${active?c.color:'#e2e8f0'};background:${active?c.color+'18':'white'};color:${active?c.color:'#64748b'};transition:all .2s;">
+                <span style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0;"></span>
+                ${c.name}
+                <span style="font-size:10px;opacity:0.7;margin-left:2px;">${cnt}</span>
+            </button>`;
+        }).join('');
+        h += '</div>';
+        el.innerHTML = h;
+        return;
+    }
+
     if (!_dlGetMultiPlatforms(_dl.mod?.type)) { el.innerHTML = ''; return; }
     const multiPlatforms = _dlGetMultiPlatforms(_dl.mod.type);
     const all = _dlPlatFilter === 'all';
@@ -426,7 +451,7 @@ function _dlRenderPlatformFilter() {
 function _dlRenderTable() {
     const el=document.getElementById('dlTable');
     if(!el) return;
-    const rows=_dl.entries, today=_dlToday(), m=_dl.mod;
+    let rows=_dl.entries, today=_dlToday(), m=_dl.mod;
     const dr = _dlGetDateRange();
     const isMultiDay = dr.from !== dr.to;
     if(!rows.length){el.innerHTML=`<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có dữ liệu ${_dlDatePreset==='today'?'hôm nay':'trong khoảng thời gian này'}</div>`;return;}
@@ -434,6 +459,11 @@ function _dlRenderTable() {
     const hasImg = m.type === 'addcmt' || _DL_NEED_SCREENSHOT.includes(m.type);
     const hasLink = m.type !== 'addcmt'; // addcmt has no visible link
     const multiPlatforms = _dlGetMultiPlatforms(m.type);
+
+    // Apply category filter for dang_group
+    if (m.type === 'dang_group' && _dlCatFilter !== 'all') {
+        rows = rows.filter(r => r.category_id == _dlCatFilter);
+    }
 
     // ===== MULTI-LINK: custom card-based layout =====
     if (multiPlatforms) {
