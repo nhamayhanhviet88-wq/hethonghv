@@ -158,10 +158,13 @@ async function _dlLoadData() {
     let url = `/api/dailylinks/entries?module_type=${m.type}&date_from=${dr.from}&date_to=${dr.to}`;
     if (_dl.selUser) url += '&user_id=' + _dl.selUser;
     else if (_dl.selDept) url += '&dept_id=' + _dl.selDept;
-    const uid = _dl.selUser || currentUser.id;
+    // Stats: dept aggregate when viewing dept, user-specific otherwise
+    let statsUrl = '/api/dailylinks/stats?module_type=' + m.type;
+    if (_dl.selDept && !_dl.selUser) statsUrl += '&dept_id=' + _dl.selDept;
+    else statsUrl += '&user_id=' + (_dl.selUser || currentUser.id);
     const [eRes, sRes] = await Promise.all([
         apiCall(url),
-        apiCall('/api/dailylinks/stats?module_type=' + m.type + '&user_id=' + uid)
+        apiCall(statsUrl)
     ]);
     _dl.entries = eRes.entries || [];
     _dl.stats = sRes;

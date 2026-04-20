@@ -156,9 +156,8 @@ module.exports = async function (fastify) {
 
     // STATS
     fastify.get('/api/dailylinks/stats', { preHandler: [authenticate] }, async (req) => {
-        const { module_type } = req.query;
+        const { module_type, dept_id } = req.query;
         if (!module_type || !_validateType(module_type)) return { today: 0, week: 0, month: 0, target: 20 };
-        const uid = req.query.user_id ? Number(req.query.user_id) : req.user.id;
         const today = _vnToday();
         const d = new Date(today + 'T00:00:00');
         const dow = d.getDay() || 7;
@@ -170,6 +169,33 @@ module.exports = async function (fastify) {
         const me = today.substring(0, 7) + '-' + String(ld).padStart(2, '0');
 
         const pattern = TASK_PATTERNS[module_type] || '%';
+
+        // ===== DEPARTMENT AGGREGATE MODE =====
+        if (dept_id) {
+            const deptIdNum = Number(dept_id);
+            const childDepts = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptIdNum, 'active']);
+            const allDeptIds = [deptIdNum, ...childDepts.map(d => d.id)];
+            const ph = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
+            const userFilter = `e.user_id IN (SELECT id FROM users WHERE department_id IN (${ph}) AND status = 'active')`;
+            const baseParams = [...allDeptIds];
+            const pi = allDeptIds.length + 1;
+            const [tc, wc, mc] = await Promise.all([
+                db.get(`SELECT COUNT(*) as c FROM daily_link_entries e WHERE ${userFilter} AND e.entry_date = $${pi} AND e.module_type = $${pi+1}`, [...baseParams, today, module_type]),
+                db.get(`SELECT COUNT(*) as c FROM daily_link_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1} AND e.module_type = $${pi+2}`, [...baseParams, ws, we, module_type]),
+                db.get(`SELECT COUNT(*) as c FROM daily_link_entries e WHERE ${userFilter} AND e.entry_date BETWEEN $${pi} AND $${pi+1} AND e.module_type = $${pi+2}`, [...baseParams, ms, me, module_type]),
+            ]);
+            // Count active users in dept for target
+            const userCount = await db.get(`SELECT COUNT(*) as c FROM users WHERE department_id IN (${ph}) AND status = 'active'`, allDeptIds);
+            let targetVal = 20;
+            let tpl = await db.get("SELECT min_quantity FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+            if (!tpl) tpl = await db.get("SELECT min_quantity FROM task_library WHERE task_name ILIKE $1 LIMIT 1", [pattern]);
+            if (tpl) targetVal = Number(tpl.min_quantity);
+            const totalTarget = targetVal * Number(userCount.c);
+            return { today: Number(tc.c), week: Number(wc.c), month: Number(mc.c), target: totalTarget };
+        }
+
+        // ===== SINGLE USER MODE =====
+        const uid = req.query.user_id ? Number(req.query.user_id) : req.user.id;
         const [tc, wc, mc] = await Promise.all([
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date=$2 AND module_type=$3', [uid, today, module_type]),
             db.get('SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id=$1 AND entry_date BETWEEN $2 AND $3 AND module_type=$4', [uid, ws, we, module_type]),
