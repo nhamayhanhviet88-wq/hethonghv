@@ -528,6 +528,9 @@ const _DL_VIDEO_PLATFORMS = [
       errHint:'Link phải là Instagram Reel (chứa instagram.com/reel)' },
     { key:'youtube',    label:'Youtube',             pattern:'youtube.com/watch',      icon:'▶️', color:'#FF0000', placeholder:'https://www.youtube.com/watch?v=...',
       errHint:'Link phải là video YouTube cụ thể (chứa youtube.com/watch)' },
+    { key:'threads',    label:'Threads',             pattern:'threads.com/', icon:'🧵', color:'#000000', placeholder:'https://www.threads.com/@user/post/...',
+      validate: v => { const l=v.toLowerCase(); return l.includes('threads.com/') && l.includes('/post/'); },
+      errHint:'Link phải là bài đăng Threads (chứa threads.com/ và /post/), không phải link kênh @user' },
 ];
 const _DL_CONTENT_PLATFORMS = [
     { key:'zalo',       label:'Zalo Ảnh',           pattern:'', icon:'💬', color:'#0068FF', placeholder:'Dán ảnh chụp màn hình (Ctrl+V)',
@@ -776,7 +779,8 @@ async function _dlSave() {
             if (_dl.contentImages && Object.keys(_dl.contentImages).length > 0) {
                 body.content_images = _dl.contentImages;
             }
-            await apiCall('/api/dailylinks/entries', 'POST', body);
+            const res = await apiCall('/api/dailylinks/entries', 'POST', body);
+            if (res?.error) { showToast('❌ ' + res.error, 'error'); return; }
             document.getElementById('dlModal')?.remove();
             showToast('✅ Đã thêm thành công!'); _dlLoadData();
         } catch(e) { showToast(e.message || 'Lỗi', 'error'); }

@@ -99,7 +99,9 @@ module.exports = async function (fastify) {
 
     // POST create
     fastify.post('/api/dailylinks/entries', { preHandler: [authenticate] }, async (req, reply) => {
+      try {
         const { fb_link, module_type, image_data } = req.body || {};
+        console.log(`[DailyLinks POST] module=${module_type}, fb_link=${fb_link?.substring(0,50)}, has_links_json=${!!req.body?.links_json}, has_content_images=${!!req.body?.content_images}`);
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link' });
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
         const today = _vnToday();
@@ -112,6 +114,7 @@ module.exports = async function (fastify) {
             const dupOther = await db.get('SELECT e.id, u.full_name FROM daily_link_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 AND e.module_type = $3 LIMIT 1', [linkLower, req.user.id, module_type]);
             if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
         }
+        console.log('[DailyLinks POST] STAGE 1 — basic validation passed');
 
         // ===== MULTI-LINK: Cross-user + self duplicate check for all links =====
         if (isMultiLink && req.body?.links_json) {
@@ -150,15 +153,18 @@ module.exports = async function (fastify) {
                 }
             }
         }
+        console.log('[DailyLinks POST] STAGE 2 — dup check passed');
 
         // Handle image upload for addcmt module
         let imagePath = null;
         if (module_type === 'addcmt' && image_data) {
             try {
-                const matches = image_data.match(/^data:image\/(\w+);base64,(.+)$/);
-                if (matches) {
-                    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                    const buffer = Buffer.from(matches[2], 'base64');
+                const commaIdx = image_data.indexOf(',');
+                if (commaIdx > -1) {
+                    const header = image_data.substring(0, commaIdx);
+                    const extMatch = header.match(/image\/(\w+)/);
+                    const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                    const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
                     const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                     const filename = `${req.user.id}_${Date.now()}.${ext}`;
@@ -183,28 +189,40 @@ module.exports = async function (fastify) {
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
             for (const [key, dataUrl] of Object.entries(ci)) {
                 try {
-                    const matches = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-                    if (matches) {
-                        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                        const buffer = Buffer.from(matches[2], 'base64');
-                        const filename = `${req.user.id}_${key}_${Date.now()}.${ext}`;
-                        const filePath = path.join(uploadDir, filename);
-                        try {
-                            const sharp = require('sharp');
-                            await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(filePath.replace(/\.[^.]+$/, '.jpg'));
-                            linksJsonFinal[key] = '/uploads/content/' + filename.replace(/\.[^.]+$/, '.jpg');
-                        } catch(sharpErr) {
-                            fs.writeFileSync(filePath, buffer);
-                            linksJsonFinal[key] = '/uploads/content/' + filename;
-                        }
+                    console.log(`[DailyLinks] Processing image for key=${key}, dataLen=${dataUrl?.length}`);
+                    const commaIdx = dataUrl.indexOf(',');
+                    if (commaIdx === -1) continue;
+                    const header = dataUrl.substring(0, commaIdx);
+                    const b64 = dataUrl.substring(commaIdx + 1);
+                    const extMatch = header.match(/image\/(\w+)/);
+                    const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                    const buffer = Buffer.from(b64, 'base64');
+                    const filename = `${req.user.id}_${key}_${Date.now()}.${ext}`;
+                    const filePath = path.join(uploadDir, filename);
+                    try {
+                        const sharp = require('sharp');
+                        const outName = filename.replace(/\.[^.]+$/, '.jpg');
+                        await sharp(buffer).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(path.join(uploadDir, outName));
+                        linksJsonFinal[key] = '/uploads/content/' + outName;
+                    } catch(sharpErr) {
+                        console.log(`[DailyLinks] Sharp failed, saving raw: ${sharpErr.message}`);
+                        fs.writeFileSync(filePath, buffer);
+                        linksJsonFinal[key] = '/uploads/content/' + filename;
                     }
+                    console.log(`[DailyLinks] Image saved: ${linksJsonFinal[key]}`);
                 } catch(imgErr) { console.error('[DailyLinks] Content image save error:', imgErr.message); }
             }
         }
+        console.log('[DailyLinks POST] STAGE 3 — images processed');
 
         await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json) VALUES ($1, $2, $3, $4, $5, $6)',
             [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null]);
+        console.log(`[DailyLinks POST] STAGE 4 — INSERT SUCCESS for ${module_type}, user ${req.user.id}`);
         return { success: true };
+      } catch(globalErr) {
+        console.error(`[DailyLinks POST] GLOBAL ERROR:`, globalErr.message, globalErr.stack);
+        return reply.code(500).send({ error: 'Lỗi hệ thống: ' + globalErr.message });
+      }
     });
 
     // DELETE
