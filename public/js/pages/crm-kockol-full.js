@@ -1,4 +1,4 @@
-﻿// ========== CRM CTV Cáº¦U â€” 14-column layout with consultation system ==========
+// ========== CRM CTV Cáº¦U â€” 14-column layout with consultation system ==========
 
 // Format deposit input with thousand separators (500000 â†’ 500.000)
 function _kockolFormatDepositInput(el) {
