@@ -608,7 +608,7 @@ const _DL_LINK_RULES = {
     addcmt: { validate: v => { const l = v.toLowerCase(); return l.includes('www.facebook.com') && l.includes('/posts/') && l.includes('comment_id'); }, errHint: 'Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)' },
 };
 // Modules that need screenshot in addition to link
-const _DL_NEED_SCREENSHOT = ['dang_group'];
+const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding'];
 function _dlValidateMultiLink(p, val) {
     if (!val) return false;
     if (p.isImage) return true; // image fields validated separately
