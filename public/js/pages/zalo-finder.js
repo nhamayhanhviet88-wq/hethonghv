@@ -1,7 +1,7 @@
 // ========== ZALO GROUP FINDER — CUSTOM UI ==========
 let _zlTasks = [], _zlStats = {}, _zlPoolStats = {}, _zlSpamImg = null;
 let _zlViewUserId = null, _zlViewDeptId = null, _zlCachedDepts = [], _zlFilter = 'pending';
-let _zlDateFilter = 'today'; // today, yesterday, 7days, month, prev_month, all, custom
+let _zlDateFilter = 'all'; // today, yesterday, 7days, month, prev_month, all, custom
 let _zlCustomFrom = '', _zlCustomTo = '';
 const _ZL_GRAD = 'linear-gradient(135deg,#0284c7,#0369a1)';
 const _ZL_ACCENT = '#0284c7';
