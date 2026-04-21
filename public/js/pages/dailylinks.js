@@ -1067,11 +1067,14 @@ function _dlRenderTabs() {
     const el = document.getElementById('dlTabBar');
     if (!el) return;
     const tabs = [
-        { key: 'links', label: '📋 Danh sách link báo cáo', icon: '📋' },
-        { key: 'community', label: '🌐 Trang Cộng Đồng', icon: '🌐' }
+        { key: 'links', label: '📋 Danh sách link báo cáo' },
+        { key: 'community', label: '🌐 Trang Cộng Đồng' }
     ];
     el.innerHTML = `<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e5e7eb;">
-        ${tabs.map(t => `<button onclick="_dlSwitchTab('${t.key}')" id="dlTab_${t.key}" style="padding:10px 20px;border:none;border-bottom:3px solid ${_dlActiveTab===t.key?'#ea580c':'transparent'};background:${_dlActiveTab===t.key?'#fff7ed':'transparent'};color:${_dlActiveTab===t.key?'#ea580c':'#6b7280'};font-weight:${_dlActiveTab===t.key?'800':'600'};font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="if('${t.key}'!==_dlActiveTab)this.style.color='#ea580c'" onmouseout="if('${t.key}'!==_dlActiveTab)this.style.color='#6b7280'">${t.label}</button>`).join('')}
+        ${tabs.map(t => {
+            const active = _dlActiveTab === t.key;
+            return `<button onclick="_dlSwitchTab('${t.key}')" id="dlTab_${t.key}" style="font-family:'Segoe UI',Roboto,Arial,sans-serif;padding:10px 22px;border:none;border-bottom:3px solid ${active?'#ea580c':'transparent'};background:${active?'#fff7ed':'transparent'};color:${active?'#ea580c':'#6b7280'};font-weight:${active?'700':'500'};font-size:14px;cursor:pointer;transition:all .2s;letter-spacing:0.2px;" onmouseover="if('${t.key}'!==_dlActiveTab)this.style.color='#ea580c'" onmouseout="if('${t.key}'!==_dlActiveTab)this.style.color='#6b7280'">${t.label}</button>`;
+        }).join('')}
     </div>`;
 }
 
