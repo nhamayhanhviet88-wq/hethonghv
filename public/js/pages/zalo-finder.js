@@ -112,14 +112,17 @@ async function _zlLoadTasks() {
         let taskRes, statsRes;
         if (isManager) {
             let url = '/api/zalo-tasks/team?date=' + _vnTodayFE();
-            if (_zlViewUserId) url += '&user_id=' + _zlViewUserId;
-            else if (_zlViewDeptId) url += '&dept_id=' + _zlViewDeptId;
-            taskRes = await apiCall(url);
+            let statsUrl = '/api/zalo-tasks/stats';
+            if (_zlViewUserId) { url += '&user_id=' + _zlViewUserId; statsUrl += '?user_id=' + _zlViewUserId; }
+            else if (_zlViewDeptId) { url += '&dept_id=' + _zlViewDeptId; }
+            [taskRes, statsRes] = await Promise.all([apiCall(url), apiCall(statsUrl)]);
             taskRes.tasks = taskRes.tasks || [];
-            taskRes.done = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
-            taskRes.quota = taskRes.tasks.length || 25;
+            const doneCount = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
+            const realTarget = statsRes?.target || 25;
+            taskRes.done = doneCount;
+            taskRes.quota = realTarget;
             _zlTasks = taskRes.tasks;
-            _zlStats = { today: taskRes.tasks.length, target: taskRes.quota, week: 0, month: 0 };
+            _zlStats = { today: doneCount, target: realTarget, week: statsRes?.week || 0, month: statsRes?.month || 0 };
         } else {
             [taskRes, statsRes] = await Promise.all([
                 apiCall('/api/zalo-tasks/my'),
