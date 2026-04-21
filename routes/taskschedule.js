@@ -349,9 +349,9 @@ async function taskScheduleRoutes(fastify, options) {
                     } else {
                         const status = entryCount >= tmplTarget ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                            [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} ${moduleType}`, 'link']
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                            [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} ${moduleType}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                         created++;
                     }
@@ -405,9 +405,9 @@ async function taskScheduleRoutes(fastify, options) {
                         } else {
                             const status = entryCount >= tmplTarget ? 'approved' : 'pending';
                             await db.run(
-                                `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
-                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                                [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} nhắn tin ĐT`, 'link']
+                                `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                                [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} nhắn tin ĐT`, 'link', `${entryCount}/${tmplTarget}`]
                             );
                             created++;
                         }

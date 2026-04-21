@@ -1207,10 +1207,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     } else {
                         const status = tmplEarned > 0 ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                             [tmpl.id, userId, todayCV, tmplQty, tmplEarned, status,
-                             `[Tự động] ${tmplQty}/${tmplTarget} SĐT bắt máy`]
+                             `[Tự động] ${tmplQty}/${tmplTarget} SĐT bắt máy`, 'link', `${tmplQty}/${tmplTarget}`]
                         );
                     }
                 }
@@ -1292,10 +1292,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     } else {
                         const status = tmplEarned > 0 ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                             [tmpl.id, userId, todaySS, tmplQty, tmplEarned, status,
-                             `[Tự động] ${tmplQty}/${tmplTarget} KH tự tìm kiếm`]
+                             `[Tự động] ${tmplQty}/${tmplTarget} KH tự tìm kiếm`, 'link', `${tmplQty}/${tmplTarget}`]
                         );
                     }
                 }
@@ -1411,10 +1411,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         // Create new auto-scored report
                         const status = entryCount >= tmplTarget ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                             [tmpl.id, userId, todayDL, tmplQty, tmplEarned, status,
-                             `[Tự động] ${entryCount}/${tmplTarget} ${moduleType}`, 'link']
+                             `[Tự động] ${entryCount}/${tmplTarget} ${moduleType}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                     }
                 }
@@ -1502,10 +1502,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     } else {
                         const status = reachedTarget ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                             [tmpl.id, userId, todayPO, tmplQty, tmplEarned, status,
-                             `[Tự động] ${poEntryCount}/${tmplTarget} nhắn tin đối tác`, 'link']
+                             `[Tự động] ${poEntryCount}/${tmplTarget} nhắn tin đối tác`, 'link', `${poEntryCount}/${tmplTarget}`]
                         );
                     }
                 }

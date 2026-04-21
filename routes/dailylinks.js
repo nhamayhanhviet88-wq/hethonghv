@@ -281,9 +281,9 @@ module.exports = async function (fastify) {
                     } else {
                         const status = entryCount >= tmplTarget ? 'approved' : 'pending';
                         await db.run(
-                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                            [tpl.id, uid, today, tmplQty, tmplEarned, status, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, 'link']
+                            `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                            [tpl.id, uid, today, tmplQty, tmplEarned, status, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                     }
                     console.log(`[DailyLinks] Auto-scored: user=${uid}, module=${module_type}, count=${entryCount}/${tmplTarget}, pts=${tmplEarned}/${tmplPoints}`);
