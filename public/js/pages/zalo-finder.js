@@ -84,9 +84,11 @@ function _zlRenderToolbar() {
     if (!tb) return;
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
     const cPending = _zlTasks.filter(t => t.status === 'pending').length;
-    const cHasZalo = _zlTasks.filter(t => t.results && t.results.length > 0 && !(t.results.some(r => r.spam_eligible || r.spam_not_eligible))).length;
-    const cSpamOk = _zlTasks.filter(t => t.results && t.results.some(r => r.spam_eligible)).length;
-    const cSpamNo = _zlTasks.filter(t => t.results && t.results.some(r => r.spam_not_eligible)).length;
+    // Count per-RESULT, not per-task
+    const allResults = _zlTasks.flatMap(t => (t.results || []));
+    const cHasZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible).length;
+    const cSpamOk = allResults.filter(r => r.spam_eligible).length;
+    const cSpamNo = allResults.filter(r => r.spam_not_eligible).length;
     const cNoZalo = _zlTasks.filter(t => t.status === 'no_result').length;
     const btn = (f, label, icon, count) => {
         const active = _zlFilter === f;
@@ -178,11 +180,22 @@ function _zlRenderProgress(res) {
 function _zlRenderTasks(res) {
     const el = document.getElementById('zlTaskList');
     if (!el) return;
+    // Filter tasks first, then sub-filter results within each task
     let filtered = _zlTasks;
+    let resultFilter = null; // function to filter individual results
     if (_zlFilter === 'pending') filtered = filtered.filter(t => t.status === 'pending');
-    else if (_zlFilter === 'has_zalo') filtered = filtered.filter(t => t.results && t.results.length > 0 && !(t.results.some(r => r.spam_eligible || r.spam_not_eligible)));
-    else if (_zlFilter === 'spam_ok') filtered = filtered.filter(t => t.results && t.results.some(r => r.spam_eligible));
-    else if (_zlFilter === 'spam_no') filtered = filtered.filter(t => t.results && t.results.some(r => r.spam_not_eligible));
+    else if (_zlFilter === 'has_zalo') {
+        resultFilter = r => !r.spam_eligible && !r.spam_not_eligible;
+        filtered = filtered.filter(t => t.results && t.results.some(resultFilter));
+    }
+    else if (_zlFilter === 'spam_ok') {
+        resultFilter = r => r.spam_eligible;
+        filtered = filtered.filter(t => t.results && t.results.some(resultFilter));
+    }
+    else if (_zlFilter === 'spam_no') {
+        resultFilter = r => r.spam_not_eligible;
+        filtered = filtered.filter(t => t.results && t.results.some(resultFilter));
+    }
     else if (_zlFilter === 'no_zalo') filtered = filtered.filter(t => t.status === 'no_result');
     if (filtered.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">
@@ -196,7 +209,10 @@ function _zlRenderTasks(res) {
         const isNoResult = t.status === 'no_result';
         const shortFbUrl = t.pool_url.length > 40 ? t.pool_url.substring(0,40)+'...' : t.pool_url;
         if (t.results && t.results.length > 0) {
-            t.results.forEach((r, ri) => {
+            // Sub-filter results if a result-level filter is active
+            const displayResults = resultFilter ? t.results.filter(resultFilter) : t.results;
+            if (displayResults.length === 0) return;
+            displayResults.forEach((r, ri) => {
                 const shortZalo = r.zalo_link.length > 35 ? r.zalo_link.substring(0,35)+'...' : r.zalo_link;
                 const joinBtn = r.join_status
                     ? `<button onclick="_zlToggleJoin(${r.id})" style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">✅ Đã Join</button>`
@@ -211,11 +227,11 @@ function _zlRenderTasks(res) {
                                 ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">⏳ Chưa tham gia được</button>`
                                 : `<button onclick="_zlSpamChoose(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Đánh dấu</button>`;
                 rows.push(`<tr style="border-bottom:1px solid #e5e7eb;">
-                    ${ri===0 ? `<td rowspan="${t.results.length}" style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}
+                    ${ri===0 ? `<td rowspan="${displayResults.length}" style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}
                     <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;border-right:1px solid #e5e7eb;">${r.zalo_name || '—'}</td>
                     <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${shortZalo}</a>
                         ${currentUser.role === 'giam_doc' ? `<button onclick="_zlDelResult(${r.id})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:10px;padding:0 4px;vertical-align:middle;">🗑️</button>` : ''}</td>
-                    ${ri===0 ? `<td rowspan="${t.results.length}" style="padding:8px 12px;vertical-align:top;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;"><a href="${t.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;" onmouseover="this.style.color='#0284c7'" onmouseout="this.style.color='#6b7280'">${shortFbUrl}</a></td>` : ''}
+                    ${ri===0 ? `<td rowspan="${displayResults.length}" style="padding:8px 12px;vertical-align:top;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;"><a href="${t.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;" onmouseover="this.style.color='#0284c7'" onmouseout="this.style.color='#6b7280'">${shortFbUrl}</a></td>` : ''}
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:12px;font-weight:600;color:#374151;">${r.member_count || '—'}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${joinBtn}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${spamBtn}</td>
