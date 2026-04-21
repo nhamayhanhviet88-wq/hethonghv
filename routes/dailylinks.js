@@ -699,17 +699,12 @@ module.exports = async function (fastify) {
 
     // GET all community pages (all users can read)
     fastify.get('/api/community-pages', { preHandler: [authenticate] }, async (req) => {
-        const showAll = req.query.all === '1'; // admin sees inactive too
-        const where = showAll ? '' : 'WHERE is_active = true';
-        const rows = await db.all(`SELECT cp.*, u.full_name as creator_name FROM community_pages cp LEFT JOIN users u ON cp.created_by = u.id ${where} ORDER BY cp.sort_order ASC, cp.name ASC`);
+        const rows = await db.all(`SELECT cp.*, u.full_name as creator_name FROM community_pages cp LEFT JOIN users u ON cp.created_by = u.id WHERE cp.is_active = true ORDER BY cp.sort_order ASC, cp.name ASC`);
         return { pages: rows };
     });
 
-    // POST create (managers only)
+    // POST create (all users can add)
     fastify.post('/api/community-pages', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
-            return reply.code(403).send({ error: 'Không có quyền' });
-        }
         const { name, url } = req.body || {};
         if (!name?.trim() || !url?.trim()) return reply.code(400).send({ error: 'Thiếu tên hoặc link' });
         // Check duplicate URL
@@ -721,35 +716,38 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // PUT update (managers only)
+    // PUT update (owner or giam_doc only)
     fastify.put('/api/community-pages/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
-            return reply.code(403).send({ error: 'Không có quyền' });
-        }
         const id = Number(req.params.id);
-        const { name, url, is_active } = req.body || {};
-        if (name !== undefined && !name?.trim()) return reply.code(400).send({ error: 'Tên không được trống' });
         const existing = await db.get('SELECT * FROM community_pages WHERE id = $1', [id]);
         if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
+        // Only owner or giam_doc can edit
+        if (existing.created_by !== req.user.id && req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Bạn chỉ được sửa trang do chính mình tạo' });
+        }
+        const { name, url } = req.body || {};
+        if (name !== undefined && !name?.trim()) return reply.code(400).send({ error: 'Tên không được trống' });
         const newName = name?.trim() || existing.name;
         const newUrl = url?.trim() || existing.url;
-        const newActive = is_active !== undefined ? is_active : existing.is_active;
         // Check duplicate URL (exclude self)
         if (url) {
             const dup = await db.get('SELECT id FROM community_pages WHERE LOWER(url) = $1 AND id != $2', [newUrl.toLowerCase(), id]);
             if (dup) return reply.code(400).send({ error: 'Link trang cộng đồng này đã tồn tại' });
         }
-        await db.run('UPDATE community_pages SET name = $1, url = $2, is_active = $3, updated_at = NOW() WHERE id = $4',
-            [newName, newUrl, newActive, id]);
+        await db.run('UPDATE community_pages SET name = $1, url = $2, updated_at = NOW() WHERE id = $3',
+            [newName, newUrl, id]);
         return { success: true };
     });
 
-    // DELETE (managers only)
+    // DELETE (owner or giam_doc only)
     fastify.delete('/api/community-pages/:id', { preHandler: [authenticate] }, async (req, reply) => {
-        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
-            return reply.code(403).send({ error: 'Không có quyền' });
-        }
         const id = Number(req.params.id);
+        const existing = await db.get('SELECT * FROM community_pages WHERE id = $1', [id]);
+        if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
+        // Only owner or giam_doc can delete
+        if (existing.created_by !== req.user.id && req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Bạn chỉ được xóa trang do chính mình tạo' });
+        }
         await db.run('DELETE FROM community_pages WHERE id = $1', [id]);
         return { success: true };
     });
