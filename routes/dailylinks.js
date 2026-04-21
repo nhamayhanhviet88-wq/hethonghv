@@ -573,12 +573,16 @@ module.exports = async function (fastify) {
 
         // Check last 30 days
         const missingDates = [];
-        const now = new Date(todayStr + 'T00:00:00');
+        // Use _vnToday-style: subtract days from todayStr string
+        function _localDateStr(date) {
+            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        }
         
         for (let i = 1; i <= 30; i++) {
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
+            // Parse todayStr as local components to avoid timezone shift
+            const [y, m, dd] = todayStr.split('-').map(Number);
+            const d = new Date(y, m - 1, dd - i);
+            const dateStr = _localDateStr(d);
             const dow = d.getDay(); // 0=Sun
 
             if (holidays.has(dateStr)) continue;
@@ -586,7 +590,11 @@ module.exports = async function (fastify) {
             // Check if any lock task applies to this day
             let applies = false;
             for (const lt of matchingLTs) {
-                if (lt.created_at && dateStr < lt.created_at.toISOString().split('T')[0]) continue;
+                if (lt.created_at) {
+                    const ca = new Date(lt.created_at);
+                    const caStr = _localDateStr(ca);
+                    if (dateStr < caStr) continue;
+                }
                 if (lt.recurrence_type === 'administrative') {
                     applies = dow >= 1 && dow <= 6;
                 } else if (lt.recurrence_type === 'daily') {
