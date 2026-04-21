@@ -568,8 +568,10 @@ module.exports = async function (fastify) {
 
         // Get holidays
         const holidays = new Set();
-        const hRows = await db.all("SELECT holiday_date::text as d FROM lock_task_holidays WHERE holiday_date >= CURRENT_DATE - INTERVAL '30 days'");
-        hRows.forEach(h => holidays.add(h.d.slice(0, 10)));
+        try {
+            const hRows = await db.all("SELECT holiday_date::text as d FROM lock_task_holidays WHERE holiday_date >= CURRENT_DATE - INTERVAL '30 days'");
+            hRows.forEach(h => holidays.add(h.d.slice(0, 10)));
+        } catch(e) { /* table may not exist */ }
 
         // Check last 30 days
         const missingDates = [];
