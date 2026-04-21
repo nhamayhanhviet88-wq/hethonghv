@@ -979,6 +979,22 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // === Auto-migrations ===
+    // Fix: drop UNIQUE(pool_id) → allow same link to be assigned to multiple users
+    try {
+        // Find and drop the old unique constraint on pool_id only
+        const constraints = await db.all(`SELECT conname FROM pg_constraint WHERE conrelid = 'zalo_daily_tasks'::regclass AND contype = 'u'`);
+        for (const c of constraints) {
+            if (c.conname.includes('pool_id') && !c.conname.includes('user_id')) {
+                await db.run(`ALTER TABLE zalo_daily_tasks DROP CONSTRAINT ${c.conname}`);
+                console.log(`[Migration] Dropped old constraint: ${c.conname}`);
+            }
+        }
+        // Add new composite unique constraint (if not exists)
+        await db.run(`CREATE UNIQUE INDEX IF NOT EXISTS uq_zalo_tasks_pool_user_date ON zalo_daily_tasks (pool_id, user_id, assigned_date)`);
+        console.log('[Migration] zalo_daily_tasks unique constraint updated');
+    } catch(e) { console.log('[Migration] constraint already ok:', e.message); }
+
     // Ensure spam_eligible column exists
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
 
