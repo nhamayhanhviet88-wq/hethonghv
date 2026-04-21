@@ -274,7 +274,7 @@ async function _zlPoolDel(id) {
 }
 
 // ========== HỆ THỐNG PHÂN CHIA GROUP ZALO — MANAGEMENT PAGE ==========
-let _zpTeamTasks = [], _zpSelUser = null, _zpSelDept = null, _zpCachedDepts = [];
+let _zpTeamTasks = [], _zpCurUser = null, _zpCurDept = null, _zpCachedDepts = [];
 const _ZP_GRAD = 'linear-gradient(135deg,#7c3aed,#6d28d9)';
 
 function _zpInit() {
@@ -324,7 +324,7 @@ function _zpRenderPoolStats(st) {
 function _zpRenderSidebar(depts) {
     const sb = document.getElementById('zpSidebar');
     if (!sb) return;
-    const isAll = !_zpSelUser && !_zpSelDept;
+    const isAll = !_zpCurUser && !_zpCurDept;
     let h = `<div style="margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
             <div style="width:32px;height:32px;border-radius:10px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:16px;">📡</div>
@@ -338,14 +338,14 @@ function _zpRenderSidebar(depts) {
     </div>
     <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
     (depts||[]).forEach((d, di) => {
-        const isDeptSel = _zpSelDept==d.id && !_zpSelUser;
+        const isDeptSel = _zpCurDept==d.id && !_zpCurUser;
         h += `<div style="margin-bottom:8px;">
             <div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
                 background:${isDeptSel ? _ZP_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#475569'};transition:all .2s;">
                 🏢 ${d.name} <span style="font-size:10px;opacity:0.7;">(${d.members.length})</span>
             </div>`;
         d.members.forEach(m => {
-            const isSel = _zpSelUser == m.id;
+            const isSel = _zpCurUser == m.id;
             const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
             h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 24px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
                 background:${isSel ? _ZP_GRAD : 'transparent'};color:${isSel ? 'white' : '#334155'};transition:all .15s;"
@@ -359,15 +359,15 @@ function _zpRenderSidebar(depts) {
     sb.innerHTML = h;
 }
 
-function _zpSelAll() { _zpSelUser=null; _zpSelDept=null; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
-function _zpSelDept(id) { _zpSelUser=null; _zpSelDept=id; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
-function _zpSelUser(id) { _zpSelUser=id; _zpSelDept=null; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
+function _zpSelAll() { _zpCurUser=null; _zpCurDept=null; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
+function _zpSelDept(id) { _zpCurUser=null; _zpCurDept=id; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
+function _zpSelUser(id) { _zpCurUser=id; _zpCurDept=null; _zpRenderSidebar(_zpCachedDepts); _zpLoadTeamTasks(); }
 
 async function _zpLoadTeamTasks() {
     try {
         let url = '/api/zalo-tasks/team?date=' + _zpToday();
-        if (_zpSelUser) url += '&user_id=' + _zpSelUser;
-        else if (_zpSelDept) url += '&dept_id=' + _zpSelDept;
+        if (_zpCurUser) url += '&user_id=' + _zpCurUser;
+        else if (_zpCurDept) url += '&dept_id=' + _zpCurDept;
         const res = await apiCall(url);
         _zpTeamTasks = res.tasks || [];
         _zpRenderTeamView();
