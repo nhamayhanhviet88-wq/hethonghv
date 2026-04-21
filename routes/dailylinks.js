@@ -1,4 +1,4 @@
-// ========== DAILY LINKS — UNIFIED MODULE ==========
+﻿// ========== DAILY LINKS — UNIFIED MODULE ==========
 // Handles: Add/Cmt, Đăng Video, Đăng Content, Đăng Group, Sedding, Tuyển Dụng
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -1059,95 +1059,6 @@ module.exports = async function (fastify) {
         };
     });
 
-    // ========== CRON: 0:15 Recall pending tasks + 7:00 Auto-assign ==========
-    // Check every minute for time-based triggers
-    let _zaloCronLastRecall = null, _zaloCronLastAssign = null;
-    setInterval(async () => {
-        try {
-            const now = new Date(Date.now() + 7 * 3600000); // Vietnam time
-            const hh = now.getUTCHours(), mm = now.getUTCMinutes();
-            const todayKey = now.toISOString().split('T')[0];
-
-            // 0:15 — Recall pending tasks
-            if (hh === 0 && mm >= 15 && mm < 20 && _zaloCronLastRecall !== todayKey) {
-                _zaloCronLastRecall = todayKey;
-                const yesterday = new Date(now);
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
-                // Find all pending tasks from yesterday or earlier
-                const pendingTasks = await db.all(
-                    `SELECT t.id, t.pool_id FROM zalo_daily_tasks t WHERE t.status = 'pending' AND t.assigned_date <= $1`,
-                    [yesterdayStr]
-                );
-                for (const t of pendingTasks) {
-                    // Return pool link to available
-                    await db.run(`UPDATE zalo_link_pool SET status = 'available' WHERE id = $1`, [t.pool_id]);
-                    // Delete the pending task
-                    await db.run(`DELETE FROM zalo_daily_tasks WHERE id = $1`, [t.id]);
-                }
-                console.log(`🔄 [ZaloCron 0:15] Recalled ${pendingTasks.length} pending tasks from ${yesterdayStr}`);
-            }
-
-            // 7:00 — Auto-assign links to all active employees
-            if (hh === 7 && mm >= 0 && mm < 5 && _zaloCronLastAssign !== todayKey) {
-                _zaloCronLastAssign = todayKey;
-                const today = todayKey;
-                // Get all active employees who have the task assigned
-                const pattern = '%Tìm%Gr%Zalo%';
-                const users = await db.all(`SELECT DISTINCT u.id FROM users u WHERE u.status = 'active' AND u.role NOT IN ('giam_doc','quan_ly_cap_cao','tkaffiliate')`);
-                let totalAssigned = 0;
-                for (const user of users) {
-                    const quota = await _getZaloQuota(user.id);
-                    if (quota <= 0) continue;
-                    // Check existing tasks today
-                    const existing = await db.get(`SELECT COUNT(*) as c FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [user.id, today]);
-                    const need = quota - Number(existing.c);
-                    if (need <= 0) continue;
-                    const available = await db.all(`SELECT id FROM zalo_link_pool WHERE status = 'available' ORDER BY id LIMIT $1`, [need]);
-                    for (const link of available) {
-                        await db.run(`INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date) VALUES ($1, $2, $3)`, [link.id, user.id, today]);
-                        await db.run(`UPDATE zalo_link_pool SET status = 'assigned' WHERE id = $1`, [link.id]);
-                        totalAssigned++;
-                    }
-                }
-                console.log(`📥 [ZaloCron 7:00] Auto-assigned ${totalAssigned} links to ${users.length} users for ${today}`);
-            }
-        } catch(e) {
-            console.error('[ZaloCron] Error:', e.message);
-        }
-    }, 60 * 1000); // Check every minute
-
-    // POST /api/zalo-cron/recall — Manual trigger for recall (GĐ only)
-    fastify.post('/api/zalo-cron/recall', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
-        const pendingTasks = await db.all(`SELECT t.id, t.pool_id FROM zalo_daily_tasks t WHERE t.status = 'pending'`);
-        for (const t of pendingTasks) {
-            await db.run(`UPDATE zalo_link_pool SET status = 'available' WHERE id = $1`, [t.pool_id]);
-            await db.run(`DELETE FROM zalo_daily_tasks WHERE id = $1`, [t.id]);
-        }
-        return { success: true, recalled: pendingTasks.length };
-    });
-
-    // POST /api/zalo-cron/assign — Manual trigger for assign (GĐ only)
-    fastify.post('/api/zalo-cron/assign', { preHandler: [authenticate] }, async (req, reply) => {
-        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
-        const today = _vnToday();
-        const users = await db.all(`SELECT DISTINCT u.id FROM users u WHERE u.status = 'active' AND u.role NOT IN ('giam_doc','quan_ly_cap_cao','tkaffiliate')`);
-        let totalAssigned = 0;
-        for (const user of users) {
-            const quota = await _getZaloQuota(user.id);
-            if (quota <= 0) continue;
-            const existing = await db.get(`SELECT COUNT(*) as c FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [user.id, today]);
-            const need = quota - Number(existing.c);
-            if (need <= 0) continue;
-            const available = await db.all(`SELECT id FROM zalo_link_pool WHERE status = 'available' ORDER BY id LIMIT $1`, [need]);
-            for (const link of available) {
-                await db.run(`INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date) VALUES ($1, $2, $3)`, [link.id, user.id, today]);
-                await db.run(`UPDATE zalo_link_pool SET status = 'assigned' WHERE id = $1`, [link.id]);
-                totalAssigned++;
-            }
-        }
-        return { success: true, assigned: totalAssigned, users: users.length };
-    });
 };
+
 
