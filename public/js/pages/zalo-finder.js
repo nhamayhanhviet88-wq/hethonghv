@@ -349,6 +349,9 @@ function _zlRenderTasks(res) {
                     <td style="padding:6px 8px;text-align:left;border-left:1px solid #e5e7eb;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason || '<span style="color:#9ca3af;">—</span>'}</td>
                     ` : ''}
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at ? new Date(r.marked_at).toLocaleDateString('vi-VN') + '<br>' + new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+                    ${(_zlFilter === 'spam_ok' || _zlFilter === 'spam_no' || _zlFilter === 'spam_done') ? `
+                    <td style="padding:6px 8px;text-align:center;border-left:1px solid #e5e7eb;">${r.spam_screenshot ? `<img src="${r.spam_screenshot}" onclick="window.open('${r.spam_screenshot}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>` : '<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
+                    ` : ''}
                 </tr>`);
             });
         } else {
@@ -380,8 +383,9 @@ function _zlRenderTasks(res) {
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">THÀNH VIÊN</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">JOIN NHÓM</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">SPAM ĐƯỢC HAY KHÔNG ?</th>
-                ${showSpamCols ? '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">HÌNH ẢNH</th><th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">LÝ DO</th>' : ''}
+                ${showSpamCols ? '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">ẢNH NV</th><th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">LÝ DO</th>' : ''}
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">TIME</th>
+                ${showSpamCols ? '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">ẢNH QL</th>' : ''}
             </tr></thead>
             <tbody>${rows.join('')}</tbody>
         </table>
