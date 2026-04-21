@@ -235,6 +235,10 @@ function _zlRenderTasks(res) {
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:12px;font-weight:600;color:#374151;">${r.member_count || '—'}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${joinBtn}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${spamBtn}</td>
+                    ${(_zlFilter === 'spam_ok' || _zlFilter === 'spam_no') ? `
+                    <td style="padding:6px 8px;text-align:center;border-left:1px solid #e5e7eb;">${r.spam_image ? `<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;transition:transform .2s;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>` : '<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
+                    <td style="padding:6px 8px;text-align:left;border-left:1px solid #e5e7eb;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason || '<span style="color:#9ca3af;">—</span>'}</td>
+                    ` : ''}
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at ? new Date(r.marked_at).toLocaleDateString('vi-VN') + '<br>' + new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
                 </tr>`);
             });
@@ -256,6 +260,7 @@ function _zlRenderTasks(res) {
             </tr>`);
         }
     });
+    const showSpamCols = (_zlFilter === 'spam_ok' || _zlFilter === 'spam_no');
     el.innerHTML = `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;">
             <thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1);color:white;">
@@ -266,6 +271,7 @@ function _zlRenderTasks(res) {
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">THÀNH VIÊN</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">JOIN NHÓM</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">SPAM ĐƯỢC HAY KHÔNG ?</th>
+                ${showSpamCols ? '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">HÌNH ẢNH</th><th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">LÝ DO</th>' : ''}
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">TIME</th>
             </tr></thead>
             <tbody>${rows.join('')}</tbody>
@@ -445,8 +451,8 @@ function _zlSpamChoose(resultId) {
             <div style="font-size:15px;font-weight:800;font-family:'Segoe UI',sans-serif;">Nhóm Zalo này spam được không?</div>
         </div>
         <div style="padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
-            <button onclick="_zlSetSpam(${resultId},'yes')" style="padding:14px;border:2px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#166534;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">🎯 Zalo Spam Được</button>
-            <button onclick="_zlSetSpam(${resultId},'no')" style="padding:14px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#991b1b;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🚫 KHÔNG SPAM ĐƯỢC</button>
+            <button onclick="_zlOpenSpamForm(${resultId},'yes')" style="padding:14px;border:2px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#166534;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">🎯 Zalo Spam Được</button>
+            <button onclick="_zlOpenSpamForm(${resultId},'no')" style="padding:14px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#991b1b;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🚫 KHÔNG SPAM ĐƯỢC</button>
             <button onclick="_zlSetPendingJoin(${resultId})" style="padding:14px;border:2px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#92400e;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">⏳ CHƯА THAM GIA ĐƯỢC NHÓM</button>
             <button onclick="document.getElementById('zlSpamPopup').remove()" style="padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
         </div>
@@ -454,12 +460,64 @@ function _zlSpamChoose(resultId) {
     document.body.appendChild(d);
 }
 
-async function _zlSetSpam(resultId, choice) {
+function _zlOpenSpamForm(resultId, choice) {
     document.getElementById('zlSpamPopup')?.remove();
+    let old = document.getElementById('zlSpamFormPopup');
+    if (old) old.remove();
+    const isYes = choice === 'yes';
+    const title = isYes ? '🎯 Báo cáo: Zalo Spam Được' : '🚫 Báo cáo: KHÔNG SPAM ĐƯỢC';
+    const accentColor = isYes ? '#16a34a' : '#dc2626';
+    const bgColor = isYes ? '#f0fdf4' : '#fef2f2';
+    const d = document.createElement('div'); d.id = 'zlSpamFormPopup';
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center;';
+    d.innerHTML = `
+    <div style="background:white;border-radius:16px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="background:${isYes ? 'linear-gradient(135deg,#16a34a,#059669)' : 'linear-gradient(135deg,#dc2626,#b91c1c)'};padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:15px;font-weight:800;font-family:'Segoe UI',sans-serif;">${title}</div>
+            <button onclick="document.getElementById('zlSpamFormPopup').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;font-weight:700;">✕</button>
+        </div>
+        <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+            <div>
+                <label style="font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px;">📝 Lý do <span style="color:red;">*</span></label>
+                <textarea id="zlSpamReason" rows="3" placeholder="${isYes ? 'VD: Nhóm hoạt động, có nhiều thành viên tương tác...' : 'VD: Nhóm bị khóa, không cho đăng bài...'}" style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;font-family:'Segoe UI',sans-serif;resize:vertical;box-sizing:border-box;transition:border .2s;" onfocus="this.style.borderColor='${accentColor}'" onblur="this.style.borderColor='#e5e7eb'"></textarea>
+            </div>
+            <div>
+                <label style="font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px;">📷 Hình ảnh minh chứng <span style="color:red;">*</span></label>
+                <div id="zlSpamImgPreview" style="display:none;margin-bottom:8px;text-align:center;">
+                    <img id="zlSpamImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid ${accentColor};"/>
+                </div>
+                <input type="file" id="zlSpamImgInput" accept="image/*" onchange="_zlSpamImgPreview(this)" style="display:none;">
+                <button onclick="document.getElementById('zlSpamImgInput').click()" style="width:100%;padding:12px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;cursor:pointer;font-weight:700;font-size:13px;transition:all .2s;" onmouseover="this.style.borderColor='${accentColor}';this.style.background='${bgColor}'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'" id="zlSpamImgBtn">📎 Chọn / Chụp hình ảnh</button>
+            </div>
+            <button onclick="_zlSubmitSpamForm(${resultId},'${choice}')" style="padding:14px;border:none;border-radius:10px;background:${isYes ? 'linear-gradient(135deg,#16a34a,#059669)' : 'linear-gradient(135deg,#dc2626,#b91c1c)'};color:white;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">✅ Xác nhận báo cáo</button>
+        </div>
+    </div>`;
+    document.body.appendChild(d);
+}
+
+let _zlSpamImgData = null;
+function _zlSpamImgPreview(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        _zlSpamImgData = e.target.result;
+        document.getElementById('zlSpamImgTag').src = _zlSpamImgData;
+        document.getElementById('zlSpamImgPreview').style.display = 'block';
+        document.getElementById('zlSpamImgBtn').textContent = '✅ Đã chọn ảnh — Nhấn để đổi';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+async function _zlSubmitSpamForm(resultId, choice) {
+    const reason = document.getElementById('zlSpamReason')?.value?.trim();
+    if (!reason) { showToast('❌ Vui lòng nhập lý do!', 'error'); return; }
+    if (!_zlSpamImgData) { showToast('❌ Vui lòng chọn hình ảnh minh chứng!', 'error'); return; }
     try {
         const endpoint = choice === 'yes' ? '/api/zalo-results/' + resultId + '/spam-eligible' : '/api/zalo-results/' + resultId + '/spam-not-eligible';
-        const res = await apiCall(endpoint, 'POST');
+        const res = await apiCall(endpoint, 'POST', { reason, image_data: _zlSpamImgData });
         if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
+        _zlSpamImgData = null;
+        document.getElementById('zlSpamFormPopup')?.remove();
         showToast(choice === 'yes' ? '🎯 Đã đánh dấu Spam Được!' : '🚫 Đã đánh dấu KHÔNG SPAM ĐƯỢC!');
         _zlLoadTasks();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }

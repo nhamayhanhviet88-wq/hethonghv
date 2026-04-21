@@ -1096,6 +1096,8 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS pending_join BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS marked_at TIMESTAMP`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_reason TEXT`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_image TEXT`); } catch(e) { /* already exists */ }
 
     // ========== AUTO-COMPLETE: Thông Báo Gr Zalo Spam Được ==========
     // After each mark, check if ALL results are marked → auto-complete lock task
@@ -1203,34 +1205,68 @@ module.exports = async function (fastify) {
         }
     }
 
-    // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
+    // POST /api/zalo-results/:id/spam-eligible — Mark spam_eligible with reason + image
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
         const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
-        const newVal = !result.spam_eligible;
-        // Mutually exclusive: clear spam_not_eligible when setting spam_eligible
-        await db.run('UPDATE zalo_task_results SET spam_eligible = $1, spam_not_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
+        const { reason, image_data } = req.body || {};
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
+        if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp/chọn hình ảnh minh chứng' });
+        // Save image
+        let imagePath = null;
+        try {
+            const commaIdx = image_data.indexOf(',');
+            if (commaIdx > -1) {
+                const header = image_data.substring(0, commaIdx);
+                const extMatch = header.match(/image\/(\w+)/);
+                const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'zalo_spam');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const filename = `mark_${id}_${Date.now()}.${ext}`;
+                fs.writeFileSync(path.join(uploadDir, filename), buffer);
+                imagePath = '/uploads/zalo_spam/' + filename;
+            }
+        } catch(e) { console.error('[ZaloSpam] Image save error:', e); }
+        await db.run('UPDATE zalo_task_results SET spam_eligible = TRUE, spam_not_eligible = FALSE, pending_join = FALSE, marked_at = NOW(), spam_reason = $1, spam_image = $2 WHERE id = $3', [reason.trim(), imagePath, id]);
         // Auto-complete check
         await _autoCompleteZaloSpamTask(result.user_id);
-        return { success: true, spam_eligible: newVal };
+        return { success: true, spam_eligible: true };
     });
 
-    // POST /api/zalo-results/:id/spam-not-eligible — Mark as spam NOT eligible
+    // POST /api/zalo-results/:id/spam-not-eligible — Mark as spam NOT eligible with reason + image
     fastify.post('/api/zalo-results/:id/spam-not-eligible', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
         const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
-        const newVal = !result.spam_not_eligible;
-        // Mutually exclusive: clear spam_eligible when setting spam_not_eligible
-        await db.run('UPDATE zalo_task_results SET spam_not_eligible = $1, spam_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
+        const { reason, image_data } = req.body || {};
+        if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
+        if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp/chọn hình ảnh minh chứng' });
+        // Save image
+        let imagePath = null;
+        try {
+            const commaIdx = image_data.indexOf(',');
+            if (commaIdx > -1) {
+                const header = image_data.substring(0, commaIdx);
+                const extMatch = header.match(/image\/(\w+)/);
+                const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'zalo_spam');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const filename = `mark_${id}_${Date.now()}.${ext}`;
+                fs.writeFileSync(path.join(uploadDir, filename), buffer);
+                imagePath = '/uploads/zalo_spam/' + filename;
+            }
+        } catch(e) { console.error('[ZaloSpam] Image save error:', e); }
+        await db.run('UPDATE zalo_task_results SET spam_not_eligible = TRUE, spam_eligible = FALSE, pending_join = FALSE, marked_at = NOW(), spam_reason = $1, spam_image = $2 WHERE id = $3', [reason.trim(), imagePath, id]);
         // Auto-complete check
         await _autoCompleteZaloSpamTask(result.user_id);
-        return { success: true, spam_not_eligible: newVal };
+        return { success: true, spam_not_eligible: true };
     });
 
     // POST /api/zalo-results/:id/join-status — Toggle join_status on a result
