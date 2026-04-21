@@ -120,6 +120,7 @@ module.exports = async function (fastify) {
             dang_group: { check: l => l.includes('facebook.com/groups/'), err: 'Link phải là Facebook Group (chứa facebook.com/groups/)' },
             dang_banthan_sp: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
             sedding: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
+            tuyen_dung: { check: l => l.includes('facebook.com/groups'), err: 'Link phải là Facebook Group (chứa facebook.com/groups)' },
         };
         if (_linkRules[module_type] && !_linkRules[module_type].check(linkLower)) {
             return reply.code(400).send({ error: _linkRules[module_type].err });
@@ -181,7 +182,7 @@ module.exports = async function (fastify) {
 
         // Handle image upload (addcmt, dang_group, sedding, etc.)
         let imagePath = null;
-        const imgModules = ['addcmt', 'dang_group', 'sedding', 'dang_banthan_sp'];
+        const imgModules = ['addcmt', 'dang_group', 'sedding', 'dang_banthan_sp', 'tuyen_dung'];
         if (imgModules.includes(module_type) && image_data) {
             try {
                 const commaIdx = image_data.indexOf(',');
@@ -190,7 +191,7 @@ module.exports = async function (fastify) {
                     const extMatch = header.match(/image\/(\w+)/);
                     const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
                     const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
-                    const subDirMap = { addcmt: 'addcmt', sedding: 'sedding', dang_banthan_sp: 'banthansp' };
+                    const subDirMap = { addcmt: 'addcmt', sedding: 'sedding', dang_banthan_sp: 'banthansp', tuyen_dung: 'tuyendung' };
                     const subDir = subDirMap[module_type] || 'group';
                     const uploadDir = path.join(__dirname, '..', 'uploads', subDir);
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });

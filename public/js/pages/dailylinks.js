@@ -615,9 +615,10 @@ const _DL_LINK_RULES = {
     addcmt: { validate: v => { const l = v.toLowerCase(); return l.includes('www.facebook.com') && l.includes('/posts/') && l.includes('comment_id'); }, errHint: 'Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)' },
     dang_banthan_sp: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com') && l.includes('/posts/'); }, errHint: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
     sedding: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com') && l.includes('/posts/'); }, errHint: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
+    tuyen_dung: { validate: v => v.toLowerCase().includes('facebook.com/groups'), errHint: 'Link phải là Facebook Group (chứa facebook.com/groups)' },
 };
 // Modules that need screenshot in addition to link
-const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding', 'dang_banthan_sp'];
+const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding', 'dang_banthan_sp', 'tuyen_dung'];
 function _dlValidateMultiLink(p, val) {
     if (!val) return false;
     if (p.isImage) return true; // image fields validated separately
