@@ -265,12 +265,12 @@ function _zlAddResultModal(taskId) {
         <div style="padding:16px 20px;overflow-y:auto;flex:1;">
             <div id="zlDupError"></div>
             <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;">
-                <thead><tr style="background:#f1f5f9;">
-                    <th style="padding:8px 6px;font-size:10px;font-weight:700;color:#374151;text-align:left;">LINK NHÓM ZALO</th>
-                    <th style="padding:8px 4px;font-size:10px;font-weight:700;color:#374151;text-align:center;width:28px;">🔗</th>
-                    <th style="padding:8px 6px;font-size:10px;font-weight:700;color:#374151;text-align:left;width:140px;">TÊN NHÓM</th>
-                    <th style="padding:8px 6px;font-size:10px;font-weight:700;color:#374151;text-align:center;width:70px;">THÀNH VIÊN</th>
-                    <th style="padding:8px 6px;font-size:10px;font-weight:700;color:#374151;text-align:center;width:75px;">ĐÃ THAM GIA</th>
+                <thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1);">
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;">LINK NHÓM ZALO</th>
+                    <th style="padding:10px 4px;font-size:11px;font-weight:700;color:white;text-align:center;width:28px;">🔗</th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;width:140px;">TÊN NHÓM</th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">THÀNH VIÊN</th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">ĐÃ THAM GIA</th>
                     <th style="width:28px;"></th>
                 </tr></thead>
                 <tbody id="zlLinkInputs"></tbody>
@@ -309,7 +309,7 @@ function _zlAddLinkInput() {
 }
 
 let _zlFetchTimer = {};
-async function _zlOnLinkInput(input) {
+function _zlOnLinkInput(input) {
     const tr = input.closest('tr');
     const link = input.value.trim();
     const openLink = tr.querySelector('.zlOpenLink');
@@ -323,18 +323,6 @@ async function _zlOnLinkInput(input) {
         nameInput.disabled = false;
         membersInput.disabled = false;
         joinedCb.disabled = false;
-        // Debounce auto-fetch
-        const idx = input.dataset.idx;
-        if (_zlFetchTimer[idx]) clearTimeout(_zlFetchTimer[idx]);
-        _zlFetchTimer[idx] = setTimeout(async () => {
-            try {
-                nameInput.placeholder = '⏳ Đang lấy...';
-                const info = await apiCall('/api/zalo-fetch-info?url=' + encodeURIComponent(link));
-                if (info.name && !nameInput.value) nameInput.value = info.name;
-                if (info.members && !membersInput.value) membersInput.value = info.members;
-                nameInput.placeholder = info.name ? 'Tên nhóm...' : 'Nhập tay...';
-            } catch(e) { nameInput.placeholder = 'Nhập tay...'; }
-        }, 800);
     } else {
         openLink.style.opacity = '0.3';
         openLink.style.pointerEvents = 'none';
