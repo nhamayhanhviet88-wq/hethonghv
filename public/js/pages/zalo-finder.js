@@ -158,12 +158,12 @@ function _zlRenderStats() {
 function _zlRenderProgress(res) {
     const el = document.getElementById('zlProgress');
     if (!el) return;
-    const done = res.done || 0, total = _zlTasks.length, quota = res.quota || 25;
-    const pct = total > 0 ? Math.round(done/total*100) : 0;
+    const done = res.done || 0, quota = res.quota || 25;
+    const pct = quota > 0 ? Math.min(100, Math.round(done/quota*100)) : 0;
     el.innerHTML = `
     <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-weight:700;font-size:15px;color:#0c4a6e;font-family:'Segoe UI',sans-serif;">🔍 Tiến độ hôm nay: <span style="color:${_ZL_ACCENT};">${done}/${total}</span> đã xử lý</span>
+            <span style="font-weight:700;font-size:15px;color:#0c4a6e;font-family:'Segoe UI',sans-serif;">🔍 Tiến độ hôm nay: <span style="color:${_ZL_ACCENT};">${done}/${quota}</span> đã xử lý</span>
             ${res.pool_empty ? '<span style="background:#fef2f2;color:#dc2626;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;">⚠️ Pool đã hết link!</span>' : ''}
         </div>
         <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
