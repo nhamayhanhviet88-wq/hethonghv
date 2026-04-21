@@ -1,4 +1,4 @@
-// ========== ZALO GROUP FINDER — CUSTOM UI ==========
+﻿// ========== ZALO GROUP FINDER — CUSTOM UI ==========
 let _zlTasks = [], _zlStats = {}, _zlPoolStats = {}, _zlSpamImg = null;
 const _ZL_GRAD = 'linear-gradient(135deg,#0284c7,#0369a1)';
 const _ZL_ACCENT = '#0284c7';
@@ -346,6 +346,7 @@ async function _zlPoolDel(id) {
 
 // ========== NHÓM SPAM ZALO — MANAGEMENT PAGE ==========
 const _ZP_GRAD = 'linear-gradient(135deg,#7c3aed,#6d28d9)';
+let _zpCurUser = null, _zpCurDept = null, _zpCachedDepts = [], _zpAllResults = [];
 
 function _zpInit() {
     const area = document.getElementById('contentArea');
@@ -353,95 +354,155 @@ function _zpInit() {
     document.getElementById('pageTitle').textContent = 'Nhóm Spam Zalo';
     area.innerHTML = `
     <div style="padding:0;">
-        <div style="background:white;padding:24px 32px;border-bottom:1px solid #e5e7eb;">
+        <div style="background:white;padding:20px 32px;border-bottom:1px solid #e5e7eb;">
             <div style="display:flex;align-items:center;gap:14px;">
                 <div style="width:42px;height:42px;border-radius:12px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(124,58,237,0.3);">📱</div>
                 <div><div style="font-size:20px;font-weight:800;color:#1e293b;letter-spacing:-0.3px;">Nhóm Spam Zalo</div>
                 <div style="font-size:12px;color:#6b7280;">Tổng hợp các nhóm Zalo từ nhân viên — quản lý đánh dấu đã spam</div></div>
             </div>
         </div>
-        <div style="padding:24px 28px;background:#f1f5f9;min-height:calc(100vh - 160px);">
-            <div id="zpSpamStats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:24px;"></div>
-            <div id="zpSpamList" style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải...</div>
+        <div style="display:flex;gap:0;min-height:calc(100vh - 140px);">
+            <div id="zpSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
+            <div style="flex:1;padding:20px 24px;overflow-y:auto;background:#f1f5f9;">
+                <div id="zpSpamStats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;"></div>
+                <div id="zpSpamList" style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải...</div>
+            </div>
         </div>
     </div>`;
     _zpLoadSpamData();
 }
 
+function _zpSelAll() { _zpCurUser = null; _zpCurDept = null; _zpRenderSidebar(); _zpRenderFiltered(); }
+function _zpSelDept(id) { _zpCurDept = id; _zpCurUser = null; _zpRenderSidebar(); _zpRenderFiltered(); }
+function _zpSelUser(id) { _zpCurUser = id; _zpCurDept = null; _zpRenderSidebar(); _zpRenderFiltered(); }
+
+function _zpRenderSidebar() {
+    const sb = document.getElementById('zpSidebar');
+    if (!sb) return;
+    const isAll = !_zpCurUser && !_zpCurDept;
+    let h = `<div style="margin-bottom:12px;">
+        <div onclick="_zpSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
+            background:${isAll ? _ZP_GRAD : '#eef2ff'};color:${isAll ? 'white' : '#4338ca'};
+            box-shadow:${isAll ? '0 3px 12px rgba(124,58,237,0.3)' : 'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
+    (_zpCachedDepts||[]).forEach(d => {
+        const isDeptSel = _zpCurDept==d.id && !_zpCurUser;
+        const memberCount = d.members?.length || 0;
+        h += `<div style="margin-bottom:6px;">
+            <div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
+                background:${isDeptSel ? _ZP_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#334155'};transition:all .2s;border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">
+                🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${memberCount})</span>
+            </div>`;
+        (d.members||[]).forEach(m => {
+            const isSel = _zpCurUser == m.id;
+            const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
+                background:${isSel ? _ZP_GRAD : 'transparent'};color:${isSel ? 'white' : '#475569'};transition:all .15s;"
+                onmouseover="if(!${isSel})this.style.background='#eef2ff'" onmouseout="if(!${isSel})this.style.background='transparent'">
+                <div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
+                <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
+            </div>`;
+        });
+        h += '</div>';
+    });
+    sb.innerHTML = h;
+}
+
 async function _zpLoadSpamData() {
     try {
-        const res = await apiCall('/api/zalo-tasks/team?date=all');
+        const [res, memRes] = await Promise.all([
+            apiCall('/api/zalo-tasks/team?date=all'),
+            apiCall('/api/dailylinks/members')
+        ]);
+        _zpCachedDepts = memRes.departments || [];
+        _zpRenderSidebar();
         const tasks = (res.tasks||[]).filter(t => t.results && t.results.length > 0);
-        // Flatten all results
-        let allResults = [];
+        _zpAllResults = [];
         tasks.forEach(t => {
             (t.results||[]).forEach(r => {
-                allResults.push({
+                _zpAllResults.push({
                     ...r,
+                    user_id: t.user_id,
                     user_name: t.user_name || t.username,
                     dept_name: t.dept_name || '',
+                    dept_id: t.dept_id || null,
                     pool_url: t.pool_url || '',
                     assigned_date: t.assigned_date
                 });
             });
         });
-        const total = allResults.length;
-        const spammed = allResults.filter(r => r.spam_status === 'done').length;
-        const pending = total - spammed;
-        // Stats
-        const statsEl = document.getElementById('zpSpamStats');
-        if (statsEl) {
-            statsEl.innerHTML = [
-                {l:'Tổng Nhóm Zalo',v:total,bg:_ZP_GRAD,icon:'📱'},
-                {l:'Đã Spam',v:spammed,bg:'linear-gradient(135deg,#10b981,#059669)',icon:'✅'},
-                {l:'Chưa Spam',v:pending,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'⏳'},
-            ].map(c => `<div style="flex:1;min-width:160px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:26px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;">${c.v}</div><div style="font-size:11px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
-        }
-        // Group by employee
-        const byUser = {};
-        allResults.forEach(r => {
-            const key = r.user_name || 'Unknown';
-            if (!byUser[key]) byUser[key] = { dept: r.dept_name, results: [] };
-            byUser[key].results.push(r);
-        });
-        const listEl = document.getElementById('zpSpamList');
-        if (!listEl) return;
-        if (total === 0) {
-            listEl.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">Chưa có nhóm Zalo nào được tìm thấy.</div>';
-            return;
-        }
-        let h = '';
-        Object.entries(byUser).forEach(([name, data]) => {
-            const totalR = data.results.length;
-            const doneR = data.results.filter(r => r.spam_status === 'done').length;
-            const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-            h += `<div style="margin-bottom:16px;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-                <div style="padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;background:#fafbfc;">
-                    <div style="width:36px;height:36px;border-radius:50%;background:${_ZP_GRAD};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">${initials}</div>
-                    <div style="flex:1;">
-                        <div style="font-weight:700;font-size:14px;color:#1e293b;">${name}</div>
-                        <div style="font-size:11px;color:#6b7280;">${data.dept} • ${totalR} nhóm • ${doneR} đã spam</div>
-                    </div>
-                    <div style="font-size:13px;font-weight:700;color:${doneR===totalR?'#16a34a':'#f59e0b'};">${Math.round(doneR/totalR*100)}%</div>
-                </div>`;
-            data.results.forEach(r => {
-                const done = r.spam_status === 'done';
-                h += `<div style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid #f3f4f6;font-size:13px;background:${done?'#f0fdf4':'white'};">
-                    <span style="font-weight:600;color:#1e293b;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_name}</span>
-                    <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;text-decoration:none;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_link}</a>
-                    ${done
-                        ? `<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✅ Đã Spam</span>
-                           ${r.spam_screenshot ? `<img src="${r.spam_screenshot}" onclick="_zpLB(this.src)" style="width:32px;height:32px;border-radius:6px;cursor:pointer;object-fit:cover;">` : ''}`
-                        : `<button onclick="_zpSpamModal(${r.id},'${(r.zalo_name||'').replace(/'/g,"\\'")}','${(r.zalo_link||'').replace(/'/g,"\\'")}')\" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;">📸 Đánh dấu Spam</button>`}
-                </div>`;
-            });
-            h += '</div>';
-        });
-        listEl.innerHTML = h;
+        _zpRenderFiltered();
     } catch(e) {
         const el = document.getElementById('zpSpamList');
         if (el) el.innerHTML = `<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`;
     }
+}
+
+function _zpRenderFiltered() {
+    let filtered = _zpAllResults;
+    if (_zpCurUser) {
+        filtered = filtered.filter(r => r.user_id == _zpCurUser);
+    } else if (_zpCurDept) {
+        const deptObj = _zpCachedDepts.find(d => d.id == _zpCurDept);
+        if (deptObj) {
+            const memberIds = (deptObj.members||[]).map(m => m.id);
+            filtered = filtered.filter(r => memberIds.includes(r.user_id));
+        }
+    }
+    const total = filtered.length;
+    const spammed = filtered.filter(r => r.spam_status === 'done').length;
+    const pending = total - spammed;
+    const statsEl = document.getElementById('zpSpamStats');
+    if (statsEl) {
+        statsEl.innerHTML = [
+            {l:'Tổng Nhóm Zalo',v:total,bg:_ZP_GRAD,icon:'📱'},
+            {l:'Đã Spam',v:spammed,bg:'linear-gradient(135deg,#10b981,#059669)',icon:'✅'},
+            {l:'Chưa Spam',v:pending,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'⏳'},
+        ].map(c => `<div style="flex:1;min-width:160px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:26px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;">${c.v}</div><div style="font-size:11px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
+    }
+    const byUser = {};
+    filtered.forEach(r => {
+        const key = r.user_name || 'Unknown';
+        if (!byUser[key]) byUser[key] = { dept: r.dept_name, results: [] };
+        byUser[key].results.push(r);
+    });
+    const listEl = document.getElementById('zpSpamList');
+    if (!listEl) return;
+    if (total === 0) {
+        listEl.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">Chưa có nhóm Zalo nào được tìm thấy.</div>';
+        return;
+    }
+    let h = '';
+    Object.entries(byUser).forEach(([name, data]) => {
+        const totalR = data.results.length;
+        const doneR = data.results.filter(r => r.spam_status === 'done').length;
+        const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+        h += `<div style="margin-bottom:16px;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
+            <div style="padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;background:#fafbfc;">
+                <div style="width:36px;height:36px;border-radius:50%;background:${_ZP_GRAD};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">${initials}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:14px;color:#1e293b;">${name}</div>
+                    <div style="font-size:11px;color:#6b7280;">${data.dept} • ${totalR} nhóm • ${doneR} đã spam</div>
+                </div>
+                <div style="font-size:13px;font-weight:700;color:${doneR===totalR?'#16a34a':'#f59e0b'};">${Math.round(doneR/totalR*100)}%</div>
+            </div>`;
+        data.results.forEach(r => {
+            const done = r.spam_status === 'done';
+            const eName = (r.zalo_name||'').replace(/'/g,"\\'");
+            const eLink = (r.zalo_link||'').replace(/'/g,"\\'");
+            h += `<div style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid #f3f4f6;font-size:13px;background:${done?'#f0fdf4':'white'};">
+                <span style="font-weight:600;color:#1e293b;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_name}</span>
+                <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;text-decoration:none;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_link}</a>
+                ${done
+                    ? `<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✅ Đã Spam</span>
+                       ${r.spam_screenshot ? `<img src="${r.spam_screenshot}" onclick="_zpLB(this.src)" style="width:32px;height:32px;border-radius:6px;cursor:pointer;object-fit:cover;">` : ''}`
+                    : `<button onclick="_zpSpamModal(${r.id},'${eName}','${eLink}')" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;">📸 Đánh dấu Spam</button>`}
+            </div>`;
+        });
+        h += '</div>';
+    });
+    listEl.innerHTML = h;
 }
 
 // Spam modal with screenshot
