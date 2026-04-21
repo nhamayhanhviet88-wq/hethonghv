@@ -99,7 +99,7 @@ function _zlRenderToolbar() {
     h += btn('pending', 'Link Group Chưa Tìm', '🔍', cPending);
     h += btn('has_zalo', 'Group Có Zalo', '✅', cHasZalo);
     h += btn('spam_ok', 'Zalo Spam Được', '🎯', cSpamOk);
-    h += btn('spam_no', 'Zalo Spam K Được', '🚫', cSpamNo);
+    h += btn('spam_no', 'KHÔNG SPAM ĐƯỢC', '🚫', cSpamNo);
     h += btn('no_zalo', 'Group K Có Zalo', '❌', cNoZalo);
     h += '</div>';
     if (_zlViewUserId) {
@@ -203,7 +203,7 @@ function _zlRenderTasks(res) {
                     : r.spam_eligible
                         ? `<button onclick="_zlToggleSpamEligible(${r.id})" style="background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">🎯 Spam Được</button>`
                         : r.spam_not_eligible
-                            ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">🚫 Spam K Được</button>`
+                            ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">🚫 KHÔNG SPAM ĐƯỢC</button>`
                             : `<button onclick="_zlSpamChoose(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Đánh dấu</button>`;
                 rows.push(`<tr style="border-bottom:1px solid #e5e7eb;">
                     ${ri===0 ? `<td rowspan="${t.results.length}" style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}
@@ -410,7 +410,7 @@ function _zlSpamChoose(resultId) {
         </div>
         <div style="padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
             <button onclick="_zlSetSpam(${resultId},'yes')" style="padding:14px;border:2px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#166534;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">🎯 Zalo Spam Được</button>
-            <button onclick="_zlSetSpam(${resultId},'no')" style="padding:14px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#991b1b;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🚫 Zalo Spam K Được</button>
+            <button onclick="_zlSetSpam(${resultId},'no')" style="padding:14px;border:2px solid #dc2626;border-radius:10px;background:#fef2f2;color:#991b1b;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;transition:all .2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🚫 KHÔNG SPAM ĐƯỢC</button>
             <button onclick="document.getElementById('zlSpamPopup').remove()" style="padding:10px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
         </div>
     </div>`;
@@ -423,7 +423,7 @@ async function _zlSetSpam(resultId, choice) {
         const endpoint = choice === 'yes' ? '/api/zalo-results/' + resultId + '/spam-eligible' : '/api/zalo-results/' + resultId + '/spam-not-eligible';
         const res = await apiCall(endpoint, 'POST');
         if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
-        showToast(choice === 'yes' ? '🎯 Đã đánh dấu Spam Được!' : '🚫 Đã đánh dấu Spam K Được!');
+        showToast(choice === 'yes' ? '🎯 Đã đánh dấu Spam Được!' : '🚫 Đã đánh dấu KHÔNG SPAM ĐƯỢC!');
         _zlLoadTasks();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
