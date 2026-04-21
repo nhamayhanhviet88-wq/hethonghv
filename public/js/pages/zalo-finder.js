@@ -566,12 +566,43 @@ function _zlOpenSpamForm(resultId, choice) {
                     <img id="zlSpamImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid ${accentColor};"/>
                 </div>
                 <input type="file" id="zlSpamImgInput" accept="image/*" onchange="_zlSpamImgPreview(this)" style="display:none;">
-                <button onclick="document.getElementById('zlSpamImgInput').click()" style="width:100%;padding:12px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;cursor:pointer;font-weight:700;font-size:13px;transition:all .2s;" onmouseover="this.style.borderColor='${accentColor}';this.style.background='${bgColor}'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'" id="zlSpamImgBtn">📎 Chọn / Chụp hình ảnh</button>
+                <div id="zlSpamPasteZone" onclick="document.getElementById('zlSpamImgInput').click()" style="width:100%;padding:16px 12px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;cursor:pointer;font-weight:700;font-size:13px;transition:all .2s;text-align:center;box-sizing:border-box;" onmouseover="this.style.borderColor='${accentColor}';this.style.background='${bgColor}'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                    <div>📎 Chọn / Chụp hình ảnh</div>
+                    <div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">hoặc <strong style="color:#3b82f6;">Ctrl+V</strong> để dán ảnh từ clipboard</div>
+                </div>
             </div>
             <button onclick="_zlSubmitSpamForm(${resultId},'${choice}')" style="padding:14px;border:none;border-radius:10px;background:${isYes ? 'linear-gradient(135deg,#16a34a,#059669)' : 'linear-gradient(135deg,#dc2626,#b91c1c)'};color:white;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">✅ Xác nhận báo cáo</button>
         </div>
     </div>`;
     document.body.appendChild(d);
+    // Add paste listener for Ctrl+V
+    d.addEventListener('paste', function(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.startsWith('image/')) {
+                e.preventDefault();
+                const file = items[i].getAsFile();
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    _zlSpamImgData = ev.target.result;
+                    const imgTag = document.getElementById('zlSpamImgTag');
+                    const preview = document.getElementById('zlSpamImgPreview');
+                    const pasteZone = document.getElementById('zlSpamPasteZone');
+                    if (imgTag) imgTag.src = _zlSpamImgData;
+                    if (preview) preview.style.display = 'block';
+                    if (pasteZone) {
+                        pasteZone.innerHTML = '<div>✅ Đã dán ảnh — Nhấn để đổi</div><div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">hoặc <strong style="color:#3b82f6;">Ctrl+V</strong> để dán ảnh khác</div>';
+                    }
+                };
+                reader.readAsDataURL(file);
+                break;
+            }
+        }
+    });
+    // Make modal focusable for paste events
+    d.setAttribute('tabindex', '-1');
+    d.focus();
 }
 
 let _zlSpamImgData = null;
@@ -582,7 +613,10 @@ function _zlSpamImgPreview(input) {
         _zlSpamImgData = e.target.result;
         document.getElementById('zlSpamImgTag').src = _zlSpamImgData;
         document.getElementById('zlSpamImgPreview').style.display = 'block';
-        document.getElementById('zlSpamImgBtn').textContent = '✅ Đã chọn ảnh — Nhấn để đổi';
+        const pasteZone = document.getElementById('zlSpamPasteZone');
+        if (pasteZone) {
+            pasteZone.innerHTML = '<div>✅ Đã chọn ảnh — Nhấn để đổi</div><div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">hoặc <strong style="color:#3b82f6;">Ctrl+V</strong> để dán ảnh khác</div>';
+        }
     };
     reader.readAsDataURL(input.files[0]);
 }
