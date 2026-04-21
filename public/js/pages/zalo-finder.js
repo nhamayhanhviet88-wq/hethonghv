@@ -1,6 +1,8 @@
 // ========== ZALO GROUP FINDER — CUSTOM UI ==========
 let _zlTasks = [], _zlStats = {}, _zlPoolStats = {}, _zlSpamImg = null;
 let _zlViewUserId = null, _zlViewDeptId = null, _zlCachedDepts = [], _zlFilter = 'pending';
+let _zlDateFilter = 'today'; // today, yesterday, 7days, month, prev_month, all, custom
+let _zlCustomFrom = '', _zlCustomTo = '';
 const _ZL_GRAD = 'linear-gradient(135deg,#0284c7,#0369a1)';
 const _ZL_ACCENT = '#0284c7';
 
@@ -18,6 +20,7 @@ function _zlInit() {
         <div style="flex:1;padding:20px 24px;overflow-y:auto;">
             <div id="zlGuide"></div>
             <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+            <div id="zlDateBar" style="margin-bottom:12px;"></div>
             <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;"></div>
             <div id="zlProgress" style="margin-bottom:16px;"></div>
             <div id="zlTaskList"></div>
@@ -25,6 +28,7 @@ function _zlInit() {
     </div>`;
     _zlLoadSidebar();
     if (typeof _dlLoadGuide === 'function') _dlLoadGuide();
+    _zlRenderDateBar();
     _zlLoadTasks();
 }
 
@@ -114,11 +118,80 @@ function _vnTodayFE() {
     return now.toISOString().split('T')[0];
 }
 
+function _zlRenderDateBar() {
+    const el = document.getElementById('zlDateBar');
+    if (!el) return;
+    const btns = [
+        { key: 'today', label: 'Hôm nay', icon: '📅' },
+        { key: 'yesterday', label: 'Hôm qua', icon: '📅' },
+        { key: '7days', label: '7 ngày', icon: '📅' },
+        { key: 'month', label: 'Tháng này', icon: '📅' },
+        { key: 'prev_month', label: 'Tháng trước', icon: '📅' },
+        { key: 'all', label: 'Tất cả', icon: '♾️' },
+        { key: 'custom', label: 'Tùy chọn', icon: '📅' },
+    ];
+    let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#f1f5f9;padding:8px 12px;border-radius:10px;border:1px solid #e2e8f0;">';
+    btns.forEach(b => {
+        const active = _zlDateFilter === b.key;
+        h += `<button onclick="_zlSetDateFilter('${b.key}')" style="padding:6px 14px;border:2px solid ${active ? '#3b82f6' : '#d1d5db'};border-radius:8px;background:${active ? '#3b82f6' : 'white'};color:${active ? 'white' : '#6b7280'};cursor:pointer;font-weight:700;font-size:11px;transition:all .2s;white-space:nowrap;">${b.icon} ${b.label}</button>`;
+    });
+    if (_zlDateFilter === 'custom') {
+        h += `<input type="date" id="zlDateFrom" value="${_zlCustomFrom}" onchange="_zlCustomFrom=this.value;_zlLoadTasks()" style="padding:5px 8px;border:2px solid #d1d5db;border-radius:8px;font-size:11px;font-weight:600;">`;
+        h += `<span style="color:#6b7280;font-size:12px;font-weight:700;">→</span>`;
+        h += `<input type="date" id="zlDateTo" value="${_zlCustomTo}" onchange="_zlCustomTo=this.value;_zlLoadTasks()" style="padding:5px 8px;border:2px solid #d1d5db;border-radius:8px;font-size:11px;font-weight:600;">`;
+    }
+    h += '</div>';
+    el.innerHTML = h;
+}
+
+function _zlSetDateFilter(key) {
+    _zlDateFilter = key;
+    _zlRenderDateBar();
+    _zlLoadTasks();
+}
+
+function _zlGetDateParams() {
+    const today = _vnTodayFE();
+    const d = new Date(Date.now() + 7 * 3600000);
+    switch (_zlDateFilter) {
+        case 'today': return { date: today };
+        case 'yesterday': {
+            const y = new Date(d); y.setDate(y.getDate() - 1);
+            return { date: y.toISOString().split('T')[0] };
+        }
+        case '7days': {
+            const from = new Date(d); from.setDate(from.getDate() - 6);
+            return { date_from: from.toISOString().split('T')[0], date_to: today };
+        }
+        case 'month': {
+            const from = new Date(d.getFullYear(), d.getMonth(), 1);
+            return { date_from: from.toISOString().split('T')[0], date_to: today };
+        }
+        case 'prev_month': {
+            const from = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+            const to = new Date(d.getFullYear(), d.getMonth(), 0);
+            return { date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0] };
+        }
+        case 'all': return { date: 'all' };
+        case 'custom': {
+            if (_zlCustomFrom && _zlCustomTo) return { date_from: _zlCustomFrom, date_to: _zlCustomTo };
+            return { date: today };
+        }
+        default: return { date: today };
+    }
+}
+
 async function _zlLoadTasks() {
     try {
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
         let taskRes, statsRes;
-        let url = '/api/zalo-tasks/team?date=' + _vnTodayFE();
+        const dateParams = _zlGetDateParams();
+        let url = '/api/zalo-tasks/team?';
+        if (dateParams.date_from && dateParams.date_to) {
+            url += 'date_from=' + dateParams.date_from + '&date_to=' + dateParams.date_to;
+        } else {
+            url += 'date=' + (dateParams.date || _vnTodayFE());
+        }
         let statsUrl = '/api/zalo-tasks/stats';
         if (isManager) {
             if (_zlViewUserId) { url += '&user_id=' + _zlViewUserId; statsUrl += '?user_id=' + _zlViewUserId; }
