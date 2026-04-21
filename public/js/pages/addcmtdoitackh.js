@@ -210,8 +210,10 @@ function _acAddModal() {
         </div>
         <div style="padding:24px;">
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Link Facebook <span style="color:#dc2626;">*</span></label>
-                <input id="acFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://facebook.com/..." autofocus>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Link Comment Facebook <span style="color:#dc2626;">*</span></label>
+                <input id="acFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://www.facebook.com/.../posts/...?comment_id=..." autofocus>
+                <div id="acFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
+                <div style="margin-top:4px;font-size:11px;color:#9ca3af;">⚠️ Bắt buộc link comment: chứa www.facebook.com, /posts/ và comment_id</div>
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Hình Ảnh <span style="color:#dc2626;">*</span> (Ctrl+V để dán)</label>
@@ -246,12 +248,30 @@ function _acAddModal() {
             }
         }
     });
+    // Link validation on input
+    const acLinkEl = document.getElementById('acFLink');
+    acLinkEl?.addEventListener('input', () => {
+        const val = acLinkEl.value.trim().toLowerCase();
+        const errEl = document.getElementById('acFLinkErr');
+        if (val && (!val.includes('www.facebook.com') || !val.includes('/posts/') || !val.includes('comment_id'))) {
+            errEl.style.display = 'block';
+            errEl.textContent = '⚠️ Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)';
+            acLinkEl.style.borderColor = '#dc2626';
+        } else {
+            errEl.style.display = 'none';
+            acLinkEl.style.borderColor = val ? '#16a34a' : '#d1d5db';
+        }
+    });
     setTimeout(() => document.getElementById('acFLink')?.focus(), 100);
 }
 
 async function _acSave() {
     const link = document.getElementById('acFLink').value.trim();
     if (!link) { showToast('Vui lòng nhập link FB!', 'error'); return; }
+    const linkLow = link.toLowerCase();
+    if (!linkLow.includes('www.facebook.com') || !linkLow.includes('/posts/') || !linkLow.includes('comment_id')) {
+        showToast('❌ Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)', 'error'); return;
+    }
     if (!_ac.imageData) { showToast('Vui lòng dán hình ảnh chụp màn hình!', 'error'); return; }
     try {
         await apiCall('/api/addcmt/entries', 'POST', { fb_link: link, image_data: _ac.imageData });

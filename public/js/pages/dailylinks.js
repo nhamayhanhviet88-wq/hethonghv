@@ -197,6 +197,10 @@ function _dlUpdateActions() {
     if (m.type === 'dang_group' && currentUser.role === 'giam_doc') {
         h += `<button onclick="_dlCatModal()" style="padding:8px 14px;border:1px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Lĩnh Vực</button>`;
     }
+    // Community pages management button for sedding (managers)
+    if (m.type === 'sedding' && ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+        h += `<button onclick="_dlCommunityPagesModal()" style="padding:8px 14px;border:1px solid #ea580c;border-radius:8px;background:white;color:#ea580c;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Trang Cộng Đồng</button>`;
+    }
     if (canAdd) {
         h += `<button onclick="_dlBackfillModal()" style="padding:8px 16px;border:2px solid ${m.accent};border-radius:8px;background:white;color:${m.accent};cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">📋 Báo cáo bù</button>`;
         h += `<button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${m.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Báo cáo công việc</button>`;
@@ -601,6 +605,7 @@ function _dlGetMultiPlatforms(type) { return _DL_MULTI_LINK_MODULES[type] || nul
 // Link validation rules for DEFAULT (single-link) modules
 const _DL_LINK_RULES = {
     dang_group: { validate: v => v.toLowerCase().includes('facebook.com/groups/'), errHint: 'Link phải là Facebook Group (chứa facebook.com/groups/), không phải link facebook thường' },
+    addcmt: { validate: v => { const l = v.toLowerCase(); return l.includes('www.facebook.com') && l.includes('/posts/') && l.includes('comment_id'); }, errHint: 'Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)' },
 };
 // Modules that need screenshot in addition to link
 const _DL_NEED_SCREENSHOT = ['dang_group'];
@@ -611,7 +616,7 @@ function _dlValidateMultiLink(p, val) {
     return val.toLowerCase().includes(p.pattern.toLowerCase());
 }
 
-function _dlAddModal() {
+async function _dlAddModal() {
     const m=_dl.mod;
     _dl.imageData = null;
     document.getElementById('dlModal')?.remove();
@@ -718,6 +723,29 @@ function _dlAddModal() {
         return;
     }
 
+    // ===== COMMUNITY PAGE SUGGESTIONS for sedding =====
+    let communityHtml = '';
+    if (m.type === 'sedding') {
+        try {
+            const cpRes = await apiCall('/api/community-pages');
+            const pages = cpRes?.pages || [];
+            if (pages.length > 0) {
+                communityHtml = `<div style="margin-bottom:16px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:8px 14px;display:flex;align-items:center;gap:6px;">
+                        <span style="color:white;font-weight:700;font-size:12px;">🌐 Trang Cộng Đồng — Click để mở (tab mới), sedding xong quay lại paste link</span>
+                    </div>
+                    <div style="padding:8px 12px;background:#fff7ed;max-height:180px;overflow-y:auto;">
+                        ${pages.map((p,i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;${i%2===0?'background:rgba(234,88,12,0.05);':''}">
+                            <span style="color:#ea580c;font-weight:800;font-size:11px;min-width:20px;">${i+1}.</span>
+                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;font-weight:600;font-size:13px;text-decoration:none;flex:1;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
+                            <a href="${p.url}" target="_blank" rel="noopener" style="background:#ea580c;color:white;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;text-decoration:none;white-space:nowrap;">Mở ↗</a>
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            }
+        } catch(e) { /* ignore */ }
+    }
+
     // ===== DEFAULT MODAL (other modules) =====
     d.innerHTML=`
     <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -728,6 +756,7 @@ function _dlAddModal() {
             </div>
         </div>
         <div style="padding:24px;">
+            ${communityHtml}
             ${!needImg ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
                 <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
@@ -1046,4 +1075,108 @@ function _dlBackfillSelect(dateStr) {
             header.appendChild(badge);
         }
     }, 50);
+}
+
+// ========== COMMUNITY PAGES MANAGEMENT — Quản lý trang cộng đồng ==========
+let _dlCommunityPages = [];
+
+async function _dlCommunityPagesModal() {
+    document.getElementById('dlCPModal')?.remove();
+    const m = document.createElement('div'); m.id = 'dlCPModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    m.onclick = e => { if (e.target === m) m.remove(); };
+    m.innerHTML = `<div style="background:white;border-radius:16px;width:min(600px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:20px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:18px;font-weight:800;">🌐 Quản Lý Trang Cộng Đồng</div>
+                <div style="font-size:12px;opacity:0.85;margin-top:4px;">Thêm / sửa / xóa trang gợi ý cho nhân viên sedding</div>
+            </div>
+            <button onclick="document.getElementById('dlCPModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
+        </div>
+        <div style="padding:16px 24px;border-bottom:1px solid #f3f4f6;">
+            <div style="display:flex;gap:8px;">
+                <input id="dlCPName" placeholder="Tên trang (VD: Cộng đồng XYZ)" style="flex:1;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <input id="dlCPUrl" placeholder="Link (https://facebook.com/groups/...)" style="flex:1.5;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <button onclick="_dlCPAdd()" style="padding:9px 16px;border:none;border-radius:8px;background:#ea580c;color:white;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap;">＋ Thêm</button>
+            </div>
+        </div>
+        <div id="dlCPList" style="flex:1;overflow-y:auto;padding:12px 24px;"></div>
+    </div>`;
+    document.body.appendChild(m);
+    await _dlCPLoad();
+}
+
+async function _dlCPLoad() {
+    try {
+        const res = await apiCall('/api/community-pages?all=1');
+        _dlCommunityPages = res?.pages || [];
+    } catch(e) { _dlCommunityPages = []; }
+    _dlCPRender();
+}
+
+function _dlCPRender() {
+    const el = document.getElementById('dlCPList');
+    if (!el) return;
+    if (!_dlCommunityPages.length) {
+        el.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có trang cộng đồng nào</div>';
+        return;
+    }
+    el.innerHTML = _dlCommunityPages.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid ${p.is_active?'#fed7aa':'#e5e7eb'};margin-bottom:8px;background:${p.is_active?'#fff7ed':'#f9fafb'};transition:all .2s;">
+        <span style="font-weight:800;color:#ea580c;font-size:12px;min-width:24px;">${i+1}</span>
+        <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;color:${p.is_active?'#1e293b':'#9ca3af'};${p.is_active?'':'text-decoration:line-through;'}">${p.name}</div>
+            <a href="${p.url}" target="_blank" rel="noopener" style="font-size:11px;color:#6b7280;text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onmouseover="this.style.color='#ea580c'" onmouseout="this.style.color='#6b7280'">${p.url}</a>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button onclick="_dlCPToggle(${p.id},${p.is_active?'false':'true'})" style="padding:4px 10px;border:1px solid ${p.is_active?'#fbbf24':'#86efac'};border-radius:6px;background:${p.is_active?'#fffbeb':'#f0fdf4'};color:${p.is_active?'#d97706':'#16a34a'};cursor:pointer;font-size:11px;font-weight:600;" title="${p.is_active?'Ẩn khỏi gợi ý':'Bật hiển thị'}">${p.is_active?'👁 Ẩn':'👁‍🗨 Bật'}</button>
+            <button onclick="_dlCPEdit(${p.id})" style="padding:4px 10px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:600;">✏️</button>
+            <button onclick="_dlCPDel(${p.id},'${p.name.replace(/'/g,"\\'")}')" style="padding:4px 10px;border:1px solid #fecaca;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600;">🗑️</button>
+        </div>
+    </div>`).join('');
+}
+
+async function _dlCPAdd() {
+    const name = document.getElementById('dlCPName')?.value?.trim();
+    const url = document.getElementById('dlCPUrl')?.value?.trim();
+    if (!name || !url) { showToast('Vui lòng nhập tên và link!', 'error'); return; }
+    try {
+        await apiCall('/api/community-pages', 'POST', { name, url });
+        document.getElementById('dlCPName').value = '';
+        document.getElementById('dlCPUrl').value = '';
+        showToast('✅ Đã thêm trang cộng đồng!');
+        await _dlCPLoad();
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+}
+
+async function _dlCPToggle(id, active) {
+    try {
+        await apiCall('/api/community-pages/' + id, 'PUT', { is_active: active });
+        showToast(active ? '✅ Đã bật hiển thị' : '👁 Đã ẩn');
+        await _dlCPLoad();
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+}
+
+async function _dlCPEdit(id) {
+    const p = _dlCommunityPages.find(x => x.id === id);
+    if (!p) return;
+    const newName = prompt('Tên trang:', p.name);
+    if (newName === null) return;
+    const newUrl = prompt('Link trang:', p.url);
+    if (newUrl === null) return;
+    if (!newName.trim() || !newUrl.trim()) { showToast('Tên và link không được trống!', 'error'); return; }
+    try {
+        await apiCall('/api/community-pages/' + id, 'PUT', { name: newName.trim(), url: newUrl.trim() });
+        showToast('✅ Đã cập nhật!');
+        await _dlCPLoad();
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+}
+
+async function _dlCPDel(id, name) {
+    if (!confirm(`Xóa trang "${name}"?`)) return;
+    try {
+        await apiCall('/api/community-pages/' + id, 'DELETE');
+        showToast('✅ Đã xóa!');
+        await _dlCPLoad();
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }

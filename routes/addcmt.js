@@ -118,13 +118,21 @@ module.exports = async function (fastify) {
         }
 
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link FB' });
+        // Validate Facebook comment link format: must contain www.facebook.com, /posts/, and comment_id
+        const linkLow = fb_link.trim().toLowerCase();
+        if (!linkLow.includes('www.facebook.com') || !linkLow.includes('/posts/') || !linkLow.includes('comment_id')) {
+            return reply.code(400).send({ error: 'Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)' });
+        }
         const today = _vnToday();
-        // Same user same day same link - block
-        const dup = await db.get('SELECT id FROM addcmt_entries WHERE LOWER(fb_link) = $1 AND user_id = $2 AND entry_date = $3', [fb_link.trim().toLowerCase(), req.user.id, today]);
-        if (dup) return reply.code(400).send({ error: 'Bạn đã nhập link này hôm nay' });
-        // Cross-user dup
-        const dupOther = await db.get('SELECT e.id, u.full_name FROM addcmt_entries e JOIN users u ON e.user_id = u.id WHERE LOWER(e.fb_link) = $1 AND e.user_id != $2 LIMIT 1', [fb_link.trim().toLowerCase(), req.user.id]);
-        if (dupOther) return reply.code(400).send({ error: `Link đã được nhập bởi ${dupOther.full_name}` });
+        // Global dup: check across ALL users and ALL dates
+        const dupGlobal = await db.get(
+            `SELECT e.id, e.user_id, u.full_name FROM addcmt_entries e JOIN users u ON e.user_id = u.id
+             WHERE LOWER(e.fb_link) = $1 LIMIT 1`, [linkLow]
+        );
+        if (dupGlobal) {
+            const who = dupGlobal.user_id === req.user.id ? 'chính bạn' : dupGlobal.full_name;
+            return reply.code(400).send({ error: `Link này đã được nhập bởi ${who}. Mỗi link chỉ được nhập 1 lần duy nhất!` });
+        }
 
         await db.run('INSERT INTO addcmt_entries (user_id, entry_date, fb_link, image_path) VALUES ($1, $2, $3, $4)', [req.user.id, today, fb_link.trim(), imagePath || null]);
         return { success: true };

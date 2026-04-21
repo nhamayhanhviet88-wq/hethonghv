@@ -682,4 +682,75 @@ module.exports = async function (fastify) {
         if (user.department_id) s.add(user.department_id);
         return [...s];
     }
+
+    // ========== COMMUNITY PAGES — Trang cộng đồng gợi ý cho Sedding ==========
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS community_pages (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            sort_order INTEGER DEFAULT 0,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+    `);
+
+    // GET all community pages (all users can read)
+    fastify.get('/api/community-pages', { preHandler: [authenticate] }, async (req) => {
+        const showAll = req.query.all === '1'; // admin sees inactive too
+        const where = showAll ? '' : 'WHERE is_active = true';
+        const rows = await db.all(`SELECT cp.*, u.full_name as creator_name FROM community_pages cp LEFT JOIN users u ON cp.created_by = u.id ${where} ORDER BY cp.sort_order ASC, cp.name ASC`);
+        return { pages: rows };
+    });
+
+    // POST create (managers only)
+    fastify.post('/api/community-pages', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const { name, url } = req.body || {};
+        if (!name?.trim() || !url?.trim()) return reply.code(400).send({ error: 'Thiếu tên hoặc link' });
+        // Check duplicate URL
+        const dup = await db.get('SELECT id FROM community_pages WHERE LOWER(url) = $1', [url.trim().toLowerCase()]);
+        if (dup) return reply.code(400).send({ error: 'Link trang cộng đồng này đã tồn tại' });
+        const maxOrder = await db.get('SELECT COALESCE(MAX(sort_order), 0) as m FROM community_pages');
+        await db.run('INSERT INTO community_pages (name, url, is_active, sort_order, created_by) VALUES ($1, $2, true, $3, $4)',
+            [name.trim(), url.trim(), (maxOrder?.m || 0) + 1, req.user.id]);
+        return { success: true };
+    });
+
+    // PUT update (managers only)
+    fastify.put('/api/community-pages/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const id = Number(req.params.id);
+        const { name, url, is_active } = req.body || {};
+        if (name !== undefined && !name?.trim()) return reply.code(400).send({ error: 'Tên không được trống' });
+        const existing = await db.get('SELECT * FROM community_pages WHERE id = $1', [id]);
+        if (!existing) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const newName = name?.trim() || existing.name;
+        const newUrl = url?.trim() || existing.url;
+        const newActive = is_active !== undefined ? is_active : existing.is_active;
+        // Check duplicate URL (exclude self)
+        if (url) {
+            const dup = await db.get('SELECT id FROM community_pages WHERE LOWER(url) = $1 AND id != $2', [newUrl.toLowerCase(), id]);
+            if (dup) return reply.code(400).send({ error: 'Link trang cộng đồng này đã tồn tại' });
+        }
+        await db.run('UPDATE community_pages SET name = $1, url = $2, is_active = $3, updated_at = NOW() WHERE id = $4',
+            [newName, newUrl, newActive, id]);
+        return { success: true };
+    });
+
+    // DELETE (managers only)
+    fastify.delete('/api/community-pages/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const id = Number(req.params.id);
+        await db.run('DELETE FROM community_pages WHERE id = $1', [id]);
+        return { success: true };
+    });
 };
