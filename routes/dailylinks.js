@@ -1042,8 +1042,8 @@ module.exports = async function (fastify) {
         const id = Number(req.params.id);
         const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
-        if (result.user_id !== req.user.id && req.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Không có quyền' });
+        if (req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa nhóm' });
         }
         await db.run('DELETE FROM zalo_task_results WHERE id = $1', [id]);
         // Check if task still has results
@@ -1088,6 +1088,7 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS join_status BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_not_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS pending_join BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
 
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
@@ -1125,6 +1126,18 @@ module.exports = async function (fastify) {
         const newVal = !result.join_status;
         await db.run('UPDATE zalo_task_results SET join_status = $1 WHERE id = $2', [newVal, id]);
         return { success: true, join_status: newVal };
+    });
+
+    // POST /api/zalo-results/:id/pending-join — Mark as pending join (can't join group yet)
+    fastify.post('/api/zalo-results/:id/pending-join', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        // Set pending_join, clear spam states so it stays in 'Group Có Zalo'
+        await db.run('UPDATE zalo_task_results SET pending_join = TRUE, spam_eligible = FALSE, spam_not_eligible = FALSE WHERE id = $1', [id]);
+        return { success: true, pending_join: true };
     });
 
     // GET /api/zalo-tasks/team — Manager view: all tasks with results
