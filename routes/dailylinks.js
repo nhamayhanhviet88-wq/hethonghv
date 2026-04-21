@@ -1134,20 +1134,37 @@ module.exports = async function (fastify) {
             // ALL results are properly marked! Auto-complete the lock task
             const todayStr = nowVN.toISOString().split('T')[0];
 
-            // Find lock task "Thông Báo Gr Zalo Spam Được" assigned to this user for today's weekday
-            const vnDayOfWeek = nowVN.getDay(); // 0=Sun...6=Sat
-            const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-            const todayDayCol = dayNames[vnDayOfWeek];
-
+            // Find lock task "Thông Báo Gr Zalo Spam Được"
             const lockTask = await db.get(
-                `SELECT lt.id, lt.task_name, lt.requires_approval
+                `SELECT lt.id, lt.task_name, lt.requires_approval, lt.recurrence_type, lt.recurrence_value
                  FROM lock_tasks lt
                  WHERE lt.is_active = true
                    AND LOWER(lt.task_name) LIKE '%thông báo gr zalo spam%'
-                   AND lt.${todayDayCol} = true
                  LIMIT 1`
             );
-            if (!lockTask) return; // No matching lock task today
+            if (!lockTask) return; // No matching lock task
+
+            // Determine the completion date: use today if task is scheduled today,
+            // otherwise use the nearest scheduled day in the current week
+            let completionDate = todayStr;
+            if (lockTask.recurrence_type === 'weekly' && lockTask.recurrence_value) {
+                const scheduledDays = lockTask.recurrence_value.split(',').map(Number); // e.g. [2,3] = Tue,Wed
+                const vnDay = nowVN.getDay(); // 0=Sun
+                if (!scheduledDays.includes(vnDay)) {
+                    // Find nearest past or future scheduled day in current week
+                    let bestDay = scheduledDays[0];
+                    let bestDist = 999;
+                    for (const sd of scheduledDays) {
+                        const dist = Math.abs(sd - vnDay);
+                        if (dist < bestDist) { bestDist = dist; bestDay = sd; }
+                    }
+                    // Calculate that date
+                    const diff = bestDay - vnDay;
+                    const targetDate = new Date(nowVN);
+                    targetDate.setDate(targetDate.getDate() + diff);
+                    completionDate = targetDate.toISOString().split('T')[0];
+                }
+            }
 
             // Check if user is assigned to this lock task
             const assignment = await db.get(
@@ -1156,12 +1173,12 @@ module.exports = async function (fastify) {
             );
             if (!assignment) return; // Not assigned
 
-            // Check if already completed today
+            // Check if already completed for this scheduled date
             const existing = await db.get(
-                `SELECT id, status FROM lock_task_completions
+                `SELECT id, status, redo_count FROM lock_task_completions
                  WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
                  ORDER BY redo_count DESC LIMIT 1`,
-                [lockTask.id, userId, todayStr]
+                [lockTask.id, userId, completionDate]
             );
             if (existing && (existing.status === 'approved' || existing.status === 'pending')) return; // Already done
 
@@ -1178,9 +1195,9 @@ module.exports = async function (fastify) {
                 `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                  ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET content=$6, status=$7, quantity_done=$8, created_at=NOW()`,
-                [lockTask.id, userId, todayStr, redoCount, '', autoContent, status, 1]
+                [lockTask.id, userId, completionDate, redoCount, '', autoContent, status, 1]
             );
-            console.log(`[ZaloSpam] Auto-completed lock task for user ${userId} on ${todayStr}`);
+            console.log(`[ZaloSpam] Auto-completed lock task for user ${userId} on ${completionDate}`);
         } catch(e) {
             console.error('[ZaloSpam] Auto-complete error:', e.message);
         }
