@@ -83,7 +83,6 @@ function _zlRenderToolbar() {
     const tb = document.getElementById('zlToolbar');
     if (!tb) return;
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
-    if (!isManager) { tb.innerHTML = ''; return; }
     const cPending = _zlTasks.filter(t => t.status === 'pending').length;
     const cHasZalo = _zlTasks.filter(t => t.results && t.results.length > 0 && !(t.results.some(r => r.spam_eligible || r.spam_not_eligible))).length;
     const cSpamOk = _zlTasks.filter(t => t.results && t.results.some(r => r.spam_eligible)).length;
@@ -100,7 +99,7 @@ function _zlRenderToolbar() {
     h += btn('spam_no', 'KHÔNG SPAM ĐƯỢC', '🚫', cSpamNo);
     h += btn('no_zalo', 'Group K Có Zalo', '❌', cNoZalo);
     h += '</div>';
-    if (_zlViewUserId) {
+    if (_zlViewUserId && isManager) {
         h += `<button onclick="_zlPoolModal()" style="padding:8px 18px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(2,132,199,0.3);white-space:nowrap;flex-shrink:0;">📥 Bơm Link</button>`;
     }
     tb.innerHTML = h;
@@ -115,27 +114,24 @@ async function _zlLoadTasks() {
     try {
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
         let taskRes, statsRes;
+        let url = '/api/zalo-tasks/team?date=' + _vnTodayFE();
+        let statsUrl = '/api/zalo-tasks/stats';
         if (isManager) {
-            let url = '/api/zalo-tasks/team?date=' + _vnTodayFE();
-            let statsUrl = '/api/zalo-tasks/stats';
             if (_zlViewUserId) { url += '&user_id=' + _zlViewUserId; statsUrl += '?user_id=' + _zlViewUserId; }
             else if (_zlViewDeptId) { url += '&dept_id=' + _zlViewDeptId; }
-            [taskRes, statsRes] = await Promise.all([apiCall(url), apiCall(statsUrl)]);
-            taskRes.tasks = taskRes.tasks || [];
-            const doneCount = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
-            const realTarget = statsRes?.target || 25;
-            taskRes.done = doneCount;
-            taskRes.quota = realTarget;
-            _zlTasks = taskRes.tasks;
-            _zlStats = { today: doneCount, target: realTarget, week: statsRes?.week || 0, month: statsRes?.month || 0 };
         } else {
-            [taskRes, statsRes] = await Promise.all([
-                apiCall('/api/zalo-tasks/my'),
-                apiCall('/api/zalo-tasks/stats')
-            ]);
-            _zlTasks = taskRes.tasks || [];
-            _zlStats = statsRes;
+            // NV: always scope to own user
+            url += '&user_id=' + currentUser.id;
+            statsUrl += '?user_id=' + currentUser.id;
         }
+        [taskRes, statsRes] = await Promise.all([apiCall(url), apiCall(statsUrl)]);
+        taskRes.tasks = taskRes.tasks || [];
+        const doneCount = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
+        const realTarget = statsRes?.target || 25;
+        taskRes.done = doneCount;
+        taskRes.quota = realTarget;
+        _zlTasks = taskRes.tasks;
+        _zlStats = { today: doneCount, target: realTarget, week: statsRes?.week || 0, month: statsRes?.month || 0 };
         _zlRenderStats();
         _zlRenderToolbar();
         _zlRenderProgress(taskRes);
