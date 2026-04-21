@@ -34,7 +34,7 @@ function _zlInit() {
             <div id="zlTaskList"></div>
         </div>`;
     }
-    _zlLoadGuide();
+    if (typeof _dlLoadGuide === 'function') _dlLoadGuide();
     _zlLoadTasks();
 }
 
@@ -150,7 +150,16 @@ async function _zlLoadTasks() {
         _zlRenderToolbar();
         _zlRenderProgress(taskRes);
         _zlRenderTasks(taskRes);
-    } catch(e) { console.error(e); }
+    } catch(e) {
+        console.error('[Zalo] _zlLoadTasks error:', e);
+        // Render fallback UI so page is not blank
+        _zlTasks = [];
+        _zlStats = { today: 0, target: 25, week: 0, month: 0 };
+        _zlRenderStats();
+        _zlRenderToolbar();
+        _zlRenderProgress({ done: 0, quota: 25 });
+        _zlRenderTasks({ done: 0, quota: 25 });
+    }
 }
 function _zlRenderStats() {
     const s = _zlStats, el = document.getElementById('zlStats');
