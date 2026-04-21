@@ -192,32 +192,40 @@ async function _zlLoadTasks() {
         } else {
             url += 'date=' + (dateParams.date || _vnTodayFE());
         }
+        // Also fetch today-only data for the "Hôm Nay" card
+        let todayUrl = '/api/zalo-tasks/team?date=' + _vnTodayFE();
         let statsUrl = '/api/zalo-tasks/stats';
         if (isManager) {
-            if (_zlViewUserId) { url += '&user_id=' + _zlViewUserId; statsUrl += '?user_id=' + _zlViewUserId; }
-            else if (_zlViewDeptId) { url += '&dept_id=' + _zlViewDeptId; }
+            if (_zlViewUserId) { url += '&user_id=' + _zlViewUserId; todayUrl += '&user_id=' + _zlViewUserId; statsUrl += '?user_id=' + _zlViewUserId; }
+            else if (_zlViewDeptId) { url += '&dept_id=' + _zlViewDeptId; todayUrl += '&dept_id=' + _zlViewDeptId; }
         } else {
-            // NV: always scope to own user
             url += '&user_id=' + currentUser.id;
+            todayUrl += '&user_id=' + currentUser.id;
             statsUrl += '?user_id=' + currentUser.id;
         }
-        [taskRes, statsRes] = await Promise.all([apiCall(url), apiCall(statsUrl)]);
+        let todayRes;
+        [taskRes, statsRes, todayRes] = await Promise.all([apiCall(url), apiCall(statsUrl), apiCall(todayUrl)]);
         taskRes.tasks = taskRes.tasks || [];
-        const doneCount = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
+        todayRes.tasks = todayRes.tasks || [];
+        const todayDone = todayRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
         const realTarget = statsRes?.target || 25;
+        const doneCount = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
         taskRes.done = doneCount;
         taskRes.quota = realTarget;
         _zlTasks = taskRes.tasks;
-        _zlStats = { today: doneCount, target: realTarget, week: statsRes?.week || 0, month: statsRes?.month || 0 };
+        // Count QL chưa spam: spam_eligible=true but spam_status != 'done'
+        const allResults = _zlTasks.flatMap(t => (t.results || []));
+        const qlChuaSpam = allResults.filter(r => r.spam_eligible && r.spam_status !== 'done').length;
+        const qlDaSpam = allResults.filter(r => r.spam_status === 'done').length;
+        _zlStats = { today: todayDone, target: realTarget, qlChuaSpam, qlDaSpam };
         _zlRenderStats();
         _zlRenderToolbar();
-        _zlRenderProgress(taskRes);
+        _zlRenderProgress({ done: todayDone, quota: realTarget });
         _zlRenderTasks(taskRes);
     } catch(e) {
         console.error('[Zalo] _zlLoadTasks error:', e);
-        // Render fallback UI so page is not blank
         _zlTasks = [];
-        _zlStats = { today: 0, target: 25, week: 0, month: 0 };
+        _zlStats = { today: 0, target: 25, qlChuaSpam: 0, qlDaSpam: 0 };
         _zlRenderStats();
         _zlRenderToolbar();
         _zlRenderProgress({ done: 0, quota: 25 });
@@ -227,12 +235,33 @@ async function _zlLoadTasks() {
 function _zlRenderStats() {
     const s = _zlStats, el = document.getElementById('zlStats');
     if (!el) return;
-    const cards = [
-        {l:'Hôm Nay',v:`${s.today||0}/${s.target||25}`,bg:_ZL_GRAD,icon:'📊'},
-        {l:'Tuần Này',v:`${s.week||0}`,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'📅'},
-        {l:'Tháng Này',v:`${s.month||0}`,bg:'linear-gradient(135deg,#6366f1,#4f46e5)',icon:'📆'},
-    ];
-    el.innerHTML = cards.map(c => `<div style="flex:1;min-width:180px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:28px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;">${c.v}</div><div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
+    // Inject sparkle animation CSS if not already
+    if (!document.getElementById('zlSparkleCSS')) {
+        const style = document.createElement('style'); style.id = 'zlSparkleCSS';
+        style.textContent = `
+            @keyframes zlSparkle { 0%,100%{box-shadow:0 0 8px rgba(255,255,255,0.3),0 4px 15px rgba(0,0,0,0.15)} 50%{box-shadow:0 0 20px rgba(255,255,255,0.6),0 0 40px rgba(255,255,255,0.2),0 4px 20px rgba(0,0,0,0.2)} }
+            @keyframes zlPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+            @keyframes zlGlow { 0%,100%{text-shadow:0 0 6px rgba(255,255,255,0.3)} 50%{text-shadow:0 0 16px rgba(255,255,255,0.7),0 0 30px rgba(255,255,255,0.3)} }
+        `;
+        document.head.appendChild(style);
+    }
+    el.innerHTML = `
+        <div style="flex:1;min-width:180px;background:${_ZL_GRAD};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
+            <div style="font-size:28px;margin-bottom:4px;">📊</div>
+            <div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.today||0}/${s.target||25}</div>
+            <div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">Hôm Nay</div>
+        </div>
+        <div onclick="_zlSetFilter('spam_ok')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:14px;padding:18px 20px;color:#fbbf24;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite,zlPulse 3s ease-in-out infinite;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+            <div style="font-size:28px;margin-bottom:4px;">🔥</div>
+            <div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;animation:zlGlow 2s ease-in-out infinite;">${s.qlChuaSpam||0}</div>
+            <div style="font-size:12px;font-weight:800;margin-top:2px;letter-spacing:0.5px;">QL CHƯA SPAM</div>
+        </div>
+        <div onclick="_zlSetFilter('spam_done')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:18px 20px;color:#991b1b;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite .5s,zlPulse 3s ease-in-out infinite .5s;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+            <div style="font-size:28px;margin-bottom:4px;">📣</div>
+            <div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.qlDaSpam||0}</div>
+            <div style="font-size:12px;font-weight:800;margin-top:2px;letter-spacing:0.5px;">QL ĐÃ SPAM</div>
+        </div>
+    `;
 }
 
 function _zlRenderProgress(res) {
