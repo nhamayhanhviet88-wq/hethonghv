@@ -251,15 +251,15 @@ function _zlRenderStats() {
             <div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.today||0}/${s.target||25}</div>
             <div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">Hôm Nay</div>
         </div>
-        <div onclick="_zlSetFilter('spam_ok')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#7f1d1d,#450a0a);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite;transition:transform .2s;border:2px solid #ef4444;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        <div onclick="_zlSetFilter('spam_ok')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#ef4444,#b91c1c);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
             <div style="font-size:28px;margin-bottom:4px;">🔥</div>
-            <div style="font-size:32px;font-weight:900;font-family:'Segoe UI',sans-serif;color:#fde047;text-shadow:0 0 12px rgba(253,224,71,0.5);animation:zlGlow 2s ease-in-out infinite;">${s.qlChuaSpam||0}</div>
-            <div style="font-size:13px;font-weight:800;margin-top:4px;letter-spacing:0.5px;color:#fca5a5;">QL CHƯA SPAM</div>
+            <div style="font-size:32px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.qlChuaSpam||0}</div>
+            <div style="font-size:13px;font-weight:800;margin-top:4px;letter-spacing:0.5px;opacity:0.95;">QL CHƯA SPAM</div>
         </div>
-        <div onclick="_zlSetFilter('spam_done')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#78350f,#451a03);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite .5s;transition:transform .2s;border:2px solid #f59e0b;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+        <div onclick="_zlSetFilter('spam_done')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite .5s;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
             <div style="font-size:28px;margin-bottom:4px;">📣</div>
-            <div style="font-size:32px;font-weight:900;font-family:'Segoe UI',sans-serif;color:#fde047;text-shadow:0 0 12px rgba(253,224,71,0.5);">${s.qlDaSpam||0}</div>
-            <div style="font-size:13px;font-weight:800;margin-top:4px;letter-spacing:0.5px;color:#fcd34d;">QL ĐÃ SPAM</div>
+            <div style="font-size:32px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.qlDaSpam||0}</div>
+            <div style="font-size:13px;font-weight:800;margin-top:4px;letter-spacing:0.5px;opacity:0.95;">QL ĐÃ SPAM</div>
         </div>
     `;
 }
