@@ -1405,10 +1405,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         // Update existing — always update quantity and points, upgrade status to approved if target met
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW()
-                             WHERE id = $5`,
-                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                             status = 'approved'
+                             WHERE id = $3`,
+                            [tmplQty, tmplEarned, existing.id]
                         );
                     } else {
                         // Create new auto-scored report
@@ -1499,10 +1498,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (existing) {
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW()
-                             WHERE id = $5`,
-                            [tmplQty, tmplEarned, poEntryCount, tmplTarget, existing.id]
+                             status = 'approved'
+                             WHERE id = $3`,
+                            [tmplQty, tmplEarned, existing.id]
                         );
                     } else {
                         const status = 'approved';
