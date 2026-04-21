@@ -784,38 +784,67 @@ module.exports = async function (fastify) {
         return quota;
     }
 
-    // POST /api/zalo-pool/bulk — Manager bulk-import links
+    // ========== ZALO SOURCES CRUD ==========
+    fastify.get('/api/zalo-sources', { preHandler: [authenticate] }, async () => {
+        return { sources: await db.all('SELECT * FROM zalo_sources ORDER BY sort_order, id') };
+    });
+    fastify.post('/api/zalo-sources', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const { name, icon } = req.body || {};
+        if (!name?.trim()) return reply.code(400).send({ error: 'Tên nguồn không được trống' });
+        const maxSort = await db.get('SELECT COALESCE(MAX(sort_order),0)+1 as n FROM zalo_sources');
+        const row = await db.get('INSERT INTO zalo_sources (name, icon, sort_order, created_by) VALUES ($1, $2, $3, $4) RETURNING *', [name.trim(), icon || '📂', maxSort.n, req.user.id]);
+        return { success: true, source: row };
+    });
+    fastify.put('/api/zalo-sources/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const { name, icon } = req.body || {};
+        if (!name?.trim()) return reply.code(400).send({ error: 'Tên nguồn không được trống' });
+        await db.run('UPDATE zalo_sources SET name=$1, icon=$2, updated_at=NOW() WHERE id=$3', [name.trim(), icon || '📂', Number(req.params.id)]);
+        return { success: true };
+    });
+    fastify.delete('/api/zalo-sources/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
+        const id = Number(req.params.id);
+        const cnt = await db.get('SELECT COUNT(*) as c FROM zalo_link_pool WHERE source_id=$1', [id]);
+        if (Number(cnt.c) > 0) return reply.code(400).send({ error: `Nguồn này có ${cnt.c} link, không thể xóa` });
+        await db.run('DELETE FROM zalo_sources WHERE id=$1', [id]);
+        return { success: true };
+    });
+
+    // POST /api/zalo-pool/bulk — Manager bulk-import links (with source_id)
     fastify.post('/api/zalo-pool/bulk', { preHandler: [authenticate] }, async (req, reply) => {
         if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
             return reply.code(403).send({ error: 'Chỉ quản lý mới được bơm link' });
         }
-        const { urls } = req.body || {};
+        const { urls, source_id } = req.body || {};
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
             return reply.code(400).send({ error: 'Vui lòng nhập danh sách link' });
         }
+        if (!source_id) return reply.code(400).send({ error: 'Vui lòng chọn nguồn group' });
         let added = 0, duplicates = 0;
         for (const rawUrl of urls) {
             const url = rawUrl.trim();
             if (!url) continue;
-            // Check duplicate in pool
             const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
             if (exists) { duplicates++; continue; }
-            await db.run('INSERT INTO zalo_link_pool (url, status, created_by) VALUES ($1, $2, $3)', [url, 'available', req.user.id]);
+            await db.run('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4)', [url, 'available', req.user.id, Number(source_id)]);
             added++;
         }
         return { success: true, added, duplicates, total: added + duplicates };
     });
 
-    // GET /api/zalo-pool — Get pool stats & list
+    // GET /api/zalo-pool — Get pool stats & list (with source filter)
     fastify.get('/api/zalo-pool', { preHandler: [authenticate] }, async (req) => {
-        const { page = 1, limit = 50, status } = req.query;
+        const { page = 1, limit = 50, status, source_id } = req.query;
         let where = '1=1';
         const params = [];
         let pi = 1;
         if (status) { where += ` AND p.status = $${pi}`; params.push(status); pi++; }
+        if (source_id) { where += ` AND p.source_id = $${pi}`; params.push(Number(source_id)); pi++; }
         const countR = await db.get(`SELECT COUNT(*) as c FROM zalo_link_pool p WHERE ${where}`, params);
         const offset = (Number(page) - 1) * Number(limit);
-        const rows = await db.all(`SELECT p.*, u.full_name as creator_name FROM zalo_link_pool p LEFT JOIN users u ON p.created_by = u.id WHERE ${where} ORDER BY p.created_at DESC LIMIT $${pi} OFFSET $${pi+1}`, [...params, Number(limit), offset]);
+        const rows = await db.all(`SELECT p.*, u.full_name as creator_name, s.name as source_name FROM zalo_link_pool p LEFT JOIN users u ON p.created_by = u.id LEFT JOIN zalo_sources s ON p.source_id = s.id WHERE ${where} ORDER BY p.created_at DESC LIMIT $${pi} OFFSET $${pi+1}`, [...params, Number(limit), offset]);
         const statsR = await db.get(`SELECT 
             COUNT(*) FILTER (WHERE status = 'available') as available,
             COUNT(*) FILTER (WHERE status = 'assigned') as assigned,
@@ -929,7 +958,7 @@ module.exports = async function (fastify) {
         if (date_from && date_to) {
             where += ` AND t.assigned_date BETWEEN $${pi} AND $${pi+1}`;
             params.push(date_from, date_to); pi += 2;
-        } else {
+        } else if (date !== 'all') {
             const d = date || _vnToday();
             where += ` AND t.assigned_date = $${pi}`; params.push(d); pi++;
         }
@@ -1025,6 +1054,97 @@ module.exports = async function (fastify) {
             month: Number(monthR?.done || 0),
             month_total: Number(monthR?.total || 0),
         };
+    });
+
+    // ========== CRON: 0:15 Recall pending tasks + 7:00 Auto-assign ==========
+    // Check every minute for time-based triggers
+    let _zaloCronLastRecall = null, _zaloCronLastAssign = null;
+    setInterval(async () => {
+        try {
+            const now = new Date(Date.now() + 7 * 3600000); // Vietnam time
+            const hh = now.getUTCHours(), mm = now.getUTCMinutes();
+            const todayKey = now.toISOString().split('T')[0];
+
+            // 0:15 — Recall pending tasks
+            if (hh === 0 && mm >= 15 && mm < 20 && _zaloCronLastRecall !== todayKey) {
+                _zaloCronLastRecall = todayKey;
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                // Find all pending tasks from yesterday or earlier
+                const pendingTasks = await db.all(
+                    `SELECT t.id, t.pool_id FROM zalo_daily_tasks t WHERE t.status = 'pending' AND t.assigned_date <= $1`,
+                    [yesterdayStr]
+                );
+                for (const t of pendingTasks) {
+                    // Return pool link to available
+                    await db.run(`UPDATE zalo_link_pool SET status = 'available' WHERE id = $1`, [t.pool_id]);
+                    // Delete the pending task
+                    await db.run(`DELETE FROM zalo_daily_tasks WHERE id = $1`, [t.id]);
+                }
+                console.log(`🔄 [ZaloCron 0:15] Recalled ${pendingTasks.length} pending tasks from ${yesterdayStr}`);
+            }
+
+            // 7:00 — Auto-assign links to all active employees
+            if (hh === 7 && mm >= 0 && mm < 5 && _zaloCronLastAssign !== todayKey) {
+                _zaloCronLastAssign = todayKey;
+                const today = todayKey;
+                // Get all active employees who have the task assigned
+                const pattern = '%Tìm%Gr%Zalo%';
+                const users = await db.all(`SELECT DISTINCT u.id FROM users u WHERE u.status = 'active' AND u.role NOT IN ('giam_doc','quan_ly_cap_cao','tkaffiliate')`);
+                let totalAssigned = 0;
+                for (const user of users) {
+                    const quota = await _getZaloQuota(user.id);
+                    if (quota <= 0) continue;
+                    // Check existing tasks today
+                    const existing = await db.get(`SELECT COUNT(*) as c FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [user.id, today]);
+                    const need = quota - Number(existing.c);
+                    if (need <= 0) continue;
+                    const available = await db.all(`SELECT id FROM zalo_link_pool WHERE status = 'available' ORDER BY id LIMIT $1`, [need]);
+                    for (const link of available) {
+                        await db.run(`INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date) VALUES ($1, $2, $3)`, [link.id, user.id, today]);
+                        await db.run(`UPDATE zalo_link_pool SET status = 'assigned' WHERE id = $1`, [link.id]);
+                        totalAssigned++;
+                    }
+                }
+                console.log(`📥 [ZaloCron 7:00] Auto-assigned ${totalAssigned} links to ${users.length} users for ${today}`);
+            }
+        } catch(e) {
+            console.error('[ZaloCron] Error:', e.message);
+        }
+    }, 60 * 1000); // Check every minute
+
+    // POST /api/zalo-cron/recall — Manual trigger for recall (GĐ only)
+    fastify.post('/api/zalo-cron/recall', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const pendingTasks = await db.all(`SELECT t.id, t.pool_id FROM zalo_daily_tasks t WHERE t.status = 'pending'`);
+        for (const t of pendingTasks) {
+            await db.run(`UPDATE zalo_link_pool SET status = 'available' WHERE id = $1`, [t.pool_id]);
+            await db.run(`DELETE FROM zalo_daily_tasks WHERE id = $1`, [t.id]);
+        }
+        return { success: true, recalled: pendingTasks.length };
+    });
+
+    // POST /api/zalo-cron/assign — Manual trigger for assign (GĐ only)
+    fastify.post('/api/zalo-cron/assign', { preHandler: [authenticate] }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const today = _vnToday();
+        const users = await db.all(`SELECT DISTINCT u.id FROM users u WHERE u.status = 'active' AND u.role NOT IN ('giam_doc','quan_ly_cap_cao','tkaffiliate')`);
+        let totalAssigned = 0;
+        for (const user of users) {
+            const quota = await _getZaloQuota(user.id);
+            if (quota <= 0) continue;
+            const existing = await db.get(`SELECT COUNT(*) as c FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [user.id, today]);
+            const need = quota - Number(existing.c);
+            if (need <= 0) continue;
+            const available = await db.all(`SELECT id FROM zalo_link_pool WHERE status = 'available' ORDER BY id LIMIT $1`, [need]);
+            for (const link of available) {
+                await db.run(`INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date) VALUES ($1, $2, $3)`, [link.id, user.id, today]);
+                await db.run(`UPDATE zalo_link_pool SET status = 'assigned' WHERE id = $1`, [link.id]);
+                totalAssigned++;
+            }
+        }
+        return { success: true, assigned: totalAssigned, users: users.length };
     });
 };
 

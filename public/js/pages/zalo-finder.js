@@ -181,10 +181,12 @@ async function _zlDelResult(resultId) {
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
-// Pool modal — bulk import
-function _zlPoolModal() {
+// Pool modal — bulk import with source selection
+async function _zlPoolModal() {
     let old = document.getElementById('zlModal');
     if (old) old.remove();
+    let srcHtml = '<option value="">-- Chọn nguồn --</option>';
+    try { const sr = await apiCall('/api/zalo-sources'); (sr.sources||[]).forEach(s => { srcHtml += `<option value="${s.id}">${s.icon} ${s.name}</option>`; }); } catch(e) {}
     const d = document.createElement('div'); d.id = 'zlModal';
     d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
     d.innerHTML = `
@@ -196,11 +198,15 @@ function _zlPoolModal() {
             </div>
         </div>
         <div style="padding:20px 24px;">
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Nguồn Group <span style="color:#dc2626;">*</span></label>
+                <select id="zlPoolSource" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;">${srcHtml}</select>
+            </div>
             <label style="font-weight:600;font-size:13px;color:#374151;">Dán danh sách link (mỗi dòng 1 link):</label>
-            <textarea id="zlPoolUrls" rows="10" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box;resize:vertical;font-family:monospace;" placeholder="https://example.com/group1\nhttps://example.com/group2\nhttps://example.com/group3"></textarea>
+            <textarea id="zlPoolUrls" rows="10" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box;resize:vertical;font-family:monospace;" placeholder="https://example.com/group1\nhttps://example.com/group2"></textarea>
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
-                <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;font-family:'Segoe UI',sans-serif;">Hủy</button>
-                <button onclick="_zlPoolSubmit()" style="padding:10px 20px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;font-family:'Segoe UI',sans-serif;">📥 Bơm Link</button>
+                <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
+                <button onclick="_zlPoolSubmit()" style="padding:10px 20px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;">📥 Bơm Link</button>
             </div>
         </div>
     </div>`;
@@ -209,68 +215,132 @@ function _zlPoolModal() {
 
 async function _zlPoolSubmit() {
     const raw = document.getElementById('zlPoolUrls')?.value || '';
+    const source_id = document.getElementById('zlPoolSource')?.value;
+    if (!source_id) { showToast('Vui lòng chọn nguồn group!', 'error'); return; }
     const urls = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (urls.length === 0) { showToast('Vui lòng nhập ít nhất 1 link!', 'error'); return; }
     try {
-        const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls });
+        const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls, source_id: Number(source_id) });
         document.getElementById('zlModal')?.remove();
         showToast(`✅ Đã thêm ${res.added} link! ${res.duplicates > 0 ? `(${res.duplicates} trùng)` : ''}`);
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
-// Pool view modal
-async function _zlPoolView() {
-    let old = document.getElementById('zlModal');
-    if (old) old.remove();
+// "Các Nhóm Có Zalo" — show only tasks with zalo results, grouped by employee
+async function _zpZaloGroupsView() {
+    let old = document.getElementById('zlModal'); if (old) old.remove();
     try {
-        const res = await apiCall('/api/zalo-pool');
-        const st = res.stats || {};
+        const res = await apiCall('/api/zalo-tasks/team?date=all');
+        const tasks = (res.tasks||[]).filter(t => t.results && t.results.length > 0);
+        // Group by user
+        const byUser = {};
+        tasks.forEach(t => {
+            if (!byUser[t.user_id]) byUser[t.user_id] = { name: t.user_name||t.username, dept: t.dept_name||'', tasks: [] };
+            byUser[t.user_id].tasks.push(t);
+        });
         const d = document.createElement('div'); d.id = 'zlModal';
         d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        let bodyH = '';
+        if (Object.keys(byUser).length === 0) {
+            bodyH = '<div style="text-align:center;padding:40px;color:#9ca3af;">Chưa có nhóm Zalo nào được tìm thấy.</div>';
+        } else {
+            Object.entries(byUser).forEach(([uid, data]) => {
+                const totalR = data.tasks.reduce((s,t) => s+(t.results?.length||0), 0);
+                const spamDone = data.tasks.reduce((s,t) => s+(t.results?.filter(r=>r.spam_status==='done').length||0), 0);
+                bodyH += `<div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+                    <div style="background:#f8fafc;padding:10px 14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e5e7eb;">
+                        <div style="width:28px;height:28px;border-radius:50%;background:${_ZP_GRAD};color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">${(data.name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()}</div>
+                        ${data.name} <span style="font-size:11px;color:#6b7280;font-weight:500;">${data.dept} • ${totalR} nhóm • ${spamDone} đã spam</span>
+                    </div>`;
+                data.tasks.forEach(t => {
+                    t.results.forEach(r => {
+                        const done = r.spam_status==='done';
+                        bodyH += `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f3f4f6;font-size:12px;background:${done?'#f0fdf4':'white'};">
+                            <span style="font-weight:600;color:#1e293b;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_name}</span>
+                            <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;text-decoration:none;font-size:11px;flex:1;">${r.zalo_link.length>40?r.zalo_link.substring(0,40)+'...':r.zalo_link}</a>
+                            ${done ? `<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã Spam</span>` 
+                                   : `<button onclick="_zpSpamModal(${r.id},'${(r.zalo_name||'').replace(/'/g,"\\'")}','${(r.zalo_link||'').replace(/'/g,"\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:10px;">📸 Spam</button>`}
+                        </div>`;
+                    });
+                });
+                bodyH += '</div>';
+            });
+        }
         d.innerHTML = `
-        <div style="background:white;border-radius:16px;width:min(700px,95vw);max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25);display:flex;flex-direction:column;">
-            <div style="background:${_ZL_GRAD};padding:18px 24px;border-radius:16px 16px 0 0;color:white;flex-shrink:0;">
+        <div style="background:white;border-radius:16px;width:min(750px,95vw);max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25);display:flex;flex-direction:column;">
+            <div style="background:${_ZP_GRAD};padding:18px 24px;border-radius:16px 16px 0 0;color:white;flex-shrink:0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div style="font-size:16px;font-weight:800;font-family:'Segoe UI',sans-serif;">📊 Quản lý Pool (${st.total||0} link)</div>
+                    <div style="font-size:16px;font-weight:800;">📊 Các Nhóm Có Zalo</div>
                     <button onclick="document.getElementById('zlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
                 </div>
-                <div style="display:flex;gap:12px;margin-top:10px;font-size:12px;">
-                    <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:6px;">🟢 Chưa phân: ${st.available||0}</span>
-                    <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:6px;">🟡 Đã phân: ${st.assigned||0}</span>
-                    <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:6px;">✅ Hoàn thành: ${st.completed||0}</span>
+            </div>
+            <div style="overflow-y:auto;flex:1;padding:16px;">${bodyH}</div>
+        </div>`;
+        document.body.appendChild(d);
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
+}
+
+// Source settings modal
+async function _zpSourceSettings() {
+    let old = document.getElementById('zlModal'); if (old) old.remove();
+    try {
+        const res = await apiCall('/api/zalo-sources');
+        const sources = res.sources || [];
+        const d = document.createElement('div'); d.id = 'zlModal';
+        d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        let rows = sources.map((s,i) => `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px 10px;text-align:center;font-size:20px;">${s.icon}</td>
+            <td style="padding:8px 10px;font-weight:600;font-size:13px;">${s.name}</td>
+            <td style="padding:8px 10px;text-align:center;">
+                <button onclick="_zpEditSource(${s.id},'${s.name.replace(/'/g,"\\'")}','${s.icon}')" style="background:#f0f9ff;color:#0284c7;border:1px solid #bae6fd;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>
+                <button onclick="_zpDelSource(${s.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">🗑️</button>
+            </td>
+        </tr>`).join('');
+        d.innerHTML = `
+        <div style="background:white;border-radius:16px;width:min(550px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+            <div style="background:linear-gradient(135deg,#059669,#047857);padding:18px 24px;border-radius:16px 16px 0 0;color:white;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-size:16px;font-weight:800;">⚙️ Cài Đặt Nguồn Group</div>
+                    <button onclick="document.getElementById('zlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
                 </div>
             </div>
-            <div style="overflow-y:auto;flex:1;padding:16px;">
-                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <div style="padding:16px 20px;max-height:400px;overflow-y:auto;">
+                <table style="width:100%;border-collapse:collapse;">
                     <thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
-                        <th style="padding:8px;text-align:center;width:40px;">STT</th>
-                        <th style="padding:8px;text-align:left;">URL</th>
-                        <th style="padding:8px;text-align:center;width:90px;">Trạng thái</th>
-                        <th style="padding:8px;text-align:center;width:60px;"></th>
+                        <th style="padding:8px;width:50px;">Icon</th><th style="padding:8px;text-align:left;">Tên Nguồn</th><th style="padding:8px;width:80px;"></th>
                     </tr></thead>
-                    <tbody>${(res.pool||[]).map((p,i) => {
-                        const stLabel = p.status==='available'?'🟢 Chưa phân':p.status==='assigned'?'🟡 Đã phân':'✅ Xong';
-                        return `<tr style="border-bottom:1px solid #f3f4f6;">
-                            <td style="padding:6px 8px;text-align:center;color:#6b7280;">${i+1}</td>
-                            <td style="padding:6px 8px;"><a href="${p.url}" target="_blank" style="color:#0284c7;text-decoration:none;font-size:11px;word-break:break-all;">${p.url}</a></td>
-                            <td style="padding:6px 8px;text-align:center;font-size:11px;">${stLabel}</td>
-                            <td style="padding:6px 8px;text-align:center;">${p.status==='available'?`<button onclick="_zlPoolDel(${p.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:10px;">🗑️</button>`:''}</td>
-                        </tr>`;
-                    }).join('')}</tbody>
+                    <tbody>${rows}</tbody>
                 </table>
+            </div>
+            <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;">
+                <input id="zpNewSrcIcon" value="📂" style="width:40px;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:16px;text-align:center;">
+                <input id="zpNewSrcName" placeholder="Tên nguồn mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                <button onclick="_zpAddSource()" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;font-size:13px;">Thêm</button>
             </div>
         </div>`;
         document.body.appendChild(d);
-    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
+}
+
+async function _zpAddSource() {
+    const name = document.getElementById('zpNewSrcName')?.value?.trim();
+    const icon = document.getElementById('zpNewSrcIcon')?.value?.trim() || '📂';
+    if (!name) { showToast('Nhập tên nguồn!','error'); return; }
+    try { await apiCall('/api/zalo-sources','POST',{name,icon}); showToast('✅ Đã thêm nguồn!'); _zpSourceSettings(); } catch(e) { showToast(e.message||'Lỗi','error'); }
+}
+async function _zpEditSource(id, oldName, oldIcon) {
+    const name = prompt('Tên nguồn:', oldName); if (!name) return;
+    const icon = prompt('Icon:', oldIcon) || '📂';
+    try { await apiCall('/api/zalo-sources/'+id,'PUT',{name,icon}); showToast('✅ Đã cập nhật!'); _zpSourceSettings(); } catch(e) { showToast(e.message||'Lỗi','error'); }
+}
+async function _zpDelSource(id) {
+    if (!confirm('Xóa nguồn này?')) return;
+    try { await apiCall('/api/zalo-sources/'+id,'DELETE'); showToast('✅ Đã xóa!'); _zpSourceSettings(); } catch(e) { showToast(e.message||'Lỗi','error'); }
 }
 
 async function _zlPoolDel(id) {
     if (!confirm('Xóa link này khỏi pool?')) return;
-    try {
-        await apiCall('/api/zalo-pool/' + id, 'DELETE');
-        showToast('✅ Đã xóa!');
-        _zlPoolView(); // refresh
-    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    try { await apiCall('/api/zalo-pool/' + id, 'DELETE'); showToast('✅ Đã xóa!'); } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
 // ========== HỆ THỐNG PHÂN CHIA GROUP ZALO — MANAGEMENT PAGE ==========
@@ -288,7 +358,8 @@ function _zpInit() {
             <div id="zpPoolStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
                 <button onclick="_zlPoolModal()" style="padding:10px 18px;border:none;border-radius:10px;background:${_ZP_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(124,58,237,0.3);">📥 Bơm Link Pool</button>
-                <button onclick="_zlPoolView()" style="padding:10px 18px;border:2px solid #7c3aed;border-radius:10px;background:white;color:#7c3aed;cursor:pointer;font-weight:700;font-size:13px;">📊 Quản lý Pool</button>
+                <button onclick="_zpZaloGroupsView()" style="padding:10px 18px;border:2px solid #7c3aed;border-radius:10px;background:white;color:#7c3aed;cursor:pointer;font-weight:700;font-size:13px;">📊 Các Nhóm Có Zalo</button>
+                <button onclick="_zpSourceSettings()" style="padding:10px 18px;border:2px solid #059669;border-radius:10px;background:white;color:#059669;cursor:pointer;font-weight:700;font-size:13px;">⚙️ Cài Đặt Nguồn</button>
             </div>
             <div id="zpTeamView"></div>
         </div>
