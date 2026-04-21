@@ -309,10 +309,11 @@ async function _zlPoolSubmit() {
     if (urls.length === 0) { showToast('Vui lòng nhập ít nhất 1 link!', 'error'); return; }
     try {
         const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls, user_id: _zlViewUserId });
+        if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
         document.getElementById('zlModal')?.remove();
-        showToast(`✅ Đã thêm ${res.added} link! ${res.duplicates > 0 ? `(${res.duplicates} trùng)` : ''}`);
+        showToast(`✅ Đã thêm ${res.added || 0} link! ${res.duplicates > 0 ? `(${res.duplicates} trùng)` : ''} ${res.errors > 0 ? `(${res.errors} lỗi)` : ''}`);
         _zlLoadTasks();
-    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    } catch(e) { showToast(e.message || 'Lỗi kết nối', 'error'); }
 }
 
 // "Các Nhóm Có Zalo" — show only tasks with zalo results, grouped by employee

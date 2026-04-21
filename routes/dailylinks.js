@@ -824,31 +824,40 @@ module.exports = async function (fastify) {
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
             return reply.code(400).send({ error: 'Vui lòng nhập danh sách link' });
         }
-        let added = 0, duplicates = 0;
+        console.log(`[ZaloPool] Bulk import: ${urls.length} URLs, user_id=${user_id}, source_id=${source_id}`);
+        let added = 0, duplicates = 0, errors = 0;
         const today = _vnToday();
         for (const rawUrl of urls) {
             const url = rawUrl.trim();
             if (!url) continue;
-            const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
-            if (exists) {
-                // If user_id specified and link exists but not assigned to this user today, create task
-                if (user_id) {
-                    const taskExists = await db.get('SELECT id FROM zalo_daily_tasks WHERE pool_id = $1 AND user_id = $2 AND assigned_date = $3', [exists.id, Number(user_id), today]);
-                    if (!taskExists) {
-                        await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [exists.id, Number(user_id), today, 'pending']);
-                        added++;
+            try {
+                const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
+                if (exists) {
+                    // If user_id specified and link exists but not assigned to this user today, create task
+                    if (user_id) {
+                        const taskExists = await db.get('SELECT id FROM zalo_daily_tasks WHERE pool_id = $1 AND user_id = $2 AND assigned_date = $3', [exists.id, Number(user_id), today]);
+                        if (!taskExists) {
+                            await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [exists.id, Number(user_id), today, 'pending']);
+                            added++;
+                        } else { duplicates++; }
                     } else { duplicates++; }
-                } else { duplicates++; }
-                continue;
+                    continue;
+                }
+                // Use RETURNING id for PostgreSQL
+                const inserted = await db.get('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4) RETURNING id', [url, user_id ? 'assigned' : 'available', req.user.id, source_id ? Number(source_id) : null]);
+                const poolId = inserted?.id;
+                if (user_id && poolId) {
+                    await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [poolId, Number(user_id), today, 'pending']);
+                }
+                added++;
+                console.log(`[ZaloPool] Added: ${url} -> pool_id=${poolId}, task for user=${user_id}`);
+            } catch (urlErr) {
+                console.error(`[ZaloPool] Error processing URL "${url}":`, urlErr.message);
+                errors++;
             }
-            const res = await db.run('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4)', [url, user_id ? 'assigned' : 'available', req.user.id, source_id ? Number(source_id) : null]);
-            const poolId = res.lastID || (await db.get("SELECT id FROM zalo_link_pool WHERE url = $1", [url]))?.id;
-            if (user_id && poolId) {
-                await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [poolId, Number(user_id), today, 'pending']);
-            }
-            added++;
         }
-        return { success: true, added, duplicates, total: added + duplicates };
+        console.log(`[ZaloPool] Bulk result: added=${added}, duplicates=${duplicates}, errors=${errors}`);
+        return { success: true, added, duplicates, errors, total: added + duplicates };
     });
 
     // GET /api/zalo-pool — Get pool stats & list (with source filter)
