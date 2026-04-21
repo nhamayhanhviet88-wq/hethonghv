@@ -12,28 +12,18 @@ function _zlInit() {
     _zlViewDeptId = localStorage.getItem('zl_deptId') ? Number(localStorage.getItem('zl_deptId')) : null;
     _zlFilter = localStorage.getItem('zl_filter') || 'pending';
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
-    if (isManager) {
-        area.innerHTML = `
-        <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
-            <div id="zlSidebar" style="width:240px;min-width:240px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
-            <div style="flex:1;padding:20px 24px;overflow-y:auto;">
-                <div id="zlGuide"></div>
-                <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
-                <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;"></div>
-                <div id="zlProgress" style="margin-bottom:16px;"></div>
-                <div id="zlTaskList"></div>
-            </div>
-        </div>`;
-        _zlLoadSidebar();
-    } else {
-        area.innerHTML = `
-        <div style="padding:20px 24px;max-width:1200px;margin:0 auto;">
+    area.innerHTML = `
+    <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
+        <div id="zlSidebar" style="width:240px;min-width:240px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
+        <div style="flex:1;padding:20px 24px;overflow-y:auto;">
             <div id="zlGuide"></div>
             <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+            <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;"></div>
             <div id="zlProgress" style="margin-bottom:16px;"></div>
             <div id="zlTaskList"></div>
-        </div>`;
-    }
+        </div>
+    </div>`;
+    _zlLoadSidebar();
     if (typeof _dlLoadGuide === 'function') _dlLoadGuide();
     _zlLoadTasks();
 }

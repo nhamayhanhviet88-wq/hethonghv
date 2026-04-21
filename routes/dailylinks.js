@@ -517,6 +517,12 @@ module.exports = async function (fastify) {
             const dIds = await _getDeptIds(req.user);
             const filtered = dIds.filter(id => kdDeptIds.includes(id));
             if (filtered.length > 0) { const ph = filtered.map((_, i) => `$${i + 1}`).join(','); members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.department_id IN (${ph}) AND u.status='active' ORDER BY d.display_order, d.id, u.full_name`, filtered); }
+        } else {
+            // NV: show own dept members (only those in PHÒNG KINH DOANH tree)
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [req.user.id]);
+            if (user && user.department_id && kdDeptIds.includes(user.department_id)) {
+                members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.department_id = $1 AND u.status='active' ORDER BY u.full_name`, [user.department_id]);
+            }
         }
         // Build ordered array — always include all KD depts (even empty)
         const deptOrder = kdDepts.map(d => d.id);
