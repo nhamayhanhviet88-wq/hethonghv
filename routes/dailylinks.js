@@ -613,7 +613,7 @@ module.exports = async function (fastify) {
             let compStatus = null;
             for (const lt2 of matchingLTs) {
                 const comp = await db.get(
-                    "SELECT status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY version DESC LIMIT 1",
+                    "SELECT status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY id DESC LIMIT 1",
                     [lt2.id, uid, dateStr]
                 );
                 if (comp) { compStatus = comp.status; break; }
