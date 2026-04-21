@@ -405,6 +405,20 @@ async function lockTaskRoutes(fastify, options) {
             }
         }
         // ========== END ZALO SPAM CHECK ==========
+
+        // ========== SETUP SPAM ZALO CHECK ==========
+        if (task && task.task_name && task.task_name.toLowerCase().includes('setup spam zalo')) {
+            const pendingSpam = await db.get(
+                `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
+            );
+            const cnt = Number(pendingSpam.c);
+            if (cnt > 0) {
+                return reply.code(400).send({
+                    error: `KHÔNG THỂ BÁO CÁO — Còn ${cnt} nhóm QL Chưa Spam chưa xử lý.\nVui lòng vào trang "Nhóm Spam Zalo" → ấn 📸 Đánh dấu Spam cho từng nhóm.\nCông việc sẽ tự động hoàn thành khi spam hết.`
+                });
+            }
+        }
+        // ========== END SETUP SPAM ZALO CHECK ==========
         const lastCompletion = await db.get(
             `SELECT redo_count, status FROM lock_task_completions
              WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3

@@ -1375,6 +1375,45 @@ module.exports = async function (fastify) {
                 }
             }
         }
+
+        // ========== AUTO-COMPLETE "Setup Spam Zalo" TASK ==========
+        try {
+            const remainingCount = await db.get(
+                `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
+            );
+            if (Number(remainingCount.c) === 0) {
+                // All QL Chưa Spam groups are done → auto-complete the task
+                const nowVN = new Date(Date.now() + 7 * 3600000);
+                const todayStr = nowVN.toISOString().split('T')[0];
+                const dayOfWeek = nowVN.getDay(); // 0=Sun...3=Wed
+                // Find "Setup Spam Zalo" task assigned to this user
+                const spamTask = await db.get(
+                    `SELECT lt.id FROM lock_tasks lt
+                     JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                     WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+                       AND lta.user_id = $1
+                     LIMIT 1`, [req.user.id]
+                );
+                if (spamTask) {
+                    // Check if not already completed today
+                    const existing = await db.get(
+                        `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
+                        [spamTask.id, req.user.id, todayStr]
+                    );
+                    if (!existing) {
+                        await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
+                             VALUES ($1, $2, $3, 0, $4, $5, 'approved', 0)
+                             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm QL Chưa Spam']
+                        );
+                        console.log(`[ZaloSpam] Auto-completed "Setup Spam Zalo" for user ${req.user.id} on ${todayStr}`);
+                    }
+                }
+            }
+        } catch (autoErr) { console.error('[ZaloSpam] Auto-complete check error:', autoErr); }
+        // ========== END AUTO-COMPLETE ==========
+
         return { success: true, screenshot: screenshotPath };
     });
 
