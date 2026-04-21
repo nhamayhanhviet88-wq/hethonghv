@@ -1069,7 +1069,7 @@ module.exports = async function (fastify) {
             ? await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1', [taskId])
             : await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
         if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
-        await db.run(`UPDATE zalo_daily_tasks SET status = 'no_result' WHERE id = $1`, [taskId]);
+        await db.run(`UPDATE zalo_daily_tasks SET status = 'no_result', updated_at = NOW() WHERE id = $1`, [taskId]);
         return { success: true };
     });
 
@@ -1102,6 +1102,7 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_screenshot TEXT`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_by INTEGER`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_at TIMESTAMP`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_daily_tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`); } catch(e) { /* already exists */ }
 
     // ========== AUTO-COMPLETE: Thông Báo Gr Zalo Spam Được ==========
     // After each mark, check if ALL results are marked → auto-complete lock task

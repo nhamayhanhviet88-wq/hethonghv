@@ -364,7 +364,7 @@ function _zlRenderTasks(res) {
                 <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
-                <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
+                <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${t.updated_at ? new Date(t.updated_at).toLocaleDateString('vi-VN') + '<br>' + new Date(t.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
             </tr>`);
         }
     });
