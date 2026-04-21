@@ -1201,13 +1201,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (existing) {
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW()
-                             WHERE id = $5`,
-                            [tmplQty, tmplEarned, tmplQty, tmplTarget, existing.id]
+                             status = 'approved'
+                             WHERE id = $3`,
+                            [tmplQty, tmplEarned, existing.id]
                         );
                     } else {
-                        const status = tmplEarned > 0 ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -1288,13 +1287,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (existing) {
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW()
-                             WHERE id = $5`,
-                            [tmplQty, tmplEarned, tmplQty, tmplTarget, existing.id]
+                             status = 'approved'
+                             WHERE id = $3`,
+                            [tmplQty, tmplEarned, existing.id]
                         );
                     } else {
-                        const status = tmplEarned > 0 ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -1414,7 +1412,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         );
                     } else {
                         // Create new auto-scored report
-                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -1507,7 +1505,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             [tmplQty, tmplEarned, poEntryCount, tmplTarget, existing.id]
                         );
                     } else {
-                        const status = reachedTarget ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

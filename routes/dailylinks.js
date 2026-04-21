@@ -275,12 +275,13 @@ module.exports = async function (fastify) {
                     if (existing) {
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW() WHERE id = $5`,
-                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
+                             content = $3, report_value = $4,
+                             status = CASE WHEN $5 >= $6 THEN 'approved' ELSE status END
+                             WHERE id = $7`,
+                            [tmplQty, tmplEarned, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, entryCount, tmplTarget, existing.id]
                         );
                     } else {
-                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

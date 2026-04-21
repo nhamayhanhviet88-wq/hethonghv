@@ -352,7 +352,7 @@ async function taskScheduleRoutes(fastify, options) {
                         );
                         updated++;
                     } else {
-                        const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                        const status = 'approved';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -413,7 +413,7 @@ async function taskScheduleRoutes(fastify, options) {
                             );
                             updated++;
                         } else {
-                            const status = entryCount >= tmplTarget ? 'approved' : 'pending';
+                            const status = 'approved';
                             await db.run(
                                 `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
