@@ -503,16 +503,4 @@ async function _zpSubmitSpam(resultId) {
 
 function _zpLB(src) { if (typeof _dlOpenLB === 'function') { _dlOpenLB(src); } else { window.open(src,'_blank'); } }
 
-// ========== SPA ROUTING FOR BOTH PAGES ==========
-(function() {
-    // Only handle management page — timgrzalovathongke is handled by dailylinks.js → _dlInit → _zlInit
-    const ZP_PATH = '/hethongphanchiagrzalo';
-    const origRoute = window.handleRoute;
-    if (origRoute) {
-        window.handleRoute = function() {
-            origRoute.apply(this, arguments);
-            if (window.location.pathname === ZP_PATH) _zpInit();
-        };
-    }
-    if (window.location.pathname === ZP_PATH) setTimeout(_zpInit, 120);
-})();
+// Init is triggered by handleRoute switch case in app.js

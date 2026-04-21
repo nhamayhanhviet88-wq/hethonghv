@@ -951,8 +951,8 @@ async function handleRoute() {
             case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
             case 'nhantintimdoitackh': renderNhanTinTimDoiTacKHPage(content); break;
             case 'dailylinks': renderDailyLinksPage(content); break;
-            case 'timgrzalovathongke': if(typeof _dlInit==='function') _dlInit(); break;
-            case 'hethongphanchiagrzalo': if(typeof _zpInit==='function') _zpInit(); break;
+            case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
+            case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
             default: renderComingSoon(content); break;
         }
     } catch (err) {
