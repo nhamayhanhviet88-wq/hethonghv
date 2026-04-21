@@ -1098,6 +1098,10 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS marked_at TIMESTAMP`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_reason TEXT`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_image TEXT`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_status TEXT DEFAULT 'pending'`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_screenshot TEXT`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_by INTEGER`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_at TIMESTAMP`); } catch(e) { /* already exists */ }
 
     // ========== AUTO-COMPLETE: Thông Báo Gr Zalo Spam Được ==========
     // After each mark, check if ALL results are marked → auto-complete lock task
@@ -1357,7 +1361,7 @@ module.exports = async function (fastify) {
             }
         } catch (e) { console.error('[ZaloSpam] Image save error:', e); }
 
-        await db.run(`UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW() WHERE id = $3`, [screenshotPath, req.user.id, id]);
+        await db.run(`UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW(), marked_at = NOW() WHERE id = $3`, [screenshotPath, req.user.id, id]);
 
         // Check if all results for this task's pool link are done → mark pool as completed
         const taskR = await db.get('SELECT task_id FROM zalo_task_results WHERE id = $1', [id]);

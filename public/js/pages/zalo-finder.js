@@ -89,6 +89,7 @@ function _zlRenderToolbar() {
     const cHasZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible).length;
     const cSpamOk = allResults.filter(r => r.spam_eligible).length;
     const cSpamNo = allResults.filter(r => r.spam_not_eligible).length;
+    const cSpamDone = allResults.filter(r => r.spam_status === 'done').length;
     const cNoZalo = _zlTasks.filter(t => t.status === 'no_result').length;
     const btn = (f, label, icon, count) => {
         const active = _zlFilter === f;
@@ -99,6 +100,7 @@ function _zlRenderToolbar() {
     h += btn('has_zalo', 'Group Có Zalo', '✅', cHasZalo);
     h += btn('spam_ok', 'Zalo Spam Được', '🎯', cSpamOk);
     h += btn('spam_no', 'KHÔNG SPAM ĐƯỢC', '🚫', cSpamNo);
+    h += btn('spam_done', 'QUẢN LÝ ĐÃ SPAM', '📣', cSpamDone);
     h += btn('no_zalo', 'Group K Có Zalo', '❌', cNoZalo);
     h += '</div>';
     if (_zlViewUserId && isManager) {
@@ -196,6 +198,10 @@ function _zlRenderTasks(res) {
         resultFilter = r => r.spam_not_eligible;
         filtered = filtered.filter(t => t.results && t.results.some(resultFilter));
     }
+    else if (_zlFilter === 'spam_done') {
+        resultFilter = r => r.spam_status === 'done';
+        filtered = filtered.filter(t => t.results && t.results.some(resultFilter));
+    }
     else if (_zlFilter === 'no_zalo') filtered = filtered.filter(t => t.status === 'no_result');
     if (filtered.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">
@@ -235,7 +241,7 @@ function _zlRenderTasks(res) {
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:12px;font-weight:600;color:#374151;">${r.member_count || '—'}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${joinBtn}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${spamBtn}</td>
-                    ${(_zlFilter === 'spam_ok' || _zlFilter === 'spam_no') ? `
+                    ${(_zlFilter === 'spam_ok' || _zlFilter === 'spam_no' || _zlFilter === 'spam_done') ? `
                     <td style="padding:6px 8px;text-align:center;border-left:1px solid #e5e7eb;">${r.spam_image ? `<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;transition:transform .2s;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>` : '<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
                     <td style="padding:6px 8px;text-align:left;border-left:1px solid #e5e7eb;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason || '<span style="color:#9ca3af;">—</span>'}</td>
                     ` : ''}
@@ -260,7 +266,7 @@ function _zlRenderTasks(res) {
             </tr>`);
         }
     });
-    const showSpamCols = (_zlFilter === 'spam_ok' || _zlFilter === 'spam_no');
+    const showSpamCols = (_zlFilter === 'spam_ok' || _zlFilter === 'spam_no' || _zlFilter === 'spam_done');
     el.innerHTML = `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;">
             <thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1);color:white;">
