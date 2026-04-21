@@ -1339,7 +1339,7 @@ module.exports = async function (fastify) {
             return reply.code(403).send({ error: 'Chỉ quản lý mới được đánh dấu spam' });
         }
         const id = Number(req.params.id);
-        const { image_data } = req.body || {};
+        const { image_data, reason } = req.body || {};
         if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp ảnh minh chứng' });
 
         const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
@@ -1362,7 +1362,7 @@ module.exports = async function (fastify) {
             }
         } catch (e) { console.error('[ZaloSpam] Image save error:', e); }
 
-        await db.run(`UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW(), marked_at = NOW() WHERE id = $3`, [screenshotPath, req.user.id, id]);
+        await db.run(`UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW(), marked_at = NOW(), spam_reason = COALESCE($4, spam_reason) WHERE id = $3`, [screenshotPath, req.user.id, id, reason || null]);
 
         // Check if all results for this task's pool link are done → mark pool as completed
         const taskR = await db.get('SELECT task_id FROM zalo_task_results WHERE id = $1', [id]);

@@ -837,6 +837,7 @@ async function _zlPoolDel(id) {
 // ========== NHÓM SPAM ZALO — MANAGEMENT PAGE ==========
 const _ZP_GRAD = 'linear-gradient(135deg,#7c3aed,#6d28d9)';
 let _zpCurUser = null, _zpCurDept = null, _zpCachedDepts = [], _zpAllResults = [];
+let _zpFilter = 'pending_spam', _zpDateFilter = 'all', _zpCustomFrom = '', _zpCustomTo = '';
 
 function _zpInit() {
     const area = document.getElementById('contentArea');
@@ -844,221 +845,145 @@ function _zpInit() {
     document.getElementById('pageTitle').textContent = 'Nhóm Spam Zalo';
     area.innerHTML = `
     <div style="padding:0;">
-        <div style="background:white;padding:20px 32px;border-bottom:1px solid #e5e7eb;">
-            <div style="display:flex;align-items:center;gap:14px;">
-                <div style="width:42px;height:42px;border-radius:12px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(124,58,237,0.3);">📱</div>
-                <div><div style="font-size:20px;font-weight:800;color:#1e293b;letter-spacing:-0.3px;">Nhóm Spam Zalo</div>
-                <div style="font-size:12px;color:#6b7280;">Tổng hợp các nhóm Zalo từ nhân viên — quản lý đánh dấu đã spam</div></div>
-            </div>
-        </div>
-        <div style="display:flex;gap:0;min-height:calc(100vh - 140px);">
+        <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
             <div id="zpSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
             <div style="flex:1;padding:20px 24px;overflow-y:auto;background:#f1f5f9;">
-                <div id="zpSpamStats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;"></div>
-                <div id="zpSpamList" style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải...</div>
+                <div id="zpStats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;"></div>
+                <div id="zpDateBar" style="margin-bottom:14px;"></div>
+                <div id="zpToolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;"></div>
+                <div id="zpProgress" style="margin-bottom:16px;"></div>
+                <div id="zpTaskList">⏳ Đang tải...</div>
             </div>
         </div>
     </div>`;
-    _zpLoadSpamData();
+    _zpLoadSidebar();
+    _zpRenderDateBar();
+    _zpLoadData();
 }
 
-function _zpSelAll() { _zpCurUser = null; _zpCurDept = null; _zpRenderSidebar(); _zpRenderFiltered(); }
-function _zpSelDept(id) { _zpCurDept = id; _zpCurUser = null; _zpRenderSidebar(); _zpRenderFiltered(); }
-function _zpSelUser(id) { _zpCurUser = id; _zpCurDept = null; _zpRenderSidebar(); _zpRenderFiltered(); }
+function _zpSelAll() { _zpCurUser = null; _zpCurDept = null; _zpRenderSidebar(); _zpLoadData(); }
+function _zpSelDept(id) { _zpCurDept = id; _zpCurUser = null; _zpRenderSidebar(); _zpLoadData(); }
+function _zpSelUser(id) { _zpCurUser = id; _zpCurDept = null; _zpRenderSidebar(); _zpLoadData(); }
+function _zpSetFilter(f) { _zpFilter = f; _zpRenderToolbar(); _zpRenderTable(); }
+
+async function _zpLoadSidebar() {
+    try { const res = await apiCall('/api/dailylinks/members'); _zpCachedDepts = res.departments || []; _zpRenderSidebar(); } catch(e) { console.error(e); }
+}
 
 function _zpRenderSidebar() {
-    const sb = document.getElementById('zpSidebar');
-    if (!sb) return;
+    const sb = document.getElementById('zpSidebar'); if (!sb) return;
     const isAll = !_zpCurUser && !_zpCurDept;
-    let h = `<div style="margin-bottom:12px;">
-        <div onclick="_zpSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
-            background:${isAll ? _ZP_GRAD : '#eef2ff'};color:${isAll ? 'white' : '#4338ca'};
-            box-shadow:${isAll ? '0 3px 12px rgba(124,58,237,0.3)' : 'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div>
-    </div>
-    <div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
+    let h = `<div style="margin-bottom:12px;"><div onclick="_zpSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;background:${isAll?_ZP_GRAD:'#eef2ff'};color:${isAll?'white':'#4338ca'};box-shadow:${isAll?'0 3px 12px rgba(124,58,237,0.3)':'none'};">📊 Tất cả nhân viên</div></div><div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
     (_zpCachedDepts||[]).forEach(d => {
         const isDeptSel = _zpCurDept==d.id && !_zpCurUser;
-        const memberCount = d.members?.length || 0;
-        h += `<div style="margin-bottom:6px;">
-            <div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
-                background:${isDeptSel ? _ZP_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#334155'};transition:all .2s;border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">
-                🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${memberCount})</span>
-            </div>`;
+        h += `<div style="margin-bottom:6px;"><div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:${isDeptSel?_ZP_GRAD:'#f1f5f9'};color:${isDeptSel?'white':'#334155'};border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${d.members?.length||0})</span></div>`;
         (d.members||[]).forEach(m => {
             const isSel = _zpCurUser == m.id;
-            const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
-                background:${isSel ? _ZP_GRAD : 'transparent'};color:${isSel ? 'white' : '#475569'};transition:all .15s;"
-                onmouseover="if(!${isSel})this.style.background='#eef2ff'" onmouseout="if(!${isSel})this.style.background='transparent'">
-                <div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
-                <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
-            </div>`;
-        });
-        h += '</div>';
-    });
-    sb.innerHTML = h;
+            const ini = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;background:${isSel?_ZP_GRAD:'transparent'};color:${isSel?'white':'#475569'};" onmouseover="if(!${isSel})this.style.background='#eef2ff'" onmouseout="if(!${isSel})this.style.background='transparent'"><div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};">${ini}</div><span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span></div>`;
+        }); h += '</div>';
+    }); sb.innerHTML = h;
 }
 
-async function _zpLoadSpamData() {
+function _zpRenderDateBar() {
+    const el = document.getElementById('zpDateBar'); if (!el) return;
+    const opts = [['today','Hôm nay'],['yesterday','Hôm qua'],['7days','7 ngày'],['month','Tháng này'],['prev_month','Tháng trước'],['all','Tất cả'],['custom','Tùy chọn']];
+    let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+    opts.forEach(([v,l]) => { const a = _zpDateFilter===v; h += `<button onclick="_zpDateFilter='${v}';_zpRenderDateBar();_zpLoadData()" style="padding:6px 14px;border:1px solid ${a?'#7c3aed':'#d1d5db'};border-radius:8px;background:${a?_ZP_GRAD:'white'};color:${a?'white':'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${l}</button>`; });
+    if (_zpDateFilter==='custom') { h += ` <input type="date" value="${_zpCustomFrom}" onchange="_zpCustomFrom=this.value;_zpLoadData()" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;"> <input type="date" value="${_zpCustomTo}" onchange="_zpCustomTo=this.value;_zpLoadData()" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;">`; }
+    el.innerHTML = h + '</div>';
+}
+
+function _zpGetDateParams() {
+    const today = _vnTodayFE(), d = new Date(Date.now()+7*3600000);
+    switch(_zpDateFilter) {
+        case 'today': return {date:today};
+        case 'yesterday': { const y=new Date(d); y.setDate(y.getDate()-1); return {date:y.toISOString().split('T')[0]}; }
+        case '7days': { const f=new Date(d); f.setDate(f.getDate()-6); return {date_from:f.toISOString().split('T')[0],date_to:today}; }
+        case 'month': { return {date_from:new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0],date_to:today}; }
+        case 'prev_month': { const f=new Date(d.getFullYear(),d.getMonth()-1,1),t=new Date(d.getFullYear(),d.getMonth(),0); return {date_from:f.toISOString().split('T')[0],date_to:t.toISOString().split('T')[0]}; }
+        case 'all': return {date:'all'};
+        case 'custom': return (_zpCustomFrom&&_zpCustomTo)?{date_from:_zpCustomFrom,date_to:_zpCustomTo}:{date:'all'};
+        default: return {date:'all'};
+    }
+}
+
+async function _zpLoadData() {
     try {
-        const [res, memRes] = await Promise.all([
-            apiCall('/api/zalo-tasks/team?date=all'),
-            apiCall('/api/dailylinks/members')
-        ]);
-        _zpCachedDepts = memRes.departments || [];
-        _zpRenderSidebar();
-        const tasks = (res.tasks||[]).filter(t => t.results && t.results.length > 0);
+        const dp = _zpGetDateParams();
+        let url = '/api/zalo-tasks/team?';
+        url += (dp.date_from&&dp.date_to) ? 'date_from='+dp.date_from+'&date_to='+dp.date_to : 'date='+(dp.date||_vnTodayFE());
+        if (_zpCurUser) url += '&user_id='+_zpCurUser;
+        else if (_zpCurDept) url += '&dept_id='+_zpCurDept;
+        const res = await apiCall(url);
         _zpAllResults = [];
-        tasks.forEach(t => {
-            (t.results||[]).forEach(r => {
-                _zpAllResults.push({
-                    ...r,
-                    user_id: t.user_id,
-                    user_name: t.user_name || t.username,
-                    dept_name: t.dept_name || '',
-                    dept_id: t.dept_id || null,
-                    pool_url: t.pool_url || '',
-                    assigned_date: t.assigned_date
-                });
-            });
-        });
-        _zpRenderFiltered();
-    } catch(e) {
-        const el = document.getElementById('zpSpamList');
-        if (el) el.innerHTML = `<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`;
-    }
+        (res.tasks||[]).forEach(t => { (t.results||[]).forEach(r => {
+            if (r.spam_eligible || r.spam_status==='done') _zpAllResults.push({...r, user_id:t.user_id, user_name:t.user_name||t.username, pool_url:t.pool_url||''});
+        }); });
+        _zpRenderStats(); _zpRenderToolbar(); _zpRenderProgress(); _zpRenderTable();
+    } catch(e) { console.error(e); const el=document.getElementById('zpTaskList'); if(el) el.innerHTML=`<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`; }
 }
 
-function _zpRenderFiltered() {
-    let filtered = _zpAllResults;
-    if (_zpCurUser) {
-        filtered = filtered.filter(r => r.user_id == _zpCurUser);
-    } else if (_zpCurDept) {
-        const deptObj = _zpCachedDepts.find(d => d.id == _zpCurDept);
-        if (deptObj) {
-            const memberIds = (deptObj.members||[]).map(m => m.id);
-            filtered = filtered.filter(r => memberIds.includes(r.user_id));
-        }
-    }
-    const total = filtered.length;
-    const spammed = filtered.filter(r => r.spam_status === 'done').length;
-    const pending = total - spammed;
-    const statsEl = document.getElementById('zpSpamStats');
-    if (statsEl) {
-        statsEl.innerHTML = [
-            {l:'Tổng Nhóm Zalo',v:total,bg:_ZP_GRAD,icon:'📱'},
-            {l:'Đã Spam',v:spammed,bg:'linear-gradient(135deg,#10b981,#059669)',icon:'✅'},
-            {l:'Chưa Spam',v:pending,bg:'linear-gradient(135deg,#f59e0b,#d97706)',icon:'⏳'},
-        ].map(c => `<div style="flex:1;min-width:160px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><div style="font-size:26px;margin-bottom:4px;">${c.icon}</div><div style="font-size:28px;font-weight:900;">${c.v}</div><div style="font-size:11px;opacity:0.9;font-weight:600;margin-top:2px;">${c.l}</div></div>`).join('');
-    }
-    const byUser = {};
-    filtered.forEach(r => {
-        const key = r.user_name || 'Unknown';
-        if (!byUser[key]) byUser[key] = { dept: r.dept_name, results: [] };
-        byUser[key].results.push(r);
-    });
-    const listEl = document.getElementById('zpSpamList');
-    if (!listEl) return;
-    if (total === 0) {
-        listEl.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">Chưa có nhóm Zalo nào được tìm thấy.</div>';
-        return;
-    }
-    let h = '';
-    Object.entries(byUser).forEach(([name, data]) => {
-        const totalR = data.results.length;
-        const doneR = data.results.filter(r => r.spam_status === 'done').length;
-        const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-        h += `<div style="margin-bottom:16px;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-            <div style="padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e5e7eb;background:#fafbfc;">
-                <div style="width:36px;height:36px;border-radius:50%;background:${_ZP_GRAD};color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">${initials}</div>
-                <div style="flex:1;">
-                    <div style="font-weight:700;font-size:14px;color:#1e293b;">${name}</div>
-                    <div style="font-size:11px;color:#6b7280;">${data.dept} • ${totalR} nhóm • ${doneR} đã spam</div>
-                </div>
-                <div style="font-size:13px;font-weight:700;color:${doneR===totalR?'#16a34a':'#f59e0b'};">${Math.round(doneR/totalR*100)}%</div>
-            </div>`;
-        data.results.forEach(r => {
-            const done = r.spam_status === 'done';
-            const eName = (r.zalo_name||'').replace(/'/g,"\\'");
-            const eLink = (r.zalo_link||'').replace(/'/g,"\\'");
-            h += `<div style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid #f3f4f6;font-size:13px;background:${done?'#f0fdf4':'white'};">
-                <span style="font-weight:600;color:#1e293b;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_name}</span>
-                <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;text-decoration:none;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.zalo_link}</a>
-                ${done
-                    ? `<span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✅ Đã Spam</span>
-                       ${r.spam_screenshot ? `<img src="${r.spam_screenshot}" onclick="_zpLB(this.src)" style="width:32px;height:32px;border-radius:6px;cursor:pointer;object-fit:cover;">` : ''}`
-                    : `<button onclick="_zpSpamModal(${r.id},'${eName}','${eLink}')" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;white-space:nowrap;">📸 Đánh dấu Spam</button>`}
-            </div>`;
-        });
-        h += '</div>';
-    });
-    listEl.innerHTML = h;
+function _zpRenderStats() {
+    const el = document.getElementById('zpStats'); if (!el) return;
+    if (!document.getElementById('zlSparkleCSS')) { const s=document.createElement('style'); s.id='zlSparkleCSS'; s.textContent=`@keyframes zlSparkle{0%,100%{box-shadow:0 0 8px rgba(255,255,255,0.3),0 4px 15px rgba(0,0,0,0.15)}50%{box-shadow:0 0 20px rgba(255,255,255,0.6),0 0 40px rgba(255,255,255,0.2)}}`; document.head.appendChild(s); }
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    el.innerHTML = `<div onclick="_zpSetFilter('pending_spam')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#ef4444,#b91c1c);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'"><div style="font-size:28px;margin-bottom:4px;">🔥</div><div style="font-size:32px;font-weight:900;">${chua}</div><div style="font-size:13px;font-weight:800;margin-top:4px;opacity:0.95;">QL CHƯA SPAM</div></div>
+    <div onclick="_zpSetFilter('done_spam')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite .5s;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'"><div style="font-size:28px;margin-bottom:4px;">📣</div><div style="font-size:32px;font-weight:900;">${da}</div><div style="font-size:13px;font-weight:800;margin-top:4px;opacity:0.95;">QL ĐÃ SPAM</div></div>`;
 }
 
-// Spam modal with screenshot
-function _zpSpamModal(resultId, zaloName, zaloLink) {
-    let old = document.getElementById('zlModal');
-    if (old) old.remove();
-    _zlSpamImg = null;
-    const d = document.createElement('div'); d.id = 'zlModal';
-    d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
-    d.innerHTML = `
-    <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-        <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:18px 24px;border-radius:16px 16px 0 0;color:white;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:16px;font-weight:800;">📸 Đánh Dấu Đã Spam</div>
-                <button onclick="document.getElementById('zlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
-            </div>
-        </div>
-        <div style="padding:20px 24px;">
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-                <div style="font-size:12px;color:#991b1b;font-weight:600;">Nhóm: <strong>${zaloName}</strong></div>
-                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${zaloLink}</div>
-            </div>
-            <label style="font-weight:600;font-size:13px;color:#374151;">Ảnh minh chứng đã Spam <span style="color:#dc2626;">*</span></label>
-            <div style="margin-top:8px;">
-                <div id="zpSpamPreview" style="display:none;margin-bottom:10px;text-align:center;"></div>
-                <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:24px;border:2px dashed #d1d5db;border-radius:10px;cursor:pointer;background:#f9fafb;transition:all .2s;" onmouseover="this.style.borderColor='#dc2626'" onmouseout="this.style.borderColor='#d1d5db'">
-                    <span style="font-size:24px;">📷</span>
-                    <span style="font-size:13px;font-weight:600;color:#6b7280;">Chọn hoặc chụp ảnh</span>
-                    <input type="file" accept="image/*" capture="environment" onchange="_zpHandleSpamImg(this)" style="display:none;">
-                </label>
-            </div>
-            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
-                <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
-                <button onclick="_zpSubmitSpam(${resultId})" style="padding:10px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:700;font-size:13px;">✅ Xác nhận Spam</button>
-            </div>
-        </div>
-    </div>`;
+function _zpRenderToolbar() {
+    const tb = document.getElementById('zpToolbar'); if (!tb) return;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    const btn=(f,l,ic,c)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?'#7c3aed':'#d1d5db'};border-radius:8px;background:${a?'#ede9fe':'white'};color:${a?'#7c3aed':'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
+    tb.innerHTML = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da);
+}
+
+function _zpRenderProgress() {
+    const el = document.getElementById('zpProgress'); if (!el) return;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    const total=chua+da, pct=total>0?Math.min(100,Math.round(da/total*100)):0;
+    el.innerHTML = `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-weight:700;font-size:15px;color:#1e293b;">📣 Đã spam: <span style="color:#7c3aed;">${da}/${total}</span> nhóm</span><span style="font-size:13px;font-weight:700;color:${pct>=100?'#16a34a':'#f59e0b'};">${pct}%</span></div><div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${_ZP_GRAD};border-radius:4px;transition:width .5s;"></div></div></div>`;
+}
+
+function _zpRenderTable() {
+    const el = document.getElementById('zpTaskList'); if (!el) return;
+    let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
+    if (!f.length) { el.innerHTML='<div style="text-align:center;padding:60px;color:#9ca3af;">Không có nhóm nào.</div>'; return; }
+    const cp=(t)=>`<button onclick="navigator.clipboard.writeText('${t.replace(/'/g,"\\\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;" title="Copy">📋</button>`;
+    let rows=f.map((r,i)=>{
+        const sz=r.zalo_link.length>35?r.zalo_link.substring(0,35)+'...':r.zalo_link;
+        const sf=r.pool_url.length>40?r.pool_url.substring(0,40)+'...':r.pool_url;
+        const sc=r.spam_status==='done'?`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`:`<button onclick="_zpSpamModal(${r.id})" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;">📸 Đánh dấu Spam</button>`;
+        return `<tr style="border-bottom:1px solid #e5e7eb;background:${i%2===0?'white':'#f9fafb'};">
+        <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.user_name||''}</td>
+        <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.zalo_name||'—'}${r.zalo_name?cp(r.zalo_name):''}</td>
+        <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;">${sz}</a>${cp(r.zalo_link)}</td>
+        <td style="padding:8px 12px;"><a href="${r.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;">${sf}</a></td>
+        <td style="padding:8px;text-align:center;font-size:12px;font-weight:600;">${r.member_count||'—'}</td>
+        <td style="padding:8px;text-align:center;font-size:11px;color:#334155;">${r.join_status?'Đã Join':'—'}</td>
+        <td style="padding:8px;text-align:center;">${sc}</td>
+        <td style="padding:6px;text-align:center;">${r.spam_image?`<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;"/>`:'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
+        <td style="padding:6px 8px;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason||'<span style="color:#9ca3af;">—</span>'}</td>
+        <td style="padding:8px;text-align:center;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at?new Date(r.marked_at).toLocaleDateString('vi-VN')+'<br>'+new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'—'}</td></tr>`;
+    }).join('');
+    el.innerHTML=`<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:${_ZP_GRAD};color:white;"><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NV</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NHÓM</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK ZALO</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK GROUP</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TV</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">JOIN</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">SPAM</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">ẢNH</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">LÝ DO</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TIME</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function _zpSpamModal(resultId) {
+    let old=document.getElementById('zlModal'); if(old) old.remove(); _zlSpamImg=null;
+    const d=document.createElement('div'); d.id='zlModal'; d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(440px,92vw);" tabindex="-1"><div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;font-weight:800;">📸 Đánh Dấu Đã Spam</div><button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button></div><div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;"><div><label style="font-size:13px;font-weight:700;color:#334155;">📝 Lý do <span style="color:red;">*</span></label><textarea id="zpSpamReason" rows="3" placeholder="VD: Đã spam thành công..." style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:6px;"></textarea></div><div><label style="font-size:13px;font-weight:700;color:#334155;">📷 Hình ảnh <span style="color:red;">*</span></label><div id="zpImgPre" style="display:none;margin:8px 0;text-align:center;"><img id="zpImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid #dc2626;"/></div><div id="zpPasteZone" style="width:100%;padding:16px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;text-align:center;font-weight:700;font-size:13px;color:#64748b;box-sizing:border-box;margin-top:6px;"><div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Copy ảnh rồi nhấn Ctrl+V</div></div></div><button onclick="_zpSubmitSpam(${resultId})" style="padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:800;font-size:14px;">✅ Xác nhận Spam</button></div></div>`;
     document.body.appendChild(d);
-}
-
-function _zpHandleSpamImg(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        _zlSpamImg = e.target.result;
-        const preview = document.getElementById('zpSpamPreview');
-        if (preview) {
-            preview.style.display = 'block';
-            preview.innerHTML = `<img src="${_zlSpamImg}" style="max-width:100%;max-height:200px;border-radius:8px;border:2px solid #dc2626;">`;
-        }
-    };
-    reader.readAsDataURL(file);
+    d.addEventListener('paste',function(e){ const items=e.clipboardData?.items; if(!items) return; for(let i=0;i<items.length;i++){ if(items[i].type.startsWith('image/')){ e.preventDefault(); const reader=new FileReader(); reader.onload=function(ev){ _zlSpamImg=ev.target.result; const tag=document.getElementById('zpImgTag'),pre=document.getElementById('zpImgPre'),z=document.getElementById('zpPasteZone'); if(tag)tag.src=_zlSpamImg; if(pre)pre.style.display='block'; if(z)z.innerHTML='<div>✅ Đã dán ảnh — Ctrl+V để đổi</div>'; }; reader.readAsDataURL(items[i].getAsFile()); break; } } });
+    d.setAttribute('tabindex','-1'); d.focus();
 }
 
 async function _zpSubmitSpam(resultId) {
-    if (!_zlSpamImg) { showToast('Vui lòng chụp ảnh minh chứng!', 'error'); return; }
-    try {
-        await apiCall('/api/zalo-results/' + resultId + '/spam', 'POST', { image_data: _zlSpamImg });
-        document.getElementById('zlModal')?.remove();
-        showToast('✅ Đã đánh dấu Spam!');
-        _zpLoadSpamData();
-    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+    const reason=document.getElementById('zpSpamReason')?.value?.trim();
+    if(!reason){showToast('Vui lòng nhập lý do!','error');return;} if(!_zlSpamImg){showToast('Vui lòng dán ảnh (Ctrl+V)!','error');return;}
+    try{ await apiCall('/api/zalo-results/'+resultId+'/spam','POST',{image_data:_zlSpamImg,reason}); document.getElementById('zlModal')?.remove(); showToast('✅ Đã đánh dấu Spam!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
 }
 
-function _zpLB(src) { if (typeof _dlOpenLB === 'function') { _dlOpenLB(src); } else { window.open(src,'_blank'); } }
 
 // Init is triggered by handleRoute switch case in app.js
-
