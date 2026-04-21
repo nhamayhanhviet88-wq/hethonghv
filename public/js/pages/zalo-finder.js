@@ -1,5 +1,6 @@
 ﻿// ========== ZALO GROUP FINDER — CUSTOM UI ==========
 let _zlTasks = [], _zlStats = {}, _zlPoolStats = {}, _zlSpamImg = null;
+let _zlViewUserId = null, _zlViewDeptId = null, _zlCachedDepts = [];
 const _ZL_GRAD = 'linear-gradient(135deg,#0284c7,#0369a1)';
 const _ZL_ACCENT = '#0284c7';
 
@@ -7,38 +8,107 @@ function _zlInit() {
     const area = document.getElementById('contentArea');
     if (!area) return;
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
-    area.innerHTML = `
-    <div style="padding:20px 24px;max-width:1200px;margin:0 auto;">
-        <div id="zlGuide"></div>
-        <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
-        ${isManager ? `<div style="display:flex;gap:8px;margin-bottom:16px;">
-            <button onclick="_zlPoolModal()" style="padding:10px 18px;border:none;border-radius:10px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(2,132,199,0.3);font-family:'Segoe UI',sans-serif;">📥 Bơm Link Pool</button>
-            <button onclick="_zlPoolView()" style="padding:10px 18px;border:2px solid ${_ZL_ACCENT};border-radius:10px;background:white;color:${_ZL_ACCENT};cursor:pointer;font-weight:700;font-size:13px;font-family:'Segoe UI',sans-serif;">📊 Quản lý Pool</button>
-        </div>` : ''}
-        <div id="zlProgress" style="margin-bottom:16px;"></div>
-        <div id="zlTaskList"></div>
-    </div>`;
+    if (isManager) {
+        area.innerHTML = `
+        <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">
+            <div id="zlSidebar" style="width:240px;min-width:240px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;"></div>
+            <div style="flex:1;padding:20px 24px;overflow-y:auto;">
+                <div id="zlGuide"></div>
+                <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+                <div style="display:flex;gap:8px;margin-bottom:16px;">
+                    <button onclick="_zlPoolModal()" style="padding:10px 18px;border:none;border-radius:10px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(2,132,199,0.3);">📥 Bơm Link Pool</button>
+                    <button onclick="_zlPoolView()" style="padding:10px 18px;border:2px solid ${_ZL_ACCENT};border-radius:10px;background:white;color:${_ZL_ACCENT};cursor:pointer;font-weight:700;font-size:13px;">📊 Quản lý Pool</button>
+                </div>
+                <div id="zlProgress" style="margin-bottom:16px;"></div>
+                <div id="zlTaskList"></div>
+            </div>
+        </div>`;
+        _zlLoadSidebar();
+    } else {
+        area.innerHTML = `
+        <div style="padding:20px 24px;max-width:1200px;margin:0 auto;">
+            <div id="zlGuide"></div>
+            <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+            <div id="zlProgress" style="margin-bottom:16px;"></div>
+            <div id="zlTaskList"></div>
+        </div>`;
+    }
     _zlLoadGuide();
     _zlLoadTasks();
 }
 
-async function _zlLoadGuide() {
+async function _zlLoadSidebar() {
     try {
-        const res = await apiCall('/api/dailylinks/guide-url?module_type=tim_gr_zalo');
-        const el = document.getElementById('zlGuide');
-        if (!el || !res.guide_url) return;
-        el.innerHTML = `<a href="${res.guide_url}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 18px;margin-bottom:16px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;text-decoration:none;color:white;font-weight:800;font-size:14px;text-transform:uppercase;box-shadow:0 4px 15px rgba(245,158,11,0.35);border:2px solid #fbbf24;font-family:'Segoe UI',sans-serif;"><span style="font-size:18px;">📘</span>HƯỚNG DẪN CÔNG VIỆC: ${(res.task_name||'TÌM GR ZALO VÀ JOIN').toUpperCase()}<span style="margin-left:auto;">→</span></a>`;
-    } catch(e) {}
+        const res = await apiCall('/api/dailylinks/members');
+        _zlCachedDepts = res.departments || [];
+        _zlRenderSidebar();
+    } catch(e) { console.error(e); }
+}
+
+function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlRenderSidebar(); _zlLoadTasks(); }
+
+function _zlRenderSidebar() {
+    const sb = document.getElementById('zlSidebar');
+    if (!sb) return;
+    const isAll = !_zlViewUserId && !_zlViewDeptId;
+    let h = `<div style="margin-bottom:12px;">
+        <div onclick="_zlSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
+            background:${isAll ? _ZL_GRAD : '#e0f2fe'};color:${isAll ? 'white' : '#0369a1'};
+            box-shadow:${isAll ? '0 3px 12px rgba(2,132,199,0.3)' : 'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
+    (_zlCachedDepts||[]).forEach(d => {
+        const isDeptSel = _zlViewDeptId==d.id && !_zlViewUserId;
+        const memberCount = d.members?.length || 0;
+        h += `<div style="margin-bottom:6px;">
+            <div onclick="_zlSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
+                background:${isDeptSel ? _ZL_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#334155'};transition:all .2s;border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">
+                🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${memberCount})</span>
+            </div>`;
+        (d.members||[]).forEach(m => {
+            const isSel = _zlViewUserId == m.id;
+            const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+            h += `<div onclick="_zlSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
+                background:${isSel ? _ZL_GRAD : 'transparent'};color:${isSel ? 'white' : '#475569'};transition:all .15s;"
+                onmouseover="if(!${isSel})this.style.background='#e0f2fe'" onmouseout="if(!${isSel})this.style.background='transparent'">
+                <div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
+                <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
+            </div>`;
+        });
+        h += '</div>';
+    });
+    sb.innerHTML = h;
+}
+
+function _vnTodayFE() {
+    const now = new Date(Date.now() + 7 * 3600000);
+    return now.toISOString().split('T')[0];
 }
 
 async function _zlLoadTasks() {
     try {
-        const [taskRes, statsRes] = await Promise.all([
-            apiCall('/api/zalo-tasks/my'),
-            apiCall('/api/zalo-tasks/stats')
-        ]);
-        _zlTasks = taskRes.tasks || [];
-        _zlStats = statsRes;
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
+        let taskRes, statsRes;
+        if (isManager) {
+            let url = '/api/zalo-tasks/team?date=' + _vnTodayFE();
+            if (_zlViewUserId) url += '&user_id=' + _zlViewUserId;
+            else if (_zlViewDeptId) url += '&dept_id=' + _zlViewDeptId;
+            taskRes = await apiCall(url);
+            taskRes.tasks = taskRes.tasks || [];
+            taskRes.done = taskRes.tasks.filter(t => t.status === 'done' || t.status === 'no_result').length;
+            taskRes.quota = taskRes.tasks.length || 25;
+            _zlTasks = taskRes.tasks;
+            _zlStats = { today: taskRes.tasks.length, target: taskRes.quota, week: 0, month: 0 };
+        } else {
+            [taskRes, statsRes] = await Promise.all([
+                apiCall('/api/zalo-tasks/my'),
+                apiCall('/api/zalo-tasks/stats')
+            ]);
+            _zlTasks = taskRes.tasks || [];
+            _zlStats = statsRes;
+        }
         _zlRenderStats();
         _zlRenderProgress(taskRes);
         _zlRenderTasks(taskRes);
