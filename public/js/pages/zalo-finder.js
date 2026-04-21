@@ -1,12 +1,13 @@
-﻿// ========== ZALO GROUP FINDER — CUSTOM UI ==========
+// ========== ZALO GROUP FINDER — CUSTOM UI ==========
 let _zlTasks = [], _zlStats = {}, _zlPoolStats = {}, _zlSpamImg = null;
-let _zlViewUserId = null, _zlViewDeptId = null, _zlCachedDepts = [];
+let _zlViewUserId = null, _zlViewDeptId = null, _zlCachedDepts = [], _zlFilter = 'all';
 const _ZL_GRAD = 'linear-gradient(135deg,#0284c7,#0369a1)';
 const _ZL_ACCENT = '#0284c7';
 
 function _zlInit() {
     const area = document.getElementById('contentArea');
     if (!area) return;
+    _zlFilter = 'all';
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
     if (isManager) {
         area.innerHTML = `
@@ -15,10 +16,7 @@ function _zlInit() {
             <div style="flex:1;padding:20px 24px;overflow-y:auto;">
                 <div id="zlGuide"></div>
                 <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
-                <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <button onclick="_zlPoolModal()" style="padding:10px 18px;border:none;border-radius:10px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(2,132,199,0.3);">📥 Bơm Link Pool</button>
-                    <button onclick="_zlPoolView()" style="padding:10px 18px;border:2px solid ${_ZL_ACCENT};border-radius:10px;background:white;color:${_ZL_ACCENT};cursor:pointer;font-weight:700;font-size:13px;">📊 Quản lý Pool</button>
-                </div>
+                <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
                 <div id="zlProgress" style="margin-bottom:16px;"></div>
                 <div id="zlTaskList"></div>
             </div>
@@ -45,9 +43,10 @@ async function _zlLoadSidebar() {
     } catch(e) { console.error(e); }
 }
 
-function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSetFilter(f) { _zlFilter = f; _zlRenderToolbar(); _zlRenderTasks({done:0,quota:25}); }
 
 function _zlRenderSidebar() {
     const sb = document.getElementById('zlSidebar');
@@ -82,6 +81,26 @@ function _zlRenderSidebar() {
     sb.innerHTML = h;
 }
 
+function _zlRenderToolbar() {
+    const tb = document.getElementById('zlToolbar');
+    if (!tb) return;
+    const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
+    if (!isManager) { tb.innerHTML = ''; return; }
+    const hasZalo = _zlTasks.filter(t => t.results && t.results.length > 0).length;
+    const noZalo = _zlTasks.filter(t => t.status === 'no_result').length;
+    const btnStyle = (active) => `padding:8px 16px;border:2px solid ${active?_ZL_ACCENT:'#d1d5db'};border-radius:8px;background:${active?'#e0f2fe':'white'};color:${active?_ZL_ACCENT:'#6b7280'};cursor:pointer;font-weight:700;font-size:12px;transition:all .2s;`;
+    let h = '';
+    if (_zlViewUserId) {
+        h += `<button onclick="_zlPoolModal()" style="padding:8px 16px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(2,132,199,0.3);">📥 Bơm Link</button>`;
+    }
+    h += `<button onclick="_zlSetFilter('has_zalo')" style="${btnStyle(_zlFilter==='has_zalo')}">✅ Group Có Zalo (${hasZalo})</button>`;
+    h += `<button onclick="_zlSetFilter('no_zalo')" style="${btnStyle(_zlFilter==='no_zalo')}">❌ Group K Có Zalo (${noZalo})</button>`;
+    if (_zlFilter !== 'all') {
+        h += `<button onclick="_zlSetFilter('all')" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:12px;">🔄 Tất cả</button>`;
+    }
+    tb.innerHTML = h;
+}
+
 function _vnTodayFE() {
     const now = new Date(Date.now() + 7 * 3600000);
     return now.toISOString().split('T')[0];
@@ -110,11 +129,11 @@ async function _zlLoadTasks() {
             _zlStats = statsRes;
         }
         _zlRenderStats();
+        _zlRenderToolbar();
         _zlRenderProgress(taskRes);
         _zlRenderTasks(taskRes);
     } catch(e) { console.error(e); }
 }
-
 function _zlRenderStats() {
     const s = _zlStats, el = document.getElementById('zlStats');
     if (!el) return;
@@ -146,13 +165,16 @@ function _zlRenderProgress(res) {
 function _zlRenderTasks(res) {
     const el = document.getElementById('zlTaskList');
     if (!el) return;
-    if (_zlTasks.length === 0) {
+    let filtered = _zlTasks;
+    if (_zlFilter === 'has_zalo') filtered = filtered.filter(t => t.results && t.results.length > 0);
+    else if (_zlFilter === 'no_zalo') filtered = filtered.filter(t => t.status === 'no_result');
+    if (filtered.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">
-            ${res.pool_empty ? '⚠️ Pool đã hết link. Vui lòng liên hệ quản lý để bơm thêm link.' : 'Chưa có công việc hôm nay.'}
+            ${_zlFilter !== 'all' ? 'Không có group nào trong bộ lọc này.' : (res.pool_empty ? '⚠️ Pool đã hết link. Vui lòng liên hệ quản lý để bơm thêm link.' : 'Chưa có công việc hôm nay.')}
         </div>`;
         return;
     }
-    el.innerHTML = _zlTasks.map((t, i) => {
+    el.innerHTML = filtered.map((t, i) => {
         const isDone = t.status === 'done';
         const isNoResult = t.status === 'no_result';
         const statusBg = isDone ? '#dcfce7' : isNoResult ? '#fef3c7' : '#f0f9ff';
@@ -251,29 +273,24 @@ async function _zlDelResult(resultId) {
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
-// Pool modal — bulk import with source selection
-async function _zlPoolModal() {
+// Pool modal — simplified (no source dropdown)
+function _zlPoolModal() {
     let old = document.getElementById('zlModal');
     if (old) old.remove();
-    let srcHtml = '<option value="">-- Chọn nguồn --</option>';
-    try { const sr = await apiCall('/api/zalo-sources'); (sr.sources||[]).forEach(s => { srcHtml += `<option value="${s.id}">${s.icon} ${s.name}</option>`; }); } catch(e) {}
+    const userName = _zlCachedDepts.flatMap(d => d.members||[]).find(m => m.id == _zlViewUserId)?.full_name || '';
     const d = document.createElement('div'); d.id = 'zlModal';
     d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
     d.innerHTML = `
     <div style="background:white;border-radius:16px;width:min(550px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:${_ZL_GRAD};padding:18px 24px;border-radius:16px 16px 0 0;color:white;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:16px;font-weight:800;font-family:'Segoe UI',sans-serif;">📥 Bơm Link Pool</div>
+                <div style="font-size:16px;font-weight:800;">📥 Bơm Link cho ${userName}</div>
                 <button onclick="document.getElementById('zlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
             </div>
         </div>
         <div style="padding:20px 24px;">
-            <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Nguồn Group <span style="color:#dc2626;">*</span></label>
-                <select id="zlPoolSource" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;">${srcHtml}</select>
-            </div>
             <label style="font-weight:600;font-size:13px;color:#374151;">Dán danh sách link (mỗi dòng 1 link):</label>
-            <textarea id="zlPoolUrls" rows="10" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box;resize:vertical;font-family:monospace;" placeholder="https://example.com/group1\nhttps://example.com/group2"></textarea>
+            <textarea id="zlPoolUrls" rows="10" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box;resize:vertical;font-family:monospace;" placeholder="https://facebook.com/groups/123\nhttps://facebook.com/groups/456"></textarea>
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
                 <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
                 <button onclick="_zlPoolSubmit()" style="padding:10px 20px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;">📥 Bơm Link</button>
@@ -285,14 +302,13 @@ async function _zlPoolModal() {
 
 async function _zlPoolSubmit() {
     const raw = document.getElementById('zlPoolUrls')?.value || '';
-    const source_id = document.getElementById('zlPoolSource')?.value;
-    if (!source_id) { showToast('Vui lòng chọn nguồn group!', 'error'); return; }
     const urls = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (urls.length === 0) { showToast('Vui lòng nhập ít nhất 1 link!', 'error'); return; }
     try {
-        const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls, source_id: Number(source_id) });
+        const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls, user_id: _zlViewUserId });
         document.getElementById('zlModal')?.remove();
         showToast(`✅ Đã thêm ${res.added} link! ${res.duplicates > 0 ? `(${res.duplicates} trùng)` : ''}`);
+        _zlLoadTasks();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 

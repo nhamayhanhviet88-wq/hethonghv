@@ -1,4 +1,4 @@
-﻿// ========== DAILY LINKS — UNIFIED MODULE ==========
+// ========== DAILY LINKS — UNIFIED MODULE ==========
 // Handles: Add/Cmt, Đăng Video, Đăng Content, Đăng Group, Sedding, Tuyển Dụng
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -820,18 +820,32 @@ module.exports = async function (fastify) {
         if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
             return reply.code(403).send({ error: 'Chỉ quản lý mới được bơm link' });
         }
-        const { urls, source_id } = req.body || {};
+        const { urls, source_id, user_id } = req.body || {};
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
             return reply.code(400).send({ error: 'Vui lòng nhập danh sách link' });
         }
-        if (!source_id) return reply.code(400).send({ error: 'Vui lòng chọn nguồn group' });
         let added = 0, duplicates = 0;
+        const today = _vnToday();
         for (const rawUrl of urls) {
             const url = rawUrl.trim();
             if (!url) continue;
             const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
-            if (exists) { duplicates++; continue; }
-            await db.run('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4)', [url, 'available', req.user.id, Number(source_id)]);
+            if (exists) {
+                // If user_id specified and link exists but not assigned to this user today, create task
+                if (user_id) {
+                    const taskExists = await db.get('SELECT id FROM zalo_daily_tasks WHERE pool_id = $1 AND user_id = $2 AND assigned_date = $3', [exists.id, Number(user_id), today]);
+                    if (!taskExists) {
+                        await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [exists.id, Number(user_id), today, 'pending']);
+                        added++;
+                    } else { duplicates++; }
+                } else { duplicates++; }
+                continue;
+            }
+            const res = await db.run('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4)', [url, user_id ? 'assigned' : 'available', req.user.id, source_id ? Number(source_id) : null]);
+            const poolId = res.lastID || (await db.get("SELECT id FROM zalo_link_pool WHERE url = $1", [url]))?.id;
+            if (user_id && poolId) {
+                await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [poolId, Number(user_id), today, 'pending']);
+            }
             added++;
         }
         return { success: true, added, duplicates, total: added + duplicates };
