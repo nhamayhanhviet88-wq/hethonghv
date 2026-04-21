@@ -16,7 +16,7 @@ function _zlInit() {
             <div style="flex:1;padding:20px 24px;overflow-y:auto;">
                 <div id="zlGuide"></div>
                 <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
-                <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
+                <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;"></div>
                 <div id="zlProgress" style="margin-bottom:16px;"></div>
                 <div id="zlTaskList"></div>
             </div>
@@ -86,17 +86,24 @@ function _zlRenderToolbar() {
     if (!tb) return;
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
     if (!isManager) { tb.innerHTML = ''; return; }
-    const hasZalo = _zlTasks.filter(t => t.results && t.results.length > 0).length;
-    const noZalo = _zlTasks.filter(t => t.status === 'no_result').length;
-    const btnStyle = (active) => `padding:8px 16px;border:2px solid ${active?_ZL_ACCENT:'#d1d5db'};border-radius:8px;background:${active?'#e0f2fe':'white'};color:${active?_ZL_ACCENT:'#6b7280'};cursor:pointer;font-weight:700;font-size:12px;transition:all .2s;`;
-    let h = '';
+    const cAll = _zlTasks.length;
+    const cPending = _zlTasks.filter(t => t.status === 'pending').length;
+    const cHasZalo = _zlTasks.filter(t => t.results && t.results.length > 0 && !(t.results.some(r => r.spam_eligible))).length;
+    const cSpamOk = _zlTasks.filter(t => t.results && t.results.some(r => r.spam_eligible)).length;
+    const cNoZalo = _zlTasks.filter(t => t.status === 'no_result').length;
+    const btn = (f, label, icon, count) => {
+        const active = _zlFilter === f;
+        return `<button onclick="_zlSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${active?_ZL_ACCENT:'#d1d5db'};border-radius:8px;background:${active?'#e0f2fe':'white'};color:${active?_ZL_ACCENT:'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;transition:all .2s;white-space:nowrap;">${icon} ${label} (${count})</button>`;
+    };
+    let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center;">';
+    h += btn('all', 'Tất Cả', '📋', cAll);
+    h += btn('pending', 'Link Group Chưa Tìm', '🔍', cPending);
+    h += btn('has_zalo', 'Group Có Zalo', '✅', cHasZalo);
+    h += btn('spam_ok', 'Zalo Spam Được', '🎯', cSpamOk);
+    h += btn('no_zalo', 'Group K Có Zalo', '❌', cNoZalo);
+    h += '</div>';
     if (_zlViewUserId) {
-        h += `<button onclick="_zlPoolModal()" style="padding:8px 16px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(2,132,199,0.3);">📥 Bơm Link</button>`;
-    }
-    h += `<button onclick="_zlSetFilter('has_zalo')" style="${btnStyle(_zlFilter==='has_zalo')}">✅ Group Có Zalo (${hasZalo})</button>`;
-    h += `<button onclick="_zlSetFilter('no_zalo')" style="${btnStyle(_zlFilter==='no_zalo')}">❌ Group K Có Zalo (${noZalo})</button>`;
-    if (_zlFilter !== 'all') {
-        h += `<button onclick="_zlSetFilter('all')" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:12px;">🔄 Tất cả</button>`;
+        h += `<button onclick="_zlPoolModal()" style="padding:8px 18px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(2,132,199,0.3);white-space:nowrap;flex-shrink:0;">📥 Bơm Link</button>`;
     }
     tb.innerHTML = h;
 }
@@ -169,7 +176,9 @@ function _zlRenderTasks(res) {
     const el = document.getElementById('zlTaskList');
     if (!el) return;
     let filtered = _zlTasks;
-    if (_zlFilter === 'has_zalo') filtered = filtered.filter(t => t.results && t.results.length > 0);
+    if (_zlFilter === 'pending') filtered = filtered.filter(t => t.status === 'pending');
+    else if (_zlFilter === 'has_zalo') filtered = filtered.filter(t => t.results && t.results.length > 0 && !(t.results.some(r => r.spam_eligible)));
+    else if (_zlFilter === 'spam_ok') filtered = filtered.filter(t => t.results && t.results.some(r => r.spam_eligible));
     else if (_zlFilter === 'no_zalo') filtered = filtered.filter(t => t.status === 'no_result');
     if (filtered.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:60px;color:#9ca3af;font-size:15px;">
@@ -180,21 +189,32 @@ function _zlRenderTasks(res) {
     el.innerHTML = filtered.map((t, i) => {
         const isDone = t.status === 'done';
         const isNoResult = t.status === 'no_result';
-        const statusBg = isDone ? '#dcfce7' : isNoResult ? '#fef3c7' : '#f0f9ff';
-        const statusBorder = isDone ? '#86efac' : isNoResult ? '#fde68a' : '#bae6fd';
-        const statusIcon = isDone ? '✅' : isNoResult ? '❌' : '🔵';
+        const hasSpamEligible = t.results && t.results.some(r => r.spam_eligible);
+        const statusBg = hasSpamEligible ? '#eff6ff' : isDone ? '#dcfce7' : isNoResult ? '#fef3c7' : '#f0f9ff';
+        const statusBorder = hasSpamEligible ? '#93c5fd' : isDone ? '#86efac' : isNoResult ? '#fde68a' : '#bae6fd';
+        const statusIcon = hasSpamEligible ? '🎯' : isDone ? '✅' : isNoResult ? '❌' : '🔵';
         const shortUrl = t.pool_url.length > 60 ? t.pool_url.substring(0,60)+'...' : t.pool_url;
         let resultsHtml = '';
         if (t.results && t.results.length > 0) {
             resultsHtml = `<div style="margin-top:8px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
                 <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px;">Nhóm Zalo đã tìm (${t.results.length}):</div>
-                ${t.results.map(r => `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">
-                    <span style="color:#16a34a;">✓</span>
-                    <span style="font-weight:600;color:#1e293b;">${r.zalo_name}</span>
-                    <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;" onmouseover="this.style.color='#0284c7'" onmouseout="this.style.color='#6b7280'">${r.zalo_link.length>30?r.zalo_link.substring(0,30)+'...':r.zalo_link}</a>
-                    <button onclick="_zlDelResult(${r.id})" style="margin-left:auto;background:none;border:none;color:#dc2626;cursor:pointer;font-size:10px;padding:2px 4px;">🗑️</button>
-                    ${r.spam_status==='done' ? '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ Đã Spam</span>' : ''}
-                </div>`).join('')}
+                ${t.results.map(r => {
+                    const isEligible = r.spam_eligible;
+                    const eligibleBtn = r.spam_status === 'done'
+                        ? '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ Đã Spam</span>'
+                        : isEligible
+                            ? `<button onclick="_zlToggleSpamEligible(${r.id})" style="background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;padding:2px 8px;border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;">🎯 Spam Được</button>`
+                            : `<button onclick="_zlToggleSpamEligible(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:2px 8px;border-radius:5px;cursor:pointer;font-size:10px;font-weight:600;">Đánh dấu Spam Được</button>`;
+                    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;">
+                        <span style="color:#16a34a;">✓</span>
+                        <span style="font-weight:600;color:#1e293b;">${r.zalo_name}</span>
+                        <a href="${r.zalo_link}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;" onmouseover="this.style.color='#0284c7'" onmouseout="this.style.color='#6b7280'">${r.zalo_link.length>30?r.zalo_link.substring(0,30)+'...':r.zalo_link}</a>
+                        <span style="margin-left:auto;display:flex;gap:4px;align-items:center;">
+                            ${eligibleBtn}
+                            <button onclick="_zlDelResult(${r.id})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:10px;padding:2px 4px;">🗑️</button>
+                        </span>
+                    </div>`;
+                }).join('')}
             </div>`;
         }
         return `<div style="background:${statusBg};border:1.5px solid ${statusBorder};border-radius:12px;padding:14px 18px;margin-bottom:10px;transition:all .2s;">
@@ -272,6 +292,15 @@ async function _zlDelResult(resultId) {
     try {
         await apiCall('/api/zalo-results/' + resultId, 'DELETE');
         showToast('✅ Đã xóa!');
+        _zlLoadTasks();
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+}
+
+async function _zlToggleSpamEligible(resultId) {
+    try {
+        const res = await apiCall('/api/zalo-results/' + resultId + '/spam-eligible', 'POST');
+        if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
+        showToast(res.spam_eligible ? '🎯 Đã đánh dấu Spam Được!' : '↩️ Đã bỏ đánh dấu');
         _zlLoadTasks();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }

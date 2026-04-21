@@ -979,6 +979,21 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // Ensure spam_eligible column exists
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
+
+    // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
+    fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        const newVal = !result.spam_eligible;
+        await db.run('UPDATE zalo_task_results SET spam_eligible = $1 WHERE id = $2', [newVal, id]);
+        return { success: true, spam_eligible: newVal };
+    });
+
     // GET /api/zalo-tasks/team — Manager view: all tasks with results
     fastify.get('/api/zalo-tasks/team', { preHandler: [authenticate] }, async (req) => {
         const { date, user_id, dept_id, date_from, date_to } = req.query;
