@@ -1097,6 +1097,95 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS pending_join BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS marked_at TIMESTAMP`); } catch(e) { /* already exists */ }
 
+    // ========== AUTO-COMPLETE: Thông Báo Gr Zalo Spam Được ==========
+    // After each mark, check if ALL results are marked → auto-complete lock task
+    async function _autoCompleteZaloSpamTask(userId) {
+        try {
+            // Get ALL zalo results for this user
+            const allResults = await db.all(
+                `SELECT r.id, r.spam_eligible, r.spam_not_eligible, r.pending_join, r.marked_at
+                 FROM zalo_task_results r
+                 JOIN zalo_daily_tasks t ON r.task_id = t.id
+                 WHERE t.user_id = $1`, [userId]
+            );
+            if (allResults.length === 0) return; // No results at all
+
+            // Filter "Group Có Zalo": not yet spam_eligible or spam_not_eligible
+            const groupCoZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible);
+
+            // Calculate start of current week (Monday VN time)
+            const nowVN = new Date(Date.now() + 7 * 3600000);
+            const dayOfWeek = nowVN.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(nowVN);
+            weekStart.setDate(weekStart.getDate() + mondayOffset);
+            weekStart.setHours(0, 0, 0, 0);
+
+            // Check if any are still unmarked or outdated
+            for (const r of groupCoZalo) {
+                if (r.pending_join) {
+                    const markedAt = r.marked_at ? new Date(r.marked_at) : null;
+                    if (!markedAt || markedAt < weekStart) return; // outdated pending_join
+                } else {
+                    return; // Not marked at all
+                }
+            }
+
+            // ALL results are properly marked! Auto-complete the lock task
+            const todayStr = nowVN.toISOString().split('T')[0];
+
+            // Find lock task "Thông Báo Gr Zalo Spam Được" assigned to this user for today's weekday
+            const vnDayOfWeek = nowVN.getDay(); // 0=Sun...6=Sat
+            const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+            const todayDayCol = dayNames[vnDayOfWeek];
+
+            const lockTask = await db.get(
+                `SELECT lt.id, lt.task_name, lt.requires_approval
+                 FROM lock_tasks lt
+                 WHERE lt.is_active = true
+                   AND LOWER(lt.task_name) LIKE '%thông báo gr zalo spam%'
+                   AND lt.${todayDayCol} = true
+                 LIMIT 1`
+            );
+            if (!lockTask) return; // No matching lock task today
+
+            // Check if user is assigned to this lock task
+            const assignment = await db.get(
+                `SELECT 1 FROM lock_task_assignments WHERE lock_task_id = $1 AND user_id = $2`,
+                [lockTask.id, userId]
+            );
+            if (!assignment) return; // Not assigned
+
+            // Check if already completed today
+            const existing = await db.get(
+                `SELECT id, status FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
+                 ORDER BY redo_count DESC LIMIT 1`,
+                [lockTask.id, userId, todayStr]
+            );
+            if (existing && (existing.status === 'approved' || existing.status === 'pending')) return; // Already done
+
+            const redoCount = existing ? existing.redo_count + 1 : 0;
+            const status = lockTask.requires_approval ? 'pending' : 'approved';
+
+            // Build summary content
+            const spamOk = allResults.filter(r => r.spam_eligible).length;
+            const spamNo = allResults.filter(r => r.spam_not_eligible).length;
+            const pendingJoin = groupCoZalo.filter(r => r.pending_join).length;
+            const autoContent = `✅ Tự động hoàn thành — Đã đánh dấu tất cả ${allResults.length} nhóm: Spam Được (${spamOk}), Không Spam Được (${spamNo}), Chưa Tham Gia (${pendingJoin})`;
+
+            await db.run(
+                `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET content=$6, status=$7, quantity_done=$8, created_at=NOW()`,
+                [lockTask.id, userId, todayStr, redoCount, '', autoContent, status, 1]
+            );
+            console.log(`[ZaloSpam] Auto-completed lock task for user ${userId} on ${todayStr}`);
+        } catch(e) {
+            console.error('[ZaloSpam] Auto-complete error:', e.message);
+        }
+    }
+
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
@@ -1107,6 +1196,8 @@ module.exports = async function (fastify) {
         const newVal = !result.spam_eligible;
         // Mutually exclusive: clear spam_not_eligible when setting spam_eligible
         await db.run('UPDATE zalo_task_results SET spam_eligible = $1, spam_not_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
+        // Auto-complete check
+        await _autoCompleteZaloSpamTask(result.user_id);
         return { success: true, spam_eligible: newVal };
     });
 
@@ -1120,6 +1211,8 @@ module.exports = async function (fastify) {
         const newVal = !result.spam_not_eligible;
         // Mutually exclusive: clear spam_eligible when setting spam_not_eligible
         await db.run('UPDATE zalo_task_results SET spam_not_eligible = $1, spam_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
+        // Auto-complete check
+        await _autoCompleteZaloSpamTask(result.user_id);
         return { success: true, spam_not_eligible: newVal };
     });
 
@@ -1144,6 +1237,8 @@ module.exports = async function (fastify) {
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
         // Set pending_join, clear spam states so it stays in 'Group Có Zalo'
         await db.run('UPDATE zalo_task_results SET pending_join = TRUE, spam_eligible = FALSE, spam_not_eligible = FALSE, marked_at = NOW() WHERE id = $1', [id]);
+        // Auto-complete check
+        await _autoCompleteZaloSpamTask(result.user_id);
         return { success: true, pending_join: true };
     });
 
