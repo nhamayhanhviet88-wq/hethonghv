@@ -301,6 +301,46 @@ module.exports = async function (fastify) {
             console.error('[DailyLinks] Auto-score error (non-fatal):', scoreErr.message);
         }
 
+        // ===== BACKFILL: update lock_task_completions so penalty is cleared =====
+        if (req.body?.backfill_date) {
+            try {
+                const bfDate = req.body.backfill_date;
+                const uid = req.user.id;
+                const LOCK_PATTERNS = {
+                    addcmt: /add.*cmt.*đối.*tác/i, dang_video: /đăng.*video/i,
+                    dang_content: /đăng.*content/i, dang_group: /đăng.*tìm.*kh.*group/i,
+                    sedding: /sedding.*cộng.*đồng/i, dang_banthan_sp: /đăng.*bản.*thân/i,
+                    tim_gr_zalo: /tìm.*gr.*zalo/i, tuyen_dung: /tuyển.*dụng.*sv/i,
+                };
+                const ltPattern = LOCK_PATTERNS[module_type];
+                if (ltPattern) {
+                    const lockTasks = await db.all("SELECT id, task_name FROM lock_tasks WHERE is_active = true");
+                    const matchLTs = lockTasks.filter(lt => ltPattern.test(lt.task_name));
+                    for (const lt of matchLTs) {
+                        const comp = await db.get(
+                            "SELECT id, status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY id DESC LIMIT 1",
+                            [lt.id, uid, bfDate]
+                        );
+                        if (comp && comp.status !== 'approved') {
+                            await db.run(
+                                "UPDATE lock_task_completions SET status = 'approved', proof_url = $1, updated_at = NOW() WHERE id = $2",
+                                [fb_link.trim(), comp.id]
+                            );
+                            console.log(`[DailyLinks BACKFILL] Updated lock_task_completion id=${comp.id} to approved for ${bfDate}`);
+                        } else if (!comp) {
+                            await db.run(
+                                "INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, status, created_at, updated_at) VALUES ($1, $2, $3, $4, 'approved', NOW(), NOW())",
+                                [lt.id, uid, bfDate, fb_link.trim()]
+                            );
+                            console.log(`[DailyLinks BACKFILL] Created approved lock_task_completion for ${bfDate}`);
+                        }
+                    }
+                }
+            } catch(bfErr) {
+                console.error('[DailyLinks BACKFILL] Error updating lock completion (non-fatal):', bfErr.message);
+            }
+        }
+
         return { success: true };
       } catch(globalErr) {
         console.error(`[DailyLinks POST] GLOBAL ERROR:`, globalErr.message, globalErr.stack);
