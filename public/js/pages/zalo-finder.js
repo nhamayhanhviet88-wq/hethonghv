@@ -324,7 +324,7 @@ function _zlAddLinkInput() {
         <td style="padding:6px 4px;"><input class="zlLink" data-idx="${idx}" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;" placeholder="https://zalo.me/g/..." oninput="_zlOnLinkInput(this)"></td>
         <td style="padding:6px 2px;text-align:center;"><a class="zlOpenLink" href="#" target="_blank" style="font-size:16px;text-decoration:none;opacity:0.3;pointer-events:none;" title="Click để tham gia nhóm">🔗</a></td>
         <td style="padding:6px 4px;"><input class="zlName" style="width:100%;padding:8px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;" placeholder="Tên nhóm..." disabled></td>
-        <td style="padding:6px 4px;"><input class="zlMembers" type="number" style="width:100%;padding:8px 6px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;text-align:center;" placeholder="0" disabled></td>
+        <td style="padding:6px 4px;"><input class="zlMembers" type="number" min="0" max="999" style="width:100%;padding:8px 6px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;text-align:center;" placeholder="0" disabled oninput="if(this.value>999)this.value=999"></td>
         <td style="padding:6px 4px;text-align:center;"><input type="checkbox" class="zlJoined" style="width:18px;height:18px;cursor:pointer;" disabled title="Xác nhận đã tham gia nhóm"></td>
         <td style="padding:6px 2px;"><button onclick="this.closest('tr').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;padding:2px;">🗑️</button></td>
     `;
