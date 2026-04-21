@@ -107,7 +107,7 @@ function _zlRenderToolbar() {
     h += btn('spam_done', 'QUẢN LÝ ĐÃ SPAM', '📣', cSpamDone);
     h += btn('no_zalo', 'Group K Có Zalo', '❌', cNoZalo);
     h += '</div>';
-    if (_zlViewUserId && isManager) {
+    if (_zlViewUserId && isManager && _zlFilter === 'pending') {
         h += `<button onclick="_zlPoolModal()" style="padding:8px 18px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 2px 8px rgba(2,132,199,0.3);white-space:nowrap;flex-shrink:0;">📥 Bơm Link</button>`;
     }
     tb.innerHTML = h;
@@ -246,7 +246,7 @@ function _zlRenderStats() {
         document.head.appendChild(style);
     }
     el.innerHTML = `
-        <div style="flex:1;min-width:180px;background:${_ZL_GRAD};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
+        <div onclick="_zlSetFilter('pending')" style="flex:1;min-width:180px;background:${_ZL_GRAD};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);cursor:pointer;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
             <div style="font-size:28px;margin-bottom:4px;">📊</div>
             <div style="font-size:28px;font-weight:900;font-family:'Segoe UI',sans-serif;">${s.today||0}/${s.target||25}</div>
             <div style="font-size:12px;opacity:0.9;font-weight:600;margin-top:2px;">Hôm Nay</div>
