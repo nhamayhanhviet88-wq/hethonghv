@@ -352,20 +352,20 @@ function _zpInit() {
     if (!area) return;
     document.getElementById('pageTitle').textContent = 'Hệ Thống Phân Chia Gr Zalo';
     area.innerHTML = `
-    <div style="padding:20px 24px;max-width:1400px;margin:0 auto;">
-        <div style="margin-bottom:20px;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-                <div style="width:36px;height:36px;border-radius:10px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:18px;">📡</div>
-                <div><div style="font-size:18px;font-weight:800;color:#1e293b;">Hệ Thống Phân Chia Gr Zalo</div>
-                <div style="font-size:12px;color:#6b7280;">Quản lý data pool, phân chia và thống kê nhân viên</div></div>
+    <div style="padding:0;">
+        <div style="background:#0f172a;padding:24px 32px 0 32px;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+                <div style="width:40px;height:40px;border-radius:12px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(124,58,237,0.4);">📡</div>
+                <div><div style="font-size:20px;font-weight:800;color:white;letter-spacing:-0.3px;">Hệ Thống Phân Chia Gr Zalo</div>
+                <div style="font-size:12px;color:#94a3b8;">Quản lý data pool, phân chia và thống kê nhân viên</div></div>
+            </div>
+            <div style="display:flex;gap:0;margin-top:16px;">
+                <button onclick="_zpSwitchTab('team')" id="zpTabTeam" style="padding:12px 24px;border:none;background:rgba(124,58,237,0.15);color:#a78bfa;cursor:pointer;font-weight:700;font-size:13px;border-bottom:3px solid #7c3aed;transition:all .2s;border-radius:8px 8px 0 0;">📋 Data Pool</button>
+                <button onclick="_zpSwitchTab('groups')" id="zpTabGroups" style="padding:12px 24px;border:none;background:transparent;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;border-bottom:3px solid transparent;transition:all .2s;border-radius:8px 8px 0 0;">📊 Các Nhóm Có Zalo</button>
+                <button onclick="_zpSwitchTab('settings')" id="zpTabSettings" style="padding:12px 24px;border:none;background:transparent;color:#64748b;cursor:pointer;font-weight:600;font-size:13px;border-bottom:3px solid transparent;transition:all .2s;border-radius:8px 8px 0 0;">⚙️ Cài Đặt</button>
             </div>
         </div>
-        <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #e5e7eb;padding-bottom:0;">
-            <button onclick="_zpSwitchTab('team')" id="zpTabTeam" style="padding:10px 20px;border:none;border-bottom:3px solid #7c3aed;background:transparent;color:#7c3aed;cursor:pointer;font-weight:700;font-size:13px;transition:all .2s;">📋 Bơm Link Pool</button>
-            <button onclick="_zpSwitchTab('groups')" id="zpTabGroups" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#6b7280;cursor:pointer;font-weight:600;font-size:13px;transition:all .2s;">📊 Các Nhóm Có Zalo</button>
-            <button onclick="_zpSwitchTab('settings')" id="zpTabSettings" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:transparent;color:#6b7280;cursor:pointer;font-weight:600;font-size:13px;transition:all .2s;">⚙️ Cài Đặt</button>
-        </div>
-        <div id="zpTabContent"></div>
+        <div id="zpTabContent" style="padding:0;"></div>
     </div>`;
     _zpSwitchTab('team');
 }
@@ -375,21 +375,23 @@ function _zpSwitchTab(tab) {
     ['team','groups','settings'].forEach(t => {
         const btn = document.getElementById('zpTab' + t.charAt(0).toUpperCase() + t.slice(1));
         if (btn) {
-            btn.style.borderBottomColor = t === tab ? '#7c3aed' : 'transparent';
-            btn.style.color = t === tab ? '#7c3aed' : '#6b7280';
-            btn.style.fontWeight = t === tab ? '700' : '600';
+            const active = t === tab;
+            btn.style.borderBottomColor = active ? '#7c3aed' : 'transparent';
+            btn.style.color = active ? '#a78bfa' : '#64748b';
+            btn.style.fontWeight = active ? '700' : '600';
+            btn.style.background = active ? 'rgba(124,58,237,0.15)' : 'transparent';
         }
     });
     const area = document.getElementById('zpTabContent');
     if (!area) return;
     if (tab === 'team') {
         area.innerHTML = `
-        <div style="display:flex;gap:0;min-height:calc(100vh - 220px);">
-            <div id="zpSidebar" style="width:260px;min-width:260px;background:#f8fafc;border-right:1px solid #e5e7eb;padding:16px 12px;overflow-y:auto;border-radius:12px 0 0 12px;"></div>
-            <div style="flex:1;padding:20px 24px;overflow-y:auto;">
-                <div id="zpPoolStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
-                <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-                    <button onclick="_zlPoolModal()" style="padding:10px 18px;border:none;border-radius:10px;background:${_ZP_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(124,58,237,0.3);">📥 Bơm Link Pool</button>
+        <div style="display:flex;gap:0;min-height:calc(100vh - 160px);">
+            <div id="zpSidebar" style="width:280px;min-width:280px;background:#0f172a;border-right:1px solid #1e293b;padding:20px 16px;overflow-y:auto;"></div>
+            <div style="flex:1;padding:24px 28px;overflow-y:auto;background:#f1f5f9;">
+                <div id="zpPoolStats" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:24px;"></div>
+                <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                    <button onclick="_zlPoolModal()" style="padding:11px 22px;border:none;border-radius:10px;background:${_ZP_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(124,58,237,0.35);transition:transform .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">📥 Bơm Link Pool</button>
                 </div>
                 <div id="zpTeamView"></div>
             </div>
@@ -509,31 +511,27 @@ function _zpRenderSidebar(depts) {
     if (!sb) return;
     const isAll = !_zpCurUser && !_zpCurDept;
     let h = `<div style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <div style="width:32px;height:32px;border-radius:10px;background:${_ZP_GRAD};display:flex;align-items:center;justify-content:center;font-size:16px;">📡</div>
-            <div style="font-size:15px;font-weight:800;color:#122546;">Phân Chia Gr Zalo</div>
-        </div>
-        <div onclick="_zpSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;
-            background:${isAll ? _ZP_GRAD : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};
-            color:${isAll ? 'white' : '#475569'};
-            box-shadow:${isAll ? '0 3px 12px rgba(0,0,0,0.2)' : 'none'};
+        <div onclick="_zpSelAll()" style="padding:11px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;
+            background:${isAll ? _ZP_GRAD : 'rgba(255,255,255,0.05)'};
+            color:${isAll ? 'white' : '#94a3b8'};
+            box-shadow:${isAll ? '0 3px 12px rgba(124,58,237,0.4)' : 'none'};
             transition:all 0.2s ease;">📊 Tất cả nhân viên</div>
     </div>
-    <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
+    <div style="height:1px;background:linear-gradient(to right,transparent,#334155,transparent);margin:12px 0;"></div>`;
     (depts||[]).forEach((d, di) => {
         const isDeptSel = _zpCurDept==d.id && !_zpCurUser;
         h += `<div style="margin-bottom:8px;">
             <div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;
-                background:${isDeptSel ? _ZP_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#475569'};transition:all .2s;">
-                🏢 ${d.name} <span style="font-size:10px;opacity:0.7;">(${d.members.length})</span>
+                background:${isDeptSel ? _ZP_GRAD : 'rgba(255,255,255,0.04)'};color:${isDeptSel ? 'white' : '#cbd5e1'};transition:all .2s;">
+                🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${d.members.length})</span>
             </div>`;
         d.members.forEach(m => {
             const isSel = _zpCurUser == m.id;
             const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 24px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
-                background:${isSel ? _ZP_GRAD : 'transparent'};color:${isSel ? 'white' : '#334155'};transition:all .15s;"
-                onmouseover="if(!${isSel})this.style.background='#e2e8f0'" onmouseout="if(!${isSel})this.style.background='transparent'">
-                <div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
+            h += `<div onclick="_zpSelUser(${m.id})" style="padding:7px 10px 7px 24px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
+                background:${isSel ? _ZP_GRAD : 'transparent'};color:${isSel ? 'white' : '#94a3b8'};transition:all .15s;"
+                onmouseover="if(!${isSel})this.style.background='rgba(255,255,255,0.06)'" onmouseout="if(!${isSel})this.style.background='transparent'">
+                <div style="width:26px;height:26px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#1e293b'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
                 <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
             </div>`;
         });
