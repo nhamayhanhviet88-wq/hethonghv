@@ -594,10 +594,9 @@ function _zlOpenSpamForm(resultId, choice) {
                 <div id="zlSpamImgPreview" style="display:none;margin-bottom:8px;text-align:center;">
                     <img id="zlSpamImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid ${accentColor};"/>
                 </div>
-                <input type="file" id="zlSpamImgInput" accept="image/*" onchange="_zlSpamImgPreview(this)" style="display:none;">
-                <div id="zlSpamPasteZone" onclick="document.getElementById('zlSpamImgInput').click()" style="width:100%;padding:16px 12px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;cursor:pointer;font-weight:700;font-size:13px;transition:all .2s;text-align:center;box-sizing:border-box;" onmouseover="this.style.borderColor='${accentColor}';this.style.background='${bgColor}'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
-                    <div>📎 Chọn / Chụp hình ảnh</div>
-                    <div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">hoặc <strong style="color:#3b82f6;">Ctrl+V</strong> để dán ảnh từ clipboard</div>
+                <div id="zlSpamPasteZone" style="width:100%;padding:16px 12px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:700;font-size:13px;text-align:center;box-sizing:border-box;">
+                    <div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div>
+                    <div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">Copy ảnh rồi nhấn Ctrl+V tại đây</div>
                 </div>
             </div>
             <button onclick="_zlSubmitSpamForm(${resultId},'${choice}')" style="padding:14px;border:none;border-radius:10px;background:${isYes ? 'linear-gradient(135deg,#16a34a,#059669)' : 'linear-gradient(135deg,#dc2626,#b91c1c)'};color:white;cursor:pointer;font-weight:800;font-size:14px;font-family:'Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:all .2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">✅ Xác nhận báo cáo</button>
@@ -635,20 +634,6 @@ function _zlOpenSpamForm(resultId, choice) {
 }
 
 let _zlSpamImgData = null;
-function _zlSpamImgPreview(input) {
-    if (!input.files || !input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        _zlSpamImgData = e.target.result;
-        document.getElementById('zlSpamImgTag').src = _zlSpamImgData;
-        document.getElementById('zlSpamImgPreview').style.display = 'block';
-        const pasteZone = document.getElementById('zlSpamPasteZone');
-        if (pasteZone) {
-            pasteZone.innerHTML = '<div>✅ Đã chọn ảnh — Nhấn để đổi</div><div style="font-size:11px;font-weight:500;color:#94a3b8;margin-top:4px;">hoặc <strong style="color:#3b82f6;">Ctrl+V</strong> để dán ảnh khác</div>';
-        }
-    };
-    reader.readAsDataURL(input.files[0]);
-}
 
 async function _zlSubmitSpamForm(resultId, choice) {
     const reason = document.getElementById('zlSpamReason')?.value?.trim();
