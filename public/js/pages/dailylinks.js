@@ -731,14 +731,15 @@ async function _dlAddModal() {
             const pages = cpRes?.pages || [];
             if (pages.length > 0) {
                 communityHtml = `<div style="margin-bottom:16px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;">
-                    <div style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:8px 14px;display:flex;align-items:center;gap:6px;">
-                        <span style="color:white;font-weight:700;font-size:12px;">🌐 Trang Cộng Đồng — Click để mở (tab mới), sedding xong quay lại paste link</span>
+                    <div onclick="const l=document.getElementById('dlCPSuggest');const a=document.getElementById('dlCPArrow');if(l.style.display==='none'){l.style.display='block';a.textContent='▲'}else{l.style.display='none';a.textContent='▼'}" style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
+                        <span style="color:white;font-weight:700;font-size:12px;">🌐 Trang Cộng Đồng (${pages.length} trang) — Click để mở</span>
+                        <span id="dlCPArrow" style="color:white;font-size:14px;font-weight:700;">▼</span>
                     </div>
-                    <div style="padding:8px 12px;background:#fff7ed;max-height:180px;overflow-y:auto;">
-                        ${pages.map((p,i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;${i%2===0?'background:rgba(234,88,12,0.05);':''}">
-                            <span style="color:#ea580c;font-weight:800;font-size:11px;min-width:20px;">${i+1}.</span>
-                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;font-weight:600;font-size:13px;text-decoration:none;flex:1;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
-                            <a href="${p.url}" target="_blank" rel="noopener" style="background:#ea580c;color:white;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;text-decoration:none;white-space:nowrap;">Mở ↗</a>
+                    <div id="dlCPSuggest" style="display:none;padding:8px 12px;background:#fff7ed;max-height:250px;overflow-y:auto;">
+                        ${pages.map((p,i) => `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;${i%2===0?'background:rgba(234,88,12,0.05);':''}">
+                            <span style="color:#ea580c;font-weight:800;font-size:11px;min-width:22px;">${i+1}.</span>
+                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;font-weight:600;font-size:12px;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
+                            <a href="${p.url}" target="_blank" rel="noopener" style="background:#ea580c;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">Mở ↗</a>
                         </div>`).join('')}
                     </div>
                 </div>`;
