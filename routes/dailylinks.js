@@ -114,6 +114,16 @@ module.exports = async function (fastify) {
             console.log(`[DailyLinks POST] BACKFILL mode: saving to ${bfDate} instead of today`);
         }
         const linkLower = fb_link.trim().toLowerCase();
+
+        // Server-side link format validation per module
+        const _linkRules = {
+            dang_group: { check: l => l.includes('facebook.com/groups/'), err: 'Link phải là Facebook Group (chứa facebook.com/groups/)' },
+            dang_banthan_sp: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
+            sedding: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
+        };
+        if (_linkRules[module_type] && !_linkRules[module_type].check(linkLower)) {
+            return reply.code(400).send({ error: _linkRules[module_type].err });
+        }
         // Skip single-link dup check for addcmt and multi-link modules
         const isMultiLink = ['dang_video', 'dang_content'].includes(module_type);
         // ALL modules (except addcmt & multi-link) use GLOBAL uniqueness: no date filter
