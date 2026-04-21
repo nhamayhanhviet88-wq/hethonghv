@@ -815,6 +815,48 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // GET /api/zalo-fetch-info?url=... — Try to auto-fetch Zalo group name + member count
+    fastify.get('/api/zalo-fetch-info', { preHandler: [authenticate] }, async (req, reply) => {
+        const { url } = req.query;
+        if (!url) return reply.code(400).send({ error: 'URL required' });
+        try {
+            const https = require('https');
+            const http = require('http');
+            const mod = url.startsWith('https') ? https : http;
+            const html = await new Promise((resolve, reject) => {
+                const r = mod.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }, timeout: 5000 }, (res) => {
+                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                        // Follow redirect
+                        const rr = (res.headers.location.startsWith('https') ? https : http).get(res.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 }, (res2) => {
+                            let d = ''; res2.on('data', c => d += c); res2.on('end', () => resolve(d));
+                        });
+                        rr.on('error', reject); rr.on('timeout', () => { rr.destroy(); reject(new Error('timeout')); });
+                        return;
+                    }
+                    let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(d));
+                });
+                r.on('error', reject);
+                r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); });
+            });
+            // Parse og:title
+            const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)
+                || html.match(/<title[^>]*>([^<]+)<\/title>/i);
+            const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i);
+            const name = titleMatch ? titleMatch[1].trim() : '';
+            const desc = descMatch ? descMatch[1].trim() : '';
+            // Try to extract member count from description
+            const memberMatch = desc.match(/(\d+)\s*(thành viên|members|tv)/i) || desc.match(/(\d+)/);
+            const members = memberMatch ? parseInt(memberMatch[1]) : 0;
+            console.log(`[ZaloFetch] url=${url} name="${name}" members=${members}`);
+            return { name, members, description: desc };
+        } catch(e) {
+            console.log(`[ZaloFetch] Failed for ${url}: ${e.message}`);
+            return { name: '', members: 0, error: 'Không lấy được thông tin tự động' };
+        }
+    });
+
     // POST /api/zalo-pool/bulk — Manager bulk-import links (with source_id)
     fastify.post('/api/zalo-pool/bulk', { preHandler: [authenticate] }, async (req, reply) => {
         if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
@@ -953,8 +995,10 @@ module.exports = async function (fastify) {
     // POST /api/zalo-tasks/:id/results-bulk — Submit multiple zalo links at once
     fastify.post('/api/zalo-tasks/:id/results-bulk', { preHandler: [authenticate] }, async (req, reply) => {
         const taskId = Number(req.params.id);
-        const { links } = req.body || {};
-        if (!links || !Array.isArray(links) || links.length === 0) {
+        const { items } = req.body || {};
+        // Support both old format (links array) and new format (items array of objects)
+        const entries = items || (req.body.links || []).map(l => ({ link: l, name: '', members: 0 }));
+        if (!entries || !Array.isArray(entries) || entries.length === 0) {
             return reply.code(400).send({ error: 'Vui lòng nhập ít nhất 1 link' });
         }
         // Verify task ownership (employee) or manager
@@ -966,8 +1010,8 @@ module.exports = async function (fastify) {
 
         // First pass: check ALL links for duplicates across all employees
         let dupMessages = [];
-        for (const rawLink of links) {
-            const link = rawLink.trim();
+        for (const entry of entries) {
+            const link = (entry.link || '').trim();
             if (!link) continue;
             const dup = await db.get('SELECT r.id, t.user_id, u.full_name FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id LEFT JOIN users u ON t.user_id = u.id WHERE r.zalo_link = $1', [link]);
             if (dup) dupMessages.push({ link, owner: dup.full_name || 'NV khác' });
@@ -979,11 +1023,12 @@ module.exports = async function (fastify) {
 
         // All clean — insert all
         let added = 0;
-        for (const rawLink of links) {
-            const link = rawLink.trim();
+        for (const entry of entries) {
+            const link = (entry.link || '').trim();
             if (!link) continue;
-            const autoName = link.replace(/https?:\/\/(www\.)?/i, '').substring(0, 40);
-            await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link) VALUES ($1, $2, $3)', [taskId, autoName, link]);
+            const name = (entry.name || '').trim() || link.replace(/https?:\/\/(www\.)?/i, '').substring(0, 40);
+            const members = parseInt(entry.members) || 0;
+            await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link, member_count, join_status) VALUES ($1, $2, $3, $4, $5)', [taskId, name, link, members, true]);
             added++;
         }
         if (added > 0) {
@@ -1042,6 +1087,7 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS join_status BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_not_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0`); } catch(e) { /* already exists */ }
 
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
