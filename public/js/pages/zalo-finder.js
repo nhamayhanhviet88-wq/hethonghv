@@ -290,6 +290,7 @@ function _zlAddResultModal(taskId) {
             <div id="zlDupError"></div>
             <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;">
                 <thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1);">
+                    <th style="padding:10px 6px;font-size:11px;font-weight:700;color:white;text-align:center;width:36px;">STT</th>
                     <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;">LINK NHÓM ZALO</th>
                     <th style="padding:10px 4px;font-size:11px;font-weight:700;color:white;text-align:center;width:28px;">🔗</th>
                     <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;width:140px;">TÊN NHÓM</th>
@@ -321,15 +322,21 @@ function _zlAddLinkInput() {
     tr.className = 'zlRow';
     tr.style.cssText = 'border-bottom:1px solid #e5e7eb;';
     tr.innerHTML = `
+        <td class="zlStt" style="padding:6px 4px;text-align:center;font-weight:800;font-size:13px;color:#0369a1;"></td>
         <td style="padding:6px 4px;"><input class="zlLink" data-idx="${idx}" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;" placeholder="https://zalo.me/g/..." oninput="_zlOnLinkInput(this)"></td>
         <td style="padding:6px 2px;text-align:center;"><a class="zlOpenLink" href="#" target="_blank" style="font-size:16px;text-decoration:none;opacity:0.3;pointer-events:none;" title="Click để tham gia nhóm">🔗</a></td>
         <td style="padding:6px 4px;"><input class="zlName" style="width:100%;padding:8px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;" placeholder="Tên nhóm..." disabled></td>
         <td style="padding:6px 4px;"><input class="zlMembers" type="number" min="0" max="999" style="width:100%;padding:8px 6px;border:1px solid #d1d5db;border-radius:7px;font-size:12px;box-sizing:border-box;text-align:center;" placeholder="0" disabled oninput="if(this.value>999)this.value=999"></td>
         <td style="padding:6px 4px;text-align:center;"><input type="checkbox" class="zlJoined" style="width:18px;height:18px;cursor:pointer;" disabled title="Xác nhận đã tham gia nhóm"></td>
-        <td style="padding:6px 2px;"><button onclick="this.closest('tr').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;padding:2px;">🗑️</button></td>
+        <td style="padding:6px 2px;"><button onclick="this.closest('tr').remove();_zlUpdateStt()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;padding:2px;">🗑️</button></td>
     `;
     container.appendChild(tr);
+    _zlUpdateStt();
     tr.querySelector('.zlLink')?.focus();
+}
+function _zlUpdateStt() {
+    const rows = document.querySelectorAll('#zlLinkInputs .zlRow');
+    rows.forEach((tr, i) => { const stt = tr.querySelector('.zlStt'); if (stt) stt.textContent = i + 1; });
 }
 
 let _zlFetchTimer = {};
@@ -360,18 +367,17 @@ async function _zlSubmitResult(taskId) {
     const rows = document.querySelectorAll('#zlLinkInputs .zlRow');
     const items = [];
     let errors = [];
-    let rowIdx = 0;
-    rows.forEach((tr) => {
+    rows.forEach((tr, idx) => {
+        const sttNum = idx + 1;
         const link = tr.querySelector('.zlLink')?.value?.trim() || '';
         const name = tr.querySelector('.zlName')?.value?.trim() || '';
         const members = tr.querySelector('.zlMembers')?.value?.trim() || '';
         const joined = tr.querySelector('.zlJoined')?.checked || false;
         if (!link) return;
-        rowIdx++;
-        if (!name) errors.push('Hàng ' + rowIdx + ': Chưa nhập tên nhóm');
-        if (!members || members === '0') errors.push('Hàng ' + rowIdx + ': Chưa nhập số thành viên');
-        if (!joined) errors.push('Hàng ' + rowIdx + ': Chưa xác nhận đã tham gia');
-        items.push({ link, name, members: parseInt(members) || 0 });
+        if (!name) errors.push('STT ' + sttNum + ': Chưa nhập tên nhóm');
+        if (!members || members === '0') errors.push('STT ' + sttNum + ': Chưa nhập số thành viên');
+        if (!joined) errors.push('STT ' + sttNum + ': Chưa xác nhận đã tham gia');
+        items.push({ link, name, members: parseInt(members) || 0, stt: sttNum });
     });
     if (items.length === 0) { showToast('Vui lòng nhập ít nhất 1 link nhóm Zalo!', 'error'); return; }
     if (errors.length > 0) { showToast('⚠️ ' + errors[0], 'error'); return; }
@@ -383,8 +389,12 @@ async function _zlSubmitResult(taskId) {
             const errDiv = document.getElementById('zlDupError');
             if (errDiv) {
                 errDiv.style.cssText = 'background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:10px;';
-                errDiv.innerHTML = `<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px;">❌ Các link Zalo bị trùng — Xóa đi để lưu được:</div>
-                    ${res.duplicateLinks.map(d => `<div style="font-size:11px;color:#991b1b;padding:2px 0;">• ${d.link.substring(0,40)}... <span style="color:#6b7280;">(đã nhập bởi ${d.owner})</span></div>`).join('')}`;
+                const dupItems = res.duplicateLinks.map(d => {
+                    const matchItem = items.find(it => it.link === d.link);
+                    const sttLabel = matchItem ? 'STT ' + matchItem.stt + ': ' : '';
+                    return `<div style="font-size:11px;color:#991b1b;padding:2px 0;">• ${sttLabel}${d.link.substring(0,40)}... <span style="color:#6b7280;">(đã nhập bởi ${d.owner})</span></div>`;
+                }).join('');
+                errDiv.innerHTML = `<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px;">❌ Các link Zalo bị trùng — Xóa đi để lưu được:</div>${dupItems}`;
             }
             return;
         }
