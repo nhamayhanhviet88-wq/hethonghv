@@ -117,7 +117,7 @@ module.exports = async function (fastify) {
 
         // Server-side link format validation per module
         const _linkRules = {
-            dang_group: { check: l => l.includes('facebook.com/groups/'), err: 'Link phải là Facebook Group (chứa facebook.com/groups/)' },
+            dang_group: { check: l => l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')), err: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },
             dang_banthan_sp: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
             sedding: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
             tuyen_dung: { check: l => l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')), err: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },
