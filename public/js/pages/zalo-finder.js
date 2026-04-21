@@ -240,7 +240,7 @@ function _zlAddResultModal(taskId) {
     const d = document.createElement('div'); d.id = 'zlModal';
     d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
     d.innerHTML = `
-    <div style="background:white;border-radius:16px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:${_ZL_GRAD};padding:18px 24px;border-radius:16px 16px 0 0;color:white;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:16px;font-weight:800;font-family:'Segoe UI',sans-serif;">➕ Thêm nhóm Zalo</div>
@@ -248,14 +248,11 @@ function _zlAddResultModal(taskId) {
             </div>
         </div>
         <div style="padding:20px 24px;">
-            <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Tên nhóm Zalo <span style="color:#dc2626;">*</span></label>
-                <input id="zlResName" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="VD: Nhóm Sale Hà Nội" autofocus>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Link nhóm Zalo <span style="color:#dc2626;">*</span></label>
-                <input id="zlResLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://zalo.me/g/...">
-            </div>
+            <label style="font-weight:600;font-size:13px;color:#374151;">Link nhóm Zalo <span style="color:#6b7280;font-weight:400;">(mỗi ô 1 link)</span></label>
+            <div id="zlLinkInputs" style="margin-top:8px;"></div>
+            <button onclick="_zlAddLinkInput()" style="margin-top:8px;padding:6px 14px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700;font-size:12px;width:100%;">
+                ➕ Thêm link Zalo
+            </button>
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
                 <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;font-family:'Segoe UI',sans-serif;">Hủy</button>
                 <button onclick="_zlSubmitResult(${taskId})" style="padding:10px 20px;border:none;border-radius:8px;background:${_ZL_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;font-family:'Segoe UI',sans-serif;">💾 Lưu</button>
@@ -263,17 +260,43 @@ function _zlAddResultModal(taskId) {
         </div>
     </div>`;
     document.body.appendChild(d);
-    setTimeout(() => document.getElementById('zlResName')?.focus(), 100);
+    _zlAddLinkInput(); // Add first input automatically
+}
+
+let _zlLinkCount = 0;
+function _zlAddLinkInput() {
+    const container = document.getElementById('zlLinkInputs');
+    if (!container) return;
+    _zlLinkCount++;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+    row.innerHTML = `
+        <span style="font-size:12px;font-weight:700;color:#6b7280;min-width:18px;">${container.children.length + 1}.</span>
+        <input class="zlLinkField" style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;" placeholder="https://zalo.me/g/..." autofocus>
+        <button onclick="this.parentElement.remove();_zlReindexLinks()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:4px;">🗑️</button>
+    `;
+    container.appendChild(row);
+    row.querySelector('input')?.focus();
+}
+
+function _zlReindexLinks() {
+    const container = document.getElementById('zlLinkInputs');
+    if (!container) return;
+    Array.from(container.children).forEach((row, i) => {
+        const num = row.querySelector('span');
+        if (num) num.textContent = (i + 1) + '.';
+    });
 }
 
 async function _zlSubmitResult(taskId) {
-    const name = document.getElementById('zlResName')?.value?.trim();
-    const link = document.getElementById('zlResLink')?.value?.trim();
-    if (!name || !link) { showToast('Vui lòng nhập tên và link nhóm Zalo!', 'error'); return; }
+    const inputs = document.querySelectorAll('.zlLinkField');
+    const links = Array.from(inputs).map(i => i.value.trim()).filter(l => l.length > 0);
+    if (links.length === 0) { showToast('Vui lòng nhập ít nhất 1 link nhóm Zalo!', 'error'); return; }
     try {
-        await apiCall('/api/zalo-tasks/' + taskId + '/result', 'POST', { zalo_name: name, zalo_link: link });
+        const res = await apiCall('/api/zalo-tasks/' + taskId + '/results-bulk', 'POST', { links });
+        if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
         document.getElementById('zlModal')?.remove();
-        showToast('✅ Đã thêm nhóm Zalo!');
+        showToast(`✅ Đã thêm ${res.added || 0} nhóm Zalo!${res.duplicates > 0 ? ` (${res.duplicates} trùng)` : ''}`);
         _zlLoadTasks();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }

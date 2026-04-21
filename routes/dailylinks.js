@@ -949,6 +949,38 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
+    // POST /api/zalo-tasks/:id/results-bulk — Submit multiple zalo links at once
+    fastify.post('/api/zalo-tasks/:id/results-bulk', { preHandler: [authenticate] }, async (req, reply) => {
+        const taskId = Number(req.params.id);
+        const { links } = req.body || {};
+        if (!links || !Array.isArray(links) || links.length === 0) {
+            return reply.code(400).send({ error: 'Vui lòng nhập ít nhất 1 link' });
+        }
+        // Verify task ownership (employee) or manager
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        const task = isManager
+            ? await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1', [taskId])
+            : await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
+
+        let added = 0, duplicates = 0, dupMessages = [];
+        for (const rawLink of links) {
+            const link = rawLink.trim();
+            if (!link) continue;
+            // Check duplicate
+            const dup = await db.get('SELECT r.id, t.user_id, u.full_name FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id LEFT JOIN users u ON t.user_id = u.id WHERE r.zalo_link = $1', [link]);
+            if (dup) { duplicates++; dupMessages.push(`${link.substring(0,30)}... (${dup.full_name || 'NV khác'})`); continue; }
+            // Auto-generate name from link
+            const autoName = link.replace(/https?:\/\/(www\.)?/i, '').substring(0, 40);
+            await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link) VALUES ($1, $2, $3)', [taskId, autoName, link]);
+            added++;
+        }
+        if (added > 0) {
+            await db.run(`UPDATE zalo_daily_tasks SET status = 'done' WHERE id = $1`, [taskId]);
+        }
+        return { success: true, added, duplicates, dupMessages };
+    });
+
     // DELETE /api/zalo-results/:id — Delete a result
     fastify.delete('/api/zalo-results/:id', { preHandler: [authenticate] }, async (req, reply) => {
         const id = Number(req.params.id);
