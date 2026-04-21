@@ -104,8 +104,13 @@ function _dlInit() {
                 <div id="dlActionBtns" style="display:flex;gap:8px;align-items:center;"></div>
             </div>
             <div id="dlPlatformFilter" style="margin-bottom:12px;"></div>
-            <div id="dlCommunitySection"></div>
-            <div id="dlTable"></div>
+            <div id="dlTabBar"></div>
+            <div id="dlTabContent_links">
+                <div id="dlTable"></div>
+            </div>
+            <div id="dlTabContent_community" style="display:none;">
+                <div id="dlCommunitySection"></div>
+            </div>
         </div>
     </div>
     <div id="dlLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;align-items:center;justify-content:center;cursor:zoom-out;" onclick="_dlCloseLB()">
@@ -160,8 +165,11 @@ async function _dlLoadAll() {
     if (_dl.mod?.type === 'dang_group' && results[2]) _dl.categories = results[2].categories || [];
     _dlRenderSidebar(_dlCachedDepts);
     await _dlLoadData();
-    // Load community pages inline for sedding
-    if (_dl.mod?.type === 'sedding') _dlLoadCommunityInline();
+    // Render tabs and load community pages for sedding
+    if (_dl.mod?.type === 'sedding') {
+        _dlRenderTabs();
+        _dlLoadCommunityInline();
+    }
 }
 
 async function _dlLoadData() {
@@ -722,30 +730,6 @@ async function _dlAddModal() {
         return;
     }
 
-    // ===== COMMUNITY PAGE SUGGESTIONS for sedding =====
-    let communityHtml = '';
-    if (m.type === 'sedding') {
-        try {
-            const cpRes = await apiCall('/api/community-pages');
-            const pages = cpRes?.pages || [];
-            if (pages.length > 0) {
-                communityHtml = `<div style="margin-bottom:16px;border:1px solid #fed7aa;border-radius:10px;overflow:hidden;">
-                    <div onclick="const l=document.getElementById('dlCPSuggest');const a=document.getElementById('dlCPArrow');if(l.style.display==='none'){l.style.display='block';a.textContent='▲'}else{l.style.display='none';a.textContent='▼'}" style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
-                        <span style="color:white;font-weight:700;font-size:12px;">🌐 Trang Cộng Đồng (${pages.length} trang) — Click để mở</span>
-                        <span id="dlCPArrow" style="color:white;font-size:14px;font-weight:700;">▼</span>
-                    </div>
-                    <div id="dlCPSuggest" style="display:none;padding:8px 12px;background:#fff7ed;max-height:250px;overflow-y:auto;">
-                        ${pages.map((p,i) => `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;${i%2===0?'background:rgba(234,88,12,0.05);':''}">
-                            <span style="color:#ea580c;font-weight:800;font-size:11px;min-width:22px;">${i+1}.</span>
-                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;font-weight:600;font-size:12px;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
-                            <a href="${p.url}" target="_blank" rel="noopener" style="background:#ea580c;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">Mở ↗</a>
-                        </div>`).join('')}
-                    </div>
-                </div>`;
-            }
-        } catch(e) { /* ignore */ }
-    }
-
     // ===== DEFAULT MODAL (other modules) =====
     d.innerHTML=`
     <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -756,7 +740,6 @@ async function _dlAddModal() {
             </div>
         </div>
         <div style="padding:24px;">
-            ${communityHtml}
             ${!needImg ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
                 <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
@@ -1077,6 +1060,30 @@ function _dlBackfillSelect(dateStr) {
     }, 50);
 }
 
+// ========== TAB SYSTEM FOR SEDDING ==========
+let _dlActiveTab = 'links'; // 'links' or 'community'
+
+function _dlRenderTabs() {
+    const el = document.getElementById('dlTabBar');
+    if (!el) return;
+    const tabs = [
+        { key: 'links', label: '📋 Danh sách link báo cáo', icon: '📋' },
+        { key: 'community', label: '🌐 Trang Cộng Đồng', icon: '🌐' }
+    ];
+    el.innerHTML = `<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e5e7eb;">
+        ${tabs.map(t => `<button onclick="_dlSwitchTab('${t.key}')" id="dlTab_${t.key}" style="padding:10px 20px;border:none;border-bottom:3px solid ${_dlActiveTab===t.key?'#ea580c':'transparent'};background:${_dlActiveTab===t.key?'#fff7ed':'transparent'};color:${_dlActiveTab===t.key?'#ea580c':'#6b7280'};font-weight:${_dlActiveTab===t.key?'800':'600'};font-size:13px;cursor:pointer;transition:all .2s;" onmouseover="if('${t.key}'!==_dlActiveTab)this.style.color='#ea580c'" onmouseout="if('${t.key}'!==_dlActiveTab)this.style.color='#6b7280'">${t.label}</button>`).join('')}
+    </div>`;
+}
+
+function _dlSwitchTab(tab) {
+    _dlActiveTab = tab;
+    const linksEl = document.getElementById('dlTabContent_links');
+    const commEl = document.getElementById('dlTabContent_community');
+    if (linksEl) linksEl.style.display = tab === 'links' ? 'block' : 'none';
+    if (commEl) commEl.style.display = tab === 'community' ? 'block' : 'none';
+    _dlRenderTabs();
+}
+
 // ========== COMMUNITY PAGES — INLINE SECTION ON SEDDING PAGE ==========
 let _dlCommunityPages = [];
 
@@ -1096,53 +1103,43 @@ function _dlRenderCommunityInline() {
     const myId = currentUser.id;
 
     el.innerHTML = `
-    <div style="border:1px solid #fed7aa;border-radius:12px;overflow:hidden;margin-bottom:16px;">
-        <div onclick="const b=document.getElementById('dlCPBody');const a=document.getElementById('dlCPToggleArrow');if(b.style.display==='none'){b.style.display='block';a.textContent='▲'}else{b.style.display='none';a.textContent='▼'}" style="background:linear-gradient(135deg,#ea580c,#c2410c);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
-            <span style="color:white;font-weight:800;font-size:14px;">🌐 DANH SÁCH TRANG CỘNG ĐỒNG (${pages.length})</span>
-            <span id="dlCPToggleArrow" style="color:white;font-size:14px;font-weight:700;">▼</span>
+    <div style="margin-bottom:12px;padding:10px 16px;background:#fffbeb;border:1px solid #fed7aa;border-radius:10px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+            <input id="dlCPName" placeholder="Tên trang cộng đồng..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+            <input id="dlCPUrl" placeholder="Link (https://facebook.com/groups/...)" style="flex:1.5;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+            <button onclick="_dlCPAdd()" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;cursor:pointer;font-weight:700;font-size:13px;white-space:nowrap;box-shadow:0 2px 8px rgba(234,88,12,0.3);">＋ Thêm trang</button>
         </div>
-        <div id="dlCPBody" style="display:none;background:#fff7ed;">
-            <div style="padding:10px 16px;border-bottom:1px solid #fed7aa;background:#fffbeb;">
-                <div style="display:flex;gap:6px;align-items:center;">
-                    <input id="dlCPName" placeholder="Tên trang cộng đồng..." style="flex:1;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
-                    <input id="dlCPUrl" placeholder="Link (https://facebook.com/groups/...)" style="flex:1.5;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
-                    <button onclick="_dlCPAdd()" style="padding:7px 14px;border:none;border-radius:6px;background:#ea580c;color:white;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap;">＋ Thêm</button>
-                </div>
-            </div>
-            <div style="max-height:300px;overflow-y:auto;">
-            ${pages.length === 0 ? '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">Chưa có trang cộng đồng nào. Hãy thêm trang mới!</div>' :
-            `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-                <thead><tr style="background:#fef3c7;border-bottom:1px solid #fde68a;">
-                    <th style="padding:6px 10px;text-align:center;width:36px;">STT</th>
-                    <th style="padding:6px 10px;text-align:left;">TÊN TRANG</th>
-                    <th style="padding:6px 10px;text-align:left;">LINK</th>
-                    <th style="padding:6px 10px;text-align:center;width:90px;">NGƯỜI TẠO</th>
-                    <th style="padding:6px 10px;text-align:center;width:80px;"></th>
-                </tr></thead>
-                <tbody>${pages.map((p, i) => {
-                    const canEdit = p.created_by === myId || isGD;
-                    const shortUrl = p.url.length > 40 ? p.url.substring(0, 40) + '...' : p.url;
-                    return `<tr style="border-bottom:1px solid #fef3c7;${i%2===0?'background:rgba(234,88,12,0.03);':''}">
-                        <td style="padding:6px 10px;text-align:center;font-weight:700;color:#ea580c;">${i+1}</td>
-                        <td style="padding:6px 10px;font-weight:600;color:#1e293b;">
-                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
-                        </td>
-                        <td style="padding:6px 10px;">
-                            <a href="${p.url}" target="_blank" rel="noopener" style="color:#6b7280;text-decoration:none;font-size:11px;" onmouseover="this.style.color='#ea580c'" onmouseout="this.style.color='#6b7280'">${shortUrl}</a>
-                        </td>
-                        <td style="padding:6px 10px;text-align:center;font-size:11px;color:#6b7280;">${p.creator_name || '—'}</td>
-                        <td style="padding:6px 10px;text-align:center;">
-                            ${canEdit ? `<div style="display:flex;gap:3px;justify-content:center;">
-                                <button onclick="_dlCPEdit(${p.id})" style="padding:2px 6px;border:1px solid #bfdbfe;border-radius:4px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:10px;" title="Sửa">✏️</button>
-                                <button onclick="_dlCPDel(${p.id},'${p.name.replace(/'/g,"\\'")}')" style="padding:2px 6px;border:1px solid #fecaca;border-radius:4px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:10px;" title="Xóa">🗑️</button>
-                            </div>` : '<a href="'+p.url+'" target="_blank" rel="noopener" style="background:#ea580c;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-decoration:none;">Mở ↗</a>'}
-                        </td>
-                    </tr>`;
-                }).join('')}</tbody>
-            </table>`}
-            </div>
-        </div>
-    </div>`;
+    </div>
+    ${pages.length === 0 ? '<div style="text-align:center;padding:40px;color:#9ca3af;font-size:14px;">Chưa có trang cộng đồng nào. Hãy thêm trang mới!</div>' :
+    `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
+            <th style="padding:10px 12px;text-align:center;width:40px;">STT</th>
+            <th style="padding:10px 12px;text-align:left;">TÊN TRANG</th>
+            <th style="padding:10px 12px;text-align:left;">LINK</th>
+            <th style="padding:10px 12px;text-align:center;width:100px;">NGƯỜI TẠO</th>
+            <th style="padding:10px 12px;text-align:center;width:90px;">THAO TÁC</th>
+        </tr></thead>
+        <tbody>${pages.map((p, i) => {
+            const canEdit = p.created_by === myId || isGD;
+            const shortUrl = p.url.length > 50 ? p.url.substring(0, 50) + '...' : p.url;
+            return `<tr style="border-bottom:1px solid #f3f4f6;${i%2===0?'background:#fefce8;':''}">
+                <td style="padding:8px 12px;text-align:center;font-weight:700;color:#ea580c;">${i+1}</td>
+                <td style="padding:8px 12px;font-weight:600;">
+                    <a href="${p.url}" target="_blank" rel="noopener" style="color:#c2410c;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${p.name}</a>
+                </td>
+                <td style="padding:8px 12px;">
+                    <a href="${p.url}" target="_blank" rel="noopener" style="color:#6b7280;text-decoration:none;font-size:12px;" onmouseover="this.style.color='#ea580c'" onmouseout="this.style.color='#6b7280'">${shortUrl}</a>
+                </td>
+                <td style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">${p.creator_name || '—'}</td>
+                <td style="padding:8px 12px;text-align:center;">
+                    ${canEdit ? `<div style="display:flex;gap:4px;justify-content:center;">
+                        <button onclick="_dlCPEdit(${p.id})" style="padding:3px 8px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#2563eb;cursor:pointer;font-size:11px;font-weight:600;" title="Sửa">✏️ Sửa</button>
+                        <button onclick="_dlCPDel(${p.id},'${p.name.replace(/'/g,"\\'")}')" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600;" title="Xóa">🗑️ Xóa</button>
+                    </div>` : `<a href="${p.url}" target="_blank" rel="noopener" style="display:inline-block;background:#ea580c;color:white;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;">Mở ↗</a>`}
+                </td>
+            </tr>`;
+        }).join('')}</tbody>
+    </table>`}`;
 }
 
 async function _dlCPAdd() {
@@ -1155,11 +1152,6 @@ async function _dlCPAdd() {
         document.getElementById('dlCPUrl').value = '';
         showToast('✅ Đã thêm trang cộng đồng!');
         await _dlLoadCommunityInline();
-        // Keep expanded after adding
-        const body = document.getElementById('dlCPBody');
-        const arrow = document.getElementById('dlCPToggleArrow');
-        if (body) body.style.display = 'block';
-        if (arrow) arrow.textContent = '▲';
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
@@ -1175,8 +1167,6 @@ async function _dlCPEdit(id) {
         await apiCall('/api/community-pages/' + id, 'PUT', { name: newName.trim(), url: newUrl.trim() });
         showToast('✅ Đã cập nhật!');
         await _dlLoadCommunityInline();
-        document.getElementById('dlCPBody').style.display = 'block';
-        document.getElementById('dlCPToggleArrow').textContent = '▲';
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
@@ -1186,7 +1176,5 @@ async function _dlCPDel(id, name) {
         await apiCall('/api/community-pages/' + id, 'DELETE');
         showToast('✅ Đã xóa!');
         await _dlLoadCommunityInline();
-        document.getElementById('dlCPBody').style.display = 'block';
-        document.getElementById('dlCPToggleArrow').textContent = '▲';
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
