@@ -267,7 +267,7 @@ module.exports = async function (fastify) {
                     // Count total entries today
                     const countRes = await db.get('SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3', [uid, today, module_type]);
                     const entryCount = parseInt(countRes?.cnt || 0);
-                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
                     const tmplQty = Math.min(entryCount, tmplTarget);
 
                     const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, today]);

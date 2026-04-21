@@ -333,7 +333,7 @@ async function taskScheduleRoutes(fastify, options) {
                     if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
                 }
 
-                const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                const tmplEarned = entryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
                 const tmplQty = Math.min(entryCount, tmplTarget);
 
                 try {
@@ -389,7 +389,7 @@ async function taskScheduleRoutes(fastify, options) {
                         if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
                     }
 
-                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
                     const tmplQty = Math.min(entryCount, tmplTarget);
 
                     try {

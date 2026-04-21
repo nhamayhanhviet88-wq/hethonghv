@@ -1179,18 +1179,17 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const answeredCount = parseInt(answered?.cnt || 0);
                 if (answeredCount === 0) continue;
 
-                // Calculate proportional points
-                const target = info.totalTarget || 100;
-                const maxPoints = info.totalPoints || 50;
-                const earnedPoints = Math.round(Math.min(answeredCount, target) / target * maxPoints);
-                const reachedTarget = answeredCount >= target;
+                // Sequential consumption: sort templates by id, each consumes from pool
+                // All-or-nothing per template: if remaining < target → 0 points
+                const sortedTemplates = [...info.templates].sort((a, b) => (a.id || 0) - (b.id || 0));
+                let remaining = answeredCount;
 
-                // Update or create task_point_reports for each template
-                for (const tmpl of info.templates) {
+                for (const tmpl of sortedTemplates) {
                     const tmplTarget = tmpl.min_quantity || 50;
                     const tmplPoints = tmpl.points || 25;
-                    const tmplEarned = Math.round(Math.min(answeredCount, target) / target * tmplPoints);
-                    const tmplQty = Math.min(answeredCount, tmplTarget);
+                    const tmplEarned = remaining >= tmplTarget ? tmplPoints : 0;
+                    const tmplQty = Math.min(remaining, tmplTarget);
+                    if (tmplEarned > 0) remaining -= tmplTarget; // consume from pool
 
                     const existing = await db.get(
                         "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
@@ -1198,22 +1197,20 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     );
 
                     if (existing) {
-                        // Update existing report
                         await db.run(
                             `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
                              status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
                              updated_at = NOW()
                              WHERE id = $5`,
-                            [tmplQty, tmplEarned, answeredCount, target, existing.id]
+                            [tmplQty, tmplEarned, tmplQty, tmplTarget, existing.id]
                         );
                     } else {
-                        // Create new report
-                        const status = reachedTarget ? 'approved' : 'pending';
+                        const status = tmplEarned > 0 ? 'approved' : 'pending';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content)
                              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                             [tmpl.id, userId, todayCV, tmplQty, tmplEarned, status,
-                             `[Tự động] ${answeredCount}/${target} SĐT bắt máy`]
+                             `[Tự động] ${tmplQty}/${tmplTarget} SĐT bắt máy`]
                         );
                     }
                 }
@@ -1268,15 +1265,16 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const searchedCount = parseInt(ssCount?.cnt || 0);
                 if (searchedCount === 0) continue;
 
-                const target = info.totalTarget || 20;
-                const maxPoints = info.totalPoints || 10;
-                const reachedTarget = searchedCount >= target;
+                // Sequential consumption with all-or-nothing
+                const sortedSS = [...info.templates].sort((a, b) => (a.id || 0) - (b.id || 0));
+                let remainingSS = searchedCount;
 
-                for (const tmpl of info.templates) {
+                for (const tmpl of sortedSS) {
                     const tmplTarget = tmpl.min_quantity || 20;
                     const tmplPoints = tmpl.points || 10;
-                    const tmplEarned = Math.round(Math.min(searchedCount, target) / target * tmplPoints);
-                    const tmplQty = Math.min(searchedCount, tmplTarget);
+                    const tmplEarned = remainingSS >= tmplTarget ? tmplPoints : 0;
+                    const tmplQty = Math.min(remainingSS, tmplTarget);
+                    if (tmplEarned > 0) remainingSS -= tmplTarget;
 
                     const existing = await db.get(
                         "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
@@ -1289,15 +1287,15 @@ async function runDeadlineCheck(forceFullCheck = false) {
                              status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
                              updated_at = NOW()
                              WHERE id = $5`,
-                            [tmplQty, tmplEarned, searchedCount, target, existing.id]
+                            [tmplQty, tmplEarned, tmplQty, tmplTarget, existing.id]
                         );
                     } else {
-                        const status = reachedTarget ? 'approved' : 'pending';
+                        const status = tmplEarned > 0 ? 'approved' : 'pending';
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content)
                              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                             [tmpl.id, userId, todaySS, tmplQty, tmplEarned, status,
-                             `[Tự động] ${searchedCount}/${target} KH tự tìm kiếm`]
+                             `[Tự động] ${tmplQty}/${tmplTarget} KH tự tìm kiếm`]
                         );
                     }
                 }
@@ -1392,7 +1390,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         }
                     }
 
-                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : Math.round(entryCount / tmplTarget * tmplPoints);
+                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
                     const tmplQty = Math.min(entryCount, tmplTarget);
 
                     const existing = await db.get(
@@ -1485,7 +1483,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         }
                     }
 
-                    const tmplEarned = poEntryCount >= tmplTarget ? tmplPoints : Math.round(poEntryCount / tmplTarget * tmplPoints);
+                    const tmplEarned = poEntryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
                     const tmplQty = Math.min(poEntryCount, tmplTarget);
 
                     const existing = await db.get(
