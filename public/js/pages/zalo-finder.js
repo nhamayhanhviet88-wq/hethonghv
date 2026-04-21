@@ -7,7 +7,10 @@ const _ZL_ACCENT = '#0284c7';
 function _zlInit() {
     const area = document.getElementById('contentArea');
     if (!area) return;
-    _zlFilter = 'pending';
+    // Restore state from localStorage
+    _zlViewUserId = localStorage.getItem('zl_userId') ? Number(localStorage.getItem('zl_userId')) : null;
+    _zlViewDeptId = localStorage.getItem('zl_deptId') ? Number(localStorage.getItem('zl_deptId')) : null;
+    _zlFilter = localStorage.getItem('zl_filter') || 'pending';
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
     if (isManager) {
         area.innerHTML = `
@@ -43,10 +46,15 @@ async function _zlLoadSidebar() {
     } catch(e) { console.error(e); }
 }
 
-function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlFilter = 'pending'; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlFilter = 'pending'; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlFilter = 'pending'; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSetFilter(f) { _zlFilter = f; const done = _zlTasks.filter(t => t.status==='done'||t.status==='no_result').length; _zlRenderToolbar(); _zlRenderTasks({done, quota: _zlTasks.length||25}); }
+function _zlSaveState() {
+    if (_zlViewUserId) localStorage.setItem('zl_userId', _zlViewUserId); else localStorage.removeItem('zl_userId');
+    if (_zlViewDeptId) localStorage.setItem('zl_deptId', _zlViewDeptId); else localStorage.removeItem('zl_deptId');
+    localStorage.setItem('zl_filter', _zlFilter);
+}
+function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlFilter = 'pending'; _zlSaveState(); _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlFilter = 'pending'; _zlSaveState(); _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlFilter = 'pending'; _zlSaveState(); _zlRenderSidebar(); _zlLoadTasks(); }
+function _zlSetFilter(f) { _zlFilter = f; _zlSaveState(); const done = _zlTasks.filter(t => t.status==='done'||t.status==='no_result').length; _zlRenderToolbar(); _zlRenderTasks({done, quota: _zlTasks.length||25}); }
 
 function _zlRenderSidebar() {
     const sb = document.getElementById('zlSidebar');
