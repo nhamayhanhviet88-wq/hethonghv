@@ -44,6 +44,7 @@ const MENU_CONFIG = [
     { id: 'seddingcongdong', label: 'Sedding Cộng Đồng & Lẫn Nhau', icon: '🌐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/seddingcongdong' },
     { id: 'dangbanthansp', label: 'Đăng Bản Thân & Sản Phẩm', icon: '📸', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/dangbanthansp' },
     { id: 'timgrzalovathongke', label: 'Tìm Gr Zalo Và Join', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/timgrzalovathongke' },
+    { id: 'hethongphanchiagrzalo', label: 'Hệ Thống Phân Chia Gr Zalo', icon: '📡', roles: ['giam_doc','quan_ly_cap_cao','truong_phong'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/hethongphanchiagrzalo' },
     { id: 'tuyendungsvkd', label: 'Tuyển Dụng SV KD', icon: '🎓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/tuyendungsvkd' },
     { id: 'crm-nhu-cau', label: 'Chăm Sóc KH Nhu Cầu', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'KINH DOANH CHĂM SÓC' },
