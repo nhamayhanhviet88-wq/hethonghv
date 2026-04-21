@@ -960,7 +960,11 @@ module.exports = async function (fastify) {
     // POST /api/zalo-tasks/:id/no-result — Mark task as no result found
     fastify.post('/api/zalo-tasks/:id/no-result', { preHandler: [authenticate] }, async (req, reply) => {
         const taskId = Number(req.params.id);
-        const task = await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        // Managers can mark any task; employees can only mark their own
+        const task = isManager
+            ? await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1', [taskId])
+            : await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
         if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
         await db.run(`UPDATE zalo_daily_tasks SET status = 'no_result' WHERE id = $1`, [taskId]);
         return { success: true };

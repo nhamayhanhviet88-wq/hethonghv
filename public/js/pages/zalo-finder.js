@@ -46,7 +46,7 @@ async function _zlLoadSidebar() {
 function _zlSelAll() { _zlViewUserId = null; _zlViewDeptId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
 function _zlSelDept(id) { _zlViewDeptId = id; _zlViewUserId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
 function _zlSelUser(id) { _zlViewUserId = id; _zlViewDeptId = null; _zlFilter = 'all'; _zlRenderSidebar(); _zlLoadTasks(); }
-function _zlSetFilter(f) { _zlFilter = f; _zlRenderToolbar(); _zlRenderTasks({done:0,quota:25}); }
+function _zlSetFilter(f) { _zlFilter = f; const done = _zlTasks.filter(t => t.status==='done'||t.status==='no_result').length; _zlRenderToolbar(); _zlRenderTasks({done, quota: _zlTasks.length||25}); }
 
 function _zlRenderSidebar() {
     const sb = document.getElementById('zlSidebar');
@@ -204,7 +204,7 @@ function _zlRenderTasks(res) {
             ${resultsHtml}
             ${!isNoResult ? `<div style="display:flex;gap:6px;margin-top:10px;">
                 <button onclick="_zlAddResultModal(${t.id})" style="padding:6px 14px;border:none;border-radius:7px;background:#16a34a;color:white;cursor:pointer;font-weight:700;font-size:12px;font-family:'Segoe UI',sans-serif;">➕ Thêm nhóm Zalo</button>
-                ${t.status==='pending' ? `<button onclick="_zlNoResult(${t.id})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:7px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:12px;font-family:'Segoe UI',sans-serif;">❌ Không tìm thấy</button>` : ''}
+                ${t.status==='pending' || ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role) ? `<button onclick="_zlNoResult(${t.id})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:7px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:12px;font-family:'Segoe UI',sans-serif;">❌ Không tìm thấy</button>` : ''}
             </div>` : '<div style="margin-top:6px;font-size:12px;color:#92400e;font-weight:600;">Đã đánh dấu: Không tìm thấy nhóm Zalo</div>'}
         </div>`;
     }).join('');
