@@ -1038,9 +1038,10 @@ module.exports = async function (fastify) {
         console.log('[Migration] zalo_daily_tasks unique constraint updated');
     } catch(e) { console.log('[Migration] constraint already ok:', e.message); }
 
-    // Ensure spam_eligible + join_status columns exist
+    // Ensure spam_eligible + join_status + spam_not_eligible columns exist
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS join_status BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_not_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
 
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
@@ -1050,8 +1051,22 @@ module.exports = async function (fastify) {
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
         const newVal = !result.spam_eligible;
-        await db.run('UPDATE zalo_task_results SET spam_eligible = $1 WHERE id = $2', [newVal, id]);
+        // Mutually exclusive: clear spam_not_eligible when setting spam_eligible
+        await db.run('UPDATE zalo_task_results SET spam_eligible = $1, spam_not_eligible = FALSE WHERE id = $2', [newVal, id]);
         return { success: true, spam_eligible: newVal };
+    });
+
+    // POST /api/zalo-results/:id/spam-not-eligible — Mark as spam NOT eligible
+    fastify.post('/api/zalo-results/:id/spam-not-eligible', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        const newVal = !result.spam_not_eligible;
+        // Mutually exclusive: clear spam_eligible when setting spam_not_eligible
+        await db.run('UPDATE zalo_task_results SET spam_not_eligible = $1, spam_eligible = FALSE WHERE id = $2', [newVal, id]);
+        return { success: true, spam_not_eligible: newVal };
     });
 
     // POST /api/zalo-results/:id/join-status — Toggle join_status on a result
