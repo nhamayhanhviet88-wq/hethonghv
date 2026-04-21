@@ -951,6 +951,8 @@ async function handleRoute() {
             case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
             case 'nhantintimdoitackh': renderNhanTinTimDoiTacKHPage(content); break;
             case 'dailylinks': renderDailyLinksPage(content); break;
+            case 'timgrzalovathongke': break; // Handled by dailylinks.js → _dlInit → _zlInit
+            case 'hethongphanchiagrzalo': break; // Handled by zalo-finder.js → _zpInit
             default: renderComingSoon(content); break;
         }
     } catch (err) {
