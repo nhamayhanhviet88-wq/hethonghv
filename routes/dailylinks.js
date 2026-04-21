@@ -1089,6 +1089,7 @@ module.exports = async function (fastify) {
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_not_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS member_count INTEGER DEFAULT 0`); } catch(e) { /* already exists */ }
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS pending_join BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS marked_at TIMESTAMP`); } catch(e) { /* already exists */ }
 
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
@@ -1099,7 +1100,7 @@ module.exports = async function (fastify) {
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
         const newVal = !result.spam_eligible;
         // Mutually exclusive: clear spam_not_eligible when setting spam_eligible
-        await db.run('UPDATE zalo_task_results SET spam_eligible = $1, spam_not_eligible = FALSE WHERE id = $2', [newVal, id]);
+        await db.run('UPDATE zalo_task_results SET spam_eligible = $1, spam_not_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
         return { success: true, spam_eligible: newVal };
     });
 
@@ -1112,7 +1113,7 @@ module.exports = async function (fastify) {
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
         const newVal = !result.spam_not_eligible;
         // Mutually exclusive: clear spam_eligible when setting spam_not_eligible
-        await db.run('UPDATE zalo_task_results SET spam_not_eligible = $1, spam_eligible = FALSE WHERE id = $2', [newVal, id]);
+        await db.run('UPDATE zalo_task_results SET spam_not_eligible = $1, spam_eligible = FALSE, pending_join = FALSE, marked_at = NOW() WHERE id = $2', [newVal, id]);
         return { success: true, spam_not_eligible: newVal };
     });
 
@@ -1136,7 +1137,7 @@ module.exports = async function (fastify) {
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
         // Set pending_join, clear spam states so it stays in 'Group Có Zalo'
-        await db.run('UPDATE zalo_task_results SET pending_join = TRUE, spam_eligible = FALSE, spam_not_eligible = FALSE WHERE id = $1', [id]);
+        await db.run('UPDATE zalo_task_results SET pending_join = TRUE, spam_eligible = FALSE, spam_not_eligible = FALSE, marked_at = NOW() WHERE id = $1', [id]);
         return { success: true, pending_join: true };
     });
 

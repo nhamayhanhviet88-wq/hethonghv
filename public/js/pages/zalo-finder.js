@@ -233,6 +233,7 @@ function _zlRenderTasks(res) {
                     <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:12px;font-weight:600;color:#374151;">${r.member_count || '—'}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${joinBtn}</td>
                     <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">${spamBtn}</td>
+                    <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at ? new Date(r.marked_at).toLocaleDateString('vi-VN') + '<br>' + new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
                 </tr>`);
             });
         } else {
@@ -249,6 +250,7 @@ function _zlRenderTasks(res) {
                 <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
                 <td style="padding:8px 12px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
+                <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
             </tr>`);
         }
     });
@@ -262,6 +264,7 @@ function _zlRenderTasks(res) {
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">THÀNH VIÊN</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">JOIN NHÓM</th>
                 <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">SPAM ĐƯỢC HAY KHÔNG ?</th>
+                <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;white-space:nowrap;">TIME</th>
             </tr></thead>
             <tbody>${rows.join('')}</tbody>
         </table>
