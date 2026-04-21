@@ -449,36 +449,78 @@ async function _zpRenderSettingsTab(area) {
     try {
         const res = await apiCall('/api/zalo-sources');
         const sources = res.sources || [];
-        // Also get link counts per source
-        const poolRes = await apiCall('/api/zalo-pool?limit=1');
-        let rows = sources.map(s => `<tr style="border-bottom:1px solid #e5e7eb;">
+        let rows = sources.map(s => {
+            const eName = s.name.replace(/'/g,"\\'");
+            return `<tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:10px 14px;text-align:center;font-size:22px;">${s.icon}</td>
             <td style="padding:10px 14px;font-weight:600;font-size:14px;color:#1e293b;">${s.name}</td>
+            <td style="padding:10px 14px;text-align:center;"><span style="background:#eef2ff;color:#4338ca;padding:4px 12px;border-radius:6px;font-weight:700;font-size:13px;">${s.link_count||0}</span></td>
+            <td style="padding:10px 14px;text-align:center;"><button onclick="_zpImportToSource(${s.id},'${eName}')" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">📥 Import</button></td>
             <td style="padding:10px 14px;text-align:center;">
-                <button onclick="_zpEditSource(${s.id},'${s.name.replace(/'/g,"\\'")}','${s.icon}')" style="background:#f0f9ff;color:#0284c7;border:1px solid #bae6fd;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;margin-right:6px;">✏️ Sửa</button>
-                <button onclick="_zpDelSource(${s.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Xóa</button>
-            </td>
-        </tr>`).join('');
+                <button onclick="_zpEditSource(${s.id},'${eName}','${s.icon}')" style="background:#f0f9ff;color:#0284c7;border:1px solid #bae6fd;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;">✏️</button>
+                <button onclick="_zpDelSource(${s.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">🗑️</button>
+            </td></tr>`;
+        }).join('');
         area.innerHTML = `
-        <div style="background:#0f172a;border-radius:14px;padding:20px 24px;margin-bottom:20px;">
-            <div style="font-size:16px;font-weight:800;color:white;margin-bottom:4px;">⚙️ Cài Đặt Nguồn Group</div>
-            <div style="font-size:12px;color:#94a3b8;">Quản lý các nguồn nhóm group</div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-            <thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
-                <th style="padding:12px;width:60px;font-size:12px;color:#6b7280;font-weight:700;">ICON</th>
-                <th style="padding:12px;text-align:left;font-size:12px;color:#6b7280;font-weight:700;">TÊN NGUỒN</th>
-                <th style="padding:12px;width:160px;font-size:12px;color:#6b7280;font-weight:700;">THAO TÁC</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
-        <div style="margin-top:16px;padding:16px 20px;background:white;border-radius:12px;border:1px solid #e5e7eb;display:flex;gap:10px;align-items:center;">
-            <span style="font-size:13px;font-weight:600;color:#374151;">➕ Thêm Nguồn Mới:</span>
-            <input id="zpNewSrcIcon" value="📂" style="width:44px;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;text-align:center;">
-            <input id="zpNewSrcName" placeholder="Tên nguồn..." style="flex:1;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
-            <button onclick="_zpAddSource()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;font-size:13px;">Thêm</button>
+        <div style="padding:24px 28px;background:#f1f5f9;min-height:calc(100vh - 160px);">
+            <div style="background:white;border-radius:14px;padding:20px 24px;margin-bottom:20px;border:1px solid #e5e7eb;">
+                <div style="font-size:17px;font-weight:800;color:#1e293b;margin-bottom:4px;">⚙️ Cài Đặt Nguồn Group</div>
+                <div style="font-size:12px;color:#6b7280;">Quản lý các nguồn nhóm group — tạo nguồn rồi bấm Import để bơm link vào</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+                <thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
+                    <th style="padding:12px;width:60px;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;">Icon</th>
+                    <th style="padding:12px;text-align:left;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;">Tên Nguồn</th>
+                    <th style="padding:12px;width:80px;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;">Số Link</th>
+                    <th style="padding:12px;width:110px;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;">Import</th>
+                    <th style="padding:12px;width:100px;font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;">Thao Tác</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div style="margin-top:16px;padding:16px 20px;background:white;border-radius:12px;border:1px solid #e5e7eb;display:flex;gap:10px;align-items:center;">
+                <span style="font-size:13px;font-weight:600;color:#374151;">➕ Thêm Nguồn Mới:</span>
+                <input id="zpNewSrcIcon" value="📂" style="width:44px;padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;text-align:center;">
+                <input id="zpNewSrcName" placeholder="Tên nguồn..." style="flex:1;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <button onclick="_zpAddSource()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;cursor:pointer;font-weight:700;font-size:13px;">Thêm</button>
+            </div>
         </div>`;
     } catch(e) { area.innerHTML = `<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`; }
+}
+
+function _zpImportToSource(sourceId, sourceName) {
+    let old = document.getElementById('zlModal'); if (old) old.remove();
+    const d = document.createElement('div'); d.id = 'zlModal';
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    d.innerHTML = `
+    <div style="background:white;border-radius:16px;width:min(550px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="background:${_ZP_GRAD};padding:18px 24px;border-radius:16px 16px 0 0;color:white;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:16px;font-weight:800;">📥 Import Link → ${sourceName}</div>
+                <button onclick="document.getElementById('zlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
+            </div>
+        </div>
+        <div style="padding:20px 24px;">
+            <label style="font-weight:600;font-size:13px;color:#374151;">Dán danh sách link (mỗi dòng 1 link):</label>
+            <textarea id="zpImportUrls" rows="10" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box;resize:vertical;font-family:monospace;" placeholder="https://example.com/group1\nhttps://example.com/group2"></textarea>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+                <button onclick="document.getElementById('zlModal').remove()" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-weight:600;font-size:13px;">Hủy</button>
+                <button onclick="_zpImportSubmit(${sourceId})" style="padding:10px 20px;border:none;border-radius:8px;background:${_ZP_GRAD};color:white;cursor:pointer;font-weight:700;font-size:13px;">📥 Bơm Link</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(d);
+}
+
+async function _zpImportSubmit(sourceId) {
+    const raw = document.getElementById('zpImportUrls')?.value || '';
+    const urls = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (urls.length === 0) { showToast('Nhập ít nhất 1 link!', 'error'); return; }
+    try {
+        const res = await apiCall('/api/zalo-pool/bulk', 'POST', { urls, source_id: sourceId });
+        document.getElementById('zlModal')?.remove();
+        showToast(`✅ Đã thêm ${res.added} link! ${res.duplicates > 0 ? `(${res.duplicates} trùng)` : ''}`);
+        _zpSwitchTab('settings');
+    } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
 async function _zpLoadAll() {

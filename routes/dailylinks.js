@@ -786,7 +786,10 @@ module.exports = async function (fastify) {
 
     // ========== ZALO SOURCES CRUD ==========
     fastify.get('/api/zalo-sources', { preHandler: [authenticate] }, async () => {
-        return { sources: await db.all('SELECT * FROM zalo_sources ORDER BY sort_order, id') };
+        const sources = await db.all(`SELECT s.*, COALESCE(p.cnt,0)::int as link_count 
+            FROM zalo_sources s LEFT JOIN (SELECT source_id, COUNT(*) as cnt FROM zalo_link_pool GROUP BY source_id) p ON p.source_id = s.id 
+            ORDER BY s.sort_order, s.id`);
+        return { sources };
     });
     fastify.post('/api/zalo-sources', { preHandler: [authenticate] }, async (req, reply) => {
         if (!['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
