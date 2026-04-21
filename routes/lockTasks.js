@@ -357,7 +357,54 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         // Check redo count
-        const task = await db.get('SELECT requires_approval, max_redo_count FROM lock_tasks WHERE id = $1', [taskId]);
+        const task = await db.get('SELECT requires_approval, max_redo_count, task_name FROM lock_tasks WHERE id = $1', [taskId]);
+
+        // ========== ZALO SPAM CHECK ==========
+        // If task is "Thông Báo Gr Zalo Spam Được", validate all Group Có Zalo results
+        if (task && task.task_name && task.task_name.toLowerCase().includes('thông báo gr zalo spam')) {
+            // Get all zalo results for this user that are in "Group Có Zalo" state
+            // (has results, not spam_eligible, not spam_not_eligible)
+            const allResults = await db.all(
+                `SELECT r.id, r.zalo_name, r.zalo_link, r.spam_eligible, r.spam_not_eligible, r.pending_join, r.marked_at
+                 FROM zalo_task_results r
+                 JOIN zalo_daily_tasks t ON r.task_id = t.id
+                 WHERE t.user_id = $1`,
+                [userId]
+            );
+
+            // Filter to "Group Có Zalo": has results, not yet marked spam_eligible or spam_not_eligible
+            const groupCoZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible);
+
+            // Calculate start of current week (Monday)
+            const nowVN = new Date(Date.now() + 7 * 3600000);
+            const dayOfWeek = nowVN.getDay(); // 0=Sun, 1=Mon
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(nowVN);
+            weekStart.setDate(weekStart.getDate() + mondayOffset);
+            weekStart.setHours(0, 0, 0, 0);
+
+            const unmarked = [];
+            for (const r of groupCoZalo) {
+                if (r.pending_join) {
+                    // pending_join must have marked_at >= start of current week
+                    const markedAt = r.marked_at ? new Date(r.marked_at) : null;
+                    if (!markedAt || markedAt < weekStart) {
+                        unmarked.push(r.zalo_name || r.zalo_link?.substring(0, 30) || 'Nhóm #' + r.id);
+                    }
+                    // If marked_at is this week → OK, skip
+                } else {
+                    // No mark at all → must be marked
+                    unmarked.push(r.zalo_name || r.zalo_link?.substring(0, 30) || 'Nhóm #' + r.id);
+                }
+            }
+
+            if (unmarked.length > 0) {
+                return reply.code(400).send({
+                    error: `KHÔNG BÁO CÁO — Còn ${unmarked.length} nhóm chưa đánh dấu trong "Group Có Zalo":\n${unmarked.slice(0, 5).join(', ')}${unmarked.length > 5 ? '...' : ''}\nVui lòng vào trang "Tìm Gr Zalo Và Join" → tab "Group Có Zalo" để tích đầy đủ.`
+                });
+            }
+        }
+        // ========== END ZALO SPAM CHECK ==========
         const lastCompletion = await db.get(
             `SELECT redo_count, status FROM lock_task_completions
              WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
