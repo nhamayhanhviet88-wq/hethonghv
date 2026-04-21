@@ -763,4 +763,268 @@ module.exports = async function (fastify) {
         await db.run('DELETE FROM community_pages WHERE id = $1', [id]);
         return { success: true };
     });
+
+    // ========== ZALO GROUP FINDER — POOL-BASED TASK SYSTEM ==========
+
+    // Helper: get daily quota for tim_gr_zalo from lock_tasks/task_point_templates
+    async function _getZaloQuota(userId) {
+        const pattern = '%Tìm%Gr%Zalo%';
+        let tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+        if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_library WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+        if (!tpl) {
+            const lockRow = await db.get(`SELECT min_quantity FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1`, [pattern]);
+            if (lockRow) tpl = { id: null, min_quantity: lockRow.min_quantity, points: 10 };
+        }
+        let quota = tpl ? Number(tpl.min_quantity) : 25;
+        // Check user override
+        if (tpl && tpl.id) {
+            const ov = await db.get('SELECT custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [userId, 'diem', tpl.id]);
+            if (ov && ov.custom_min_quantity != null) quota = Number(ov.custom_min_quantity);
+        }
+        return quota;
+    }
+
+    // POST /api/zalo-pool/bulk — Manager bulk-import links
+    fastify.post('/api/zalo-pool/bulk', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ quản lý mới được bơm link' });
+        }
+        const { urls } = req.body || {};
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+            return reply.code(400).send({ error: 'Vui lòng nhập danh sách link' });
+        }
+        let added = 0, duplicates = 0;
+        for (const rawUrl of urls) {
+            const url = rawUrl.trim();
+            if (!url) continue;
+            // Check duplicate in pool
+            const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
+            if (exists) { duplicates++; continue; }
+            await db.run('INSERT INTO zalo_link_pool (url, status, created_by) VALUES ($1, $2, $3)', [url, 'available', req.user.id]);
+            added++;
+        }
+        return { success: true, added, duplicates, total: added + duplicates };
+    });
+
+    // GET /api/zalo-pool — Get pool stats & list
+    fastify.get('/api/zalo-pool', { preHandler: [authenticate] }, async (req) => {
+        const { page = 1, limit = 50, status } = req.query;
+        let where = '1=1';
+        const params = [];
+        let pi = 1;
+        if (status) { where += ` AND p.status = $${pi}`; params.push(status); pi++; }
+        const countR = await db.get(`SELECT COUNT(*) as c FROM zalo_link_pool p WHERE ${where}`, params);
+        const offset = (Number(page) - 1) * Number(limit);
+        const rows = await db.all(`SELECT p.*, u.full_name as creator_name FROM zalo_link_pool p LEFT JOIN users u ON p.created_by = u.id WHERE ${where} ORDER BY p.created_at DESC LIMIT $${pi} OFFSET $${pi+1}`, [...params, Number(limit), offset]);
+        const statsR = await db.get(`SELECT 
+            COUNT(*) FILTER (WHERE status = 'available') as available,
+            COUNT(*) FILTER (WHERE status = 'assigned') as assigned,
+            COUNT(*) FILTER (WHERE status = 'completed') as completed,
+            COUNT(*) as total
+            FROM zalo_link_pool`);
+        return { pool: rows, stats: statsR, total: Number(countR.c), page: Number(page), limit: Number(limit) };
+    });
+
+    // DELETE /api/zalo-pool/:id — Delete pool link (only if available)
+    fastify.delete('/api/zalo-pool/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const id = Number(req.params.id);
+        const row = await db.get('SELECT * FROM zalo_link_pool WHERE id = $1', [id]);
+        if (!row) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (row.status !== 'available') return reply.code(400).send({ error: 'Link đã được phân, không thể xóa' });
+        await db.run('DELETE FROM zalo_link_pool WHERE id = $1', [id]);
+        return { success: true };
+    });
+
+    // GET /api/zalo-tasks/my — Get my tasks for today (auto-assign if needed)
+    fastify.get('/api/zalo-tasks/my', { preHandler: [authenticate] }, async (req) => {
+        const userId = req.user.id;
+        const today = _vnToday();
+        const quota = await _getZaloQuota(userId);
+
+        // Check how many tasks already assigned today
+        const existing = await db.all(`SELECT t.*, p.url as pool_url FROM zalo_daily_tasks t JOIN zalo_link_pool p ON t.pool_id = p.id WHERE t.user_id = $1 AND t.assigned_date = $2 ORDER BY t.id`, [userId, today]);
+
+        if (existing.length < quota) {
+            // Auto-assign more from pool
+            const needed = quota - existing.length;
+            const available = await db.all(`SELECT id, url FROM zalo_link_pool WHERE status = 'available' ORDER BY id LIMIT $1`, [needed]);
+            for (const link of available) {
+                await db.run(`INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date) VALUES ($1, $2, $3)`, [link.id, userId, today]);
+                await db.run(`UPDATE zalo_link_pool SET status = 'assigned' WHERE id = $1`, [link.id]);
+            }
+            // Re-fetch
+            const updated = await db.all(`SELECT t.*, p.url as pool_url FROM zalo_daily_tasks t JOIN zalo_link_pool p ON t.pool_id = p.id WHERE t.user_id = $1 AND t.assigned_date = $2 ORDER BY t.id`, [userId, today]);
+
+            // Get results for each task
+            for (const task of updated) {
+                task.results = await db.all(`SELECT * FROM zalo_task_results WHERE task_id = $1 ORDER BY id`, [task.id]);
+            }
+            const doneCount = updated.filter(t => t.status === 'done' || t.status === 'no_result').length;
+            return { tasks: updated, quota, done: doneCount, pool_empty: available.length < needed };
+        }
+
+        // Get results for each task
+        for (const task of existing) {
+            task.results = await db.all(`SELECT * FROM zalo_task_results WHERE task_id = $1 ORDER BY id`, [task.id]);
+        }
+        const doneCount = existing.filter(t => t.status === 'done' || t.status === 'no_result').length;
+        return { tasks: existing, quota, done: doneCount, pool_empty: false };
+    });
+
+    // POST /api/zalo-tasks/:id/result — Submit zalo group result
+    fastify.post('/api/zalo-tasks/:id/result', { preHandler: [authenticate] }, async (req, reply) => {
+        const taskId = Number(req.params.id);
+        const { zalo_name, zalo_link } = req.body || {};
+        if (!zalo_name?.trim() || !zalo_link?.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập tên và link nhóm Zalo' });
+        }
+        // Verify task ownership
+        const task = await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
+
+        // Check global zalo_link uniqueness
+        const dup = await db.get('SELECT r.id, t.user_id, u.full_name FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id LEFT JOIN users u ON t.user_id = u.id WHERE r.zalo_link = $1', [zalo_link.trim()]);
+        if (dup) return reply.code(400).send({ error: `Link Zalo này đã được nhập bởi ${dup.full_name || 'NV khác'}` });
+
+        await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link) VALUES ($1, $2, $3)', [taskId, zalo_name.trim(), zalo_link.trim()]);
+        await db.run(`UPDATE zalo_daily_tasks SET status = 'done' WHERE id = $1`, [taskId]);
+        return { success: true };
+    });
+
+    // DELETE /api/zalo-results/:id — Delete a result
+    fastify.delete('/api/zalo-results/:id', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (result.user_id !== req.user.id && req.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        await db.run('DELETE FROM zalo_task_results WHERE id = $1', [id]);
+        // Check if task still has results
+        const remaining = await db.get('SELECT COUNT(*) as c FROM zalo_task_results WHERE task_id = $1', [result.task_id]);
+        if (Number(remaining.c) === 0) {
+            await db.run(`UPDATE zalo_daily_tasks SET status = 'pending' WHERE id = $1`, [result.task_id]);
+        }
+        return { success: true };
+    });
+
+    // POST /api/zalo-tasks/:id/no-result — Mark task as no result found
+    fastify.post('/api/zalo-tasks/:id/no-result', { preHandler: [authenticate] }, async (req, reply) => {
+        const taskId = Number(req.params.id);
+        const task = await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
+        if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
+        await db.run(`UPDATE zalo_daily_tasks SET status = 'no_result' WHERE id = $1`, [taskId]);
+        return { success: true };
+    });
+
+    // GET /api/zalo-tasks/team — Manager view: all tasks with results
+    fastify.get('/api/zalo-tasks/team', { preHandler: [authenticate] }, async (req) => {
+        const { date, user_id, dept_id, date_from, date_to } = req.query;
+        let where = '1=1';
+        const params = [];
+        let pi = 1;
+        if (date_from && date_to) {
+            where += ` AND t.assigned_date BETWEEN $${pi} AND $${pi+1}`;
+            params.push(date_from, date_to); pi += 2;
+        } else {
+            const d = date || _vnToday();
+            where += ` AND t.assigned_date = $${pi}`; params.push(d); pi++;
+        }
+        if (user_id) { where += ` AND t.user_id = $${pi}`; params.push(Number(user_id)); pi++; }
+        else if (dept_id) {
+            const deptIdNum = Number(dept_id);
+            const childDepts = await db.all('SELECT id FROM departments WHERE parent_id = $1 AND status = $2', [deptIdNum, 'active']);
+            const allDeptIds = [deptIdNum, ...childDepts.map(d => d.id)];
+            const ph = allDeptIds.map((_, i) => `$${pi + i}`).join(',');
+            where += ` AND u.department_id IN (${ph})`;
+            params.push(...allDeptIds); pi += allDeptIds.length;
+        }
+        const tasks = await db.all(`SELECT t.*, p.url as pool_url, u.full_name as user_name, u.username, d.name as dept_name
+            FROM zalo_daily_tasks t JOIN zalo_link_pool p ON t.pool_id = p.id
+            LEFT JOIN users u ON t.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id
+            WHERE ${where} ORDER BY t.user_id, t.id`, params);
+        // Attach results
+        for (const task of tasks) {
+            task.results = await db.all(`SELECT r.*, su.full_name as spam_user_name FROM zalo_task_results r LEFT JOIN users su ON r.spam_by = su.id WHERE r.task_id = $1 ORDER BY r.id`, [task.id]);
+        }
+        return { tasks };
+    });
+
+    // POST /api/zalo-results/:id/spam — Mark result as spammed with screenshot
+    fastify.post('/api/zalo-results/:id/spam', { preHandler: [authenticate] }, async (req, reply) => {
+        if (!['giam_doc', 'quan_ly_cap_cao', 'truong_phong'].includes(req.user.role)) {
+            return reply.code(403).send({ error: 'Chỉ quản lý mới được đánh dấu spam' });
+        }
+        const id = Number(req.params.id);
+        const { image_data } = req.body || {};
+        if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp ảnh minh chứng' });
+
+        const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy kết quả' });
+
+        // Save screenshot
+        let screenshotPath = null;
+        try {
+            const commaIdx = image_data.indexOf(',');
+            if (commaIdx > -1) {
+                const header = image_data.substring(0, commaIdx);
+                const extMatch = header.match(/image\/(\w+)/);
+                const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'zalo_spam');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const filename = `spam_${id}_${Date.now()}.${ext}`;
+                fs.writeFileSync(path.join(uploadDir, filename), buffer);
+                screenshotPath = '/uploads/zalo_spam/' + filename;
+            }
+        } catch (e) { console.error('[ZaloSpam] Image save error:', e); }
+
+        await db.run(`UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW() WHERE id = $3`, [screenshotPath, req.user.id, id]);
+
+        // Check if all results for this task's pool link are done → mark pool as completed
+        const taskR = await db.get('SELECT task_id FROM zalo_task_results WHERE id = $1', [id]);
+        if (taskR) {
+            const task = await db.get('SELECT pool_id FROM zalo_daily_tasks WHERE id = $1', [taskR.task_id]);
+            if (task) {
+                const pendingR = await db.get(`SELECT COUNT(*) as c FROM zalo_task_results WHERE task_id = $1 AND spam_status != 'done'`, [taskR.task_id]);
+                if (Number(pendingR.c) === 0) {
+                    await db.run(`UPDATE zalo_link_pool SET status = 'completed' WHERE id = $1`, [task.pool_id]);
+                }
+            }
+        }
+        return { success: true, screenshot: screenshotPath };
+    });
+
+    // GET /api/zalo-tasks/stats — Stats for sidebar display
+    fastify.get('/api/zalo-tasks/stats', { preHandler: [authenticate] }, async (req) => {
+        const { user_id } = req.query;
+        const uid = user_id ? Number(user_id) : req.user.id;
+        const today = _vnToday();
+        const quota = await _getZaloQuota(uid);
+
+        // Today
+        const todayR = await db.get(`SELECT COUNT(*) FILTER (WHERE status IN ('done','no_result')) as done, COUNT(*) as total FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [uid, today]);
+        // Week
+        const weekStart = new Date(Date.now() + 7 * 3600000);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+        const weekStr = weekStart.toISOString().split('T')[0];
+        const weekR = await db.get(`SELECT COUNT(*) FILTER (WHERE status IN ('done','no_result')) as done, COUNT(*) as total FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date BETWEEN $2 AND $3`, [uid, weekStr, today]);
+        // Month
+        const monthStr = today.substring(0, 7) + '-01';
+        const monthR = await db.get(`SELECT COUNT(*) FILTER (WHERE status IN ('done','no_result')) as done, COUNT(*) as total FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date BETWEEN $2 AND $3`, [uid, monthStr, today]);
+
+        return {
+            today: Number(todayR?.done || 0),
+            today_total: Number(todayR?.total || 0),
+            target: quota,
+            week: Number(weekR?.done || 0),
+            week_total: Number(weekR?.total || 0),
+            month: Number(monthR?.done || 0),
+            month_total: Number(monthR?.total || 0),
+        };
+    });
 };
+

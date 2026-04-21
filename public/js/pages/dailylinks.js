@@ -88,8 +88,15 @@ function _dlInit() {
     if (!cfg) return;
     _dl.mod = cfg;
     _dl.imageData = null;
-    // Restore selection state from sessionStorage (F5 persistence)
     _dlRestoreState();
+    document.getElementById('pageTitle').textContent = cfg.label;
+
+    // === ZALO GROUP FINDER: completely custom UI ===
+    if (cfg.type === 'tim_gr_zalo') {
+        _zlInit();
+        return;
+    }
+
     const area = document.getElementById('contentArea');
     if (!area) return;
     area.innerHTML = `
@@ -126,7 +133,6 @@ function _dlInit() {
         st.textContent = `.dl-thumb{width:52px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e2e8f0;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,0.08)}.dl-thumb:hover{transform:scale(1.15);border-color:#16a34a;box-shadow:0 4px 16px rgba(22,163,74,0.25)}#dlLightbox.active{display:flex!important;animation:_dlFI .2s}@keyframes _dlFI{from{opacity:0}to{opacity:1}}`;
         document.head.appendChild(st);
     }
-    document.getElementById('pageTitle').textContent = cfg.label;
     _dlLoadGuide();
     _dlLoadAll();
 }
