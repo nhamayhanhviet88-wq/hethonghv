@@ -617,7 +617,7 @@ const _DL_LINK_RULES = {
     sedding: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com') && l.includes('/posts/'); }, errHint: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
 };
 // Modules that need screenshot in addition to link
-const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding'];
+const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding', 'dang_banthan_sp'];
 function _dlValidateMultiLink(p, val) {
     if (!val) return false;
     if (p.isImage) return true; // image fields validated separately

@@ -181,7 +181,7 @@ module.exports = async function (fastify) {
 
         // Handle image upload (addcmt, dang_group, sedding, etc.)
         let imagePath = null;
-        const imgModules = ['addcmt', 'dang_group', 'sedding'];
+        const imgModules = ['addcmt', 'dang_group', 'sedding', 'dang_banthan_sp'];
         if (imgModules.includes(module_type) && image_data) {
             try {
                 const commaIdx = image_data.indexOf(',');
@@ -190,7 +190,8 @@ module.exports = async function (fastify) {
                     const extMatch = header.match(/image\/(\w+)/);
                     const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
                     const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
-                    const subDir = module_type === 'addcmt' ? 'addcmt' : module_type === 'sedding' ? 'sedding' : 'group';
+                    const subDirMap = { addcmt: 'addcmt', sedding: 'sedding', dang_banthan_sp: 'banthansp' };
+                    const subDir = subDirMap[module_type] || 'group';
                     const uploadDir = path.join(__dirname, '..', 'uploads', subDir);
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
                     const filename = `${req.user.id}_${Date.now()}.${ext}`;
