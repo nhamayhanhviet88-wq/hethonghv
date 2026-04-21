@@ -1132,11 +1132,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 11. TELESALE — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todayCV = toDateStr(now);
+        const todayDow = now.getDay() === 0 ? 7 : now.getDay(); // 1=Mon...7=Sun
 
         // Find all task templates with "Gọi Điện Telesale" in name
         // Templates can be team-level (target_type='team', target_id=dept_id) or individual
         const telesaleTemplates = await db.all(
-            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Gọi Điện Telesale%'"
+            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Gọi Điện Telesale%' AND day_of_week = $1",
+            [todayDow]
         );
 
         // For each template, find applicable users
@@ -1223,10 +1225,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 12. TỰ TÌM KIẾM — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todaySS = toDateStr(now);
+        const todayDowSS = now.getDay() === 0 ? 7 : now.getDay();
 
         // Find all task templates with "Tự Tìm Kiếm" in name
         const selfSearchTemplates = await db.all(
-            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Tự Tìm Kiếm%'"
+            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Tự Tìm Kiếm%' AND day_of_week = $1",
+            [todayDowSS]
         );
 
         const selfSearchTasks = [];
@@ -1312,6 +1316,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // task_point_reports entries, causing ĐIỂM NGÀY = 0 despite completion.
     try {
         const todayDL = toDateStr(now);
+        const todayDowDL = now.getDay() === 0 ? 7 : now.getDay();
 
         // Module type → ILIKE pattern for matching task_point_templates
         const DL_MODULES = {
@@ -1328,8 +1333,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
         for (const [moduleType, taskPattern] of Object.entries(DL_MODULES)) {
             // Find all matching task_point_templates
             const dlTemplates = await db.all(
-                "SELECT * FROM task_point_templates WHERE task_name ILIKE $1",
-                [taskPattern]
+                "SELECT * FROM task_point_templates WHERE task_name ILIKE $1 AND day_of_week = $2",
+                [taskPattern, todayDowDL]
             );
 
             // For each template, find applicable users
@@ -1427,9 +1432,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 14. NHẮN TÌM ĐỐI TÁC KH — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todayPO = toDateStr(now);
+        const todayDowPO = now.getDay() === 0 ? 7 : now.getDay();
 
         const poTemplates = await db.all(
-            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Tìm%Đối Tác%'"
+            "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Tìm%Đối Tác%' AND day_of_week = $1",
+            [todayDowPO]
         );
 
         const poTasks = [];

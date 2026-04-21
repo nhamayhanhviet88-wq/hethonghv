@@ -314,14 +314,19 @@ async function taskScheduleRoutes(fastify, options) {
                 const dateStr = entry.entry_date.slice(0,10);
                 const entryCount = Number(entry.cnt);
                 const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+                
+                // Calculate day_of_week for this entry date (1=Mon...7=Sun)
+                const entryDate = new Date(dateStr + 'T00:00:00');
+                const entryDow = entryDate.getDay() === 0 ? 7 : entryDate.getDay();
 
-                // Find matching template for this user
+                // Find matching template for this user AND this day_of_week
                 let tpl = null;
                 for (const t of templates) {
+                    if (t.day_of_week !== entryDow) continue; // must match day
                     if (t.target_type === 'individual' && t.target_id === uid) { tpl = t; break; }
                     if (t.target_type === 'team' && user?.department_id === t.target_id) { tpl = t; break; }
                 }
-                if (!tpl) tpl = templates[0]; // fallback
+                if (!tpl) continue; // no template for this day
                 if (!tpl?.id) continue;
 
                 // Check override
@@ -372,13 +377,18 @@ async function taskScheduleRoutes(fastify, options) {
                     const dateStr = entry.entry_date.slice(0,10);
                     const entryCount = Number(entry.cnt);
                     const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+                    
+                    // Calculate day_of_week for this entry date
+                    const entryDate = new Date(dateStr + 'T00:00:00');
+                    const entryDow = entryDate.getDay() === 0 ? 7 : entryDate.getDay();
 
                     let tpl = null;
                     for (const t of poTemplates) {
+                        if (t.day_of_week !== entryDow) continue;
                         if (t.target_type === 'individual' && t.target_id === uid) { tpl = t; break; }
                         if (t.target_type === 'team' && user?.department_id === t.target_id) { tpl = t; break; }
                     }
-                    if (!tpl) tpl = poTemplates[0];
+                    if (!tpl) continue; // no template for this day
                     if (!tpl?.id) continue;
 
                     let tmplTarget = tpl.min_quantity || 20;

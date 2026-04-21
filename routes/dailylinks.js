@@ -248,11 +248,12 @@ module.exports = async function (fastify) {
             if (pattern) {
                 const uid = req.user.id;
                 const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
+                const todayDow = new Date().getDay() === 0 ? 7 : new Date().getDay(); // 1=Mon...7=Sun
 
-                // Find matching template (individual → team → global)
-                let tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [uid, pattern]);
-                if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1`, [user.department_id, pattern]);
-                if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1`, [pattern]);
+                // Find matching template for TODAY's day_of_week (individual → team → global)
+                let tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 AND day_of_week = $3 LIMIT 1`, [uid, pattern, todayDow]);
+                if (!tpl && user?.department_id) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 AND day_of_week = $3 LIMIT 1`, [user.department_id, pattern, todayDow]);
+                if (!tpl) tpl = await db.get(`SELECT id, min_quantity, points FROM task_point_templates WHERE task_name ILIKE $1 AND day_of_week = $2 LIMIT 1`, [pattern, todayDow]);
 
                 if (tpl && tpl.id) {
                     // Check for user override
