@@ -106,7 +106,13 @@ module.exports = async function (fastify) {
         console.log(`[DailyLinks POST] module=${module_type}, fb_link=${fb_link?.substring(0,50)}, has_links_json=${!!req.body?.links_json}, has_content_images=${!!req.body?.content_images}`);
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link' });
         if (!module_type || !_validateType(module_type)) return reply.code(400).send({ error: 'Module không hợp lệ' });
-        const today = _vnToday();
+        const today = req.body?.backfill_date || _vnToday();
+        // If backfill_date is provided, validate it's in the past
+        if (req.body?.backfill_date) {
+            const bfDate = req.body.backfill_date;
+            if (bfDate >= _vnToday()) return reply.code(400).send({ error: 'Ngày báo cáo bù phải là ngày trong quá khứ' });
+            console.log(`[DailyLinks POST] BACKFILL mode: saving to ${bfDate} instead of today`);
+        }
         const linkLower = fb_link.trim().toLowerCase();
         // Skip single-link dup check for addcmt and multi-link modules
         const isMultiLink = ['dang_video', 'dang_content'].includes(module_type);
@@ -532,6 +538,100 @@ module.exports = async function (fastify) {
             target: targetVal,
             total_points: pointsVal
         };
+    });
+
+    // ===== GET MISSING DATES for backfill (CV Khóa only) =====
+    fastify.get('/api/dailylinks/missing-dates', { preHandler: [authenticate] }, async (req) => {
+        const { module_type } = req.query;
+        if (!module_type || !_validateType(module_type)) return { dates: [] };
+        const uid = req.user.id;
+        const todayStr = _vnToday();
+
+        // Map module_type to lock_task name pattern
+        const LOCK_PATTERNS = {
+            addcmt: /add.*cmt.*đối.*tác/i,
+            dang_video: /đăng.*video/i,
+            dang_content: /đăng.*content/i,
+            dang_group: /đăng.*tìm.*kh.*group/i,
+            sedding: /sedding.*cộng.*đồng/i,
+            dang_banthan_sp: /đăng.*bản.*thân/i,
+            tim_gr_zalo: /tìm.*gr.*zalo/i,
+            tuyen_dung: /tuyển.*dụng.*sv/i,
+        };
+        const pattern = LOCK_PATTERNS[module_type];
+        if (!pattern) return { dates: [] };
+
+        // Find matching lock tasks
+        const lockTasks = await db.all("SELECT * FROM lock_tasks WHERE is_active = true");
+        const matchingLTs = lockTasks.filter(lt => pattern.test(lt.task_name));
+        if (matchingLTs.length === 0) return { dates: [] };
+
+        // Get holidays
+        const holidays = new Set();
+        const hRows = await db.all("SELECT holiday_date::text as d FROM lock_task_holidays WHERE holiday_date >= CURRENT_DATE - INTERVAL '30 days'");
+        hRows.forEach(h => holidays.add(h.d.slice(0, 10)));
+
+        // Check last 30 days
+        const missingDates = [];
+        const now = new Date(todayStr + 'T00:00:00');
+        
+        for (let i = 1; i <= 30; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const dow = d.getDay(); // 0=Sun
+
+            if (holidays.has(dateStr)) continue;
+
+            // Check if any lock task applies to this day
+            let applies = false;
+            for (const lt of matchingLTs) {
+                if (lt.created_at && dateStr < lt.created_at.toISOString().split('T')[0]) continue;
+                if (lt.recurrence_type === 'administrative') {
+                    applies = dow >= 1 && dow <= 6;
+                } else if (lt.recurrence_type === 'daily') {
+                    applies = true;
+                } else if (lt.recurrence_type === 'weekly') {
+                    const wDays = (lt.recurrence_value || '').split(',').map(Number);
+                    applies = wDays.includes(dow);
+                }
+                if (applies) break;
+            }
+            if (!applies) continue;
+
+            // Check if user already has enough entries for this date
+            const lt = matchingLTs[0];
+            const minQty = lt.min_quantity || 1;
+            const count = await db.get(
+                'SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                [uid, dateStr, module_type]
+            );
+            const current = Number(count?.cnt || 0);
+            if (current >= minQty) continue;
+
+            // Check lock_task_completions status
+            let compStatus = null;
+            for (const lt2 of matchingLTs) {
+                const comp = await db.get(
+                    "SELECT status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY version DESC LIMIT 1",
+                    [lt2.id, uid, dateStr]
+                );
+                if (comp) { compStatus = comp.status; break; }
+            }
+            // Skip if already approved
+            if (compStatus === 'approved') continue;
+
+            const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+            missingDates.push({
+                date: dateStr,
+                day_name: dayNames[dow],
+                current_count: current,
+                target: minQty,
+                status: compStatus || 'missing'
+            });
+        }
+
+        return { dates: missingDates };
     });
 
     async function _getDeptIds(user) {

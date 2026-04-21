@@ -1355,13 +1355,10 @@ function _kbRenderGrid() {
                 const hasSR = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
 
                 const _ltLinkedPage = _kbGetLinkedPage(lt.task_name);
-                const _isPastNoReport = dateStr < todayStr && !realComp;
-                const _isPastRejected = realComp && realComp.status === 'rejected';
-                
-                if (_ltLinkedPage && isSelf && !_isPastNoReport && !_isPastRejected) {
-                    // Lock task has a linked menu page (today/future only)
+                if (_ltLinkedPage && isSelf) {
+                    // Lock task has a linked menu page → navigate there instead of Báo cáo
                     actionHtml = `<div style="margin-top:6px;text-align:center;"><a href="${_ltLinkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_ltLinkedPage.icon} Mở trang →</a></div>`;
-                } else if (_ltLinkedPage && !isSelf && !_isPastNoReport) {
+                } else if (_ltLinkedPage && !isSelf ) {
                     actionHtml = ''; // manager view
                 } else if (isSelf) {
                     if (dateStr === todayStr && !realComp) {
