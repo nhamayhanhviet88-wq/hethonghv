@@ -826,26 +826,27 @@ module.exports = async function (fastify) {
         }
         console.log(`[ZaloPool] Bulk import: ${urls.length} URLs, user_id=${user_id}, source_id=${source_id}`);
         let added = 0, duplicates = 0, errors = 0;
+        const dupUrls = [];
         const today = _vnToday();
         for (const rawUrl of urls) {
             const url = rawUrl.trim();
             if (!url) continue;
             try {
-                const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
-                if (exists) {
-                    // If user_id specified and link exists but not assigned to this user today, create task
-                    if (user_id) {
-                        const taskExists = await db.get('SELECT id FROM zalo_daily_tasks WHERE pool_id = $1 AND user_id = $2 AND assigned_date = $3', [exists.id, Number(user_id), today]);
-                        if (!taskExists) {
-                            await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [exists.id, Number(user_id), today, 'pending']);
-                            added++;
-                        } else { duplicates++; }
-                    } else { duplicates++; }
+                // Check if this URL is already assigned to ANY employee today
+                const anyTask = await db.get(`SELECT t.id, u.full_name FROM zalo_daily_tasks t JOIN zalo_link_pool p ON t.pool_id = p.id LEFT JOIN users u ON t.user_id = u.id WHERE p.url = $1 AND t.assigned_date = $2`, [url, today]);
+                if (anyTask) {
+                    duplicates++;
+                    dupUrls.push(`${url.substring(0,50)}... (đã gán cho ${anyTask.full_name || 'NV khác'})`);
                     continue;
                 }
-                // Use RETURNING id for PostgreSQL
-                const inserted = await db.get('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4) RETURNING id', [url, user_id ? 'assigned' : 'available', req.user.id, source_id ? Number(source_id) : null]);
-                const poolId = inserted?.id;
+                const exists = await db.get('SELECT id FROM zalo_link_pool WHERE url = $1', [url]);
+                let poolId;
+                if (exists) {
+                    poolId = exists.id;
+                } else {
+                    const inserted = await db.get('INSERT INTO zalo_link_pool (url, status, created_by, source_id) VALUES ($1, $2, $3, $4) RETURNING id', [url, user_id ? 'assigned' : 'available', req.user.id, source_id ? Number(source_id) : null]);
+                    poolId = inserted?.id;
+                }
                 if (user_id && poolId) {
                     await db.run('INSERT INTO zalo_daily_tasks (pool_id, user_id, assigned_date, status) VALUES ($1, $2, $3, $4)', [poolId, Number(user_id), today, 'pending']);
                 }
@@ -857,7 +858,7 @@ module.exports = async function (fastify) {
             }
         }
         console.log(`[ZaloPool] Bulk result: added=${added}, duplicates=${duplicates}, errors=${errors}`);
-        return { success: true, added, duplicates, errors, total: added + duplicates };
+        return { success: true, added, duplicates, errors, dupUrls, total: added + duplicates };
     });
 
     // GET /api/zalo-pool — Get pool stats & list (with source filter)
@@ -963,14 +964,24 @@ module.exports = async function (fastify) {
             : await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
         if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
 
-        let added = 0, duplicates = 0, dupMessages = [];
+        // First pass: check ALL links for duplicates across all employees
+        let dupMessages = [];
         for (const rawLink of links) {
             const link = rawLink.trim();
             if (!link) continue;
-            // Check duplicate
             const dup = await db.get('SELECT r.id, t.user_id, u.full_name FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id LEFT JOIN users u ON t.user_id = u.id WHERE r.zalo_link = $1', [link]);
-            if (dup) { duplicates++; dupMessages.push(`${link.substring(0,30)}... (${dup.full_name || 'NV khác'})`); continue; }
-            // Auto-generate name from link
+            if (dup) dupMessages.push({ link, owner: dup.full_name || 'NV khác' });
+        }
+        // If any duplicates, return error — don't save anything
+        if (dupMessages.length > 0) {
+            return reply.code(400).send({ error: 'Có link Zalo bị trùng', duplicateLinks: dupMessages });
+        }
+
+        // All clean — insert all
+        let added = 0;
+        for (const rawLink of links) {
+            const link = rawLink.trim();
+            if (!link) continue;
             const autoName = link.replace(/https?:\/\/(www\.)?/i, '').substring(0, 40);
             await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link) VALUES ($1, $2, $3)', [taskId, autoName, link]);
             added++;
@@ -978,7 +989,7 @@ module.exports = async function (fastify) {
         if (added > 0) {
             await db.run(`UPDATE zalo_daily_tasks SET status = 'done' WHERE id = $1`, [taskId]);
         }
-        return { success: true, added, duplicates, dupMessages };
+        return { success: true, added };
     });
 
     // DELETE /api/zalo-results/:id — Delete a result
@@ -1027,8 +1038,9 @@ module.exports = async function (fastify) {
         console.log('[Migration] zalo_daily_tasks unique constraint updated');
     } catch(e) { console.log('[Migration] constraint already ok:', e.message); }
 
-    // Ensure spam_eligible column exists
+    // Ensure spam_eligible + join_status columns exist
     try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS spam_eligible BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
+    try { await db.run(`ALTER TABLE zalo_task_results ADD COLUMN IF NOT EXISTS join_status BOOLEAN DEFAULT FALSE`); } catch(e) { /* already exists */ }
 
     // POST /api/zalo-results/:id/spam-eligible — Toggle spam_eligible on a result
     fastify.post('/api/zalo-results/:id/spam-eligible', { preHandler: [authenticate] }, async (req, reply) => {
@@ -1040,6 +1052,18 @@ module.exports = async function (fastify) {
         const newVal = !result.spam_eligible;
         await db.run('UPDATE zalo_task_results SET spam_eligible = $1 WHERE id = $2', [newVal, id]);
         return { success: true, spam_eligible: newVal };
+    });
+
+    // POST /api/zalo-results/:id/join-status — Toggle join_status on a result
+    fastify.post('/api/zalo-results/:id/join-status', { preHandler: [authenticate] }, async (req, reply) => {
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT r.*, t.user_id FROM zalo_task_results r JOIN zalo_daily_tasks t ON r.task_id = t.id WHERE r.id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        const newVal = !result.join_status;
+        await db.run('UPDATE zalo_task_results SET join_status = $1 WHERE id = $2', [newVal, id]);
+        return { success: true, join_status: newVal };
     });
 
     // GET /api/zalo-tasks/team — Manager view: all tasks with results
