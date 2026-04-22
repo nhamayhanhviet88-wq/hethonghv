@@ -874,7 +874,7 @@ async function handleRoute() {
     document.getElementById('pageTitle').textContent = menuItem ? menuItem.label : 'Dashboard';
 
     // Add "Chuyển Số" button for specific KD pages
-    const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke','tuyendungsvkd'];
+    const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke','tuyendungsvkd','cham-soc-koc-kol'];
     const existingCsBtn = document.getElementById('topbarChuyenSoBtn');
     if (existingCsBtn) existingCsBtn.remove();
     if (CHUYEN_SO_PAGES.includes(currentPage)) {
@@ -1828,16 +1828,19 @@ async function openChuyenSoMXH(pageId) {
     // Filter sources based on page
     const isZaloPage = pageId === 'timgrzalovathongke';
     const isTuyenDungPage = pageId === 'tuyendungsvkd';
+    const isKocKolPage = pageId === 'cham-soc-koc-kol';
     let allowedSourceNames;
     if (isZaloPage) {
         allowedSourceNames = ['GRUOP ZALO'];
     } else if (isTuyenDungPage) {
         allowedSourceNames = ['TUYỂN DỤNG SV'];
+    } else if (isKocKolPage) {
+        allowedSourceNames = ['KOL / KOC'];
     } else {
         allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
     }
     const filteredSources = (sources.items || []).filter(s => allowedSourceNames.some(n => s.name.toUpperCase().includes(n.toUpperCase())));
-    const lockedSource = (isZaloPage || isTuyenDungPage) && filteredSources.length > 0 ? filteredSources[0] : null;
+    const lockedSource = (isZaloPage || isTuyenDungPage || isKocKolPage) && filteredSources.length > 0 ? filteredSources[0] : null;
 
     const isNVorTP = ['nhan_vien','truong_phong'].includes(currentUser.role);
 
@@ -1870,6 +1873,9 @@ async function openChuyenSoMXH(pageId) {
                         ${isTuyenDungPage ? `
                             <input type="text" class="_csMxh-input" value="Chăm Sóc Affiliate" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                             <input type="hidden" id="csMxhCrm" value="ctv_hoa_hong">
+                        ` : isKocKolPage ? `
+                            <input type="text" class="_csMxh-input" value="Chăm Sóc KOL/KOC Tiktok" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csMxhCrm" value="koc_tiktok">
                         ` : `
                         <select id="csMxhCrm" class="_csMxh-input" required>
                             <option value="">-- Chọn CRM --</option>
