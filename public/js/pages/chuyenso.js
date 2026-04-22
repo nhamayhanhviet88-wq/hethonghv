@@ -366,9 +366,9 @@ async function renderChuyenSoPage(container) {
             // Find source_id by name
             const found = allSrc.find(s => s.name.toUpperCase() === sourceName.toUpperCase());
             if (sourceHidden) sourceHidden.value = found ? found.id : '';
-            // Hide/show Affiliate HV row based on CRM
+            // Always hide Affiliate HV row for affiliate users (they ARE the affiliate)
             const affRow = document.getElementById('csoAffiliateRow');
-            if (affRow) affRow.style.display = (crmVal === 'nhu_cau') ? 'none' : 'grid';
+            if (affRow) affRow.style.display = 'none';
         }
         // Init on load
         _affSyncSource();
