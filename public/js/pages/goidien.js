@@ -810,7 +810,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         source_name: 'GỌI ĐIỆN TELESALE',
         receiver_id: currentUser.id,
         notes: notes,
-        job: jobTitle || null
+        job: call.source_name || jobTitle || null
     });
     if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số', 'error');
 
@@ -1062,8 +1062,8 @@ function _gd_openSelfSearchModal() {
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
-                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📂 Nguồn <span style="color:#dc2626;">*</span></label>
-                    <select id="gdSSSource" class="form-control" style="font-size:13px;"><option value="">-- Chọn nguồn --</option>${srcOptions}</select>
+                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📂 Lĩnh Vực <span style="color:#dc2626;">*</span></label>
+                    <select id="gdSSSource" class="form-control" style="font-size:13px;"><option value="">-- Chọn lĩnh vực --</option>${srcOptions}</select>
                 </div>
                 <div>
                     <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📍 Nơi tìm kiếm <span style="color:#dc2626;">*</span></label>
@@ -1161,7 +1161,7 @@ async function _gd_submitSelfSearch() {
 
     if (!customer_name) return showToast('Nhập tên KH!', 'error');
     if (!fb_link && !phone) return showToast('Cần ít nhất Link MXH hoặc SĐT!', 'error');
-    if (!source_id) return showToast('Chọn Nguồn!', 'error');
+    if (!source_id) return showToast('Chọn Lĩnh Vực!', 'error');
     if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
     if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');
 

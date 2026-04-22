@@ -204,9 +204,9 @@ async function renderChuyenSoPage(container) {
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Lĩnh Vực</label>
+                            <label>Sản Phẩm</label>
                             <select id="csoIndustry" class="form-control">
-                                <option value="">-- Chọn lĩnh vực --</option>
+                                <option value="">-- Chọn sản phẩm --</option>
                                 ${(industries.items || []).map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
                             </select>
                         </div>
