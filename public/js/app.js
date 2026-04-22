@@ -882,9 +882,9 @@ async function handleRoute() {
         csBtn.id = 'topbarChuyenSoBtn';
         csBtn.onclick = openChuyenSoMXH;
         csBtn.innerHTML = '📱 CHUYỂN SỐ';
-        csBtn.style.cssText = 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;border:none;padding:8px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.35);transition:all 0.2s;letter-spacing:0.5px;margin-left:16px;white-space:nowrap;';
-        csBtn.onmouseover = function(){ this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 20px rgba(245,158,11,0.5)'; };
-        csBtn.onmouseout = function(){ this.style.transform='scale(1)'; this.style.boxShadow='0 4px 14px rgba(245,158,11,0.35)'; };
+        csBtn.style.cssText = 'background:#ea580c;color:white;border:none;padding:8px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all 0.2s;letter-spacing:0.5px;margin-left:16px;white-space:nowrap;font-family:Inter,system-ui,-apple-system,sans-serif;';
+        csBtn.onmouseover = function(){ this.style.transform='scale(1.05)'; this.style.background='#c2410c'; };
+        csBtn.onmouseout = function(){ this.style.transform='scale(1)'; this.style.background='#ea580c'; };
         document.querySelector('.topbar-left').appendChild(csBtn);
     }
 
