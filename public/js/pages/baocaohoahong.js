@@ -199,6 +199,10 @@ async function renderBaoCaoHoaHongPage(container) {
             </div>
         `;
 
+        // Debug: log appointment_date values
+        console.log('=== COMMISSION DEBUG ===');
+        data.items.forEach(i => console.log(i.customer_name, '→ apt:', i.appointment_date, '| log:', i.last_log_type));
+
         // Render table
         hhRenderTable(data.items);
     } catch (e) {
