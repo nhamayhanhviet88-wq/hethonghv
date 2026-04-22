@@ -1893,8 +1893,8 @@ async function openChuyenSoMXH(pageId) {
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
-                        <label class="_csMxh-label">Tên Khách Hàng</label>
-                        <input type="text" id="csMxhName" class="_csMxh-input" placeholder="Nhập tên khách hàng">
+                        <label class="_csMxh-label">Tên Khách Hàng <span class="_csMxh-required">*</span></label>
+                        <input type="text" id="csMxhName" class="_csMxh-input" placeholder="Nhập tên khách hàng" required>
                     </div>
                     <div>
                         <label class="_csMxh-label">Số Điện Thoại <span class="_csMxh-required" id="csMxhPhoneStar">*</span></label>
@@ -1961,6 +1961,7 @@ async function openChuyenSoMXH(pageId) {
             facebook_link: document.getElementById('csMxhFacebook')?.value?.trim() || null
         };
         if (!body.crm_type || !body.receiver_id) { showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
+        if (!body.customer_name || !body.customer_name.trim()) { showToast('Vui lòng nhập Tên Khách Hàng', 'error'); return; }
         if (!body.source_id) { showToast('Vui lòng chọn Nguồn Khách', 'error'); return; }
         if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
         try {

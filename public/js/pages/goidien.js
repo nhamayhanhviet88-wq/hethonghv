@@ -726,7 +726,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">Tên Khách Hàng</label>
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Tên Khách Hàng <span style="color:#dc2626;">*</span></label>
                     <input type="text" id="gdCSName" class="form-control" value="${(call.customer_name||'').replace(/"/g,'&quot;')}">
                 </div>
                 <div class="form-group">
@@ -784,6 +784,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
     const notes = document.getElementById('gdCSNotes')?.value || '';
 
     if (!crmType) return showToast('Chọn CRM', 'error');
+    if (!customerName) return showToast('Vui lòng nhập Tên Khách Hàng', 'error');
     if (!phone && !fbLink) return showToast('Vui lòng nhập SĐT hoặc Link Facebook', 'error');
 
     const custRes = await apiCall('/api/customers', 'POST', {

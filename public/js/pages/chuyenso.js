@@ -172,8 +172,8 @@ async function renderChuyenSoPage(container) {
                     </div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
-                            <label>Tên Khách Hàng</label>
-                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng">
+                            <label>Tên Khách Hàng <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng" required>
                         </div>
                         <div class="form-group">
                             <label>Số Điện Thoại <span id="csoPhoneStar" style="color:var(--danger)">*</span></label>
@@ -264,6 +264,10 @@ async function renderChuyenSoPage(container) {
         if (!body.crm_type || !body.receiver_id) {
             console.log('[CSO] Validation failed!', { crm: body.crm_type, receiver: body.receiver_id });
             showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+            return;
+        }
+        if (!body.customer_name || !body.customer_name.trim()) {
+            showToast('Vui lòng nhập Tên Khách Hàng', 'error');
             return;
         }
         if (!body.phone && !body.facebook_link) {
