@@ -11,7 +11,7 @@ async function renderSettingsPage(container) {
             <div class="card-body">
                 <div class="tabs" style="flex-wrap:wrap;">
                     <div class="tab active" data-tab="commission-tiers" onclick="switchSettingTab('commission-tiers', this)">💰 Tầng Hoa Hồng</div>
-                    <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách</div>
+                    <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách NV Kinh Doanh</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
                     <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Lĩnh Vực</div>
                     <div class="tab" data-tab="emergency-popup" onclick="switchSettingTab('emergency-popup', this)">🚨 Cấp Cứu</div>

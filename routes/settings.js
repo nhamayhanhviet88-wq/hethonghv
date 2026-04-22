@@ -15,7 +15,7 @@ async function settingsRoutes(fastify, options) {
 
     const tables = {
         'commission-tiers': { table: 'commission_tiers', fields: ['name', 'percentage', 'parent_percentage'], label: 'Tầng hoa hồng' },
-        'sources': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách' },
+        'sources': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách NV Kinh Doanh' },
         'promotions': { table: 'settings_promotions', fields: ['name'], label: 'Khuyến mãi' },
         'industries': { table: 'settings_industries', fields: ['name'], label: 'Lĩnh vực' }
     };
