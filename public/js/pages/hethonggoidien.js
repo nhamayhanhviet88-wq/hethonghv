@@ -1187,25 +1187,24 @@ async function _htgd_renderSettingsTab() {
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [srcRes, srcCtv, srcAffiliate, cStatsRes] = await Promise.all([
+    const [srcRes, srcGBH, srcGHT, cStatsRes] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
-        apiCall('/api/telesale/sources?crm_type=ctv'),
-        apiCall('/api/telesale/sources?crm_type=ctv_hoa_hong'),
+        apiCall('/api/telesale/sources?crm_type=goi_ban_hang'),
+        apiCall('/api/telesale/sources?crm_type=goi_hop_tac'),
         apiCall(`/api/telesale/data/stats?crm_type=${_htgd_settingsCrm}`)
     ]);
     const sources = srcRes.sources || [];
     const sourceCarrierStats = cStatsRes.sourceCarrierStats || {};
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const ctvTotal = (srcCtv.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const affiliateTotal = (srcAffiliate.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const combinedTotal = ctvTotal + affiliateTotal;
-    const ctvPct = combinedTotal > 0 ? Math.round((ctvTotal / combinedTotal) * 100) : 0;
-    const affiliatePct = combinedTotal > 0 ? 100 - ctvPct : 0;
+    const gbhTotal = (srcGBH.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const ghtTotal = (srcGHT.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const combinedTotal = gbhTotal + ghtTotal;
+    const gbhPct = combinedTotal > 0 ? Math.round((gbhTotal / combinedTotal) * 100) : 0;
+    const ghtPct = combinedTotal > 0 ? 100 - gbhPct : 0;
     const crmOptions = [
-        { value: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
-        { value: 'ctv', label: 'CRM CTV', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-        { value: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', color: '#ec4899', bg: 'linear-gradient(135deg,#ec4899,#f472b6)' },
-        { value: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+        { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+        { value: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+        { value: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     ];
     const activeCfg = crmOptions.find(o => o.value === _htgd_settingsCrm);
 
