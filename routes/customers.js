@@ -55,7 +55,7 @@ async function customersRoutes(fastify, options) {
     });
 
     fastify.post('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {
-        const { crm_type, customer_name, phone, source_id, promotion_id, industry_id,
+        const { crm_type, customer_name, phone, source_id, source_name, promotion_id, industry_id,
                 receiver_id, notes, affiliate_user_id, job, facebook_link } = request.body || {};
         if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
@@ -65,6 +65,13 @@ async function customersRoutes(fastify, options) {
         if (phone) {
             const phoneError = await checkPhoneDuplicate(phone);
             if (phoneError) return reply.code(400).send({ error: phoneError });
+        }
+
+        // Auto-lookup source_id from source_name if source_id not provided
+        let resolvedSourceId = source_id ? Number(source_id) : null;
+        if (!resolvedSourceId && source_name) {
+            const srcRow = await db.get('SELECT id FROM settings_sources WHERE UPPER(name) = UPPER($1) LIMIT 1', [source_name.trim()]);
+            if (srcRow) resolvedSourceId = srcRow.id;
         }
 
         let actualReceiverId = receiver_id ? Number(receiver_id) : null;
@@ -92,14 +99,14 @@ async function customersRoutes(fastify, options) {
              industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [crm_type, customer_name || null, phone || null,
-             source_id ? Number(source_id) : null, promotion_id ? Number(promotion_id) : null,
+             resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
              request.user.id, referrerId, job || null, facebook_link || null]
         );
 
         const code = `${dailyNum}-${now.getUTCDate()}-${now.getUTCMonth() + 1}`;
-        const sourceName = source_id ? (await db.get('SELECT name FROM settings_sources WHERE id = ?', [Number(source_id)]))?.name : '';
+        const sourceName = resolvedSourceId ? (await db.get('SELECT name FROM settings_sources WHERE id = ?', [resolvedSourceId]))?.name : '';
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;

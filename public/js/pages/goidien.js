@@ -794,7 +794,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         customer_name: customerName,
         phone: phone,
         facebook_link: fbLink || null,
-        source_id: null,
+        source_name: 'GỌI ĐIỆN TELESALE',
         receiver_id: currentUser.id,
         notes: notes,
         job: jobTitle || null
