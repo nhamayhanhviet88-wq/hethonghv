@@ -1196,11 +1196,11 @@ async function _htgd_renderSettingsTab() {
     const sources = srcRes.sources || [];
     const sourceCarrierStats = cStatsRes.sourceCarrierStats || {};
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const gbhTotal = (srcGBH.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const ghtTotal = (srcGHT.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const combinedTotal = gbhTotal + ghtTotal;
-    const gbhPct = combinedTotal > 0 ? Math.round((gbhTotal / combinedTotal) * 100) : 0;
-    const ghtPct = combinedTotal > 0 ? 100 - gbhPct : 0;
+    const banHangTotal = (srcGBH.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const hopTacTotal = (srcGHT.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const combinedTotal = banHangTotal + hopTacTotal;
+    const hopTacPct = combinedTotal > 0 ? Math.round((hopTacTotal / combinedTotal) * 100) : 0;
+    const banHangPct = combinedTotal > 0 ? 100 - hopTacPct : 0;
     const crmOptions = [
         { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
         { value: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
