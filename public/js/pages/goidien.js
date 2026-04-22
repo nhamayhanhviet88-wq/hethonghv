@@ -449,7 +449,7 @@ async function _gd_loadCallsForUser(userId) {
         <div id="gdCallsList">${callsHtml}</div>`;
 
     // Load self-search progress if CRM Tự Tìm Kiếm tab
-    if (_gd_activeCrmTab === 'nhu_cau') {
+    if (_gd_activeCrmTab === 'tu_tim_kiem') {
         _gd_loadSelfSearchProgress(userId);
     } else {
         const ssEl = document.getElementById('gdSelfSearchProgress');
