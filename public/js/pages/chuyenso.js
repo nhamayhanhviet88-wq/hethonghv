@@ -309,7 +309,7 @@ async function renderChuyenSoPage(container) {
             const row = document.getElementById('csoAffiliateRow');
             const jobRow = document.getElementById('csoJobTitleRow');
             const jobSel = document.getElementById('csoJobTitle');
-            if (this.value === 'nhu_cau') {
+            if (this.value === 'nhu_cau' && isGD) {
                 row.style.display = 'grid';
             } else {
                 row.style.display = 'none';
