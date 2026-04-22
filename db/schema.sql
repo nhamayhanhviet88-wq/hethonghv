@@ -1566,3 +1566,8 @@ ON CONFLICT (key) DO NOTHING;
 -- Ensure tu_van_lai has correct phase
 UPDATE consult_type_configs SET rule_phase = 'huy_capuu' WHERE key = 'tu_van_lai' AND rule_phase IS NULL;
 UPDATE consult_type_configs SET rule_phase = 'huy_capuu' WHERE key = 'huy' AND rule_phase IS NULL;
+
+-- Allow phone to be NULL (when Facebook link is provided instead)
+ALTER TABLE customers ALTER COLUMN phone DROP NOT NULL;
+-- Add facebook_link column if not exists
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS facebook_link TEXT;
