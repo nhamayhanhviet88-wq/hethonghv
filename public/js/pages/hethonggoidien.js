@@ -14,7 +14,7 @@ let _htgd_tab = localStorage.getItem('htgd_tab') || 'data';
 let _htgd_depts = [];
 let _htgd_activeCrm = localStorage.getItem('htgd_crm') || 'all';
 let _htgd_lastData = [];
-let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'nhu_cau';
+let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'tu_tim_kiem';
 let _htgd_selectedYear = new Date().getFullYear();
 let _htgd_datePreset = 'today';
 let _htgd_dateFrom = '';
@@ -59,10 +59,9 @@ const _carrierMap = {
 
 const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
-    { key: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
-    { key: 'ctv', label: 'CRM CTV', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { key: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', color: '#ec4899', bg: 'linear-gradient(135deg,#ec4899,#f472b6)' },
-    { key: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+    { key: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { key: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
