@@ -1424,6 +1424,43 @@ module.exports = async function (fastify) {
         return { success: true, screenshot: screenshotPath };
     });
 
+    // POST /api/zalo-results/:id/reset-to-group — Reset result back to "Group Có Zalo" (Chưa Join)
+    fastify.post('/api/zalo-results/:id/reset-to-group', { preHandler: [authenticate] }, async (req, reply) => {
+        // Only users assigned "Setup Spam Zalo" lock task can reset
+        const hasSpamTask = await db.get(
+            `SELECT lt.id FROM lock_tasks lt
+             JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+             WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+               AND lta.user_id = $1 LIMIT 1`, [req.user.id]
+        );
+        if (!hasSpamTask) {
+            return reply.code(403).send({ error: 'Bạn chưa được gán công việc "Setup Spam Zalo"' });
+        }
+
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy kết quả' });
+
+        // Reset to "Group Có Zalo" state: Chưa Join + chưa đánh dấu spam
+        await db.run(
+            `UPDATE zalo_task_results SET
+                spam_eligible = false,
+                spam_not_eligible = false,
+                join_status = false,
+                pending_join = false,
+                spam_status = NULL,
+                spam_screenshot = NULL,
+                spam_by = NULL,
+                spam_at = NULL,
+                spam_reason = NULL,
+                marked_at = NOW()
+             WHERE id = $1`, [id]
+        );
+
+        console.log(`[ZaloSpam] Result #${id} reset to "Group Có Zalo" by user ${req.user.id}`);
+        return { success: true };
+    });
+
     // GET /api/zalo-tasks/stats — Stats for sidebar display
     fastify.get('/api/zalo-tasks/stats', { preHandler: [authenticate] }, async (req) => {
         const { user_id } = req.query;

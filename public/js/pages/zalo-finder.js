@@ -976,9 +976,31 @@ function _zpRenderTable() {
 }
 
 function _zpSpamModal(resultId) {
-    let old=document.getElementById('zlModal'); if(old) old.remove(); _zlSpamImg=null;
+    let old=document.getElementById('zlModal'); if(old) old.remove();
     const d=document.createElement('div'); d.id='zlModal'; d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
-    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(440px,92vw);" tabindex="-1"><div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;font-weight:800;">📸 Đánh Dấu Đã Spam</div><button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button></div><div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;"><div><label style="font-size:13px;font-weight:700;color:#334155;">📝 Lý do <span style="color:red;">*</span></label><textarea id="zpSpamReason" rows="3" placeholder="VD: Đã spam thành công..." style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:6px;"></textarea></div><div><label style="font-size:13px;font-weight:700;color:#334155;">📷 Hình ảnh <span style="color:red;">*</span></label><div id="zpImgPre" style="display:none;margin:8px 0;text-align:center;"><img id="zpImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid #dc2626;"/></div><div id="zpPasteZone" style="width:100%;padding:16px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;text-align:center;font-weight:700;font-size:13px;color:#64748b;box-sizing:border-box;margin-top:6px;"><div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Copy ảnh rồi nhấn Ctrl+V</div></div></div><button onclick="_zpSubmitSpam(${resultId})" style="padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:800;font-size:14px;">✅ Xác nhận Spam</button></div></div>`;
+    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(400px,90vw);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 20px;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:15px;font-weight:800;">📋 Chọn hành động</div>
+            <button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:14px;">
+            <button onclick="document.getElementById('zlModal').remove();_zpOpenSpamReport(${resultId})" style="padding:16px 20px;border:2px solid #dc2626;border-radius:12px;background:linear-gradient(135deg,#fef2f2,#fee2e2);cursor:pointer;display:flex;align-items:center;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size:28px;">📸</div>
+                <div style="text-align:left;"><div style="font-weight:800;font-size:14px;color:#dc2626;">Báo cáo Spam</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">Đã spam xong — chụp ảnh minh chứng</div></div>
+            </button>
+            <button onclick="document.getElementById('zlModal').remove();_zpResetToGroupCoZalo(${resultId})" style="padding:16px 20px;border:2px solid #f59e0b;border-radius:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);cursor:pointer;display:flex;align-items:center;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size:28px;">❌</div>
+                <div style="text-align:left;"><div style="font-weight:800;font-size:14px;color:#d97706;">Chưa tham gia nhóm</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">NV chưa join — trả về Group Có Zalo để join lại</div></div>
+            </button>
+        </div>
+    </div>`;
+    document.body.appendChild(d);
+}
+
+function _zpOpenSpamReport(resultId) {
+    _zlSpamImg=null;
+    const d=document.createElement('div'); d.id='zlModal'; d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(440px,92vw);" tabindex="-1"><div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;font-weight:800;">📸 Báo Cáo Đã Spam</div><button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button></div><div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;"><div><label style="font-size:13px;font-weight:700;color:#334155;">📝 Lý do <span style="color:red;">*</span></label><textarea id="zpSpamReason" rows="3" placeholder="VD: Đã spam thành công..." style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:6px;"></textarea></div><div><label style="font-size:13px;font-weight:700;color:#334155;">📷 Hình ảnh <span style="color:red;">*</span></label><div id="zpImgPre" style="display:none;margin:8px 0;text-align:center;"><img id="zpImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid #dc2626;"/></div><div id="zpPasteZone" style="width:100%;padding:16px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;text-align:center;font-weight:700;font-size:13px;color:#64748b;box-sizing:border-box;margin-top:6px;"><div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Copy ảnh rồi nhấn Ctrl+V</div></div></div><button onclick="_zpSubmitSpam(${resultId})" style="padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:800;font-size:14px;">✅ Xác nhận Spam</button></div></div>`;
     document.body.appendChild(d);
     d.addEventListener('paste',function(e){ const items=e.clipboardData?.items; if(!items) return; for(let i=0;i<items.length;i++){ if(items[i].type.startsWith('image/')){ e.preventDefault(); const reader=new FileReader(); reader.onload=function(ev){ _zlSpamImg=ev.target.result; const tag=document.getElementById('zpImgTag'),pre=document.getElementById('zpImgPre'),z=document.getElementById('zpPasteZone'); if(tag)tag.src=_zlSpamImg; if(pre)pre.style.display='block'; if(z)z.innerHTML='<div>✅ Đã dán ảnh — Ctrl+V để đổi</div>'; }; reader.readAsDataURL(items[i].getAsFile()); break; } } });
     d.setAttribute('tabindex','-1'); d.focus();
@@ -990,5 +1012,9 @@ async function _zpSubmitSpam(resultId) {
     try{ await apiCall('/api/zalo-results/'+resultId+'/spam','POST',{image_data:_zlSpamImg,reason}); document.getElementById('zlModal')?.remove(); showToast('✅ Đã đánh dấu Spam!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
 }
 
+async function _zpResetToGroupCoZalo(resultId) {
+    if(!confirm('Xác nhận trả nhóm này về "Group Có Zalo"?\nNhân viên sẽ cần join lại nhóm.')) return;
+    try{ await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST'); showToast('✅ Đã trả về Group Có Zalo!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
+}
 
 // Init is triggered by handleRoute switch case in app.js
