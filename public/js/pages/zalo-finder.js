@@ -331,9 +331,11 @@ function _zlRenderTasks(res) {
                         ? `<button onclick="_zlToggleSpamEligible(${r.id})" style="background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">🎯 Spam Được</button>`
                         : r.spam_not_eligible
                             ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">🚫 KHÔNG SPAM ĐƯỢC</button>`
-                            : r.pending_join
-                                ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">⏳ Chưa tham gia được</button>`
-                                : `<button onclick="_zlSpamChoose(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Đánh dấu</button>`;
+                            : !r.join_status
+                                ? `<span style="background:#f1f5f9;color:#9ca3af;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px dashed #d1d5db;" title="Cần ấn Đã Join trước">🔒 Cần Join trước</span>`
+                                : r.pending_join
+                                    ? `<button onclick="_zlSpamChoose(${r.id})" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">⏳ Chưa tham gia được</button>`
+                                    : `<button onclick="_zlSpamChoose(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Đánh dấu</button>`;
                 const copyBtn = (text) => `<button onclick="navigator.clipboard.writeText('${text.replace(/'/g,"\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;vertical-align:middle;" title="Copy">📋</button>`;
                 rows.push(`<tr style="border-bottom:1px solid #e5e7eb;">
                     ${ri===0 ? `<td rowspan="${displayResults.length}" style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}

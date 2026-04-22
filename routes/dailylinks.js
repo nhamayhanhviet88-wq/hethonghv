@@ -1217,6 +1217,7 @@ module.exports = async function (fastify) {
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        if (!result.join_status) return reply.code(400).send({ error: 'Phải đánh dấu "Đã Join" trước khi đánh dấu Spam' });
         const { reason, image_data } = req.body || {};
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
         if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp/chọn hình ảnh minh chứng' });
@@ -1249,6 +1250,7 @@ module.exports = async function (fastify) {
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        if (!result.join_status) return reply.code(400).send({ error: 'Phải đánh dấu "Đã Join" trước khi đánh dấu Spam' });
         const { reason, image_data } = req.body || {};
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do' });
         if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp/chọn hình ảnh minh chứng' });
@@ -1293,6 +1295,7 @@ module.exports = async function (fastify) {
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
         const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
         if (result.user_id !== req.user.id && !isManager) return reply.code(403).send({ error: 'Không có quyền' });
+        if (!result.join_status) return reply.code(400).send({ error: 'Phải đánh dấu "Đã Join" trước khi đánh dấu' });
         // Set pending_join, clear spam states so it stays in 'Group Có Zalo'
         await db.run('UPDATE zalo_task_results SET pending_join = TRUE, spam_eligible = FALSE, spam_not_eligible = FALSE, marked_at = NOW() WHERE id = $1', [id]);
         // Auto-complete check
