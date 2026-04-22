@@ -873,6 +873,21 @@ async function handleRoute() {
     const menuItem = MENU_CONFIG.find(m => m.id === currentPage);
     document.getElementById('pageTitle').textContent = menuItem ? menuItem.label : 'Dashboard';
 
+    // Add "Chuyển Số" button for specific KD pages
+    const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke'];
+    const existingCsBtn = document.getElementById('topbarChuyenSoBtn');
+    if (existingCsBtn) existingCsBtn.remove();
+    if (CHUYEN_SO_PAGES.includes(currentPage)) {
+        const csBtn = document.createElement('button');
+        csBtn.id = 'topbarChuyenSoBtn';
+        csBtn.onclick = openChuyenSoMXH;
+        csBtn.innerHTML = '📱 CHUYỂN SỐ';
+        csBtn.style.cssText = 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;border:none;padding:8px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.35);transition:all 0.2s;letter-spacing:0.5px;margin-left:16px;white-space:nowrap;';
+        csBtn.onmouseover = function(){ this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 20px rgba(245,158,11,0.5)'; };
+        csBtn.onmouseout = function(){ this.style.transform='scale(1)'; this.style.boxShadow='0 4px 14px rgba(245,158,11,0.35)'; };
+        document.querySelector('.topbar-left').appendChild(csBtn);
+    }
+
     // Render page content
     const content = document.getElementById('contentArea');
 
@@ -1767,4 +1782,186 @@ async function _mgrPenaltyAcknowledge() {
     try { await apiCall('/api/penalty/team-today/acknowledge', 'POST'); } catch(e) {}
     const el = document.getElementById('mgrPenaltyPopupOverlay');
     if (el) { el.style.animation = 'mgrPenFadeIn 0.2s reverse'; setTimeout(() => el.remove(), 200); }
+}
+
+// ========== CHUYỂN SỐ MXH — GLOBAL MODAL ==========
+async function openChuyenSoMXH() {
+    // Load dropdown data
+    const [sources, promotions, industries, usersRes, deptData, configData] = await Promise.all([
+        apiCall('/api/settings/sources'),
+        apiCall('/api/settings/promotions'),
+        apiCall('/api/settings/industries'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments'),
+        apiCall('/api/app-config/chuyenso_allowed_depts')
+    ]);
+
+    const allDepts = deptData.departments || [];
+    const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null;
+    const ROLE_LABELS = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', part_time: 'Part Time' };
+
+    function getDeptName(deptId) { const d = allDepts.find(x => x.id === deptId); return d ? d.name : ''; }
+    function getParentCode(deptId) { const d = allDepts.find(x => x.id === deptId); if (!d || !d.parent_id) return ''; const p = allDepts.find(x => x.id === d.parent_id); return p ? p.code : ''; }
+    function getAllChildDeptIds(parentId) { let ids = [parentId]; allDepts.filter(d => d.parent_id === parentId).forEach(c => { ids.push(...getAllChildDeptIds(c.id)); }); return ids; }
+
+    const allUsers = (usersRes.users || []).filter(u => ['giam_doc','quan_ly','truong_phong','nhan_vien','quan_ly_cap_cao'].includes(u.role));
+    let receiverUsers = allUsers;
+
+    if (['nhan_vien','truong_phong'].includes(currentUser.role)) {
+        receiverUsers = allUsers.filter(u => u.id === currentUser.id);
+    } else if (allowedDeptIds && allowedDeptIds.length > 0) {
+        let visibleDeptIds = [];
+        allowedDeptIds.forEach(id => visibleDeptIds.push(...getAllChildDeptIds(id)));
+        receiverUsers = allUsers.filter(u => {
+            if (u.role === 'giam_doc') return currentUser.role === 'giam_doc';
+            if (!u.department_id) return false;
+            return visibleDeptIds.includes(u.department_id);
+        });
+    }
+
+    function userLabel(u) {
+        let label = `${u.full_name} (${ROLE_LABELS[u.role] || u.role})`;
+        if (u.department_id) { const dn = getDeptName(u.department_id); const pc = getParentCode(u.department_id); if (dn) { label += ` — ${dn}`; if (pc) label += ` - ${pc.toUpperCase()}`; } }
+        return label;
+    }
+
+    // Only allow 2 specific sources
+    const allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
+    const filteredSources = (sources.items || []).filter(s => allowedSourceNames.some(n => s.name.toUpperCase().includes(n.toUpperCase())));
+
+    const isNVorTP = ['nhan_vien','truong_phong'].includes(currentUser.role);
+
+    // Build overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'chuyenSoMXHOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:_csMxhFadeIn 0.25s ease;';
+
+    overlay.innerHTML = `
+        <style>
+            @keyframes _csMxhFadeIn { from { opacity:0; } to { opacity:1; } }
+            @keyframes _csMxhSlideUp { from { transform:translateY(30px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+            ._csMxh-input { width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:10px;font-size:13px;font-family:Inter,sans-serif;transition:border-color 0.2s;background:#fff; }
+            ._csMxh-input:focus { outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.15); }
+            ._csMxh-label { display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px; }
+            ._csMxh-required { color:#dc2626; }
+        </style>
+        <div style="background:white;border-radius:16px;width:580px;max-width:94vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.3);animation:_csMxhSlideUp 0.3s ease;">
+            <div style="background:linear-gradient(135deg,#f59e0b,#ea580c);padding:20px 24px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <h3 style="margin:0;color:white;font-size:18px;font-weight:800;">📱 Chuyển Số Khách Hàng</h3>
+                    <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:12px;">Chuyển số từ công việc MXH</p>
+                </div>
+                <span onclick="document.getElementById('chuyenSoMXHOverlay').remove()" style="cursor:pointer;color:white;font-size:24px;font-weight:700;line-height:1;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">✕</span>
+            </div>
+            <form id="csMxhForm" style="padding:24px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label class="_csMxh-label">CRM <span class="_csMxh-required">*</span></label>
+                        <select id="csMxhCrm" class="_csMxh-input" required>
+                            <option value="">-- Chọn CRM --</option>
+                            <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
+                            <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="_csMxh-label">Nguồn Khách <span class="_csMxh-required">*</span></label>
+                        <select id="csMxhSource" class="_csMxh-input" required>
+                            <option value="">-- Chọn nguồn --</option>
+                            ${filteredSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label class="_csMxh-label">Tên Khách Hàng</label>
+                        <input type="text" id="csMxhName" class="_csMxh-input" placeholder="Nhập tên khách hàng">
+                    </div>
+                    <div>
+                        <label class="_csMxh-label">Số Điện Thoại <span class="_csMxh-required" id="csMxhPhoneStar">*</span></label>
+                        <input type="text" id="csMxhPhone" class="_csMxh-input" placeholder="Nhập SĐT" oninput="_csMxhToggleReq()">
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="_csMxh-label">🔗 Link Facebook <span class="_csMxh-required" id="csMxhFbStar">*</span></label>
+                    <input type="url" id="csMxhFacebook" class="_csMxh-input" placeholder="https://facebook.com/..." oninput="_csMxhToggleReq()">
+                    <small style="color:#9ca3af;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label class="_csMxh-label">Khuyến Mãi</label>
+                        <select id="csMxhPromotion" class="_csMxh-input">
+                            <option value="">-- Chọn khuyến mãi --</option>
+                            ${(promotions.items || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="_csMxh-label">Lĩnh Vực</label>
+                        <select id="csMxhIndustry" class="_csMxh-input">
+                            <option value="">-- Chọn lĩnh vực --</option>
+                            ${(industries.items || []).map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="_csMxh-label">Người Nhận Số <span class="_csMxh-required">*</span></label>
+                    ${isNVorTP ? `
+                        <input type="text" class="_csMxh-input" value="${userLabel(receiverUsers[0] || {full_name:'', role:'', department_id:null})}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                        <input type="hidden" id="csMxhReceiver" value="${receiverUsers[0]?.id || ''}">
+                    ` : `
+                        <select id="csMxhReceiver" class="_csMxh-input" required>
+                            <option value="">-- Chọn người nhận --</option>
+                            ${receiverUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${userLabel(u)}</option>`).join('')}
+                        </select>
+                    `}
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label class="_csMxh-label">Ghi chú</label>
+                    <textarea id="csMxhNotes" class="_csMxh-input" rows="3" placeholder="Ghi chú thêm..." style="resize:vertical;"></textarea>
+                </div>
+                <button type="submit" style="background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;border:none;padding:14px 40px;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.35);transition:all 0.2s;width:auto;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    📱 CHUYỂN SỐ
+                </button>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Submit handler
+    document.getElementById('csMxhForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const body = {
+            crm_type: document.getElementById('csMxhCrm').value,
+            customer_name: document.getElementById('csMxhName').value,
+            phone: document.getElementById('csMxhPhone').value,
+            source_id: document.getElementById('csMxhSource')?.value || null,
+            promotion_id: document.getElementById('csMxhPromotion')?.value || null,
+            industry_id: document.getElementById('csMxhIndustry')?.value || null,
+            receiver_id: document.getElementById('csMxhReceiver').value,
+            notes: document.getElementById('csMxhNotes').value,
+            facebook_link: document.getElementById('csMxhFacebook')?.value?.trim() || null
+        };
+        if (!body.crm_type || !body.receiver_id) { showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
+        if (!body.source_id) { showToast('Vui lòng chọn Nguồn Khách', 'error'); return; }
+        if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
+        try {
+            const data = await apiCall('/api/customers', 'POST', body);
+            if (data.success) {
+                showToast(`✅ Chuyển số thành công! Mã: ${data.dailyNum}`);
+                document.getElementById('chuyenSoMXHOverlay').remove();
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch (err) {
+            showToast('Lỗi kết nối', 'error');
+        }
+    });
+}
+
+function _csMxhToggleReq() {
+    const phone = document.getElementById('csMxhPhone')?.value?.trim();
+    const fb = document.getElementById('csMxhFacebook')?.value?.trim();
+    const ps = document.getElementById('csMxhPhoneStar');
+    const fs = document.getElementById('csMxhFbStar');
+    if (ps) ps.style.display = fb ? 'none' : '';
+    if (fs) fs.style.display = phone ? 'none' : '';
 }
