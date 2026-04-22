@@ -1014,7 +1014,11 @@ async function _zpSubmitSpam(resultId) {
 
 async function _zpResetToGroupCoZalo(resultId) {
     if(!confirm('Xác nhận đánh dấu nhóm này "Chưa tham gia"?\nNhóm sẽ trả về Group Có Zalo để NV join lại.')) return;
-    try{ await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST',{}); showToast('✅ Đã đánh dấu Chưa tham gia nhóm!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
+    try{
+        const res = await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST',{});
+        if(res.error){showToast(res.error,'error');return;}
+        showToast('✅ Đã đánh dấu Chưa tham gia nhóm!'); _zpLoadData();
+    }catch(e){showToast(e.message||'Lỗi','error');}
 }
 
 // Init is triggered by handleRoute switch case in app.js
