@@ -82,6 +82,7 @@ async function loadSettingsTab(type) {
                     </div>
                     <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
                         ${isSources ? `
+                            <button class="btn btn-xs" onclick="toggleChuyenSo(${item.id})" style="background:${item.show_in_chuyenso ? '#dbeafe' : '#f3f4f6'};color:${item.show_in_chuyenso ? '#1e40af' : '#9ca3af'};border:1px solid ${item.show_in_chuyenso ? '#93c5fd' : '#e5e7eb'};padding:3px 7px;font-size:11px;cursor:pointer;" title="${item.show_in_chuyenso ? 'Đang hiện ở Chuyển Số — Bấm để ẩn' : 'Đang ẩn ở Chuyển Số — Bấm để hiện'}">📱${item.show_in_chuyenso ? '✅' : ''}</button>
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'up')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isFirst ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển lên">⬆️</button>
                             <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'down')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isLast ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển xuống">⬇️</button>
                         ` : ''}
@@ -113,6 +114,16 @@ async function reorderSettingItem(type, id, direction) {
     if (res.error) { showToast(res.error, 'error'); return; }
     showToast('✅ Đã sắp xếp lại');
     await loadSettingsTab(type);
+}
+
+async function toggleChuyenSo(id) {
+    const res = await apiCall(`/api/settings/sources/${id}/toggle-chuyenso`, 'PUT');
+    if (res.success) {
+        showToast(res.message);
+        await loadSettingsTab('sources');
+    } else {
+        showToast(res.error || 'Lỗi', 'error');
+    }
 }
 
 async function addSettingItem(type) {

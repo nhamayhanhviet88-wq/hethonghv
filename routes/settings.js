@@ -2,9 +2,10 @@ const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 
 async function settingsRoutes(fastify, options) {
-    // Migration: add sort_order column if missing
+    // Migration: add sort_order + show_in_chuyenso columns if missing
     try {
         await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+        await db.run(`ALTER TABLE settings_sources ADD COLUMN IF NOT EXISTS show_in_chuyenso BOOLEAN DEFAULT false`);
         // Initialize sort_order for existing rows that have 0
         const rows = await db.all('SELECT id FROM settings_sources WHERE sort_order = 0 OR sort_order IS NULL ORDER BY id ASC');
         for (let i = 0; i < rows.length; i++) {
@@ -136,6 +137,22 @@ async function settingsRoutes(fastify, options) {
         await db.run('UPDATE settings_sources SET sort_order = $1 WHERE id = $2', [current.sort_order, neighbor.id]);
 
         return { success: true, message: 'Đã sắp xếp lại' };
+    });
+
+    // ===== Toggle show_in_chuyenso =====
+    fastify.put('/api/settings/sources/:id/toggle-chuyenso', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const id = Number(request.params.id);
+        const row = await db.get('SELECT show_in_chuyenso FROM settings_sources WHERE id = $1', [id]);
+        if (!row) return reply.code(404).send({ error: 'Không tìm thấy' });
+        const newVal = !row.show_in_chuyenso;
+        await db.run('UPDATE settings_sources SET show_in_chuyenso = $1 WHERE id = $2', [newVal, id]);
+        return { success: true, show_in_chuyenso: newVal, message: newVal ? 'Đã hiện ở Chuyển Số' : 'Đã ẩn khỏi Chuyển Số' };
+    });
+
+    // ===== Get sources visible in Chuyển Số =====
+    fastify.get('/api/settings/sources-chuyenso', { preHandler: [authenticate] }, async (request, reply) => {
+        const items = await db.all('SELECT * FROM settings_sources WHERE show_in_chuyenso = true ORDER BY sort_order ASC, id ASC');
+        return { items };
     });
 
     // ===== App Config (generic key-value) =====

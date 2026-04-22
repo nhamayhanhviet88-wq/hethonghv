@@ -3,14 +3,16 @@ const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý
 
 async function renderChuyenSoPage(container) {
     // Load dropdowns + departments + allowed depts config
-    const [sources, promotions, industries, users, deptData, configData] = await Promise.all([
+    const [sourcesAll, sourcesCSO, promotions, industries, users, deptData, configData] = await Promise.all([
         apiCall('/api/settings/sources'),
+        apiCall('/api/settings/sources-chuyenso'),
         apiCall('/api/settings/promotions'),
         apiCall('/api/settings/industries'),
         apiCall('/api/users/dropdown'),
         apiCall('/api/departments'),
         apiCall('/api/app-config/chuyenso_allowed_depts')
     ]);
+    const sources = { items: sourcesAll.items || [], chuyensoItems: sourcesCSO.items || [] };
 
     const allDepts = deptData.departments || [];
     const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null; // null = all allowed
@@ -138,7 +140,7 @@ async function renderChuyenSoPage(container) {
                             `}
                         </div>
                         <div class="form-group">
-                            <label>Nguồn Khách <span style="color:var(--danger)">*</span></label>
+                            <label>Nguồn Khách NV Kinh Doanh <span style="color:var(--danger)">*</span></label>
                             ${isAffiliate ? `
                                 <input type="text" id="csoSourceDisplay" class="form-control" value="AFFILIATE GIỚI THIỆU KHÁCH" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                                 <input type="hidden" id="csoSourceAffiliate" value="">
@@ -146,12 +148,8 @@ async function renderChuyenSoPage(container) {
                             <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
                                 ${(() => {
-                                    const allowedOrder = ['KH CŨ', 'NGƯỜI THÂN GIỚI THIỆU', 'DATA CỦA CÔNG TY', 'KHÔNG BIẾT NGUỒN'];
-                                    const allSrc = sources.items || [];
-                                    return allowedOrder.map(name => {
-                                        const s = allSrc.find(x => x.name.toUpperCase().includes(name));
-                                        return s ? `<option value="${s.id}">${s.name}</option>` : '';
-                                    }).join('');
+                                    const csoSources = sources.chuyensoItems || [];
+                                    return csoSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                                 })()}
                             </select>
                             `}
