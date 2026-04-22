@@ -191,8 +191,8 @@ async function renderChuyenSoPage(container) {
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>🔗 Link Facebook <span id="csoFbStar" style="color:var(--danger)">*</span></label>
-                            <input type="url" id="csoFacebook" class="form-control" placeholder="https://facebook.com/..." oninput="_csoToggleRequired()">
-                            <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                            <input type="url" id="csoFacebook" class="form-control" placeholder="https://www.facebook.com/username" oninput="_csoToggleRequired();_csoValidateFbLink()">
+                            <small id="csoFbHint" style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân</small>
                         </div>
                         <div></div>
                     </div>
@@ -280,6 +280,10 @@ async function renderChuyenSoPage(container) {
         }
         if (!body.phone && !body.facebook_link) {
             showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error');
+            return;
+        }
+        if (body.facebook_link && !_csoIsValidFbProfile(body.facebook_link)) {
+            showToast('Link Facebook không hợp lệ! Chỉ chấp nhận link trang cá nhân (VD: https://www.facebook.com/username)', 'error');
             return;
         }
 
@@ -441,4 +445,51 @@ function _csoToggleRequired() {
     const fbStar = document.getElementById('csoFbStar');
     if (phoneStar) phoneStar.style.display = fb ? 'none' : '';
     if (fbStar) fbStar.style.display = phone ? 'none' : '';
+}
+
+// Validate Facebook link is a personal profile URL
+function _csoIsValidFbProfile(url) {
+    if (!url) return true;
+    try {
+        const u = new URL(url);
+        if (!['www.facebook.com', 'facebook.com', 'm.facebook.com'].includes(u.hostname)) return false;
+        const path = u.pathname.replace(/\/+$/, ''); // remove trailing slash
+        // Reject known non-profile paths
+        const blocked = ['/groups', '/posts', '/watch', '/reel', '/reels', '/stories', '/story', '/pages', '/events', '/marketplace', '/gaming', '/live', '/photo', '/photos', '/videos', '/notes', '/permalink'];
+        for (const b of blocked) {
+            if (path.startsWith(b + '/') || path === b) return false;
+        }
+        // Allow: /username, /profile.php?id=xxx, /people/name/id
+        // Must have at least a username segment after /
+        if (path === '' || path === '/') return false;
+        // Reject paths with too many segments (e.g. /user/posts/123)
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length > 1 && segments[0] !== 'profile.php' && segments[0] !== 'people') return false;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Real-time visual feedback for FB link
+function _csoValidateFbLink() {
+    const input = document.getElementById('csoFacebook');
+    const hint = document.getElementById('csoFbHint');
+    if (!input || !hint) return;
+    const val = input.value.trim();
+    if (!val) {
+        hint.style.color = '#6b7280';
+        hint.textContent = 'Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân';
+        input.style.borderColor = '';
+        return;
+    }
+    if (_csoIsValidFbProfile(val)) {
+        hint.style.color = '#10b981';
+        hint.textContent = '✅ Link trang cá nhân hợp lệ';
+        input.style.borderColor = '#10b981';
+    } else {
+        hint.style.color = '#ef4444';
+        hint.textContent = '❌ Chỉ chấp nhận link trang cá nhân (VD: facebook.com/username)';
+        input.style.borderColor = '#ef4444';
+    }
 }
