@@ -1441,8 +1441,10 @@ module.exports = async function (fastify) {
         const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy kết quả' });
 
+        console.log(`[ZaloSpam] reset-to-group called for id=${id}, user=${req.user.id}, hasSpamTask=${hasSpamTask.id}`);
+
         // Mark as "not_joined" + reset to "Group Có Zalo" state for NV
-        await db.run(
+        const updateResult = await db.run(
             `UPDATE zalo_task_results SET
                 spam_eligible = false,
                 spam_not_eligible = false,
@@ -1456,8 +1458,11 @@ module.exports = async function (fastify) {
                 marked_at = NOW()
              WHERE id = $1`, [id]
         );
+        console.log(`[ZaloSpam] UPDATE result:`, updateResult);
 
-        console.log(`[ZaloSpam] Result #${id} marked "not_joined" by user ${req.user.id}`);
+        // Verify the update
+        const verify = await db.get('SELECT id, spam_status, spam_eligible FROM zalo_task_results WHERE id = $1', [id]);
+        console.log(`[ZaloSpam] Result #${id} after update:`, verify);
         return { success: true };
     });
 
