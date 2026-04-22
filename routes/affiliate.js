@@ -335,7 +335,8 @@ async function affiliateRoutes(fastify) {
                 referrer_name: isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con'),
                 last_log_type: lastLog?.log_type || null,
                 last_log_content: lastLog?.content || null,
-                last_contact_date: lastContactDate
+                last_contact_date: lastContactDate,
+                appointment_date: c.appointment_date || null
             };
         });
 
