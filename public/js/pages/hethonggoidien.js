@@ -59,9 +59,9 @@ const _carrierMap = {
 
 const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
-    { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
-    { key: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
     { key: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { key: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
 ];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
@@ -90,7 +90,7 @@ async function renderHeThongGoiDienPage(container) {
                     <h2 style="margin:0;color:#122546;font-size:20px;font-weight:800;">📊 Hệ Thống Phân Chia Gọi Điện</h2>
                     <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Quản lý data pool, import CSV, phân chia tự động cho NV</p>
                 </div>
-                <div id="htgdActionBtns" style="display:flex;gap:8px;flex-wrap:wrap;${isAll ? 'visibility:hidden;' : ''}">
+                <div id="htgdActionBtns" style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="ts-btn ts-btn-green" onclick="_htgd_importCSV()">📥 Import CSV</button>
                     <button class="ts-btn ts-btn-blue" onclick="_htgd_manualPump()">🚀 Bơm Thủ Công</button>
                     <button class="ts-btn" onclick="_htgd_forcePumpModal()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;">💉 Bơm Thêm</button>
@@ -142,7 +142,7 @@ async function _htgd_switchCrm(crmType) {
     });
     // Toggle action buttons visibility
     const actionBtns = document.getElementById('htgdActionBtns');
-    if (actionBtns) actionBtns.style.visibility = crmType === 'all' ? 'hidden' : 'visible';
+    if (actionBtns) actionBtns.style.visibility = 'visible';
     await _htgd_loadSources();
 }
 
@@ -152,7 +152,7 @@ function _htgd_switchTab(tab, el) {
     document.querySelectorAll('.ts-tab').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
     const actionBtns = document.getElementById('htgdActionBtns');
-    if (actionBtns) actionBtns.style.visibility = (tab === 'settings' || _htgd_activeCrm === 'all') ? 'hidden' : 'visible';
+    if (actionBtns) actionBtns.style.visibility = tab === 'settings' ? 'hidden' : 'visible';
     if (tab === 'data') _htgd_renderDataTab();
     else if (tab === 'members') _htgd_renderMembersTab();
 
