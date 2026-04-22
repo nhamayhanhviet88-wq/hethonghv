@@ -1445,7 +1445,7 @@ module.exports = async function (fastify) {
         const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy kết quả' });
 
-        console.log(`[ZaloSpam] reset-to-group called for id=${id}, user=${req.user.id}, hasSpamTask=${hasSpamTask.id}`);
+        console.log(`[ZaloSpam] reset-to-group called for id=${id}, user=${req.user.id}, role=${req.user.role}`);
 
         // Mark as "not_joined" + reset to "Group Có Zalo" state for NV
         const updateResult = await db.run(
