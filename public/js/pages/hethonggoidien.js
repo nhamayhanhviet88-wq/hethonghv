@@ -919,20 +919,20 @@ async function _htgd_manualRecall() {
 
 // ========== FORCE PUMP MODAL ==========
 async function _htgd_forcePumpModal() {
-    const [memRes, usersRes] = await Promise.all([
-        apiCall('/api/telesale/active-members'),
-        apiCall('/api/users/dropdown')
-    ]);
+    const memRes = await apiCall('/api/telesale/active-members');
     const members = memRes.members || [];
-    const allUsers = usersRes.users || [];
 
-    // Get unique active user IDs across all CRM types
-    const activeUserIds = [...new Set(members.map(m => m.user_id))];
+    // Only these 3 CRM types are valid for telesale pump
+    const VALID_CRM = ['tu_tim_kiem', 'goi_ban_hang', 'goi_hop_tac'];
+    const telesaleMembers = members.filter(m => VALID_CRM.includes(m.crm_type));
+
+    // Get unique active user IDs across valid CRM types
+    const activeUserIds = [...new Set(telesaleMembers.map(m => m.user_id))];
     const activeUsers = activeUserIds.map(uid => {
-        const u = allUsers.find(x => x.id === uid);
-        const memberCrms = members.filter(m => m.user_id === uid).map(m => m.crm_type);
-        return u ? { ...u, crm_types: memberCrms } : null;
-    }).filter(Boolean);
+        const m = telesaleMembers.find(x => x.user_id === uid);
+        const memberCrms = telesaleMembers.filter(x => x.user_id === uid).map(x => x.crm_type);
+        return { id: uid, full_name: m.full_name || m.username, username: m.username, crm_types: memberCrms };
+    });
 
     const CRM_LABELS = {
         tu_tim_kiem: '🔍 Tự Tìm Kiếm',
@@ -941,7 +941,7 @@ async function _htgd_forcePumpModal() {
     };
 
     const userOpts = activeUsers.map(u =>
-        `<option value="${u.id}" data-crms="${u.crm_types.join(',')}">${u.full_name} (${u.username})</option>`
+        `<option value="${u.id}" data-crms="${u.crm_types.join(',')}">${u.full_name || u.username}${u.full_name ? ' (' + u.username + ')' : ''}</option>`
     ).join('');
 
     openModal('💉 Bơm Thêm Cho NV', `
