@@ -1909,8 +1909,8 @@ async function openChuyenSoMXH(pageId) {
                 </div>
                 <div style="margin-bottom:16px;">
                     <label class="_csMxh-label">🔗 Link Facebook <span class="_csMxh-required" id="csMxhFbStar">*</span></label>
-                    <input type="url" id="csMxhFacebook" class="_csMxh-input" placeholder="https://facebook.com/..." oninput="_csMxhToggleReq()">
-                    <small style="color:#9ca3af;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                    <input type="url" id="csMxhFacebook" class="_csMxh-input" placeholder="https://www.facebook.com/username" oninput="_csMxhToggleReq();_csMxhValidateFb()">
+                    <small id="csMxhFbHint" style="color:#9ca3af;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân</small>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
@@ -1970,6 +1970,7 @@ async function openChuyenSoMXH(pageId) {
         if (!body.customer_name || !body.customer_name.trim()) { showToast('Vui lòng nhập Tên Khách Hàng', 'error'); return; }
         if (!body.source_id) { showToast('Vui lòng chọn Nguồn Khách', 'error'); return; }
         if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
+        if (body.facebook_link && !_csMxhIsValidFbProfile(body.facebook_link)) { showToast('Link Facebook không hợp lệ! Chỉ chấp nhận link trang cá nhân (VD: https://www.facebook.com/username)', 'error'); return; }
         try {
             const data = await apiCall('/api/customers', 'POST', body);
             if (data.success) {
@@ -1991,4 +1992,41 @@ function _csMxhToggleReq() {
     const fs = document.getElementById('csMxhFbStar');
     if (ps) ps.style.display = fb ? 'none' : '';
     if (fs) fs.style.display = phone ? 'none' : '';
+}
+
+function _csMxhIsValidFbProfile(url) {
+    if (!url) return true;
+    try {
+        const u = new URL(url);
+        if (!['www.facebook.com', 'facebook.com', 'm.facebook.com'].includes(u.hostname)) return false;
+        const path = u.pathname.replace(/\/+$/, '');
+        const blocked = ['/groups', '/posts', '/watch', '/reel', '/reels', '/stories', '/story', '/pages', '/events', '/marketplace', '/gaming', '/live', '/photo', '/photos', '/videos', '/notes', '/permalink'];
+        for (const b of blocked) { if (path.startsWith(b + '/') || path === b) return false; }
+        if (path === '' || path === '/') return false;
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length > 1 && segments[0] !== 'profile.php' && segments[0] !== 'people') return false;
+        return true;
+    } catch (e) { return false; }
+}
+
+function _csMxhValidateFb() {
+    const input = document.getElementById('csMxhFacebook');
+    const hint = document.getElementById('csMxhFbHint');
+    if (!input || !hint) return;
+    const val = input.value.trim();
+    if (!val) {
+        hint.style.color = '#9ca3af';
+        hint.textContent = 'Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân';
+        input.style.borderColor = '';
+        return;
+    }
+    if (_csMxhIsValidFbProfile(val)) {
+        hint.style.color = '#10b981';
+        hint.textContent = '✅ Link trang cá nhân hợp lệ';
+        input.style.borderColor = '#10b981';
+    } else {
+        hint.style.color = '#ef4444';
+        hint.textContent = '❌ Chỉ chấp nhận link trang cá nhân (VD: facebook.com/username)';
+        input.style.borderColor = '#ef4444';
+    }
 }
