@@ -1826,13 +1826,15 @@ async function openChuyenSoMXH(pageId) {
     }
 
     // Filter sources based on page
+    const isZaloPage = pageId === 'timgrzalovathongke';
     let allowedSourceNames;
-    if (pageId === 'timgrzalovathongke') {
-        allowedSourceNames = ['GR ZALO'];
+    if (isZaloPage) {
+        allowedSourceNames = ['GRUOP ZALO'];
     } else {
         allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
     }
     const filteredSources = (sources.items || []).filter(s => allowedSourceNames.some(n => s.name.toUpperCase().includes(n.toUpperCase())));
+    const zaloSource = isZaloPage && filteredSources.length > 0 ? filteredSources[0] : null;
 
     const isNVorTP = ['nhan_vien','truong_phong'].includes(currentUser.role);
 
@@ -1870,10 +1872,15 @@ async function openChuyenSoMXH(pageId) {
                     </div>
                     <div>
                         <label class="_csMxh-label">Nguồn Khách <span class="_csMxh-required">*</span></label>
+                        ${zaloSource ? `
+                            <input type="text" class="_csMxh-input" value="${zaloSource.name}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csMxhSource" value="${zaloSource.id}">
+                        ` : `
                         <select id="csMxhSource" class="_csMxh-input" required>
                             <option value="">-- Chọn nguồn --</option>
                             ${filteredSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
                         </select>
+                        `}
                     </div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
