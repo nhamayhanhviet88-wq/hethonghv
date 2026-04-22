@@ -115,7 +115,7 @@ async function renderGoiDienPage(container) {
     _gd_allUsers = usersRes.users || usersRes || [];
     _gd_allDepts = deptsRes.departments || deptsRes || [];
     _gd_memberIds = new Set((membersRes.members || []).filter(m => m.is_active).map(m => m.user_id));
-    _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'nhu_cau');
+    _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'tu_tim_kiem');
     _gd_selfSearchLocations = locRes.locations || [];
     _gd_visibleUserIds = new Set((visRes.user_ids || []).map(Number));
     console.log('[GD Debug] visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
