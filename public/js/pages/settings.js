@@ -63,20 +63,28 @@ async function loadSettingsTab(type) {
     const data = await apiCall(`/api/settings/${type}`);
     const contentDiv = document.getElementById('settingsContent');
     const isCommission = type === 'commission-tiers';
+    const isSources = type === 'sources';
 
     let html = `<ul class="setting-list">`;
 
     if (!data.items || data.items.length === 0) {
         html += `<li class="setting-item"><div class="text-muted" style="padding: 20px; text-align:center; width:100%;">Chưa có mục nào. Thêm mới bên dưới.</div></li>`;
     } else {
-        data.items.forEach(item => {
+        data.items.forEach((item, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === data.items.length - 1;
             html += `
                 <li class="setting-item" id="setting-item-${item.id}">
-                    <div class="item-info">
+                    <div class="item-info" style="flex:1;display:flex;align-items:center;gap:8px;">
+                        ${isSources ? `<span style="color:#9ca3af;font-size:11px;font-weight:700;min-width:22px;">#${idx+1}</span>` : ''}
                         <span class="fw-600">${item.name}</span>
                         ${isCommission ? `<span class="badge badge-info" style="margin-left: 8px;">TT: ${item.percentage}%</span><span class="badge" style="margin-left: 4px;background:#d1fae5;color:#065f46;">CT: ${item.parent_percentage || 0}%</span>` : ''}
                     </div>
-                    <div class="item-actions">
+                    <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
+                        ${isSources ? `
+                            <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'up')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isFirst ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển lên">⬆️</button>
+                            <button class="btn btn-xs" onclick="reorderSettingItem('${type}', ${item.id}, 'down')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 7px;font-size:13px;${isLast ? 'opacity:0.3;pointer-events:none;' : 'cursor:pointer;'}" title="Di chuyển xuống">⬇️</button>
+                        ` : ''}
                         <button class="btn btn-xs btn-secondary" onclick="editSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}', ${isCommission ? item.percentage : 0}, ${isCommission ? (item.parent_percentage || 0) : 0})">✏️</button>
                         <button class="btn btn-xs btn-danger" onclick="deleteSettingItem('${type}', ${item.id}, '${item.name.replace(/'/g, "\\'")}')">🗑️</button>
                     </div>
@@ -98,6 +106,13 @@ async function loadSettingsTab(type) {
     `;
 
     contentDiv.innerHTML = html;
+}
+
+async function reorderSettingItem(type, id, direction) {
+    const res = await apiCall(`/api/settings/${type}/reorder`, 'PUT', { id, direction });
+    if (res.error) { showToast(res.error, 'error'); return; }
+    showToast('✅ Đã sắp xếp lại');
+    await loadSettingsTab(type);
 }
 
 async function addSettingItem(type) {
