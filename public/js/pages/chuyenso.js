@@ -125,8 +125,10 @@ async function renderChuyenSoPage(container) {
                         <div class="form-group">
                             <label>CRM <span style="color:var(--danger)">*</span></label>
                             ${isAffiliate ? `
-                                <input type="text" class="form-control" value="Chăm Sóc KH Nhu Cầu" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
-                                <input type="hidden" id="csoCrm" value="nhu_cau">
+                                <select id="csoCrm" class="form-control" style="font-weight:700;color:#122546;">
+                                    <option value="nhu_cau" selected>Chăm Sóc KH Nhu Cầu</option>
+                                    <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                                </select>
                             ` : `
                             <select id="csoCrm" class="form-control" required>
                                 <option value="">-- Chọn CRM --</option>
@@ -138,7 +140,8 @@ async function renderChuyenSoPage(container) {
                         <div class="form-group">
                             <label>Nguồn Khách <span style="color:var(--danger)">*</span></label>
                             ${isAffiliate ? `
-                                <input type="text" class="form-control" value="AFFILIATE GIỚI THIỆU" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                                <input type="text" id="csoSourceDisplay" class="form-control" value="AFFILIATE GIỚI THIỆU KHÁCH" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                                <input type="hidden" id="csoSourceAffiliate" value="">
                             ` : `
                             <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
@@ -255,7 +258,7 @@ async function renderChuyenSoPage(container) {
             crm_type: document.getElementById('csoCrm').value,
             customer_name: document.getElementById('csoName').value,
             phone: document.getElementById('csoPhone').value,
-            source_id: document.getElementById('csoSource')?.value || null,
+            source_id: document.getElementById('csoSourceAffiliate')?.value || document.getElementById('csoSource')?.value || null,
             promotion_id: document.getElementById('csoPromotion')?.value || null,
             industry_id: document.getElementById('csoIndustry')?.value || null,
             receiver_id: document.getElementById('csoReceiver').value,
@@ -345,6 +348,29 @@ async function renderChuyenSoPage(container) {
     } else if (csoReceiverEl) {
         // Hidden input (NV/TP/Affiliate) → init with that value
         updateAffiliateDropdown(csoReceiverEl.value);
+    }
+
+    // ========== AFFILIATE: Auto-sync CRM → Nguồn Khách ==========
+    if (isAffiliate) {
+        const allSrc = sources.items || [];
+        const AFF_SOURCE_MAP = {
+            'nhu_cau': 'AFFILIATE GIỚI THIỆU KHÁCH',
+            'ctv_hoa_hong': 'AFFILIATE GIỚI THIỆU AFFILIATE'
+        };
+        function _affSyncSource() {
+            const crmVal = document.getElementById('csoCrm').value;
+            const sourceName = AFF_SOURCE_MAP[crmVal] || '';
+            const sourceDisplay = document.getElementById('csoSourceDisplay');
+            const sourceHidden = document.getElementById('csoSourceAffiliate');
+            if (sourceDisplay) sourceDisplay.value = sourceName;
+            // Find source_id by name
+            const found = allSrc.find(s => s.name.toUpperCase() === sourceName.toUpperCase());
+            if (sourceHidden) sourceHidden.value = found ? found.id : '';
+        }
+        // Init on load
+        _affSyncSource();
+        // Listen for CRM change
+        document.getElementById('csoCrm').addEventListener('change', _affSyncSource);
     }
 }
 
