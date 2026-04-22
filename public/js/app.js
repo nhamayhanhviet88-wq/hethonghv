@@ -880,7 +880,7 @@ async function handleRoute() {
     if (CHUYEN_SO_PAGES.includes(currentPage)) {
         const csBtn = document.createElement('button');
         csBtn.id = 'topbarChuyenSoBtn';
-        csBtn.onclick = openChuyenSoMXH;
+        csBtn.onclick = function(){ openChuyenSoMXH(currentPage); };
         csBtn.innerHTML = '📱 CHUYỂN SỐ';
         csBtn.style.cssText = 'background:#ea580c;color:white;border:none;padding:8px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all 0.2s;letter-spacing:0.5px;margin-left:16px;white-space:nowrap;font-family:Inter,system-ui,-apple-system,sans-serif;';
         csBtn.onmouseover = function(){ this.style.transform='scale(1.05)'; this.style.background='#c2410c'; };
@@ -1785,7 +1785,7 @@ async function _mgrPenaltyAcknowledge() {
 }
 
 // ========== CHUYỂN SỐ MXH — GLOBAL MODAL ==========
-async function openChuyenSoMXH() {
+async function openChuyenSoMXH(pageId) {
     // Load dropdown data
     const [sources, promotions, industries, usersRes, deptData, configData] = await Promise.all([
         apiCall('/api/settings/sources'),
@@ -1825,8 +1825,13 @@ async function openChuyenSoMXH() {
         return label;
     }
 
-    // Only allow 2 specific sources
-    const allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
+    // Filter sources based on page
+    let allowedSourceNames;
+    if (pageId === 'timgrzalovathongke') {
+        allowedSourceNames = ['GR ZALO'];
+    } else {
+        allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
+    }
     const filteredSources = (sources.items || []).filter(s => allowedSourceNames.some(n => s.name.toUpperCase().includes(n.toUpperCase())));
 
     const isNVorTP = ['nhan_vien','truong_phong'].includes(currentUser.role);
