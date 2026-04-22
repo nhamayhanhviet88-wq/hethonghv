@@ -117,7 +117,7 @@ async function reorderSettingItem(type, id, direction) {
 }
 
 async function toggleChuyenSo(id) {
-    const res = await apiCall(`/api/settings/sources/${id}/toggle-chuyenso`, 'PUT');
+    const res = await apiCall(`/api/source-chuyenso-toggle/${id}`, 'PUT');
     if (res.success) {
         showToast(res.message);
         await loadSettingsTab('sources');

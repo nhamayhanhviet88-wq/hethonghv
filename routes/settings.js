@@ -140,7 +140,7 @@ async function settingsRoutes(fastify, options) {
     });
 
     // ===== Toggle show_in_chuyenso =====
-    fastify.put('/api/settings/sources/:id/toggle-chuyenso', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.put('/api/source-chuyenso-toggle/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const id = Number(request.params.id);
         const row = await db.get('SELECT show_in_chuyenso FROM settings_sources WHERE id = $1', [id]);
         if (!row) return reply.code(404).send({ error: 'Không tìm thấy' });
