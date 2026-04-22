@@ -148,6 +148,7 @@ async function customersRoutes(fastify, options) {
 
         if (crm_type) {
             if (crm_type === 'ctv') { query += ` AND c.crm_type IN ('ctv','ctv_hoa_hong')`; }
+            else if (crm_type === 'affiliate') { query += ` AND c.crm_type = 'ctv_hoa_hong'`; }
             else if (crm_type === 'goi_ban_hang') { query += ` AND c.crm_type IN ('goi_ban_hang','kinh_doanh')`; }
             else { query += ` AND c.crm_type = ?`; params.push(crm_type); }
         }
