@@ -1102,7 +1102,7 @@ async function telesaleRoutes(fastify) {
             return reply.code(400).send({ error: 'Thiếu user_id, crm_type hoặc count' });
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
         const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true AND crm_type = ? ORDER BY display_order', [crm_type]);
         if (sources.length === 0) return { success: false, error: 'Không có nguồn nào cho tab này' };
 
