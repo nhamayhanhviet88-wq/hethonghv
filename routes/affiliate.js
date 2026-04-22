@@ -298,14 +298,11 @@ async function affiliateRoutes(fastify) {
         if (customerIds.length > 0) {
             const cph = customerIds.map(() => '?').join(',');
             const logs = await db.all(`
-                SELECT cl.customer_id, cl.log_type, cl.content, cl.created_at
-                FROM consultation_logs cl
-                INNER JOIN (
-                    SELECT customer_id, MAX(id) as max_id
-                    FROM consultation_logs
-                    WHERE customer_id IN (${cph})
-                    GROUP BY customer_id
-                ) latest ON cl.id = latest.max_id
+                SELECT DISTINCT ON (customer_id) customer_id, log_type, content, created_at
+                FROM consultation_logs
+                WHERE customer_id IN (${cph})
+                AND log_type != 'khong_xu_ly'
+                ORDER BY customer_id, created_at DESC, id DESC
             `, customerIds);
             logs.forEach(l => { consultMap[l.customer_id] = l; });
         }
