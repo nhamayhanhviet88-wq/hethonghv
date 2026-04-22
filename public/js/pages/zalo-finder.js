@@ -940,7 +940,9 @@ function _zpRenderToolbar() {
     const tb = document.getElementById('zpToolbar'); if (!tb) return;
     const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
     const btn=(f,l,ic,c)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?'#7c3aed':'#d1d5db'};border-radius:8px;background:${a?'#ede9fe':'white'};color:${a?'#7c3aed':'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
-    tb.innerHTML = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da);
+    let h = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da);
+    if (chua > 0) { h += `<button onclick="_zpBulkResetAll()" style="padding:6px 14px;border:2px solid #f59e0b;border-radius:8px;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#d97706;cursor:pointer;font-weight:700;font-size:11px;margin-left:6px;">❌ Chưa tham gia nhóm (${chua})</button>`; }
+    tb.innerHTML = h;
 }
 
 function _zpRenderProgress() {
@@ -1015,6 +1017,18 @@ async function _zpSubmitSpam(resultId) {
 async function _zpResetToGroupCoZalo(resultId) {
     if(!confirm('Xác nhận trả nhóm này về "Group Có Zalo"?\nNhân viên sẽ cần join lại nhóm.')) return;
     try{ await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST'); showToast('✅ Đã trả về Group Có Zalo!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
+}
+
+async function _zpBulkResetAll() {
+    const pending = _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
+    if(!pending.length){showToast('Không có nhóm nào cần reset','error');return;}
+    if(!confirm(`Xác nhận trả TẤT CẢ ${pending.length} nhóm QL Chưa Spam về "Group Có Zalo"?\nTất cả nhóm sẽ cần nhân viên join lại.`)) return;
+    let ok=0, fail=0;
+    for(const r of pending){
+        try{ await apiCall('/api/zalo-results/'+r.id+'/reset-to-group','POST'); ok++; }catch(e){ fail++; }
+    }
+    showToast(`✅ Đã trả ${ok} nhóm về Group Có Zalo${fail?' ('+fail+' lỗi)':''}`);
+    _zpLoadData();
 }
 
 // Init is triggered by handleRoute switch case in app.js
