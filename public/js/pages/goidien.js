@@ -749,9 +749,9 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
             </div>` : ''}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Facebook <span style="color:#dc2626;">*</span></label>
-                    <input type="url" id="gdCSFacebook" class="form-control" value="${call.fb_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com/...">
-                    <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1)</small>
+                    <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Khách Hàng</label>
+                    <input type="text" id="gdCSFacebook" class="form-control" value="${call.fb_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com, instagram.com, tiktok.com...">
+                    <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link MXH (ít nhất 1)</small>
                 </div>
                 <div></div>
             </div>
@@ -799,7 +799,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
 
     if (!crmType) return showToast('Chọn CRM', 'error');
     if (!customerName) return showToast('Vui lòng nhập Tên Khách Hàng', 'error');
-    if (!phone && !fbLink) return showToast('Vui lòng nhập SĐT hoặc Link Facebook', 'error');
+    if (!phone && !fbLink) return showToast('Vui lòng nhập SĐT hoặc Link Khách Hàng', 'error');
 
     const custRes = await apiCall('/api/customers', 'POST', {
         crm_type: crmType,
@@ -1051,14 +1051,14 @@ function _gd_openSelfSearchModal() {
                 <input id="gdSSName" type="text" class="form-control" placeholder="VD: Nguyễn Văn A" style="font-size:13px;">
             </div>
             <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">🔗 Đường Link Facebook</label>
+                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">🔗 Link Khách Hàng</label>
                 <input id="gdSSFbLink" type="url" class="form-control" placeholder="https://facebook.com/..." style="font-size:13px;" oninput="_gd_ssValidateContact()">
                 <div style="font-size:10px;color:#6b7280;margin-top:2px;">Bắt buộc nếu không có SĐT</div>
             </div>
             <div>
                 <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📱 Số Điện Thoại</label>
                 <input id="gdSSPhone" type="text" class="form-control" placeholder="0912345678" style="font-size:13px;" oninput="_gd_ssValidateContact()">
-                <div style="font-size:10px;color:#6b7280;margin-top:2px;">Bắt buộc nếu không có Link FB</div>
+                <div style="font-size:10px;color:#6b7280;margin-top:2px;">Bắt buộc nếu không có Link MXH</div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
@@ -1088,7 +1088,7 @@ function _gd_openSelfSearchModal() {
                 <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📝 Ghi chú</label>
                 <textarea id="gdSSNotes" class="form-control" rows="2" placeholder="Ghi chú cuộc gọi..." style="font-size:13px;resize:vertical;"></textarea>
             </div>
-            <div id="gdSSContactError" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:600;">⚠️ Cần ít nhất Link FB hoặc SĐT</div>
+            <div id="gdSSContactError" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:600;">⚠️ Cần ít nhất Link MXH hoặc SĐT</div>
         </div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
         <button class="ts-btn ts-btn-green" onclick="_gd_submitSelfSearch()">💾 Thêm KH</button>`);
@@ -1160,7 +1160,7 @@ async function _gd_submitSelfSearch() {
     const call_disposition = _gd_ssSelectedDisposition;
 
     if (!customer_name) return showToast('Nhập tên KH!', 'error');
-    if (!fb_link && !phone) return showToast('Cần ít nhất Link FB hoặc SĐT!', 'error');
+    if (!fb_link && !phone) return showToast('Cần ít nhất Link MXH hoặc SĐT!', 'error');
     if (!source_id) return showToast('Chọn Nguồn!', 'error');
     if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
     if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');

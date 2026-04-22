@@ -245,7 +245,7 @@ async function renderCRMCtvPage(container) {
                         <th style="min-width:80px">Mã KH</th>
                         <th style="min-width:150px">Tên KH</th>
                         <th style="min-width:110px">SĐT</th>
-                        <th style="min-width:110px">Link FB</th>
+                        <th style="min-width:110px">Link Khách Hàng</th>
                         <th style="min-width:130px">Địa Chỉ</th>
                         <th style="min-width:100px">Nguồn</th>
                         <th style="min-width:120px">Người GT</th>

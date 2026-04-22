@@ -593,7 +593,7 @@ async function _htgd_loadData() {
                 <th style="text-align:left;">Tên KH</th>
                 <th style="text-align:left;">Nội Dung ĐB</th>
                 <th style="text-align:left;">SĐT</th>
-                <th style="text-align:center;">Link FB</th>
+                <th style="text-align:center;">Link Khách Hàng</th>
                 <th style="text-align:center;">NM</th>
                 <th style="text-align:left;">Địa Chỉ</th>
                 <th style="text-align:center;">Trạng Thái</th>
