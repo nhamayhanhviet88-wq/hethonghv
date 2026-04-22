@@ -254,7 +254,7 @@ async function affiliateRoutes(fastify) {
 
         // Get customers referred by these affiliates
         const customers = await db.all(`
-            SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at
+            SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date
             FROM customers c
             WHERE c.referrer_id IN (${ph})
             ORDER BY c.created_at DESC

@@ -133,11 +133,12 @@ async function renderBaoCaoHoaHongPage(container) {
                                 <th>Doanh Thu</th>
                                 <th>Tỷ Lệ HH</th>
                                 <th>Hoa Hồng</th>
+                                <th>Ngày Hẹn</th>
                                 <th>Ngày Liên Hệ</th>
                             </tr>
                         </thead>
                         <tbody id="hhTableBody">
-                            <tr><td colspan="11" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
+                            <tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -148,7 +149,7 @@ async function renderBaoCaoHoaHongPage(container) {
     try {
         const data = await apiCall('/api/affiliate/commission');
         if (!data.success) {
-            document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="11" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
+            document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
             return;
         }
 
@@ -201,13 +202,13 @@ async function renderBaoCaoHoaHongPage(container) {
         // Render table
         hhRenderTable(data.items);
     } catch (e) {
-        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="11" class="text-center text-muted">Lỗi: ${e.message}</td></tr>`;
+        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi: ${e.message}</td></tr>`;
     }
 }
 
 function hhRenderTable(items) {
     if (items.length === 0) {
-        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="11" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
+        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
         return;
     }
 
@@ -241,6 +242,7 @@ function hhRenderTable(items) {
             <td>${hhFormatMoney(item.total_revenue)}</td>
             <td>${item.rate}%</td>
             <td>${commissionDisplay}</td>
+            <td>${item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('vi-VN') : '<span style="color:#9ca3af">—</span>'}</td>
             <td>${contactDate}</td>
         </tr>`;
     }).join('');
