@@ -1441,14 +1441,14 @@ module.exports = async function (fastify) {
         const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
         if (!result) return reply.code(404).send({ error: 'Không tìm thấy kết quả' });
 
-        // Reset to "Group Có Zalo" state: Chưa Join + chưa đánh dấu spam
+        // Mark as "not_joined" + reset to "Group Có Zalo" state for NV
         await db.run(
             `UPDATE zalo_task_results SET
                 spam_eligible = false,
                 spam_not_eligible = false,
                 join_status = false,
                 pending_join = false,
-                spam_status = NULL,
+                spam_status = 'not_joined',
                 spam_screenshot = NULL,
                 spam_by = NULL,
                 spam_at = NULL,
@@ -1457,7 +1457,7 @@ module.exports = async function (fastify) {
              WHERE id = $1`, [id]
         );
 
-        console.log(`[ZaloSpam] Result #${id} reset to "Group Có Zalo" by user ${req.user.id}`);
+        console.log(`[ZaloSpam] Result #${id} marked "not_joined" by user ${req.user.id}`);
         return { success: true };
     });
 

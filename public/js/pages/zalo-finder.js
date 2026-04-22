@@ -922,7 +922,7 @@ async function _zpLoadData() {
         const res = await apiCall(url);
         _zpAllResults = [];
         (res.tasks||[]).forEach(t => { (t.results||[]).forEach(r => {
-            if (r.spam_eligible || r.spam_status==='done') _zpAllResults.push({...r, user_id:t.user_id, user_name:t.user_name||t.username, pool_url:t.pool_url||''});
+            if (r.spam_eligible || r.spam_status==='done' || r.spam_status==='not_joined') _zpAllResults.push({...r, user_id:t.user_id, user_name:t.user_name||t.username, pool_url:t.pool_url||''});
         }); });
         _zpRenderStats(); _zpRenderToolbar(); _zpRenderProgress(); _zpRenderTable();
     } catch(e) { console.error(e); const el=document.getElementById('zpTaskList'); if(el) el.innerHTML=`<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`; }
@@ -931,30 +931,28 @@ async function _zpLoadData() {
 function _zpRenderStats() {
     const el = document.getElementById('zpStats'); if (!el) return;
     if (!document.getElementById('zlSparkleCSS')) { const s=document.createElement('style'); s.id='zlSparkleCSS'; s.textContent=`@keyframes zlSparkle{0%,100%{box-shadow:0 0 8px rgba(255,255,255,0.3),0 4px 15px rgba(0,0,0,0.15)}50%{box-shadow:0 0 20px rgba(255,255,255,0.6),0 0 40px rgba(255,255,255,0.2)}}`; document.head.appendChild(s); }
-    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done'&&r.spam_status!=='not_joined').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
     el.innerHTML = `<div onclick="_zpSetFilter('pending_spam')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#ef4444,#b91c1c);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'"><div style="font-size:28px;margin-bottom:4px;">🔥</div><div style="font-size:32px;font-weight:900;">${chua}</div><div style="font-size:13px;font-weight:800;margin-top:4px;opacity:0.95;">QL CHƯA SPAM</div></div>
     <div onclick="_zpSetFilter('done_spam')" style="flex:1;min-width:180px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:18px 20px;color:white;cursor:pointer;animation:zlSparkle 2s ease-in-out infinite .5s;transition:transform .2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'"><div style="font-size:28px;margin-bottom:4px;">📣</div><div style="font-size:32px;font-weight:900;">${da}</div><div style="font-size:13px;font-weight:800;margin-top:4px;opacity:0.95;">QL ĐÃ SPAM</div></div>`;
 }
 
 function _zpRenderToolbar() {
     const tb = document.getElementById('zpToolbar'); if (!tb) return;
-    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
-    const btn=(f,l,ic,c)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?'#7c3aed':'#d1d5db'};border-radius:8px;background:${a?'#ede9fe':'white'};color:${a?'#7c3aed':'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
-    let h = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da);
-    if (chua > 0) { h += `<button onclick="_zpBulkResetAll()" style="padding:6px 14px;border:2px solid #f59e0b;border-radius:8px;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#d97706;cursor:pointer;font-weight:700;font-size:11px;margin-left:6px;">❌ Chưa tham gia nhóm (${chua})</button>`; }
-    tb.innerHTML = h;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done'&&r.spam_status!=='not_joined').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length, nj=_zpAllResults.filter(r=>r.spam_status==='not_joined').length;
+    const btn=(f,l,ic,c,bc,tc)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?(bc||'#7c3aed'):'#d1d5db'};border-radius:8px;background:${a?(tc||'#ede9fe'):'white'};color:${a?(bc||'#7c3aed'):'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
+    tb.innerHTML = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da)+btn('not_joined','Chưa tham gia nhóm','❌',nj,'#d97706','#fef3c7');
 }
 
 function _zpRenderProgress() {
     const el = document.getElementById('zpProgress'); if (!el) return;
-    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done'&&r.spam_status!=='not_joined').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length;
     const total=chua+da, pct=total>0?Math.min(100,Math.round(da/total*100)):0;
     el.innerHTML = `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-weight:700;font-size:15px;color:#1e293b;">📣 Đã spam: <span style="color:#7c3aed;">${da}/${total}</span> nhóm</span><span style="font-size:13px;font-weight:700;color:${pct>=100?'#16a34a':'#f59e0b'};">${pct}%</span></div><div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${_ZP_GRAD};border-radius:4px;transition:width .5s;"></div></div></div>`;
 }
 
 function _zpRenderTable() {
     const el = document.getElementById('zpTaskList'); if (!el) return;
-    let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
+    let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpFilter==='not_joined' ? _zpAllResults.filter(r=>r.spam_status==='not_joined') : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done'&&r.spam_status!=='not_joined');
     if (!f.length) { el.innerHTML='<div style="text-align:center;padding:60px;color:#9ca3af;">Không có nhóm nào.</div>'; return; }
     const cp=(t)=>`<button onclick="navigator.clipboard.writeText('${t.replace(/'/g,"\\\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;" title="Copy">📋</button>`;
     let rows=f.map((r,i)=>{
@@ -1015,20 +1013,8 @@ async function _zpSubmitSpam(resultId) {
 }
 
 async function _zpResetToGroupCoZalo(resultId) {
-    if(!confirm('Xác nhận trả nhóm này về "Group Có Zalo"?\nNhân viên sẽ cần join lại nhóm.')) return;
-    try{ await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST'); showToast('✅ Đã trả về Group Có Zalo!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
-}
-
-async function _zpBulkResetAll() {
-    const pending = _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
-    if(!pending.length){showToast('Không có nhóm nào cần reset','error');return;}
-    if(!confirm(`Xác nhận trả TẤT CẢ ${pending.length} nhóm QL Chưa Spam về "Group Có Zalo"?\nTất cả nhóm sẽ cần nhân viên join lại.`)) return;
-    let ok=0, fail=0;
-    for(const r of pending){
-        try{ await apiCall('/api/zalo-results/'+r.id+'/reset-to-group','POST'); ok++; }catch(e){ fail++; }
-    }
-    showToast(`✅ Đã trả ${ok} nhóm về Group Có Zalo${fail?' ('+fail+' lỗi)':''}`);
-    _zpLoadData();
+    if(!confirm('Xác nhận đánh dấu nhóm này "Chưa tham gia"?\nNhóm sẽ trả về Group Có Zalo để NV join lại.')) return;
+    try{ await apiCall('/api/zalo-results/'+resultId+'/reset-to-group','POST'); showToast('✅ Đã đánh dấu Chưa tham gia nhóm!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
 }
 
 // Init is triggered by handleRoute switch case in app.js
