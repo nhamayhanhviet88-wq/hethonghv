@@ -93,6 +93,7 @@ async function renderHeThongGoiDienPage(container) {
                 <div id="htgdActionBtns" style="display:flex;gap:8px;flex-wrap:wrap;${isAll ? 'visibility:hidden;' : ''}">
                     <button class="ts-btn ts-btn-green" onclick="_htgd_importCSV()">📥 Import CSV</button>
                     <button class="ts-btn ts-btn-blue" onclick="_htgd_manualPump()">🚀 Bơm Thủ Công</button>
+                    <button class="ts-btn" onclick="_htgd_forcePumpModal()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;">💉 Bơm Thêm</button>
                     <button class="ts-btn ts-btn-red" onclick="_htgd_manualRecall()">🔄 Thu Hồi</button>
                     <button class="ts-btn" onclick="_htgd_dedupCrm()" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;">🧹 Lọc Trùng</button>
                     ${currentUser.role === 'giam_doc' ? '<button class="ts-btn" onclick="_htgd_deleteAllData()" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;">🗑️ Xóa Toàn Bộ</button>' : ''}
@@ -914,6 +915,106 @@ async function _htgd_manualRecall() {
     const res = await apiCall('/api/telesale/recall', 'POST');
     if (res.success) { showToast(res.message); await _htgd_refreshStats(); _htgd_renderDataTab(); }
     else showToast(res.error, 'error');
+}
+
+// ========== FORCE PUMP MODAL ==========
+async function _htgd_forcePumpModal() {
+    const [memRes, usersRes] = await Promise.all([
+        apiCall('/api/telesale/active-members'),
+        apiCall('/api/users/dropdown')
+    ]);
+    const members = memRes.members || [];
+    const allUsers = usersRes.users || [];
+
+    // Get unique active user IDs across all CRM types
+    const activeUserIds = [...new Set(members.map(m => m.user_id))];
+    const activeUsers = activeUserIds.map(uid => {
+        const u = allUsers.find(x => x.id === uid);
+        const memberCrms = members.filter(m => m.user_id === uid).map(m => m.crm_type);
+        return u ? { ...u, crm_types: memberCrms } : null;
+    }).filter(Boolean);
+
+    const CRM_LABELS = {
+        tu_tim_kiem: '🔍 Tự Tìm Kiếm',
+        goi_ban_hang: '📞 Gọi Điện Bán Hàng',
+        goi_hop_tac: '🤝 Gọi Điện Đối Tác'
+    };
+
+    const userOpts = activeUsers.map(u =>
+        `<option value="${u.id}" data-crms="${u.crm_types.join(',')}">${u.full_name} (${u.username})</option>`
+    ).join('');
+
+    openModal('💉 Bơm Thêm Cho NV', `
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700;color:#122546;font-size:13px;">👤 Chọn Nhân Viên</label>
+                <select id="fpUser" class="form-control" onchange="_htgd_fpUpdateCrm()">
+                    <option value="">-- Chọn NV --</option>
+                    ${userOpts}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700;color:#122546;font-size:13px;">📋 Tab Gọi Điện</label>
+                <select id="fpCrm" class="form-control">
+                    <option value="">-- Chọn tab --</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-weight:700;color:#122546;font-size:13px;">📊 Số lượng SĐT bơm thêm</label>
+                <input type="number" id="fpCount" class="form-control" value="50" min="1" max="500" style="font-weight:700;font-size:16px;">
+            </div>
+            <div style="padding:10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:11px;color:#92400e;">
+                📌 <strong>Lưu ý:</strong> Bơm thêm sẽ gán thêm SĐT mới (không trùng với data đã bơm hôm nay) cho NV được chọn.
+            </div>
+        </div>
+    `, `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn" onclick="_htgd_forcePumpSubmit()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;font-weight:700;">💉 Bơm Thêm</button>
+    `);
+}
+
+function _htgd_fpUpdateCrm() {
+    const sel = document.getElementById('fpUser');
+    const crmSel = document.getElementById('fpCrm');
+    const opt = sel.options[sel.selectedIndex];
+    const crms = opt?.dataset?.crms?.split(',').filter(Boolean) || [];
+
+    const CRM_LABELS = {
+        tu_tim_kiem: '🔍 Tự Tìm Kiếm',
+        goi_ban_hang: '📞 Gọi Điện Bán Hàng',
+        goi_hop_tac: '🤝 Gọi Điện Đối Tác'
+    };
+
+    crmSel.innerHTML = '<option value="">-- Chọn tab --</option>' +
+        crms.map(c => `<option value="${c}">${CRM_LABELS[c] || c}</option>`).join('');
+}
+
+async function _htgd_forcePumpSubmit() {
+    const user_id = document.getElementById('fpUser')?.value;
+    const crm_type = document.getElementById('fpCrm')?.value;
+    const count = parseInt(document.getElementById('fpCount')?.value);
+
+    if (!user_id) return showToast('Chọn nhân viên', 'error');
+    if (!crm_type) return showToast('Chọn tab gọi điện', 'error');
+    if (!count || count <= 0) return showToast('Nhập số lượng hợp lệ', 'error');
+
+    const userName = document.getElementById('fpUser').options[document.getElementById('fpUser').selectedIndex].textContent;
+    if (!confirm(`Bơm thêm ${count} SĐT cho ${userName}?`)) return;
+
+    closeModal();
+    showToast('⏳ Đang bơm thêm...', 'info');
+
+    const res = await apiCall('/api/telesale/force-pump', 'POST', { user_id: Number(user_id), crm_type, count });
+    if (res.success) {
+        showToast(`✅ ${res.message}`);
+        if (res.alerts && res.alerts.length > 0) {
+            alert('⚠️ Nguồn thiếu data:\n\n' + res.alerts.map(a => `⚠️ ${a.source}: cần ${a.needed}, còn ${a.available}`).join('\n'));
+        }
+        await _htgd_refreshStats();
+        _htgd_renderDataTab();
+    } else {
+        showToast(res.error || 'Lỗi bơm thêm', 'error');
+    }
 }
 
 // ========== MEMBERS TAB ==========

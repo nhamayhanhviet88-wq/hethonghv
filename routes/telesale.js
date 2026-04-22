@@ -1094,6 +1094,89 @@ async function telesaleRoutes(fastify) {
         return result;
     });
 
+    // ========== FORCE PUMP (Bơm Thêm cho NV chỉ định) ==========
+    fastify.post('/api/telesale/force-pump', { preHandler: authenticate }, async (req, reply) => {
+        if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { user_id, crm_type, count } = req.body || {};
+        if (!user_id || !crm_type || !count || count <= 0) {
+            return reply.code(400).send({ error: 'Thiếu user_id, crm_type hoặc count' });
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true AND crm_type = ? ORDER BY display_order', [crm_type]);
+        if (sources.length === 0) return { success: false, error: 'Không có nguồn nào cho tab này' };
+
+        const sourceIds = sources.map(s => s.id);
+        let remaining = parseInt(count);
+        let totalPumped = 0;
+        const alerts = [];
+
+        // Distribute proportionally across sources
+        const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
+        for (let si = 0; si < sources.length && remaining > 0; si++) {
+            const src = sources[si];
+            let srcCount = totalQuota > 0 ? Math.round(remaining * (src.daily_quota || 0) / totalQuota) : Math.ceil(remaining / sources.length);
+            srcCount = Math.min(srcCount, remaining);
+            if (srcCount <= 0) continue;
+
+            const priority = src.carrier_priority || ['Viettel','Mobi','Vina','Vnmb','Gmob','iTel','Reddi'];
+            let pickedIds = [];
+
+            // Priority mode
+            for (const carrier of priority) {
+                if (pickedIds.length >= srcCount) break;
+                const need = srcCount - pickedIds.length;
+                const rows = await db.all(`SELECT id FROM telesale_data
+                    WHERE source_id = $1 AND status = 'available' AND carrier LIKE $2
+                    AND id != ALL($3::int[])
+                    ORDER BY RANDOM() LIMIT $4`, [src.id, `%${carrier}%`, pickedIds.length > 0 ? pickedIds : [0], need]);
+                pickedIds.push(...rows.map(r => r.id));
+            }
+            // Fill remainder
+            if (pickedIds.length < srcCount) {
+                const fill = await db.all(`SELECT id FROM telesale_data
+                    WHERE source_id = $1 AND status = 'available' AND id != ALL($2::int[])
+                    ORDER BY RANDOM() LIMIT $3`, [src.id, pickedIds.length > 0 ? pickedIds : [0], srcCount - pickedIds.length]);
+                pickedIds.push(...fill.map(r => r.id));
+            }
+
+            if (pickedIds.length < srcCount) {
+                alerts.push({ source: src.name, needed: srcCount, available: pickedIds.length });
+            }
+
+            for (const dId of pickedIds) {
+                try {
+                    await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                        [dId, user_id, today]);
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
+                        [today, user_id, dId]);
+                    totalPumped++;
+                    remaining--;
+                } catch (e) { /* duplicate */ }
+            }
+        }
+
+        // Fill from any source if still remaining
+        if (remaining > 0) {
+            const extra = await db.all(`SELECT id FROM telesale_data
+                WHERE status = 'available' AND source_id = ANY($1::int[])
+                AND id NOT IN (SELECT data_id FROM telesale_assignments WHERE assigned_date = $2 AND user_id = $3)
+                ORDER BY RANDOM() LIMIT $4`, [sourceIds, today, user_id, remaining]);
+            for (const d of extra) {
+                try {
+                    await db.run('INSERT INTO telesale_assignments (data_id, user_id, assigned_date) VALUES (?,?,?)',
+                        [d.id, user_id, today]);
+                    await db.run("UPDATE telesale_data SET status = 'assigned', last_assigned_date = ?, last_assigned_user_id = ?, updated_at = NOW() WHERE id = ?",
+                        [today, user_id, d.id]);
+                    totalPumped++;
+                } catch (e) { /* skip */ }
+            }
+        }
+
+        const userName = (await db.get('SELECT full_name FROM users WHERE id = ?', [user_id]))?.full_name || '';
+        return { success: true, message: `Đã bơm thêm ${totalPumped} SĐT cho ${userName}`, pumped: totalPumped, alerts };
+    });
+
     fastify.post('/api/telesale/recall', { preHandler: authenticate }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const result = await runTelesaleRecall();
