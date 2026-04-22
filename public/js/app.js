@@ -874,7 +874,7 @@ async function handleRoute() {
     document.getElementById('pageTitle').textContent = menuItem ? menuItem.label : 'Dashboard';
 
     // Add "Chuyển Số" button for specific KD pages
-    const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke'];
+    const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke','tuyendungsvkd'];
     const existingCsBtn = document.getElementById('topbarChuyenSoBtn');
     if (existingCsBtn) existingCsBtn.remove();
     if (CHUYEN_SO_PAGES.includes(currentPage)) {
@@ -1827,14 +1827,17 @@ async function openChuyenSoMXH(pageId) {
 
     // Filter sources based on page
     const isZaloPage = pageId === 'timgrzalovathongke';
+    const isTuyenDungPage = pageId === 'tuyendungsvkd';
     let allowedSourceNames;
     if (isZaloPage) {
         allowedSourceNames = ['GRUOP ZALO'];
+    } else if (isTuyenDungPage) {
+        allowedSourceNames = ['TUYỂN DỤNG SV'];
     } else {
         allowedSourceNames = ['MXH NHÂN VIÊN TỰ TÌM', 'MXH KHÁCH TỰ LIÊN HỆ'];
     }
     const filteredSources = (sources.items || []).filter(s => allowedSourceNames.some(n => s.name.toUpperCase().includes(n.toUpperCase())));
-    const zaloSource = isZaloPage && filteredSources.length > 0 ? filteredSources[0] : null;
+    const lockedSource = (isZaloPage || isTuyenDungPage) && filteredSources.length > 0 ? filteredSources[0] : null;
 
     const isNVorTP = ['nhan_vien','truong_phong'].includes(currentUser.role);
 
@@ -1864,17 +1867,22 @@ async function openChuyenSoMXH(pageId) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
                         <label class="_csMxh-label">CRM <span class="_csMxh-required">*</span></label>
+                        ${isTuyenDungPage ? `
+                            <input type="text" class="_csMxh-input" value="Chăm Sóc Affiliate" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csMxhCrm" value="ctv_hoa_hong">
+                        ` : `
                         <select id="csMxhCrm" class="_csMxh-input" required>
                             <option value="">-- Chọn CRM --</option>
                             <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
                             <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
                         </select>
+                        `}
                     </div>
                     <div>
                         <label class="_csMxh-label">Nguồn Khách <span class="_csMxh-required">*</span></label>
-                        ${zaloSource ? `
-                            <input type="text" class="_csMxh-input" value="${zaloSource.name}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
-                            <input type="hidden" id="csMxhSource" value="${zaloSource.id}">
+                        ${lockedSource ? `
+                            <input type="text" class="_csMxh-input" value="${lockedSource.name}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csMxhSource" value="${lockedSource.id}">
                         ` : `
                         <select id="csMxhSource" class="_csMxh-input" required>
                             <option value="">-- Chọn nguồn --</option>
