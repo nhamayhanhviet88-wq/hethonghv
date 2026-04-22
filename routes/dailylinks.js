@@ -1467,47 +1467,6 @@ module.exports = async function (fastify) {
         );
         console.log(`[ZaloSpam] UPDATE result:`, updateResult);
 
-        // ========== REVOKE auto-completion of "Thông Báo Gr Zalo Spam Được" ==========
-        try {
-            // Find which user owns this result
-            const taskOwner = await db.get(
-                `SELECT t.user_id FROM zalo_daily_tasks t JOIN zalo_task_results r ON r.task_id = t.id WHERE r.id = $1`, [id]
-            );
-            if (taskOwner) {
-                // Find the lock task
-                const lockTask = await db.get(
-                    `SELECT lt.id FROM lock_tasks lt
-                     WHERE lt.is_active = true AND LOWER(lt.task_name) LIKE '%thông báo gr zalo spam%' LIMIT 1`
-                );
-                if (lockTask) {
-                    // Calculate current week dates (Mon-Sun VN time)
-                    const nowVN = new Date(Date.now() + 7 * 3600000);
-                    const dayOfWeek = nowVN.getDay();
-                    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                    const weekStart = new Date(nowVN);
-                    weekStart.setDate(weekStart.getDate() + mondayOffset);
-                    const weekEnd = new Date(weekStart);
-                    weekEnd.setDate(weekEnd.getDate() + 6);
-                    const wsStr = weekStart.toISOString().split('T')[0];
-                    const weStr = weekEnd.toISOString().split('T')[0];
-
-                    // Delete auto-completion records for this week
-                    const del = await db.run(
-                        `DELETE FROM lock_task_completions
-                         WHERE lock_task_id = $1 AND user_id = $2
-                           AND completion_date BETWEEN $3 AND $4
-                           AND content LIKE '%Tự động hoàn thành%'`,
-                        [lockTask.id, taskOwner.user_id, wsStr, weStr]
-                    );
-                    if (del.changes > 0) {
-                        console.log(`[ZaloSpam] Revoked ${del.changes} auto-completion(s) for user ${taskOwner.user_id} (week ${wsStr}~${weStr})`);
-                    }
-                }
-            }
-        } catch(e) {
-            console.error('[ZaloSpam] Revoke auto-completion error:', e.message);
-        }
-
         return { success: true };
     });
 
