@@ -478,8 +478,8 @@ module.exports = async function (fastify) {
         const allowedTypes = ['nhu_cau', 'ctv_hoa_hong'];
         if (!allowedTypes.includes(targetCrmType)) return reply.code(400).send({ error: 'CRM type không hợp lệ' });
 
-        // Find source for telesale_data (use tu_tim_kiem source for data storage)
-        const ttkSource = await db.get("SELECT id, crm_type FROM telesale_sources WHERE crm_type = 'tu_tim_kiem' LIMIT 1");
+        // Find source for telesale_data (use nhu_cau source for data storage)
+        const ttkSource = await db.get("SELECT id, crm_type FROM telesale_sources WHERE crm_type = 'nhu_cau' LIMIT 1");
         if (!ttkSource) return reply.code(500).send({ error: 'Chưa có nguồn CRM' });
 
         const today = _vnToday();

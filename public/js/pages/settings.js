@@ -298,9 +298,10 @@ async function saveCancelMgrPopupSettings() {
 
 // ========== JOB TITLES PER CRM (synced from telesale_sources) ==========
 const JOB_CRM_OPTIONS = [
-    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm' },
-    { value: 'goi_hop_tac', label: 'CRM Gọi Điện Hợp Tác' },
-    { value: 'goi_ban_hang', label: 'CRM Gọi Điện Bán Hàng' },
+    { value: 'nhu_cau', label: 'CRM Chăm Sóc KH Nhu Cầu' },
+    { value: 'ctv', label: 'CRM Chăm Sóc CTV' },
+    { value: 'ctv_hoa_hong', label: 'CRM Chăm Sóc Affiliate' },
+    { value: 'koc_tiktok', label: 'CRM KOL/KOC Tiktok' },
 ];
 
 let currentJobCrm = '';
@@ -601,11 +602,12 @@ async function deletePosition(id, name) {
 
 // ========== TELESALE SOURCES SETTINGS ==========
 const CRM_TYPE_OPTIONS_TS = [
-    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-    { value: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { value: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { value: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+    { value: 'ctv', label: 'CRM CTV', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { value: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', color: '#ec4899', bg: 'linear-gradient(135deg,#ec4899,#f472b6)' },
+    { value: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
-let _settings_activeCrm = 'tu_tim_kiem';
+let _settings_activeCrm = 'nhu_cau';
 
 async function loadTelesaleSourcesSettings() {
     const el = document.getElementById('settingsContent');

@@ -51,9 +51,10 @@ function _gd_applyCustomDate() {
 }
 const _gd_CRM_TABS = [
     { value: null, label: 'Tất cả', icon: '📋', grad: 'linear-gradient(135deg,#122546,#1e3a5f)', color: '#122546' },
-    { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
-    { value: 'goi_hop_tac', label: 'CRM Giới Thiệu Hợp Tác', icon: '🤝', grad: 'linear-gradient(135deg,#059669,#10b981)', color: '#059669' },
-    { value: 'goi_ban_hang', label: 'CRM Gọi Bán Hàng', icon: '🛒', grad: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#f59e0b' },
+    { value: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
+    { value: 'ctv', label: 'CRM CTV', icon: '🤝', grad: 'linear-gradient(135deg,#059669,#10b981)', color: '#059669' },
+    { value: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', grad: 'linear-gradient(135deg,#ec4899,#f472b6)', color: '#ec4899' },
+    { value: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', grad: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#f59e0b' },
 ];
 let _gd_isManager = false;
 let _gd_allUsers = [];
@@ -115,7 +116,7 @@ async function renderGoiDienPage(container) {
     _gd_allUsers = usersRes.users || usersRes || [];
     _gd_allDepts = deptsRes.departments || deptsRes || [];
     _gd_memberIds = new Set((membersRes.members || []).filter(m => m.is_active).map(m => m.user_id));
-    _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'tu_tim_kiem');
+    _gd_selfSearchSources = _gd_sources.filter(s => s.crm_type === 'nhu_cau');
     _gd_selfSearchLocations = locRes.locations || [];
     _gd_visibleUserIds = new Set((visRes.user_ids || []).map(Number));
     console.log('[GD Debug] visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
@@ -449,7 +450,7 @@ async function _gd_loadCallsForUser(userId) {
         <div id="gdCallsList">${callsHtml}</div>`;
 
     // Load self-search progress if CRM Tự Tìm Kiếm tab
-    if (_gd_activeCrmTab === 'tu_tim_kiem') {
+    if (_gd_activeCrmTab === 'nhu_cau') {
         _gd_loadSelfSearchProgress(userId);
     } else {
         const ssEl = document.getElementById('gdSelfSearchProgress');
@@ -698,6 +699,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
     const crmOptions = [
         {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'ctv_hoa_hong',label:'Chăm Sóc Affiliate'},
     ];
+    const hasName = !!(call.customer_name && call.customer_name.trim());
     const hasPhone = !!(call.phone && call.phone.trim());
     const hasFb = !!(call.fb_link && call.fb_link.trim());
 
@@ -727,7 +729,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">Tên Khách Hàng <span style="color:#dc2626;">*</span></label>
-                    <input type="text" id="gdCSName" class="form-control" value="${(call.customer_name||'').replace(/"/g,'&quot;')}">
+                    <input type="text" id="gdCSName" class="form-control" value="${(call.customer_name||'').replace(/"/g,'&quot;')}" ${hasName?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''}>
                 </div>
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">Số Điện Thoại <span style="color:#dc2626;">*</span></label>

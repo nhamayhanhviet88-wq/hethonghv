@@ -869,7 +869,7 @@ async function telesaleRoutes(fastify) {
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_id, daily_quota, crm_type } = req.body;
         if (!user_id) return reply.code(400).send({ error: 'user_id là bắt buộc' });
-        const crmVal = crm_type || 'tu_tim_kiem';
+        const crmVal = crm_type || 'nhu_cau';
         const existing = await db.get('SELECT id FROM telesale_active_members WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
         if (existing) {
             await db.run('UPDATE telesale_active_members SET is_active = true WHERE user_id = ? AND crm_type = ?', [user_id, crmVal]);
@@ -885,7 +885,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { daily_quota, is_active, crm_type, set_default } = req.body;
-        const crmVal = crm_type || 'tu_tim_kiem';
+        const crmVal = crm_type || 'nhu_cau';
         if (set_default) {
             // Đặt về mặc định: daily_quota = NULL
             await db.run('UPDATE telesale_active_members SET daily_quota = NULL, is_active = COALESCE(?,is_active) WHERE user_id = ? AND crm_type = ?',
@@ -901,7 +901,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { user_ids, daily_quota, crm_type } = req.body;
-        const crmVal = crm_type || 'tu_tim_kiem';
+        const crmVal = crm_type || 'nhu_cau';
         if (!user_ids || !Array.isArray(user_ids) || !daily_quota) return reply.code(400).send({ error: 'Cần user_ids[] và daily_quota' });
         for (const uid of user_ids) {
             await db.run('UPDATE telesale_active_members SET daily_quota = ? WHERE user_id = ? AND crm_type = ?', [daily_quota, uid, crmVal]);
@@ -914,7 +914,7 @@ async function telesaleRoutes(fastify) {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
         const { crm_type } = req.body;
-        const crmVal = crm_type || 'tu_tim_kiem';
+        const crmVal = crm_type || 'nhu_cau';
         const result = await db.run('UPDATE telesale_active_members SET daily_quota = NULL WHERE crm_type = ? AND is_active = true', [crmVal]);
         return { success: true, message: `Đã đặt tất cả NV về chế độ Mặc định`, updated: result?.changes || 0 };
     });
@@ -922,7 +922,7 @@ async function telesaleRoutes(fastify) {
     fastify.delete('/api/telesale/active-members/:userId', { preHandler: authenticate }, async (req, reply) => {
         const mgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly'];
         if (!mgr.includes(req.user.role)) return reply.code(403).send({ error: 'Không có quyền' });
-        const crm_type = req.query.crm_type || 'tu_tim_kiem';
+        const crm_type = req.query.crm_type || 'nhu_cau';
         await db.run('UPDATE telesale_active_members SET is_active = false WHERE user_id = ? AND crm_type = ?', [req.params.userId, crm_type]);
         return { success: true, message: 'Đã bỏ NV khỏi Telesale' };
     });
@@ -1402,7 +1402,7 @@ async function telesaleRoutes(fastify) {
         if (fb_link && fb_link.trim()) {
             const dupFb = await db.get(
                 `SELECT d.id FROM telesale_data d JOIN telesale_sources s ON s.id = d.source_id WHERE d.fb_link = $1 AND s.crm_type = $2`,
-                [fb_link.trim(), src.crm_type || 'tu_tim_kiem']
+                [fb_link.trim(), src.crm_type || 'nhu_cau']
             );
             if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM' });
         }
@@ -1458,7 +1458,7 @@ async function telesaleRoutes(fastify) {
 
         // ★ Only create customer record for POSITIVE dispositions
         if (isPositive) {
-            const crmType = src.crm_type || 'tu_tim_kiem';
+            const crmType = src.crm_type || 'nhu_cau';
             try {
                 // Calculate next working day for appointment
                 const { getNextWorkingDay } = require('../utils/workingDay');
@@ -1609,7 +1609,7 @@ async function telesaleRoutes(fastify) {
 // ========== PUMP LOGIC (exported for cron) ==========
 async function runTelesalePump() {
     const today = new Date().toISOString().split('T')[0];
-    const CRM_TYPES = ['tu_tim_kiem', 'goi_hop_tac', 'goi_ban_hang'];
+    const CRM_TYPES = ['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok'];
     let totalPumped = 0;
     const alerts = [];
 
@@ -1846,7 +1846,7 @@ async function runTelesalePumpForUser(userId) {
     }
 
     const today = vnNow.toISOString().split('T')[0];
-    const CRM_TYPES = ['tu_tim_kiem', 'goi_hop_tac', 'goi_ban_hang'];
+    const CRM_TYPES = ['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok'];
     let totalPumped = 0;
 
     for (const crmType of CRM_TYPES) {

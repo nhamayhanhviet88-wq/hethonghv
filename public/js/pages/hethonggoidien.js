@@ -14,7 +14,7 @@ let _htgd_tab = localStorage.getItem('htgd_tab') || 'data';
 let _htgd_depts = [];
 let _htgd_activeCrm = localStorage.getItem('htgd_crm') || 'all';
 let _htgd_lastData = [];
-let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'goi_hop_tac';
+let _htgd_settingsCrm = localStorage.getItem('htgd_settingsCrm') || 'nhu_cau';
 let _htgd_selectedYear = new Date().getFullYear();
 let _htgd_datePreset = 'today';
 let _htgd_dateFrom = '';
@@ -59,9 +59,10 @@ const _carrierMap = {
 
 const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
-    { key: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-    { key: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { key: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { key: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+    { key: 'ctv', label: 'CRM CTV', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+    { key: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', color: '#ec4899', bg: 'linear-gradient(135deg,#ec4899,#f472b6)' },
+    { key: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
 ];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
@@ -953,8 +954,8 @@ async function _htgd_renderMembersTab() {
         groupedUsers[dId].users.push(u);
     });
 
-    const crmLabelMap = { tu_tim_kiem: '🔍 Tự TK', goi_hop_tac: '🤝 Hợp Tác', goi_ban_hang: '📞 Bán Hàng' };
-    const crmColorMap = { tu_tim_kiem: '#6366f1', goi_hop_tac: '#059669', goi_ban_hang: '#f59e0b' };
+    const crmLabelMap = { nhu_cau: '📋 KH Nhu Cầu', ctv: '🤝 CTV', ctv_hoa_hong: '💎 Affiliate', koc_tiktok: '🎬 KOL/KOC' };
+    const crmColorMap = { nhu_cau: '#2563eb', ctv: '#059669', ctv_hoa_hong: '#ec4899', koc_tiktok: '#f59e0b' };
 
     el.innerHTML = `
         <div class="ts-members-grid" style="display:grid;grid-template-columns:${isAll ? '1fr' : '1fr 320px'};gap:18px;">
@@ -1187,24 +1188,25 @@ async function _htgd_renderSettingsTab() {
     if (!el) return;
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [srcRes, srcHopTac, srcBanHang, cStatsRes] = await Promise.all([
+    const [srcRes, srcCtv, srcAffiliate, cStatsRes] = await Promise.all([
         apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`),
-        apiCall('/api/telesale/sources?crm_type=goi_hop_tac'),
-        apiCall('/api/telesale/sources?crm_type=goi_ban_hang'),
+        apiCall('/api/telesale/sources?crm_type=ctv'),
+        apiCall('/api/telesale/sources?crm_type=ctv_hoa_hong'),
         apiCall(`/api/telesale/data/stats?crm_type=${_htgd_settingsCrm}`)
     ]);
     const sources = srcRes.sources || [];
     const sourceCarrierStats = cStatsRes.sourceCarrierStats || {};
     const totalQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const hopTacTotal = (srcHopTac.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const banHangTotal = (srcBanHang.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
-    const combinedTotal = hopTacTotal + banHangTotal;
-    const hopTacPct = combinedTotal > 0 ? Math.round((hopTacTotal / combinedTotal) * 100) : 0;
-    const banHangPct = combinedTotal > 0 ? 100 - hopTacPct : 0;
+    const ctvTotal = (srcCtv.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const affiliateTotal = (srcAffiliate.sources || []).reduce((s, src) => s + (src.daily_quota || 0), 0);
+    const combinedTotal = ctvTotal + affiliateTotal;
+    const ctvPct = combinedTotal > 0 ? Math.round((ctvTotal / combinedTotal) * 100) : 0;
+    const affiliatePct = combinedTotal > 0 ? 100 - ctvPct : 0;
     const crmOptions = [
-        { value: 'tu_tim_kiem', label: 'CRM Tự Tìm Kiếm', icon: '🔍', color: '#6366f1', bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)' },
-        { value: 'goi_hop_tac', label: 'CRM GĐ Hợp Tác', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-        { value: 'goi_ban_hang', label: 'CRM GĐ Bán Hàng', icon: '📞', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+        { value: 'nhu_cau', label: 'CRM KH Nhu Cầu', icon: '📋', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+        { value: 'ctv', label: 'CRM CTV', icon: '🤝', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
+        { value: 'ctv_hoa_hong', label: 'CRM Affiliate', icon: '💎', color: '#ec4899', bg: 'linear-gradient(135deg,#ec4899,#f472b6)' },
+        { value: 'koc_tiktok', label: 'CRM KOL/KOC', icon: '🎬', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     ];
     const activeCfg = crmOptions.find(o => o.value === _htgd_settingsCrm);
 

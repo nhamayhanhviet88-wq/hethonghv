@@ -8,8 +8,8 @@ const RE_NHAN_TIN_DOI_TAC = /nhắn\s*tin.*đối\s*tác/i;
 
 /**
  * Sync telesale_active_members based on task_point_templates.
- * - "Gọi Điện Telesale" → add goi_hop_tac + goi_ban_hang (user gets pumped)
- * - "Tự Tìm Kiếm" → add tu_tim_kiem (user appears in sidebar but NOT pumped)
+ * - "Gọi Điện Telesale" → add nhu_cau + ctv (user gets pumped)
+ * - "Tự Tìm Kiếm" → add nhu_cau (user appears in sidebar but NOT pumped)
  * - If template is removed → deactivate corresponding entries
  *
  * This is a FULL sync: scan ALL templates and rebuild active members.
@@ -61,7 +61,7 @@ async function _syncTelesaleFromTemplates() {
             users.forEach(u => userTuTim.add(u.id));
         }
 
-        // Also check exemptions — if a user is permanently exempted from a telesale/tu_tim_kiem task, exclude them
+        // Also check exemptions — if a user is permanently exempted from a telesale/nhu_cau task, exclude them
         const exemptions = await db.all(
             `SELECT e.user_id, t.task_name FROM task_exemptions e
              JOIN task_point_templates t ON t.id = e.template_id
@@ -73,9 +73,9 @@ async function _syncTelesaleFromTemplates() {
         }
 
         // 4. Sync telesale_active_members
-        // For users with Gọi Điện Telesale: ensure goi_hop_tac + goi_ban_hang
+        // For users with Gọi Điện Telesale: ensure nhu_cau + ctv
         for (const uid of userTelesale) {
-            for (const crm of ['goi_hop_tac', 'goi_ban_hang']) {
+            for (const crm of ['nhu_cau', 'ctv']) {
                 const existing = await db.get('SELECT id, is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2', [uid, crm]);
                 if (existing) {
                     if (!existing.is_active) await db.run('UPDATE telesale_active_members SET is_active = true WHERE id = $1', [existing.id]);
@@ -84,13 +84,13 @@ async function _syncTelesaleFromTemplates() {
                 }
             }
         }
-        // For users with Tự Tìm Kiếm: ensure tu_tim_kiem
+        // For users with Tự Tìm Kiếm: ensure nhu_cau
         for (const uid of userTuTim) {
-            const existing = await db.get('SELECT id, is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2', [uid, 'tu_tim_kiem']);
+            const existing = await db.get('SELECT id, is_active FROM telesale_active_members WHERE user_id = $1 AND crm_type = $2', [uid, 'nhu_cau']);
             if (existing) {
                 if (!existing.is_active) await db.run('UPDATE telesale_active_members SET is_active = true WHERE id = $1', [existing.id]);
             } else {
-                await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES ($1,$2,NULL)', [uid, 'tu_tim_kiem']);
+                await db.run('INSERT INTO telesale_active_members (user_id, crm_type, daily_quota) VALUES ($1,$2,NULL)', [uid, 'nhu_cau']);
             }
         }
 
@@ -98,9 +98,9 @@ async function _syncTelesaleFromTemplates() {
         const allActive = await db.all('SELECT id, user_id, crm_type FROM telesale_active_members WHERE is_active = true');
         for (const m of allActive) {
             let shouldBeActive = false;
-            if (m.crm_type === 'goi_hop_tac' || m.crm_type === 'goi_ban_hang') {
+            if (m.crm_type === 'nhu_cau' || m.crm_type === 'ctv') {
                 shouldBeActive = userTelesale.has(m.user_id);
-            } else if (m.crm_type === 'tu_tim_kiem') {
+            } else if (m.crm_type === 'nhu_cau') {
                 shouldBeActive = userTuTim.has(m.user_id);
             }
             if (!shouldBeActive) {

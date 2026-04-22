@@ -7,12 +7,10 @@ let _penCustomTo = '';
 let _penaltyData = [];
 
 const _CRM_LABELS = {
-    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', tu_tim_kiem: 'Tự TK',
-    goi_hop_tac: 'GĐ HT', goi_ban_hang: 'GĐ BH', koc_tiktok: 'KOL/KOC',
+    nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', koc_tiktok: 'KOL/KOC',
     qua_tang: 'QT/SK/DL', affiliate: 'Affiliate GT', nguoi_than: 'NT/BB',
     ctv_hoa_hong: 'CTV/HH',
-    tre_nhu_cau: 'Trễ Nhu Cầu', tre_ctv: 'Trễ CTV', tre_tu_tim_kiem: 'Trễ Tự TK',
-    tre_goi_hop_tac: 'Trễ GĐ HT', tre_goi_ban_hang: 'Trễ GĐ BH', tre_koc_tiktok: 'Trễ KOL/KOC',
+    tre_nhu_cau: 'Trễ Nhu Cầu', tre_ctv: 'Trễ CTV', tre_koc_tiktok: 'Trễ KOL/KOC',
     tre_qua_tang: 'Trễ QT/SK/DL', tre_affiliate: 'Trễ Affiliate', tre_nguoi_than: 'Trễ NT/BB',
     tre_ctv_hoa_hong: 'Trễ CTV/HH'
 };

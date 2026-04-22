@@ -83,8 +83,8 @@ async function authRoutes(fastify, options) {
 
         // Compute effective permissions
         const ALL_FEATURES = [
-            'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv','crm_tu_tim_kiem',
-            'crm_goi_hop_tac','crm_goi_ban_hang','affiliate_hv','huy_khach',
+            'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv','crm_ctv_hoa_hong',
+            'crm_koc_tiktok','affiliate_hv','huy_khach',
             'nhan_vien','co_cau_to_chuc','phan_quyen','cap_cuu_sep','chuyen_so','cai_dat'
         ];
 

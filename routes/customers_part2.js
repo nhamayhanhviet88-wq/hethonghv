@@ -634,7 +634,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
     fastify.get('/api/customers/referrer-search', { preHandler: [authenticate] }, async (request, reply) => {
         const { q, all } = request.query;
         const userId = request.user.id;
-        const allowedTypes = ['goi_hop_tac', 'goi_ban_hang', 'ctv', 'tu_tim_kiem', 'ctv_hoa_hong'];
+        const allowedTypes = ['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok'];
 
         if (all === '1') {
             const customers = await db.all(
