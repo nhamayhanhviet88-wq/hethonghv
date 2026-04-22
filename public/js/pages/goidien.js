@@ -699,8 +699,13 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
         {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'ctv_hoa_hong',label:'Chăm Sóc Affiliate'},
     ];
     const hasName = !!(call.customer_name && call.customer_name.trim());
-    const hasPhone = !!(call.phone && call.phone.trim());
     const hasFb = !!(call.fb_link && call.fb_link.trim());
+
+    // Split multiple phones on | separator
+    const rawPhones = (call.phone || '').split('|').map(p => p.trim()).filter(Boolean);
+    const phone1 = rawPhones[0] || '';
+    const phone2 = rawPhones[1] || '';
+    const hasPhone = !!phone1;
 
     openModal('📱 Chuyển Số Khách Hàng', `
         <div style="max-width:600px;">
@@ -731,10 +736,17 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                     <input type="text" id="gdCSName" class="form-control" value="${(call.customer_name||'').replace(/"/g,'&quot;')}" ${hasName?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''}>
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">Số Điện Thoại <span style="color:#dc2626;">*</span></label>
-                    <input type="text" id="gdCSPhone" class="form-control" value="${call.phone||''}" ${hasPhone?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''}>
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📱 SĐT Chính <span style="color:#dc2626;">*</span></label>
+                    <input type="text" id="gdCSPhone" class="form-control" value="${phone1}" ${hasPhone?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''}>
                 </div>
             </div>
+            ${phone2 ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📱 SĐT Phụ</label>
+                    <input type="text" id="gdCSPhone2" class="form-control" value="${phone2}" disabled style="font-weight:700;color:#059669;background:#f0fdf4;cursor:not-allowed;border-color:#a7f3d0;">
+                </div>
+                <div></div>
+            </div>` : ''}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Facebook <span style="color:#dc2626;">*</span></label>
@@ -779,6 +791,7 @@ async function _gd_csLoadJobTitles(crmType, preselect) {
 async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
     const crmType = document.getElementById('gdCSCrm')?.value;
     const phone = document.getElementById('gdCSPhone')?.value?.trim();
+    const phone2 = document.getElementById('gdCSPhone2')?.value?.trim() || null;
     const fbLink = document.getElementById('gdCSFacebook')?.value?.trim();
     const customerName = document.getElementById('gdCSName')?.value?.trim();
     const jobTitle = document.getElementById('gdCSJobTitle')?.value;
@@ -792,6 +805,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         crm_type: crmType,
         customer_name: customerName,
         phone: phone,
+        phone2: phone2,
         facebook_link: fbLink || null,
         source_name: 'GỌI ĐIỆN TELESALE',
         receiver_id: currentUser.id,

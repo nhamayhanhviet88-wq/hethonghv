@@ -55,7 +55,7 @@ async function customersRoutes(fastify, options) {
     });
 
     fastify.post('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {
-        const { crm_type, customer_name, phone, source_id, source_name, promotion_id, industry_id,
+        const { crm_type, customer_name, phone, phone2, source_id, source_name, promotion_id, industry_id,
                 receiver_id, notes, affiliate_user_id, job, facebook_link } = request.body || {};
         if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
@@ -95,10 +95,10 @@ async function customersRoutes(fastify, options) {
         const dailyNum = (maxNum?.mx || 0) + 1;
 
         const result = await db.run(
-            `INSERT INTO customers (crm_type, customer_name, phone, source_id, promotion_id,
+            `INSERT INTO customers (crm_type, customer_name, phone, phone2, source_id, promotion_id,
              industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [crm_type, customer_name || null, phone || null,
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [crm_type, customer_name || null, phone || null, phone2 || null,
              resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,

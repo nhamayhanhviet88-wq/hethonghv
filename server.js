@@ -54,6 +54,8 @@ async function start() {
         SELECT c.crm_type FROM customers c WHERE c.id = users.source_customer_id
     ) WHERE source_customer_id IS NOT NULL AND (source_crm_type IS NULL OR source_crm_type = '')`);
 
+    // Migration: add phone2 column to customers
+    try { await db.exec('ALTER TABLE customers ADD COLUMN phone2 TEXT'); } catch(e) { /* exists */ }
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
