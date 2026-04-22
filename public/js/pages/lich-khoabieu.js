@@ -3725,7 +3725,7 @@ async function _kbLoadDetailSelfSearch() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #a5b4fc;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tiến trình Tự Tìm Kiếm hôm nay</span>
+                <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tiến trình Tự Tìm Kiếm Telesale hôm nay</span>
                 <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#6366f1'};">${count}/${target} KH — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#c7d2fe;border-radius:8px;height:10px;overflow:hidden;">

@@ -53,7 +53,7 @@ const _gd_CRM_TABS = [
     { value: null, label: 'Tất cả', icon: '📋', grad: 'linear-gradient(135deg,#122546,#1e3a5f)', color: '#122546' },
     { value: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', grad: 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#f59e0b' },
     { value: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', grad: 'linear-gradient(135deg,#059669,#10b981)', color: '#059669' },
-    { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
+    { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm Telesale', icon: '🔍', grad: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#2563eb' },
 ];
 let _gd_isManager = false;
 let _gd_allUsers = [];
@@ -507,7 +507,7 @@ function _gd_renderCallCard(call) {
         </div>` : ''}
         ${call.call_status === 'pending' && call.self_searched_by ? `
         <div style="padding:10px 16px;background:linear-gradient(135deg,#fefce8,#fef9c3);border-top:1.5px solid #fde68a;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="ts-badge" style="background:#fef3c7;color:#92400e;">🔍 Tự tìm kiếm — đang đồng bộ...</span>
+            <span class="ts-badge" style="background:#fef3c7;color:#92400e;">⏳ Tự tìm kiếm Telesale - đang đồng bộ...</span>
         </div>` : ''}
         ${call.call_status === 'answered' && !call.answer_status_id && !_gd_isViewOnly && !call.notes && !call.self_searched_by ? `
         <div style="padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-top:1.5px solid #bbf7d0;">
@@ -1016,7 +1016,7 @@ async function _gd_loadSelfSearchProgress(userId) {
     el.innerHTML = `
     <div style="margin-bottom:14px;padding:14px 16px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #a5b4fc;border-radius:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tự Tìm Kiếm: ${_gd_selfSearchCount}/${target} KH${isSingleDay ? ' hôm nay' : ''}</span>
+            <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tự Tìm Kiếm Telesale: ${_gd_selfSearchCount}/${target} KH${isSingleDay ? ' hôm nay' : ''}</span>
             <div style="display:flex;gap:8px;align-items:center;">
                 <span style="font-size:12px;font-weight:800;color:${done?'#059669':'#6366f1'};">${pct}%${done?' ✅':''}</span>
                 ${isSingleDay ? `<button onclick="_gd_openSelfSearchModal()" style="padding:6px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">＋ Thêm KH</button>` : ''}
@@ -1044,7 +1044,7 @@ function _gd_openSelfSearchModal() {
         { key: 'no_need', icon: '🚫', label: 'Không có nhu cầu', color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', positive: false },
     ];
 
-    openModal('🔍 Thêm KH Tự Tìm Kiếm', `
+    openModal('🔍 Thêm KH Tự Tìm Kiếm Telesale', `
         <div style="display:flex;flex-direction:column;gap:14px;">
             <div>
                 <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">👤 Tên KH/Đối tác <span style="color:#dc2626;">*</span></label>
@@ -1133,7 +1133,7 @@ function _gd_ssSelectDisposition(key) {
             hint.style.background = '#f0fdf4';
             hint.style.color = '#065f46';
             hint.style.border = '1px solid #bbf7d0';
-            hint.innerHTML = `✅ KH sẽ được tạo vào <b>CRM Tự Tìm Kiếm</b> → hiển thị ở "Đã xử lý hôm nay"`;
+            hint.innerHTML = `✅ KH sẽ được tạo vào <b>CRM Tự Tìm Kiếm Telesale</b> → hiển thị ở "Đã xử lý hôm nay"`;
         } else {
             hint.style.background = '#fef2f2';
             hint.style.color = '#991b1b';

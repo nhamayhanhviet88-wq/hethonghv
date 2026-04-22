@@ -61,7 +61,7 @@ const _HTGD_CRM_TABS = [
     { key: 'all', label: 'Tất Cả', icon: '★', color: '#334155', bg: 'linear-gradient(135deg,#334155,#475569)' },
     { key: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     { key: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
-    { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+    { key: 'tu_tim_kiem', label: 'Tự Tìm Kiếm Telesale', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
 ];
 const _HTGD_GRADIENTS = [
     'linear-gradient(135deg,#3b82f6,#6366f1)', // blue-indigo
@@ -935,7 +935,7 @@ async function _htgd_forcePumpModal() {
     });
 
     const CRM_LABELS = {
-        tu_tim_kiem: '🔍 Tự Tìm Kiếm',
+        tu_tim_kiem: '🔍 Tự Tìm Kiếm Telesale',
         goi_ban_hang: '📞 Gọi Điện Bán Hàng',
         goi_hop_tac: '🤝 Gọi Điện Đối Tác'
     };
@@ -980,7 +980,7 @@ function _htgd_fpUpdateCrm() {
     const crms = opt?.dataset?.crms?.split(',').filter(Boolean) || [];
 
     const CRM_LABELS = {
-        tu_tim_kiem: '🔍 Tự Tìm Kiếm',
+        tu_tim_kiem: '🔍 Tự Tìm Kiếm Telesale',
         goi_ban_hang: '📞 Gọi Điện Bán Hàng',
         goi_hop_tac: '🤝 Gọi Điện Đối Tác'
     };
@@ -1303,7 +1303,7 @@ async function _htgd_renderSettingsTab() {
     const hopTacPct = combinedTotal > 0 ? Math.round((hopTacTotal / combinedTotal) * 100) : 0;
     const banHangPct = combinedTotal > 0 ? 100 - hopTacPct : 0;
     const crmOptions = [
-        { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
+        { value: 'tu_tim_kiem', label: 'Tự Tìm Kiếm Telesale', icon: '🔍', color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#3b82f6)' },
         { value: 'goi_ban_hang', label: 'Gọi Điện Bán Hàng', icon: '📞', color: '#059669', bg: 'linear-gradient(135deg,#059669,#14b8a6)' },
         { value: 'goi_hop_tac', label: 'Gọi Điện Đối Tác', icon: '🤝', color: '#f59e0b', bg: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     ];
