@@ -131,9 +131,7 @@ async function renderChuyenSoPage(container) {
                             <select id="csoCrm" class="form-control" required>
                                 <option value="">-- Chọn CRM --</option>
                                 <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
-                                <option value="ctv">Chăm Sóc CTV</option>
                                 <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
-                                <option value="koc_tiktok">Chăm Sóc KOL/KOC Tiktok</option>
                             </select>
                             `}
                         </div>
@@ -144,7 +142,14 @@ async function renderChuyenSoPage(container) {
                             ` : `
                             <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
-                                ${(sources.items || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                ${(() => {
+                                    const allowedOrder = ['KH CŨ', 'NGƯỜI THÂN GIỚI THIỆU', 'DATA CỦA CÔNG TY', 'KHÔNG BIẾT NGUỒN'];
+                                    const allSrc = sources.items || [];
+                                    return allowedOrder.map(name => {
+                                        const s = allSrc.find(x => x.name.toUpperCase().includes(name));
+                                        return s ? `<option value="${s.id}">${s.name}</option>` : '';
+                                    }).join('');
+                                })()}
                             </select>
                             `}
                         </div>
