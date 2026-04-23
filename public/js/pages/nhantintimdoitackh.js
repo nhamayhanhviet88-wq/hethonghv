@@ -164,7 +164,7 @@ function _poUpdateActionButtons() {
     const canAdd = _poIsViewingSelf();
     let h = '';
     if (currentUser?.role === 'giam_doc') {
-        h += '<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Lĩnh Vực</button>';
+        h += '<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Sản Phẩm</button>';
     }
     // Chỉ hiện nút Thêm khi xem chính tài khoản mình
     if (canAdd) {
@@ -549,7 +549,7 @@ function _poRenderTable() {
             <th style="padding:10px 8px;">LINK FACEBOOK</th>
             <th style="padding:10px 8px;">SĐT</th>
             <th style="padding:10px 8px;">KÊNH ISOCAL</th>
-            <th style="padding:10px 8px;">LĨNH VỰC</th>
+            <th style="padding:10px 8px;">SẢN PHẨM</th>
             <th style="padding:10px 8px;text-align:center;">ẢNH TIN NHẮN</th>
             <th style="padding:10px 8px;text-align:center;">THAO TÁC</th>
         </tr></thead><tbody>`;
@@ -627,7 +627,7 @@ function _poAddModal(editEntry) {
                 </div>
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh Vực <span style="color:#dc2626;">*</span></label>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Sản Phẩm <span style="color:#dc2626;">*</span></label>
                 <div id="poFCatWrap" style="position:relative;margin-top:4px;"></div>
             </div>
             <div style="margin-bottom:14px;">
@@ -757,7 +757,7 @@ async function _poSave(editId) {
     const channel = document.getElementById('poFChannel').value;
     if (!fb) { showToast('Vui lòng nhập link FB!', 'error'); return; }
     if (!channel) { showToast('Vui lòng chọn Kênh Isocal!', 'error'); return; }
-    if (!catId) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
+    if (!catId) { showToast('Vui lòng chọn Sản Phẩm!', 'error'); return; }
     if (!editId && !_po.imageData) { showToast('Vui lòng dán hình ảnh chụp tin nhắn!', 'error'); return; }
     const payload = { partner_name: name, fb_link: fb, phone, category_id: catId || null, channel, image_data: _po.imageData };
     try {
@@ -825,13 +825,13 @@ function _poCatModal() {
     m.innerHTML = `
     <div style="background:white;border-radius:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:18px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:16px;font-weight:800;">⚙️ Quản Lý Lĩnh Vực</div>
+            <div style="font-size:16px;font-weight:800;">⚙️ Quản Lý Sản Phẩm</div>
             <button onclick="document.getElementById('poCatModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;">×</button>
         </div>
         <div style="padding:20px 24px;">
-            <div style="margin-bottom:14px;">${listHtml||'<div style="color:#9ca3af;text-align:center;">Chưa có lĩnh vực</div>'}</div>
+            <div style="margin-bottom:14px;">${listHtml||'<div style="color:#9ca3af;text-align:center;">Chưa có sản phẩm</div>'}</div>
             <div style="display:flex;gap:8px;">
-                <input id="poCatName" placeholder="Tên lĩnh vực mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <input id="poCatName" placeholder="Tên sản phẩm mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
                 <input id="poCatColor" type="color" value="#3b82f6" style="width:40px;height:36px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;">
                 <button onclick="_poCatAdd()" style="padding:8px 16px;border:none;border-radius:8px;background:#16a34a;color:white;cursor:pointer;font-weight:700;font-size:13px;">＋</button>
             </div>
@@ -854,7 +854,7 @@ async function _poCatAdd() {
 }
 
 async function _poCatDel(id) {
-    if (!confirm('Xóa lĩnh vực này?')) return;
+    if (!confirm('Xóa sản phẩm này?')) return;
     try {
         await apiCall('/api/partner-outreach/categories/' + id, 'DELETE');
         showToast('✅ Đã xóa'); document.getElementById('poCatModal')?.remove();

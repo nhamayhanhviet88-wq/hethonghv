@@ -1325,8 +1325,8 @@ async function _htgd_renderSettingsTab() {
 
     el.innerHTML = `
         <div style="margin:16px 0 12px;">
-            <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">⚙️ Cài Đặt Lĩnh Vực Gọi Điện</h4>
-            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các lĩnh vực data gọi điện.</p>
+            <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">⚙️ Cài Đặt Sản Phẩm Gọi Điện</h4>
+            <p style="font-size:12px;color:#6b7280;margin:0;">Quản lý các sản phẩm data gọi điện.</p>
         </div>
         <div style="margin-bottom:18px;padding:18px 22px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;color:white;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -1351,7 +1351,7 @@ async function _htgd_renderSettingsTab() {
         </div>
         <div style="border:1.5px solid #e5e7eb;border-radius:14px;overflow:auto;">
             <table class="ts-table" style="min-width:900px;"><thead><tr>
-                <th style="text-align:left;">Icon</th><th style="text-align:left;">Tên Lĩnh Vực</th><th style="text-align:center;">Quota</th>
+                <th style="text-align:left;">Icon</th><th style="text-align:left;">Tên Sản Phẩm</th><th style="text-align:center;">Quota</th>
                 <th style="text-align:center;color:#059669;">🟩Vtel</th><th style="text-align:center;color:#2563eb;">🟦Mobi</th><th style="text-align:center;color:#ca8a04;">🟨Vina</th>
                 <th style="text-align:center;color:#16a34a;">🟩Vnmb</th><th style="text-align:center;color:#9333ea;">🟪Gmob</th><th style="text-align:center;color:#ea580c;">🟧iTel</th><th style="text-align:center;color:#b91c1c;">🟫Redd</th>
                 <th style="text-align:center;">Chế Độ</th><th style="text-align:center;">Import</th><th style="text-align:center;">Thao Tác</th>
@@ -1371,14 +1371,14 @@ async function _htgd_renderSettingsTab() {
         </div>
 
         <div style="margin-top:16px;padding:16px;background:linear-gradient(180deg,#f8fafc,white);border:1.5px solid #e5e7eb;border-radius:14px;">
-            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Lĩnh Vực Mới vào <span style="color:${activeCfg?.color || '#122546'}">${activeCfg?.icon || ''} ${activeCfg?.label || ''}</span></div>
+            <div style="font-size:13px;font-weight:700;color:#122546;margin-bottom:12px;">➕ Thêm Sản Phẩm Mới vào <span style="color:${activeCfg?.color || '#122546'}">${activeCfg?.icon || ''} ${activeCfg?.label || ''}</span></div>
             <div style="display:grid;grid-template-columns:60px 1fr 80px auto;gap:10px;align-items:end;">
                 <div>
                     <label style="font-size:10px;color:#6b7280;font-weight:600;">Icon</label>
                     <input type="text" id="htgdNewIcon" value="📁" class="ts-select" style="width:100%;text-align:center;font-size:18px;padding:6px;">
                 </div>
                 <div>
-                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Tên Lĩnh Vực</label>
+                    <label style="font-size:10px;color:#6b7280;font-weight:600;">Tên Sản Phẩm</label>
                     <input type="text" id="htgdNewName" placeholder="VD: NHÂN SỰ" class="ts-search" style="padding:8px 12px;">
                 </div>
                 <div>
@@ -1404,7 +1404,7 @@ async function _htgd_saveConfig(key, value) {
 
 async function _htgd_addSource() {
     const name = document.getElementById('htgdNewName')?.value?.trim();
-    if (!name) return showToast('Nhập tên lĩnh vực', 'error');
+    if (!name) return showToast('Nhập tên sản phẩm', 'error');
     const data = await apiCall('/api/telesale/sources', 'POST', {
         name, icon: document.getElementById('htgdNewIcon').value,
         daily_quota: parseInt(document.getElementById('htgdNewQuota').value) || 15,
@@ -1418,7 +1418,7 @@ async function _htgd_editSource(id) {
     const srcRes = await apiCall(`/api/telesale/sources?crm_type=${_htgd_settingsCrm}`);
     const src = (srcRes.sources || []).find(s => s.id === id);
     if (!src) return;
-    openModal('✏️ Sửa Lĩnh Vực: ' + src.name, `
+    openModal('✏️ Sửa Sản Phẩm: ' + src.name, `
         <div class="form-group"><label>Tên</label><input type="text" id="editHtgdName" class="form-control" value="${src.name}"></div>
         <div style="display:grid;grid-template-columns:80px 1fr;gap:12px;">
             <div class="form-group"><label>Icon</label><input type="text" id="editHtgdIcon" class="form-control" value="${src.icon || '📁'}" style="text-align:center;font-size:18px;"></div>
