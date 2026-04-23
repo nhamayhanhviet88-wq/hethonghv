@@ -321,6 +321,9 @@ async function renderChuyenSoPage(container) {
                 const cvd = document.getElementById('csoCongViecDisplay');
                 if (cvd) { cvd.value = 'Mặc Định'; cvd.style.color = '#122546'; cvd.style.background = '#f1f5f9'; cvd.style.borderColor = ''; }
                 const cvh = document.getElementById('csoCongViec'); if (cvh) cvh.value = 'Mặc Định';
+                // Reset Lĩnh Vực back to default
+                const lv = document.getElementById('csoLinhVuc');
+                if (lv) { lv.value = 'Mặc Định'; lv.style.color = '#122546'; lv.style.background = '#f1f5f9'; lv.style.borderColor = ''; }
                 // Clear smart search
                 const ss = document.getElementById('csoSmartSearch'); if (ss) ss.value = '';
                 const sr = document.getElementById('csoSearchResults'); if (sr) { sr.style.display = 'none'; sr.innerHTML = ''; }
@@ -561,13 +564,19 @@ function _csoSelectResult(el) {
             if (cv) cv.value = r.cong_viec;
             if (cvd) { cvd.value = r.cong_viec; cvd.style.color = '#6d28d9'; cvd.style.background = '#f5f3ff'; cvd.style.borderColor = '#c4b5fd'; }
         }
+        // Update Lĩnh Vực from source_name (e.g. "Quà Tặng" from partner_outreach category)
+        if (r.source_name) {
+            const lv = document.getElementById('csoLinhVuc');
+            if (lv) { lv.value = r.source_name; lv.style.color = '#6d28d9'; lv.style.background = '#f5f3ff'; lv.style.borderColor = '#c4b5fd'; }
+        }
         // Toggle required stars
         _csoToggleRequired();
         // Show success toast
         if (typeof showToast === 'function') showToast(`✅ Đã chọn: ${r.module_label} — ${r.customer_name || r.link || r.phone}`);
         // Collapse search results
+        const lvLabel = r.source_name ? `, Lĩnh Vực: <b>${r.source_name}</b>` : '';
         const box = document.getElementById('csoSearchResults');
-        if (box) box.innerHTML = `<div style="padding:8px 12px;background:#ecfdf5;border-radius:8px;font-size:13px;color:#065f46;">✅ Đã auto-fill từ <b>${r.module_label}</b> → Công Việc: <b>${r.cong_viec}</b>. Kiểm tra và bấm CHUYỂN SỐ.</div>`;
+        if (box) box.innerHTML = `<div style="padding:8px 12px;background:#ecfdf5;border-radius:8px;font-size:13px;color:#065f46;">✅ Đã auto-fill từ <b>${r.module_label}</b> → Công Việc: <b>${r.cong_viec}</b>${lvLabel}. Kiểm tra và bấm CHUYỂN SỐ.</div>`;
         // Scroll to form
         document.getElementById('chuyenSoForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch(e) { console.error('[CSO] Select result error:', e); }
