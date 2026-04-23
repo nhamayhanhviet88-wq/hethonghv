@@ -1255,7 +1255,7 @@ function _kbRenderGrid() {
 
         const monDate2 = new Date(_kbWeekStart);
         _kbLockTasks.forEach(lt => {
-            html += `<tr>`;
+            html += `<tr data-kb-task-name="${lt.task_name.replace(/"/g,'&quot;')}">`;
             // Time slot column
             html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
                 <div style="background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(153,27,27,0.2);min-width:70px;">
@@ -4655,6 +4655,41 @@ async function _kbResetOverrideKhoa(lockTaskId) {
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
+
+// Helper: scroll to and highlight a task row by name after calendar loads
+function _kbScrollToTask(taskName) {
+    let tries = 0;
+    const check = () => {
+        const rows = document.querySelectorAll('[data-kb-task-name]');
+        let target = null;
+        for (const r of rows) {
+            if (r.getAttribute('data-kb-task-name') === taskName) { target = r; break; }
+        }
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash highlight
+            target.style.transition = 'box-shadow 0.3s, outline 0.3s';
+            target.style.outline = '3px solid #dc2626';
+            target.style.boxShadow = '0 0 20px rgba(220,38,38,0.4)';
+            target.style.background = '#fef2f2';
+            setTimeout(() => {
+                target.style.outline = '3px solid #f59e0b';
+                target.style.boxShadow = '0 0 15px rgba(245,158,11,0.3)';
+            }, 800);
+            setTimeout(() => {
+                target.style.outline = '';
+                target.style.boxShadow = '';
+                target.style.background = '';
+                target.style.transition = '';
+            }, 3000);
+        } else if (tries < 20) {
+            tries++;
+            setTimeout(check, 300);
+        }
+    };
+    setTimeout(check, 500);
+}
+
 // ========== UNREPORTED CV MODAL ==========
 async function _kbShowUnreportedModal() {
     const existing = document.getElementById('kbUnreportedModal');
@@ -4681,13 +4716,15 @@ async function _kbShowUnreportedModal() {
         }
 
         const fmtDate = (d) => { const p = (d||'').slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : d; };
-        const jumpBtn = (date, userId, bgColor) => {
+        const jumpBtn = (date, userId, bgColor, taskName) => {
+            const escapedName = (taskName||'').replace(/'/g, "\\'");
             return '<button onclick="document.getElementById(\'kbUnreportedModal\').remove();' +
                 'var d=new Date(\'' + (date||'').slice(0,10) + 'T00:00:00\');' +
                 'var day=d.getDay();var diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);' +
                 '_kbWeekStart=d;' +
                 'var el=document.querySelector(\'.kb-member-item[data-uid=\\\\x22' + userId + '\\\\x22]\');' +
-                'if(el){_kbSelectMember(' + userId + ');}else{_kbLoadSchedule();}" ' +
+                'if(el){_kbSelectMember(' + userId + ');}else{_kbLoadSchedule();}' +
+                '_kbScrollToTask(\'' + escapedName + '\');" ' +
                 'style="padding:6px 12px;border:none;border-radius:8px;background:' + bgColor + ';color:white;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">\ud83d\udcc5 Xem l\u1ecbch</button>';
         };
 
@@ -4716,7 +4753,7 @@ async function _kbShowUnreportedModal() {
                 '<div style="flex:1;min-width:0;">' +
                 '<div style="font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + icon + ' ' + item.task_name + chainTag + '</div>' +
                 '<div style="font-size:10px;color:#6b7280;margin-top:1px;">\ud83d\udcc5 ' + fmtDate(item.task_date) + ' \u00b7 \ud83d\udcb0 ' + Number(item.penalty_amount||0).toLocaleString() + '\u0111</div>' +
-                '</div>' + jumpBtn(item.task_date, item.user_id, btnColor) + '</div>';
+                '</div>' + jumpBtn(item.task_date, item.user_id, btnColor, item.task_name) + '</div>';
         };
 
         let html = '';
