@@ -22,7 +22,8 @@ let _gd_overrideUserIds = new Set(); // Users with task overrides
 let _gd_isViewOnly = false; // true khi xem data người khác
 function _gd_filterByCard(key) {
     _gd_statusFilter = _gd_statusFilter === key ? null : key;
-    if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+    if (_gd_selectedUserId === 'all') _gd_loadAllUsersStats();
+    else if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
 }
 
 function _gd_getDateRange() {
@@ -42,12 +43,16 @@ function _gd_getDateRange() {
 function _gd_switchDatePreset(preset) {
     _gd_datePreset = preset;
     if (preset === 'custom') return;
-    if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+    if (_gd_selectedUserId === 'all') _gd_loadAllUsersStats();
+    else if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
 }
 function _gd_applyCustomDate() {
     _gd_dateFrom = document.getElementById('gdDateFrom')?.value || '';
     _gd_dateTo = document.getElementById('gdDateTo')?.value || '';
-    if (_gd_dateFrom && _gd_dateTo && _gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+    if (_gd_dateFrom && _gd_dateTo) {
+        if (_gd_selectedUserId === 'all') _gd_loadAllUsersStats();
+        else if (_gd_selectedUserId) _gd_loadCallsForUser(_gd_selectedUserId);
+    }
 }
 const _gd_CRM_TABS = [
     { value: null, label: 'Tất cả', icon: '📋', grad: 'linear-gradient(135deg,#122546,#1e3a5f)', color: '#122546' },
@@ -140,37 +145,175 @@ async function renderGoiDienPage(container) {
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
         _gd_isViewOnly = false;
         await _gd_loadCallsForUser(_gd_selectedUserId);
-    } else if (!_isTopAdmin) {
-        // QL, TP: auto-select self nếu là active member
-        if (_gd_memberIds.has(currentUser.id)) {
-            _gd_selectedUserId = currentUser.id;
-            _gd_selectedUserName = currentUser.full_name || currentUser.username;
-            _gd_isViewOnly = false;
-        }
-        _gd_renderSidebar();
-        if (_gd_selectedUserId) await _gd_loadCallsForUser(_gd_selectedUserId);
-        else {
-            const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id) && (_gd_visibleUserIds.size === 0 || _gd_visibleUserIds.has(u.id)));
-            if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_isViewOnly = (first.id !== currentUser.id); _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
-            else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên telesale nào trong phạm vi quản lý. Vui lòng liên hệ Giám đốc để thêm NV vào danh sách active members.</div></div>'; }
-        }
     } else {
-        // GĐ/QLCC: auto-select first active member
+        // QL/TP/GĐ/QLCC: default to aggregate view
+        _gd_selectedUserId = 'all';
+        _gd_selectedUserName = 'Tổng Phòng Kinh Doanh';
+        _gd_isViewOnly = true;
         _gd_renderSidebar();
-        const first = _gd_allUsers.find(u => _gd_memberIds.has(u.id));
-        if (first) { _gd_selectedUserId = first.id; _gd_selectedUserName = first.full_name; _gd_isViewOnly = (first.id !== currentUser.id); _gd_renderSidebar(); await _gd_loadCallsForUser(first.id); }
-        else { const el = document.getElementById('gdContent'); if (el) el.innerHTML = '<div class="ts-empty"><span class="ts-empty-icon">📋</span><div class="ts-empty-title">Chưa có NV telesale</div><div class="ts-empty-desc">Chưa có nhân viên nào được thêm vào active telesale members.</div></div>'; }
+        await _gd_loadAllUsersStats();
     }
 }
 
 function _gd_avatarColor(n) { let h=0; for(let i=0;i<(n||'').length;i++) h=n.charCodeAt(i)+((h<<5)-h); return ['#3b82f6','#059669','#f59e0b','#8b5cf6','#06b6d4','#f43f5e','#ec4899','#6366f1'][Math.abs(h)%8]; }
 function _gd_initials(n) { if(!n) return '?'; const p=n.trim().split(/\s+/); return p.length>1?(p[0][0]+p[p.length-1][0]).toUpperCase():n.substring(0,2).toUpperCase(); }
 
+// ========== AGGREGATE ALL USERS ==========
+async function _gd_loadAllUsersStats() {
+    const el = document.getElementById('gdContent');
+    if (!el) return;
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">⏳ Đang tải tổng hợp...</div>';
+    const dr = _gd_getDateRange();
+    const isSingleDay = dr.from === dr.to;
+    const dateParams = `date_from=${dr.from}&date_to=${dr.to}`;
+
+    // Get all visible member IDs
+    const visibleMembers = _gd_allUsers.filter(u => {
+        if (!_gd_memberIds.has(u.id)) return false;
+        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id)) return false;
+        return true;
+    });
+
+    // Fetch stats for ALL users in parallel
+    const statsPromises = visibleMembers.map(u => apiCall(`/api/telesale/daily-stats/${u.id}?${dateParams}`).catch(() => ({ stats: {} })));
+    const allStatsRes = await Promise.all(statsPromises);
+
+    // Aggregate
+    const agg = { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0, transferred:0, cold_answered:0, ncc_answered:0 };
+    const prevAgg = { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0, transferred:0, cold_answered:0, ncc_answered:0 };
+    allStatsRes.forEach(r => {
+        const s = r.stats || {};
+        const p = r.prevStats || {};
+        Object.keys(agg).forEach(k => { agg[k] += parseInt(s[k] || 0); prevAgg[k] += parseInt(p[k] || 0); });
+    });
+
+    const totalAnswered = agg.answered;
+    const noAB = agg.no_answer + agg.busy;
+    const prevNoAB = prevAgg.no_answer + prevAgg.busy;
+    const rateBM = agg.total > 0 ? Math.round(totalAnswered / agg.total * 100) : 0;
+    const rateCS = totalAnswered > 0 ? Math.round(agg.transferred / totalAnswered * 100) : 0;
+
+    const _comp = (val, prev) => {
+        if (!prev && prev !== 0) return '';
+        const d = val - prev;
+        if (d === 0) return '';
+        return `<div style="font-size:9px;margin-top:2px;color:${d>0?'#bbf7d0':'#fecaca'};font-weight:700;">${d>0?'▲':'▼'} ${Math.abs(d)}</div>`;
+    };
+
+    const miniCards = [
+        { icon:'📤', val:agg.total, label:'Đã Phân Còn Lại', grad:'linear-gradient(135deg,#f59e0b,#f97316)', pv:prevAgg.total, fk:'total' },
+        { icon:'📞', val:totalAnswered, label:'Đã Gọi Bắt Máy', grad:'linear-gradient(135deg,#059669,#10b981)', pv:prevAgg.answered, fk:'answered' },
+        { icon:'🔥', val:agg.transferred, label:'Chuyển Số', grad:'linear-gradient(135deg,#f59e0b,#ea580c)', pv:prevAgg.transferred, fk:'transferred' },
+        { icon:'📵', val:noAB, label:'Không Nghe, Bận', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', pv:prevNoAB, fk:'no_answer_busy' },
+        { icon:'🚫', val:agg.cold_answered, label:'Không Có Nhu Cầu', grad:'linear-gradient(135deg,#06b6d4,#0ea5e9)', pv:prevAgg.cold_answered, fk:'cold_answered' },
+        { icon:'🏪', val:agg.ncc_answered, label:'Đã Có Nhà Cung Cấp', grad:'linear-gradient(135deg,#854d0e,#a16207)', pv:prevAgg.ncc_answered, fk:'ncc_answered' },
+        { icon:'❌', val:agg.invalid, label:'Hủy Khách, K. Tồn Tại', grad:'linear-gradient(135deg,#6b7280,#374151)', pv:prevAgg.invalid, fk:'invalid' },
+    ];
+
+    // Date filter chips
+    const _presets = [
+        { key:'today', label:'Hôm nay', icon:'📅' }, { key:'yesterday', label:'Hôm qua', icon:'⏪' },
+        { key:'7days', label:'7 ngày', icon:'📆' }, { key:'this_month', label:'Tháng này', icon:'🗓️' },
+        { key:'last_month', label:'Tháng trước', icon:'📋' }, { key:'all', label:'Tất cả', icon:'♾️' },
+    ];
+    const dfHtml = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #e2e8f0;border-radius:12px;">
+        <span style="font-size:13px;font-weight:800;color:#334155;margin-right:4px;">📅</span>
+        ${_presets.map(p => { const a = _gd_datePreset === p.key; return `<button onclick="_gd_switchDatePreset('${p.key}')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid ${a?'#2563eb':'#e2e8f0'};background:${a?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${a?'white':'#64748b'};box-shadow:${a?'0 2px 8px rgba(37,99,235,0.3)':'none'};">${p.icon} ${p.label}</button>`; }).join('')}
+        <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
+        <button onclick="_gd_datePreset='custom';document.getElementById('gdCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_gd_datePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_gd_datePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_gd_datePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
+        <select onchange="_gd_selectedYear=parseInt(this.value);_gd_switchDatePreset('all')" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
+            ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _gd_selectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
+        </select>
+        <div id="gdCustomDateArea" style="display:${_gd_datePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
+            <input type="date" id="gdDateFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_gd_dateFrom=this.value">
+            <span style="font-size:11px;color:#9ca3af;">→</span>
+            <input type="date" id="gdDateTo" value="${dr.to}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_gd_dateTo=this.value">
+            <button onclick="_gd_applyCustomDate()" style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #059669;background:linear-gradient(135deg,#059669,#10b981);color:white;">✓</button>
+        </div>
+        ${dr.from ? `<span style="margin-left:auto;font-size:10px;color:#6b7280;font-weight:600;">📊 ${dr.from}${dr.from!==dr.to?' → '+dr.to:''}</span>` : ''}
+    </div>`;
+
+    const dateLabel = isSingleDay ? _gd_formatDate(dr.from) : `${_gd_formatDateShort(dr.from)} → ${_gd_formatDateShort(dr.to)}`;
+
+    // Per-user breakdown table
+    let userRows = '';
+    visibleMembers.forEach((u, i) => {
+        const s = allStatsRes[i]?.stats || {};
+        const answered = parseInt(s.answered || 0);
+        const transferred = parseInt(s.transferred || 0);
+        const total = parseInt(s.total || 0);
+        if (total === 0) return;
+        userRows += `<tr style="cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''" onclick="_gd_selectUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\'")}')">
+            <td style="padding:8px 10px;font-weight:700;color:#122546;font-size:12px;">${u.full_name || u.username}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#f59e0b;">${total}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#059669;">${answered}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:800;font-size:13px;color:#ea580c;">${transferred}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#6366f1;">${parseInt(s.no_answer||0)+parseInt(s.busy||0)}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#6b7280;">${parseInt(s.cold_answered||0)}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:13px;color:#854d0e;">${parseInt(s.ncc_answered||0)}</td>
+        </tr>`;
+    });
+
+    el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">📊 Tổng Phòng Kinh Doanh</h3>
+                <span style="padding:4px 12px;background:linear-gradient(135deg,#122546,#1e3a5f);color:white;border-radius:8px;font-size:11px;font-weight:700;">${visibleMembers.length} nhân viên</span>
+            </div>
+            <div style="font-size:12px;color:#6b7280;">📅 ${dateLabel}</div>
+        </div>
+        ${dfHtml}
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+            ${miniCards.map(c => `<div class="ts-stat-card" style="background:${c.grad};color:white;cursor:default;"><span class="ts-stat-icon">${c.icon}</span><div class="ts-stat-val">${c.val}</div><div class="ts-stat-label">${c.label}</div>${_comp(c.val,c.pv)}</div>`).join('')}
+        </div>
+        <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:180px;padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:#0369a1;">📞 Tỷ lệ bắt máy</span><span style="font-size:14px;font-weight:800;color:#0c4a6e;">${rateBM}%</span></div>
+                <div style="height:6px;background:#e0f2fe;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(rateBM,100)}%;background:linear-gradient(90deg,#0ea5e9,#2563eb);border-radius:3px;transition:width 0.5s;"></div></div>
+                <div style="font-size:9px;color:#64748b;margin-top:3px;">${totalAnswered} bắt máy / ${agg.total} tổng</div>
+            </div>
+            <div style="flex:1;min-width:180px;padding:10px 14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:#92400e;">🔥 Tỷ lệ chuyển số</span><span style="font-size:14px;font-weight:800;color:#78350f;">${rateCS}%</span></div>
+                <div style="height:6px;background:#fef3c7;border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(rateCS,100)}%;background:linear-gradient(90deg,#f59e0b,#ea580c);border-radius:3px;transition:width 0.5s;"></div></div>
+                <div style="font-size:9px;color:#64748b;margin-top:3px;">${agg.transferred} chuyển / ${totalAnswered} bắt máy</div>
+            </div>
+        </div>
+        ${userRows ? `
+        <div style="border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+            <div style="padding:12px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1.5px solid #e2e8f0;">
+                <span style="font-size:13px;font-weight:800;color:#122546;">👥 Chi tiết theo nhân viên</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;">
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:700;">Nhân viên</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">📤 Phân</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">📞 Bắt máy</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">🔥 Chuyển</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">📵 K.Nghe</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">🚫 K.NC</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;font-weight:700;">🏪 NCC</th>
+                </tr></thead>
+                <tbody>${userRows}</tbody>
+            </table>
+        </div>` : ''}
+    `;
+}
+
 function _gd_renderSidebar() {
     const list = document.getElementById('gdSidebarList');
     if (!list) return;
 
     const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+
+    // "Tổng Phòng KD" button at top
+    const isAllActive = _gd_selectedUserId === 'all';
+    let topBtn = `<div onclick="_gd_selectUser('all','Tổng Phòng Kinh Doanh')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+        <span style="font-size:20px;">📊</span>
+        <div style="flex:1;">
+            <div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div>
+            <div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div>
+        </div>
+    </div>`;
 
     // Filter members by active status and dept filter
     let filtered = _gd_allUsers.filter(u => {
@@ -249,10 +392,10 @@ function _gd_renderSidebar() {
             });
             html += '</div>';
         });
-        list.innerHTML = html;
+        list.innerHTML = topBtn + html;
     } else {
         // Flat list (TP/NV self-only, or dept filter active)
-        list.innerHTML = filtered.map(u => _gd_renderUserCard(u, 0)).join('');
+        list.innerHTML = topBtn + filtered.map(u => _gd_renderUserCard(u, 0)).join('');
     }
 }
 
@@ -274,9 +417,10 @@ function _gd_renderUserCard(u, indent) {
 
 async function _gd_selectUser(userId, userName) {
     _gd_selectedUserId = userId; _gd_selectedUserName = userName;
-    _gd_isViewOnly = (userId !== currentUser.id); // Chỉ chủ sở hữu mới thao tác được
+    _gd_isViewOnly = (userId !== currentUser.id);
     _gd_renderSidebar();
-    await _gd_loadCallsForUser(userId);
+    if (userId === 'all') await _gd_loadAllUsersStats();
+    else await _gd_loadCallsForUser(userId);
 }
 
 async function _gd_loadCallsForUser(userId) {
