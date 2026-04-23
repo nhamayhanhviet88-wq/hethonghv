@@ -1876,11 +1876,12 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
         'dangvideo': 'Đăng Video Isocal',
         'dangcontent': 'Đăng Content Isocal',
         'danggruop': 'Đăng & Tìm KH Group',
-        'sedding': 'Sedding Cộng Đồng & Lẫn Nhau',
-        'dangbanthan': 'Đăng Bản Thân & Sản Phẩm',
-        'timgrzalo': 'Tìm Gr Zalo Và Join',
-        'tuyendung': 'Tuyển Dụng SV KD',
-        'goidientelesale': 'Gọi Điện Telesale'
+        'seddingcongdong': 'Sedding Cộng Đồng & Lẫn Nhau',
+        'dangbanthansp': 'Đăng Bản Thân & Sản Phẩm',
+        'timgrzalovathongke': 'Tìm Gr Zalo Và Join',
+        'tuyendungsvkd': 'Tuyển Dụng SV KD',
+        'goidientelesale': 'Gọi Điện Telesale',
+        'cham-soc-koc-kol': 'Nhắn Tìm Đối Tác KH KOL Tiktok'
     };
     const congViecValue = _congViecMap[pageId] || 'Mặc Định';
     const apiCalls = [
