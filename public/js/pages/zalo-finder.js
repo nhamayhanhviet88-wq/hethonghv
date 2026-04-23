@@ -20,6 +20,7 @@ function _zlInit() {
         <div style="flex:1;padding:20px 24px;overflow-y:auto;">
             <div id="zlGuide"></div>
             <div id="zlStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+            <div id="zlLockBanner"></div>
             <div id="zlDateBar" style="margin-bottom:12px;"></div>
             <div id="zlToolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;"></div>
             <div id="zlProgress" style="margin-bottom:16px;"></div>
@@ -30,6 +31,7 @@ function _zlInit() {
     if (typeof _dlLoadGuide === 'function') _dlLoadGuide();
     _zlRenderDateBar();
     _zlLoadTasks();
+    _zlLoadLockTaskStatus();
 }
 
 async function _zlLoadSidebar() {
@@ -1111,4 +1113,34 @@ async function _zpLoadLockTaskStatus() {
             el.insertAdjacentHTML('beforeend', statusHtml);
         }
     } catch(e) { console.error('[ZaloSpam] Lock task status error:', e); }
+}
+
+// ========== LOCK TASK STATUS BANNER FOR "Tìm Gr Zalo Và Join" ==========
+async function _zlLoadLockTaskStatus() {
+    try {
+        const res = await apiCall('/api/zalo-group/check-completion');
+        if (!res.has_task) return;
+        const el = document.getElementById('zlLockBanner');
+        if (!el) return;
+        const remaining = res.remaining;
+        const completed = res.completed;
+        const overdue = res.overdue_days || [];
+        const totalPenalty = res.total_penalty || 0;
+        let statusHtml = '';
+
+        if (completed && overdue.length === 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">\u2705</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Kh\u00f3a \u0111\u00e3 ho\u00e0n th\u00e0nh!</div><div style="font-size:11px;color:#15803d;font-weight:600;">Th\u00f4ng B\u00e1o Gr Zalo Spam \u0110\u01b0\u1ee3c \u2014 T\u1ef1 \u0111\u1ed9ng ho\u00e0n th\u00e0nh</div></div></div>';
+        } else if (completed && overdue.length > 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">\u2705</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Kh\u00f3a ho\u00e0n th\u00e0nh h\u00f4m nay \u2014 D\u1eebng ph\u1ea1t</div><div style="font-size:11px;color:#dc2626;font-weight:600;">\u26a0\ufe0f T\u1ed5ng ph\u1ea1t t\u00edch l\u0169y: ' + totalPenalty.toLocaleString() + '\u0111 (' + overdue.length + ' ng\u00e0y)</div></div></div>';
+        } else if (remaining > 0 && overdue.length > 0) {
+            const dateList = overdue.map(d => { const dd = new Date(d.date + "T00:00:00"); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' \u00b7 ');
+            statusHtml = '<div style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:24px;">\u26a0\ufe0f</span><div><div style="font-size:15px;font-weight:800;color:#991b1b;">CV Kh\u00f3a qu\u00e1 h\u1ea1n ' + overdue.length + ' ng\u00e0y \u2014 T\u1ed5ng ph\u1ea1t: ' + totalPenalty.toLocaleString() + '\u0111</div></div></div><div style="font-size:11px;color:#dc2626;font-weight:600;padding-left:34px;margin-bottom:6px;">' + dateList + '</div><div style="font-size:11px;color:#7f1d1d;padding-left:34px;">C\u00f2n ' + remaining + ' nh\u00f3m Group C\u00f3 Zalo ch\u01b0a x\u1eed l\u00fd. X\u1eed l\u00fd h\u1ebft \u0111\u1ec3 ho\u00e0n th\u00e0nh CV v\u00e0 d\u1eebng ph\u1ea1t!</div></div>';
+        } else if (remaining > 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">\ud83d\udd25</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Kh\u00f3a: C\u00f2n ' + remaining + ' nh\u00f3m Group C\u00f3 Zalo</div><div style="font-size:11px;color:#dc2626;font-weight:600;">X\u1eed l\u00fd h\u1ebft \u0111\u1ec3 t\u1ef1 \u0111\u1ed9ng ho\u00e0n th\u00e0nh v\u00e0 kh\u00f4ng b\u1ecb ph\u1ea1t</div></div></div>';
+        }
+
+        if (statusHtml) {
+            el.insertAdjacentHTML('beforeend', statusHtml);
+        }
+    } catch(e) { console.error('[ZaloGroup] Lock task status error:', e); }
 }

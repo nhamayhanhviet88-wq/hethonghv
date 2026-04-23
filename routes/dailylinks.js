@@ -1681,6 +1681,76 @@ module.exports = async function (fastify) {
         };
     });
 
+    // GET /api/zalo-group/check-completion — Check "Group Có Zalo" count per user for "Thông Báo Gr Zalo Spam Được"
+    fastify.get('/api/zalo-group/check-completion', { preHandler: [authenticate] }, async (req, reply) => {
+        const userId = req.user.id;
+
+        // Count "Group Có Zalo" for this user: results that are NOT spam_eligible, NOT spam_not_eligible, NOT done
+        const pendingGroups = await db.get(
+            `SELECT COUNT(*) as c FROM zalo_task_results r
+             JOIN zalo_daily_tasks t ON r.task_id = t.id
+             WHERE t.user_id = $1 AND r.spam_eligible = false AND r.spam_not_eligible = false AND r.spam_status != 'done'`,
+            [userId]
+        );
+        const cnt = Number(pendingGroups?.c || 0);
+
+        // Check if user has the lock task
+        const grTask = await db.get(
+            `SELECT lt.id, lt.task_name, lt.penalty_amount FROM lock_tasks lt
+             JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+             WHERE lt.is_active = true AND lt.task_name ILIKE '%thông báo gr zalo%'
+               AND lta.user_id = $1 LIMIT 1`, [userId]
+        );
+
+        const nowVN = new Date(Date.now() + 7 * 3600000);
+        const todayStr = nowVN.toISOString().split('T')[0];
+        let completed = false;
+        let overdue_days = [];
+        let total_penalty = 0;
+
+        if (grTask) {
+            const existing = await db.get(
+                `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
+                [grTask.id, userId, todayStr]
+            );
+            completed = !!existing;
+
+            // AUTO-COMPLETE: If Group Có Zalo = 0 and task not completed today → auto-create
+            if (!completed && cnt === 0) {
+                try {
+                    await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content)
+                         VALUES ($1, $2, $3, 0, 'approved', 0, false, $4)
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE
+                         SET status = 'approved', penalty_amount = 0, penalty_applied = false, content = $4`,
+                        [grTask.id, userId, todayStr, 'Tự động hoàn thành — Group Có Zalo đã trống']
+                    );
+                    completed = true;
+                } catch(e) { console.error('[ZaloGroup] Auto-complete error:', e.message); }
+            }
+
+            // Check overdue days
+            const penalties = await db.all(
+                `SELECT completion_date::text as d, penalty_amount FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND status = 'expired' AND penalty_applied = true
+                   AND completion_date >= (NOW() - INTERVAL '90 days')::date
+                 ORDER BY completion_date`,
+                [grTask.id, userId]
+            );
+            overdue_days = penalties.map(p => ({ date: p.d.slice(0,10), amount: Number(p.penalty_amount) }));
+            total_penalty = overdue_days.reduce((s, d) => s + d.amount, 0);
+        }
+
+        return {
+            remaining: cnt,
+            has_task: !!grTask,
+            completed,
+            task_id: grTask?.id || null,
+            overdue_days,
+            total_penalty
+        };
+    });
+
 };
 
 

@@ -1295,7 +1295,7 @@ function _kbRenderGrid() {
                     const wDays = (lt.recurrence_value || '').split(',').map(Number);
                     applies = wDays.includes(dayOfWeek);
                     // ROLLING: "Setup Spam Zalo" — if past recurrence day + not completed, show on working days
-                    if (!applies && lt.task_name && /setup.*spam.*zalo/i.test(lt.task_name) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
+                    if (!applies && lt.task_name && (/setup.*spam.*zalo/i.test(lt.task_name) || /thông.*báo.*gr.*zalo/i.test(lt.task_name)) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
                         // Check if any recurrence day THIS week or BEFORE is uncompleted
                         const wStart = new Date(_kbWeekStart);
                         for (let rd = 0; rd < 7; rd++) {
