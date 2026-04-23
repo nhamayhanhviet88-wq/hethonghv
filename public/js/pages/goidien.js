@@ -695,6 +695,9 @@ async function _gd_submitFollowup(assignmentId, answerStatusId) {
 function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
     const source = _gd_sources.find(s => s.name === call.source_name);
     const crmType = source?.crm_type || '';
+    // Map crm_type → nguồn khách tương ứng
+    const _crmSourceMap = { 'goi_hop_tac': 'GỌI ĐIỆN ĐỐI TÁC', 'goi_ban_hang': 'GỌI ĐIỆN BÁN HÀNG', 'tu_tim_kiem': 'TỰ TÌM KIẾM TELESALE' };
+    const sourceName = _crmSourceMap[crmType] || 'GỌI ĐIỆN TELESALE';
     const crmOptions = [
         {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'ctv_hoa_hong',label:'Chăm Sóc Affiliate'},
     ];
@@ -709,6 +712,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
 
     openModal('📱 Chuyển Số Khách Hàng', `
         <div style="max-width:600px;">
+            <input type="hidden" id="gdCSSourceName" value="${sourceName}">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">CRM <span style="color:#dc2626;">*</span></label>
@@ -718,7 +722,7 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                 </div>
                 <div class="form-group">
                     <label style="font-weight:700;font-size:12px;color:#374151;">Nguồn Khách <span style="color:#dc2626;">*</span></label>
-                    <input type="text" class="form-control" value="GỌI ĐIỆN TELESALE" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                    <input type="text" class="form-control" value="${sourceName}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                 </div>
             </div>
             <div id="gdCSJobTitleRow" style="display:none;grid-template-columns:1fr 1fr;gap:14px;">
@@ -807,7 +811,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         phone: phone,
         phone2: phone2,
         facebook_link: fbLink || null,
-        source_name: 'GỌI ĐIỆN TELESALE',
+        source_name: document.getElementById('gdCSSourceName')?.value || 'GỌI ĐIỆN TELESALE',
         receiver_id: currentUser.id,
         notes: notes,
         job: call.source_name || jobTitle || null
