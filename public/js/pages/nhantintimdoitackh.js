@@ -581,7 +581,7 @@ function _poRenderTable() {
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_poFormatDate(entryDate)}</td>`:''}
-            <td style="padding:10px 8px;font-size:12px;color:#6b7280;font-weight:600;">${r.user_name||'—'}</td>
+            <td style="padding:10px 8px;font-size:13px;color:#1e293b;font-weight:700;">${r.user_name||'—'}</td>
             <td style="padding:10px 8px;font-weight:600;color:#122546;">${r.partner_name||'—'}</td>
             <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:#2563eb;">${fbShort}</a></td>
             <td style="padding:10px 8px;">${r.phone||'—'}</td>
