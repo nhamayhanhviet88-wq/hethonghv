@@ -214,7 +214,11 @@ function _dlUpdateActions() {
         h += `<button onclick="_dlCatModal()" style="padding:8px 14px;border:1px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Lĩnh Vực</button>`;
     }
     if (canAdd) {
-        h += `<button onclick="_dlBackfillModal()" style="padding:8px 16px;border:2px solid ${m.accent};border-radius:8px;background:white;color:${m.accent};cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">📋 Báo cáo bù</button>`;
+        // Không hiện nút Báo cáo bù cho công việc điểm
+        const noBackfillTypes = ['dang_video', 'dang_content', 'dang_group', 'tuyen_dung'];
+        if (!noBackfillTypes.includes(m.type)) {
+            h += `<button onclick="_dlBackfillModal()" style="padding:8px 16px;border:2px solid ${m.accent};border-radius:8px;background:white;color:${m.accent};cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">📋 Báo cáo bù</button>`;
+        }
         h += `<button onclick="_dlAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:${m.grad};color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">＋ Báo cáo công việc</button>`;
     } else if (_dl.selDept || (!_dl.selUser && !['nhan_vien','part_time'].includes(currentUser.role))) {
         h += '<span style="padding:8px 16px;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:600;border:1px solid #e2e8f0;">👁️ Chế độ xem tổng hợp</span>';
