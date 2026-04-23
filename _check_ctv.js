@@ -1,19 +1,19 @@
-const db = require('./db/pool');
-(async () => {
-    // Simulate what ctv_all returns
-    const ctvAll = await db.all("SELECT id, customer_name, crm_type FROM customers WHERE crm_type IN ('ctv','ctv_hoa_hong') ORDER BY id");
-    console.log('ctv_all count:', ctvAll.length);
-    
-    // Simulate what ctv exact returns  
-    const ctvExact = await db.all("SELECT id, customer_name, crm_type FROM customers WHERE crm_type = 'ctv' ORDER BY id");
-    console.log('ctv exact count:', ctvExact.length);
-    
-    // Check what the user sees - giam_doc has no filter
-    console.log('\nctv exact records:');
-    ctvExact.forEach(r => console.log(`  ID=${r.id} name=${r.customer_name} type=${r.crm_type}`));
-    
-    console.log('\nctv_all records:');
-    ctvAll.forEach(r => console.log(`  ID=${r.id} name=${r.customer_name} type=${r.crm_type}`));
-    
-    process.exit(0);
-})();
+const http = require('http');
+http.get('http://localhost:11000/crm-ctv', (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+        // Find all script tags with crm
+        const matches = data.match(/src="[^"]*crm[^"]*"/g);
+        console.log('CRM script tags in served HTML:');
+        if (matches) matches.forEach(m => console.log(' ', m));
+        
+        // Also check for ctv_all in the page content
+        const idx = data.indexOf('ctv_all');
+        console.log('\nctv_all found in HTML:', idx >= 0 ? 'YES at pos ' + idx : 'NO');
+        
+        // Check KOC references
+        const kocIdx = data.indexOf('koc_tiktok');
+        console.log('koc_tiktok found in HTML:', kocIdx >= 0 ? 'YES at pos ' + kocIdx : 'NO');
+    });
+});

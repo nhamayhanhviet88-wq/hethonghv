@@ -263,11 +263,11 @@ async function renderCRMKocKolPage(container) {
 
     document.getElementById('crmFilterConsultType').addEventListener('change', () => _kockolRenderFilteredTable());
     const topStaffEl = document.getElementById('crmTopStaffFilter');
-    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmCtvData());
+    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmKocKolData());
     let st;
-    document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmCtvData, 400); });
+    document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmKocKolData, 400); });
 
-    await loadCrmCtvData();
+    await loadCrmKocKolData();
 
     // Auto-select 'Phải xử lý hôm nay' on page load
     _kockolActiveCat = null;
@@ -743,7 +743,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
     </tr>`;
 }
 
-async function loadCrmCtvData() {
+async function loadCrmKocKolData() {
     // Sync dynamic consult types from API (adds any new types created in settings)
     await _kockolSyncConsultTypes();
 
@@ -824,7 +824,7 @@ async function loadCrmCtvData() {
     }
 }
 
-function applyCrmCtvFilter() { loadCrmCtvData(); }
+function applyCrmKocKolFilter() { loadCrmKocKolData(); }
 
 // ========== PIN KHÁCH HÀNG ==========
 async function _kockolTogglePin(customerId) {
@@ -886,7 +886,7 @@ function resetCrmCtvFilter() {
     document.getElementById('crmSearch').value = '';
     const topStaff = document.getElementById('crmTopStaffFilter');
     if (topStaff) topStaff.value = '';
-    loadCrmCtvData();
+    loadCrmKocKolData();
 }
 
 // ========== CONSULTATION MODAL ==========
@@ -1662,7 +1662,7 @@ async function _kockolSubmitConsultLog(customerId) {
         if (!reason) { showToast('Vui lòng nhập lý do hủy!', 'error'); _kockolEnableSubmitBtn(); return; }
         try {
             const data = await apiCall(`/api/customers/${customerId}/cancel`, 'POST', { reason });
-            if (data.success) { showToast('✅ ' + data.message); closeModal(); loadCrmCtvData(); }
+            if (data.success) { showToast('✅ ' + data.message); closeModal(); loadCrmKocKolData(); }
             else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
         return;
@@ -1688,7 +1688,7 @@ async function _kockolSubmitConsultLog(customerId) {
                 customer_id: customerId, reason: content, handler_id: Number(handler_id)
             });
             if (data.success) {
-                showToast('🚨 ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmCtvData();
+                showToast('🚨 ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmKocKolData();
             } else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
         return;
@@ -1716,7 +1716,7 @@ async function _kockolSubmitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmCtvData();
+                showToast('✅ Đặt cọc thành công!'); closeModal(); window._consultImageBlob = null; loadCrmKocKolData();
             } else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
         return;
@@ -1775,7 +1775,7 @@ async function _kockolSubmitConsultLog(customerId) {
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmCtvData();
+                showToast('✅ Chốt đơn thành công! Chuyển sang Sau Bán Hàng.'); closeModal(); window._consultImageBlob = null; loadCrmKocKolData();
             } else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
         } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
         return;
@@ -1803,7 +1803,7 @@ async function _kockolSubmitConsultLog(customerId) {
         const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmCtvData();
+            showToast('✅ ' + data.message); closeModal(); window._consultImageBlob = null; loadCrmKocKolData();
         } else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
     } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
 }
@@ -1952,7 +1952,7 @@ async function _kockolSelectReferrer(customerId, referrerCustomerId) {
     if (data.success) {
         showToast('✅ Đã chọn người giới thiệu: ' + data.referrer_name);
         closeModal();
-        loadCrmCtvData();
+        loadCrmKocKolData();
     } else {
         showToast(data.error || 'Lỗi!', 'error');
     }
@@ -2126,7 +2126,7 @@ async function _kockolSaveCustomerInfo(customerId) {
         if (data.success) {
             showToast('✅ ' + data.message);
             closeModal();
-            loadCrmCtvData();
+            loadCrmKocKolData();
         } else {
             showToast(data.error || 'Lỗi!', 'error');
         }

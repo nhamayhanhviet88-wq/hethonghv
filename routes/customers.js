@@ -163,6 +163,7 @@ async function customersRoutes(fastify, options) {
             WHERE 1=1`;
         const params = [];
 
+        console.log(`[DEBUG] GET /api/customers crm_type=${crm_type} user=${request.user?.username} role=${request.user?.role}`);
         if (crm_type) {
             if (crm_type === 'affiliate') { query += ` AND c.crm_type = 'ctv_hoa_hong'`; }
             else if (crm_type === 'ctv_all') { query += ` AND c.crm_type IN ('ctv', 'ctv_hoa_hong')`; }
