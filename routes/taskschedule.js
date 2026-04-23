@@ -516,11 +516,17 @@ async function taskScheduleRoutes(fastify, options) {
                  ORDER BY d.name, u.full_name`
             );
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(user.role)) {
-            // Get departments from task_approvers (flat, no recursive children)
+            // Get departments from task_approvers + their child sub-teams
             const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
             const allDeptIds = new Set(assigned.map(a => a.department_id));
             // Also include own department
             if (user.department_id) allDeptIds.add(user.department_id);
+            // Include child departments (sub-teams) of each approver dept
+            const baseDeptIds = [...allDeptIds];
+            for (const dId of baseDeptIds) {
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [dId]);
+                children.forEach(c => allDeptIds.add(c.id));
+            }
             if (allDeptIds.size > 0) {
                 const ids = [...allDeptIds];
                 const ph = ids.map((_, i) => `$${i + 1}`).join(',');
