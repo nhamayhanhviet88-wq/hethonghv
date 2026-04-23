@@ -525,12 +525,15 @@ function _dlRenderTable() {
                     ${valueCell}
                 </div>`;
             }).join('');
+            const cardUpdatedAt = r.updated_at || r.created_at || '';
+            const cardFmtTime = cardUpdatedAt ? new Date(cardUpdatedAt).toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
             h += `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f3f4f6;">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span style="background:${m.grad};color:white;font-weight:800;font-size:13px;padding:4px 10px;border-radius:8px;">#${i+1}</span>
                         ${showUser ? `<span style="font-weight:700;font-size:13px;color:#1e293b;">${r.user_name||''}</span>` : ''}
                         ${isMultiDay ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${_dlFormatDate(ed)}</span>` : ''}
+                        <span style="font-size:11px;color:#6b7280;background:#f0fdf4;padding:2px 8px;border-radius:4px;font-weight:600;">🕐 ${cardFmtTime}</span>
                     </div>
                     ${canDel?`<button onclick="_dlDel(${r.id})" style="padding:4px 10px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600;">🗑️ Xóa</button>`:''}
                 </div>
