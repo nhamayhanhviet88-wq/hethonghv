@@ -650,46 +650,21 @@ async function customersRoutes(fastify, options) {
             }
         } catch(e) { console.error('[SearchModules] daily_links error:', e.message); }
 
-        // 4. Tìm trong customers (CRM đã chuyển số)
+        // 4. Cross-check: đánh dấu kết quả đã tồn tại trong CRM (đã chuyển số)
         try {
-            const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
-            let custRows;
-            if (isPhone) {
-                custRows = await db.all(
-                    `SELECT c.id, c.customer_name, c.phone, c.facebook_link, c.crm_type, c.cong_viec, c.created_at,
-                     a.full_name as assigned_to_name
-                     FROM customers c
-                     LEFT JOIN users a ON c.assigned_to_id = a.id
-                     WHERE c.phone LIKE $1
-                     ORDER BY c.created_at DESC LIMIT 10`,
-                    [`%${search}%`]
-                );
-            } else {
-                custRows = await db.all(
-                    `SELECT c.id, c.customer_name, c.phone, c.facebook_link, c.crm_type, c.cong_viec, c.created_at,
-                     a.full_name as assigned_to_name
-                     FROM customers c
-                     LEFT JOIN users a ON c.assigned_to_id = a.id
-                     WHERE LOWER(c.facebook_link) LIKE $1 OR LOWER(c.customer_name) LIKE $1
-                     ORDER BY c.created_at DESC LIMIT 10`,
-                    [`%${searchLower}%`]
-                );
+            for (const r of results) {
+                let found = false;
+                if (r.phone && r.phone.trim()) {
+                    const dup = await db.get('SELECT id FROM customers WHERE phone LIKE $1 LIMIT 1', [`%${r.phone.trim()}%`]);
+                    if (dup) found = true;
+                }
+                if (!found && r.link && r.link.trim()) {
+                    const dup = await db.get('SELECT id FROM customers WHERE LOWER(facebook_link) = $1 LIMIT 1', [r.link.trim().toLowerCase()]);
+                    if (dup) found = true;
+                }
+                r.already_transferred = found;
             }
-            for (const row of custRows) {
-                results.push({
-                    module: 'customers',
-                    module_label: `📋 ${CRM_LABELS[row.crm_type] || 'CRM'}`,
-                    cong_viec: row.cong_viec || 'Mặc Định',
-                    id: row.id,
-                    customer_name: row.customer_name || '',
-                    phone: row.phone || '',
-                    link: row.facebook_link || '',
-                    source_name: CRM_LABELS[row.crm_type] || '',
-                    assigned_to: row.assigned_to_name || '',
-                    created_at: row.created_at
-                });
-            }
-        } catch(e) { console.error('[SearchModules] customers error:', e.message); }
+        } catch(e) { console.error('[SearchModules] cross-check error:', e.message); }
 
         return { results };
     });

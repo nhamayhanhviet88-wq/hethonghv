@@ -526,12 +526,18 @@ async function _csoDoSearch() {
                 const phoneStr = r.phone ? `📞 ${r.phone}` : '';
                 const linkStr = r.link ? `🔗 ${r.link.length > 50 ? r.link.substring(0, 50) + '...' : r.link}` : '';
                 const assignStr = r.assigned_to ? `👤 ${r.assigned_to}` : '';
+                const isTransferred = r.already_transferred;
+                const badge = isTransferred ? '<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px;">⛔ Đã Chuyển Số</span>' : '';
+                const rowStyle = isTransferred
+                    ? 'padding:10px 12px;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px;opacity:0.5;cursor:not-allowed;background:#f9fafb;'
+                    : 'padding:10px 12px;cursor:pointer;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px;transition:background 0.15s;';
+                const rowEvents = isTransferred
+                    ? 'onclick="showToast(\'⛔ Số này đã được chuyển vào CRM rồi!\', \'error\')"'
+                    : `onmouseenter="this.style.background='#eef2ff'" onmouseleave="this.style.background=''" onclick="_csoSelectResult(this)"`;
                 html += `<div class="cso-search-row" data-result='${JSON.stringify(r).replace(/'/g, '&#39;')}'
-                    style="padding:10px 12px;cursor:pointer;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px;transition:background 0.15s;"
-                    onmouseenter="this.style.background='#eef2ff'" onmouseleave="this.style.background=''"
-                    onclick="_csoSelectResult(this)">
+                    style="${rowStyle}" ${rowEvents}>
                     <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-size:13px;">${nameStr}</span>
+                        <span style="font-size:13px;">${nameStr}${badge}</span>
                         <span style="font-size:11px;color:#9ca3af;">${dateStr}</span>
                     </div>
                     <div style="font-size:11px;color:#6b7280;display:flex;gap:12px;flex-wrap:wrap;">
