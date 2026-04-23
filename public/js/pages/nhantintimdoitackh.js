@@ -568,6 +568,7 @@ function _poRenderTable() {
         if (r.transferred_to_crm) {
             actions = '<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã CRM</span>';
         } else {
+            actions += `<button onclick="_poChuyenSo(${r.id})" style="padding:3px 8px;border:1px solid #ea580c;border-radius:6px;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển Số Khách Hàng">📱 CS</button>`;
             actions += `<button onclick="_poTransfer(${r.id})" style="padding:3px 8px;border:1px solid #10b981;border-radius:6px;background:#ecfdf5;color:#059669;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển vào CRM TTK">🔄 CRM</button>`;
             if (isOwner(r.user_id) && entryDate === today) {
                 actions += `<button onclick="_poEditModal(${r.id})" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>`;
@@ -828,6 +829,25 @@ async function _poDelete(id) {
         await apiCall('/api/partner-outreach/entries/' + id, 'DELETE');
         showToast('✅ Đã xóa'); _poLoadData();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+}
+
+async function _poChuyenSo(id) {
+    const entry = (_po.entries || []).find(e => e.id === id);
+    if (!entry) { showToast('Không tìm thấy entry', 'error'); return; }
+    // Get category name for Lĩnh Vực
+    const cat = (_po.categories || []).find(c => c.id === entry.category_id);
+    const linhVuc = cat ? cat.name : '';
+    // Open the global MXH Chuyển Số modal
+    await openChuyenSoMXH('nhantintimdoitackh', linhVuc);
+    // Pre-fill fields from entry data
+    setTimeout(() => {
+        const nameEl = document.getElementById('csMxhName');
+        const phoneEl = document.getElementById('csMxhPhone');
+        const fbEl = document.getElementById('csMxhFacebook');
+        if (nameEl && entry.partner_name) nameEl.value = entry.partner_name;
+        if (phoneEl && entry.phone) phoneEl.value = entry.phone;
+        if (fbEl && entry.fb_link) { fbEl.value = entry.fb_link; fbEl.dispatchEvent(new Event('input')); }
+    }, 300);
 }
 
 async function _poTransfer(id) {
