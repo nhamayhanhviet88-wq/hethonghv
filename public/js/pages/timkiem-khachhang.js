@@ -87,7 +87,7 @@ function _tkkhRenderResults(data, query) {
         </div>
     </div>`;
 
-    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc CTV / Hoa Hồng', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
+    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc CTV', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
 
     // CRM Results
     if (crm.length > 0) {
