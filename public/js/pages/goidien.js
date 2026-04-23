@@ -1374,6 +1374,7 @@ async function _gd_submitSelfSearch() {
         const crmType = document.getElementById('gdSSCrm')?.value;
         if (!crmType) return showToast('Chọn CRM!', 'error');
         // Create customer in CRM
+        const selectedSrc = _gd_selfSearchSources.find(s => String(s.id) === String(source_id));
         try {
             const custRes = await apiCall('/api/customers', 'POST', {
                 crm_type: crmType,
@@ -1383,6 +1384,7 @@ async function _gd_submitSelfSearch() {
                 source_name: 'TỰ TÌM KIẾM TELESALE',
                 receiver_id: currentUser.id,
                 notes: notes || null,
+                job: selectedSrc?.name || null,
                 cong_viec: 'Gọi Điện Telesale'
             });
             if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số CRM', 'error');
