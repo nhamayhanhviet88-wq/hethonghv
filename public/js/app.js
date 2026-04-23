@@ -1867,6 +1867,8 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
     window._csMxhOnSuccess = typeof onSuccess === 'function' ? onSuccess : null;
     // Load dropdown data
     const isPoPage = pageId === 'nhantintimdoitackh';
+    const isDangGroup = pageId === 'danggruop';
+    const needsLinhVucDropdown = isPoPage || isDangGroup;
     const apiCalls = [
         apiCall('/api/settings/sources'),
         apiCall('/api/settings/promotions'),
@@ -1875,11 +1877,12 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
         apiCall('/api/departments'),
         apiCall('/api/app-config/chuyenso_allowed_depts')
     ];
-    // Load categories for nhantintimdoitackh page (for Lĩnh Vực dropdown)
+    // Load categories for Lĩnh Vực dropdown
     if (isPoPage) apiCalls.push(apiCall('/api/partner-outreach/categories'));
+    else if (isDangGroup) apiCalls.push(apiCall('/api/dailylinks/categories'));
     const results = await Promise.all(apiCalls);
     const [sources, promotions, industries, usersRes, deptData, configData] = results;
-    const poCats = isPoPage ? (results[6]?.categories || []) : [];
+    const poCats = needsLinhVucDropdown ? (results[6]?.categories || []) : [];
 
     const allDepts = deptData.departments || [];
     const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null;
@@ -2015,11 +2018,16 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
-                        <label class="_csMxh-label">Lĩnh Vực ${isPoPage ? '<span class="_csMxh-required">*</span>' : ''}</label>
-                        ${(isPoPage && !linhVucName) ? `
-                            <select id="csMxhLinhVuc" class="_csMxh-input" ${isPoPage ? 'required' : ''}>
+                        <label class="_csMxh-label">Lĩnh Vực ${needsLinhVucDropdown ? '<span class="_csMxh-required">*</span>' : ''}</label>
+                        ${(needsLinhVucDropdown && !linhVucName) ? `
+                            <select id="csMxhLinhVuc" class="_csMxh-input" required>
                                 <option value="">-- Chọn lĩnh vực --</option>
                                 ${poCats.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('')}
+                            </select>
+                        ` : needsLinhVucDropdown && linhVucName ? `
+                            <select id="csMxhLinhVuc" class="_csMxh-input" required>
+                                <option value="">-- Chọn lĩnh vực --</option>
+                                ${poCats.map(c => '<option value="' + c.name + '"' + (c.name === linhVucName ? ' selected' : '') + '>' + c.name + '</option>').join('')}
                             </select>
                         ` : `
                             <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;" placeholder="Tự động điền từ nguồn">
@@ -2072,6 +2080,7 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
         if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
         if (body.facebook_link && !_csMxhIsValidFbProfile(body.facebook_link)) { showToast('Link Facebook không hợp lệ! Chỉ chấp nhận link trang cá nhân (VD: https://www.facebook.com/username)', 'error'); return; }
         if ('${pageId}' === 'nhantintimdoitackh' && !body.job) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
+        if ('${pageId}' === 'danggruop' && !body.job) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
         try {
             const data = await apiCall('/api/customers', 'POST', body);
             if (data.success) {
