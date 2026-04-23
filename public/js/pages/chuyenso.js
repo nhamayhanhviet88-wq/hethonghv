@@ -116,7 +116,7 @@ async function renderChuyenSoPage(container) {
         : '';
 
     container.innerHTML = `
-        <div class="card" style="margin-bottom:16px;border:2px solid #6366f1;">
+        <div class="card" style="margin-bottom:16px;border:2px solid #6366f1;display:none;">
             <div class="card-header" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:14px 20px;">
                 <h3 style="color:#fff;margin:0;font-size:15px;">🔍 Tìm Kiếm Nhanh — Tên / SĐT / Link Khách Hàng</h3>
             </div>
