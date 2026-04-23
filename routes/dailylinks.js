@@ -1338,15 +1338,18 @@ module.exports = async function (fastify) {
 
     // POST /api/zalo-results/:id/spam — Mark result as spammed with screenshot
     fastify.post('/api/zalo-results/:id/spam', { preHandler: [authenticate] }, async (req, reply) => {
-        // Only users assigned "Setup Spam Zalo" lock task can mark spam
-        const hasSpamTask = await db.get(
-            `SELECT lt.id FROM lock_tasks lt
-             JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
-             WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
-               AND lta.user_id = $1 LIMIT 1`, [req.user.id]
-        );
-        if (!hasSpamTask) {
-            return reply.code(403).send({ error: 'Bạn chưa được gán công việc "Setup Spam Zalo" — không có quyền đánh dấu spam' });
+        // Only managers or users assigned "Setup Spam Zalo" lock task can mark spam
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (!isManager) {
+            const hasSpamTask = await db.get(
+                `SELECT lt.id FROM lock_tasks lt
+                 JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                 WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+                   AND lta.user_id = $1 LIMIT 1`, [req.user.id]
+            );
+            if (!hasSpamTask) {
+                return reply.code(403).send({ error: 'Bạn chưa được gán công việc "Setup Spam Zalo" — không có quyền đánh dấu spam' });
+            }
         }
         const id = Number(req.params.id);
         const { image_data, reason } = req.body || {};
