@@ -1212,7 +1212,6 @@ let _gd_ssSelectedDisposition = null; // Track selected call disposition
 function _gd_openSelfSearchModal() {
     _gd_ssSelectedDisposition = null;
     const srcOptions = _gd_selfSearchSources.map(s => `<option value="${s.id}">${s.icon} ${s.name}</option>`).join('');
-    const locOptions = _gd_selfSearchLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
     const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
     // 5 call dispositions (removed has_ncc)
@@ -1257,11 +1256,7 @@ function _gd_openSelfSearchModal() {
                     <label style="font-weight:700;font-size:12px;color:#374151;">📂 Lĩnh Vực <span style="color:#dc2626;">*</span></label>
                     <select id="gdSSSource" class="form-control"><option value="">-- Chọn lĩnh vực --</option>${srcOptions}</select>
                 </div>
-                <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">📍 Nơi tìm kiếm <span style="color:#dc2626;">*</span></label>
-                    <select id="gdSSLocation" class="form-control"><option value="">-- Chọn nơi TK --</option>${locOptions}</select>
-                    ${isMgr ? `<button onclick="_gd_openLocationManager()" style="margin-top:4px;padding:3px 8px;font-size:10px;border:1px solid #6366f1;border-radius:5px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;">⚙️ Quản lý</button>` : ''}
-                </div>
+                <div></div>
             </div>
             <div class="form-group">
                 <label style="font-weight:700;font-size:12px;color:#374151;">📞 Tình trạng bắt máy <span style="color:#dc2626;">*</span></label>
@@ -1366,14 +1361,12 @@ async function _gd_submitSelfSearch() {
     const fb_link = document.getElementById('gdSSFbLink')?.value?.trim();
     const phone = document.getElementById('gdSSPhone')?.value?.trim();
     const source_id = document.getElementById('gdSSSource')?.value;
-    const search_location_id = document.getElementById('gdSSLocation')?.value;
     const notes = document.getElementById('gdSSNotes')?.value?.trim();
     const call_disposition = _gd_ssSelectedDisposition;
 
     if (!customer_name) return showToast('Nhập tên KH!', 'error');
     if (!fb_link && !phone) return showToast('Cần ít nhất Link MXH hoặc SĐT!', 'error');
     if (!source_id) return showToast('Chọn Lĩnh Vực!', 'error');
-    if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
     if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');
 
     const isPositive = ['transfer', 'quote', 'meet', 'considering'].includes(call_disposition);
@@ -1401,7 +1394,7 @@ async function _gd_submitSelfSearch() {
     try {
         const res = await apiCall('/api/telesale/self-search', 'POST', {
             customer_name, fb_link: fb_link || null, phone: phone || null,
-            source_id: Number(source_id), search_location_id: Number(search_location_id),
+            source_id: Number(source_id), search_location_id: null,
             call_disposition, notes: notes || null
         });
         if (res.success) {

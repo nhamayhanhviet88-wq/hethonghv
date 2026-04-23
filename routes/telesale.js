@@ -1324,7 +1324,7 @@ async function telesaleRoutes(fastify) {
         if (!customer_name || !customer_name.trim()) return reply.code(400).send({ error: 'Tên KH là bắt buộc' });
         if (!fb_link && !phone) return reply.code(400).send({ error: 'Cần ít nhất Link FB hoặc SĐT' });
         if (!source_id) return reply.code(400).send({ error: 'Chọn Nguồn' });
-        if (!search_location_id) return reply.code(400).send({ error: 'Chọn Nơi tìm kiếm' });
+        if (!search_location_id) req.body.search_location_id = null; // optional
         if (!call_disposition) return reply.code(400).send({ error: 'Chọn tình trạng bắt máy' });
 
         // Map disposition to answer_status lookup
