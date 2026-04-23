@@ -285,7 +285,6 @@ function _acAddModal() {
             </div>
         </div>
         <div style="padding:24px;">
-            </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Hình Ảnh <span style="color:#dc2626;">*</span> (Ctrl+V để dán)</label>
                 <div id="acFImgZone" tabindex="0" style="margin-top:4px;border:2px dashed #86efac;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#f0fdf4;min-height:70px;outline:none;transition:border-color .2s;" onclick="this.focus()">
