@@ -918,13 +918,14 @@ async function lockTaskRoutes(fastify, options) {
         const userId = request.user.id;
         const userRole = request.user.role;
 
-        // Scope: GĐ sees all, QL/TP sees own team
+        // Scope: GĐ sees all, QL/TP sees own team, NV sees only self
         let scopeFilter = '';
         let scopeParams = [];
+        const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole);
         if (userRole === 'giam_doc') {
             scopeFilter = '';
             scopeParams = [];
-        } else {
+        } else if (isManager) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             const deptIds = [user?.department_id].filter(Boolean);
             if (user?.department_id) {
@@ -938,6 +939,10 @@ async function lockTaskRoutes(fastify, options) {
             if (deptIds.length === 0) return { khoa: [], chuoi: [] };
             scopeFilter = `AND u.department_id IN (${deptIds.map((_, i) => `$${i + 1}`).join(',')})`;
             scopeParams = deptIds;
+        } else {
+            // Regular employee: only see own penalties
+            scopeFilter = `AND ltc.user_id = $1`;
+            scopeParams = [userId];
         }
 
         // CV Khóa unreported (expired, penalty_applied, no resubmission)
@@ -964,7 +969,8 @@ async function lockTaskRoutes(fastify, options) {
             scopeParams
         );
 
-        // CV Chuỗi unreported
+        // CV Chuỗi unreported - need separate scope filter since alias is 'cc' not 'ltc'
+        const chuoiScopeFilter = !isManager && userRole !== 'giam_doc' ? `AND cc.user_id = $1` : scopeFilter;
         const chuoi = await db.all(
             `SELECT cc.chain_item_id, cc.user_id, ci.deadline::text as task_date,
                     cc.penalty_amount,
@@ -982,7 +988,7 @@ async function lockTaskRoutes(fastify, options) {
                    WHERE sub.chain_item_id = cc.chain_item_id AND sub.user_id = cc.user_id
                      AND sub.status IN ('pending','approved') AND sub.redo_count > 0
                )
-               ${scopeFilter}
+               ${chuoiScopeFilter}
              ORDER BY ci.deadline DESC
              LIMIT 200`,
             scopeParams
