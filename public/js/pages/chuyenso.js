@@ -519,6 +519,7 @@ async function _csoDoSearch() {
         html += '<div style="max-height:300px;overflow-y:auto;border:1px solid #e0e7ff;border-radius:0 0 8px 8px;">';
 
         for (const [label, items] of Object.entries(groups)) {
+            items.sort((a, b) => (a.already_transferred ? 1 : 0) - (b.already_transferred ? 1 : 0));
             html += `<div style="padding:6px 12px;background:#f5f3ff;font-weight:700;font-size:12px;color:#6d28d9;border-top:1px solid #e0e7ff;">${label} (${items.length})</div>`;
             for (const r of items) {
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '';
