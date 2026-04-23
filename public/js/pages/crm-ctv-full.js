@@ -747,7 +747,7 @@ async function loadCrmCtvData() {
     // Sync dynamic consult types from API (adds any new types created in settings)
     await _ctvSyncConsultTypes();
 
-    let url = '/api/customers?crm_type=ctv';
+    let url = '/api/customers?crm_type=ctv_all';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     const topStaff = document.getElementById('crmTopStaffFilter')?.value;

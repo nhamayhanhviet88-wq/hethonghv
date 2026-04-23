@@ -747,7 +747,7 @@ async function loadCrmCtvData() {
     // Sync dynamic consult types from API (adds any new types created in settings)
     await _kockolSyncConsultTypes();
 
-    let url = '/api/customers?crm_type=ctv';
+    let url = '/api/customers?crm_type=koc_tiktok';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     const topStaff = document.getElementById('crmTopStaffFilter')?.value;
