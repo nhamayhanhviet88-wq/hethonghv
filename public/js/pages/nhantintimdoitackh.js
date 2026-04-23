@@ -668,13 +668,13 @@ function _poAddModal(editEntry) {
     }
     // Channel → Link mapping
     const _poChCfg = {
-        'Facebook Cá Nhân': { label: 'Link Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/vietkahv' },
-        'Page Facebook':    { label: 'Page Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/dongphuchvv/' },
-        'Tiktok':           { label: 'Tiktok', domain: 'tiktok.com', ph: 'https://www.tiktok.com/@vietbeochaybo' },
-        'Instagram':        { label: 'Instagram', domain: 'instagram.com', ph: 'https://www.instagram.com/vietbeochaybo' },
-        'Threads':          { label: 'Threads', domain: 'threads.com', ph: 'https://www.threads.com/@aolophv' },
-        'Linkedin':         { label: 'Linkedin', domain: 'linkedin.com', ph: 'https://www.linkedin.com/in/sidra-minhas/' },
-        'Twitter':          { label: 'Twitter', domain: 'x.com', ph: 'https://x.com/username' },
+        'Facebook Cá Nhân': { label: 'Link Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/abc' },
+        'Page Facebook':    { label: 'Page Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/abc/' },
+        'Tiktok':           { label: 'Tiktok', domain: 'tiktok.com', ph: 'https://www.tiktok.com/@abc' },
+        'Instagram':        { label: 'Instagram', domain: 'instagram.com', ph: 'https://www.instagram.com/abc' },
+        'Threads':          { label: 'Threads', domain: 'threads.com', ph: 'https://www.threads.com/@abc' },
+        'Linkedin':         { label: 'Linkedin', domain: 'linkedin.com', ph: 'https://www.linkedin.com/in/abc' },
+        'Twitter':          { label: 'Twitter', domain: 'x.com', ph: 'https://x.com/abc' },
     };
     window._poChCfg = _poChCfg; // expose for validation in _poSave
     function _poOnChannelChange(channelValue) {
