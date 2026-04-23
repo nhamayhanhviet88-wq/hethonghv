@@ -147,9 +147,10 @@ async function start() {
         }
 
         // Build script tags for MISSING files only (inject before </body>)
+        const buildVer = Date.now(); // Cache-bust: mỗi lần server restart = version mới
         const missingScripts = pageFiles
             .filter(f => !alreadyIncluded.has(f))
-            .map(f => `    <script src="/js/pages/${f}?v=auto"></script>`)
+            .map(f => `    <script src="/js/pages/${f}?v=${buildVer}"></script>`)
             .join('\n');
 
         if (missingScripts) {
