@@ -759,6 +759,15 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                 </div>
                 <div></div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Sản Phẩm</label>
+                    <select id="gdCSIndustry" class="form-control">
+                        <option value="">-- Chọn sản phẩm --</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
             <div class="form-group">
                 <label style="font-weight:700;font-size:12px;color:#374151;">Người Nhận Số <span style="color:#dc2626;">*</span></label>
                 <input type="text" class="form-control" value="${currentUser.full_name || currentUser.username}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
@@ -773,6 +782,15 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
 
     // Load job titles for initial CRM
     _gd_csLoadJobTitles(crmType, call.source_name);
+
+    // Load industries (Sản Phẩm) for dropdown
+    apiCall('/api/settings/industries').then(data => {
+        const sel = document.getElementById('gdCSIndustry');
+        if (sel && data.items) {
+            sel.innerHTML = '<option value="">-- Chọn sản phẩm --</option>' +
+                data.items.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+        }
+    });
 }
 
 async function _gd_csLoadJobTitles(crmType, preselect) {
@@ -800,6 +818,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
     const customerName = document.getElementById('gdCSName')?.value?.trim();
     const jobTitle = document.getElementById('gdCSJobTitle')?.value;
     const notes = document.getElementById('gdCSNotes')?.value || '';
+    const industryId = document.getElementById('gdCSIndustry')?.value || null;
 
     if (!crmType) return showToast('Chọn CRM', 'error');
     if (!customerName) return showToast('Vui lòng nhập Tên Khách Hàng', 'error');
@@ -814,7 +833,8 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         source_name: document.getElementById('gdCSSourceName')?.value || 'GỌI ĐIỆN TELESALE',
         receiver_id: currentUser.id,
         notes: notes,
-        job: call.source_name || jobTitle || null
+        job: call.source_name || jobTitle || null,
+        industry_id: industryId
     });
     if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số', 'error');
 
