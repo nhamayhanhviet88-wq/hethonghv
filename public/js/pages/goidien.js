@@ -757,7 +757,11 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                     <input type="text" id="gdCSFacebook" class="form-control" value="${call.fb_link||''}" ${hasFb?'disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;"':''} placeholder="https://facebook.com, instagram.com, tiktok.com...">
                     <small style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link MXH (ít nhất 1)</small>
                 </div>
-                <div></div>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Công Việc</label>
+                    <input type="text" class="form-control" value="Gọi Điện Telesale" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                    <input type="hidden" id="gdCSCongViec" value="Gọi Điện Telesale">
+                </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
@@ -841,7 +845,8 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         receiver_id: currentUser.id,
         notes: notes,
         job: call.source_name || jobTitle || null,
-        industry_id: industryId
+        industry_id: industryId,
+        cong_viec: document.getElementById('gdCSCongViec')?.value || 'Gọi Điện Telesale'
     });
     if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số', 'error');
 
