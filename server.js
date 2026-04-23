@@ -65,7 +65,18 @@ async function start() {
     // Static files
     fastify.register(require('@fastify/static'), {
         root: path.join(__dirname, 'public'),
-        prefix: '/'
+        prefix: '/',
+        maxAge: 0 // No caching for static files
+    });
+
+    // Prevent browser caching of JS files
+    fastify.addHook('onSend', (request, reply, payload, done) => {
+        if (request.url.match(/\.js(\?|$)/)) {
+            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+            reply.header('Pragma', 'no-cache');
+            reply.header('Expires', '0');
+        }
+        done();
     });
 
     // Serve uploaded files (PROTECTED - require login)
