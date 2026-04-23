@@ -19,6 +19,8 @@ let _kbMonthlySummary = 0; // total approved points this month
 let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
 let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
+let _kbForceApproval = false; // Force approval flag for viewed user
+let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed user being viewed
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
 function _kbSaveSelection(sel) {
@@ -530,6 +532,8 @@ async function renderLichKhoaBieuPage(container) {
                     const roleTag = isApprover ? '⭐ Quản Lý' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
                     const nameStyle = `font-weight:${isLead ? '700' : '500'};`;
                     const roleStyle = `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
+                    const _canForce = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
+                    const _forceGear = _canForce ? `<span onclick="event.stopPropagation();_kbShowForceApprovalSetup(${u.id},'${(u.full_name||'').replace(/'/g,"\\\\'")}')" title="Kiểm soát CV" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;font-size:13px;cursor:pointer;flex-shrink:0;opacity:0.35;transition:all .15s;" onmouseover="this.style.opacity='1';this.style.background='#e2e8f0'" onmouseout="this.style.opacity='0.35';this.style.background='transparent'">⚙️</span>` : '';
                     html += `
                         <div class="kb-member-item" data-uid="${u.id}" data-name="${u.full_name}" data-dept="${dept.name}" onclick="_kbSelectMember(${u.id})" style="padding:9px 14px ${isChild ? '9px 32px' : '9px 18px'};font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
@@ -538,6 +542,7 @@ async function renderLichKhoaBieuPage(container) {
                                 <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name}${overrideUserIds.has(u.id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
                                 <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
                             </div>
+                            ${_forceGear}
                         </div>`;
                 });
                 return html;
@@ -697,6 +702,7 @@ async function renderLichKhoaBieuPage(container) {
     if (hasApprovalScope) _kbLoadApprovalPanel();
     if (hasApprovalScope) _kbLoadSupportPanel();
     _kbCheckRejectedPopup();
+    setTimeout(() => _kbCheckForceApprovalNotification(), 3000);
 }
 
 function _kbSelectMember(userId) {
@@ -780,6 +786,10 @@ async function _kbLoadSchedule() {
         // Store user overrides
         _kbOverridesDiem = data.overrides_diem || {};
         _kbOverridesKhoa = data.overrides_khoa || {};
+
+        // Store force approval data
+        _kbForceApproval = data.force_approval || false;
+        _kbForceScheduleIds = new Set(data.force_schedule_ids || []);
     } catch(e) {
         _kbTasks = []; _kbReports = {}; _kbSummary = {};
         _kbHolidayMap = {}; _kbMonthlySummary = 0; _kbMonthlyHolidays = [];
@@ -1219,7 +1229,7 @@ function _kbRenderGrid() {
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${overrideBadge}
-                        ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
+                        ${(task.requires_approval || _kbForceApproval || _kbForceScheduleIds.has(task.id || task.template_id)) ? `<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,${task.requires_approval ? '#f59e0b,#d97706' : '#ef4444,#dc2626'});color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid ${task.requires_approval ? '#fbbf24' : '#f87171'};">🔒 CẦN DUYỆT</span>` : ''}
                         <div onclick="_kbShowTaskDetail(${task._source === 'snapshot' ? task.template_id : task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
@@ -4831,6 +4841,249 @@ async function _kbShowUnreportedModal() {
 
     } catch(e) {
         const content = document.getElementById('kbUnreportedContent');
-        if (content) content.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">\u274c L\u1ed7i t\u1ea3i d\u1eef li\u1ec7u</div>';
+        if (content) content.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">❌ Lỗi tải dữ liệu</div>';
     }
+}
+
+// ========== FORCE APPROVAL SETUP — Kiểm Soát CV Nhân Viên ==========
+
+async function _kbShowForceApprovalSetup(userId, userName) {
+    // Remove existing popup
+    let old = document.getElementById('kbForceApprovalPopup');
+    if (old) old.remove();
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'kbForceApprovalPopup';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    const popup = document.createElement('div');
+    popup.style.cssText = 'background:white;border-radius:16px;width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.25);';
+
+    popup.innerHTML = `
+        <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#1e293b,#334155);color:white;border-radius:16px 16px 0 0;">
+            <div style="font-size:18px;font-weight:800;">🔒 Kiểm Soát CV</div>
+            <div style="font-size:13px;opacity:0.8;margin-top:4px;">Nhân viên: <b>${userName}</b></div>
+        </div>
+        <div id="kbForceBody" style="padding:20px 24px;">
+            <div style="text-align:center;padding:30px;color:#94a3b8;">⏳ Đang tải...</div>
+        </div>`;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Load data
+    try {
+        const [faData, reviewerList] = await Promise.all([
+            apiCall(`/api/users/${userId}/force-approval`),
+            apiCall('/api/users/dropdown')
+        ]);
+
+        // Get user's tasks (templates) — reuse schedule API
+        const uid = userId;
+        const now = new Date();
+        const day = now.getDay();
+        const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        const monStr = _kbDateStr(mon);
+        const schedData = await apiCall(`/api/schedule/dashboard?user_id=${uid}&week_start=${monStr}`);
+
+        // Deduplicate schedule tasks by id
+        const schedTasks = [];
+        const seenIds = new Set();
+        (schedData.tasks || []).forEach(t => {
+            const tid = t.id || t.template_id;
+            if (tid && !seenIds.has(tid)) { seenIds.add(tid); schedTasks.push(t); }
+        });
+
+        // Get lock tasks for user
+        let lockTasks = [];
+        try {
+            const ltData = await apiCall(`/api/lock-tasks?user_id=${uid}`);
+            lockTasks = ltData.tasks || ltData.lockTasks || [];
+        } catch(e) {}
+
+        // Get chain items for user
+        let chainItems = [];
+        try {
+            const ciData = await apiCall(`/api/chain-tasks/user-items?user_id=${uid}`);
+            chainItems = ciData.items || [];
+        } catch(e) {}
+
+        // Filter reviewers: only TP/QL/QLCC/GĐ
+        const REVIEWER_ROLES = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'];
+        const reviewers = (reviewerList.users || []).filter(u => REVIEWER_ROLES.includes(u.role) && u.id !== userId);
+
+        // Build current force task map
+        const forceTaskMap = {};
+        (faData.tasks || []).forEach(t => { forceTaskMap[`${t.task_type}_${t.task_ref_id}`] = true; });
+
+        const body = document.getElementById('kbForceBody');
+        let html = '';
+
+        // 1. Reviewer selection
+        html += `<div style="margin-bottom:20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e293b;">👤 Người Kiểm Duyệt</div>
+            <select id="kbForceReviewer" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:white;">
+                <option value="">— Duyệt theo phòng ban (mặc định) —</option>
+                ${reviewers.map(r => `<option value="${r.id}" ${r.id === faData.force_approval_reviewer_id ? 'selected' : ''}>${r.full_name} (${_kbRoleLabel[r.role] || r.role})</option>`).join('')}
+            </select>
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px;">ℹ️ Chỉ hiện TP, QL, QLCC, GĐ từ tất cả phòng ban</div>
+        </div>`;
+
+        // 2. Force ALL toggle
+        html += `<div style="margin-bottom:16px;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;display:flex;align-items:center;gap:12px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;font-size:14px;font-weight:700;color:#991b1b;">
+                <input type="checkbox" id="kbForceAll" ${faData.force_approval ? 'checked' : ''} style="width:18px;height:18px;accent-color:#dc2626;cursor:pointer;">
+                🔒 Kiểm soát TẤT CẢ công việc
+            </label>
+        </div>`;
+
+        // 3. Per-task selection
+        html += `<div id="kbForceTaskList" style="${faData.force_approval ? 'opacity:0.4;pointer-events:none;' : ''}">`;
+        html += `<div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;">— Hoặc chọn từng công việc cần kiểm soát —</div>`;
+
+        // Schedule tasks
+        if (schedTasks.length > 0) {
+            html += `<div style="font-weight:700;font-size:13px;color:#1d4ed8;margin:12px 0 6px;display:flex;align-items:center;gap:6px;">📊 CV ĐIỂM</div>`;
+            schedTasks.forEach(t => {
+                const tid = t.id || t.template_id;
+                const checked = forceTaskMap[`schedule_${tid}`] ? 'checked' : '';
+                const nativeApproval = t.requires_approval ? '<span style="background:#fbbf24;color:#78350f;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">Cần duyệt gốc</span>' : '';
+                html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" class="kbForceTask" data-type="schedule" data-ref="${tid}" ${checked} style="width:16px;height:16px;accent-color:#dc2626;">
+                    <span style="font-size:13px;color:#334155;">${t.task_name} <span style="color:#94a3b8;font-size:11px;">(${t.points || 0}đ)</span>${nativeApproval}</span>
+                </label>`;
+            });
+        }
+
+        // Lock tasks
+        if (lockTasks.length > 0) {
+            html += `<div style="font-weight:700;font-size:13px;color:#059669;margin:16px 0 6px;display:flex;align-items:center;gap:6px;">🔐 CV KHÓA</div>`;
+            lockTasks.forEach(t => {
+                const checked = forceTaskMap[`lock_${t.id}`] ? 'checked' : '';
+                const nativeApproval = t.requires_approval ? '<span style="background:#fbbf24;color:#78350f;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">Cần duyệt gốc</span>' : '';
+                html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" class="kbForceTask" data-type="lock" data-ref="${t.id}" ${checked} style="width:16px;height:16px;accent-color:#dc2626;">
+                    <span style="font-size:13px;color:#334155;">${t.task_name}${nativeApproval}</span>
+                </label>`;
+            });
+        }
+
+        // Chain items
+        if (chainItems.length > 0) {
+            html += `<div style="font-weight:700;font-size:13px;color:#7c3aed;margin:16px 0 6px;display:flex;align-items:center;gap:6px;">🔗 CV CHUỖI</div>`;
+            chainItems.forEach(t => {
+                const checked = forceTaskMap[`chain_${t.id}`] ? 'checked' : '';
+                const nativeApproval = t.requires_approval ? '<span style="background:#fbbf24;color:#78350f;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">Cần duyệt gốc</span>' : '';
+                html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" class="kbForceTask" data-type="chain" data-ref="${t.id}" ${checked} style="width:16px;height:16px;accent-color:#dc2626;">
+                    <span style="font-size:13px;color:#334155;">${t.task_name} — ${t.chain_name || ''}${nativeApproval}</span>
+                </label>`;
+            });
+        }
+
+        if (schedTasks.length === 0 && lockTasks.length === 0 && chainItems.length === 0) {
+            html += `<div style="text-align:center;padding:15px;color:#94a3b8;font-size:13px;">Không tìm thấy công việc nào cho NV này</div>`;
+        }
+
+        html += `</div>`; // close kbForceTaskList
+
+        // Save button
+        html += `<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e2e8f0;padding-top:16px;">
+            <button onclick="document.getElementById('kbForceApprovalPopup').remove()" style="padding:8px 20px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;">Hủy</button>
+            <button onclick="_kbSaveForceApproval(${userId})" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(220,38,38,0.3);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'">💾 Lưu</button>
+        </div>`;
+
+        body.innerHTML = html;
+
+        // Toggle: when "force all" is checked, disable individual list
+        document.getElementById('kbForceAll').addEventListener('change', function() {
+            const list = document.getElementById('kbForceTaskList');
+            if (this.checked) {
+                list.style.opacity = '0.4';
+                list.style.pointerEvents = 'none';
+            } else {
+                list.style.opacity = '1';
+                list.style.pointerEvents = 'auto';
+            }
+        });
+
+    } catch(e) {
+        const body = document.getElementById('kbForceBody');
+        if (body) body.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">❌ Lỗi tải: ${e.message}</div>`;
+    }
+}
+
+async function _kbSaveForceApproval(userId) {
+    const forceAll = document.getElementById('kbForceAll')?.checked || false;
+    const reviewerId = document.getElementById('kbForceReviewer')?.value || null;
+
+    // Collect selected tasks
+    const tasks = [];
+    document.querySelectorAll('.kbForceTask:checked').forEach(cb => {
+        tasks.push({ task_type: cb.dataset.type, task_ref_id: Number(cb.dataset.ref) });
+    });
+
+    try {
+        // Save toggle + reviewer
+        await apiCall(`/api/users/${userId}/force-approval`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ force_approval: forceAll, reviewer_id: reviewerId ? Number(reviewerId) : null })
+        });
+
+        // Save per-task list
+        await apiCall(`/api/users/${userId}/force-approval/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tasks })
+        });
+
+        showToast('✅ Đã lưu cài đặt kiểm soát CV', 'success');
+        document.getElementById('kbForceApprovalPopup')?.remove();
+
+        // Reload schedule if viewing this user
+        if (_kbViewUserId === userId) _kbLoadSchedule();
+    } catch(e) {
+        showToast('❌ Lỗi: ' + e.message, 'error');
+    }
+}
+
+// ========== FORCE APPROVAL NOTIFICATION — Thông báo cho Reviewer ==========
+
+async function _kbCheckForceApprovalNotification() {
+    // Only check for TP/QL/QLCC/GĐ
+    if (!['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) return;
+
+    try {
+        // Check if current user is a designated reviewer for any employee
+        const res = await apiCall(`/api/schedule/force-approval-pending?reviewer_id=${currentUser.id}`);
+        if (!res.pending || res.pending.length === 0) return;
+
+        // Build notification
+        let html = `<div style="padding:20px 24px;">
+            <div style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:12px;">🔔 BẠN CÓ CV CẦN KIỂM DUYỆT</div>
+            <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Bạn được chỉ định kiểm duyệt CV của các nhân viên sau:</div>`;
+
+        res.pending.forEach(p => {
+            html += `<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:#991b1b;">${p.full_name}</span>
+                <span style="background:#dc2626;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${p.count} CV chờ</span>
+            </div>`;
+        });
+
+        html += `<div style="text-align:center;margin-top:16px;">
+            <button onclick="this.closest('[data-force-notif]').remove()" style="padding:8px 24px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:white;font-size:13px;font-weight:700;cursor:pointer;">Đã hiểu ✓</button>
+        </div></div>`;
+
+        const notif = document.createElement('div');
+        notif.setAttribute('data-force-notif', '1');
+        notif.style.cssText = 'position:fixed;top:80px;right:20px;z-index:9998;background:white;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.2);border:2px solid #dc2626;min-width:320px;animation:_kbSlideIn .3s ease;';
+        notif.innerHTML = html;
+        document.body.appendChild(notif);
+
+        // Auto-dismiss after 30s
+        setTimeout(() => { if (notif.parentNode) notif.remove(); }, 30000);
+    } catch(e) { /* silent */ }
 }

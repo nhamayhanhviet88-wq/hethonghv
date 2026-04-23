@@ -442,7 +442,15 @@ async function lockTaskRoutes(fastify, options) {
         }
 
         const proofUrl = fileData || proofUrlField.trim();
-        const status = task?.requires_approval ? 'pending' : 'approved';
+
+        // Check force_approval: ép duyệt CV cho NV yếu kém
+        const _forceUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+        const _forceTask = await db.get(
+            'SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3',
+            [userId, 'lock', taskId]
+        );
+        const needsApproval = task?.requires_approval || _forceUser?.force_approval || !!_forceTask;
+        const status = needsApproval ? 'pending' : 'approved';
 
         // Calculate approval deadline if requires_approval
         let approvalDeadline = null;
@@ -653,16 +661,33 @@ async function lockTaskRoutes(fastify, options) {
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                  JOIN users u ON u.id = ltc.user_id
                  LEFT JOIN departments d ON d.id = u.department_id
-                 WHERE ltc.status = 'pending' AND lt.requires_approval = true
+                 WHERE ltc.status = 'pending'
                  ORDER BY ltc.created_at DESC`
             );
             return { reviews };
         }
 
-        if (deptIds.length === 0) return { reviews: [] };
+        let reviews = [];
+        if (deptIds.length > 0) {
+            const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            reviews = await db.all(
+                `SELECT ltc.*, ltc.completion_date::text as completion_date,
+                        lt.task_name, lt.guide_link, lt.input_requirements, lt.output_requirements,
+                        u.full_name as user_name, u.username,
+                        d.name as dept_name
+                 FROM lock_task_completions ltc
+                 JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+                 JOIN users u ON u.id = ltc.user_id
+                 LEFT JOIN departments d ON d.id = u.department_id
+                 WHERE ltc.status = 'pending'
+                 AND u.department_id IN (${placeholders})
+                 ORDER BY ltc.created_at DESC`,
+                deptIds
+            );
+        }
 
-        const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
-        const reviews = await db.all(
+        // Also include from force_approval_reviewer scope
+        const forceReviews = await db.all(
             `SELECT ltc.*, ltc.completion_date::text as completion_date,
                     lt.task_name, lt.guide_link, lt.input_requirements, lt.output_requirements,
                     u.full_name as user_name, u.username,
@@ -671,11 +696,12 @@ async function lockTaskRoutes(fastify, options) {
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
              JOIN users u ON u.id = ltc.user_id
              LEFT JOIN departments d ON d.id = u.department_id
-             WHERE ltc.status = 'pending' AND lt.requires_approval = true
-             AND u.department_id IN (${placeholders})
+             WHERE ltc.status = 'pending' AND u.force_approval_reviewer_id = $1
              ORDER BY ltc.created_at DESC`,
-            deptIds
+            [userId]
         );
+        const seenIds = new Set(reviews.map(r => r.id));
+        forceReviews.forEach(fr => { if (!seenIds.has(fr.id)) reviews.push(fr); });
 
         return { reviews };
     });

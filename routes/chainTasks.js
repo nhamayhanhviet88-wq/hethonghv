@@ -577,9 +577,15 @@ async function chainTaskRoutes(fastify, options) {
         );
         const redoCount = existing?.max_redo != null ? existing.max_redo + 1 : 0;
 
-        // Giám đốc auto-approve regardless of requires_approval
+        // Check force_approval: ép duyệt CV cho NV yếu kém
+        const _forceUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+        const _forceTask = await db.get(
+            'SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3',
+            [userId, 'chain', itemId]
+        );
         const reporter = await db.get('SELECT role FROM users WHERE id = $1', [userId]);
-        const shouldAutoApprove = !item.requires_approval || (reporter && isAutoApproveRole(reporter.role));
+        const needsApproval = item.requires_approval || _forceUser?.force_approval || !!_forceTask;
+        const shouldAutoApprove = !needsApproval || (reporter && isAutoApproveRole(reporter.role));
         const initialStatus = shouldAutoApprove ? 'approved' : 'pending';
 
         // Calculate approval deadline if pending
@@ -902,6 +908,22 @@ async function chainTaskRoutes(fastify, options) {
 
         console.log(`🗑️ GĐ ${request.user.username} xóa chain assignment: instance=${instanceId}, user=${targetUserId}`);
         return { success: true };
+    });
+
+    // GET chain items assigned to a specific user (for force approval popup)
+    fastify.get('/api/chain-tasks/user-items', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = Number(request.query.user_id) || request.user.id;
+        const items = await db.all(
+            `SELECT ci.id, ci.task_name, ci.requires_approval, ci.deadline::text as deadline,
+                    cins.chain_name, cins.id as chain_instance_id
+             FROM chain_task_assignments ca
+             JOIN chain_task_instance_items ci ON ci.id = ca.chain_item_id
+             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id AND cins.status != 'cancelled'
+             WHERE ca.user_id = $1
+             ORDER BY cins.chain_name, ci.sort_order`,
+            [userId]
+        );
+        return { items };
     });
 
 }

@@ -57,6 +57,21 @@ async function start() {
     // Migration: add phone2 column to customers
     try { await db.exec('ALTER TABLE customers ADD COLUMN phone2 TEXT'); } catch(e) { /* exists */ }
     try { await db.exec('ALTER TABLE customers ADD COLUMN cong_viec TEXT'); } catch(e) { /* exists */ }
+
+    // Migration: force_approval — kiểm soát CV nhân viên yếu kém
+    try { await db.exec('ALTER TABLE users ADD COLUMN force_approval BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN force_approval_reviewer_id INTEGER REFERENCES users(id)'); } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS user_force_approvals (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            task_type TEXT NOT NULL,
+            task_ref_id INTEGER NOT NULL,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, task_type, task_ref_id)
+        )`);
+    } catch(e) { /* exists */ }
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

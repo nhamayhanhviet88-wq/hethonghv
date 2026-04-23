@@ -579,6 +579,101 @@ async function usersRoutes(fastify, options) {
 
         return { success: true, message: `✅ Đã chuyển ${custCount} KH + ${affCount} affiliate`, custCount, affCount };
     });
+
+    // ========== FORCE APPROVAL — Kiểm soát CV nhân viên ==========
+
+    const FORCE_APPROVAL_ROLES = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'];
+
+    // GET: Lấy trạng thái force approval của 1 NV
+    fastify.get('/api/users/:id/force-approval', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!FORCE_APPROVAL_ROLES.includes(request.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const userId = Number(request.params.id);
+
+        const user = await db.get(
+            'SELECT force_approval, force_approval_reviewer_id FROM users WHERE id = $1', [userId]
+        );
+        if (!user) return reply.code(404).send({ error: 'Không tìm thấy NV' });
+
+        // Lấy reviewer info
+        let reviewer = null;
+        if (user.force_approval_reviewer_id) {
+            reviewer = await db.get(
+                'SELECT id, full_name, username, role FROM users WHERE id = $1',
+                [user.force_approval_reviewer_id]
+            );
+        }
+
+        // Lấy danh sách CV bị force riêng lẻ
+        const tasks = await db.all(
+            'SELECT * FROM user_force_approvals WHERE user_id = $1 ORDER BY task_type, task_ref_id',
+            [userId]
+        );
+
+        return {
+            force_approval: user.force_approval || false,
+            force_approval_reviewer_id: user.force_approval_reviewer_id,
+            reviewer,
+            tasks
+        };
+    });
+
+    // PUT: Bật/tắt force_approval (tất cả CV) + set reviewer
+    fastify.put('/api/users/:id/force-approval', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!FORCE_APPROVAL_ROLES.includes(request.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const userId = Number(request.params.id);
+        const { force_approval, reviewer_id } = request.body || {};
+
+        // Validate reviewer role if provided
+        if (reviewer_id) {
+            const rev = await db.get('SELECT role FROM users WHERE id = $1', [reviewer_id]);
+            if (!rev || !FORCE_APPROVAL_ROLES.includes(rev.role)) {
+                return reply.code(400).send({ error: 'Người kiểm duyệt phải là TP/QL/QLCC/GĐ' });
+            }
+        }
+
+        await db.run(
+            `UPDATE users SET force_approval = $1, force_approval_reviewer_id = $2, updated_at = NOW() WHERE id = $3`,
+            [force_approval || false, reviewer_id || null, userId]
+        );
+
+        console.log(`🔒 Force approval ${force_approval ? 'BẬT' : 'TẮT'} cho user #${userId} bởi ${request.user.username}${reviewer_id ? ` — reviewer: #${reviewer_id}` : ''}`);
+        return { success: true };
+    });
+
+    // POST: Thêm/xóa CV bị ép duyệt riêng lẻ (Cấp 1)
+    fastify.post('/api/users/:id/force-approval/tasks', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!FORCE_APPROVAL_ROLES.includes(request.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const userId = Number(request.params.id);
+        const { tasks } = request.body || {};
+        // tasks = [{ task_type: 'schedule'|'lock'|'chain', task_ref_id: 123 }]
+
+        if (!Array.isArray(tasks)) {
+            return reply.code(400).send({ error: 'tasks phải là mảng' });
+        }
+
+        // Xóa tất cả force riêng lẻ cũ → insert lại mới (replace strategy)
+        await db.run('DELETE FROM user_force_approvals WHERE user_id = $1', [userId]);
+
+        for (const t of tasks) {
+            if (!t.task_type || !t.task_ref_id) continue;
+            if (!['schedule', 'lock', 'chain'].includes(t.task_type)) continue;
+
+            await db.run(
+                `INSERT INTO user_force_approvals (user_id, task_type, task_ref_id, created_by)
+                 VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, task_type, task_ref_id) DO NOTHING`,
+                [userId, t.task_type, t.task_ref_id, request.user.id]
+            );
+        }
+
+        console.log(`🔒 Force tasks cập nhật cho user #${userId}: ${tasks.length} CV bởi ${request.user.username}`);
+        return { success: true, count: tasks.length };
+    });
 }
 
 module.exports = usersRoutes;

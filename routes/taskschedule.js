@@ -265,6 +265,11 @@ async function taskScheduleRoutes(fastify, options) {
             if (mapped >= 1 && mapped <= 7) holidayMap[mapped] = h.holiday_name;
         });
 
+        // Force approval data for the user being viewed
+        const _faUser = await db.get('SELECT force_approval, force_approval_reviewer_id FROM users WHERE id = $1', [uid]);
+        const _faTasks = await db.all('SELECT task_type, task_ref_id FROM user_force_approvals WHERE user_id = $1', [uid]);
+        const forceScheduleIds = _faTasks.filter(t => t.task_type === 'schedule').map(t => t.task_ref_id);
+
         return {
             tasks: allTasks,
             reports: reportsResult,
@@ -275,7 +280,9 @@ async function taskScheduleRoutes(fastify, options) {
             month_start: monthStart,
             month_end: monthEnd,
             overrides_diem: overrideDiem,
-            overrides_khoa: overrideKhoa
+            overrides_khoa: overrideKhoa,
+            force_approval: _faUser?.force_approval || false,
+            force_schedule_ids: forceScheduleIds
         };
     });
 
@@ -657,8 +664,14 @@ async function taskScheduleRoutes(fastify, options) {
             }
         }
 
-        // Giám đốc auto-approve regardless of requires_approval
-        const shouldAutoApprove = !template.requires_approval || isAutoApproveRole(request.user.role);
+        // Check force_approval: ép duyệt CV cho NV yếu kém
+        const _forceUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [request.user.id]);
+        const _forceTask = await db.get(
+            'SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3',
+            [request.user.id, 'schedule', Number(template_id)]
+        );
+        const needsApproval = template.requires_approval || _forceUser?.force_approval || !!_forceTask;
+        const shouldAutoApprove = !needsApproval || isAutoApproveRole(request.user.role);
         const status = shouldAutoApprove ? 'approved' : 'pending';
         const points = shouldAutoApprove ? (template.points || 0) : 0;
 
@@ -816,12 +829,34 @@ async function taskScheduleRoutes(fastify, options) {
             deptIds = assigned.map(a => a.department_id);
         }
 
-        if (deptIds.length === 0) return { pending: [], redo: [] };
+        if (deptIds.length === 0 && !isGD) {
+            // Still check if user is a force_approval_reviewer
+            const forceUsers = await db.all(
+                'SELECT id FROM users WHERE force_approval_reviewer_id = $1 AND status = \'active\'', [userId]
+            );
+            if (forceUsers.length === 0) return { pending: [] };
+        }
 
-        const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+        // Pending reports from departments + force_approval_reviewer scope
+        let pending = [];
+        if (deptIds.length > 0) {
+            const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            pending = await db.all(
+                `SELECT r.id, r.template_id, r.user_id, r.report_date::text as report_date, r.report_type, r.report_value, r.report_image, r.quantity, r.content, r.status, r.redo_count,
+                        r.approval_deadline, r.created_at,
+                        t.task_name, t.points as template_points, t.requires_approval, t.guide_url, t.input_requirements, t.output_requirements, t.min_quantity,
+                        u.full_name as user_name, u.username
+                 FROM task_point_reports r
+                 JOIN task_point_templates t ON r.template_id = t.id
+                 JOIN users u ON r.user_id = u.id
+                 WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}
+                 ORDER BY r.report_date DESC, u.full_name`,
+                [...deptIds, userId]
+            );
+        }
 
-        // Pending reports (status = 'pending') from users in these departments
-        const pending = await db.all(
+        // Also include reports from users where current user is force_approval_reviewer
+        const forcePending = await db.all(
             `SELECT r.id, r.template_id, r.user_id, r.report_date::text as report_date, r.report_type, r.report_value, r.report_image, r.quantity, r.content, r.status, r.redo_count,
                     r.approval_deadline, r.created_at,
                     t.task_name, t.points as template_points, t.requires_approval, t.guide_url, t.input_requirements, t.output_requirements, t.min_quantity,
@@ -829,13 +864,14 @@ async function taskScheduleRoutes(fastify, options) {
              FROM task_point_reports r
              JOIN task_point_templates t ON r.template_id = t.id
              JOIN users u ON r.user_id = u.id
-             WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}
+             WHERE r.status = 'pending' AND u.force_approval_reviewer_id = $1
              ORDER BY r.report_date DESC, u.full_name`,
-            [...deptIds, userId]
+            [userId]
         );
 
-        // Redo reports (status = 'rejected' but still within deadline — waiting for resubmission)
-        // Actually these are just info for the manager — the NV needs to fix them
+        // Merge and deduplicate by id
+        const seenIds = new Set(pending.map(p => p.id));
+        forcePending.forEach(fp => { if (!seenIds.has(fp.id)) pending.push(fp); });
 
         return { pending };
     });
@@ -893,7 +929,7 @@ async function taskScheduleRoutes(fastify, options) {
             lockCount = await db.get(
                 `SELECT COUNT(*) as c FROM lock_task_completions ltc
                  JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-                 WHERE ltc.status = 'pending' AND lt.requires_approval = true`
+                 WHERE ltc.status = 'pending'`
             );
         } else {
             // QLCC/TP: see pending from their dept + children
@@ -909,7 +945,7 @@ async function taskScheduleRoutes(fastify, options) {
                     `SELECT COUNT(*) as c FROM lock_task_completions ltc
                      JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                      JOIN users u ON u.id = ltc.user_id
-                     WHERE ltc.status = 'pending' AND lt.requires_approval = true
+                     WHERE ltc.status = 'pending'
                      AND u.department_id IN (${lkPh})`,
                     lockDeptIds
                 );
@@ -943,9 +979,13 @@ async function taskScheduleRoutes(fastify, options) {
         );
         if (!report) return reply.code(404).send({ error: 'Report not found' });
 
-        // Check department permission
+        // Check department permission (also allow designated force_approval reviewer)
         const canApproveDept = await _canApproveForDept(request.user.id, report.department_id);
-        if (!canApproveDept) return reply.code(403).send({ error: 'Bạn không có quyền duyệt phòng này' });
+        const _isForceReviewer = await db.get(
+            'SELECT id FROM users WHERE id = $1 AND force_approval_reviewer_id = $2',
+            [report.user_id, request.user.id]
+        );
+        if (!canApproveDept && !_isForceReviewer) return reply.code(403).send({ error: 'Bạn không có quyền duyệt phòng này' });
 
         // Check approval hierarchy: get reporter's role
         const reporterUser = await db.get('SELECT role FROM users WHERE id = $1', [report.user_id]);
@@ -1765,6 +1805,40 @@ async function taskScheduleRoutes(fastify, options) {
             [uid]
         );
         return { overrides: rows };
+    });
+
+    // ========== FORCE APPROVAL NOTIFICATION: pending for designated reviewer ==========
+    fastify.get('/api/schedule/force-approval-pending', { preHandler: [authenticate] }, async (request, reply) => {
+        const reviewerId = Number(request.query.reviewer_id) || request.user.id;
+
+        // Find users who have this person as force_approval_reviewer_id
+        const users = await db.all(
+            `SELECT id, full_name FROM users WHERE force_approval_reviewer_id = $1 AND status = 'active'`,
+            [reviewerId]
+        );
+        if (users.length === 0) return { pending: [] };
+
+        const results = [];
+        for (const u of users) {
+            // Count pending CV Điểm reports
+            const diemCount = await db.get(
+                `SELECT COUNT(*) as c FROM task_point_reports WHERE user_id = $1 AND status = 'pending'`, [u.id]
+            );
+            // Count pending CV Khóa
+            const khoaCount = await db.get(
+                `SELECT COUNT(*) as c FROM lock_task_completions WHERE user_id = $1 AND status = 'pending'`, [u.id]
+            );
+            // Count pending CV Chuỗi
+            const chuoiCount = await db.get(
+                `SELECT COUNT(*) as c FROM chain_task_completions WHERE user_id = $1 AND status = 'pending'`, [u.id]
+            );
+            const total = Number(diemCount?.c || 0) + Number(khoaCount?.c || 0) + Number(chuoiCount?.c || 0);
+            if (total > 0) {
+                results.push({ user_id: u.id, full_name: u.full_name, count: total });
+            }
+        }
+
+        return { pending: results };
     });
 }
 

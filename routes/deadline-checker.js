@@ -480,12 +480,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 3b. CHECK CV KHÓA - QL CHƯA DUYỆT ==========
-    // Nếu CV requires_approval, NV đã nộp nhưng QL chưa duyệt → QL bị khóa
+    // Nếu CV requires_approval hoặc force_approval, NV đã nộp nhưng QL chưa duyệt → QL bị phạt
     // Deadline: 23:59 ngày làm việc tiếp theo
     const pendingLockReviews = await db.all(
         `SELECT ltc.*, lt.task_name, lt.department_id, u.department_id as user_dept_id
          FROM lock_task_completions ltc
-         JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.requires_approval = true
+         JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
          JOIN users u ON u.id = ltc.user_id
          WHERE ltc.status = 'pending'`
     );
