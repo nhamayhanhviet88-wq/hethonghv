@@ -1,4 +1,4 @@
-﻿// ========== Lá»ŠCH KHÃ“A BIá»‚U CÃ”NG VIá»†C ==========
+// ========== LỊCH KHÓA BIỂU CÔNG VIỆC ==========
 const _KB_COLORS = [
     { bg:'#eff6ff', border:'#bfdbfe', badge:'#1d4ed8', text:'#1e3a5f', tag:'#dbeafe' },
     { bg:'#ecfdf5', border:'#a7f3d0', badge:'#059669', text:'#064e3b', tag:'#d1fae5' },
@@ -12,15 +12,15 @@ const _KB_COLORS = [
     { bg:'#ecfeff', border:'#a5f3fc', badge:'#0891b2', text:'#164e63', tag:'#cffafe' },
 ];
 let _kbTasks = [], _kbReports = {}, _kbSummary = {}, _kbHolidayMap = {};
-let _kbSupportRequests = {}; // key: templateId_date â†’ request object
+let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbOverridesDiem = {}, _kbOverridesKhoa = {}; // per-user overrides
 let _kbOverrideUserIds = new Set(); // users who have any override
 let _kbMonthlySummary = 0; // total approved points this month
-let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV KhÃ³a data
-let _kbChainItems = []; // CV Chuá»—i data for calendar
+let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
+let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
 
-// ===== SELECTION PERSISTENCE â€” shared key with BÃ n Giao =====
+// ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
 function _kbSaveSelection(sel) {
     try {
         const key = `kb_selection_${window._currentUser?.id || 'default'}`;
@@ -37,38 +37,38 @@ function _kbGetSavedSelection() {
 // ===== REMOVE DEPT from sidebar (deactivate via API) =====
 async function _kbRemoveDept(deptId, event) {
     if (event) event.stopPropagation();
-    const name = event?.target?.closest?.('.kb-dept-header')?.dataset?.dept || 'phÃ²ng nÃ y';
-    if (!confirm(`XÃ³a ${name} khá»i sidebar?\nDá»¯ liá»‡u cÃ´ng viá»‡c váº«n Ä‘Æ°á»£c giá»¯ nguyÃªn.\nCÃ³ thá»ƒ thÃªm láº¡i báº¥t cá»© lÃºc nÃ o.`)) return;
+    const name = event?.target?.closest?.('.kb-dept-header')?.dataset?.dept || 'phòng này';
+    if (!confirm(`Xóa ${name} khỏi sidebar?\nDữ liệu công việc vẫn được giữ nguyên.\nCó thể thêm lại bất cứ lúc nào.`)) return;
     try {
         await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: deptId });
-        showToast(`âœ… ÄÃ£ xÃ³a khá»i sidebar`);
+        showToast(`✅ Đã xóa khỏi sidebar`);
         const container = document.getElementById('app');
         if (container) renderLichKhoaBieuPage(container);
     } catch(e) {
-        showToast('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ xÃ³a'), 'error');
+        showToast('Lỗi: ' + (e.message || 'Không thể xóa'), 'error');
     }
 }
 let _kbMonthlyHolidays = []; // holidays in the month
 let _kbWeekStart = null;
 let _kbViewUserId = null; // null = self
 let _kbColorMap = {};
-const _KB_DAY_NAMES = ['', 'Thá»© 2', 'Thá»© 3', 'Thá»© 4', 'Thá»© 5', 'Thá»© 6', 'Thá»© 7', 'Chá»§ Nháº­t'];
+const _KB_DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
-// ===== LINKED PAGE MAPPING: tasks that report via their own page, not the "BÃ¡o cÃ¡o" button =====
+// ===== LINKED PAGE MAPPING: tasks that report via their own page, not the "Báo cáo" button =====
 const _KB_LINKED_PAGES = [
-    { re: /add.*cmt.*Ä‘á»‘i.*tÃ¡c/i, page: '/addcmtdoitackh', label: 'Add/Cmt Äá»‘i TÃ¡c KH', icon: 'ðŸ‘¥' },
-    { re: /Ä‘Äƒng.*video/i, page: '/dangvideo', label: 'ÄÄƒng Video', icon: 'ðŸŽ¬' },
-    { re: /Ä‘Äƒng.*content/i, page: '/dangcontent', label: 'ÄÄƒng Content', icon: 'âœï¸' },
-    { re: /Ä‘Äƒng.*tÃ¬m.*kh.*group/i, page: '/danggruop', label: 'ÄÄƒng & TÃ¬m KH Group', icon: 'ðŸ“¢' },
-    { re: /sedding.*cá»™ng.*Ä‘á»“ng/i, page: '/seddingcongdong', label: 'Sedding Cá»™ng Äá»“ng', icon: 'ðŸŒ' },
-    { re: /Ä‘Äƒng.*báº£n.*thÃ¢n/i, page: '/dangbanthansp', label: 'ÄÄƒng Báº£n ThÃ¢n & SP', icon: 'ðŸ“¸' },
-    { re: /tÃ¬m.*gr.*zalo/i, page: '/timgrzalovathongke', label: 'TÃ¬m Gr Zalo', icon: 'ðŸ”' },
-    { re: /tuyá»ƒn.*dá»¥ng.*sv/i, page: '/tuyendungsvkd', label: 'Tuyá»ƒn Dá»¥ng SV KD', icon: 'ðŸŽ“' },
-    { re: /gá»i.*Ä‘iá»‡n.*telesale/i, page: '/hethonggoidien', label: 'Gá»i Äiá»‡n Telesale', icon: 'ðŸ“ž' },
-    { re: /tá»±.*tÃ¬m.*kiáº¿m.*telesale/i, page: '/hethonggoidien', label: 'Tá»± TÃ¬m Kiáº¿m Telesale', icon: 'ðŸ”Ž' },
-    { re: /nh[áº¥áº¯]n.*t[iÃ¬]m.*Ä‘[á»‘á»“]i.*t[Ã¡Ã ]c.*kh/i, page: '/crm-koctiktok', label: 'Nháº¯n TÃ¬m ÄT KH', icon: 'ðŸŽµ' },
-    { re: /thÃ´ng.*bÃ¡o.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'ThÃ´ng BÃ¡o Gr Zalo Spam', icon: 'ðŸ“‹' },
-    { re: /setup.*spam.*zalo/i, page: '/hethongphanchiagrzalo', label: 'NhÃ³m Spam Zalo', icon: 'ðŸ”¥' },
+    { re: /add.*cmt.*đối.*tác/i, page: '/addcmtdoitackh', label: 'Add/Cmt Đối Tác KH', icon: '👥' },
+    { re: /đăng.*video/i, page: '/dangvideo', label: 'Đăng Video', icon: '🎬' },
+    { re: /đăng.*content/i, page: '/dangcontent', label: 'Đăng Content', icon: '✍️' },
+    { re: /đăng.*tìm.*kh.*group/i, page: '/danggruop', label: 'Đăng & Tìm KH Group', icon: '📢' },
+    { re: /sedding.*cộng.*đồng/i, page: '/seddingcongdong', label: 'Sedding Cộng Đồng', icon: '🌐' },
+    { re: /đăng.*bản.*thân/i, page: '/dangbanthansp', label: 'Đăng Bản Thân & SP', icon: '📸' },
+    { re: /tìm.*gr.*zalo/i, page: '/timgrzalovathongke', label: 'Tìm Gr Zalo', icon: '🔍' },
+    { re: /tuyển.*dụng.*sv/i, page: '/tuyendungsvkd', label: 'Tuyển Dụng SV KD', icon: '🎓' },
+    { re: /gọi.*điện.*telesale/i, page: '/hethonggoidien', label: 'Gọi Điện Telesale', icon: '📞' },
+    { re: /tự.*tìm.*kiếm.*telesale/i, page: '/hethonggoidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎' },
+    { re: /nh[ấắ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c.*kh/i, page: '/crm-koctiktok', label: 'Nhắn Tìm ĐT KH', icon: '🎵' },
+    { re: /thông.*báo.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'Thông Báo Gr Zalo Spam', icon: '📋' },
+    { re: /setup.*spam.*zalo/i, page: '/hethongphanchiagrzalo', label: 'Nhóm Spam Zalo', icon: '🔥' },
 ];
 function _kbGetLinkedPage(taskName) {
     if (!taskName) return null;
@@ -90,7 +90,7 @@ function _kbLinkify(text) {
 
 function _kbGetColor(name) {
     if (!_kbColorMap[name]) {
-        // Deterministic hash â€” same name always gets same color (synced with bangiao-diem)
+        // Deterministic hash — same name always gets same color (synced with bangiao-diem)
         let hash = 0;
         for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
         const idx = Math.abs(hash) % _KB_COLORS.length;
@@ -103,10 +103,10 @@ function _kbGetColor(name) {
 async function _kbViewReport(el) {
     const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
     const statusMap = {
-        approved: { label: 'âœ… HoÃ n thÃ nh', color: '#16a34a', bg: '#dcfce7' },
-        pending: { label: 'â³ Chá» duyá»‡t', color: '#d97706', bg: '#fef3c7' },
-        rejected: { label: 'âŒ Bá»‹ tá»« chá»‘i', color: '#dc2626', bg: '#fecaca' },
-        expired: { label: 'ðŸš« Háº¿t háº¡n lÃ m láº¡i', color: '#6b7280', bg: '#f3f4f6' }
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn làm lại', color: '#6b7280', bg: '#f3f4f6' }
     };
 
     // Fetch report history
@@ -129,28 +129,28 @@ async function _kbViewReport(el) {
         const s = statusMap[v.status] || statusMap.pending;
         const isLatest = i === 0;
         const redoNum = (v.redo_count || 0) + 1;
-        const label = isLatest ? `Láº§n ${redoNum} (Má»›i nháº¥t)` : `Láº§n ${redoNum}`;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
 
         versionsHtml += `
         <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <span style="font-size:13px;font-weight:700;color:#1e293b;">ðŸ“‹ ${label}</span>
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
                 <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
             </div>
             ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">ðŸ’¬ LÃ½ do tá»« chá»‘i:</div>
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
                 <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
             </div>` : ''}
             ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">ðŸ“ Ná»™i dung:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
-            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">ðŸ“Š Sá»‘ lÆ°á»£ng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">âš ï¸ ChÆ°a Ä‘áº¡t</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">âœ… Äáº¡t</span>'}</div>`; })()}
+            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
-                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">ðŸ”— Xem link bÃ¡o cÃ¡o â†’</a>
+                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
             </div>` : ''}
             ${v.report_image ? `<div style="margin-top:6px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ðŸ–¼ï¸ HÃ¬nh áº£nh:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div>
                 <img src="${v.report_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.report_image}','_blank')">
             </div>` : ''}
         </div>`;
@@ -166,10 +166,10 @@ async function _kbViewReport(el) {
     modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
         <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <div style="font-size:16px;font-weight:800;color:white;">ðŸ“Š ${data.task_name}</div>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">ðŸ“… ${data.report_date.split('-').reverse().join('/')}</div>
+                <div style="font-size:16px;font-weight:800;color:white;">📊 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📅 ${data.report_date.split('-').reverse().join('/')}</div>
             </div>
-            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
             ${(() => {
@@ -177,37 +177,37 @@ async function _kbViewReport(el) {
                 let rq = '';
                 if (t.guide_url) {
                     rq += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
-                        <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">ðŸ“‹ HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
-                        <a href="${t.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${t.guide_url} â†’</a>
+                        <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                        <a href="${t.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${t.guide_url} →</a>
                     </div>`;
                 }
                 if (t.input_requirements) {
                     rq += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
-                        <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">ðŸ“¥ YÃªu cáº§u Ä‘áº§u vÃ o</div>
+                        <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
                         <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(t.input_requirements)}</div>
                     </div>`;
                 }
                 if (t.output_requirements) {
                     rq += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
-                        <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">ðŸ“¤ YÃªu cáº§u Ä‘áº§u ra</div>
+                        <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
                         <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(t.output_requirements)}</div>
                     </div>`;
                 }
                 return rq ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
                     <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
-                        <span style="color:white;font-weight:700;font-size:13px;">ðŸ“‹ YÃªu cáº§u cÃ´ng viá»‡c</span>
+                        <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
                     </div>
                     <div style="padding:14px;">${rq}</div>
                 </div>` : '';
             })()}
             <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
                 <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
-                    <span style="color:white;font-weight:700;font-size:13px;">ðŸ“„ BÃ¡o cÃ¡o cÃ´ng viá»‡c</span>
+                    <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
                 </div>
                 <div style="padding:14px;">${versionsHtml}</div>
             </div>
             <div style="text-align:right;margin-top:8px;">
-                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">ÄÃ³ng</button>
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
             </div>
         </div>
     </div>`;
@@ -240,33 +240,33 @@ function _kbRenderReqList(rawValue) {
     }).join('');
 }
 
-// ===== Approval Report View (CV Äiá»ƒm) â€” with task requirements =====
+// ===== Approval Report View (CV Điểm) — with task requirements =====
 async function _kbViewApprovalReport(el) {
     const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
     const statusMap = {
-        approved: { label: 'âœ… HoÃ n thÃ nh', color: '#16a34a', bg: '#dcfce7' },
-        pending: { label: 'â³ Chá» duyá»‡t', color: '#d97706', bg: '#fef3c7' },
-        rejected: { label: 'âŒ Bá»‹ tá»« chá»‘i', color: '#dc2626', bg: '#fecaca' },
-        expired: { label: 'ðŸš« Háº¿t háº¡n', color: '#6b7280', bg: '#f3f4f6' }
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
     };
 
     // Task requirements section
     let reqHtml = '';
     if (data.guide_url) {
         reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
-            <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">ðŸ“‹ HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
-            <a href="${data.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${data.guide_url} â†’</a>
+            <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+            <a href="${data.guide_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${data.guide_url} →</a>
         </div>`;
     }
     if (data.input_requirements) {
         reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
-            <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">ðŸ“¥ YÃªu cáº§u Ä‘áº§u vÃ o</div>
+            <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
             <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(data.input_requirements)}</div>
         </div>`;
     }
     if (data.output_requirements) {
         reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
-            <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">ðŸ“¤ YÃªu cáº§u Ä‘áº§u ra</div>
+            <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
             <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(data.output_requirements)}</div>
         </div>`;
     }
@@ -286,27 +286,27 @@ async function _kbViewApprovalReport(el) {
         const s = statusMap[v.status] || statusMap.pending;
         const isLatest = i === 0;
         const redoNum = (v.redo_count || 0) + 1;
-        const label = isLatest ? `Láº§n ${redoNum} (Má»›i nháº¥t)` : `Láº§n ${redoNum}`;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
         versionsHtml += `
         <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <span style="font-size:13px;font-weight:700;color:#1e293b;">ðŸ“‹ ${label}</span>
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
                 <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
             </div>
             ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">ðŸ’¬ LÃ½ do tá»« chá»‘i:</div>
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
                 <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
             </div>` : ''}
             ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">ðŸ“ Ná»™i dung:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
-            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">ðŸ“Š Sá»‘ lÆ°á»£ng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">âš ï¸ ChÆ°a Ä‘áº¡t</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">âœ… Äáº¡t</span>'}</div>`; })()}
+            ${(() => { const qd = v.quantity || 0; const mq = v.min_quantity || data.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.report_value ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
-                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">ðŸ”— Xem link bÃ¡o cÃ¡o â†’</a>
+                <a href="${v.report_value}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a>
             </div>` : ''}
             ${v.report_image ? `<div style="margin-top:6px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ðŸ–¼ï¸ HÃ¬nh áº£nh:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div>
                 <img src="${v.report_image}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.report_image}','_blank')">
             </div>` : ''}
         </div>`;
@@ -320,26 +320,26 @@ async function _kbViewApprovalReport(el) {
     modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:500px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);">
         <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <div style="font-size:16px;font-weight:800;color:white;">ðŸ“Š ${data.task_name}</div>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">ðŸ“… ${data.report_date.split('-').reverse().join('/')}</div>
+                <div style="font-size:16px;font-weight:800;color:white;">📊 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📅 ${data.report_date.split('-').reverse().join('/')}</div>
             </div>
-            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
             ${reqHtml ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
                 <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
-                    <span style="color:white;font-weight:700;font-size:13px;">ðŸ“‹ YÃªu cáº§u cÃ´ng viá»‡c</span>
+                    <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
                 </div>
                 <div style="padding:14px;">${reqHtml}</div>
             </div>` : ''}
             <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
                 <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
-                    <span style="color:white;font-weight:700;font-size:13px;">ðŸ“„ BÃ¡o cÃ¡o cÃ´ng viá»‡c</span>
+                    <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
                 </div>
                 <div style="padding:14px;">${versionsHtml}</div>
             </div>
             <div style="text-align:right;margin-top:8px;">
-                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">ÄÃ³ng</button>
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e3a5f;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
             </div>
         </div>
     </div>`;
@@ -347,13 +347,13 @@ async function _kbViewApprovalReport(el) {
     document.body.appendChild(modal);
 }
 
-// ===== Approval Report View (CV KhÃ³a) â€” with task requirements =====
+// ===== Approval Report View (CV Khóa) — with task requirements =====
 async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
     const statusMap = {
-        approved: { label: 'âœ… HoÃ n thÃ nh', color: '#16a34a', bg: '#dcfce7' },
-        pending: { label: 'â³ Chá» duyá»‡t', color: '#d97706', bg: '#fef3c7' },
-        rejected: { label: 'âŒ Bá»‹ tá»« chá»‘i', color: '#dc2626', bg: '#fecaca' },
-        expired: { label: 'ðŸš« Háº¿t háº¡n', color: '#6b7280', bg: '#f3f4f6' }
+        approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+        pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { label: '❌ Bị từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { label: '🚫 Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
     };
 
     // Fetch task detail + completions
@@ -372,19 +372,19 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
     if (taskDetail) {
         if (taskDetail.guide_link) {
             reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
-                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">ðŸ“‹ HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
-                <a href="${taskDetail.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${taskDetail.guide_link} â†’</a>
+                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                <a href="${taskDetail.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${taskDetail.guide_link} →</a>
             </div>`;
         }
         if (taskDetail.input_requirements) {
             reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
-                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">ðŸ“¥ YÃªu cáº§u Ä‘áº§u vÃ o</div>
+                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
                 <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(taskDetail.input_requirements)}</div>
             </div>`;
         }
         if (taskDetail.output_requirements) {
             reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
-                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">ðŸ“¤ YÃªu cáº§u Ä‘áº§u ra</div>
+                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
                 <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(taskDetail.output_requirements)}</div>
             </div>`;
         }
@@ -396,31 +396,31 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
         const s = statusMap[v.status] || statusMap.pending;
         const isLatest = i === 0;
         const redoNum = (v.redo_count || 0) + 1;
-        const label = isLatest ? `Láº§n ${redoNum} (Má»›i nháº¥t)` : `Láº§n ${redoNum}`;
+        const label = isLatest ? `Lần ${redoNum} (Mới nhất)` : `Lần ${redoNum}`;
         versionsHtml += `
         <div style="border:${isLatest ? '2px solid #3b82f6' : '1px solid #e5e7eb'};border-radius:10px;padding:14px;margin-bottom:12px;background:${isLatest ? '#f8fafc' : 'white'};">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <span style="font-size:13px;font-weight:700;color:#1e293b;">ðŸ“‹ ${label}</span>
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">📋 ${label}</span>
                 <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${s.label}</span>
             </div>
             ${v.reject_reason ? `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">ðŸ’¬ LÃ½ do tá»« chá»‘i:</div>
+                <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:2px;">💬 Lý do từ chối:</div>
                 <div style="font-size:12px;color:#7f1d1d;">${v.reject_reason}</div>
             </div>` : ''}
             ${v.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">ðŸ“ Ná»™i dung:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${v.content}</div>
             </div>` : ''}
-            ${(() => { const qd = v.quantity_done || 0; const mq = taskDetail?.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">ðŸ“Š Sá»‘ lÆ°á»£ng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">âš ï¸ ChÆ°a Ä‘áº¡t</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">âœ… Äáº¡t</span>'}</div>`; })()}
+            ${(() => { const qd = v.quantity_done || 0; const mq = taskDetail?.min_quantity || 1; const isLow = qd < mq; return `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
             ${v.proof_url ? `<div style="padding:6px 12px;background:#eff6ff;border-radius:6px;margin-bottom:6px;">
-                ${v.proof_url.startsWith('/uploads') ? `<div style="margin-top:4px;"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.proof_url}','_blank')"></div>` : `<a href="${v.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">ðŸ”— Xem link â†’</a>`}
+                ${v.proof_url.startsWith('/uploads') ? `<div style="margin-top:4px;"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${v.proof_url}','_blank')"></div>` : `<a href="${v.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link →</a>`}
             </div>` : ''}
         </div>`;
     });
 
-    if (!versionsHtml) versionsHtml = '<div style="color:#9ca3af;text-align:center;padding:20px;">KhÃ´ng cÃ³ dá»¯ liá»‡u bÃ¡o cÃ¡o</div>';
+    if (!versionsHtml) versionsHtml = '<div style="color:#9ca3af;text-align:center;padding:20px;">Không có dữ liệu báo cáo</div>';
 
-    const taskName = taskDetail?.task_name || 'CÃ´ng viá»‡c khÃ³a';
+    const taskName = taskDetail?.task_name || 'Công việc khóa';
 
     let modal = document.getElementById('kbReportViewModal');
     if (modal) modal.remove();
@@ -430,26 +430,26 @@ async function _kbViewLockApprovalReport(lockTaskId, userId, completionDate) {
     modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:500px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);">
         <div style="background:linear-gradient(135deg,#7f1d1d,#991b1b);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <div style="font-size:16px;font-weight:800;color:white;">ðŸ” ${taskName}</div>
-                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">ðŸ“… ${completionDate.split('-').reverse().join('/')}</div>
+                <div style="font-size:16px;font-weight:800;color:white;">🔐 ${taskName}</div>
+                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">📅 ${completionDate.split('-').reverse().join('/')}</div>
             </div>
-            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbReportViewModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
             ${reqHtml ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
                 <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
-                    <span style="color:white;font-weight:700;font-size:13px;">ðŸ“‹ YÃªu cáº§u cÃ´ng viá»‡c</span>
+                    <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
                 </div>
                 <div style="padding:14px;">${reqHtml}</div>
             </div>` : ''}
             <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
                 <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
-                    <span style="color:white;font-weight:700;font-size:13px;">ðŸ“„ BÃ¡o cÃ¡o cÃ´ng viá»‡c</span>
+                    <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
                 </div>
                 <div style="padding:14px;">${versionsHtml}</div>
             </div>
             <div style="text-align:right;margin-top:8px;">
-                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#991b1b;color:white;font-weight:700;cursor:pointer;font-size:13px;">ÄÃ³ng</button>
+                <button onclick="document.getElementById('kbReportViewModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#991b1b;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
             </div>
         </div>
     </div>`;
@@ -488,21 +488,21 @@ async function renderLichKhoaBieuPage(container) {
             _kbActiveDeptIds = [...activeDeptIds];
             const allApprovers = dData.approvers || [];
 
-            // Identify system-level departments (Há»† THá»NG...)
-            const systemDepts = rawDepts.filter(d => d.name.startsWith('Há»† THá»NG'));
-            const nonSystemDepts = rawDepts.filter(d => !d.name.startsWith('Há»† THá»NG'));
+            // Identify system-level departments (HỆ THỐNG...)
+            const systemDepts = rawDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
+            const nonSystemDepts = rawDepts.filter(d => !d.name.startsWith('HỆ THỐNG'));
 
             // Group members by dept name
             const byDept = {};
             members.forEach(u => {
-                const dn = u.dept_name || 'KhÃ´ng phÃ²ng ban';
+                const dn = u.dept_name || 'Không phòng ban';
                 if (!byDept[dn]) byDept[dn] = [];
                 byDept[dn].push(u);
             });
 
             const memberDeptNames = new Set(Object.keys(byDept));
             const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
-            const _kbRoleLabel = { giam_doc: 'â­ GiÃ¡m Ä‘á»‘c', quan_ly_cap_cao: 'â­ Quáº£n lÃ½ cáº¥p cao', quan_ly: 'â­ Quáº£n lÃ½', truong_phong: 'â­ TrÆ°á»Ÿng phÃ²ng', nhan_vien: 'NhÃ¢n viÃªn', part_time: 'Part time' };
+            const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
             const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
 
             // Helper: render members for a dept
@@ -527,7 +527,7 @@ async function renderLichKhoaBieuPage(container) {
                     const isDeptHead = u._is_dept_head;
                     const isApprover = u._isApprover;
                     const isLead = isDeptHead || _kbIsLeader(u.role) || isApprover;
-                    const roleTag = isApprover ? 'â­ Quáº£n LÃ½' : (isDeptHead ? 'â­ TrÆ°á»Ÿng phÃ²ng' : (_kbRoleLabel[u.role] || u.role));
+                    const roleTag = isApprover ? '⭐ Quản Lý' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
                     const nameStyle = `font-weight:${isLead ? '700' : '500'};`;
                     const roleStyle = `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
                     html += `
@@ -535,7 +535,7 @@ async function renderLichKhoaBieuPage(container) {
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
-                                <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name}${overrideUserIds.has(u.id) ? '<span title="ÄÃ£ tÃ¹y chá»‰nh cÃ´ng viá»‡c" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">âœï¸ TC</span>' : ''}</div>
+                                <div style="${nameStyle}font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name}${overrideUserIds.has(u.id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
                                 <div style="${roleStyle}margin-top:1px;">${roleTag}</div>
                             </div>
                         </div>`;
@@ -543,7 +543,7 @@ async function renderLichKhoaBieuPage(container) {
                 return html;
             };
 
-            // Build sidebar grouped by Há»† THá»NG
+            // Build sidebar grouped by HỆ THỐNG
             let deptListHtml = '';
             systemDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
             systemDepts.forEach(sys => {
@@ -567,15 +567,15 @@ async function renderLichKhoaBieuPage(container) {
 
                 // System header with expand/collapse
                 deptListHtml += `<div class="kb-system-header" data-sys-id="${sys.id}" onclick="_kbToggleSystem(${sys.id})" style="padding:10px 14px;font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-bottom:2px solid #0f172a;margin-top:6px;box-shadow:0 3px 10px rgba(15,23,42,0.35);border-radius:8px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;transition:all .2s;cursor:pointer;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-                    <span style="font-size:15px;">ðŸ›ï¸</span>
+                    <span style="font-size:15px;">🏛️</span>
                     <span style="flex:1;">${sys.name}</span>
-                    <span class="kb-sys-arrow" style="font-size:10px;opacity:0.7;transition:transform .2s;">â–¼</span>
+                    <span class="kb-sys-arrow" style="font-size:10px;opacity:0.7;transition:transform .2s;">▼</span>
                 </div>`;
 
                 // Collapsible content
                 deptListHtml += `<div class="kb-sys-content" data-sys-id="${sys.id}">`;
 
-                // System-level approvers (quáº£n lÃ½ cáº¥p cao) â€” non-GÄ only sees those in their scope
+                // System-level approvers (quản lý cấp cao) — non-GĐ only sees those in their scope
                 const sysApprovers = allApprovers.filter(a => a.department_id === sys.id && (currentUser.role === 'giam_doc' || memberIdSet.has(a.user_id)));
                 sysApprovers.forEach(a => {
                     deptListHtml += `
@@ -583,8 +583,8 @@ async function renderLichKhoaBieuPage(container) {
                             onmouseover="if(!this.classList.contains('kb-active'))this.style.background='#f8fafc'"
                             onmouseout="if(!this.classList.contains('kb-active'))this.style.background='white'">
                             <div style="flex:1;min-width:0;">
-                                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${a.full_name}${overrideUserIds.has(a.user_id) ? '<span title="ÄÃ£ tÃ¹y chá»‰nh cÃ´ng viá»‡c" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">âœï¸ TC</span>' : ''}</div>
-                                <div style="font-size:10px;color:#d97706;font-weight:700;margin-top:1px;">â­ Quáº£n lÃ½ cáº¥p cao</div>
+                                <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${a.full_name}${overrideUserIds.has(a.user_id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 3px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
+                                <div style="font-size:10px;color:#d97706;font-weight:700;margin-top:1px;">⭐ Quản lý cấp cao</div>
                             </div>
                         </div>`;
                 });
@@ -603,14 +603,14 @@ async function renderLichKhoaBieuPage(container) {
                     const sttLabel = !isSubTeam
                         ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
                         : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
-                    const deleteBtn = (!isSubTeam && currentUser.role === 'giam_doc') ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="XÃ³a phÃ²ng khá»i sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">ðŸ—‘ï¸</span>` : '';
-                    deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isSubTeam ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isSubTeam ? '11px' : '13px'};font-weight:900;color:${isSubTeam ? '#475569' : '#fff'};text-transform:uppercase;background:${isSubTeam ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isSubTeam ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isSubTeam ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isSubTeam ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isSubTeam ? '<span style="color:#94a3b8;">â””</span> ' : '<span style="font-size:14px;">ðŸ¢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
+                    const deleteBtn = (!isSubTeam && currentUser.role === 'giam_doc') ? `<span onclick="_kbRemoveDept(${dept.id}, event)" title="Xóa phòng khỏi sidebar" style="font-size:11px;opacity:0.5;cursor:pointer;margin-left:2px;" onmouseover="this.style.opacity='1';this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5';this.style.color=''">🗑️</span>` : '';
+                    deptListHtml += `<div class="kb-dept-header" data-dept="${dept.name}" data-dept-id="${dept.id}" style="padding:${isSubTeam ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isSubTeam ? '11px' : '13px'};font-weight:900;color:${isSubTeam ? '#475569' : '#fff'};text-transform:uppercase;background:${isSubTeam ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};border-bottom:${isSubTeam ? '1px solid #e2e8f0' : '2px solid #1e40af'};${isSubTeam ? 'border-left:3px solid #93c5fd;' : 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;'}letter-spacing:${isSubTeam ? '0.3px' : '0.5px'};display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">${sttLabel}${isSubTeam ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${dept.name}</span>${deleteBtn}</div>`;
                     deptListHtml += renderDeptMembers(dept, isSubTeam);
 
                     // Render sub-teams
                     subTeams.forEach(sub => {
                         childStt++;
-                        deptListHtml += `<div class="kb-dept-header" data-dept="${sub.name}" data-dept-id="${sub.id}" style="padding:7px 14px 7px 28px;font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-bottom:1px solid #e2e8f0;border-left:3px solid #93c5fd;letter-spacing:0.3px;display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">â””</span> <span style="flex:1;">${sub.name}</span></div>`;
+                        deptListHtml += `<div class="kb-dept-header" data-dept="${sub.name}" data-dept-id="${sub.id}" style="padding:7px 14px 7px 28px;font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-bottom:1px solid #e2e8f0;border-left:3px solid #93c5fd;letter-spacing:0.3px;display:flex;align-items:center;gap:6px;transition:all .2s;cursor:default;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span></div>`;
                         deptListHtml += renderDeptMembers(sub, true);
                     });
                 });
@@ -621,15 +621,15 @@ async function renderLichKhoaBieuPage(container) {
             membersHtml = `
             <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;width:230px;min-width:230px;overflow-y:auto;max-height:calc(100vh - 140px);box-shadow:0 1px 4px rgba(0,0,0,0.06);">
                 <div style="padding:8px 10px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px 12px 0 0;">
-                    <input type="text" id="kbMemberSearch" placeholder="ðŸ” TÃ¬m nhÃ¢n viÃªn..." 
+                    <input type="text" id="kbMemberSearch" placeholder="🔍 Tìm nhân viên..." 
                            oninput="_kbFilterMembers()" 
                            style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;color:#1e293b;background:white;outline:none;" 
                            onfocus="this.style.borderColor='#2563eb';this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.1)'" 
                            onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'" />
                 </div>
                 <div id="kbMemberList">
-                    <div class="kb-member-item kb-active" data-uid="" data-name="Lá»‹ch cá»§a tÃ´i" onclick="_kbSelectMember(null)" style="padding:12px 16px;font-size:14px;color:#122546;cursor:pointer;border-bottom:1px solid #e2e8f0;border-left:3px solid #2563eb;background:#eff6ff;font-weight:700;display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:16px;">ðŸ“‹</span> Lá»‹ch cá»§a tÃ´i
+                    <div class="kb-member-item kb-active" data-uid="" data-name="Lịch của tôi" onclick="_kbSelectMember(null)" style="padding:12px 16px;font-size:14px;color:#122546;cursor:pointer;border-bottom:1px solid #e2e8f0;border-left:3px solid #2563eb;background:#eff6ff;font-weight:700;display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:16px;">📋</span> Lịch của tôi
                     </div>
                     ${deptListHtml}
                 </div>
@@ -644,11 +644,11 @@ async function renderLichKhoaBieuPage(container) {
     <div style="max-width:1500px;margin:0 auto;padding:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:12px;">
-                <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">ðŸ“‹ Lá»‹ch KhÃ³a Biá»ƒu CÃ´ng Viá»‡c</h2>
-                ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">âš™ï¸ Setup NgÆ°á»i Duyá»‡t</button>` : ''}
-                ${isGD ? `<button onclick="_kbShowCreateDeptModal()" style="padding:6px 14px;font-size:12px;border:1px dashed #16a34a;border-radius:8px;background:rgba(22,163,74,0.04);color:#16a34a;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='rgba(22,163,74,0.04)'">ï¼‹ Táº¡o má»›i</button>` : ''}
-                ${isGD ? `<button onclick="_kbShowReorderModal()" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">ðŸ”¢ STT</button>` : ''}
-                ${isManager ? `<button onclick="_kbShowUnreportedModal()" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">ðŸ” CV ChÆ°a BC</button>` : ''}
+                <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">📋 Lịch Khóa Biểu Công Việc</h2>
+                ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">⚙️ Setup Người Duyệt</button>` : ''}
+                ${isGD ? `<button onclick="_kbShowCreateDeptModal()" style="padding:6px 14px;font-size:12px;border:1px dashed #16a34a;border-radius:8px;background:rgba(22,163,74,0.04);color:#16a34a;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='rgba(22,163,74,0.04)'">＋ Tạo mới</button>` : ''}
+                ${isGD ? `<button onclick="_kbShowReorderModal()" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🔢 STT</button>` : ''}
+                ${isManager ? `<button onclick="_kbShowUnreportedModal()" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🔍 CV Chưa BC</button>` : ''}
             </div>
             <div id="kbViewingLabel" style="font-size:13px;color:#6b7280;"></div>
         </div>
@@ -660,17 +660,17 @@ async function renderLichKhoaBieuPage(container) {
             <div style="flex:1;">
                 <div id="kbStatsBar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;"></div>
                 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:16px;">âš ï¸</span>
-                    <span style="font-size:12px;color:#92400e;font-weight:500;">Má»—i ngÃ y tá»‘i Ä‘a <strong>100 Ä‘iá»ƒm</strong>. Náº¿u tá»•ng Ä‘iá»ƒm CV trong ngÃ y vÆ°á»£t 100Ä‘, há»‡ thá»‘ng chá»‰ tÃ­nh tá»‘i Ä‘a 100Ä‘ cho ngÃ y Ä‘Ã³.</span>
+                    <span style="font-size:16px;">⚠️</span>
+                    <span style="font-size:12px;color:#92400e;font-weight:500;">Mỗi ngày tối đa <strong>100 điểm</strong>. Nếu tổng điểm CV trong ngày vượt 100đ, hệ thống chỉ tính tối đa 100đ cho ngày đó.</span>
                 </div>
                 <div id="kbGridWrap" style="background:white;border:1px solid #e5e7eb;border-radius:10px;overflow-x:auto;">
-                    <div style="text-align:center;padding:40px;color:#9ca3af;">Äang táº£i...</div>
+                    <div style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</div>
                 </div>
             </div>
         </div>
     </div>`;
 
-    // Priority: CV Pháº¡t target user â†’ select that user directly
+    // Priority: CV Phạt target user → select that user directly
     const ptUser = sessionStorage.getItem('_ptTargetUser');
     if (ptUser) {
         const ptMemberEl = document.querySelector(`.kb-member-item[data-uid="${ptUser}"]`);
@@ -681,7 +681,7 @@ async function renderLichKhoaBieuPage(container) {
             _kbLoadSchedule();
         }
     } else {
-        // Restore saved selection or default to "Lá»‹ch cá»§a tÃ´i"
+        // Restore saved selection or default to "Lịch của tôi"
         const kbSaved = _kbGetSavedSelection();
         if (kbSaved && kbSaved.userId) {
             const memberEl = document.querySelector(`.kb-member-item[data-uid="${kbSaved.userId}"]`);
@@ -706,7 +706,7 @@ function _kbSelectMember(userId) {
     // Get user name from sidebar element
     const memberEl = userId ? document.querySelector(`.kb-member-item[data-uid="${userId}"]`) : null;
     _kbViewUserName = memberEl?.dataset?.name || '';
-    // Highlight â€” light blue for selected, white for others
+    // Highlight — light blue for selected, white for others
     document.querySelectorAll('.kb-member-item').forEach(el => {
         const isActive = (el.dataset.uid === '' && userId === null) || (el.dataset.uid == userId);
         el.classList.toggle('kb-active', isActive);
@@ -724,7 +724,7 @@ function _kbSelectMember(userId) {
 async function _kbLoadSchedule() {
     // Init week
     if (!_kbWeekStart) {
-        // Check if navigating from CV Pháº¡t page with a target week
+        // Check if navigating from CV Phạt page with a target week
         const ptWeek = sessionStorage.getItem('_ptTargetWeek');
         if (ptWeek) {
             sessionStorage.removeItem('_ptTargetWeek');
@@ -791,9 +791,9 @@ async function _kbLoadSchedule() {
         if (_kbViewUserId) {
             const el = document.querySelector(`.kb-member-item[data-uid="${_kbViewUserId}"]`);
             const name = el ? el.textContent.trim().split('(')[0].trim() : 'NV';
-            lbl.innerHTML = `<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-weight:600;">ðŸ‘¤ Äang xem: ${name}</span>`;
+            lbl.innerHTML = `<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-weight:600;">👤 Đang xem: ${name}</span>`;
         } else {
-            lbl.innerHTML = `<span style="background:#ecfdf5;color:#059669;padding:3px 10px;border-radius:6px;font-weight:600;">ðŸ“‹ Lá»‹ch cá»§a tÃ´i</span>`;
+            lbl.innerHTML = `<span style="background:#ecfdf5;color:#059669;padding:3px 10px;border-radius:6px;font-weight:600;">📋 Lịch của tôi</span>`;
         }
     }
 
@@ -809,7 +809,7 @@ async function _kbLoadSchedule() {
         _kbSupportRequests = {};
     }
 
-    // Load CV KhÃ³a tasks for this week
+    // Load CV Khóa tasks for this week
     try {
         const uid = _kbViewUserId || currentUser.id;
         const ltData = await apiCall(`/api/lock-tasks/calendar?user_id=${uid}&week_start=${monStr}`);
@@ -835,7 +835,7 @@ async function _kbLoadSchedule() {
         _kbLockTasks = []; _kbLockCompletions = {}; _kbLockHolidays = new Set();
         window._kbLockSupportRequests = {};
     }
-    // Load CV Chuá»—i (chain task items) for this week
+    // Load CV Chuỗi (chain task items) for this week
     try {
         const uid2 = _kbViewUserId || currentUser.id;
         const chainData = await apiCall(`/api/chain-tasks/calendar?user_id=${uid2}&week_start=${monStr}`);
@@ -903,10 +903,10 @@ function _kbRenderStats() {
         if (_kbSummary[ds]) weekEarned += Math.min(Number(_kbSummary[ds].total_points || 0), 100);
     }
 
-    // Month max = days in month Ã— 100
+    // Month max = days in month × 100
     const monthMax = lastDay * 100;
     const weekMax = 700;
-    const monthNames = ['ThÃ¡ng 1','ThÃ¡ng 2','ThÃ¡ng 3','ThÃ¡ng 4','ThÃ¡ng 5','ThÃ¡ng 6','ThÃ¡ng 7','ThÃ¡ng 8','ThÃ¡ng 9','ThÃ¡ng 10','ThÃ¡ng 11','ThÃ¡ng 12'];
+    const monthNames = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
     const card = (icon, label, value, sub, color) => `
         <div style="background:white;border:2px solid ${color};border-radius:10px;padding:14px 16px;text-align:center;">
@@ -916,10 +916,10 @@ function _kbRenderStats() {
         </div>`;
 
     bar.innerHTML = 
-        card('ðŸ“…', 'Sá» NGÃ€Y CÃ”NG NHáº¬T', workingDays, `${monthNames[viewMonth]} â€” T2â†’T7 trá»« lá»…`, '#122546') +
-        card('â­', 'ÄIá»‚M NGÃ€Y', `${todayEarned}/100`, `HÃ´m nay ${_kbFmtDate(now)}`, '#dc2626') +
-        card('ðŸ“Š', 'ÄIá»‚M TUáº¦N', `${weekEarned}/${weekMax}`, `T2â†’CN (${_kbFmtDate(_kbWeekStart)}â€”${_kbFmtDate(sunDate)})`, '#d97706') +
-        card('ðŸ†', 'ÄIá»‚M Tá»”NG THÃNG', `${_kbMonthlySummary}/${monthMax}`, `${monthNames[viewMonth]} ${viewYear}`, '#16a34a');
+        card('📅', 'SỐ NGÀY CÔNG NHẬT', workingDays, `${monthNames[viewMonth]} — T2→T7 trừ lễ`, '#122546') +
+        card('⭐', 'ĐIỂM NGÀY', `${todayEarned}/100`, `Hôm nay ${_kbFmtDate(now)}`, '#dc2626') +
+        card('📊', 'ĐIỂM TUẦN', `${weekEarned}/${weekMax}`, `T2→CN (${_kbFmtDate(_kbWeekStart)}—${_kbFmtDate(sunDate)})`, '#d97706') +
+        card('🏆', 'ĐIỂM TỔNG THÁNG', `${_kbMonthlySummary}/${monthMax}`, `${monthNames[viewMonth]} ${viewYear}`, '#16a34a');
 }
 
 function _kbRenderGrid() {
@@ -934,7 +934,7 @@ function _kbRenderGrid() {
         document.head.appendChild(s);
     }
 
-    // Colors (hash-based â€” deterministic)
+    // Colors (hash-based — deterministic)
     _kbColorMap = {};
     const uniqueNames = [...new Set(_kbTasks.map(t => t.task_name))];
     uniqueNames.forEach(n => _kbGetColor(n));
@@ -977,7 +977,7 @@ function _kbRenderGrid() {
 
     const isSelf = !_kbViewUserId || Number(_kbViewUserId) === currentUser.id;
     const isManager = ['giam_doc','quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role);
-    const canReport = isSelf; // Can report own tasks (via 'Lá»‹ch cá»§a tÃ´i' or own name in sidebar)
+    const canReport = isSelf; // Can report own tasks (via 'Lịch của tôi' or own name in sidebar)
     const canApprove = isManager && !isSelf;
     const todayStr = _kbDateStr(new Date()); // For date comparison
 
@@ -987,22 +987,22 @@ function _kbRenderGrid() {
         <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:15px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">${viewingName.charAt(0).toUpperCase()}</div>
         <div>
             <div style="font-weight:800;font-size:15px;color:#1e3a5f;">${viewingName}</div>
-            <div style="font-size:11px;color:#6b7280;">${isSelf ? 'ðŸ“‹ Lá»‹ch cá»§a tÃ´i' : 'ðŸ‘¤ Äang xem lá»‹ch nhÃ¢n viÃªn'}</div>
+            <div style="font-size:11px;color:#6b7280;">${isSelf ? '📋 Lịch của tôi' : '👤 Đang xem lịch nhân viên'}</div>
         </div>
     </div>` : '';
 
     // Week nav
     let html = userHeaderHtml + `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;background:#f8fafc;${!viewingName ? 'border-radius:10px 10px 0 0;' : ''}">
-        <button onclick="_kbChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">â—€ Tuáº§n trÆ°á»›c</button>
-        <div style="font-weight:700;color:#122546;font-size:14px;">ðŸ“… ${_kbFmtDate(monDate)} â€” ${_kbFmtDate(sunDate2)}/${monDate.getFullYear()}</div>
-        <button onclick="_kbChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuáº§n sau â–¶</button>
+        <button onclick="_kbChangeWeek(-1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">◀ Tuần trước</button>
+        <div style="font-weight:700;color:#122546;font-size:14px;">📅 ${_kbFmtDate(monDate)} — ${_kbFmtDate(sunDate2)}/${monDate.getFullYear()}</div>
+        <button onclick="_kbChangeWeek(1)" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;cursor:pointer;font-size:12px;font-weight:600;">Tuần sau ▶</button>
     </div>`;
 
     html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">`;
 
     // Header
     html += `<thead><tr>`;
-    html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:100px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giá»</th>`;
+    html += `<th style="padding:10px 14px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:100px;font-weight:700;color:#6b7280;font-size:11px;text-transform:uppercase;background:#f8fafc;">Khung giờ</th>`;
     for (let d = 1; d <= 7; d++) {
         const isH = !!_kbHolidayMap[d];
         const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
@@ -1010,7 +1010,7 @@ function _kbRenderGrid() {
         if (isH) {
             html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#fef2f2;">
                 <div style="font-weight:700;color:#dc2626;font-size:13px;">${_KB_DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
-                <div style="margin-top:4px;font-size:11px;color:#dc2626;">ðŸ–ï¸ ${_kbHolidayMap[d]}</div>
+                <div style="margin-top:4px;font-size:11px;color:#dc2626;">🏖️ ${_kbHolidayMap[d]}</div>
             </th>`;
         } else {
             const earned = earnedPerDay[d];
@@ -1026,13 +1026,13 @@ function _kbRenderGrid() {
             const dateColor = isToday ? 'color:#bfdbfe;' : 'color:#9ca3af;';
             const scoreColor = isToday ? `color:white;` : `color:${barColor};`;
             const barBg = isToday ? 'background:rgba(255,255,255,0.3);' : 'background:#e5e7eb;';
-            const todayBadge = isToday ? '<span style="display:inline-block;background:#fbbf24;color:#1e3a5f;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">HÃ”M NAY</span>' : '';
+            const todayBadge = isToday ? '<span style="display:inline-block;background:#fbbf24;color:#1e3a5f;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">HÔM NAY</span>' : '';
             html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid ${isToday ? '#2563eb' : '#e5e7eb'};min-width:150px;${thBg}${isToday ? 'box-shadow:0 4px 12px rgba(37,99,235,0.3);position:relative;' : ''}">
                 <div style="font-weight:700;${nameColor}font-size:13px;">${_KB_DAY_NAMES[d]} <span style="font-size:10px;${dateColor}">${dateLabel}</span>${todayBadge}</div>
                 <div style="margin-top:6px;height:4px;${barBg}border-radius:2px;overflow:hidden;">
                     <div style="height:100%;width:${pct}%;background:${isToday ? 'white' : barColor};border-radius:2px;transition:width .3s;"></div>
                 </div>
-                <div style="font-size:10px;margin-top:3px;${scoreColor}font-weight:600;">${cappedEarned}/${cappedTotal}Ä‘${overCap ? ' <span style="color:#fecaca;" title="Tá»•ng CV = ' + total + 'Ä‘, chá»‰ tÃ­nh tá»‘i Ä‘a 100Ä‘">(max 100)</span>' : ''}</div>
+                <div style="font-size:10px;margin-top:3px;${scoreColor}font-weight:600;">${cappedEarned}/${cappedTotal}đ${overCap ? ' <span style="color:#fecaca;" title="Tổng CV = ' + total + 'đ, chỉ tính tối đa 100đ">(max 100)</span>' : ''}</div>
             </th>`;
         }
     }
@@ -1041,7 +1041,7 @@ function _kbRenderGrid() {
     // Body
     html += `<tbody>`;
     if (sortedSlots.length === 0) {
-        html += `<tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">ChÆ°a cÃ³ lá»‹ch cÃ´ng viá»‡c. HÃ£y setup táº¡i <b>BÃ n Giao CV Äiá»ƒm</b> trÆ°á»›c.</td></tr>`;
+        html += `<tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">Chưa có lịch công việc. Hãy setup tại <b>Bàn Giao CV Điểm</b> trước.</td></tr>`;
     } else {
         sortedSlots.forEach((slot, idx) => {
             const [tStart, tEnd] = slot.split('|');
@@ -1057,18 +1057,18 @@ function _kbRenderGrid() {
             </td>`;
             for (let d = 1; d <= 7; d++) {
                 if (_kbHolidayMap[d]) {
-                    html += `<td style="padding:8px;border-bottom:${borderB};background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">ðŸ–ï¸</div></td>`;
+                    html += `<td style="padding:8px;border-bottom:${borderB};background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">🏖️</div></td>`;
                     continue;
                 }
                 const task = byDay[d].find(t => t.time_start + '|' + t.time_end === slot);
                 if (!task) {
-                    html += `<td style="padding:8px;border-bottom:${borderB};text-align:center;color:#d1d5db;font-size:20px;">â€”</td>`;
+                    html += `<td style="padding:8px;border-bottom:${borderB};text-align:center;color:#d1d5db;font-size:20px;">—</td>`;
                     continue;
                 }
 
                 const c = _kbGetColor(task.task_name);
                 const hasOverride = task._has_override;
-                const overrideBadge = hasOverride ? '<span title="ÄÃ£ tÃ¹y chá»‰nh cho NV nÃ y" style="position:absolute;top:-6px;left:-6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;width:18px;height:18px;border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(217,119,6,0.4);z-index:2;">âœï¸</span>' : '';
+                const overrideBadge = hasOverride ? '<span title="Đã tùy chỉnh cho NV này" style="position:absolute;top:-6px;left:-6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;width:18px;height:18px;border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(217,119,6,0.4);z-index:2;">✏️</span>' : '';
                 const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1);
                 const dateStr = _kbDateStr(colDate);
                 const reportTemplateId = task._source === 'snapshot' ? task.template_id : task.id;
@@ -1084,13 +1084,13 @@ function _kbRenderGrid() {
                 let actionBtn = ''; // inline with guide button row
                 const _linkedPage = _kbGetLinkedPage(task.task_name);
                 if (_linkedPage && canReport) {
-                    // Task has a linked menu page â†’ navigate there instead of showing BÃ¡o cÃ¡o
-                    actionBtn = `<a href="${_linkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Má»Ÿ trang â†’</a>`;
+                    // Task has a linked menu page → navigate there instead of showing Báo cáo
+                    actionBtn = `<a href="${_linkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Mở trang →</a>`;
                 } else if (_linkedPage && !canReport) {
                     actionBtn = '';
                 } else
                 if (report) {
-                    // HAS REPORT â€” make it clickable to view details
+                    // HAS REPORT — make it clickable to view details
                     const rData = JSON.stringify({
                         template_id: reportTemplateId, task_name: task.task_name, status: report.status, points_earned: report.points_earned,
                         quantity: report.quantity, min_quantity: task.min_quantity || 1, report_value: report.report_value || '', report_image: report.report_image || '',
@@ -1099,135 +1099,135 @@ function _kbRenderGrid() {
                     }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                     if (report.status === 'approved') {
-                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">âœ… +${report.points_earned}Ä‘</span>`;
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span></div>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">✅ +${report.points_earned}đ</span>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     } else if (report.status === 'pending') {
-                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">â³ ${report.redo_count > 0 ? 'Chá» duyá»‡t láº¡i' : 'Chá» duyá»‡t'}</span>`;
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span></div>`;
+                        actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ ${report.redo_count > 0 ? 'Chờ duyệt lại' : 'Chờ duyệt'}</span>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     } else if (report.status === 'rejected') {
                         if (isSelf) {
-                            actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">âŒ Bá»‹ tá»« chá»‘i</span>`;
+                            actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">❌ Bị từ chối</span>`;
                             // Show redo button for self
                             if (report.redo_deadline && new Date(report.redo_deadline) > new Date()) {
                                 statusBadge = `<div style="margin-top:4px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                                    <button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o láº¡i</button>
-                                    <span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                                    <button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}', ${report.id})" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo lại</button>
+                                    <span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                                 </div>`;
                             } else {
-                                statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span></div>`;
+                                statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                             }
                         } else {
                             // Manager view: show warning badge
-                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">âš ï¸ Chá» NV ná»™p láº¡i</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span></div>`;
+                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                         }
                     } else if (report.status === 'expired') {
                         if (isSelf) {
-                            actionBtn = `<span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">ðŸš« Háº¿t háº¡n (0Ä‘)</span>`;
+                            actionBtn = `<span style="background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🚫 Hết hạn (0đ)</span>`;
                         } else {
-                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">âš ï¸ Chá» NV ná»™p láº¡i</span>`;
+                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
                         }
-                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span></div>`;
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
                     }
                 } else if (canReport) {
                     if (dateStr === todayStr) {
                         const todaySrKey = `${reportTemplateId}_${dateStr}`;
                         const todaySr = _kbSupportRequests[todaySrKey];
                         if (todaySr && todaySr.status === 'pending') {
-                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o</button></div>`;
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
                         } else if (todaySr && todaySr.status === 'supported') {
-                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;">âœ… Sáº¿p Ä‘Ã£ HT</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o</button></div>`;
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;">✅ Sếp đã HT</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
                         } else {
-                            actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o</button>`;
+                            actionBtn = `<button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button>`;
                         }
                     } else if (dateStr < todayStr) {
                         // Check support request
                         const srKey = `${reportTemplateId}_${dateStr}`;
                         const sr = _kbSupportRequests[srKey];
                         if (sr && sr.status === 'pending') {
-                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o</button></div>`;
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
                         } else if (sr && sr.status === 'supported') {
-                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr.manager_note||'').replace(/"/g,'&quot;')}">âœ… Sáº¿p Ä‘Ã£ HT</span>`;
-                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o</button></div>`;
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
+                            statusBadge = `<div style="margin-top:4px;"><button onclick="_kbShowReportModal(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:#059669;color:white;cursor:pointer;font-weight:700;">📝 Báo cáo</button></div>`;
                         } else {
-                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">ðŸš« Bá» lá»¡</span>`;
+                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
                         }
                     } else {
-                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">ðŸ”’ Sáº¯p tá»›i</span>`;
+                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🔒 Sắp tới</span>`;
                     }
                 } else {
                     if (dateStr < todayStr) {
                         const srKey2 = `${reportTemplateId}_${dateStr}`;
                         const sr2 = _kbSupportRequests[srKey2];
                         if (sr2 && sr2.status === 'pending') {
-                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span>`;
+                            actionBtn = `<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>`;
                         } else if (sr2 && sr2.status === 'supported') {
-                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr2.manager_note||'').replace(/"/g,'&quot;')}">âœ… Sáº¿p Ä‘Ã£ HT</span>`;
+                            actionBtn = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;" title="${(sr2.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
                         } else {
-                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">ðŸš« Bá» lá»¡</span>`;
+                            actionBtn = `<span style="background:#fecaca;color:#dc2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #fca5a5;">🚫 Bỏ lỡ</span>`;
                         }
                     } else if (dateStr === todayStr) {
-                        actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;line-height:1;display:inline-flex;align-items:center;">â³ ChÆ°a ná»™p</span>`;
+                        actionBtn = `<span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;line-height:1;display:inline-flex;align-items:center;">⏳ Chưa nộp</span>`;
                     } else {
-                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">ðŸ”’ Sáº¯p tá»›i</span>`;
+                        actionBtn = `<span style="background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;line-height:1;display:inline-flex;align-items:center;border:1px solid #e5e7eb;">🔒 Sắp tới</span>`;
                     }
                 }
 
-                // Check if this is a "Tá»± TÃ¬m Kiáº¿m" task
-                const isSelfSearch = /tá»±\s*tÃ¬m\s*kiáº¿m/i.test(task.task_name);
+                // Check if this is a "Tự Tìm Kiếm" task
+                const isSelfSearch = /tự\s*tìm\s*kiếm/i.test(task.task_name);
                 const ssPlaceholder = isSelfSearch ? `<div id="kbSS_${dateStr}" data-ss-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "Gá»i Äiá»‡n Telesale" task
-                const isTelesale = /gá»i\s*Ä‘iá»‡n\s*telesale/i.test(task.task_name);
+                // Check if this is a "Gọi Điện Telesale" task
+                const isTelesale = /gọi\s*điện\s*telesale/i.test(task.task_name);
                 const tsPlaceholder = isTelesale ? `<div id="kbTS_${dateStr}" data-ts-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "Nháº¯n TÃ¬m Äá»‘i TÃ¡c" task
-                const isPartnerOutreach = /nháº¯n.*Ä‘á»‘i\s*tÃ¡c/i.test(task.task_name);
+                // Check if this is a "Nhắn Tìm Đối Tác" task
+                const isPartnerOutreach = /nhắn.*đối\s*tác/i.test(task.task_name);
                 const poPlaceholder = isPartnerOutreach ? `<div id="kbPO_${dateStr}" data-po-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is an "Add/Cmt Äá»‘i TÃ¡c" task
-                const isAddCmt = /add.*cmt.*Ä‘á»‘i\s*tÃ¡c/i.test(task.task_name);
+                // Check if this is an "Add/Cmt Đối Tác" task
+                const isAddCmt = /add.*cmt.*đối\s*tác/i.test(task.task_name);
                 const acPlaceholder = isAddCmt ? `<div id="kbAC_${dateStr}" data-ac-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "ÄÄƒng Video" task
-                const isDangVideo = /Ä‘Äƒng\s*video/i.test(task.task_name);
+                // Check if this is a "Đăng Video" task
+                const isDangVideo = /đăng\s*video/i.test(task.task_name);
                 const dvPlaceholder = isDangVideo ? `<div id="kbDV_${dateStr}" data-dv-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "ÄÄƒng Content" task
-                const isDangContent = /Ä‘Äƒng\s*content/i.test(task.task_name);
+                // Check if this is a "Đăng Content" task
+                const isDangContent = /đăng\s*content/i.test(task.task_name);
                 const dcPlaceholder = isDangContent ? `<div id="kbDC_${dateStr}" data-dc-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "ÄÄƒng & TÃ¬m KH Group" task
-                const isDangGroup = /Ä‘Äƒng.*tÃ¬m.*kh.*group/i.test(task.task_name);
+                // Check if this is a "Đăng & Tìm KH Group" task
+                const isDangGroup = /đăng.*tìm.*kh.*group/i.test(task.task_name);
                 const dgPlaceholder = isDangGroup ? `<div id="kbDG_${dateStr}" data-dg-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "Tuyá»ƒn Dá»¥ng" task
-                const isTuyenDung = /tuyá»ƒn\s*dá»¥ng/i.test(task.task_name);
+                // Check if this is a "Tuyển Dụng" task
+                const isTuyenDung = /tuyển\s*dụng/i.test(task.task_name);
                 const tdPlaceholder = isTuyenDung ? `<div id="kbTD_${dateStr}" data-td-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
                 // Check if this is a "Sedding" task
                 const isSedding = /sedding/i.test(task.task_name);
                 const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
-                // Check if this is a "TÃ¬m Gr Zalo" task
-                const isZalo = /tÃ¬m.*gr.*zalo/i.test(task.task_name);
+                // Check if this is a "Tìm Gr Zalo" task
+                const isZalo = /tìm.*gr.*zalo/i.test(task.task_name);
                 const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${overrideBadge}
-                        ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">ðŸ”’ Cáº¦N DUYá»†T</span>' : ''}
+                        ${task.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
                         <div onclick="_kbShowTaskDetail(${task._source === 'snapshot' ? task.template_id : task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
-                            <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}Ä‘</span>
+                            <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
                         </div>
-                        <div style="font-size:9px;color:#9ca3af;margin-top:3px;">ðŸ• ${tStart} â€” ${tEnd}</div>
+                        <div style="font-size:9px;color:#9ca3af;margin-top:3px;">🕐 ${tStart} — ${tEnd}</div>
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px;">
 
-                            ${isSelf && dateStr === todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">ðŸ†˜ Sáº¿p HT</button>` : ''}
+                            ${isSelf && dateStr === todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
                             ${actionBtn}
                         </div>
                         ${ssPlaceholder}
@@ -1248,10 +1248,10 @@ function _kbRenderGrid() {
         });
     }
 
-    // ===== CV KHÃ“A ROWS =====
+    // ===== CV KHÓA ROWS =====
     if (_kbLockTasks && _kbLockTasks.length > 0) {
         // Section divider
-        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#991b1b,#dc2626);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">ðŸ” CV KhÃ³a â€” KhÃ´ng hoÃ n thÃ nh = KhÃ³a TK + Pháº¡t tiá»n</td></tr>`;
+        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#991b1b,#dc2626);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">🔐 CV Khóa — Không hoàn thành = Khóa TK + Phạt tiền</td></tr>`;
 
         const monDate2 = new Date(_kbWeekStart);
         _kbLockTasks.forEach(lt => {
@@ -1259,7 +1259,7 @@ function _kbRenderGrid() {
             // Time slot column
             html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
                 <div style="background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(153,27,27,0.2);min-width:70px;">
-                    <div style="font-weight:700;color:#fff;font-size:11px;">ðŸ” KHÃ“A</div>
+                    <div style="font-weight:700;color:#fff;font-size:11px;">🔐 KHÓA</div>
                     <div style="margin:2px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
                     <div style="font-weight:700;color:#fca5a5;font-size:10px;">24:00</div>
                 </div>
@@ -1267,7 +1267,7 @@ function _kbRenderGrid() {
 
             for (let d = 1; d <= 7; d++) {
                 if (_kbHolidayMap[d]) {
-                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">ðŸ–ï¸</div></td>`;
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;background:#fef2f2;text-align:center;"><div style="color:#fca5a5;font-size:18px;">🏖️</div></td>`;
                     continue;
                 }
 
@@ -1282,7 +1282,7 @@ function _kbRenderGrid() {
                     taskStartDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 }
                 if (dateStr < todayStr && taskStartDate && dateStr < taskStartDate) {
-                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">â€”</td>`;
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
                     continue;
                 }
 
@@ -1295,8 +1295,8 @@ function _kbRenderGrid() {
                 } else if (lt.recurrence_type === 'weekly') {
                     const wDays = (lt.recurrence_value || '').split(',').map(Number);
                     applies = wDays.includes(dayOfWeek);
-                    // ROLLING: "Setup Spam Zalo" â€” if past recurrence day + not completed, show on working days
-                    if (!applies && lt.task_name && (/setup.*spam.*zalo/i.test(lt.task_name) || /thÃ´ng.*bÃ¡o.*gr.*zalo/i.test(lt.task_name)) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
+                    // ROLLING: "Setup Spam Zalo" — if past recurrence day + not completed, show on working days
+                    if (!applies && lt.task_name && (/setup.*spam.*zalo/i.test(lt.task_name) || /thông.*báo.*gr.*zalo/i.test(lt.task_name)) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
                         // Check if any recurrence day THIS week or BEFORE is uncompleted
                         const wStart = new Date(_kbWeekStart);
                         for (let rd = 0; rd < 7; rd++) {
@@ -1306,7 +1306,7 @@ function _kbRenderGrid() {
                             if (wDays.includes(rDow) && rStr < dateStr) {
                                 const rKey = `${lt.id}_${rStr}`;
                                 const rComp = _kbLockCompletions[rKey];
-                                const rReal = (rComp && rComp.status === 'expired' && (!rComp.content || rComp.content.trim() === '' || /^Pháº¡t chá»“ng:/.test(rComp.content)) && !rComp.proof_url) ? null : rComp;
+                                const rReal = (rComp && rComp.status === 'expired' && (!rComp.content || rComp.content.trim() === '' || /^Phạt chồng:/.test(rComp.content)) && !rComp.proof_url) ? null : rComp;
                                 if (!rReal || (rReal.status !== 'approved' && rReal.status !== 'pending')) {
                                     applies = true; lt._isRolled = true; lt._rolledFromDate = rStr;
                                     break;
@@ -1326,7 +1326,7 @@ function _kbRenderGrid() {
                 if (_kbLockHolidays.has(dateStr)) applies = false;
 
                 if (!applies) {
-                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">â€”</td>`;
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
                     continue;
                 }
 
@@ -1335,12 +1335,12 @@ function _kbRenderGrid() {
                 const compKey = `${lt.id}_${dateStr}`;
                 const comp = _kbLockCompletions[compKey];
 
-                // PhÃ¢n biá»‡t comp tháº­t vs comp tá»± sinh bá»Ÿi há»‡ thá»‘ng
-                // Auto-generated: status='expired', content rá»—ng, khÃ´ng cÃ³ proof â†’ NV chÆ°a ná»™p gÃ¬
+                // Phân biệt comp thật vs comp tự sinh bởi hệ thống
+                // Auto-generated: status='expired', content rỗng, không có proof → NV chưa nộp gì
                 const isAutoGenerated = comp && comp.status === 'expired'
-                    && (!comp.content || comp.content.trim() === '' || /^Pháº¡t chá»“ng:/.test(comp.content))
+                    && (!comp.content || comp.content.trim() === '' || /^Phạt chồng:/.test(comp.content))
                     && !comp.proof_url;
-                // realComp = null náº¿u lÃ  auto-gen â†’ coi nhÆ° chÆ°a cÃ³ bÃ¡o cÃ¡o
+                // realComp = null nếu là auto-gen → coi như chưa có báo cáo
                 const realComp = isAutoGenerated ? null : comp;
 
                 let lockStatusBadge = '';
@@ -1349,24 +1349,24 @@ function _kbRenderGrid() {
 
                 if (realComp) {
                     if (realComp.status === 'approved') {
-                        lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">âœ… ÄÃ£ duyá»‡t</span>';
+                        lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                         lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                     } else if (realComp.status === 'pending') {
-                        lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">â³ Chá» duyá»‡t</span>';
+                        lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>';
                         lockBg = '#fffbeb'; lockBorder = '#fde68a';
                     } else if (realComp.status === 'rejected') {
-                        lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">âŒ Tá»« chá»‘i</span>';
+                        lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
                     } else if (realComp.status === 'expired') {
-                        lockStatusBadge = ''; // No badge â€” only "BÃ¡o cÃ¡o láº¡i" button shown
+                        lockStatusBadge = ''; // No badge — only "Báo cáo lại" button shown
                     }
                 } else if (dateStr < todayStr) {
-                    // Floating fiery badge â€” rá»±c lá»­a giá»‘ng QUÃ Háº N á»Ÿ CV Chuá»—i
-                    lockStatusBadge = '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_kbPulse 2s infinite;border:1px solid #fca5a5;">ðŸ”¥ KHÃ”NG BÃO CÃO</span>';
+                    // Floating fiery badge — rực lửa giống QUÁ HẠN ở CV Chuỗi
+                    lockStatusBadge = '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_kbPulse 2s infinite;border:1px solid #fca5a5;">🔥 KHÔNG BÁO CÁO</span>';
                     lockBg = '#fff5f5'; lockBorder = '#fca5a5';
                 } else if (dateStr === todayStr) {
                     lockStatusBadge = '';
                 } else {
-                    lockStatusBadge = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">ðŸ”’ Sáº¯p tá»›i</span>';
+                    lockStatusBadge = '<span style="background:#f3f4f6;color:#9ca3af;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">🔒 Sắp tới</span>';
                     lockBg = '#fafbfc'; lockBorder = '#e5e7eb';
                 }
 
@@ -1379,60 +1379,60 @@ function _kbRenderGrid() {
 
                 const _ltLinkedPage = _kbGetLinkedPage(lt.task_name);
                 if (_ltLinkedPage && isSelf) {
-                    // Lock task has a linked menu page â†’ navigate there instead of BÃ¡o cÃ¡o
-                    actionHtml = `<div style="margin-top:6px;text-align:center;"><a href="${_ltLinkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_ltLinkedPage.icon} Má»Ÿ trang â†’</a></div>`;
+                    // Lock task has a linked menu page → navigate there instead of Báo cáo
+                    actionHtml = `<div style="margin-top:6px;text-align:center;"><a href="${_ltLinkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_ltLinkedPage.icon} Mở trang →</a></div>`;
                 } else if (_ltLinkedPage && !isSelf ) {
                     actionHtml = ''; // manager view
                 } else if (isSelf) {
                     if (dateStr === todayStr && !realComp) {
-                        // Today, not submitted: show BÃ¡o cÃ¡o (for self)
+                        // Today, not submitted: show Báo cáo (for self)
                         let srBadge = '';
                         if (!hasSR) {
-                            srBadge = `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">ðŸ†˜ Sáº¿p HT</button>`;
+                            srBadge = `<button onclick="_kbLockSupport(${lt.id},'${dateStr}','${lt.task_name.replace(/'/g,"\\\\'")}')" style="padding:3px 10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(217,119,6,0.3);">🆘 Sếp HT</button>`;
                         } else if (hasSR.status === 'supported') {
-                            srBadge = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;" title="${(hasSR.manager_note||'').replace(/"/g,'&quot;')}">âœ… Sáº¿p Ä‘Ã£ HT</span>`;
+                            srBadge = `<span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;" title="${(hasSR.manager_note||'').replace(/"/g,'&quot;')}">✅ Sếp đã HT</span>`;
                         } else {
-                            srBadge = '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span>';
+                            srBadge = '<span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>';
                         }
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
                             ${srBadge}
-                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o</button>
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                         </div>`;
                     } else if (realComp && realComp.status === 'rejected') {
-                        // Self: show BÃ¡o cÃ¡o láº¡i + Xem bÃ¡o cÃ¡o cÅ©
+                        // Self: show Báo cáo lại + Xem báo cáo cũ
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o láº¡i</button>
-                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
+                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (dateStr < todayStr && !realComp) {
-                        // Past, chÆ°a bÃ¡o cÃ¡o (including auto-generated) â†’ nÃºt "BÃ¡o cÃ¡o"
+                        // Past, chưa báo cáo (including auto-generated) → nút "Báo cáo"
                         const srObj = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
                         if (srObj && srObj.status === 'pending') {
                             actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                                <span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span>
-                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o</button>
+                                <span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span>
+                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                             </div>`;
                         } else if (srObj && srObj.status === 'supported') {
                             actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                                <span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">âœ… Sáº¿p Ä‘Ã£ HT</span>
-                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o</button>
+                                <span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">✅ Sếp đã HT</span>
+                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                             </div>`;
                         } else {
-                            // Past, chÆ°a bÃ¡o cÃ¡o láº§n nÃ o â†’ nÃºt "BÃ¡o cÃ¡o" (khÃ´ng pháº£i "BÃ¡o cÃ¡o láº¡i")
+                            // Past, chưa báo cáo lần nào → nút "Báo cáo" (không phải "Báo cáo lại")
                             actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o</button>
+                                <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo</button>
                             </div>`;
                         }
                     } else if (realComp && realComp.status === 'expired') {
-                        // Self: real report that expired â†’ show "BÃ¡o cÃ¡o láº¡i"
+                        // Self: real report that expired → show "Báo cáo lại"
                         actionHtml = `<div style="margin-top:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">ðŸ“ BÃ¡o cÃ¡o láº¡i</button>
-                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <button onclick="_kbLockSubmit(${lt.id},'${dateStr}')" style="padding:3px 10px;border:none;border-radius:5px;background:#059669;color:white;font-size:10px;font-weight:700;cursor:pointer;">📝 Báo cáo lại</button>
+                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (realComp) {
                         const btnColor = 'background:#2563eb;border:1px solid #1d4ed8;';
                         actionHtml = `<div style="margin-top:4px;text-align:center;">
-                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;${btnColor}color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;${btnColor}color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 } else {
@@ -1440,46 +1440,46 @@ function _kbRenderGrid() {
                     if (realComp && realComp.status === 'rejected') {
                         // Manager: show warning for rejected
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">âš ï¸ Chá» NV ná»™p láº¡i</span>
-                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
+                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (realComp && realComp.status === 'expired') {
                         // Manager: show warning for expired (real report)
                         actionHtml = `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;align-items:center;">
-                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">âš ï¸ Chá» NV ná»™p láº¡i</span>
-                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>
+                            <span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     } else if (dateStr === todayStr && !realComp) {
-                        actionHtml = `<div style="margin-top:6px;"><span style="padding:3px 10px;border-radius:5px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;border:1px solid #fecaca;">ðŸ“­ ChÆ°a ná»™p</span></div>`;
+                        actionHtml = `<div style="margin-top:6px;"><span style="padding:3px 10px;border-radius:5px;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;border:1px solid #fecaca;">📭 Chưa nộp</span></div>`;
                     } else if (dateStr < todayStr && !realComp) {
                         const srObj2 = window._kbLockSupportRequests && window._kbLockSupportRequests[srKey];
                         if (srObj2 && srObj2.status === 'pending') {
-                            actionHtml = `<div style="margin-top:6px;"><span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">â³ Chá» Há»— Trá»£</span></div>`;
+                            actionHtml = `<div style="margin-top:6px;"><span style="background:#f5f3ff;color:#7c3aed;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid #c4b5fd;">⏳ Chờ Hỗ Trợ</span></div>`;
                         } else if (srObj2 && srObj2.status === 'supported') {
-                            actionHtml = `<div style="margin-top:6px;"><span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">âœ… Sáº¿p Ä‘Ã£ HT</span></div>`;
+                            actionHtml = `<div style="margin-top:6px;"><span style="background:#dcfce7;color:#059669;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid #86efac;">✅ Sếp đã HT</span></div>`;
                         } else {
-                            actionHtml = `<div style="margin-top:6px;"><span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">ðŸ”¥ ChÆ°a ná»™p BC</span></div>`;
+                            actionHtml = `<div style="margin-top:6px;"><span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">🔥 Chưa nộp BC</span></div>`;
                         }
                     }
-                    // Manager: show Xem bÃ¡o cÃ¡o if comp exists and not already shown above
+                    // Manager: show Xem báo cáo if comp exists and not already shown above
                     if (comp && comp.status !== 'rejected' && comp.status !== 'expired') {
                         actionHtml += `<div style="margin-top:4px;text-align:center;">
-                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">ðŸ“„ Xem bÃ¡o cÃ¡o</span>
+                            <span onclick="_kbShowLockReport(${comp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span>
                         </div>`;
                     }
                 }
 
                 html += `<td style="padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top;">
                     <div style="background:${lockBg};border:2px solid ${lockBorder};border-left:4px solid #dc2626;border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
-                        ${lt.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s ease-in-out infinite;">Cáº¦N DUYá»†T</span>' : ''}
+                        ${lt.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s ease-in-out infinite;">CẦN DUYỆT</span>' : ''}
                         <div onclick="_kbShowLockTaskDetail(${lt.id})" style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${lt.task_name}</div>
-                        <div style="font-size:9px;color:#9ca3af;margin-top:3px;">â° Háº¡n: 24:00</div>
+                        <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
 
                         <div style="margin-top:6px;">${lockStatusBadge}</div>
                         ${actionHtml}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
-                        ${/tÃ¬m.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
-                        ${/Ä‘Äƒng.*báº£n.*thÃ¢n/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -1487,10 +1487,10 @@ function _kbRenderGrid() {
         });
     }
 
-    // ===== CV CHUá»–I ROWS =====
+    // ===== CV CHUỖI ROWS =====
     if (_kbChainItems && _kbChainItems.length > 0) {
-        // Section divider â€” blue banner
-        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#1e40af,#2563eb);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">ðŸ”— CV Chuá»—i â€” CÃ´ng viá»‡c chuá»—i liÃªn káº¿t</td></tr>`;
+        // Section divider — blue banner
+        html += `<tr><td colspan="8" style="padding:6px 14px;background:linear-gradient(135deg,#1e40af,#2563eb);font-size:11px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">🔗 CV Chuỗi — Công việc chuỗi liên kết</td></tr>`;
 
         // Group items by chain_instance_id
         const chainGroups = {};
@@ -1508,7 +1508,7 @@ function _kbRenderGrid() {
             chainGroups[item.chain_instance_id].items.push(item);
         });
 
-        // Color palette for distinguishing chains â€” includes subtle background tints
+        // Color palette for distinguishing chains — includes subtle background tints
         const _chainColors = [
             { gd:'#1e40af', gl:'#2563eb', border:'#2563eb', text:'#1e40af', badge:'#93c5fd', tint:'#eff6ff', tintBorder:'#bfdbfe' },  // Blue
             { gd:'#b45309', gl:'#d97706', border:'#d97706', text:'#92400e', badge:'#fcd34d', tint:'#fffbeb', tintBorder:'#fde68a' },  // Amber
@@ -1527,10 +1527,10 @@ function _kbRenderGrid() {
         Object.values(chainGroups).forEach((chain, chainIdx) => {
             const cc = _chainColors[chainIdx % _chainColors.length];
             html += `<tr>`;
-            // Time slot column â€” colored chain badge
+            // Time slot column — colored chain badge
             html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
                 <div style="background:linear-gradient(135deg,${cc.gd},${cc.gl});border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px ${cc.gd}33;min-width:70px;cursor:pointer;" onclick="_kbOpenChainDetail(${chain.chain_instance_id})">
-                    <div style="font-weight:700;color:#fff;font-size:10px;">ðŸ”— CHUá»–I</div>
+                    <div style="font-weight:700;color:#fff;font-size:10px;">🔗 CHUỖI</div>
                     <div style="margin:2px auto;width:20px;height:1px;background:rgba(255,255,255,0.3);"></div>
                     <div style="font-weight:700;color:${cc.badge};font-size:9px;">${Number(chain.completed_items)||0}/${Number(chain.total_items)||0}</div>
                 </div>
@@ -1549,7 +1549,7 @@ function _kbRenderGrid() {
                 });
 
                 if (dayItems.length === 0) {
-                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#d1d5db;font-size:20px;background:${cc.tint};">â€”</td>`;
+                    html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#d1d5db;font-size:20px;background:${cc.tint};">—</td>`;
                     continue;
                 }
 
@@ -1577,41 +1577,41 @@ function _kbRenderGrid() {
                     // Status badge
                     let statusBadge = '';
                     if (isCompleted) {
-                        statusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">âœ… Xong</span>';
+                        statusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">✅ Xong</span>';
                     } else if (isPending) {
-                        statusBadge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;">ðŸ”’ Chá»</span>';
+                        statusBadge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;">🔒 Chờ</span>';
                     } else if (isOverdue) {
-                        statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">ðŸ”¥ QuÃ¡ háº¡n</span>';
+                        statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔥 Quá hạn</span>';
                     } else {
                         // Check if user has submitted
                         const myComp = item.my_completions;
                         if (myComp && myComp.length > 0) {
                             const lastComp = myComp[myComp.length - 1];
                             if (lastComp.status === 'pending') {
-                                statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">â³ Chá» duyá»‡t</span>';
+                                statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">⏳ Chờ duyệt</span>';
                             } else if (lastComp.status === 'rejected') {
-                                statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">âŒ Tá»« chá»‘i</span>';
+                                statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">❌ Từ chối</span>';
                             }
                         } else {
-                            statusBadge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">ðŸ”µ Äang lÃ m</span>';
+                            statusBadge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔵 Đang làm</span>';
                         }
                     }
 
-                    // Floating overdue badge (prominent, like Cáº¦N DUYá»†T)
-                    const overdueBadge = isOverdue ? '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_kbPulse 2s infinite;border:1px solid #fca5a5;">ðŸ”¥ QUÃ Háº N</span>' : '';
+                    // Floating overdue badge (prominent, like CẦN DUYỆT)
+                    const overdueBadge = isOverdue ? '<span style="position:absolute;top:-7px;left:-7px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_kbPulse 2s infinite;border:1px solid #fca5a5;">🔥 QUÁ HẠN</span>' : '';
 
-                    // Action button â€” uses chain color
+                    // Action button — uses chain color
                     let actionBtn = '';
                     if (!isCompleted && !isPending) {
-                        actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:${cc.gl};color:white;font-size:9px;font-weight:700;cursor:pointer;">ðŸ“‹ Xem chuá»—i</span></div>`;
+                        actionBtn = `<div style="margin-top:4px;"><span onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="display:inline-block;padding:3px 8px;border-radius:5px;background:${cc.gl};color:white;font-size:9px;font-weight:700;cursor:pointer;">📋 Xem chuỗi</span></div>`;
                     }
 
                     html += `<div onclick="_kbOpenChainDetail(${item.chain_instance_id})" style="background:${itemBg};border:2px solid ${itemBorder};border-left:4px solid ${cc.border};border-radius:8px;padding:8px 10px;text-align:center;margin-bottom:4px;cursor:pointer;opacity:${opacity};transition:opacity 0.2s;position:relative;">
                         ${overdueBadge}
-                        ${item.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">ðŸ”’ Cáº¦N DUYá»†T</span>' : ''}
-                        <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">ðŸ”— ${item.task_name}</div>
+                        ${item.requires_approval ? '<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid #fbbf24;">🔒 CẦN DUYỆT</span>' : ''}
+                        <div style="font-weight:700;color:${nameColor};font-size:11px;margin-bottom:2px;">🔗 ${item.task_name}</div>
                         <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${chain.chain_name} (${item.item_order}/${Number(chain.total_items)||0})</div>
-                        ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:${cc.text};text-decoration:underline;">ðŸ”— HD</a>` : ''}
+                        ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" onclick="event.stopPropagation()" style="font-size:9px;color:${cc.text};text-decoration:underline;">🔗 HD</a>` : ''}
                         <div style="margin-top:4px;">${statusBadge}</div>
                         ${actionBtn}
                     </div>`;
@@ -1628,7 +1628,7 @@ function _kbRenderGrid() {
     wrap.innerHTML = html;
 }
 
-// ========== CV CHUá»–I: Open chain detail modal ==========
+// ========== CV CHUỖI: Open chain detail modal ==========
 async function _kbOpenChainDetail(instanceId) {
     // Reuse the chain detail modal from bangiao-khoa.js if available
     if (typeof _ctShowDetailModal === 'function') {
@@ -1644,8 +1644,8 @@ async function _kbOpenChainDetail(instanceId) {
         const body = document.getElementById('modalBody');
         const footer = document.getElementById('modalFooter');
 
-        title.textContent = `ðŸ”— ${data.chain_name}`;
-        const modeLabel = data.execution_mode === 'sequential' ? 'ðŸ“‹ Tuáº§n tá»±' : 'âš¡ Song song';
+        title.textContent = `🔗 ${data.chain_name}`;
+        const modeLabel = data.execution_mode === 'sequential' ? '📋 Tuần tự' : '⚡ Song song';
         const startStr = data.start_date ? new Date(data.start_date).toLocaleDateString('vi-VN') : '';
         const endStr = data.end_date ? new Date(data.end_date).toLocaleDateString('vi-VN') : '';
         const completedCount = (data.items || []).filter(i => i.status === 'completed').length;
@@ -1655,15 +1655,15 @@ async function _kbOpenChainDetail(instanceId) {
         let html = `<div style="padding:16px 20px;">
             <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:12px;color:#6b7280;">
                 <span>${modeLabel}</span>
-                <span>ðŸ“… ${startStr} â†’ ${endStr}</span>
-                <span>ðŸ‘¤ ${data.creator_name || ''}</span>
+                <span>📅 ${startStr} → ${endStr}</span>
+                <span>👤 ${data.creator_name || ''}</span>
             </div>
             ${data.chain_description ? `<div style="margin-bottom:12px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
-                <div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:4px;text-transform:uppercase;">ðŸ“ MÃ´ táº£ cÃ´ng viá»‡c chuá»—i</div>
+                <div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:4px;text-transform:uppercase;">📝 Mô tả công việc chuỗi</div>
                 <div style="font-size:12px;color:#1e293b;white-space:pre-wrap;">${data.chain_description}</div>
             </div>` : ''}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <span style="font-size:12px;color:#374151;">Tiáº¿n Ä‘á»™</span>
+                <span style="font-size:12px;color:#374151;">Tiến độ</span>
                 <span style="font-size:12px;font-weight:700;color:${pct===100?'#059669':'#dc2626'};">${completedCount}/${totalCount} (${pct}%)</span>
             </div>
             <div style="background:#e5e7eb;border-radius:6px;height:6px;margin-bottom:16px;">
@@ -1674,23 +1674,23 @@ async function _kbOpenChainDetail(instanceId) {
                     <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">#</th>
                     <th style="padding:8px;text-align:left;color:#6b7280;font-weight:700;">TASK CON</th>
                     <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">DEADLINE</th>
-                    <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">TRáº NG THÃI</th>
+                    <th style="padding:8px;text-align:center;color:#6b7280;font-weight:700;">TRẠNG THÁI</th>
                 </tr></thead><tbody>`;
 
         (data.items || []).forEach(item => {
             const deadlineStr = item.deadline ? new Date(item.deadline).toLocaleDateString('vi-VN') : '';
             const isOver = item.status !== 'completed' && item.deadline && new Date(item.deadline) < new Date();
             let badge = '';
-            if (item.status === 'completed') badge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">âœ… Xong</span>';
-            else if (item.status === 'pending') badge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">ðŸ”’ Chá»</span>';
-            else if (isOver) badge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">âš ï¸ Trá»…</span>';
-            else badge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">ðŸ”µ Äang lÃ m</span>';
+            if (item.status === 'completed') badge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Xong</span>';
+            else if (item.status === 'pending') badge = '<span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">🔒 Chờ</span>';
+            else if (isOver) badge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⚠️ Trễ</span>';
+            else badge = '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">🔵 Đang làm</span>';
 
             html += `<tr style="border-bottom:1px solid #f3f4f6;${isOver?'background:#fff5f5;':''}">
                 <td style="padding:8px;text-align:center;font-weight:700;color:#6b7280;">${item.item_order}</td>
                 <td style="padding:8px;">
                     <div style="font-weight:600;color:#1e293b;">${item.task_name}</div>
-                    ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:underline;">ðŸ”— HÆ°á»›ng dáº«n CV</a>` : ''}
+                    ${item.guide_link ? `<a href="${item.guide_link}" target="_blank" style="font-size:10px;color:#2563eb;text-decoration:underline;">🔗 Hướng dẫn CV</a>` : ''}
                 </td>
                 <td style="padding:8px;text-align:center;font-size:11px;color:${isOver?'#dc2626':'#374151'};font-weight:${isOver?'700':'500'};">${deadlineStr}</td>
                 <td style="padding:8px;text-align:center;">${badge}</td>
@@ -1699,14 +1699,14 @@ async function _kbOpenChainDetail(instanceId) {
 
         html += `</tbody></table></div>`;
         body.innerHTML = html;
-        footer.innerHTML = `<button onclick="document.getElementById('modalOverlay').classList.remove('show')" style="padding:8px 24px;border-radius:8px;border:1px solid #1e293b;background:#1e293b;color:white;font-weight:700;cursor:pointer;">ÄÃ³ng</button>`;
+        footer.innerHTML = `<button onclick="document.getElementById('modalOverlay').classList.remove('show')" style="padding:8px 24px;border-radius:8px;border:1px solid #1e293b;background:#1e293b;color:white;font-weight:700;cursor:pointer;">Đóng</button>`;
         overlay.classList.add('show');
     } catch(e) {
-        alert('Lá»—i: ' + e.message);
+        alert('Lỗi: ' + e.message);
     }
 }
 
-// Premium task detail modal (same design as BÃ n Giao CV Äiá»ƒm)
+// Premium task detail modal (same design as Bàn Giao CV Điểm)
 async function _kbShowTaskDetail(templateId) {
     let task = _kbTasks.find(t => {
         const tid = t._source === 'snapshot' ? t.template_id : t.id;
@@ -1719,7 +1719,7 @@ async function _kbShowTaskDetail(templateId) {
             task = data.template;
         } catch(e) {}
     }
-    if (!task) { showToast('KhÃ´ng tÃ¬m tháº¥y cÃ´ng viá»‡c', 'error'); return; }
+    if (!task) { showToast('Không tìm thấy công việc', 'error'); return; }
     const c = _kbGetColor(task.task_name);
     const inputReqs = _kbParseJSON(task.input_requirements);
     const outputReqs = _kbParseJSON(task.output_requirements);
@@ -1764,102 +1764,102 @@ async function _kbShowTaskDetail(templateId) {
         <div style="background:linear-gradient(135deg, ${c.badge}, ${c.badge}dd);padding:24px 28px;border-radius:16px 16px 0 0;position:relative;overflow:hidden;">
             <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
             <div style="position:absolute;bottom:-30px;left:30px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.05);"></div>
-            <button onclick="document.getElementById('kbDetailModal').remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">Ã—</button>
+            <button onclick="document.getElementById('kbDetailModal').remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
             <div style="font-size:22px;font-weight:800;color:white;margin-bottom:6px;text-shadow:0 1px 3px rgba(0,0,0,0.15);">${task.task_name}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">${isFixed ? 'ðŸ“Œ Cá»‘ Ä‘á»‹nh' : 'ðŸ“… 1 tuáº§n'}</span>
+                <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">${isFixed ? '📌 Cố định' : '📅 1 tuần'}</span>
                 <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">${_KB_DAY_NAMES[task.day_of_week]}</span>
-                ${task.requires_approval ? '<span style="background:rgba(255,200,0,0.3);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">ðŸ”’ Cáº§n duyá»‡t</span>' : ''}
+                ${task.requires_approval ? '<span style="background:rgba(255,200,0,0.3);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">🔒 Cần duyệt</span>' : ''}
             </div>
         </div>
         <div style="padding:24px 28px;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
                 <div style="text-align:center;background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:12px 8px;position:relative;">
-                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Äiá»ƒm${ov && ov.custom_points != null ? ' <span style="color:#d97706;font-size:9px;">âœï¸ TC</span>' : ''}</div>
-                    <div style="font-size:24px;font-weight:800;color:${c.badge};">${task.points}<span style="font-size:12px;">Ä‘</span></div>
-                    ${origPoints != null ? '<div style="font-size:9px;color:#9ca3af;text-decoration:line-through;">Gá»‘c: ' + origPoints + 'Ä‘</div>' : ''}
-                    ${canEditOverride ? '<button onclick="_kbEditOverrideDiem(' + task.id + ',\'points\')" style="position:absolute;top:4px;right:4px;background:#f59e0b;border:none;color:white;width:20px;height:20px;border-radius:50%;font-size:10px;cursor:pointer;" title="Sá»­a Ä‘iá»ƒm cho NV nÃ y">âœï¸</button>' : ''}
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Điểm${ov && ov.custom_points != null ? ' <span style="color:#d97706;font-size:9px;">✏️ TC</span>' : ''}</div>
+                    <div style="font-size:24px;font-weight:800;color:${c.badge};">${task.points}<span style="font-size:12px;">đ</span></div>
+                    ${origPoints != null ? '<div style="font-size:9px;color:#9ca3af;text-decoration:line-through;">Gốc: ' + origPoints + 'đ</div>' : ''}
+                    ${canEditOverride ? '<button onclick="_kbEditOverrideDiem(' + task.id + ',\'points\')" style="position:absolute;top:4px;right:4px;background:#f59e0b;border:none;color:white;width:20px;height:20px;border-radius:50%;font-size:10px;cursor:pointer;" title="Sửa điểm cho NV này">✏️</button>' : ''}
                 </div>
                 <div style="text-align:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 8px;position:relative;">
-                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">SL Tá»‘i Thiá»ƒu${ov && ov.custom_min_quantity != null ? ' <span style="color:#d97706;font-size:9px;">âœï¸ TC</span>' : ''}</div>
-                    <div style="font-size:24px;font-weight:800;color:#16a34a;">â‰¥${task.min_quantity || 1}<span style="font-size:12px;"> láº§n</span></div>
-                    ${origMinQty != null ? '<div style="font-size:9px;color:#9ca3af;text-decoration:line-through;">Gá»‘c: â‰¥' + origMinQty + ' láº§n</div>' : ''}
-                    ${canEditOverride ? '<button onclick="_kbEditOverrideDiem(' + task.id + ',\'min_quantity\')" style="position:absolute;top:4px;right:4px;background:#f59e0b;border:none;color:white;width:20px;height:20px;border-radius:50%;font-size:10px;cursor:pointer;" title="Sá»­a SL cho NV nÃ y">âœï¸</button>' : ''}
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">SL Tối Thiểu${ov && ov.custom_min_quantity != null ? ' <span style="color:#d97706;font-size:9px;">✏️ TC</span>' : ''}</div>
+                    <div style="font-size:24px;font-weight:800;color:#16a34a;">≥${task.min_quantity || 1}<span style="font-size:12px;"> lần</span></div>
+                    ${origMinQty != null ? '<div style="font-size:9px;color:#9ca3af;text-decoration:line-through;">Gốc: ≥' + origMinQty + ' lần</div>' : ''}
+                    ${canEditOverride ? '<button onclick="_kbEditOverrideDiem(' + task.id + ',\'min_quantity\')" style="position:absolute;top:4px;right:4px;background:#f59e0b;border:none;color:white;width:20px;height:20px;border-radius:50%;font-size:10px;cursor:pointer;" title="Sửa SL cho NV này">✏️</button>' : ''}
                 </div>
                 <div style="text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 8px;">
-                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Khung Giá»</div>
+                    <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Khung Giờ</div>
                     <div style="font-size:14px;font-weight:800;color:#334155;margin-top:2px;">${task.time_start}</div>
-                    <div style="font-size:9px;color:#9ca3af;">â†’ ${task.time_end}</div>
+                    <div style="font-size:9px;color:#9ca3af;">→ ${task.time_end}</div>
                 </div>
             </div>
             ${task.guide_url ? `
             <div style="margin-bottom:18px;">
                 <a href="${task.guide_url}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg, #eff6ff, #dbeafe);border:1px solid #93c5fd;border-radius:10px;text-decoration:none;color:#1d4ed8;transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(37,99,235,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
-                    <span style="font-size:20px;">ðŸ“˜</span>
+                    <span style="font-size:20px;">📘</span>
                     <div>
-                        <div style="font-weight:700;font-size:13px;">Xem hÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
+                        <div style="font-weight:700;font-size:13px;">Xem hướng dẫn công việc</div>
                         <div style="font-size:11px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:350px;">${task.guide_url}</div>
                     </div>
-                    <span style="margin-left:auto;font-size:14px;">â†’</span>
+                    <span style="margin-left:auto;font-size:14px;">→</span>
                 </a>
             </div>` : ''}
             <div id="kbTaskDetailSSProgress"></div>
-            ${reqList(inputReqs, 'ðŸ“¥', '#2563eb', 'YÃªu cáº§u Ä‘áº§u vÃ o')}
-            ${reqList(outputReqs, 'ðŸ“¤', '#059669', 'YÃªu cáº§u Ä‘áº§u ra')}
+            ${reqList(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
+            ${reqList(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
             ${!inputReqs.length && !outputReqs.length ? `
             <div style="text-align:center;padding:16px;color:#9ca3af;font-size:13px;background:#f9fafb;border-radius:8px;border:1px dashed #e5e7eb;">
-                ChÆ°a cÃ³ yÃªu cáº§u Ä‘áº§u vÃ o/ra
+                Chưa có yêu cầu đầu vào/ra
             </div>` : ''}
         </div>
     </div>`;
     document.body.appendChild(m);
-    // If this is a Tá»± TÃ¬m Kiáº¿m task, load self-search progress into the detail modal
-    if (/tá»±\s*tÃ¬m\s*kiáº¿m/i.test(task.task_name)) {
+    // If this is a Tự Tìm Kiếm task, load self-search progress into the detail modal
+    if (/tự\s*tìm\s*kiếm/i.test(task.task_name)) {
         _kbLoadDetailSelfSearch();
     }
-    // If this is a Gá»i Äiá»‡n Telesale task, load call progress into the detail modal
-    if (/gá»i\s*Ä‘iá»‡n\s*telesale/i.test(task.task_name)) {
+    // If this is a Gọi Điện Telesale task, load call progress into the detail modal
+    if (/gọi\s*điện\s*telesale/i.test(task.task_name)) {
         _kbLoadDetailTelesale();
     }
-    // If this is a Nháº¯n TÃ¬m Äá»‘i TÃ¡c task, load partner outreach progress into the detail modal
-    if (/nháº¯n.*Ä‘á»‘i\s*tÃ¡c/i.test(task.task_name)) {
+    // If this is a Nhắn Tìm Đối Tác task, load partner outreach progress into the detail modal
+    if (/nhắn.*đối\s*tác/i.test(task.task_name)) {
         _kbLoadDetailPartnerOutreach();
     }
-    // If this is an Add/Cmt Äá»‘i TÃ¡c task, load addcmt progress into the detail modal
-    if (/add.*cmt.*Ä‘á»‘i\s*tÃ¡c/i.test(task.task_name)) {
+    // If this is an Add/Cmt Đối Tác task, load addcmt progress into the detail modal
+    if (/add.*cmt.*đối\s*tác/i.test(task.task_name)) {
         _kbLoadDetailAddCmt();
     }
-    // If this is a ÄÄƒng Video task, load video progress into the detail modal
-    if (/Ä‘Äƒng\s*video/i.test(task.task_name)) {
+    // If this is a Đăng Video task, load video progress into the detail modal
+    if (/đăng\s*video/i.test(task.task_name)) {
         _kbLoadDetailDangVideo();
     }
-    // If this is a ÄÄƒng Content task, load content progress into the detail modal
-    if (/Ä‘Äƒng\s*content/i.test(task.task_name)) {
+    // If this is a Đăng Content task, load content progress into the detail modal
+    if (/đăng\s*content/i.test(task.task_name)) {
         _kbLoadDetailDangContent();
     }
-    // If this is a ÄÄƒng & TÃ¬m KH Group task
-    if (/Ä‘Äƒng.*tÃ¬m.*kh.*group/i.test(task.task_name)) {
+    // If this is a Đăng & Tìm KH Group task
+    if (/đăng.*tìm.*kh.*group/i.test(task.task_name)) {
         _kbLoadDetailDangGroup();
     }
-    // If this is a Tuyá»ƒn Dá»¥ng task
-    if (/tuyá»ƒn\s*dá»¥ng/i.test(task.task_name)) {
+    // If this is a Tuyển Dụng task
+    if (/tuyển\s*dụng/i.test(task.task_name)) {
         _kbLoadDetailTuyenDung();
     }
     // If this is a Sedding task
     if (/sedding/i.test(task.task_name)) {
         _kbLoadDetailSedding();
     }
-    // If this is a TÃ¬m Gr Zalo task
-    if (/tÃ¬m.*gr.*zalo/i.test(task.task_name)) {
+    // If this is a Tìm Gr Zalo task
+    if (/tìm.*gr.*zalo/i.test(task.task_name)) {
         _kbLoadDetailZalo();
     }
-    // If this is a ÄÄƒng Báº£n ThÃ¢n task
-    if (/Ä‘Äƒng.*báº£n.*thÃ¢n/i.test(task.task_name)) {
+    // If this is a Đăng Bản Thân task
+    if (/đăng.*bản.*thân/i.test(task.task_name)) {
         _kbLoadDetailDangBT();
     }
 }
 
-// Report modal â€” full redesign
+// Report modal — full redesign
 let _kbPastedFile = null;
 
 function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) {
@@ -1877,7 +1877,7 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
         const tmpl = _kbTasks.find(t => t._source !== 'snapshot' && t.task_name === task.task_name);
         if (tmpl) templateId = tmpl.id;
     }
-    const taskName = task ? task.task_name : 'CÃ´ng viá»‡c';
+    const taskName = task ? task.task_name : 'Công việc';
     const taskPoints = task ? task.points : 0;
     const needsApproval = task ? task.requires_approval : false;
     const minQty = task ? (task.min_quantity || 1) : 1;
@@ -1904,17 +1904,17 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
     const rejectBanner = isRedo && rejectReason ? `
         <div style="background:linear-gradient(135deg,#fef2f2,#fff1f2);border:2px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">âŒ LÃ DO Tá»ª CHá»I</span>
+                <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">❌ LÝ DO TỪ CHỐI</span>
             </div>
             <div style="font-size:13px;color:#991b1b;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #fecaca;">
                 "${rejectReason.replace(/"/g, '&quot;')}"
             </div>
-            <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">ðŸ“ HÃ£y kháº¯c phá»¥c vÃ  bÃ¡o cÃ¡o láº¡i bÃªn dÆ°á»›i</div>
+            <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">📝 Hãy khắc phục và báo cáo lại bên dưới</div>
         </div>` : '';
     const approvalWarn = needsApproval ? `
         <div style="padding:10px 12px;background:${isRedo ? '#fef2f2' : '#fef3c7'};border:1px solid ${isRedo ? '#fecaca' : '#fde68a'};border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:18px;">${isRedo ? 'ðŸ”„' : 'ðŸ”’'}</span>
-            <div style="font-size:12px;color:${isRedo ? '#991b1b' : '#78350f'};font-weight:600;">${isRedo ? 'Ná»™p láº¡i cÃ´ng viá»‡c bá»‹ tá»« chá»‘i â€” sá»­a vÃ  ná»™p láº¡i Ä‘á»ƒ duyá»‡t' : 'CÃ´ng viá»‡c nÃ y cáº§n Quáº£n lÃ½/TP duyá»‡t má»›i Ä‘Æ°á»£c tÃ­nh Ä‘iá»ƒm'}</div>
+            <span style="font-size:18px;">${isRedo ? '🔄' : '🔒'}</span>
+            <div style="font-size:12px;color:${isRedo ? '#991b1b' : '#78350f'};font-weight:600;">${isRedo ? 'Nộp lại công việc bị từ chối — sửa và nộp lại để duyệt' : 'Công việc này cần Quản lý/TP duyệt mới được tính điểm'}</div>
         </div>` : '';
 
     // Build requirements HTML (compact)
@@ -1931,15 +1931,15 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
         <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
             <div style="padding:12px 14px;background:#f8fafc;">
                 ${guideUrl ? `<a href="${guideUrl}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;text-decoration:none;color:#1d4ed8;margin-bottom:8px;transition:all .15s;font-size:12px;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
-                    <span style="font-size:16px;">ðŸ“˜</span>
+                    <span style="font-size:16px;">📘</span>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;">HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
+                        <div style="font-weight:700;">Hướng dẫn công việc</div>
                         <div style="font-size:10px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${guideUrl}</div>
                     </div>
-                    <span>â†’</span>
+                    <span>→</span>
                 </a>` : ''}
-                ${reqHtml(inputReqs, 'ðŸ“¥', '#2563eb', 'YÃªu cáº§u Ä‘áº§u vÃ o')}
-                ${reqHtml(outputReqs, 'ðŸ“¤', '#059669', 'YÃªu cáº§u Ä‘áº§u ra')}
+                ${reqHtml(inputReqs, '📥', '#2563eb', 'Yêu cầu đầu vào')}
+                ${reqHtml(outputReqs, '📤', '#059669', 'Yêu cầu đầu ra')}
             </div>
         </div>` : '';
 
@@ -1950,10 +1950,10 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
     <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
         <div style="background:linear-gradient(135deg,${isRedo ? '#991b1b,#dc2626' : '#122546,#1e3a5f'});padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">${isRedo ? 'ðŸ”„ Ná»™p láº¡i cÃ´ng viá»‡c' : 'ðŸ“ BÃ¡o cÃ¡o cÃ´ng viá»‡c'}</h3>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">${isRedo ? 'Sá»­a vÃ  ná»™p láº¡i Ä‘á»ƒ Ä‘Æ°á»£c duyá»‡t' : 'Ná»™p káº¿t quáº£ hoÃ n thÃ nh'}</div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">${isRedo ? '🔄 Nộp lại công việc' : '📝 Báo cáo công việc'}</h3>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">${isRedo ? 'Sửa và nộp lại để được duyệt' : 'Nộp kết quả hoàn thành'}</div>
             </div>
-            <button onclick="document.getElementById('kbReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:20px 22px;">
             ${rejectBanner}
@@ -1963,7 +1963,7 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
                 if (srObj && srObj.status === 'supported' && srObj.manager_note) {
                     return `<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #059669;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">âœ… Sáº¾P ÄÃƒ Há»– TRá»¢</span>
+                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">✅ SẾP ĐÃ HỖ TRỢ</span>
                         </div>
                         <div style="font-size:13px;color:#065f46;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #a7f3d0;">
                             "${srObj.manager_note.replace(/"/g, '&quot;')}"
@@ -1975,57 +1975,57 @@ function _kbShowReportModal(templateId, reportDate, fallbackName, redoReportId) 
             ${approvalWarn}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“‹ TÃªn cÃ´ng viá»‡c</div>
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
                     <div style="font-size:14px;font-weight:700;color:#122546;">${taskName}</div>
                 </div>
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“… NgÃ y bÃ¡o cÃ¡o</div>
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📅 Ngày báo cáo</div>
                     <div style="font-size:14px;font-weight:700;color:#122546;">${reportDate.split('-').reverse().join('/')}</div>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#ecfdf5;border-radius:8px;border:1px solid #a7f3d0;text-align:center;">
-                    <div style="font-size:10px;color:#059669;text-transform:uppercase;font-weight:600;margin-bottom:4px;">â­ Äiá»ƒm</div>
-                    <div style="font-size:18px;font-weight:800;color:#059669;">${taskPoints}Ä‘</div>
+                    <div style="font-size:10px;color:#059669;text-transform:uppercase;font-weight:600;margin-bottom:4px;">⭐ Điểm</div>
+                    <div style="font-size:18px;font-weight:800;color:#059669;">${taskPoints}đ</div>
                 </div>
                 <div style="padding:10px 12px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;text-align:center;">
-                    <div style="font-size:10px;color:#2563eb;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“Š Tá»‘i thiá»ƒu</div>
-                    <div style="font-size:18px;font-weight:800;color:#2563eb;">â‰¥${minQty}</div>
+                    <div style="font-size:10px;color:#2563eb;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📊 Tối thiểu</div>
+                    <div style="font-size:18px;font-weight:800;color:#2563eb;">≥${minQty}</div>
                 </div>
                 <div>
-                    <label style="font-weight:600;font-size:11px;color:#374151;display:block;margin-bottom:4px;">SL hoÃ n thÃ nh <span style="color:#dc2626;">*</span></label>
+                    <label style="font-weight:600;font-size:11px;color:#374151;display:block;margin-bottom:4px;">SL hoàn thành <span style="color:#dc2626;">*</span></label>
                     <input id="kbRptQty" type="number" min="0" value="${minQty}" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-weight:700;color:#122546;box-sizing:border-box;text-align:center;">
                 </div>
             </div>
             ${taskInfoSection}
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">ðŸ“„ Ná»™i dung hoÃ n thÃ nh <span style="color:#dc2626;">*</span></label>
-                <textarea id="kbRptContent" rows="2" placeholder="MÃ´ táº£ cÃ´ng viá»‡c Ä‘Ã£ lÃ m..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành <span style="color:#dc2626;">*</span></label>
+                <textarea id="kbRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">ðŸ”— Link bÃ¡o cÃ¡o káº¿t quáº£ <span style="color:#dc2626;">*</span></label>
-                <input id="kbRptLink" type="url" placeholder="https://docs.google.com/... hoáº·c link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả <span style="color:#dc2626;">*</span></label>
+                <input id="kbRptLink" type="url" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">ðŸ–¼ï¸ HÃ¬nh áº£nh bÃ¡o cÃ¡o <span style="color:#dc2626;">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V Ä‘á»ƒ dÃ¡n áº£nh)</span></label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="color:#dc2626;">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
                 <div id="kbPasteZone" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafbfc;transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
-                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">ðŸ“‹</div>
-                    <div style="font-size:12px;color:#9ca3af;">Click vÃ o Ä‘Ã¢y rá»“i <b>Ctrl+V</b> Ä‘á»ƒ dÃ¡n áº£nh tá»« clipboard</div>
+                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div>
+                    <div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
                 </div>
                 <div id="kbPastePreview" style="display:none;margin-top:8px;position:relative;">
                     <img id="kbPasteImg" style="max-width:100%;max-height:150px;border-radius:6px;border:1px solid #e5e7eb;">
-                    <button onclick="_kbRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">Ã—</button>
+                    <button onclick="_kbRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">×</button>
                 </div>
             </div>
             <div style="font-size:11px;color:#6b7280;margin-bottom:14px;background:#f9fafb;padding:8px 10px;border-radius:6px;border:1px solid #f3f4f6;">
-                ðŸ’¡ <b>LÆ°u Ã½:</b> Báº¯t buá»™c pháº£i cÃ³ Ã­t nháº¥t <b>link</b> hoáº·c <b>hÃ¬nh áº£nh</b> Ä‘á»ƒ ná»™p bÃ¡o cÃ¡o.
+                💡 <b>Lưu ý:</b> Bắt buộc phải có ít nhất <b>link</b> hoặc <b>hình ảnh</b> để nộp báo cáo.
             </div>
             <input type="hidden" id="kbRptTemplateId" value="${templateId}">
             <input type="hidden" id="kbRptDate" value="${reportDate}">
             <input type="hidden" id="kbRptRedoId" value="${redoReportId || ''}">
             <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;">
-                <button onclick="document.getElementById('kbReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Há»§y</button>
-                <button onclick="_kbSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,${isRedo ? '#dc2626,#991b1b' : '#16a34a,#15803d'});color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,0.3);">${isRedo ? 'ðŸ”„ Ná»™p láº¡i' : 'ðŸ“¤ Ná»™p bÃ¡o cÃ¡o'}</button>
+                <button onclick="document.getElementById('kbReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+                <button onclick="_kbSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,${isRedo ? '#dc2626,#991b1b' : '#16a34a,#15803d'});color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,0.3);">${isRedo ? '🔄 Nộp lại' : '📤 Nộp báo cáo'}</button>
             </div>
         </div>
     </div>`;
@@ -2048,7 +2048,7 @@ function _kbHandlePaste(e) {
                 document.getElementById('kbPasteImg').src = ev.target.result;
                 document.getElementById('kbPastePreview').style.display = 'block';
                 const z = document.getElementById('kbPasteZone');
-                z.innerHTML = '<div style="font-size:14px;color:#16a34a;font-weight:600;">âœ… ÄÃ£ dÃ¡n áº£nh thÃ nh cÃ´ng!</div>';
+                z.innerHTML = '<div style="font-size:14px;color:#16a34a;font-weight:600;">✅ Đã dán ảnh thành công!</div>';
                 z.style.borderColor = '#16a34a';
                 z.style.background = '#f0fdf4';
             };
@@ -2062,7 +2062,7 @@ function _kbRemovePaste() {
     _kbPastedFile = null;
     document.getElementById('kbPastePreview').style.display = 'none';
     const z = document.getElementById('kbPasteZone');
-    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">ðŸ“‹</div><div style="font-size:12px;color:#9ca3af;">Click vÃ o Ä‘Ã¢y rá»“i <b>Ctrl+V</b> Ä‘á»ƒ dÃ¡n áº£nh tá»« clipboard</div>';
+    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div><div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>';
     z.style.borderColor = '#d1d5db';
     z.style.background = '#fafbfc';
 }
@@ -2076,19 +2076,19 @@ async function _kbSubmitReport() {
     const redoId = document.getElementById('kbRptRedoId')?.value;
 
     if (!content) {
-        showToast('Vui lÃ²ng nháº­p ná»™i dung hoÃ n thÃ nh!', 'error');
+        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
         document.getElementById('kbRptContent')?.focus();
         return;
     }
 
     if (!qty || Number(qty) <= 0) {
-        showToast('Vui lÃ²ng nháº­p sá»‘ lÆ°á»£ng hoÃ n thÃ nh!', 'error');
+        showToast('Vui lòng nhập số lượng hoàn thành!', 'error');
         document.getElementById('kbRptQty')?.focus();
         return;
     }
 
     if (!link && !_kbPastedFile) {
-        showToast('Pháº£i cÃ³ Ã­t nháº¥t link hoáº·c hÃ¬nh áº£nh bÃ¡o cÃ¡o!', 'error');
+        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
@@ -2109,12 +2109,12 @@ async function _kbSubmitReport() {
             });
             const result = await resp.json();
             if (result.success) {
-                showToast('ðŸ”„ ÄÃ£ ná»™p láº¡i! â³ Chá» duyá»‡t');
+                showToast('🔄 Đã nộp lại! ⏳ Chờ duyệt');
                 document.getElementById('kbReportModal')?.remove();
                 _kbLoadSchedule();
                 if (typeof _kbLoadApprovalPanel === 'function') _kbLoadApprovalPanel();
             } else {
-                showToast('Lá»—i: ' + (result.error || 'KhÃ´ng thá»ƒ ná»™p láº¡i'), 'error');
+                showToast('Lỗi: ' + (result.error || 'Không thể nộp lại'), 'error');
             }
             return;
         }
@@ -2135,21 +2135,21 @@ async function _kbSubmitReport() {
         });
         const data = await resp.json();
         if (data.success) {
-            showToast(`âœ… ÄÃ£ ná»™p bÃ¡o cÃ¡o! ${data.status === 'pending' ? 'â³ Chá» duyá»‡t' : '+' + data.points_earned + 'Ä‘'}`);
+            showToast(`✅ Đã nộp báo cáo! ${data.status === 'pending' ? '⏳ Chờ duyệt' : '+' + data.points_earned + 'đ'}`);
             document.getElementById('kbReportModal')?.remove();
             _kbLoadSchedule();
         } else {
-            showToast('Lá»—i: ' + (data.error || 'Unknown'), 'error');
+            showToast('Lỗi: ' + (data.error || 'Unknown'), 'error');
         }
-    } catch(e) { showToast('Lá»—i gá»­i bÃ¡o cÃ¡o: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi gửi báo cáo: ' + (e.message || ''), 'error'); }
 }
 
 async function _kbApprove(reportId, action) {
     try {
         await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action });
-        showToast(action === 'approve' ? 'âœ… ÄÃ£ duyá»‡t!' : 'âŒ ÄÃ£ tá»« chá»‘i!');
+        showToast(action === 'approve' ? '✅ Đã duyệt!' : '❌ Đã từ chối!');
         _kbLoadSchedule();
-    } catch(e) { showToast('Lá»—i!', 'error'); }
+    } catch(e) { showToast('Lỗi!', 'error'); }
 }
 
 function _kbToggleSystem(sysId) {
@@ -2159,7 +2159,7 @@ function _kbToggleSystem(sysId) {
     const isHidden = content.style.display === 'none';
     content.style.display = isHidden ? 'block' : 'none';
     const arrow = header?.querySelector('.kb-sys-arrow');
-    if (arrow) arrow.textContent = isHidden ? 'â–¼' : 'â–¶';
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 function _kbFilterMembers() {
@@ -2195,7 +2195,7 @@ function _kbFilterMembers() {
     });
 }
 
-// ========== SETUP NGÆ¯á»œI DUYá»†T (GÄ only) ==========
+// ========== SETUP NGƯỜI DUYỆT (GĐ only) ==========
 let _kbSetupVisible = false;
 async function _kbShowSetupTab() {
     const panel = document.getElementById('kbSetupPanel');
@@ -2209,7 +2209,7 @@ async function _kbShowSetupTab() {
     }
     if (btn) { btn.style.background = '#2563eb'; btn.style.color = 'white'; }
     panel.style.display = 'block';
-    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Äang táº£i...</div>';
+    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Đang tải...</div>';
 
     try {
         const [approverData, deptData, configData, usersData] = await Promise.all([
@@ -2228,29 +2228,29 @@ async function _kbShowSetupTab() {
         const systems = allDepts.filter(d => !d.parent_id);
         let html = `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                <h3 style="margin:0;font-size:16px;color:#1e293b;font-weight:700;">âš™ï¸ Setup NgÆ°á»i Duyá»‡t CÃ´ng Viá»‡c</h3>
+                <h3 style="margin:0;font-size:16px;color:#1e293b;font-weight:700;">⚙️ Setup Người Duyệt Công Việc</h3>
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <label style="font-size:12px;color:#64748b;font-weight:600;">Sá»‘ láº§n lÃ m láº¡i tá»‘i Ä‘a:</label>
+                    <label style="font-size:12px;color:#64748b;font-weight:600;">Số lần làm lại tối đa:</label>
                     <input type="number" id="kbRedoMaxInput" value="${redoMax}" min="0" max="10" style="width:60px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;text-align:center;" />
-                    <button onclick="_kbSaveRedoMax()" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#2563eb;color:white;cursor:pointer;font-weight:600;">LÆ°u</button>
+                    <button onclick="_kbSaveRedoMax()" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#2563eb;color:white;cursor:pointer;font-weight:600;">Lưu</button>
                 </div>
             </div>
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">â„¹ï¸ GiÃ¡m Äá»‘c tá»± Ä‘á»™ng duyá»‡t táº¥t cáº£, khÃ´ng cáº§n gÃ¡n. GÃ¡n ngÆ°á»i duyá»‡t cho phÃ²ng CHA â†’ tá»± Ä‘á»™ng duyá»‡t luÃ´n team CON.</div>`;
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">ℹ️ Giám Đốc tự động duyệt tất cả, không cần gán. Gán người duyệt cho phòng CHA → tự động duyệt luôn team CON.</div>`;
 
         systems.forEach(sys => {
             const children = allDepts.filter(d => d.parent_id === sys.id);
             const sysApprovers = approvers.filter(a => a.department_id === sys.id);
             html += `<div style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">
                 <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:10px 14px;font-weight:800;font-size:13px;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between;">
-                    <span>ðŸ¢ ${sys.name}</span>
+                    <span>🏢 ${sys.name}</span>
                     <select onchange="_kbAddApprover(this.value, ${sys.id}); this.value='';" style="padding:3px 8px;font-size:11px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;color:white;background:rgba(255,255,255,0.15);cursor:pointer;">
-                        <option value="" style="color:#333;">+ GÃ¡n duyá»‡t toÃ n há»‡ thá»‘ng</option>
+                        <option value="" style="color:#333;">+ Gán duyệt toàn hệ thống</option>
                         ${allUsers.filter(u => !sysApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}" style="color:#333;">${u.full_name} (${u.role})</option>`).join('')}
                     </select>
                 </div>
                 ${sysApprovers.length > 0 ? `<div style="padding:6px 14px;background:#eff6ff;border-bottom:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-                    <span style="font-size:10px;color:#64748b;font-weight:600;">Duyá»‡t toÃ n há»‡ thá»‘ng:</span>
-                    ${sysApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;border:1px solid #93c5fd;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#1d4ed8;">ðŸ‘¤ ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">Ã—</button></span>`).join('')}
+                    <span style="font-size:10px;color:#64748b;font-weight:600;">Duyệt toàn hệ thống:</span>
+                    ${sysApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;border:1px solid #93c5fd;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#1d4ed8;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">×</button></span>`).join('')}
                 </div>` : ''}`;
 
             children.forEach(dept => {
@@ -2259,15 +2259,15 @@ async function _kbShowSetupTab() {
 
                 html += `<div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <span style="font-weight:700;font-size:13px;color:#1e293b;">ðŸ“¦ ${dept.name}</span>
+                        <span style="font-weight:700;font-size:13px;color:#1e293b;">📦 ${dept.name}</span>
                         <select onchange="_kbAddApprover(this.value, ${dept.id}); this.value='';" style="padding:3px 8px;font-size:11px;border:1px solid #e2e8f0;border-radius:6px;color:#64748b;">
-                            <option value="">+ ThÃªm ngÆ°á»i duyá»‡t</option>
+                            <option value="">+ Thêm người duyệt</option>
                             ${allUsers.filter(u => !deptApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('')}
                         </select>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                        ${deptApprovers.length === 0 ? '<span style="font-size:11px;color:#d1d5db;font-style:italic;">ChÆ°a gÃ¡n</span>' : ''}
-                        ${deptApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:#1d4ed8;">ðŸ‘¤ ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">Ã—</button></span>`).join('')}
+                        ${deptApprovers.length === 0 ? '<span style="font-size:11px;color:#d1d5db;font-style:italic;">Chưa gán</span>' : ''}
+                        ${deptApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:#1d4ed8;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:12px;padding:0;line-height:1;">×</button></span>`).join('')}
                     </div>`;
 
                 // Sub-teams
@@ -2275,15 +2275,15 @@ async function _kbShowSetupTab() {
                     const teamApprovers = approvers.filter(a => a.department_id === team.id);
                     html += `<div style="margin-top:6px;padding-left:16px;border-left:2px solid #e2e8f0;">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-                            <span style="font-size:12px;color:#475569;font-weight:600;">â”” ${team.name}</span>
+                            <span style="font-size:12px;color:#475569;font-weight:600;">└ ${team.name}</span>
                             <select onchange="_kbAddApprover(this.value, ${team.id}); this.value='';" style="padding:2px 6px;font-size:10px;border:1px solid #e2e8f0;border-radius:4px;color:#64748b;">
-                                <option value="">+ ThÃªm</option>
+                                <option value="">+ Thêm</option>
                                 ${allUsers.filter(u => !teamApprovers.some(a => a.user_id === u.id)).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('')}
                             </select>
                         </div>
                         <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                            ${teamApprovers.length === 0 ? '<span style="font-size:10px;color:#d1d5db;font-style:italic;">Káº¿ thá»«a tá»« phÃ²ng cha</span>' : ''}
-                            ${teamApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:3px;background:#ecfdf5;border:1px solid #a7f3d0;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:600;color:#059669;">ðŸ‘¤ ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0;line-height:1;">Ã—</button></span>`).join('')}
+                            ${teamApprovers.length === 0 ? '<span style="font-size:10px;color:#d1d5db;font-style:italic;">Kế thừa từ phòng cha</span>' : ''}
+                            ${teamApprovers.map(a => `<span style="display:inline-flex;align-items:center;gap:3px;background:#ecfdf5;border:1px solid #a7f3d0;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:600;color:#059669;">👤 ${a.user_name} <button onclick="_kbRemoveApprover(${a.id})" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0;line-height:1;">×</button></span>`).join('')}
                         </div>
                     </div>`;
                 });
@@ -2296,7 +2296,7 @@ async function _kbShowSetupTab() {
         html += `</div>`;
         panel.innerHTML = html;
     } catch(e) {
-        panel.innerHTML = `<div style="color:#dc2626;padding:12px;">Lá»—i: ${e.message}</div>`;
+        panel.innerHTML = `<div style="color:#dc2626;padding:12px;">Lỗi: ${e.message}</div>`;
     }
 }
 
@@ -2305,32 +2305,32 @@ async function _kbAddApprover(userId, deptId) {
     try {
         await apiCall('/api/schedule/approvers', 'POST', { user_id: Number(userId), department_id: deptId });
         _kbShowSetupTab(); _kbSetupVisible = false; _kbShowSetupTab(); // refresh
-    } catch(e) { alert('Lá»—i: ' + e.message); }
+    } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
 async function _kbRemoveApprover(id) {
-    if (!confirm('XÃ³a phÃ¢n quyá»n duyá»‡t nÃ y?')) return;
+    if (!confirm('Xóa phân quyền duyệt này?')) return;
     try {
         await apiCall(`/api/schedule/approvers/${id}`, 'DELETE');
         _kbShowSetupTab(); _kbSetupVisible = false; _kbShowSetupTab();
-    } catch(e) { alert('Lá»—i: ' + e.message); }
+    } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
 async function _kbSaveRedoMax() {
     const v = Number(document.getElementById('kbRedoMaxInput')?.value) || 1;
     try {
         await apiCall('/api/schedule/config', 'POST', { task_redo_max: v });
-        alert('ÄÃ£ lÆ°u: Tá»‘i Ä‘a ' + v + ' láº§n lÃ m láº¡i');
-    } catch(e) { alert('Lá»—i: ' + e.message); }
+        alert('Đã lưu: Tối đa ' + v + ' lần làm lại');
+    } catch(e) { alert('Lỗi: ' + e.message); }
 }
 
 // ========== COUNTDOWN HELPER ==========
 function _kbFormatCountdown(deadlineStr) {
-    if (!deadlineStr) return '<span style="color:#9ca3af;">â€”</span>';
+    if (!deadlineStr) return '<span style="color:#9ca3af;">—</span>';
     const now = new Date();
     const dl = new Date(deadlineStr);
     const diff = dl - now;
-    if (diff <= 0) return '<span style="font-weight:800;color:#dc2626;font-size:11px;">ðŸ”´ Háº¾T Háº N</span>';
+    if (diff <= 0) return '<span style="font-weight:800;color:#dc2626;font-size:11px;">🔴 HẾT HẠN</span>';
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
     let color = '#059669'; // green
@@ -2405,7 +2405,7 @@ async function _kbLoadApprovalPanel() {
                 try {
                     const url = new URL(g.guide_url, window.location.origin);
                     const viewPath = url.pathname;
-                    viewBtn = `<span onclick="window.open('${viewPath}?view_user_id=${g.user_id}&view_date=${g.report_date}', '_blank')" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Má»Ÿ trang xem chi tiáº¿t (tab má»›i)">ðŸ‘ï¸ Xem</span>`;
+                    viewBtn = `<span onclick="window.open('${viewPath}?view_user_id=${g.user_id}&view_date=${g.report_date}', '_blank')" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết (tab mới)">👁️ Xem</span>`;
                 } catch(e) { viewBtn = ''; }
             }
             if (!viewBtn) {
@@ -2419,7 +2419,7 @@ async function _kbLoadApprovalPanel() {
                     guide_url: g.guide_url, user_id: g.user_id,
                     input_requirements: g.input_requirements, output_requirements: g.output_requirements
                 }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                viewBtn = `<span onclick="_kbViewApprovalReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem bÃ¡o cÃ¡o">ðŸ“‹ Xem</span>`;
+                viewBtn = `<span onclick="_kbViewApprovalReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem báo cáo">📋 Xem</span>`;
             }
 
             rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
@@ -2427,15 +2427,15 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
                     <span onclick="_kbShowTaskDetail(${g.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${g.task_name}</span>
                     ${countBadge}
-                    ${g.hasRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">ðŸ”„ Ná»™p láº¡i</span>' : ''}
+                    ${g.hasRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">🔄 Nộp lại</span>' : ''}
                 </td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
-                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${g.template_points}Ä‘</td>
+                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1d4ed8;">${g.template_points}đ</td>
                 <td style="padding:8px 12px;text-align:center;">${viewBtn}</td>
                 <td style="padding:8px 12px;text-align:center;">${countdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <button onclick="_kbApproveGroupReports(${idsJson})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">âœ… Duyá»‡t${count > 1 ? ' ('+count+')' : ''}</button>
-                    <button onclick="_kbRejectGroupReports(${idsJson}, '${g.task_name.replace(/'/g, "\\'")}', '${g.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">âŒ Tá»« chá»‘i</button>
+                    <button onclick="_kbApproveGroupReports(${idsJson})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt${count > 1 ? ' ('+count+')' : ''}</button>
+                    <button onclick="_kbRejectGroupReports(${idsJson}, '${g.task_name.replace(/'/g, "\\'")}', '${g.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
                 </td>
             </tr>`;
         });
@@ -2450,18 +2450,18 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
                     <span onclick="_kbShowLockTaskDetail(${r.lock_task_id})" style="color:#991b1b;font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#7f1d1d'" onmouseout="this.style.color='#991b1b'">${r.task_name}</span>
-                    <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">ðŸ” KHÃ“A</span>
-                    ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">ðŸ”„ Ná»™p láº¡i</span>' : ''}
+                    <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">🔐 KHÓA</span>
+                    ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">🔄 Nộp lại</span>' : ''}
                 </td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
-                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">ðŸ”</td>
+                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbViewLockApprovalReport(${r.lock_task_id}, ${r.user_id}, '${r.completion_date}')" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem bÃ¡o cÃ¡o">ðŸ“‹</span>
+                    <span onclick="_kbViewLockApprovalReport(${r.lock_task_id}, ${r.user_id}, '${r.completion_date}')" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
                 </td>
-                <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">â€”</span>'}</td>
+                <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <button onclick="_kbLockApprove(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">âœ… Duyá»‡t</button>
-                    <button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">âŒ Tá»« chá»‘i</button>
+                    <button onclick="_kbLockApprove(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
+                    <button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
                 </td>
             </tr>`;
         });
@@ -2469,8 +2469,8 @@ async function _kbLoadApprovalPanel() {
         // CV Chuoi (chain task) pending rows
         chainReviews.forEach(r => {
             const isRedo = r.redo_count > 0;
-            const deadlineFormatted = r.deadline ? r.deadline.split('-').reverse().join('/') : 'â€”';
-            const chainCountdown = r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">â€”</span>';
+            const deadlineFormatted = r.deadline ? r.deadline.split('-').reverse().join('/') : '—';
+            const chainCountdown = r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>';
             const dlDate = r.approval_deadline ? new Date(r.approval_deadline) : null;
             const isOverdue = dlDate && dlDate < new Date();
             const isUrgent = dlDate && (dlDate - new Date()) < 6 * 3600000;
@@ -2484,19 +2484,19 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
                 <td style="padding:8px 12px;font-size:13px;color:#374151;">
                     <span style="color:#1e40af;font-weight:700;">${r.task_name}</span>
-                    <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">ðŸ”— CHUá»–I</span>
-                    ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">ðŸ”„ Ná»™p láº¡i</span>' : ''}
+                    <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">🔗 CHUỖI</span>
+                    ${isRedo ? '<span style="background:#fef3c7;color:#d97706;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:2px;">🔄 Nộp lại</span>' : ''}
                     <div style="font-size:10px;color:#6b7280;margin-top:2px;">${r.chain_name}</div>
                 </td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${deadlineFormatted}</td>
-                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">ðŸ”—</td>
+                <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">🔗</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbViewChainReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem bÃ¡o cÃ¡o">ðŸ“‹</span>
+                    <span onclick="_kbViewChainReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <button onclick="_kbChainApprove(${r.chain_item_id},${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">âœ… Duyá»‡t</button>
-                    <button onclick="_kbChainReject(${r.chain_item_id},${r.id},'${(r.task_name||'').replace(/'/g, "\\'")}','${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">âŒ Tá»« chá»‘i</button>
+                    <button onclick="_kbChainApprove(${r.chain_item_id},${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
+                    <button onclick="_kbChainReject(${r.chain_item_id},${r.id},'${(r.task_name||'').replace(/'/g, "\\'")}','${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
                 </td>
             </tr>`;
         });
@@ -2504,24 +2504,24 @@ async function _kbLoadApprovalPanel() {
         panel.innerHTML = `
         <div style="background:white;border:2px solid #fde68a;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(217,119,6,0.1);">
             <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-                <span style="color:white;font-weight:800;font-size:14px;">ðŸ“‹ CÃ”NG VIá»†C CHá»œ DUYá»†T</span>
+                <span style="color:white;font-weight:800;font-size:14px;">📋 CÔNG VIỆC CHỜ DUYỆT</span>
                 <div style="display:flex;gap:6px;">
-                    ${pending.length > 0 ? `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">ðŸ“Š ${Object.keys(_pendingGroups).length}</span>` : ''}
-                    ${lockReviews.length > 0 ? `<span style="background:rgba(220,38,38,0.6);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">ðŸ” ${lockReviews.length}</span>` : ''}
-                    ${chainReviews.length > 0 ? `<span style="background:rgba(37,99,235,0.6);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">ðŸ”— ${chainReviews.length}</span>` : ''}
+                    ${pending.length > 0 ? `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">📊 ${Object.keys(_pendingGroups).length}</span>` : ''}
+                    ${lockReviews.length > 0 ? `<span style="background:rgba(220,38,38,0.6);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">🔐 ${lockReviews.length}</span>` : ''}
+                    ${chainReviews.length > 0 ? `<span style="background:rgba(37,99,235,0.6);color:white;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800;">🔗 ${chainReviews.length}</span>` : ''}
                 </div>
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;">
                     <thead>
                         <tr style="background:#1e3a5f;">
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">NhÃ¢n viÃªn</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">CÃ´ng viá»‡c</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">NgÃ y</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Äiá»ƒm</th>
-                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">BÃ¡o cÃ¡o</th>
-                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">â° CÃ²n</th>
-                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">HÃ nh Ä‘á»™ng</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Nhân viên</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Công việc</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Ngày</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Điểm</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Báo cáo</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fde68a;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -2534,27 +2534,27 @@ async function _kbLoadApprovalPanel() {
 }
 
 async function _kbApproveReport(reportId) {
-    if (!confirm('âœ… XÃ¡c nháº­n DUYá»†T bÃ¡o cÃ¡o nÃ y?')) return;
+    if (!confirm('✅ Xác nhận DUYỆT báo cáo này?')) return;
     try {
         await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'approve' });
-        showToast('âœ… ÄÃ£ duyá»‡t bÃ¡o cÃ¡o');
+        showToast('✅ Đã duyệt báo cáo');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng cÃ³ quyá»n')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
 }
 // ===== GROUP APPROVE: approve all reports in a group at once =====
 async function _kbApproveGroupReports(ids) {
     if (!Array.isArray(ids)) ids = [ids];
     const count = ids.length;
-    if (!confirm(`âœ… XÃ¡c nháº­n DUYá»†T ${count > 1 ? count + ' bÃ¡o cÃ¡o' : 'bÃ¡o cÃ¡o nÃ y'}?`)) return;
+    if (!confirm(`✅ Xác nhận DUYỆT ${count > 1 ? count + ' báo cáo' : 'báo cáo này'}?`)) return;
     try {
         for (const id of ids) {
             await apiCall(`/api/schedule/report/${id}/approve`, 'PUT', { action: 'approve' });
         }
-        showToast(`âœ… ÄÃ£ duyá»‡t ${count} bÃ¡o cÃ¡o`);
+        showToast(`✅ Đã duyệt ${count} báo cáo`);
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng cÃ³ quyá»n')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
 }
 
 // ===== GROUP REJECT: reject all reports in a group =====
@@ -2568,17 +2568,17 @@ function _kbRejectGroupReports(ids, taskName, userName) {
     const count = ids.length;
     modal.innerHTML = `
     <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
-        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">âŒ Tá»« chá»‘i bÃ¡o cÃ¡o</h3>
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối báo cáo</h3>
         <div style="margin-bottom:12px;">
-            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> â€” ${taskName}${count > 1 ? ' <span style="background:#fecaca;color:#991b1b;padding:1px 8px;border-radius:6px;font-size:11px;font-weight:700;">'+count+' bÃ¡o cÃ¡o</span>' : ''}</div>
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — ${taskName}${count > 1 ? ' <span style="background:#fecaca;color:#991b1b;padding:1px 8px;border-radius:6px;font-size:11px;font-weight:700;">'+count+' báo cáo</span>' : ''}</div>
         </div>
         <div style="margin-bottom:16px;">
-            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">LÃ½ do tá»« chá»‘i *</label>
-            <textarea id="kbRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nháº­p lÃ½ do tá»« chá»‘i..."></textarea>
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Há»§y</button>
-            <button onclick="_kbConfirmGroupReject(${JSON.stringify(ids)})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">XÃ¡c nháº­n tá»« chá»‘i</button>
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmGroupReject(${JSON.stringify(ids)})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
         </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2588,16 +2588,16 @@ function _kbRejectGroupReports(ids, taskName, userName) {
 
 async function _kbConfirmGroupReject(ids) {
     const reason = document.getElementById('kbRejectReason')?.value?.trim();
-    if (!reason) { alert('Pháº£i nháº­p lÃ½ do tá»« chá»‘i'); return; }
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
     try {
         for (const id of ids) {
             await apiCall(`/api/schedule/report/${id}/approve`, 'PUT', { action: 'reject', reject_reason: reason });
         }
         document.getElementById('kbRejectModal')?.remove();
-        showToast(`âŒ ÄÃ£ tá»« chá»‘i ${ids.length} bÃ¡o cÃ¡o`);
+        showToast(`❌ Đã từ chối ${ids.length} báo cáo`);
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ tá»« chá»‘i')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
 }
 
 
@@ -2610,17 +2610,17 @@ function _kbRejectReport(reportId, taskName, userName) {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
     <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
-        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">âŒ Tá»« chá»‘i bÃ¡o cÃ¡o</h3>
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối báo cáo</h3>
         <div style="margin-bottom:12px;">
-            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> â€” ${taskName}</div>
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — ${taskName}</div>
         </div>
         <div style="margin-bottom:16px;">
-            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">LÃ½ do tá»« chá»‘i *</label>
-            <textarea id="kbRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nháº­p lÃ½ do tá»« chá»‘i..."></textarea>
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Há»§y</button>
-            <button onclick="_kbConfirmReject(${reportId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">XÃ¡c nháº­n tá»« chá»‘i</button>
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmReject(${reportId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
         </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2630,24 +2630,24 @@ function _kbRejectReport(reportId, taskName, userName) {
 
 async function _kbConfirmReject(reportId) {
     const reason = document.getElementById('kbRejectReason')?.value?.trim();
-    if (!reason) { alert('Pháº£i nháº­p lÃ½ do tá»« chá»‘i'); return; }
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
     try {
         await apiCall(`/api/schedule/report/${reportId}/approve`, 'PUT', { action: 'reject', reject_reason: reason });
         document.getElementById('kbRejectModal')?.remove();
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ tá»« chá»‘i')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
 }
 
 // ===== Lock Task Approve/Reject from approval panel =====
 async function _kbLockApprove(completionId) {
-    if (!confirm('âœ… XÃ¡c nháº­n DUYá»†T bÃ¡o cÃ¡o CV KhÃ³a nÃ y?')) return;
+    if (!confirm('✅ Xác nhận DUYỆT báo cáo CV Khóa này?')) return;
     try {
         await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action: 'approve' });
-        showToast('âœ… ÄÃ£ duyá»‡t CV KhÃ³a');
+        showToast('✅ Đã duyệt CV Khóa');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng cÃ³ quyá»n')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
 }
 
 function _kbLockReject(completionId, taskName, userName) {
@@ -2659,17 +2659,17 @@ function _kbLockReject(completionId, taskName, userName) {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
     <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
-        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">âŒ Tá»« chá»‘i CV KhÃ³a</h3>
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối CV Khóa</h3>
         <div style="margin-bottom:12px;">
-            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> â€” <span style="color:#991b1b;">${taskName}</span> <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">ðŸ” KHÃ“A</span></div>
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — <span style="color:#991b1b;">${taskName}</span> <span style="background:#fecaca;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔐 KHÓA</span></div>
         </div>
         <div style="margin-bottom:16px;">
-            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">LÃ½ do tá»« chá»‘i *</label>
-            <textarea id="kbLockRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nháº­p lÃ½ do tá»« chá»‘i..."></textarea>
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbLockRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Há»§y</button>
-            <button onclick="_kbConfirmLockReject(${completionId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">XÃ¡c nháº­n tá»« chá»‘i</button>
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmLockReject(${completionId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
         </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2679,14 +2679,14 @@ function _kbLockReject(completionId, taskName, userName) {
 
 async function _kbConfirmLockReject(completionId) {
     const reason = document.getElementById('kbLockRejectReason')?.value?.trim();
-    if (!reason) { alert('Pháº£i nháº­p lÃ½ do tá»« chá»‘i'); return; }
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
     try {
         await apiCall(`/api/lock-tasks/${completionId}/review`, 'POST', { action: 'reject', reject_reason: reason });
         document.getElementById('kbRejectModal')?.remove();
-        showToast('âœ… ÄÃ£ tá»« chá»‘i CV KhÃ³a');
+        showToast('✅ Đã từ chối CV Khóa');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ tá»« chá»‘i')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
 }
 
 // ===== Chain Task: View Report from approval panel =====
@@ -2698,16 +2698,16 @@ function _kbViewChainReport(el) {
 
     const proofHtml = data.proof_url ? (
         /\.(jpg|jpeg|png|gif|webp)$/i.test(data.proof_url)
-            ? `<div style="margin-top:8px;"><div style="font-size:11px;color:#64748b;margin-bottom:4px;">ðŸ–¼ï¸ HÃ¬nh áº£nh:</div><img src="${data.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${data.proof_url}','_blank')"></div>`
-            : `<div style="margin-top:6px;padding:6px 12px;background:#eff6ff;border-radius:6px;"><a href="${data.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">ðŸ”— Xem link bÃ¡o cÃ¡o â†’</a></div>`
+            ? `<div style="margin-top:8px;"><div style="font-size:11px;color:#64748b;margin-bottom:4px;">🖼️ Hình ảnh:</div><img src="${data.proof_url}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;" onclick="window.open('${data.proof_url}','_blank')"></div>`
+            : `<div style="margin-top:6px;padding:6px 12px;background:#eff6ff;border-radius:6px;"><a href="${data.proof_url}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;font-weight:600;">🔗 Xem link báo cáo →</a></div>`
     ) : '';
 
     const qd = data.quantity_done || 0;
     const mq = data.min_quantity || 1;
     const isLow = qd < mq;
     const quantityHtml = `<div style="padding:6px 12px;background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-        <span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">ðŸ“Š Sá»‘ lÆ°á»£ng: ${qd}/${mq}</span>
-        ${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">âš ï¸ ChÆ°a Ä‘áº¡t</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">âœ… Äáº¡t</span>'}
+        <span style="font-size:11px;font-weight:700;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>
+        ${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}
     </div>`;
 
     modal = document.createElement('div');
@@ -2716,21 +2716,21 @@ function _kbViewChainReport(el) {
     modal.innerHTML = `<div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative;">
         <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:16px 22px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <div style="font-size:16px;font-weight:800;color:white;">ðŸ”— ${data.task_name}</div>
-                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">ðŸ“‹ ${data.chain_name} â€” ${data.user_name}</div>
+                <div style="font-size:16px;font-weight:800;color:white;">🔗 ${data.task_name}</div>
+                <div style="font-size:11px;color:#93c5fd;margin-top:3px;">📋 ${data.chain_name} — ${data.user_name}</div>
             </div>
-            <button onclick="document.getElementById('kbChainReportModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbChainReportModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:18px 22px;">
-            ${data.redo_count > 0 ? `<div style="margin-bottom:8px;"><span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">ðŸ”„ Láº§n ná»™p: ${data.redo_count + 1}</span></div>` : ''}
+            ${data.redo_count > 0 ? `<div style="margin-bottom:8px;"><span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">🔄 Lần nộp: ${data.redo_count + 1}</span></div>` : ''}
             ${quantityHtml}
             ${data.content ? `<div style="padding:8px 12px;background:white;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">ðŸ“ Ná»™i dung:</div>
+                <div style="font-size:11px;color:#64748b;margin-bottom:2px;">📝 Nội dung:</div>
                 <div style="font-size:12px;color:#1e293b;">${data.content}</div>
             </div>` : ''}
             ${proofHtml}
             <div style="text-align:right;margin-top:12px;">
-                <button onclick="document.getElementById('kbChainReportModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e40af;color:white;font-weight:700;cursor:pointer;font-size:13px;">ÄÃ³ng</button>
+                <button onclick="document.getElementById('kbChainReportModal').remove()" style="padding:8px 20px;border-radius:8px;border:none;background:#1e40af;color:white;font-weight:700;cursor:pointer;font-size:13px;">Đóng</button>
             </div>
         </div>
     </div>`;
@@ -2740,13 +2740,13 @@ function _kbViewChainReport(el) {
 
 // ===== Chain Task Approve/Reject from approval panel =====
 async function _kbChainApprove(itemId, completionId) {
-    if (!confirm('âœ… XÃ¡c nháº­n DUYá»†T bÃ¡o cÃ¡o CV Chuá»—i nÃ y?')) return;
+    if (!confirm('✅ Xác nhận DUYỆT báo cáo CV Chuỗi này?')) return;
     try {
         await apiCall(`/api/chain-tasks/items/${itemId}/approve`, 'POST', { completion_id: completionId });
-        showToast('âœ… ÄÃ£ duyá»‡t CV Chuá»—i');
+        showToast('✅ Đã duyệt CV Chuỗi');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng cÃ³ quyá»n')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không có quyền')); }
 }
 
 function _kbChainReject(itemId, completionId, taskName, userName) {
@@ -2758,17 +2758,17 @@ function _kbChainReject(itemId, completionId, taskName, userName) {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
     <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
-        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">âŒ Tá»« chá»‘i CV Chuá»—i</h3>
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#dc2626;">❌ Từ chối CV Chuỗi</h3>
         <div style="margin-bottom:12px;">
-            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> â€” <span style="color:#1e40af;">${taskName}</span> <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">ðŸ”— CHUá»–I</span></div>
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — <span style="color:#1e40af;">${taskName}</span> <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🔗 CHUỖI</span></div>
         </div>
         <div style="margin-bottom:16px;">
-            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">LÃ½ do tá»« chá»‘i *</label>
-            <textarea id="kbChainRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nháº­p lÃ½ do tá»« chá»‘i..."></textarea>
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Lý do từ chối *</label>
+            <textarea id="kbChainRejectReason" rows="3" style="width:100%;padding:8px 12px;border:1px solid #fecaca;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Nhập lý do từ chối..."></textarea>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Há»§y</button>
-            <button onclick="_kbConfirmChainReject(${itemId},${completionId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">XÃ¡c nháº­n tá»« chá»‘i</button>
+            <button onclick="document.getElementById('kbRejectModal').remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;">Hủy</button>
+            <button onclick="_kbConfirmChainReject(${itemId},${completionId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">Xác nhận từ chối</button>
         </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2778,14 +2778,14 @@ function _kbChainReject(itemId, completionId, taskName, userName) {
 
 async function _kbConfirmChainReject(itemId, completionId) {
     const reason = document.getElementById('kbChainRejectReason')?.value?.trim();
-    if (!reason) { alert('Pháº£i nháº­p lÃ½ do tá»« chá»‘i'); return; }
+    if (!reason) { alert('Phải nhập lý do từ chối'); return; }
     try {
         await apiCall(`/api/chain-tasks/items/${itemId}/reject`, 'POST', { completion_id: completionId, reject_reason: reason });
         document.getElementById('kbRejectModal')?.remove();
-        showToast('âœ… ÄÃ£ tá»« chá»‘i CV Chuá»—i');
+        showToast('✅ Đã từ chối CV Chuỗi');
         _kbLoadApprovalPanel();
         _kbLoadSchedule();
-    } catch(e) { alert('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ tá»« chá»‘i')); }
+    } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể từ chối')); }
 }
 
 // ========== REJECTED POPUP (for employees) ==========
@@ -2814,8 +2814,8 @@ async function _kbCheckRejectedPopup() {
             const deadlineStr = `${String(deadlineDate.getDate()).padStart(2,'0')}/${String(deadlineDate.getMonth()+1).padStart(2,'0')}`;
             items += `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:8px;">
                 <div style="font-weight:700;font-size:13px;color:#dc2626;margin-bottom:4px;">${i+1}. ${r.task_name} (${dateF})</div>
-                <div style="font-size:12px;color:#7f1d1d;margin-bottom:4px;">ðŸ’¬ LÃ½ do: "${r.reject_reason}"</div>
-                <div style="font-size:11px;color:#d97706;font-weight:600;">â° Háº¡n ná»™p láº¡i: 23:59 ngÃ y ${deadlineStr}</div>
+                <div style="font-size:12px;color:#7f1d1d;margin-bottom:4px;">💬 Lý do: "${r.reject_reason}"</div>
+                <div style="font-size:11px;color:#d97706;font-weight:600;">⏰ Hạn nộp lại: 23:59 ngày ${deadlineStr}</div>
             </div>`;
         });
 
@@ -2825,13 +2825,13 @@ async function _kbCheckRejectedPopup() {
         modal.innerHTML = `
         <div style="background:white;border-radius:16px;padding:24px;width:450px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);border-top:4px solid #dc2626;">
             <div style="text-align:center;margin-bottom:16px;">
-                <div style="font-size:32px;margin-bottom:8px;">âš ï¸</div>
-                <div style="font-size:18px;font-weight:800;color:#dc2626;">Báº N CÃ“ CÃ”NG VIá»†C Bá»Š Tá»ª CHá»I!</div>
-                <div style="font-size:12px;color:#6b7280;margin-top:4px;">HÃ£y sá»­a vÃ  ná»™p láº¡i trÆ°á»›c háº¡n Ä‘á»ƒ khÃ´ng máº¥t Ä‘iá»ƒm</div>
+                <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+                <div style="font-size:18px;font-weight:800;color:#dc2626;">BẠN CÓ CÔNG VIỆC BỊ TỪ CHỐI!</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:4px;">Hãy sửa và nộp lại trước hạn để không mất điểm</div>
             </div>
             ${items}
             <div style="text-align:center;margin-top:16px;">
-                <button id="kbRejectedDismissBtn" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,0.3);">ÄÃ£ hiá»ƒu âœ“</button>
+                <button id="kbRejectedDismissBtn" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Đã hiểu ✓</button>
             </div>
         </div>`;
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2849,10 +2849,10 @@ async function _kbCheckRejectedPopup() {
 
 // ========== SIDEBAR BADGE ==========
 function _kbUpdateSidebarBadge(count) {
-    // Find the sidebar menu item for "Lá»‹ch KhÃ³a Biá»ƒu CÃ´ng Viá»‡c"
+    // Find the sidebar menu item for "Lịch Khóa Biểu Công Việc"
     const menuItems = document.querySelectorAll('.sidebar-menu-item, [data-page]');
     menuItems.forEach(el => {
-        if (el.textContent.includes('Lá»‹ch KhÃ³a Biá»ƒu') && !el.textContent.includes('Badge')) {
+        if (el.textContent.includes('Lịch Khóa Biểu') && !el.textContent.includes('Badge')) {
             let badge = el.querySelector('.kb-pending-badge');
             if (count > 0) {
                 if (!badge) {
@@ -2884,11 +2884,11 @@ if (typeof currentUser !== 'undefined' && currentUser) {
     setTimeout(_kbInitBadge, 1000);
 }
 
-// ========== Sáº¾P Há»– TRá»¢ FUNCTIONS ==========
+// ========== SẾP HỖ TRỢ FUNCTIONS ==========
 
 // NV: Send support request
 async function _kbSendSupportRequest(templateId, dateStr, taskName) {
-    if (!confirm(`ðŸ†˜ Gá»­i yÃªu cáº§u há»— trá»£ cho cÃ´ng viá»‡c "${taskName}" ngÃ y ${dateStr.split('-').reverse().join('/')}?\n\nDeadline há»— trá»£: háº¡n Ä‘áº¿n háº¿t ngÃ y mai.\nBáº¡n váº«n cÃ³ thá»ƒ tá»± bÃ¡o cÃ¡o cÃ´ng viá»‡c nÃ y.`)) return;
+    if (!confirm(`🆘 Gửi yêu cầu hỗ trợ cho công việc "${taskName}" ngày ${dateStr.split('-').reverse().join('/')}?\n\nDeadline hỗ trợ: hạn đến hết ngày mai.\nBạn vẫn có thể tự báo cáo công việc này.`)) return;
 
     try {
         const res = await apiCall('/api/task-support/request', 'POST', {
@@ -2900,10 +2900,10 @@ async function _kbSendSupportRequest(templateId, dateStr, taskName) {
             showToast(res.error, 'error');
             return;
         }
-        showToast(`âœ… ${res.message || 'ÄÃ£ gá»­i yÃªu cáº§u há»— trá»£'}`);
+        showToast(`✅ ${res.message || 'Đã gửi yêu cầu hỗ trợ'}`);
         _kbLoadSchedule();
     } catch(e) {
-        showToast(e.message || 'Lá»—i gá»­i yÃªu cáº§u', 'error');
+        showToast(e.message || 'Lỗi gửi yêu cầu', 'error');
     }
 }
 
@@ -2935,7 +2935,7 @@ async function _kbLoadSupportPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;text-align:center;">${countdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <button onclick="_kbRespondSupport(${r.id}, '${(r.task_name||'').replace(/'/g,"\\'")}', '${(r.user_name||'').replace(/'/g,"\\'")}', '${dateFormatted}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">âœ… ÄÃ£ há»— trá»£</button>
+                    <button onclick="_kbRespondSupport(${r.id}, '${(r.task_name||'').replace(/'/g,"\\'")}', '${(r.user_name||'').replace(/'/g,"\\'")}', '${dateFormatted}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">✅ Đã hỗ trợ</button>
                 </td>
             </tr>`;
         });
@@ -2943,21 +2943,21 @@ async function _kbLoadSupportPanel() {
         panel.innerHTML = `
         <div style="background:white;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(220,38,38,0.1);">
             <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-                <span style="color:white;font-weight:800;font-size:14px;">ðŸ†˜ Há»– TRá»¢ NHÃ‚N Sá»°</span>
+                <span style="color:white;font-weight:800;font-size:14px;">🆘 HỖ TRỢ NHÂN SỰ</span>
                 <span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>
             </div>
             <div style="padding:6px 12px;background:#fef2f2;font-size:11px;color:#dc2626;font-weight:600;">
-                âš ï¸ Náº¿u khÃ´ng há»— trá»£ trÆ°á»›c háº¡n, tÃ i khoáº£n sáº½ bá»‹ <b>KHÃ“A</b>
+                ⚠️ Nếu không hỗ trợ trước hạn, tài khoản sẽ bị <b>KHÓA</b>
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;">
                     <thead>
                         <tr style="background:#1e3a5f;">
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">NhÃ¢n viÃªn</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">CÃ´ng viá»‡c</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">NgÃ y</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">â° CÃ²n</th>
-                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">HÃ nh Ä‘á»™ng</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Nhân viên</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Công việc</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Ngày</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
+                            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
@@ -2979,18 +2979,18 @@ function _kbRespondSupport(requestId, taskName, userName, dateStr) {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
     <div style="background:white;border-radius:16px;padding:24px;width:480px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,.25);">
-        <h3 style="margin:0 0 16px 0;font-size:16px;color:#059669;">âœ… XÃ¡c nháº­n há»— trá»£ nhÃ¢n sá»±</h3>
+        <h3 style="margin:0 0 16px 0;font-size:16px;color:#059669;">✅ Xác nhận hỗ trợ nhân sự</h3>
         <div style="margin-bottom:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;">
-            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> â€” ${taskName}</div>
-            <div style="font-size:11px;color:#6b7280;margin-top:2px;">ðŸ“… NgÃ y: ${dateStr}</div>
+            <div style="font-size:13px;color:#374151;"><strong>${userName}</strong> — ${taskName}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">📅 Ngày: ${dateStr}</div>
         </div>
         <div style="margin-bottom:16px;">
-            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Ghi chÃº há»— trá»£ * (báº¯t buá»™c)</label>
-            <textarea id="kbSupportNote" rows="4" style="width:100%;padding:8px 12px;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="MÃ´ táº£ cÃ¡ch báº¡n Ä‘Ã£ há»— trá»£ nhÃ¢n viÃªn (VD: Ä‘Ã£ gá»i Ä‘iá»‡n hÆ°á»›ng dáº«n, Ä‘Ã£ chat giáº£i Ä‘Ã¡p...)"></textarea>
+            <label style="font-size:12px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">Ghi chú hỗ trợ * (bắt buộc)</label>
+            <textarea id="kbSupportNote" rows="4" style="width:100%;padding:8px 12px;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Mô tả cách bạn đã hỗ trợ nhân viên (VD: đã gọi điện hướng dẫn, đã chat giải đáp...)"></textarea>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button onclick="document.getElementById('kbSupportModal')?.remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e5e7eb;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;">Há»§y</button>
-            <button onclick="_kbSubmitSupport(${requestId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">âœ… XÃ¡c nháº­n Ä‘Ã£ há»— trá»£</button>
+            <button onclick="document.getElementById('kbSupportModal')?.remove()" style="padding:8px 16px;font-size:13px;border:1px solid #e5e7eb;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;">Hủy</button>
+            <button onclick="_kbSubmitSupport(${requestId})" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">✅ Xác nhận đã hỗ trợ</button>
         </div>
     </div>`;
     document.body.appendChild(modal);
@@ -3001,26 +3001,26 @@ function _kbRespondSupport(requestId, taskName, userName, dateStr) {
 async function _kbSubmitSupport(requestId) {
     const note = document.getElementById('kbSupportNote')?.value;
     if (!note || !note.trim()) {
-        alert('âš ï¸ Vui lÃ²ng nháº­p ghi chÃº há»— trá»£ (báº¯t buá»™c)');
+        alert('⚠️ Vui lòng nhập ghi chú hỗ trợ (bắt buộc)');
         return;
     }
 
     try {
         const res = await apiCall(`/api/task-support/respond/${requestId}`, 'POST', { note: note.trim() });
         if (res.error) {
-            alert('Lá»—i: ' + res.error);
+            alert('Lỗi: ' + res.error);
             return;
         }
         document.getElementById('kbSupportModal')?.remove();
-        showToast('âœ… ÄÃ£ Ä‘Ã¡nh dáº¥u há»— trá»£ thÃ nh cÃ´ng');
+        showToast('✅ Đã đánh dấu hỗ trợ thành công');
         _kbLoadSupportPanel();
         _kbLoadSchedule();
     } catch(e) {
-        alert('Lá»—i: ' + (e.message || 'KhÃ´ng thá»ƒ xá»­ lÃ½'));
+        alert('Lỗi: ' + (e.message || 'Không thể xử lý'));
     }
 }
 
-// ========== CV KHÃ“A: Upload proof from calendar ==========
+// ========== CV KHÓA: Upload proof from calendar ==========
 async function _kbLockSubmit(lockTaskId, dateStr) {
     // Fetch task detail for the modal
     let taskDetail = null;
@@ -3029,7 +3029,7 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
         taskDetail = res.task;
     } catch(e) {}
 
-    const taskName = taskDetail?.task_name || 'CÃ´ng viá»‡c';
+    const taskName = taskDetail?.task_name || 'Công việc';
     const guideLink = taskDetail?.guide_link || '';
     const reqApproval = taskDetail?.requires_approval;
     let inputReqs = [], outputReqs = [];
@@ -3053,17 +3053,17 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
     };
 
     const approvalWarn = reqApproval ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:18px;">ðŸ”’</span>
-        <span style="font-size:12px;color:#92400e;font-weight:600;">CÃ´ng viá»‡c nÃ y cáº§n Quáº£n lÃ½/TP duyá»‡t má»›i Ä‘Æ°á»£c tÃ­nh Ä‘iá»ƒm</span>
+        <span style="font-size:18px;">🔒</span>
+        <span style="font-size:12px;color:#92400e;font-weight:600;">Công việc này cần Quản lý/TP duyệt mới được tính điểm</span>
     </div>` : '';
 
     const guideHtml = guideLink ? `<a href="${guideLink}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;text-decoration:none;margin-bottom:10px;">
-        <span style="font-size:22px;">ðŸ“–</span>
+        <span style="font-size:22px;">📖</span>
         <div style="flex:1;overflow:hidden;">
-            <div style="font-weight:700;font-size:12px;color:#991b1b;">HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
+            <div style="font-weight:700;font-size:12px;color:#991b1b;">Hướng dẫn công việc</div>
             <div style="font-size:10px;color:#3b82f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${guideLink}</div>
         </div>
-        <span>â†’</span>
+        <span>→</span>
     </a>` : '';
 
     // Remove existing modal
@@ -3077,14 +3077,14 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
     <div style="background:white;border-radius:14px;padding:0;width:min(520px,92vw);max-height:90vh;overflow-y:auto;border:1px solid #e5e7eb;box-shadow:0 25px 60px rgba(0,0,0,0.2);">
         <div style="background:linear-gradient(135deg,#dc2626,#991b1b);padding:18px 22px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">ðŸ“ BÃ¡o cÃ¡o cÃ´ng viá»‡c</h3>
-                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">Ná»™p káº¿t quáº£ hoÃ n thÃ nh</div>
+                <h3 style="margin:0;font-size:17px;color:white;font-weight:700;">📝 Báo cáo công việc</h3>
+                <div style="font-size:11px;color:#fca5a5;margin-top:3px;">Nộp kết quả hoàn thành</div>
             </div>
-            <button onclick="document.getElementById('kbLockReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">Ã—</button>
+            <button onclick="document.getElementById('kbLockReportModal').remove()" style="background:rgba(255,255,255,0.15);border:none;width:30px;height:30px;border-radius:8px;font-size:18px;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="padding:20px 22px;">
             <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:11px;color:#991b1b;font-weight:600;">
-                âš ï¸ KhÃ´ng lÃ m sáº½ bá»‹ pháº¡t vÃ  khÃ³a tÃ i khoáº£n
+                ⚠️ Không làm sẽ bị phạt và khóa tài khoản
             </div>
             ${approvalWarn}
             ${(() => {
@@ -3094,12 +3094,12 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                 if (comp && (comp.status === 'rejected' || comp.status === 'expired') && comp.reject_reason) {
                     return `<div style="background:linear-gradient(135deg,#fef2f2,#fff1f2);border:2px solid #dc2626;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">âŒ LÃ DO Tá»ª CHá»I</span>
+                            <span style="background:#dc2626;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">❌ LÝ DO TỪ CHỐI</span>
                         </div>
                         <div style="font-size:13px;color:#991b1b;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #fecaca;">
                             "${comp.reject_reason.replace(/"/g, '&quot;')}"
                         </div>
-                        <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">ðŸ“ HÃ£y kháº¯c phá»¥c vÃ  bÃ¡o cÃ¡o láº¡i bÃªn dÆ°á»›i</div>
+                        <div style="margin-top:8px;font-size:11px;color:#dc2626;font-weight:600;">📝 Hãy khắc phục và báo cáo lại bên dưới</div>
                     </div>`;
                 }
                 return '';
@@ -3111,7 +3111,7 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
                 if (srObj && srObj.status === 'supported' && srObj.manager_note) {
                     return `<div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #059669;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">âœ… Sáº¾P ÄÃƒ Há»– TRá»¢</span>
+                            <span style="background:#059669;color:white;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;">✅ SẾP ĐÃ HỖ TRỢ</span>
                         </div>
                         <div style="font-size:13px;color:#065f46;font-weight:600;line-height:1.5;padding:10px 14px;background:white;border-radius:8px;border:1px solid #a7f3d0;">
                             "${srObj.manager_note.replace(/"/g, '&quot;')}"
@@ -3122,54 +3122,54 @@ async function _kbLockSubmit(lockTaskId, dateStr) {
             })()}
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“‹ TÃªn cÃ´ng viá»‡c</div>
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📋 Tên công việc</div>
                     <div style="font-size:14px;font-weight:700;color:#991b1b;">${taskName}</div>
                 </div>
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“… NgÃ y bÃ¡o cÃ¡o</div>
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📅 Ngày báo cáo</div>
                     <div style="font-size:14px;font-weight:700;color:#991b1b;">${dateStr.split('-').reverse().join('/')}</div>
                 </div>
                 <div style="padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
-                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">ðŸ“Š SL tá»‘i thiá»ƒu</div>
-                    <div style="font-size:14px;font-weight:700;color:#dc2626;">${taskDetail?.min_quantity || 1} láº§n</div>
+                    <div style="font-size:10px;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px;">📊 SL tối thiểu</div>
+                    <div style="font-size:14px;font-weight:700;color:#dc2626;">${taskDetail?.min_quantity || 1} lần</div>
                 </div>
             </div>
             <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-bottom:14px;">
                 ${guideHtml}
-                ${reqHtml(inputReqs, 'ðŸ“¥', '#991b1b', 'YÃªu cáº§u Ä‘áº§u vÃ o')}
-                ${reqHtml(outputReqs, 'ðŸ“¤', '#991b1b', 'YÃªu cáº§u Ä‘áº§u ra')}
+                ${reqHtml(inputReqs, '📥', '#991b1b', 'Yêu cầu đầu vào')}
+                ${reqHtml(outputReqs, '📤', '#991b1b', 'Yêu cầu đầu ra')}
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">ðŸ“Š Sá»‘ lÆ°á»£ng Ä‘Ã£ hoÃ n thÃ nh <span style="color:#dc2626;">*</span></label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📊 Số lượng đã hoàn thành <span style="color:#dc2626;">*</span></label>
                 <input id="kbLockRptQty" type="number" min="0" value="${taskDetail?.min_quantity || 1}" placeholder="VD: 25" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">ðŸ“„ Ná»™i dung hoÃ n thÃ nh <span style="color:#dc2626;">*</span></label>
-                <textarea id="kbLockRptContent" rows="2" placeholder="MÃ´ táº£ cÃ´ng viá»‡c Ä‘Ã£ lÃ m..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">📄 Nội dung hoàn thành <span style="color:#dc2626;">*</span></label>
+                <textarea id="kbLockRptContent" rows="2" placeholder="Mô tả công việc đã làm..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">ðŸ”— Link bÃ¡o cÃ¡o káº¿t quáº£ <span style="color:#dc2626;">*</span></label>
-                <input id="kbLockRptLink" type="url" placeholder="https://docs.google.com/... hoáº·c link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:4px;">🔗 Link báo cáo kết quả <span style="color:#dc2626;">*</span></label>
+                <input id="kbLockRptLink" type="url" placeholder="https://docs.google.com/... hoặc link TikTok..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#122546;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">ðŸ–¼ï¸ HÃ¬nh áº£nh bÃ¡o cÃ¡o <span style="color:#dc2626;">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V Ä‘á»ƒ dÃ¡n áº£nh)</span></label>
+                <label style="font-weight:600;font-size:12px;color:#374151;display:block;margin-bottom:6px;">🖼️ Hình ảnh báo cáo <span style="color:#dc2626;">*</span> <span style="font-weight:400;color:#9ca3af;">(Ctrl+V để dán ảnh)</span></label>
                 <div id="kbLockPasteZone" tabindex="0" style="border:2px dashed #d1d5db;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafbfc;transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
-                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">ðŸ“‹</div>
-                    <div style="font-size:12px;color:#9ca3af;">Click vÃ o Ä‘Ã¢y rá»“i <b>Ctrl+V</b> Ä‘á»ƒ dÃ¡n áº£nh tá»« clipboard</div>
+                    <div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div>
+                    <div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>
                 </div>
                 <div id="kbLockPastePreview" style="display:none;margin-top:8px;position:relative;">
                     <img id="kbLockPasteImg" style="max-width:100%;max-height:150px;border-radius:6px;border:1px solid #e5e7eb;">
-                    <button onclick="_kbLockRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">Ã—</button>
+                    <button onclick="_kbLockRemovePaste()" style="position:absolute;top:4px;right:4px;background:#dc2626;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;">×</button>
                 </div>
             </div>
             <div style="font-size:11px;color:#6b7280;margin-bottom:14px;background:#f9fafb;padding:8px 10px;border-radius:6px;border:1px solid #f3f4f6;">
-                ðŸ’¡ <b>LÆ°u Ã½:</b> Báº¯t buá»™c pháº£i cÃ³ Ã­t nháº¥t <b>link</b> hoáº·c <b>hÃ¬nh áº£nh</b> Ä‘á»ƒ ná»™p bÃ¡o cÃ¡o.
+                💡 <b>Lưu ý:</b> Bắt buộc phải có ít nhất <b>link</b> hoặc <b>hình ảnh</b> để nộp báo cáo.
             </div>
             <input type="hidden" id="kbLockRptTaskId" value="${lockTaskId}">
             <input type="hidden" id="kbLockRptDate" value="${dateStr}">
             <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;">
-                <button onclick="document.getElementById('kbLockReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Há»§y</button>
-                <button onclick="_kbLockSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(220,38,38,0.3);">ðŸ“¤ Ná»™p bÃ¡o cÃ¡o</button>
+                <button onclick="document.getElementById('kbLockReportModal').remove()" style="padding:9px 18px;border-radius:8px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+                <button onclick="_kbLockSubmitReport()" style="padding:9px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(220,38,38,0.3);">📤 Nộp báo cáo</button>
             </div>
         </div>
     </div>`;
@@ -3193,7 +3193,7 @@ function _kbLockHandlePaste(e) {
                 document.getElementById('kbLockPasteImg').src = ev.target.result;
                 document.getElementById('kbLockPastePreview').style.display = 'block';
                 const z = document.getElementById('kbLockPasteZone');
-                z.innerHTML = '<div style="font-size:14px;color:#059669;font-weight:600;">âœ… ÄÃ£ dÃ¡n áº£nh thÃ nh cÃ´ng!</div>';
+                z.innerHTML = '<div style="font-size:14px;color:#059669;font-weight:600;">✅ Đã dán ảnh thành công!</div>';
                 z.style.borderColor = '#059669';
                 z.style.background = '#f0fdf4';
             };
@@ -3207,7 +3207,7 @@ function _kbLockRemovePaste() {
     window._kbLockPastedFile = null;
     document.getElementById('kbLockPastePreview').style.display = 'none';
     const z = document.getElementById('kbLockPasteZone');
-    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">ðŸ“‹</div><div style="font-size:12px;color:#9ca3af;">Click vÃ o Ä‘Ã¢y rá»“i <b>Ctrl+V</b> Ä‘á»ƒ dÃ¡n áº£nh tá»« clipboard</div>';
+    z.innerHTML = '<div style="font-size:28px;margin-bottom:6px;opacity:.5;">📋</div><div style="font-size:12px;color:#9ca3af;">Click vào đây rồi <b>Ctrl+V</b> để dán ảnh từ clipboard</div>';
     z.style.borderColor = '#d1d5db';
     z.style.background = '#fafbfc';
 }
@@ -3221,19 +3221,19 @@ async function _kbLockSubmitReport() {
     const qtyDone = Number(document.getElementById('kbLockRptQty')?.value) || 0;
 
     if (!content) {
-        showToast('Vui lÃ²ng nháº­p ná»™i dung hoÃ n thÃ nh!', 'error');
+        showToast('Vui lòng nhập nội dung hoàn thành!', 'error');
         document.getElementById('kbLockRptContent')?.focus();
         return;
     }
 
     if (qtyDone <= 0) {
-        showToast('Vui lÃ²ng nháº­p sá»‘ lÆ°á»£ng Ä‘Ã£ hoÃ n thÃ nh!', 'error');
+        showToast('Vui lòng nhập số lượng đã hoàn thành!', 'error');
         document.getElementById('kbLockRptQty')?.focus();
         return;
     }
 
     if (!link && !window._kbLockPastedFile) {
-        showToast('Pháº£i cÃ³ Ã­t nháº¥t link hoáº·c hÃ¬nh áº£nh bÃ¡o cÃ¡o!', 'error');
+        showToast('Phải có ít nhất link hoặc hình ảnh báo cáo!', 'error');
         return;
     }
 
@@ -3250,36 +3250,36 @@ async function _kbLockSubmitReport() {
             body: fd
         });
         const json = await res.json();
-        if (json.error) { showToast('âŒ ' + json.error, 'error'); return; }
-        showToast('âœ… ÄÃ£ ná»™p bÃ¡o cÃ¡o thÃ nh cÃ´ng!');
+        if (json.error) { showToast('❌ ' + json.error, 'error'); return; }
+        showToast('✅ Đã nộp báo cáo thành công!');
         document.getElementById('kbLockReportModal')?.remove();
         _kbLoadSchedule();
     } catch(e) {
-        showToast('âŒ Lá»—i upload: ' + (e.message || ''), 'error');
+        showToast('❌ Lỗi upload: ' + (e.message || ''), 'error');
     }
 }
 
-// ========== CV KHÃ“A: Send support request ==========
+// ========== CV KHÓA: Send support request ==========
 async function _kbLockSupport(lockTaskId, dateStr, taskName) {
-    if (!confirm(`ðŸ†˜ Gá»­i yÃªu cáº§u há»— trá»£ cho cÃ´ng viá»‡c "${taskName}" ngÃ y ${dateStr}?`)) return;
+    if (!confirm(`🆘 Gửi yêu cầu hỗ trợ cho công việc "${taskName}" ngày ${dateStr}?`)) return;
     try {
         const res = await apiCall(`/api/lock-tasks/${lockTaskId}/support`, 'POST', { task_date: dateStr });
-        if (res.error) { showToast('âŒ ' + res.error, 'error'); return; }
-        showToast('âœ… ÄÃ£ gá»­i yÃªu cáº§u há»— trá»£ cho quáº£n lÃ½!');
+        if (res.error) { showToast('❌ ' + res.error, 'error'); return; }
+        showToast('✅ Đã gửi yêu cầu hỗ trợ cho quản lý!');
         _kbLoadSchedule();
     } catch(e) {
-        showToast('âŒ ' + (e.message || 'Lá»—i'), 'error');
+        showToast('❌ ' + (e.message || 'Lỗi'), 'error');
     }
 }
 
-// ========== CV KHÃ“A: Task detail popup (RED theme) ==========
+// ========== CV KHÓA: Task detail popup (RED theme) ==========
 async function _kbShowLockTaskDetail(lockTaskId) {
     try {
         const res = await apiCall(`/api/lock-tasks/${lockTaskId}/detail`);
         const t = res.task;
-        if (!t) { showToast('KhÃ´ng tÃ¬m tháº¥y CV', 'error'); return; }
+        if (!t) { showToast('Không tìm thấy CV', 'error'); return; }
 
-        const recLabels = { administrative: 'HÃ nh chÃ­nh (T2-T7)', daily: 'Háº±ng ngÃ y', weekly: 'HÃ ng tuáº§n', monthly: 'HÃ ng thÃ¡ng', once: 'Má»™t láº§n' };
+        const recLabels = { administrative: 'Hành chính (T2-T7)', daily: 'Hằng ngày', weekly: 'Hàng tuần', monthly: 'Hàng tháng', once: 'Một lần' };
         const recLabel = recLabels[t.recurrence_type] || t.recurrence_type;
 
         // Parse requirements (could be JSON array, plain string/URL, or empty)
@@ -3305,44 +3305,44 @@ async function _kbShowLockTaskDetail(lockTaskId) {
         modal.innerHTML = `
         <div style="background:white;border-radius:16px;max-width:420px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.2);position:relative;">
             <div style="background:linear-gradient(135deg,#dc2626,#991b1b);padding:20px 24px;border-radius:16px 16px 0 0;position:relative;">
-                <button onclick="document.getElementById('kbLockDetailModal').remove()" style="position:absolute;top:12px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:18px;cursor:pointer;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">Ã—</button>
+                <button onclick="document.getElementById('kbLockDetailModal').remove()" style="position:absolute;top:12px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:18px;cursor:pointer;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">×</button>
                 <h3 style="color:white;font-size:20px;font-weight:800;margin:0 0 8px 0;line-height:1.3;">${t.task_name}</h3>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">ðŸ”’ ${recLabel}</span>
-                    ${t.requires_approval ? '<span style="background:rgba(255,200,0,0.3);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">ðŸ”’ Cáº§n duyá»‡t</span>' : ''}
+                    <span style="background:rgba(255,255,255,0.2);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">🔒 ${recLabel}</span>
+                    ${t.requires_approval ? '<span style="background:rgba(255,200,0,0.3);color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:600;">🔒 Cần duyệt</span>' : ''}
                 </div>
             </div>
             <div style="padding:20px 24px;">
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
                     <div style="flex:1;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b;font-weight:600;display:flex;align-items:center;gap:6px;">
-                        âš ï¸ KhÃ´ng lÃ m sáº½ bá»‹ pháº¡t vÃ  khÃ³a tÃ i khoáº£n
+                        ⚠️ Không làm sẽ bị phạt và khóa tài khoản
                     </div>
                     <div style="flex-shrink:0;text-align:center;padding:10px 16px;background:#fef2f2;border-radius:10px;border:1px solid #fecaca;">
-                        <div style="font-size:10px;color:#991b1b;font-weight:700;">Háº N Ná»˜P</div>
+                        <div style="font-size:10px;color:#991b1b;font-weight:700;">HẠN NỘP</div>
                         <div style="font-size:22px;font-weight:800;color:#dc2626;">24:00</div>
                     </div>
                 </div>
                 ${t.task_content ? `<div style="margin-bottom:12px;padding:10px;background:#f9fafb;border-radius:8px;font-size:13px;color:#374151;line-height:1.6;border:1px solid #e5e7eb;">${t.task_content}</div>` : ''}
                 ${t.guide_link ? `
                 <div style="margin-bottom:16px;padding:12px;background:#fef2f2;border-radius:10px;display:flex;align-items:center;gap:10px;border:1px solid #fecaca;">
-                    <span style="font-size:24px;">ðŸ“–</span>
+                    <span style="font-size:24px;">📖</span>
                     <div style="flex:1;">
-                        <div style="font-size:12px;font-weight:700;color:#991b1b;">Xem hÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
+                        <div style="font-size:12px;font-weight:700;color:#991b1b;">Xem hướng dẫn công việc</div>
                         <div style="font-size:11px;color:#6b7280;word-break:break-all;">${t.guide_link}</div>
                     </div>
-                    <a href="${t.guide_link}" target="_blank" style="font-size:18px;text-decoration:none;">â†’</a>
+                    <a href="${t.guide_link}" target="_blank" style="font-size:18px;text-decoration:none;">→</a>
                 </div>` : ''}
                 <div id="kbLockDetailProgress"></div>
                 ${inputReqs.length > 0 ? `
                 <div style="margin-bottom:12px;">
-                    <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">ðŸ“¥ YÃªu cáº§u Ä‘áº§u vÃ o</div>
+                    <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
                     <div style="padding:10px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
                         ${inputReqs.map((r,i) => { const isLink = /^https?:\/\//i.test(r); return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span>${isLink ? `<a href="${r}" target="_blank" style="font-size:12px;color:#2563eb;word-break:break-all;">${r}</a>` : `<span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span>`}</div>`; }).join('')}
                     </div>
                 </div>` : ''}
                 ${outputReqs.length > 0 ? `
                 <div style="margin-bottom:12px;">
-                    <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">ðŸ“¤ YÃªu cáº§u Ä‘áº§u ra</div>
+                    <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
                     <div style="padding:10px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
                         ${outputReqs.map((r,i) => { const isLink = /^https?:\/\//i.test(r); return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;"><span style="min-width:20px;height:20px;background:#dc2626;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${i+1}</span>${isLink ? `<a href="${r}" target="_blank" style="font-size:12px;color:#2563eb;word-break:break-all;">${r}</a>` : `<span style="font-size:12px;color:#374151;word-break:break-all;">${r}</span>`}</div>`; }).join('')}
                     </div>
@@ -3356,19 +3356,19 @@ async function _kbShowLockTaskDetail(lockTaskId) {
             _kbLoadLockDetailSedding();
         }
         // Load Zalo progress if applicable
-        if (/tÃ¬m.*gr.*zalo/i.test(t.task_name)) {
+        if (/tìm.*gr.*zalo/i.test(t.task_name)) {
             _kbLoadLockDetailZalo();
         }
-        // Load ÄÄƒng Báº£n ThÃ¢n progress if applicable
-        if (/Ä‘Äƒng.*báº£n.*thÃ¢n/i.test(t.task_name)) {
+        // Load Đăng Bản Thân progress if applicable
+        if (/đăng.*bản.*thân/i.test(t.task_name)) {
             _kbLoadLockDetailDangBT();
         }
     } catch(e) {
-        showToast('Lá»—i: ' + (e.message || ''), 'error');
+        showToast('Lỗi: ' + (e.message || ''), 'error');
     }
 }
 
-// ========== DEPT MANAGEMENT (GÄ only) â€” moved from BÃ n Giao CV Äiá»ƒm ==========
+// ========== DEPT MANAGEMENT (GĐ only) — moved from Bàn Giao CV Điểm ==========
 
 // Show modal to add dept/team to sidebar
 function _kbShowCreateDeptModal() {
@@ -3377,36 +3377,36 @@ function _kbShowCreateDeptModal() {
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     // Build system options
-    const systemDepts = _kbAllDepts.filter(d => d.name.startsWith('Há»† THá»NG'));
+    const systemDepts = _kbAllDepts.filter(d => d.name.startsWith('HỆ THỐNG'));
     const sysOpts = systemDepts.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:24px;width:min(420px,90vw);border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;font-size:16px;color:#122546;">ï¼‹ Táº¡o lá»‹ch cÃ´ng viá»‡c</h3>
-            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">Ã—</button>
+            <h3 style="margin:0;font-size:16px;color:#122546;">＋ Tạo lịch công việc</h3>
+            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">×</button>
         </div>
         <div style="margin-bottom:14px;">
-            <label style="font-weight:600;font-size:13px;color:#374151;">ðŸ›ï¸ Há»‡ thá»‘ng <span style="color:#dc2626;">*</span></label>
+            <label style="font-weight:600;font-size:13px;color:#374151;">🏛️ Hệ thống <span style="color:#dc2626;">*</span></label>
             <select id="kbNewSysSelect" onchange="_kbFilterCreateDepts()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                ${sysOpts || '<option value="">KhÃ´ng cÃ³ há»‡ thá»‘ng</option>'}
+                ${sysOpts || '<option value="">Không có hệ thống</option>'}
             </select>
         </div>
         <div style="margin-bottom:14px;">
-            <label style="font-weight:600;font-size:13px;color:#374151;">PhÃ²ng ban / Team <span style="color:#dc2626;">*</span></label>
+            <label style="font-weight:600;font-size:13px;color:#374151;">Phòng ban / Team <span style="color:#dc2626;">*</span></label>
             <select id="kbNewDeptSelect" onchange="_kbLoadCreateUsers()" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                <option value="">â€” Chá»n há»‡ thá»‘ng trÆ°á»›c â€”</option>
+                <option value="">— Chọn hệ thống trước —</option>
             </select>
         </div>
         <div style="margin-bottom:6px;">
-            <label style="font-weight:600;font-size:13px;color:#374151;">NhÃ¢n viÃªn <span style="color:#9ca3af;font-weight:400;">(khÃ´ng chá»n = lá»‹ch team)</span></label>
+            <label style="font-weight:600;font-size:13px;color:#374151;">Nhân viên <span style="color:#9ca3af;font-weight:400;">(không chọn = lịch team)</span></label>
             <select id="kbNewUserSelect" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#122546;box-sizing:border-box;">
-                <option value="">â€” ToÃ n bá»™ Team â€”</option>
+                <option value="">— Toàn bộ Team —</option>
             </select>
-            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">ðŸ’¡ Äá»ƒ trá»‘ng = lá»‹ch chung cho cáº£ team. Chá»n NV = lá»‹ch riÃªng cho ngÆ°á»i Ä‘Ã³.</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">💡 Để trống = lịch chung cho cả team. Chọn NV = lịch riêng cho người đó.</div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Há»§y</button>
-            <button onclick="_kbActivateDept()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">âœ… Táº¡o</button>
+            <button onclick="document.getElementById('kbCreateDeptModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_kbActivateDept()" style="padding:8px 20px;border-radius:6px;border:none;background:#16a34a;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Tạo</button>
         </div>
     </div>`;
     document.body.appendChild(modal);
@@ -3418,24 +3418,24 @@ function _kbFilterCreateDepts() {
     const deptSel = document.getElementById('kbNewDeptSelect');
     if (!deptSel) return;
     // Get ALL non-system depts under this system (both active & inactive parents)
-    const allChildDepts = _kbAllDepts.filter(d => d.parent_id === sysId && !d.name.startsWith('Há»† THá»NG'));
+    const allChildDepts = _kbAllDepts.filter(d => d.parent_id === sysId && !d.name.startsWith('HỆ THỐNG'));
     allChildDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     let opts = '';
     allChildDepts.forEach(d => {
         const parentIsActive = _kbActiveDeptIds.includes(d.id);
         const subTeams = _kbAllDepts.filter(sub => sub.parent_id === d.id && !_kbActiveDeptIds.includes(sub.id));
         if (!parentIsActive) {
-            // Parent chÆ°a active â†’ cho chá»n parent + sub-teams
-            opts += `<option value="${d.id}">ðŸ¢ ${d.name}</option>`;
-            subTeams.forEach(sub => { opts += `<option value="${sub.id}">  â”” ${sub.name}</option>`; });
+            // Parent chưa active → cho chọn parent + sub-teams
+            opts += `<option value="${d.id}">🏢 ${d.name}</option>`;
+            subTeams.forEach(sub => { opts += `<option value="${sub.id}">  └ ${sub.name}</option>`; });
         } else if (subTeams.length > 0) {
-            // Parent Ä‘Ã£ active nhÆ°ng cÃ²n sub-teams chÆ°a active â†’ hiá»‡n group header
-            opts += `<optgroup label="ðŸ¢ ${d.name}">`;
+            // Parent đã active nhưng còn sub-teams chưa active → hiện group header
+            opts += `<optgroup label="🏢 ${d.name}">`;
             subTeams.forEach(sub => { opts += `<option value="${sub.id}">${sub.name}</option>`; });
             opts += `</optgroup>`;
         }
     });
-    deptSel.innerHTML = opts || '<option value="">Táº¥t cáº£ phÃ²ng Ä‘Ã£ Ä‘Æ°á»£c thÃªm</option>';
+    deptSel.innerHTML = opts || '<option value="">Tất cả phòng đã được thêm</option>';
     _kbLoadCreateUsers();
 }
 
@@ -3446,9 +3446,9 @@ async function _kbLoadCreateUsers() {
     try {
         const u = await apiCall(`/api/task-points/users?department_id=${deptId}`);
         const users = u.users || [];
-        userSel.innerHTML = '<option value="">â€” ToÃ n bá»™ Team â€”</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>' + users.map(u => `<option value="${u.id}">${u.full_name} (${u.role})</option>`).join('');
     } catch(e) {
-        userSel.innerHTML = '<option value="">â€” ToÃ n bá»™ Team â€”</option>';
+        userSel.innerHTML = '<option value="">— Toàn bộ Team —</option>';
     }
 }
 
@@ -3463,20 +3463,20 @@ async function _kbActivateDept() {
     try {
         await apiCall('/api/task-points/activate-team', 'POST', { team_id: deptId });
         _kbActiveDeptIds.push(deptId);
-        showToast(`âœ… ÄÃ£ thÃªm ${deptName} vÃ o sidebar`);
+        showToast(`✅ Đã thêm ${deptName} vào sidebar`);
         // Reload page
         const content = document.getElementById('content') || document.querySelector('[id="content"]');
         if (content) renderLichKhoaBieuPage(content);
     } catch(e) {
-        showToast('Lá»—i: ' + (e.message || ''), 'error');
+        showToast('Lỗi: ' + (e.message || ''), 'error');
     }
 }
 
 async function _kbRemoveDept(deptId, event) {
     if (event) event.stopPropagation();
     const dept = _kbAllDepts.find(d => d.id === deptId);
-    const name = dept?.name || 'phÃ²ng nÃ y';
-    if (!confirm(`XÃ³a ${name} khá»i sidebar?\nDá»¯ liá»‡u cÃ´ng viá»‡c váº«n Ä‘Æ°á»£c giá»¯ nguyÃªn.\nCÃ³ thá»ƒ thÃªm láº¡i báº¥t cá»© lÃºc nÃ o.`)) return;
+    const name = dept?.name || 'phòng này';
+    if (!confirm(`Xóa ${name} khỏi sidebar?\nDữ liệu công việc vẫn được giữ nguyên.\nCó thể thêm lại bất cứ lúc nào.`)) return;
     try {
         await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: deptId });
         // Also remove children
@@ -3484,12 +3484,12 @@ async function _kbRemoveDept(deptId, event) {
         for (const child of children) {
             await apiCall('/api/task-points/deactivate-team', 'POST', { team_id: child.id });
         }
-        showToast(`âœ… ÄÃ£ xÃ³a ${name} khá»i sidebar`);
+        showToast(`✅ Đã xóa ${name} khỏi sidebar`);
         // Reload page
         const content = document.getElementById('content') || document.querySelector('[id="content"]');
         if (content) renderLichKhoaBieuPage(content);
     } catch(e) {
-        showToast('Lá»—i: ' + (e.message || ''), 'error');
+        showToast('Lỗi: ' + (e.message || ''), 'error');
     }
 }
 
@@ -3514,7 +3514,7 @@ function _kbShowReorderModal() {
             rowsHtml += `
             <div style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 36px;border-bottom:1px solid #f9fafb;">
                 <input type="number" min="1" class="_kbSttInput" data-id="${c.id}" value="${c.display_order !== null && c.display_order !== undefined ? c.display_order + 1 : ci + 1}" style="width:46px;padding:5px 6px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;text-align:center;color:#059669;outline:none;" onfocus="this.style.borderColor='#059669';this.select()" onblur="this.style.borderColor='#e5e7eb'">
-                <span style="color:#6b7280;font-size:12px;">â”” ${c.name}</span>
+                <span style="color:#6b7280;font-size:12px;">└ ${c.name}</span>
             </div>`;
         });
     });
@@ -3527,17 +3527,17 @@ function _kbShowReorderModal() {
     <div style="background:white;border-radius:12px;width:min(420px,90vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
         <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">ðŸ”¢ Sáº¯p xáº¿p thá»© tá»± phÃ²ng ban</h3>
-                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Nháº­p sá»‘ STT â€” sá»‘ nhá» hiá»ƒn trÆ°á»›c</div>
+                <h3 style="margin:0;font-size:16px;color:#122546;font-weight:700;">🔢 Sắp xếp thứ tự phòng ban</h3>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Nhập số STT — số nhỏ hiển trước</div>
             </div>
-            <button onclick="document.getElementById('_kbReorderModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">Ã—</button>
+            <button onclick="document.getElementById('_kbReorderModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1;">×</button>
         </div>
         <div style="overflow-y:auto;flex:1;">
             ${rowsHtml}
         </div>
         <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
-            <button onclick="document.getElementById('_kbReorderModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Há»§y</button>
-            <button onclick="_kbSaveReorder()" style="padding:8px 20px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:13px;font-weight:600;">âœ… LÆ°u thá»© tá»±</button>
+            <button onclick="document.getElementById('_kbReorderModal').remove()" style="padding:8px 16px;border-radius:6px;border:1px solid #d1d5db;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
+            <button onclick="_kbSaveReorder()" style="padding:8px 20px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:13px;font-weight:600;">✅ Lưu thứ tự</button>
         </div>
     </div>`;
     document.body.appendChild(modal);
@@ -3553,12 +3553,12 @@ async function _kbSaveReorder() {
     });
     try {
         await apiCall('/api/task-points/reorder-departments', 'PUT', { orders });
-        showToast('âœ… ÄÃ£ lÆ°u thá»© tá»±');
+        showToast('✅ Đã lưu thứ tự');
         document.getElementById('_kbReorderModal')?.remove();
         const content = document.getElementById('content') || document.querySelector('[id="content"]');
         if (content) renderLichKhoaBieuPage(content);
     } catch(e) {
-        showToast('Lá»—i lÆ°u thá»© tá»±', 'error');
+        showToast('Lỗi lưu thứ tự', 'error');
     }
 }
 
@@ -3581,16 +3581,16 @@ function _kbShowLockReport(compId) {
             if (found) { comp = found; compKey = key; break; }
         }
     }
-    if (!comp) { showToast('KhÃ´ng tÃ¬m tháº¥y bÃ¡o cÃ¡o', 'error'); return; }
+    if (!comp) { showToast('Không tìm thấy báo cáo', 'error'); return; }
 
     const lt = _kbLockTasks.find(t => t.id === comp.lock_task_id);
-    const taskName = lt ? lt.task_name : 'CÃ´ng viá»‡c khÃ³a';
+    const taskName = lt ? lt.task_name : 'Công việc khóa';
 
     const statusMap = {
-        approved: { icon: 'âœ…', label: 'ÄÃ£ duyá»‡t', color: '#16a34a', bg: '#dcfce7' },
-        pending: { icon: 'â³', label: 'Chá» duyá»‡t', color: '#d97706', bg: '#fef3c7' },
-        rejected: { icon: 'âŒ', label: 'Tá»« chá»‘i', color: '#dc2626', bg: '#fecaca' },
-        expired: { icon: 'ðŸš«', label: 'Háº¿t háº¡n', color: '#6b7280', bg: '#f3f4f6' }
+        approved: { icon: '✅', label: 'Đã duyệt', color: '#16a34a', bg: '#dcfce7' },
+        pending: { icon: '⏳', label: 'Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+        rejected: { icon: '❌', label: 'Từ chối', color: '#dc2626', bg: '#fecaca' },
+        expired: { icon: '🚫', label: 'Hết hạn', color: '#6b7280', bg: '#f3f4f6' }
     };
     const dateF = comp.completion_date ? comp.completion_date.split('-').reverse().join('/') : '';
 
@@ -3603,7 +3603,7 @@ function _kbShowLockReport(compId) {
     const modalContainer = document.getElementById('modalContainer');
     if (modalContainer) modalContainer.style.maxWidth = '650px';
 
-    titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">ðŸ”</span> ${taskName}`;
+    titleEl.innerHTML = `<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-size:12px;margin-right:8px;">🔐</span> ${taskName}`;
 
     // Get ALL versions for this task+date
     const allVersions = (window._kbLockCompAllVersions && compKey ? window._kbLockCompAllVersions[compKey] : [comp]) || [comp];
@@ -3617,12 +3617,12 @@ function _kbShowLockReport(compId) {
         if (v.proof_url) {
             if (v.proof_url.startsWith('/uploads')) {
                 proofHtml = `<div style="margin-top:8px;">
-                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">ðŸ–¼ï¸ HÃ¬nh áº£nh:</div>
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">🖼️ Hình ảnh:</div>
                     <a href="${v.proof_url}" target="_blank"><img src="${v.proof_url}" style="max-width:100%;max-height:200px;border-radius:6px;border:1px solid #e5e7eb;" onerror="this.style.display='none'" /></a>
                 </div>`;
             } else {
                 proofHtml = `<div style="margin-top:8px;">
-                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">ðŸ”— Link:</div>
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">🔗 Link:</div>
                     <a href="${v.proof_url}" target="_blank" style="color:#2563eb;word-break:break-all;font-size:11px;">${v.proof_url}</a>
                 </div>`;
             }
@@ -3630,7 +3630,7 @@ function _kbShowLockReport(compId) {
 
         const borderColor = isLatest ? '#3b82f6' : '#e5e7eb';
         const headerBg = isLatest ? '#eff6ff' : '#f9fafb';
-        const label = isLatest ? `ðŸ“„ Láº§n ${(v.redo_count || 0) + 1} (Má»›i nháº¥t)` : `ðŸ“‹ Láº§n ${(v.redo_count || 0) + 1}`;
+        const label = isLatest ? `📄 Lần ${(v.redo_count || 0) + 1} (Mới nhất)` : `📋 Lần ${(v.redo_count || 0) + 1}`;
 
         return `<div style="border:2px solid ${borderColor};border-radius:10px;overflow:hidden;${!isLatest?'opacity:0.85;':''}">
             <div style="background:${headerBg};padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${borderColor};">
@@ -3639,16 +3639,16 @@ function _kbShowLockReport(compId) {
             </div>
             <div style="padding:12px 14px;">
                 ${v.content ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;">
-                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">ðŸ“„ Ná»™i dung:</div>
+                    <div style="font-weight:600;color:#374151;font-size:11px;margin-bottom:4px;">📄 Nội dung:</div>
                     <div style="font-size:12px;color:#1e293b;line-height:1.5;white-space:pre-wrap;">${v.content}</div>
-                </div>` : '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">ðŸ“­ KhÃ´ng cÃ³ ná»™i dung</div>'}
-                ${(() => { const qd = v.quantity_done || 0; const mq = lt?.min_quantity || 1; const isLow = qd < mq; return `<div style="background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-weight:700;font-size:11px;color:${isLow ? '#dc2626' : '#166534'};">ðŸ“Š Sá»‘ lÆ°á»£ng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">âš ï¸ ChÆ°a Ä‘áº¡t</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">âœ… Äáº¡t</span>'}</div>`; })()}
+                </div>` : '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">📭 Không có nội dung</div>'}
+                ${(() => { const qd = v.quantity_done || 0; const mq = lt?.min_quantity || 1; const isLow = qd < mq; return `<div style="background:${isLow ? '#fef2f2' : '#f0fdf4'};border:1px solid ${isLow ? '#fecaca' : '#bbf7d0'};border-radius:6px;padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span style="font-weight:700;font-size:11px;color:${isLow ? '#dc2626' : '#166534'};">📊 Số lượng: ${qd}/${mq}</span>${isLow ? '<span style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ Chưa đạt</span>' : '<span style="font-size:10px;color:#16a34a;font-weight:600;">✅ Đạt</span>'}</div>`; })()}
                 ${proofHtml}
                 ${v.reject_reason ? `<div style="margin-top:8px;background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #dc2626;border-radius:6px;padding:8px 10px;">
-                    <div style="font-weight:600;color:#dc2626;font-size:11px;margin-bottom:2px;">ðŸ’¬ LÃ½ do tá»« chá»‘i:</div>
+                    <div style="font-weight:600;color:#dc2626;font-size:11px;margin-bottom:2px;">💬 Lý do từ chối:</div>
                     <div style="font-size:11px;color:#7f1d1d;">${v.reject_reason}</div>
                 </div>` : ''}
-                ${v.reviewed_at ? `<div style="margin-top:6px;font-size:10px;color:#9ca3af;">â° ${new Date(v.reviewed_at).toLocaleString('vi-VN')}</div>` : ''}
+                ${v.reviewed_at ? `<div style="margin-top:6px;font-size:10px;color:#9ca3af;">⏰ ${new Date(v.reviewed_at).toLocaleString('vi-VN')}</div>` : ''}
             </div>
         </div>`;
     }
@@ -3664,19 +3664,19 @@ function _kbShowLockReport(compId) {
     if (lt) {
         if (lt.guide_link) {
             reqHtml += `<div style="margin-bottom:8px;padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
-                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">ðŸ“‹ HÆ°á»›ng dáº«n cÃ´ng viá»‡c</div>
-                <a href="${lt.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${lt.guide_link} â†’</a>
+                <div style="font-weight:700;font-size:11px;color:#166534;margin-bottom:4px;">📋 Hướng dẫn công việc</div>
+                <a href="${lt.guide_link}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:none;word-break:break-all;">${lt.guide_link} →</a>
             </div>`;
         }
         if (lt.input_requirements) {
             reqHtml += `<div style="padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:8px;">
-                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">ðŸ“¥ YÃªu cáº§u Ä‘áº§u vÃ o</div>
+                <div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:6px;">📥 Yêu cầu đầu vào</div>
                 <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(lt.input_requirements)}</div>
             </div>`;
         }
         if (lt.output_requirements) {
             reqHtml += `<div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:8px;">
-                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">ðŸ“¤ YÃªu cáº§u Ä‘áº§u ra</div>
+                <div style="font-size:12px;color:#1d4ed8;font-weight:700;margin-bottom:6px;">📤 Yêu cầu đầu ra</div>
                 <div style="background:white;border-radius:8px;padding:8px 12px;">${_kbRenderReqList(lt.output_requirements)}</div>
             </div>`;
         }
@@ -3685,28 +3685,28 @@ function _kbShowLockReport(compId) {
     body.innerHTML = `
     <div style="padding:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <span style="font-size:13px;color:#6b7280;font-weight:600;">ðŸ“… ${dateF}</span>
-            ${allVersions.length > 1 ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:4px;">ðŸ“Š ${allVersions.length} láº§n bÃ¡o cÃ¡o</span>` : ''}
+            <span style="font-size:13px;color:#6b7280;font-weight:600;">📅 ${dateF}</span>
+            ${allVersions.length > 1 ? `<span style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:3px 8px;border-radius:4px;">📊 ${allVersions.length} lần báo cáo</span>` : ''}
         </div>
         ${reqHtml ? `<div style="border:2px solid #bbf7d0;border-radius:12px;overflow:hidden;margin-bottom:16px;">
             <div style="background:linear-gradient(135deg,#166534,#15803d);padding:10px 16px;">
-                <span style="color:white;font-weight:700;font-size:13px;">ðŸ“‹ YÃªu cáº§u cÃ´ng viá»‡c</span>
+                <span style="color:white;font-weight:700;font-size:13px;">📋 Yêu cầu công việc</span>
             </div>
             <div style="padding:14px;">${reqHtml}</div>
         </div>` : ''}
         <div style="border:2px solid #bfdbfe;border-radius:12px;overflow:hidden;">
             <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:10px 16px;">
-                <span style="color:white;font-weight:700;font-size:13px;">ðŸ“„ BÃ¡o cÃ¡o cÃ´ng viá»‡c</span>
+                <span style="color:white;font-weight:700;font-size:13px;">📄 Báo cáo công việc</span>
             </div>
             <div style="padding:14px;">${versionsHtml}</div>
         </div>
     </div>`;
 
-    footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">ÄÃ³ng</button>`;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modalOverlay').classList.remove('show')">Đóng</button>`;
     overlay.classList.add('show');
 }
 
-// ========== SELF-SEARCH PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== SELF-SEARCH PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectSelfSearchStats() {
     const placeholders = document.querySelectorAll('[data-ss-date]');
     if (placeholders.length === 0) return;
@@ -3721,7 +3721,7 @@ async function _kbInjectSelfSearchStats() {
             const pct = Math.min(100, Math.round(count / target * 100));
             const done = count >= target;
             const barColor = done ? '#059669' : '#6366f1';
-            const statusLabel = done ? `<span style="color:#059669;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#6366f1;font-weight:700;">ðŸ” ${count}/${target}</span>`;
+            const statusLabel = done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#6366f1;font-weight:700;">🔍 ${count}/${target}</span>`;
             el.innerHTML = `
                 <div style="margin-top:4px;">
                     <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
@@ -3747,22 +3747,22 @@ async function _kbLoadDetailSelfSearch() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #a5b4fc;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#3730a3;">ðŸ” Tiáº¿n trÃ¬nh Tá»± TÃ¬m Kiáº¿m Telesale hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#6366f1'};">${count}/${target} KH â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tiến trình Tự Tìm Kiếm Telesale hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#6366f1'};">${count}/${target} KH — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#c7d2fe;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a78bfa);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(99,102,241,0.3)'">
-                    ðŸ“ž Má»Ÿ Gá»i Äiá»‡n Telesale â†’
+                    📞 Mở Gọi Điện Telesale →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== TELESALE CALL PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== TELESALE CALL PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectTelesaleStats() {
     const placeholders = document.querySelectorAll('[data-ts-date]');
     if (placeholders.length === 0) return;
@@ -3791,8 +3791,8 @@ function _kbRenderTelesaleMini(el, res) {
     const done = count >= target;
     const barColor = done ? '#059669' : '#059669';
     const statusLabel = done
-        ? `<span style="color:#059669;font-weight:800;">âœ… ${count}/${target}</span>`
-        : `<span style="color:#059669;font-weight:700;">ðŸ“ž ${count}/${target}</span>`;
+        ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#059669;font-weight:700;">📞 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
             <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
@@ -3818,25 +3818,25 @@ async function _kbLoadDetailTelesale() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#065f46;">ðŸ“ž Tiáº¿n trÃ¬nh Gá»i Äiá»‡n hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#065f46'};">${count}/${target} báº¯t mÃ¡y â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#065f46;">📞 Tiến trình Gọi Điện hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#065f46'};">${count}/${target} bắt máy — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#a7f3d0;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();document.querySelector('[data-page=goidien]')?.click();" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#059669,#10b981);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(5,150,105,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(5,150,105,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(5,150,105,0.3)'">
-                    ðŸ“ž Má»Ÿ Gá»i Äiá»‡n Telesale â†’
+                    📞 Mở Gọi Điện Telesale →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== NHáº®N TÃŒM Äá»I TÃC PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== NHẮN TÌM ĐỐI TÁC PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectPartnerOutreachStats() {
     const placeholders = document.querySelectorAll('[data-po-date]');
     if (placeholders.length === 0) return;
@@ -3863,8 +3863,8 @@ function _kbRenderPartnerOutreachMini(el, res) {
     const done = count >= target;
     const barColor = done ? '#2563eb' : '#2563eb';
     const statusLabel = done
-        ? `<span style="color:#2563eb;font-weight:800;">âœ… ${count}/${target}</span>`
-        : `<span style="color:#2563eb;font-weight:700;">ðŸ’¬ ${count}/${target}</span>`;
+        ? `<span style="color:#2563eb;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#2563eb;font-weight:700;">💬 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
             <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
@@ -3890,25 +3890,25 @@ async function _kbLoadDetailPartnerOutreach() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#1e40af;">ðŸ’¬ Tiáº¿n trÃ¬nh Nháº¯n TÃ¬m Äá»‘i TÃ¡c hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#1e40af'};">${count}/${target} Ä‘á»‘i tÃ¡c â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#1e40af;">💬 Tiến trình Nhắn Tìm Đối Tác hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#1e40af'};">${count}/${target} đối tác — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#bfdbfe;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#2563eb,#3b82f6,#60a5fa);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/nhantintimdoitackh';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(37,99,235,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(37,99,235,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(37,99,235,0.3)'">
-                    ðŸ’¬ Má»Ÿ Nháº¯n TÃ¬m Äá»‘i TÃ¡c â†’
+                    💬 Mở Nhắn Tìm Đối Tác →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ADD/CMT Äá»I TÃC PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== ADD/CMT ĐỐI TÁC PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectAddCmtStats() {
     const placeholders = document.querySelectorAll('[data-ac-date]');
     if (placeholders.length === 0) return;
@@ -3934,8 +3934,8 @@ function _kbRenderAddCmtMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const statusLabel = done
-        ? `<span style="color:#16a34a;font-weight:800;">âœ… ${count}/${target}</span>`
-        : `<span style="color:#16a34a;font-weight:700;">ðŸ‘¥ ${count}/${target}</span>`;
+        ? `<span style="color:#16a34a;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#16a34a;font-weight:700;">👥 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
             <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
@@ -3961,25 +3961,25 @@ async function _kbLoadDetailAddCmt() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#15803d;">ðŸ‘¥ Tiáº¿n trÃ¬nh Add/Cmt Äá»‘i TÃ¡c hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#15803d'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#15803d;">👥 Tiến trình Add/Cmt Đối Tác hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#15803d'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#bbf7d0;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#16a34a,#22c55e,#4ade80);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/addcmtdoitackh';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(22,163,74,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(22,163,74,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(22,163,74,0.3)'">
-                    ðŸ‘¥ Má»Ÿ Add/Cmt Äá»‘i TÃ¡c â†’
+                    👥 Mở Add/Cmt Đối Tác →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ÄÄ‚NG VIDEO ISOCAL PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== ĐĂNG VIDEO ISOCAL PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectDangVideoStats() {
     const placeholders = document.querySelectorAll('[data-dv-date]');
     if (placeholders.length === 0) return;
@@ -4005,8 +4005,8 @@ function _kbRenderDangVideoMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const statusLabel = done
-        ? `<span style="color:#dc2626;font-weight:800;">âœ… ${count}/${target}</span>`
-        : `<span style="color:#dc2626;font-weight:700;">ðŸŽ¬ ${count}/${target}</span>`;
+        ? `<span style="color:#dc2626;font-weight:800;">✅ ${count}/${target}</span>`
+        : `<span style="color:#dc2626;font-weight:700;">🎬 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
             <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
@@ -4032,25 +4032,25 @@ async function _kbLoadDetailDangVideo() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fef2f2,#fecaca);border:1.5px solid #fca5a5;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#b91c1c;">ðŸŽ¬ Tiáº¿n trÃ¬nh ÄÄƒng Video hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#b91c1c'};">${count}/${target} video â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#b91c1c;">🎬 Tiến trình Đăng Video hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#b91c1c'};">${count}/${target} video — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#fecaca;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#dc2626,#ef4444,#f87171);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangvideo';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(220,38,38,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(220,38,38,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(220,38,38,0.3)'">
-                    ðŸŽ¬ Má»Ÿ ÄÄƒng Video Isocal â†’
+                    🎬 Mở Đăng Video Isocal →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ÄÄ‚NG CONTENT ISOCAL PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== ĐĂNG CONTENT ISOCAL PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectDangContentStats() {
     const placeholders = document.querySelectorAll('[data-dc-date]');
     if (placeholders.length === 0) return;
@@ -4073,7 +4073,7 @@ function _kbRenderDangContentMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">âœï¸ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4094,25 +4094,25 @@ async function _kbLoadDetailDangContent() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1.5px solid #c4b5fd;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#7c3aed;">âœï¸ Tiáº¿n trÃ¬nh ÄÄƒng Content hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#7c3aed'};">${count}/${target} bÃ i â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#7c3aed;">✍️ Tiến trình Đăng Content hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#7c3aed'};">${count}/${target} bài — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#ddd6fe;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#8b5cf6,#a78bfa,#c4b5fd);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangcontent';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(139,92,246,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(139,92,246,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(139,92,246,0.3)'">
-                    âœï¸ Má»Ÿ ÄÄƒng Content Isocal â†’
+                    ✍️ Mở Đăng Content Isocal →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ÄÄ‚NG & TÃŒM KH GROUP PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== ĐĂNG & TÌM KH GROUP PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectDangGroupStats() {
     const placeholders = document.querySelectorAll('[data-dg-date]');
     if (placeholders.length === 0) return;
@@ -4135,7 +4135,7 @@ function _kbRenderDangGroupMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">ðŸ“¢ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4156,25 +4156,25 @@ async function _kbLoadDetailDangGroup() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#ecfeff,#cffafe);border:1.5px solid #67e8f9;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#0e7490;">ðŸ“¢ Tiáº¿n trÃ¬nh ÄÄƒng & TÃ¬m KH Group hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0e7490'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#0e7490;">📢 Tiến trình Đăng & Tìm KH Group hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0e7490'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#a5f3fc;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#0891b2,#06b6d4,#22d3ee);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/danggruop';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(8,145,178,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(8,145,178,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(8,145,178,0.3)'">
-                    ðŸ“¢ Má»Ÿ ÄÄƒng & TÃ¬m KH Group â†’
+                    📢 Mở Đăng & Tìm KH Group →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== TUYá»‚N Dá»¤NG SV KD PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== TUYỂN DỤNG SV KD PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectTuyenDungStats() {
     const placeholders = document.querySelectorAll('[data-td-date]');
     if (placeholders.length === 0) return;
@@ -4197,7 +4197,7 @@ function _kbRenderTuyenDungMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">ðŸŽ“ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4218,25 +4218,25 @@ async function _kbLoadDetailTuyenDung() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fdf2f8,#fce7f3);border:1.5px solid #f9a8d4;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#9d174d;">ðŸŽ“ Tiáº¿n trÃ¬nh Tuyá»ƒn Dá»¥ng SV KD hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#9d174d'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#9d174d;">🎓 Tiến trình Tuyển Dụng SV KD hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#9d174d'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#fbcfe8;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#be185d,#db2777,#ec4899);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/tuyendungsvkd';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#be185d,#9d174d);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(190,24,93,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(190,24,93,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(190,24,93,0.3)'">
-                    ðŸŽ“ Má»Ÿ Tuyá»ƒn Dá»¥ng SV KD â†’
+                    🎓 Mở Tuyển Dụng SV KD →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== SEDDING Cá»˜NG Äá»’NG PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== SEDDING CỘNG ĐỒNG PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectSeddingStats() {
     const placeholders = document.querySelectorAll('[data-sd-date]');
     if (placeholders.length === 0) return;
@@ -4259,7 +4259,7 @@ function _kbRenderSeddingMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">ðŸŒ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4280,25 +4280,25 @@ async function _kbLoadDetailSedding() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#c2410c;">ðŸŒ Tiáº¿n trÃ¬nh Sedding hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#c2410c;">🌐 Tiến trình Sedding hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#fed7aa;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#ea580c,#f97316,#fb923c);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
-                    ðŸŒ Má»Ÿ Sedding Cá»™ng Äá»“ng & Láº«n Nhau â†’
+                    🌐 Mở Sedding Cộng Đồng & Lẫn Nhau →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== SEDDING PROGRESS IN CV KHÃ“A DETAIL MODAL ==========
+// ========== SEDDING PROGRESS IN CV KHÓA DETAIL MODAL ==========
 async function _kbLoadLockDetailSedding() {
     const el = document.getElementById('kbLockDetailProgress');
     if (!el) return;
@@ -4313,25 +4313,25 @@ async function _kbLoadLockDetailSedding() {
         el.innerHTML = `
         <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#c2410c;">ðŸŒ Tiáº¿n trÃ¬nh Sedding hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#c2410c;">🌐 Tiến trình Sedding hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#c2410c'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#fed7aa;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#ea580c,#f97316,#fb923c);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/seddingcongdong';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#ea580c,#c2410c);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(234,88,12,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(234,88,12,0.3)'">
-                    ðŸŒ Má»Ÿ Sedding Cá»™ng Äá»“ng & Láº«n Nhau â†’
+                    🌐 Mở Sedding Cộng Đồng & Lẫn Nhau →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== TÃŒM GR ZALO VÃ€ JOIN PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== TÌM GR ZALO VÀ JOIN PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectZaloStats() {
     const placeholders = document.querySelectorAll('[data-zl-date]');
     if (placeholders.length === 0) return;
@@ -4354,7 +4354,7 @@ function _kbRenderZaloMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">ðŸ” ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4375,25 +4375,25 @@ async function _kbLoadDetailZalo() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#0369a1;">ðŸ” Tiáº¿n trÃ¬nh TÃ¬m Gr Zalo hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#0369a1;">🔍 Tiến trình Tìm Gr Zalo hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#bae6fd;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#0284c7,#0ea5e9,#38bdf8);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/timgrzalovathongke';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(2,132,199,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(2,132,199,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(2,132,199,0.3)'">
-                    ðŸ” Má»Ÿ TÃ¬m Gr Zalo VÃ  Join â†’
+                    🔍 Mở Tìm Gr Zalo Và Join →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ZALO PROGRESS IN CV KHÃ“A DETAIL MODAL ==========
+// ========== ZALO PROGRESS IN CV KHÓA DETAIL MODAL ==========
 async function _kbLoadLockDetailZalo() {
     const el = document.getElementById('kbLockDetailProgress');
     if (!el) return;
@@ -4408,25 +4408,25 @@ async function _kbLoadLockDetailZalo() {
         el.innerHTML = `
         <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#0369a1;">ðŸ” Tiáº¿n trÃ¬nh TÃ¬m Gr Zalo hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#0369a1;">🔍 Tiến trình Tìm Gr Zalo hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#0369a1'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#bae6fd;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#0284c7,#0ea5e9,#38bdf8);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/timgrzalovathongke';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(2,132,199,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(2,132,199,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(2,132,199,0.3)'">
-                    ðŸ” Má»Ÿ TÃ¬m Gr Zalo VÃ  Join â†’
+                    🔍 Mở Tìm Gr Zalo Và Join →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ÄÄ‚NG Báº¢N THÃ‚N & Sáº¢N PHáº¨M PROGRESS IN Lá»ŠCH KHÃ“A BIá»‚U ==========
+// ========== ĐĂNG BẢN THÂN & SẢN PHẨM PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectDangBTStats() {
     const placeholders = document.querySelectorAll('[data-bt-date]');
     if (placeholders.length === 0) return;
@@ -4449,7 +4449,7 @@ function _kbRenderDangBTMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">âœ… ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">ðŸ“¸ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4470,25 +4470,25 @@ async function _kbLoadDetailDangBT() {
         el.innerHTML = `
         <div style="margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fdf4ff,#fae8ff);border:1.5px solid #e879f9;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#a21caf;">ðŸ“¸ Tiáº¿n trÃ¬nh ÄÄƒng Báº£n ThÃ¢n hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#a21caf;">📸 Tiến trình Đăng Bản Thân hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#f0abfc;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#d946ef,#c026d3,#a21caf);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbDetailModal')?.remove();window.location.href='/dangbanthansp';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#d946ef,#a21caf);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(217,70,239,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(217,70,239,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(217,70,239,0.3)'">
-                    ðŸ“¸ Má»Ÿ ÄÄƒng Báº£n ThÃ¢n & Sáº£n Pháº©m â†’
+                    📸 Mở Đăng Bản Thân & Sản Phẩm →
                 </a>
             </div>
         </div>`;
     } catch(e) {}
 }
 
-// ========== ÄÄ‚NG Báº¢N THÃ‚N PROGRESS IN CV KHÃ“A DETAIL MODAL ==========
+// ========== ĐĂNG BẢN THÂN PROGRESS IN CV KHÓA DETAIL MODAL ==========
 async function _kbLoadLockDetailDangBT() {
     const el = document.getElementById('kbLockDetailProgress');
     if (!el) return;
@@ -4503,18 +4503,18 @@ async function _kbLoadLockDetailDangBT() {
         el.innerHTML = `
         <div style="margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg,#fdf4ff,#fae8ff);border:1.5px solid #e879f9;border-radius:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;font-weight:700;color:#a21caf;">ðŸ“¸ Tiáº¿n trÃ¬nh ÄÄƒng Báº£n ThÃ¢n hÃ´m nay</span>
-                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link â€” ${pct}%${done?' âœ…':''}</span>
+                <span style="font-size:13px;font-weight:700;color:#a21caf;">📸 Tiến trình Đăng Bản Thân hôm nay</span>
+                <span style="font-size:13px;font-weight:800;color:${done?'#059669':'#a21caf'};">${count}/${target} link — ${pct}%${done?' ✅':''}</span>
             </div>
             <div style="background:#f0abfc;border-radius:8px;height:10px;overflow:hidden;">
                 <div style="background:linear-gradient(90deg,#d946ef,#c026d3,#a21caf);height:100%;width:${pct}%;border-radius:8px;transition:width .5s;"></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-                <span style="font-size:11px;color:#6b7280;">ðŸ’° ${earned}/${totalPts} Ä‘iá»ƒm</span>
+                <span style="font-size:11px;color:#6b7280;">💰 ${earned}/${totalPts} điểm</span>
             </div>
             <div style="margin-top:10px;text-align:center;">
                 <a href="javascript:void(0)" onclick="document.getElementById('kbLockDetailModal')?.remove();window.location.href='/dangbanthansp';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,#d946ef,#a21caf);color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 3px 10px rgba(217,70,239,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 15px rgba(217,70,239,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 3px 10px rgba(217,70,239,0.3)'">
-                    ðŸ“¸ Má»Ÿ ÄÄƒng Báº£n ThÃ¢n & Sáº£n Pháº©m â†’
+                    📸 Mở Đăng Bản Thân & Sản Phẩm →
                 </a>
             </div>
         </div>`;
@@ -4522,15 +4522,15 @@ async function _kbLoadLockDetailDangBT() {
 }
 
 
-// ========== PER-USER OVERRIDE FUNCTIONS (GÄ only) ==========
+// ========== PER-USER OVERRIDE FUNCTIONS (GĐ only) ==========
 async function _kbEditOverrideDiem(templateId, field) {
-    if (currentUser.role !== 'giam_doc') { showToast('Chá»‰ GiÃ¡m Äá»‘c', 'error'); return; }
+    if (currentUser.role !== 'giam_doc') { showToast('Chỉ Giám Đốc', 'error'); return; }
     var uid = _kbViewUserId;
-    if (!uid) { showToast('Pháº£i Ä‘ang xem lá»‹ch nhÃ¢n viÃªn', 'error'); return; }
+    if (!uid) { showToast('Phải đang xem lịch nhân viên', 'error'); return; }
     var task = _kbTasks.find(function(t) { return (t._source === 'snapshot' ? t.template_id : t.id) === templateId; });
     var taskName = task ? task.task_name : '';
     var ov = _kbOverridesDiem[templateId];
-    var label = field === 'points' ? 'Äiá»ƒm' : 'SL Tá»‘i Thiá»ƒu';
+    var label = field === 'points' ? 'Điểm' : 'SL Tối Thiểu';
     var currentVal = field === 'points' ? (task ? task.points : 0) : (task ? (task.min_quantity || 1) : 1);
     var origVal = currentVal;
     if (field === 'points' && ov && ov.custom_points != null && task && task._orig_points != null) origVal = task._orig_points;
@@ -4543,20 +4543,20 @@ async function _kbEditOverrideDiem(templateId, field) {
     m.onclick = function(e) { if (e.target === m) m.remove(); };
     m.innerHTML = '<div style="background:white;border-radius:16px;width:min(380px,90vw);box-shadow:0 25px 60px rgba(0,0,0,0.2);overflow:hidden;">'
         + '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 24px;">'
-        + '<div style="font-size:16px;font-weight:800;color:white;">âœï¸ TÃ¹y chá»‰nh ' + label + '</div>'
+        + '<div style="font-size:16px;font-weight:800;color:white;">✏️ Tùy chỉnh ' + label + '</div>'
         + '<div style="font-size:12px;color:#fef3c7;margin-top:4px;">' + taskName + '</div></div>'
         + '<div style="padding:24px;">'
         + '<div style="display:flex;gap:12px;margin-bottom:16px;">'
         + '<div style="flex:1;text-align:center;background:#f9fafb;border-radius:8px;padding:10px;border:1px solid #e5e7eb;">'
-        + '<div style="font-size:10px;color:#6b7280;font-weight:600;">GIÃ TRá»Š Gá»C</div>'
+        + '<div style="font-size:10px;color:#6b7280;font-weight:600;">GIÁ TRỊ GỐC</div>'
         + '<div style="font-size:20px;font-weight:800;color:#374151;">' + origVal + '</div></div>'
         + '<div style="flex:1;text-align:center;background:#fffbeb;border-radius:8px;padding:10px;border:2px solid #f59e0b;">'
-        + '<div style="font-size:10px;color:#d97706;font-weight:600;">GIÃ TRá»Š Má»šI</div>'
+        + '<div style="font-size:10px;color:#d97706;font-weight:600;">GIÁ TRỊ MỚI</div>'
         + '<input id="kbOvInput" type="number" value="' + currentVal + '" min="0" style="width:80px;font-size:20px;font-weight:800;color:#d97706;border:none;text-align:center;background:transparent;outline:none;" /></div></div>'
         + '<div style="display:flex;gap:8px;">'
-        + '<button onclick="_kbSaveOverrideDiem(' + templateId + ',\'' + field + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:700;cursor:pointer;font-size:13px;">ðŸ’¾ LÆ°u</button>'
-        + (ov ? '<button onclick="_kbResetOverrideDiem(' + templateId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#ef4444;color:white;font-weight:700;cursor:pointer;font-size:13px;">ðŸ”„ Máº·c Ä‘á»‹nh</button>' : '')
-        + '<button onclick="document.getElementById(\'kbOverrideModal\').remove()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-weight:700;cursor:pointer;font-size:13px;">Há»§y</button>'
+        + '<button onclick="_kbSaveOverrideDiem(' + templateId + ',\'' + field + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:700;cursor:pointer;font-size:13px;">💾 Lưu</button>'
+        + (ov ? '<button onclick="_kbResetOverrideDiem(' + templateId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#ef4444;color:white;font-weight:700;cursor:pointer;font-size:13px;">🔄 Mặc định</button>' : '')
+        + '<button onclick="document.getElementById(\'kbOverrideModal\').remove()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-weight:700;cursor:pointer;font-size:13px;">Hủy</button>'
         + '</div></div></div>';
     document.body.appendChild(m);
     var inp = document.getElementById('kbOvInput'); if (inp) inp.focus();
@@ -4566,7 +4566,7 @@ async function _kbSaveOverrideDiem(templateId, field) {
     var inp = document.getElementById('kbOvInput');
     if (!inp) return;
     var val = Number(inp.value);
-    if (isNaN(val) || val < 0) { showToast('GiÃ¡ trá»‹ khÃ´ng há»£p lá»‡', 'error'); return; }
+    if (isNaN(val) || val < 0) { showToast('Giá trị không hợp lệ', 'error'); return; }
     var existing = _kbOverridesDiem[templateId];
     try {
         await apiCall('/api/schedule/user-override', 'POST', {
@@ -4576,28 +4576,28 @@ async function _kbSaveOverrideDiem(templateId, field) {
             custom_points: field === 'points' ? val : (existing && existing.custom_points != null ? existing.custom_points : null),
             custom_min_quantity: field === 'min_quantity' ? val : (existing && existing.custom_min_quantity != null ? existing.custom_min_quantity : null)
         });
-        showToast('âœ… ÄÃ£ lÆ°u tÃ¹y chá»‰nh!', 'success');
+        showToast('✅ Đã lưu tùy chỉnh!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var dm = document.getElementById('kbDetailModal'); if (dm) dm.remove();
         _kbLoadSchedule();
-    } catch(e) { showToast('Lá»—i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 async function _kbResetOverrideDiem(templateId) {
-    if (!confirm('KhÃ´i phá»¥c giÃ¡ trá»‹ máº·c Ä‘á»‹nh cho cÃ´ng viá»‡c nÃ y?')) return;
+    if (!confirm('Khôi phục giá trị mặc định cho công việc này?')) return;
     try {
         await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=diem&source_id=' + templateId, 'DELETE');
-        showToast('ðŸ”„ ÄÃ£ khÃ´i phá»¥c máº·c Ä‘á»‹nh!', 'success');
+        showToast('🔄 Đã khôi phục mặc định!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var dm = document.getElementById('kbDetailModal'); if (dm) dm.remove();
         _kbLoadSchedule();
-    } catch(e) { showToast('Lá»—i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 async function _kbEditOverrideKhoa(lockTaskId) {
-    if (currentUser.role !== 'giam_doc') { showToast('Chá»‰ GiÃ¡m Äá»‘c', 'error'); return; }
+    if (currentUser.role !== 'giam_doc') { showToast('Chỉ Giám Đốc', 'error'); return; }
     var uid = _kbViewUserId;
-    if (!uid) { showToast('Pháº£i Ä‘ang xem lá»‹ch NV', 'error'); return; }
+    if (!uid) { showToast('Phải đang xem lịch NV', 'error'); return; }
     var lt = _kbLockTasks.find(function(t) { return t.id === lockTaskId; });
     var ov = _kbOverridesKhoa[lockTaskId];
     var currentVal = ov && ov.custom_min_quantity != null ? ov.custom_min_quantity : (lt ? lt.min_quantity : 1);
@@ -4609,20 +4609,20 @@ async function _kbEditOverrideKhoa(lockTaskId) {
     m.onclick = function(e) { if (e.target === m) m.remove(); };
     m.innerHTML = '<div style="background:white;border-radius:16px;width:min(380px,90vw);box-shadow:0 25px 60px rgba(0,0,0,0.2);overflow:hidden;">'
         + '<div style="background:linear-gradient(135deg,#dc2626,#991b1b);padding:18px 24px;">'
-        + '<div style="font-size:16px;font-weight:800;color:white;">âœï¸ TÃ¹y chá»‰nh SL Tá»‘i Thiá»ƒu (CV KhÃ³a)</div>'
+        + '<div style="font-size:16px;font-weight:800;color:white;">✏️ Tùy chỉnh SL Tối Thiểu (CV Khóa)</div>'
         + '<div style="font-size:12px;color:#fecaca;margin-top:4px;">' + (lt ? lt.task_name : '') + '</div></div>'
         + '<div style="padding:24px;">'
         + '<div style="display:flex;gap:12px;margin-bottom:16px;">'
         + '<div style="flex:1;text-align:center;background:#f9fafb;border-radius:8px;padding:10px;border:1px solid #e5e7eb;">'
-        + '<div style="font-size:10px;color:#6b7280;font-weight:600;">GIÃ TRá»Š Gá»C</div>'
+        + '<div style="font-size:10px;color:#6b7280;font-weight:600;">GIÁ TRỊ GỐC</div>'
         + '<div style="font-size:20px;font-weight:800;color:#374151;">' + origVal + '</div></div>'
         + '<div style="flex:1;text-align:center;background:#fef2f2;border-radius:8px;padding:10px;border:2px solid #dc2626;">'
-        + '<div style="font-size:10px;color:#dc2626;font-weight:600;">GIÃ TRá»Š Má»šI</div>'
+        + '<div style="font-size:10px;color:#dc2626;font-weight:600;">GIÁ TRỊ MỚI</div>'
         + '<input id="kbOvInput" type="number" value="' + currentVal + '" min="0" style="width:80px;font-size:20px;font-weight:800;color:#dc2626;border:none;text-align:center;background:transparent;outline:none;" /></div></div>'
         + '<div style="display:flex;gap:8px;">'
-        + '<button onclick="_kbSaveOverrideKhoa(' + lockTaskId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;font-weight:700;cursor:pointer;font-size:13px;">ðŸ’¾ LÆ°u</button>'
-        + (ov ? '<button onclick="_kbResetOverrideKhoa(' + lockTaskId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#ef4444;color:white;font-weight:700;cursor:pointer;font-size:13px;">ðŸ”„ Máº·c Ä‘á»‹nh</button>' : '')
-        + '<button onclick="document.getElementById(\'kbOverrideModal\').remove()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-weight:700;cursor:pointer;font-size:13px;">Há»§y</button>'
+        + '<button onclick="_kbSaveOverrideKhoa(' + lockTaskId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;font-weight:700;cursor:pointer;font-size:13px;">💾 Lưu</button>'
+        + (ov ? '<button onclick="_kbResetOverrideKhoa(' + lockTaskId + ')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#ef4444;color:white;font-weight:700;cursor:pointer;font-size:13px;">🔄 Mặc định</button>' : '')
+        + '<button onclick="document.getElementById(\'kbOverrideModal\').remove()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-weight:700;cursor:pointer;font-size:13px;">Hủy</button>'
         + '</div></div></div>';
     document.body.appendChild(m);
     var inp = document.getElementById('kbOvInput'); if (inp) inp.focus();
@@ -4632,27 +4632,27 @@ async function _kbSaveOverrideKhoa(lockTaskId) {
     var inp = document.getElementById('kbOvInput');
     if (!inp) return;
     var val = Number(inp.value);
-    if (isNaN(val) || val < 0) { showToast('GiÃ¡ trá»‹ khÃ´ng há»£p lá»‡', 'error'); return; }
+    if (isNaN(val) || val < 0) { showToast('Giá trị không hợp lệ', 'error'); return; }
     try {
         await apiCall('/api/schedule/user-override', 'POST', {
             user_id: _kbViewUserId, source_type: 'khoa', source_id: lockTaskId, custom_points: null, custom_min_quantity: val
         });
-        showToast('âœ… ÄÃ£ lÆ°u!', 'success');
+        showToast('✅ Đã lưu!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
         _kbLoadSchedule();
-    } catch(e) { showToast('Lá»—i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 async function _kbResetOverrideKhoa(lockTaskId) {
-    if (!confirm('KhÃ´i phá»¥c máº·c Ä‘á»‹nh?')) return;
+    if (!confirm('Khôi phục mặc định?')) return;
     try {
         await apiCall('/api/schedule/user-override?user_id=' + _kbViewUserId + '&source_type=khoa&source_id=' + lockTaskId, 'DELETE');
-        showToast('ðŸ”„ ÄÃ£ khÃ´i phá»¥c!', 'success');
+        showToast('🔄 Đã khôi phục!', 'success');
         var om = document.getElementById('kbOverrideModal'); if (om) om.remove();
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
         _kbLoadSchedule();
-    } catch(e) { showToast('Lá»—i: ' + (e.message || ''), 'error'); }
+    } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
 }
 
 // ========== UNREPORTED CV MODAL ==========
@@ -4663,7 +4663,7 @@ async function _kbShowUnreportedModal() {
     const modal = document.createElement('div');
     modal.id = 'kbUnreportedModal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    modal.innerHTML = `<div style="background:white;border-radius:16px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);"><div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:18px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;"><div style="color:white;font-weight:800;font-size:18px;">\ud83d\udd0d CV Ch\u01b0a B\u00e1o C\u00e1o</div><button onclick="document.getElementById('kbUnreportedModal').remove()" style="background:rgba(255,255,255,.15);border:none;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;color:white;">\u00d7</button></div><div id="kbUnreportedContent" style="padding:20px 24px;"><div style="text-align:center;padding:30px;color:#9ca3af;">\u23f3 \u0110ang t\u1ea3i...</div></div></div>`;
+    modal.innerHTML = '<div style="background:white;border-radius:16px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);"><div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:18px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;"><div style="color:white;font-weight:800;font-size:18px;">\ud83d\udd0d CV Ch\u01b0a B\u00e1o C\u00e1o</div><button onclick="document.getElementById(\'kbUnreportedModal\').remove()" style="background:rgba(255,255,255,.15);border:none;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;color:white;">\u00d7</button></div><div id="kbUnreportedContent" style="padding:20px 24px;"><div style="text-align:center;padding:30px;color:#9ca3af;">\u23f3 \u0110ang t\u1ea3i...</div></div></div>';
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     document.body.appendChild(modal);
 
@@ -4676,13 +4676,19 @@ async function _kbShowUnreportedModal() {
         const chuoiList = data.chuoi || [];
 
         if (khoaList.length === 0 && chuoiList.length === 0) {
-            content.innerHTML = `<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;">\u2705</div><div style="font-size:16px;font-weight:700;color:#166534;">Kh\u00f4ng c\u00f3 CV ch\u01b0a b\u00e1o c\u00e1o!</div><div style="font-size:12px;color:#6b7280;margin-top:6px;">T\u1ea5t c\u1ea3 CV Kh\u00f3a v\u00e0 CV Chu\u1ed7i \u0111\u00e3 \u0111\u01b0\u1ee3c ho\u00e0n th\u00e0nh</div></div>`;
+            content.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;">\u2705</div><div style="font-size:16px;font-weight:700;color:#166534;">Kh\u00f4ng c\u00f3 CV ch\u01b0a b\u00e1o c\u00e1o!</div><div style="font-size:12px;color:#6b7280;margin-top:6px;">T\u1ea5t c\u1ea3 CV Kh\u00f3a v\u00e0 CV Chu\u1ed7i \u0111\u00e3 \u0111\u01b0\u1ee3c ho\u00e0n th\u00e0nh</div></div>';
             return;
         }
 
         const fmtDate = (d) => { const p = (d||'').slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : d; };
         const jumpBtn = (date, userId, bgColor) => {
-            return `<button onclick="document.getElementById('kbUnreportedModal').remove();var d=new Date('${(date||'').slice(0,10)}T00:00:00');var day=d.getDay();var diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);_kbWeekStart=d;var el=document.querySelector('.kb-member-item[data-uid=\\x22${userId}\\x22]');if(el){_kbSelectMember(${userId});}else{_kbLoadSchedule();}" style="padding:6px 12px;border:none;border-radius:8px;background:${bgColor};color:white;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">\ud83d\udcc5 Xem l\u1ecbch</button>`;
+            return '<button onclick="document.getElementById(\'kbUnreportedModal\').remove();' +
+                'var d=new Date(\'' + (date||'').slice(0,10) + 'T00:00:00\');' +
+                'var day=d.getDay();var diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);' +
+                '_kbWeekStart=d;' +
+                'var el=document.querySelector(\'.kb-member-item[data-uid=\\\\x22' + userId + '\\\\x22]\');' +
+                'if(el){_kbSelectMember(' + userId + ');}else{_kbLoadSchedule();}" ' +
+                'style="padding:6px 12px;border:none;border-radius:8px;background:' + bgColor + ';color:white;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">\ud83d\udcc5 Xem l\u1ecbch</button>';
         };
 
         // Merge all items with a type tag
@@ -4695,7 +4701,6 @@ async function _kbShowUnreportedModal() {
         const myId = currentUser.id;
         const selfItems = allItems.filter(i => i.user_id === myId);
         const subItems = allItems.filter(i => i.user_id !== myId);
-
         const selfPenalty = selfItems.reduce((s, i) => s + Number(i.penalty_amount || 0), 0);
         const subPenalty = subItems.reduce((s, i) => s + Number(i.penalty_amount || 0), 0);
 
@@ -4703,52 +4708,52 @@ async function _kbShowUnreportedModal() {
         const renderItem = (item) => {
             const isChain = item._type === 'chuoi';
             const borderColor = isChain ? '#c4b5fd' : '#fecaca';
-            const bgColor = isChain ? '#f5f3ff' : '#fef2f2';
+            const bg = isChain ? '#f5f3ff' : '#fef2f2';
             const btnColor = isChain ? '#7c3aed' : '#dc2626';
             const icon = isChain ? '\ud83d\udd17' : '\ud83d\udd10';
-            const chainTag = isChain ? ` <span style="font-size:10px;color:#7c3aed;">(${item.chain_name})</span>` : '';
-            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid ${borderColor};border-radius:8px;margin-bottom:4px;background:${bgColor};">` +
-                `<div style="flex:1;min-width:0;">` +
-                `<div style="font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${icon} ${item.task_name}${chainTag}</div>` +
-                `<div style="font-size:10px;color:#6b7280;margin-top:1px;">\ud83d\udcc5 ${fmtDate(item.task_date)} \u00b7 \ud83d\udcb0 ${Number(item.penalty_amount||0).toLocaleString()}\u0111</div>` +
-                `</div>${jumpBtn(item.task_date, item.user_id, btnColor)}</div>`;
+            const chainTag = isChain ? ' <span style="font-size:10px;color:#7c3aed;">(' + item.chain_name + ')</span>' : '';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid ' + borderColor + ';border-radius:8px;margin-bottom:4px;background:' + bg + ';">' +
+                '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + icon + ' ' + item.task_name + chainTag + '</div>' +
+                '<div style="font-size:10px;color:#6b7280;margin-top:1px;">\ud83d\udcc5 ' + fmtDate(item.task_date) + ' \u00b7 \ud83d\udcb0 ' + Number(item.penalty_amount||0).toLocaleString() + '\u0111</div>' +
+                '</div>' + jumpBtn(item.task_date, item.user_id, btnColor) + '</div>';
         };
 
         let html = '';
 
         // ===== HEADER: stat cards =====
         html += '<div style="display:flex;gap:10px;margin-bottom:20px;">';
-        html += `<div style="flex:1;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;">` +
-            `<div style="font-size:28px;font-weight:900;color:#dc2626;">${allItems.length}</div>` +
-            `<div style="font-size:10px;color:#991b1b;font-weight:700;text-transform:uppercase;">T\u1ed5ng CV ch\u01b0a BC</div></div>`;
-        html += `<div style="flex:1;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;">` +
-            `<div style="font-size:20px;font-weight:900;color:#dc2626;">${selfPenalty.toLocaleString()}\u0111</div>` +
-            `<div style="font-size:10px;color:#991b1b;font-weight:700;">PH\u1ea0T B\u1ea2N TH\u00c2N</div></div>`;
+        html += '<div style="flex:1;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;">' +
+            '<div style="font-size:28px;font-weight:900;color:#dc2626;">' + allItems.length + '</div>' +
+            '<div style="font-size:10px;color:#991b1b;font-weight:700;text-transform:uppercase;">T\u1ed5ng CV ch\u01b0a BC</div></div>';
+        html += '<div style="flex:1;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:900;color:#dc2626;">' + selfPenalty.toLocaleString() + '\u0111</div>' +
+            '<div style="font-size:10px;color:#991b1b;font-weight:700;">PH\u1ea0T B\u1ea2N TH\u00c2N</div></div>';
         if (subItems.length > 0) {
-            html += `<div style="flex:1;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #fcd34d;border-radius:12px;padding:14px;text-align:center;">` +
-                `<div style="font-size:20px;font-weight:900;color:#d97706;">${subPenalty.toLocaleString()}\u0111</div>` +
-                `<div style="font-size:10px;color:#92400e;font-weight:700;">PH\u1ea0T NV C\u1ea4P D\u01af\u1edaI</div></div>`;
+            html += '<div style="flex:1;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #fcd34d;border-radius:12px;padding:14px;text-align:center;">' +
+                '<div style="font-size:20px;font-weight:900;color:#d97706;">' + subPenalty.toLocaleString() + '\u0111</div>' +
+                '<div style="font-size:10px;color:#92400e;font-weight:700;">PH\u1ea0T NV C\u1ea4P D\u01af\u1edaI</div></div>';
         }
         html += '</div>';
 
-        // ===== SECTION 1: PHáº T Báº¢N THÃ‚N =====
+        // ===== SECTION 1: PHAT BAN THAN =====
         if (selfItems.length > 0) {
             html += '<div style="margin-bottom:20px;">';
-            html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;">` +
-                `<span style="font-size:16px;">\ud83d\udc64</span>` +
-                `<span style="color:white;font-weight:800;font-size:14px;">PH\u1ea0T B\u1ea2N TH\u00c2N</span>` +
-                `<span style="background:rgba(255,255,255,.2);color:white;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;">${selfItems.length} CV \u00b7 ${selfPenalty.toLocaleString()}\u0111</span></div>`;
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 14px;background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;">' +
+                '<span style="font-size:16px;">\ud83d\udc64</span>' +
+                '<span style="color:white;font-weight:800;font-size:14px;">PH\u1ea0T B\u1ea2N TH\u00c2N</span>' +
+                '<span style="background:rgba(255,255,255,.2);color:white;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;">' + selfItems.length + ' CV \u00b7 ' + selfPenalty.toLocaleString() + '\u0111</span></div>';
             selfItems.forEach(item => { html += renderItem(item); });
             html += '</div>';
         }
 
-        // ===== SECTION 2: PHáº T NV Cáº¤P DÆ¯á»šI =====
+        // ===== SECTION 2: PHAT NV CAP DUOI =====
         if (subItems.length > 0) {
             html += '<div>';
-            html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#92400e,#d97706);border-radius:10px;">` +
-                `<span style="font-size:16px;">\ud83d\udc65</span>` +
-                `<span style="color:white;font-weight:800;font-size:14px;">PH\u1ea0T NV C\u1ea4P D\u01af\u1edaI</span>` +
-                `<span style="background:rgba(255,255,255,.2);color:white;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;">${subItems.length} CV \u00b7 ${subPenalty.toLocaleString()}\u0111</span></div>`;
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#92400e,#d97706);border-radius:10px;">' +
+                '<span style="font-size:16px;">\ud83d\udc65</span>' +
+                '<span style="color:white;font-weight:800;font-size:14px;">PH\u1ea0T NV C\u1ea4P D\u01af\u1edaI</span>' +
+                '<span style="background:rgba(255,255,255,.2);color:white;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;">' + subItems.length + ' CV \u00b7 ' + subPenalty.toLocaleString() + '\u0111</span></div>';
 
             // Group by user
             const byUser = {};
@@ -4761,22 +4766,23 @@ async function _kbShowUnreportedModal() {
 
             // Sort users by total penalty desc
             const sortedUsers = Object.entries(byUser).sort((a, b) => b[1].total - a[1].total);
+            let subIdx = 0;
 
-            sortedUsers.forEach(([uid, u], idx) => {
-                const collapseId = 'kbUnrSub_' + idx;
+            sortedUsers.forEach(([uid, u]) => {
+                const cid = 'kbUnrSub_' + (subIdx++);
                 html += '<div style="margin-bottom:12px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
                 // User header (clickable accordion)
-                html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e5e7eb;cursor:pointer;" onclick="var b=document.getElementById('${collapseId}');b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.chevron').textContent=b.style.display==='none'?'\u25b6':'\u25bc'">` +
-                    `<div style="display:flex;align-items:center;gap:8px;">` +
-                    `<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:12px;">${(u.full_name||'?').charAt(0).toUpperCase()}</div>` +
-                    `<div><div style="font-size:13px;font-weight:700;color:#1e293b;">${u.full_name} <span style="font-size:11px;color:#6b7280;font-weight:400;">(${u.username})</span></div>` +
-                    `<div style="font-size:10px;color:#6b7280;">\ud83c\udfe2 ${u.dept_name || '\u2014'}</div></div></div>` +
-                    `<div style="display:flex;align-items:center;gap:8px;">` +
-                    `<div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#dc2626;">${u.total.toLocaleString()}\u0111</div>` +
-                    `<div style="font-size:10px;color:#6b7280;">${u.items.length} CV ph\u1ea1t</div></div>` +
-                    `<span class="chevron" style="font-size:10px;color:#9ca3af;">\u25bc</span></div></div>`;
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e5e7eb;cursor:pointer;" onclick="var b=document.getElementById(\'' + cid + '\');b.style.display=b.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.chevron\').textContent=b.style.display===\'none\'?\'\u25b6\':\'\u25bc\'">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:12px;">' + (u.full_name||'?').charAt(0).toUpperCase() + '</div>' +
+                    '<div><div style="font-size:13px;font-weight:700;color:#1e293b;">' + u.full_name + ' <span style="font-size:11px;color:#6b7280;font-weight:400;">(' + u.username + ')</span></div>' +
+                    '<div style="font-size:10px;color:#6b7280;">\ud83c\udfe2 ' + (u.dept_name || '\u2014') + '</div></div></div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<div style="text-align:right;"><div style="font-size:14px;font-weight:800;color:#dc2626;">' + u.total.toLocaleString() + '\u0111</div>' +
+                    '<div style="font-size:10px;color:#6b7280;">' + u.items.length + ' CV ph\u1ea1t</div></div>' +
+                    '<span class="chevron" style="font-size:10px;color:#9ca3af;">\u25bc</span></div></div>';
                 // User items (collapsible body)
-                html += `<div id="${collapseId}" style="padding:8px 10px;">`;
+                html += '<div id="' + cid + '" style="padding:8px 10px;">';
                 u.items.forEach(item => { html += renderItem(item); });
                 html += '</div></div>';
             });
@@ -4788,7 +4794,6 @@ async function _kbShowUnreportedModal() {
 
     } catch(e) {
         const content = document.getElementById('kbUnreportedContent');
-        if (content) content.innerHTML = `<div style="text-align:center;padding:30px;color:#dc2626;">\u274c L\u1ed7i t\u1ea3i d\u1eef li\u1ec7u</div>`;
+        if (content) content.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">\u274c L\u1ed7i t\u1ea3i d\u1eef li\u1ec7u</div>';
     }
 }
-
