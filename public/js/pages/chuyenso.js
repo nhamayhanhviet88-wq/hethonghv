@@ -118,14 +118,14 @@ async function renderChuyenSoPage(container) {
     container.innerHTML = `
         <div class="card" style="margin-bottom:16px;border:2px solid #6366f1;">
             <div class="card-header" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:14px 20px;">
-                <h3 style="color:#fff;margin:0;font-size:15px;">🔍 Tìm Kiếm Nhanh — SĐT / Link Khách Hàng</h3>
+                <h3 style="color:#fff;margin:0;font-size:15px;">🔍 Tìm Kiếm Nhanh — Tên / SĐT / Link Khách Hàng</h3>
             </div>
             <div class="card-body" style="padding:16px 20px;">
                 <div style="display:flex;gap:10px;align-items:center;">
-                    <input type="text" id="csoSmartSearch" class="form-control" placeholder="Nhập SĐT hoặc Link khách hàng để tìm công việc..." style="flex:1;font-size:14px;border:2px solid #c7d2fe;border-radius:10px;padding:10px 14px;">
+                    <input type="text" id="csoSmartSearch" class="form-control" placeholder="Nhập Tên KH, SĐT hoặc Link để tìm công việc..." style="flex:1;font-size:14px;border:2px solid #c7d2fe;border-radius:10px;padding:10px 14px;">
                     <button type="button" id="csoSearchBtn" class="btn" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:10px;white-space:nowrap;font-weight:600;" onclick="_csoDoSearch()">🔍 Tìm</button>
                 </div>
-                <small style="color:#6b7280;font-size:11px;margin-top:4px;display:block;">Tìm nhanh xem SĐT hoặc Link đã nằm trong công việc nào → chọn để auto-fill</small>
+                <small style="color:#6b7280;font-size:11px;margin-top:4px;display:block;">Tìm nhanh theo Tên KH, SĐT hoặc Link xem đã nằm trong công việc nào → chọn để auto-fill</small>
                 <div id="csoSearchResults" style="margin-top:10px;display:none;"></div>
             </div>
         </div>
