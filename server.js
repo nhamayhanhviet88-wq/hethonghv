@@ -122,6 +122,62 @@ async function start() {
         return reply.sendFile('quanlyaffiliate.html');
     });
 
+    // ========== AUTO-INJECT PAGE SCRIPTS ==========
+    // Build dashboard HTML with all page scripts auto-injected
+    let _cachedDashboardHtml = null;
+    function buildDashboardHtml() {
+        const dashboardPath = path.join(__dirname, 'public', 'dashboard.html');
+        let html = fs.readFileSync(dashboardPath, 'utf8');
+
+        // Scan public/js/pages/ for all JS files
+        const pagesDir = path.join(__dirname, 'public', 'js', 'pages');
+        let pageFiles = [];
+        try {
+            pageFiles = fs.readdirSync(pagesDir)
+                .filter(f => f.endsWith('.js') && !f.startsWith('_') && !f.startsWith('test'))
+                .sort();
+        } catch (e) { console.error('⚠️ Cannot scan pages dir:', e.message); }
+
+        // Find which files are already included in dashboard.html
+        const alreadyIncluded = new Set();
+        const scriptRegex = /src="\/js\/pages\/([^"?]+)/g;
+        let match;
+        while ((match = scriptRegex.exec(html)) !== null) {
+            alreadyIncluded.add(match[1]);
+        }
+
+        // Build script tags for MISSING files only (inject before </body>)
+        const missingScripts = pageFiles
+            .filter(f => !alreadyIncluded.has(f))
+            .map(f => `    <script src="/js/pages/${f}?v=auto"></script>`)
+            .join('\n');
+
+        if (missingScripts) {
+            console.log(`📦 Auto-injecting ${missingScripts.split('\n').length} page scripts:`,
+                pageFiles.filter(f => !alreadyIncluded.has(f)).join(', '));
+            html = html.replace('</body>', missingScripts + '\n</body>');
+        }
+
+        _cachedDashboardHtml = html;
+        return html;
+    }
+    // Build once at startup
+    buildDashboardHtml();
+    // Rebuild when files change in pages dir (dev mode)
+    try {
+        const pagesDir = path.join(__dirname, 'public', 'js', 'pages');
+        let _fsWatchDebounce = null;
+        fs.watch(pagesDir, (eventType, filename) => {
+            if (filename && filename.endsWith('.js')) {
+                clearTimeout(_fsWatchDebounce);
+                _fsWatchDebounce = setTimeout(() => {
+                    console.log(`🔄 Pages dir changed (${filename}), rebuilding dashboard HTML...`);
+                    buildDashboardHtml();
+                }, 500);
+            }
+        });
+    } catch(e) { /* fs.watch not supported, cache stays static */ }
+
     // SPA fallback — serve dashboard.html for all app routes
     fastify.setNotFoundHandler((request, reply) => {
         if (request.url.startsWith('/api/')) {
@@ -129,8 +185,8 @@ async function start() {
         } else if (request.url.startsWith('/uploads/') || request.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
             reply.code(404).send('Not found');
         } else {
-            // Serve dashboard.html for SPA routes (login page is at /index.html)
-            reply.sendFile('dashboard.html');
+            // Serve auto-injected dashboard HTML
+            reply.type('text/html').send(_cachedDashboardHtml || buildDashboardHtml());
         }
     });
 

@@ -964,11 +964,16 @@ async function handleRoute() {
             case 'quytacnuttuvancrmctv': renderQuyTacTuVanCtvPage(content); break;
             case 'quytacnuttuvancrmaffiliate': renderQuyTacTuVanAffPage(content); break;
             case 'quytacnuttuvancrmkockol': renderQuyTacTuVanKocKolPage(content); break;
-            case 'nhantintimdoitackh': renderNhanTinTimDoiTacKHPage(content); break;
             case 'dailylinks': renderDailyLinksPage(content); break;
             case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
             case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
-            default: renderComingSoon(content); break;
+            default:
+                // ========== CONVENTION-BASED AUTO-RENDER ==========
+                // Try multiple naming patterns to auto-discover page render functions
+                if (!_tryAutoRenderPage(currentPage, content)) {
+                    renderComingSoon(content);
+                }
+                break;
         }
     } catch (err) {
         console.error('❌ Page render error:', err);
@@ -1205,6 +1210,63 @@ async function renderDashboardPage(container) {
     } catch (err) {
         console.error('Dashboard error:', err);
     }
+}
+
+// ========== CONVENTION-BASED AUTO-RENDER ==========
+// Registry cho các trang có tên hàm KHÔNG theo convention
+// Key = page id (từ MENU_CONFIG), Value = tên hàm init
+var _PAGE_INIT_REGISTRY = {
+    'nhantintimdoitackh': '_poInit',
+    'addcmtdoitackh': '_acInit',
+    'dangvideo': '_dvInit',
+    'dangcontent': '_dcInit',
+    'danggruop': '_dgInit',
+    'seddingcongdong': '_sdInit',
+    'dangbanthansp': '_dbInit',
+    'tuyendungsvkd': '_tdInit',
+    'don-khach-sll': '_dkInit',
+    'donkhachsll': '_dkInit',
+    'don-khach-nhieu-lan': '_dnlInit',
+    'donkhachnhieulan': '_dnlInit',
+    'don-khach-moi': '_dkmInit',
+    'donkhachmoi': '_dkmInit',
+    'don-quan-he': '_dqhInit',
+    'donquanhe': '_dqhInit',
+};
+
+function _tryAutoRenderPage(pageId, content) {
+    // 1. Check registry first (pages with non-standard function names)
+    var registryFn = _PAGE_INIT_REGISTRY[pageId];
+    if (registryFn && typeof window[registryFn] === 'function') {
+        console.log('[AutoRender] ✅ Found via registry:', pageId, '→', registryFn);
+        content.innerHTML = '';
+        setTimeout(function(){ window[registryFn](); }, 50);
+        return true;
+    }
+
+    // 2. Try convention: renderXxxPage(content) — e.g. 'dangvideo' → renderDangvideoPage
+    var cleanId = pageId.replace(/-/g, '');
+    var capId = cleanId.charAt(0).toUpperCase() + cleanId.slice(1);
+    var renderName = 'render' + capId + 'Page';
+    if (typeof window[renderName] === 'function') {
+        console.log('[AutoRender] ✅ Found via convention:', pageId, '→', renderName);
+        window[renderName](content);
+        return true;
+    }
+
+    // 3. Try _xxInit() pattern — common prefix from page id
+    // e.g. 'dangvideo' → try '_dangvideoInit', '_dvInit'
+    var initName = '_' + cleanId + 'Init';
+    if (typeof window[initName] === 'function') {
+        console.log('[AutoRender] ✅ Found via init:', pageId, '→', initName);
+        content.innerHTML = '';
+        setTimeout(function(){ window[initName](); }, 50);
+        return true;
+    }
+
+    console.warn('[AutoRender] ❌ No render function found for page:', pageId,
+        '| Tried:', renderName, ',', initName, ', registry:', registryFn || 'none');
+    return false;
 }
 
 function renderComingSoon(container) {
