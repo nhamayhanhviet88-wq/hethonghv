@@ -170,13 +170,11 @@ function _acRenderTable() {
     const showUserCol = !_ac.selectedUser && !['nhan_vien','part_time'].includes(currentUser.role);
     let h = `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
-        <th style="padding:10px 8px;">LINK FACEBOOK</th>
         ${showUserCol ? '<th style="padding:10px 8px;">NHÂN VIÊN</th>' : ''}
-        <th style="padding:10px 8px;text-align:center;">ẢNH</th>
+        <th style="padding:10px 8px;text-align:center;">ẢNH CHỤP MÀN HÌNH</th>
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
     </tr></thead><tbody>`;
     rows.forEach((r, i) => {
-        const fbShort = r.fb_link.length > 50 ? r.fb_link.substring(0,50)+'...' : r.fb_link;
         const ed = typeof r.entry_date === 'string' ? r.entry_date.split('T')[0] : r.entry_date;
         const canDel = (r.user_id === currentUser.id && ed === today) || currentUser.role === 'giam_doc';
         const imgCell = r.image_path
@@ -184,7 +182,6 @@ function _acRenderTable() {
             : '<span style="color:#d1d5db;">—</span>';
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
-            <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:#16a34a;font-weight:500;">${fbShort}</a></td>
             ${showUserCol ? `<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>` : ''}
             <td style="padding:10px 8px;text-align:center;">${imgCell}</td>
             <td style="padding:10px 8px;text-align:center;">${canDel ? `<button onclick="_acDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>` : ''}</td>
@@ -204,16 +201,11 @@ function _acAddModal() {
     <div style="background:white;border-radius:16px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:linear-gradient(135deg,#16a34a,#15803d);padding:20px 24px;border-radius:16px 16px 0 0;color:white;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:18px;font-weight:800;">＋ Báo cáo công việc - Add/Cmt</div>
+                <div style="font-size:18px;font-weight:800;">📷 Báo cáo công việc - Add/Cmt</div>
                 <button onclick="document.getElementById('acModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;">×</button>
             </div>
         </div>
         <div style="padding:24px;">
-            <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Link Comment Facebook <span style="color:#dc2626;">*</span></label>
-                <input id="acFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="https://www.facebook.com/.../posts/...?comment_id=..." autofocus>
-                <div id="acFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
-                <div style="margin-top:4px;font-size:11px;color:#9ca3af;">⚠️ Bắt buộc link comment: chứa www.facebook.com, /posts/ và comment_id</div>
             </div>
             <div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Hình Ảnh <span style="color:#dc2626;">*</span> (Ctrl+V để dán)</label>
@@ -248,35 +240,15 @@ function _acAddModal() {
             }
         }
     });
-    // Link validation on input
-    const acLinkEl = document.getElementById('acFLink');
-    acLinkEl?.addEventListener('input', () => {
-        const val = acLinkEl.value.trim().toLowerCase();
-        const errEl = document.getElementById('acFLinkErr');
-        if (val && (!val.includes('www.facebook.com') || !val.includes('/posts/') || !val.includes('comment_id'))) {
-            errEl.style.display = 'block';
-            errEl.textContent = '⚠️ Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)';
-            acLinkEl.style.borderColor = '#dc2626';
-        } else {
-            errEl.style.display = 'none';
-            acLinkEl.style.borderColor = val ? '#16a34a' : '#d1d5db';
-        }
-    });
-    setTimeout(() => document.getElementById('acFLink')?.focus(), 100);
+    setTimeout(() => document.getElementById('acFImgZone')?.focus(), 100);
 }
 
 async function _acSave() {
-    const link = document.getElementById('acFLink').value.trim();
-    if (!link) { showToast('Vui lòng nhập link FB!', 'error'); return; }
-    const linkLow = link.toLowerCase();
-    if (!linkLow.includes('www.facebook.com') || !linkLow.includes('/posts/') || !linkLow.includes('comment_id')) {
-        showToast('❌ Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)', 'error'); return;
-    }
     if (!_ac.imageData) { showToast('Vui lòng dán hình ảnh chụp màn hình!', 'error'); return; }
     try {
-        await apiCall('/api/addcmt/entries', 'POST', { fb_link: link, image_data: _ac.imageData });
+        await apiCall('/api/addcmt/entries', 'POST', { fb_link: 'addcmt_' + Date.now(), image_data: _ac.imageData });
         document.getElementById('acModal')?.remove();
-        showToast('✅ Đã thêm link!');
+        showToast('✅ Đã báo cáo!');
         _acLoadData();
     } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
