@@ -981,6 +981,7 @@ async function handleRoute() {
             case 'dailylinks': renderDailyLinksPage(content); break;
             case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
             case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
+            case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
             default:
                 // ========== CONVENTION-BASED AUTO-RENDER ==========
                 // Try multiple naming patterns to auto-discover page render functions
