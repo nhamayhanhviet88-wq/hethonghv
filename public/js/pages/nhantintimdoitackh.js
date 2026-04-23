@@ -545,6 +545,7 @@ function _poRenderTable() {
         <thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
             <th style="padding:10px 8px;text-align:center;width:40px;">STT</th>
             ${isMultiDay?'<th style="padding:10px 8px;width:90px;">NGÀY</th>':''}
+            <th style="padding:10px 8px;">NHÂN VIÊN</th>
             <th style="padding:10px 8px;">TÊN KHÁCH</th>
             <th style="padding:10px 8px;">LINK FACEBOOK</th>
             <th style="padding:10px 8px;">SĐT</th>
@@ -552,6 +553,7 @@ function _poRenderTable() {
             <th style="padding:10px 8px;">LĨNH VỰC</th>
             <th style="padding:10px 8px;text-align:center;">ẢNH TIN NHẮN</th>
             <th style="padding:10px 8px;text-align:center;">THAO TÁC</th>
+            <th style="padding:10px 8px;text-align:center;">TIME CẬP NHẬT</th>
         </tr></thead><tbody>`;
     rows.forEach((r, i) => {
         const catBadge = r.category_name ? `<span style="background:${r.category_color||'#e5e7eb'};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.category_name}</span>` : '-';
@@ -574,17 +576,20 @@ function _poRenderTable() {
                 actions += `<button onclick="_poDelete(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`;
             }
         }
-        const showUser = (_po.selectedUser !== r.user_id && r.user_id !== currentUser.id && !['nhan_vien','part_time'].includes(currentUser.role)) ? `<div style="font-size:10px;color:#6b7280;">${r.user_name||''}</div>` : '';
+        const updatedAt = r.updated_at || r.created_at || '';
+        const fmtTime = updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_poFormatDate(entryDate)}</td>`:''}
-            <td style="padding:10px 8px;font-weight:600;color:#122546;">${r.partner_name||'—'}${showUser}</td>
+            <td style="padding:10px 8px;font-size:12px;color:#6b7280;font-weight:600;">${r.user_name||'—'}</td>
+            <td style="padding:10px 8px;font-weight:600;color:#122546;">${r.partner_name||'—'}</td>
             <td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:#2563eb;">${fbShort}</a></td>
             <td style="padding:10px 8px;">${r.phone||'—'}</td>
             <td style="padding:10px 8px;">${channelBadge}</td>
             <td style="padding:10px 8px;">${catBadge}</td>
             <td style="padding:10px 8px;text-align:center;">${imgCell}</td>
             <td style="padding:10px 8px;text-align:center;white-space:nowrap;">${actions}</td>
+            <td style="padding:10px 8px;text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${fmtTime}</td>
         </tr>`;
     });
     h += '</tbody></table>';
