@@ -18,7 +18,7 @@ function _poGetDateRange() {
         case 'today': return { from: todayStr, to: todayStr, label: 'hôm nay' };
         case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); const ys=fmt(y); return { from: ys, to: ys, label: 'hôm qua' }; }
         case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: todayStr, label: '7 ngày' }; }
-        case 'this_month': { const m = new Date(_poSelectedYear, today.getMonth(), 1); const end = new Date(_poSelectedYear, today.getMonth() + 1, 0); return { from: fmt(m), to: fmt(end), label: 'tháng này' }; }
+        case 'this_month': { const m = new Date(_poSelectedYear, today.getMonth(), 1); return { from: fmt(m), to: todayStr, label: 'tháng này' }; }
         case 'last_month': { const m1 = new Date(_poSelectedYear, today.getMonth()-1, 1); const m2 = new Date(_poSelectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2), label: 'tháng trước' }; }
         case 'custom': return { from: _poDateFrom, to: _poDateTo, label: `${_poDateFrom} → ${_poDateTo}` };
         case 'all': return { from: `${_poSelectedYear}-01-01`, to: `${_poSelectedYear}-12-31`, label: `năm ${_poSelectedYear}` };
