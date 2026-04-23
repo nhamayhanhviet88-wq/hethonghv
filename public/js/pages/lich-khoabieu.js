@@ -1294,6 +1294,25 @@ function _kbRenderGrid() {
                 } else if (lt.recurrence_type === 'weekly') {
                     const wDays = (lt.recurrence_value || '').split(',').map(Number);
                     applies = wDays.includes(dayOfWeek);
+                    // ROLLING: "Setup Spam Zalo" — if past recurrence day + not completed, show on working days
+                    if (!applies && lt.task_name && /setup.*spam.*zalo/i.test(lt.task_name) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
+                        // Check if any recurrence day THIS week or BEFORE is uncompleted
+                        const wStart = new Date(_kbWeekStart);
+                        for (let rd = 0; rd < 7; rd++) {
+                            const rDate = new Date(wStart); rDate.setDate(wStart.getDate() + rd);
+                            const rDow = rDate.getDay() === 0 ? 7 : rDate.getDay();
+                            const rStr = _kbDateStr(rDate);
+                            if (wDays.includes(rDow) && rStr < dateStr) {
+                                const rKey = `${lt.id}_${rStr}`;
+                                const rComp = _kbLockCompletions[rKey];
+                                const rReal = (rComp && rComp.status === 'expired' && (!rComp.content || rComp.content.trim() === '' || /^Phạt chồng:/.test(rComp.content)) && !rComp.proof_url) ? null : rComp;
+                                if (!rReal || (rReal.status !== 'approved' && rReal.status !== 'pending')) {
+                                    applies = true; lt._isRolled = true; lt._rolledFromDate = rStr;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 } else if (lt.recurrence_type === 'monthly') {
                     const mDates = (lt.recurrence_value || '').split(',').map(Number);
                     const lastDay = new Date(colDate.getFullYear(), colDate.getMonth() + 1, 0).getDate();

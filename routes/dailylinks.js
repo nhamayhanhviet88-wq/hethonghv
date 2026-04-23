@@ -1613,7 +1613,7 @@ module.exports = async function (fastify) {
         };
     });
 
-    // GET /api/zalo-spam/check-completion — Check remaining QL Chưa Spam count
+    // GET /api/zalo-spam/check-completion — Check remaining QL Chưa Spam count + overdue info
     fastify.get('/api/zalo-spam/check-completion', { preHandler: [authenticate] }, async (req, reply) => {
         const userId = req.user.id;
         const pendingSpam = await db.get(
@@ -1623,7 +1623,7 @@ module.exports = async function (fastify) {
 
         // Check if user has the lock task
         const spamTask = await db.get(
-            `SELECT lt.id, lt.task_name FROM lock_tasks lt
+            `SELECT lt.id, lt.task_name, lt.penalty_amount, lt.recurrence_value FROM lock_tasks lt
              JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
              WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
                AND lta.user_id = $1 LIMIT 1`, [userId]
@@ -1633,19 +1633,35 @@ module.exports = async function (fastify) {
         const nowVN = new Date(Date.now() + 7 * 3600000);
         const todayStr = nowVN.toISOString().split('T')[0];
         let completed = false;
+        let overdue_days = [];
+        let total_penalty = 0;
+
         if (spamTask) {
             const existing = await db.get(
                 `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
                 [spamTask.id, userId, todayStr]
             );
             completed = !!existing;
+
+            // Check overdue days (past penalties for this task)
+            const penalties = await db.all(
+                `SELECT completion_date::text as d, penalty_amount FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND status = 'expired' AND penalty_applied = true
+                   AND completion_date >= (NOW() - INTERVAL '90 days')::date
+                 ORDER BY completion_date`,
+                [spamTask.id, userId]
+            );
+            overdue_days = penalties.map(p => ({ date: p.d.slice(0,10), amount: Number(p.penalty_amount) }));
+            total_penalty = overdue_days.reduce((s, d) => s + d.amount, 0);
         }
 
         return {
             remaining: cnt,
             has_task: !!spamTask,
             completed,
-            task_id: spamTask?.id || null
+            task_id: spamTask?.id || null,
+            overdue_days,
+            total_penalty
         };
     });
 

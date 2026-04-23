@@ -1087,17 +1087,26 @@ async function _zpCheckAutoComplete() {
 async function _zpLoadLockTaskStatus() {
     try {
         const res = await apiCall('/api/zalo-spam/check-completion');
-        if (!res.has_task) return; // User doesn't have the task
+        if (!res.has_task) return;
         const el = document.getElementById('zpStats');
         if (!el) return;
         const remaining = res.remaining;
         const completed = res.completed;
+        const overdue = res.overdue_days || [];
+        const totalPenalty = res.total_penalty || 0;
         let statusHtml = '';
-        if (completed) {
-            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">✅</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Khóa đã hoàn thành!</div><div style="font-size:11px;color:#15803d;font-weight:600;">Setup Spam Zalo Cho NV — Tự động hoàn thành vì đã spam hết nhóm</div></div></div>';
+
+        if (completed && overdue.length === 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">✅</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Khóa đã hoàn thành!</div><div style="font-size:11px;color:#15803d;font-weight:600;">Setup Spam Zalo Cho NV — Tự động hoàn thành</div></div></div>';
+        } else if (completed && overdue.length > 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">✅</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Khóa hoàn thành hôm nay — Dừng phạt</div><div style="font-size:11px;color:#dc2626;font-weight:600;">⚠️ Tổng phạt tích lũy: ' + totalPenalty.toLocaleString() + 'đ (' + overdue.length + ' ngày)</div></div></div>';
+        } else if (remaining > 0 && overdue.length > 0) {
+            const dateList = overdue.map(d => { const dd = new Date(d.date + "T00:00:00"); return dd.toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}); }).join(' · ');
+            statusHtml = '<div style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:24px;">⚠️</span><div><div style="font-size:15px;font-weight:800;color:#991b1b;">CV Khóa quá hạn ' + overdue.length + ' ngày — Tổng phạt: ' + totalPenalty.toLocaleString() + 'đ</div></div></div><div style="font-size:11px;color:#dc2626;font-weight:600;padding-left:34px;margin-bottom:6px;">' + dateList + '</div><div style="font-size:11px;color:#7f1d1d;padding-left:34px;">Còn ' + remaining + ' nhóm chưa spam. Spam hết để hoàn thành CV hôm nay và dừng phạt thêm!</div></div>';
         } else if (remaining > 0) {
-            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">⚠️</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Khóa: Còn ' + remaining + ' nhóm chưa spam</div><div style="font-size:11px;color:#dc2626;font-weight:600;">Spam hết tất cả nhóm trong 🔥 QL Chưa Spam để tự động hoàn thành</div></div></div>';
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:24px;">🔥</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Khóa: Còn ' + remaining + ' nhóm chưa spam</div><div style="font-size:11px;color:#dc2626;font-weight:600;">Spam hết trong 🔥 QL Chưa Spam để tự động hoàn thành và không bị phạt 50,000đ</div></div></div>';
         }
+
         if (statusHtml) {
             el.insertAdjacentHTML('beforeend', statusHtml);
         }
