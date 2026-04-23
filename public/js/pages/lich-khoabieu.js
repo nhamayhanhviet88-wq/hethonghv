@@ -561,7 +561,8 @@ async function renderLichKhoaBieuPage(container) {
                     }
                 });
                 childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                const hasSysApprovers = allApprovers.some(a => a.department_id === sys.id);
+                const memberIdSet = new Set(members.map(m => m.id));
+                const hasSysApprovers = allApprovers.some(a => a.department_id === sys.id && (currentUser.role === 'giam_doc' || memberIdSet.has(a.user_id)));
                 if (childDepts.length === 0 && !hasSysApprovers && currentUser.role !== 'giam_doc') return;
 
                 // System header with expand/collapse
@@ -574,8 +575,8 @@ async function renderLichKhoaBieuPage(container) {
                 // Collapsible content
                 deptListHtml += `<div class="kb-sys-content" data-sys-id="${sys.id}">`;
 
-                // System-level approvers (quản lý cấp cao)
-                const sysApprovers = allApprovers.filter(a => a.department_id === sys.id);
+                // System-level approvers (quản lý cấp cao) — non-GĐ only sees those in their scope
+                const sysApprovers = allApprovers.filter(a => a.department_id === sys.id && (currentUser.role === 'giam_doc' || memberIdSet.has(a.user_id)));
                 sysApprovers.forEach(a => {
                     deptListHtml += `
                         <div class="kb-member-item" data-uid="${a.user_id}" data-name="${a.full_name}" data-dept="${sys.name}" onclick="_kbSelectMember(${a.user_id})" style="padding:9px 14px 9px 18px;font-size:13px;color:#1e293b;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;background:white;"
