@@ -76,7 +76,7 @@ module.exports = async function (fastify) {
     fastify.post('/api/partner-outreach/categories', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { name, color } = req.body || {};
-        if (!name?.trim()) return reply.code(400).send({ error: 'Thiếu tên lĩnh vực' });
+        if (!name?.trim()) return reply.code(400).send({ error: 'Thiếu tên sản phẩm' });
         const maxOrder = await db.get('SELECT COALESCE(MAX(sort_order), 0) as m FROM partner_outreach_categories');
         await db.run('INSERT INTO partner_outreach_categories (name, color, sort_order) VALUES ($1, $2, $3)', [name.trim(), color || '#3b82f6', (maxOrder.m || 0) + 1]);
         return { success: true };
@@ -162,7 +162,7 @@ module.exports = async function (fastify) {
     fastify.post('/api/partner-outreach/entries', { preHandler: [authenticate] }, async (req, reply) => {
         const { partner_name, fb_link, phone, category_id, channel, image_data } = req.body || {};
         if (!fb_link?.trim()) return reply.code(400).send({ error: 'Thiếu link FB' });
-        if (!category_id) return reply.code(400).send({ error: 'Vui lòng chọn Lĩnh Vực' });
+        if (!category_id) return reply.code(400).send({ error: 'Vui lòng chọn Sản Phẩm' });
         if (!channel?.trim()) return reply.code(400).send({ error: 'Vui lòng chọn Kênh Isocal' });
 
         const today = _vnToday();

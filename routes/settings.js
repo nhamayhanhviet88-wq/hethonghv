@@ -17,7 +17,7 @@ async function settingsRoutes(fastify, options) {
         'commission-tiers': { table: 'commission_tiers', fields: ['name', 'percentage', 'parent_percentage'], label: 'Tầng hoa hồng' },
         'sources': { table: 'settings_sources', fields: ['name'], label: 'Nguồn khách NV Kinh Doanh' },
         'promotions': { table: 'settings_promotions', fields: ['name'], label: 'Khuyến mãi' },
-        'industries': { table: 'settings_industries', fields: ['name'], label: 'Lĩnh vực' }
+        'industries': { table: 'settings_industries', fields: ['name'], label: 'Sản phẩm' }
     };
 
     // ===== Job Titles per CRM (MUST be before generic :type routes) =====

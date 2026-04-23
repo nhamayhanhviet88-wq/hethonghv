@@ -245,7 +245,7 @@ module.exports = async function (fastify) {
 
         const categoryId = req.body?.category_id ? Number(req.body.category_id) : null;
         if (module_type === 'dang_group' && !categoryId) {
-            return reply.code(400).send({ error: 'Vui lòng chọn lĩnh vực!' });
+            return reply.code(400).send({ error: 'Vui lòng chọn sản phẩm!' });
         }
 
         await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -372,7 +372,7 @@ module.exports = async function (fastify) {
     fastify.post('/api/dailylinks/categories', { preHandler: [authenticate] }, async (req, reply) => {
         if (req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
         const { name, color } = req.body || {};
-        if (!name?.trim()) return reply.code(400).send({ error: 'Thiếu tên lĩnh vực' });
+        if (!name?.trim()) return reply.code(400).send({ error: 'Thiếu tên sản phẩm' });
         const maxOrder = await db.get('SELECT COALESCE(MAX(sort_order), 0) as m FROM partner_outreach_categories');
         await db.run('INSERT INTO partner_outreach_categories (name, color, sort_order) VALUES ($1, $2, $3)', [name.trim(), color || '#3b82f6', (maxOrder.m || 0) + 1]);
         return { success: true };
