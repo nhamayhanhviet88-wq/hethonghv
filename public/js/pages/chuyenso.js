@@ -214,9 +214,13 @@ async function renderChuyenSoPage(container) {
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>Lĩnh Vực</label>
-                            <input type="text" id="csoLinhVuc" class="form-control" disabled placeholder="Tự động điền từ nguồn gọi điện / MXH" style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="text" id="csoLinhVuc" class="form-control" value="Mặc Định" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                         </div>
-                        <div></div>
+                        <div class="form-group">
+                            <label>Công Việc</label>
+                            <input type="text" class="form-control" value="Mặc Định" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csoCongViec" value="Mặc Định">
+                        </div>
                     </div>
                     ` : ''}
                     <div class="form-group">
@@ -270,7 +274,8 @@ async function renderChuyenSoPage(container) {
             notes: document.getElementById('csoNotes').value,
             affiliate_user_id: document.getElementById('csoAffiliate')?.value || null,
             job: document.getElementById('csoJobTitle')?.value || document.getElementById('csoLinhVuc')?.value || null,
-            facebook_link: document.getElementById('csoFacebook')?.value?.trim() || null
+            facebook_link: document.getElementById('csoFacebook')?.value?.trim() || null,
+            cong_viec: document.getElementById('csoCongViec')?.value || 'Mặc Định'
         };
         console.log('[CSO] Body:', JSON.stringify(body));
 
