@@ -1215,46 +1215,57 @@ function _gd_openSelfSearchModal() {
     const locOptions = _gd_selfSearchLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
     const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
 
-    // 6 call dispositions for self-searched customers (already answered)
+    // 5 call dispositions (removed has_ncc)
     const dispositions = [
         { key: 'transfer', icon: '🔥', label: 'Có nhu cầu — Chuyển số', color: '#dc2626', bg: '#fef2f2', border: '#fecaca', positive: true },
         { key: 'quote', icon: '📨', label: 'Yêu cầu gửi báo giá', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', positive: true },
         { key: 'meet', icon: '🤝', label: 'Hẹn gặp trực tiếp', color: '#059669', bg: '#f0fdf4', border: '#bbf7d0', positive: true },
         { key: 'considering', icon: '💬', label: 'Đang cân nhắc', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', positive: true },
-        { key: 'has_ncc', icon: '🏪', label: 'Đã có nhà cung cấp', color: '#854d0e', bg: '#fefce8', border: '#fde047', positive: false },
         { key: 'no_need', icon: '🚫', label: 'Không có nhu cầu', color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', positive: false },
     ];
 
+    const crmOptions = [
+        {value:'nhu_cau',label:'Chăm Sóc KH Nhu Cầu'},{value:'ctv_hoa_hong',label:'Chăm Sóc Affiliate'},
+    ];
+
     openModal('🔍 Thêm KH Tự Tìm Kiếm Telesale', `
-        <div style="display:flex;flex-direction:column;gap:14px;">
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">👤 Tên KH/Đối tác <span style="color:#dc2626;">*</span></label>
-                <input id="gdSSName" type="text" class="form-control" placeholder="VD: Nguyễn Văn A" style="font-size:13px;">
-            </div>
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">🔗 Link Khách Hàng</label>
-                <input id="gdSSFbLink" type="url" class="form-control" placeholder="https://facebook.com/..." style="font-size:13px;" oninput="_gd_ssValidateContact()">
-                <div style="font-size:10px;color:#6b7280;margin-top:2px;">Bắt buộc nếu không có SĐT</div>
-            </div>
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📱 Số Điện Thoại</label>
-                <input id="gdSSPhone" type="text" class="form-control" placeholder="0912345678" style="font-size:13px;" oninput="_gd_ssValidateContact()">
-                <div style="font-size:10px;color:#6b7280;margin-top:2px;">Bắt buộc nếu không có Link MXH</div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div>
-                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📂 Lĩnh Vực <span style="color:#dc2626;">*</span></label>
-                    <select id="gdSSSource" class="form-control" style="font-size:13px;"><option value="">-- Chọn lĩnh vực --</option>${srcOptions}</select>
+        <div style="max-width:600px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">👤 Tên KH/Đối tác <span style="color:#dc2626;">*</span></label>
+                    <input id="gdSSName" type="text" class="form-control" placeholder="VD: Nguyễn Văn A">
                 </div>
-                <div>
-                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📍 Nơi tìm kiếm <span style="color:#dc2626;">*</span></label>
-                    <select id="gdSSLocation" class="form-control" style="font-size:13px;"><option value="">-- Chọn nơi TK --</option>${locOptions}</select>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📱 Số Điện Thoại</label>
+                    <input id="gdSSPhone" type="text" class="form-control" placeholder="0912345678">
+                    <small style="color:#6b7280;font-size:10px;">Bắt buộc nếu không có Link MXH</small>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">🔗 Link Khách Hàng</label>
+                    <input id="gdSSFbLink" type="url" class="form-control" placeholder="https://facebook.com/...">
+                    <small style="color:#6b7280;font-size:10px;">Bắt buộc nếu không có SĐT</small>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Công Việc</label>
+                    <input type="text" class="form-control" value="Gọi Điện Telesale" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📂 Lĩnh Vực <span style="color:#dc2626;">*</span></label>
+                    <select id="gdSSSource" class="form-control"><option value="">-- Chọn lĩnh vực --</option>${srcOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📍 Nơi tìm kiếm <span style="color:#dc2626;">*</span></label>
+                    <select id="gdSSLocation" class="form-control"><option value="">-- Chọn nơi TK --</option>${locOptions}</select>
                     ${isMgr ? `<button onclick="_gd_openLocationManager()" style="margin-top:4px;padding:3px 8px;font-size:10px;border:1px solid #6366f1;border-radius:5px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;">⚙️ Quản lý</button>` : ''}
                 </div>
             </div>
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">📞 Tình trạng bắt máy <span style="color:#dc2626;">*</span></label>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="gdSSDispositions">
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#374151;">📞 Tình trạng bắt máy <span style="color:#dc2626;">*</span></label>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;" id="gdSSDispositions">
                     ${dispositions.map(d => `
                         <button type="button" id="gdSSDisp_${d.key}" onclick="_gd_ssSelectDisposition('${d.key}')"
                             style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;
@@ -1263,13 +1274,30 @@ function _gd_openSelfSearchModal() {
                         >${d.icon} ${d.label}</button>
                     `).join('')}
                 </div>
-                <div id="gdSSDispHint" style="display:none;margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;"></div>
             </div>
-            <div>
-                <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📝 Ghi chú</label>
-                <textarea id="gdSSNotes" class="form-control" rows="2" placeholder="Ghi chú cuộc gọi..." style="font-size:13px;resize:vertical;"></textarea>
+            <div id="gdSSCrmRow" style="display:none;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="form-group">
+                        <label style="font-weight:700;font-size:12px;color:#374151;">CRM <span style="color:#dc2626;">*</span></label>
+                        <select id="gdSSCrm" class="form-control">
+                            ${crmOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:700;font-size:12px;color:#374151;">Nguồn Khách</label>
+                        <input type="text" class="form-control" value="TỰ TÌM KIẾM TELESALE" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                    </div>
+                </div>
             </div>
-            <div id="gdSSContactError" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:11px;color:#dc2626;font-weight:600;">⚠️ Cần ít nhất Link MXH hoặc SĐT</div>
+            <div id="gdSSDispHint" style="display:none;margin-bottom:10px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;"></div>
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#374151;">Người Nhận Số</label>
+                <input type="text" class="form-control" value="${currentUser.full_name || currentUser.username}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+            </div>
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#374151;">📝 Ghi chú</label>
+                <textarea id="gdSSNotes" class="form-control" rows="2" placeholder="Ghi chú cuộc gọi..." style="resize:vertical;"></textarea>
+            </div>
         </div>
     `, `<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
         <button class="ts-btn ts-btn-green" onclick="_gd_submitSelfSearch()">💾 Thêm KH</button>`);
@@ -1282,7 +1310,6 @@ function _gd_ssSelectDisposition(key) {
         quote: { icon: '📨', label: 'Yêu cầu gửi báo giá', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', positive: true },
         meet: { icon: '🤝', label: 'Hẹn gặp trực tiếp', color: '#059669', bg: '#f0fdf4', border: '#bbf7d0', positive: true },
         considering: { icon: '💬', label: 'Đang cân nhắc', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', positive: true },
-        has_ncc: { icon: '🏪', label: 'Đã có nhà cung cấp', color: '#854d0e', bg: '#fefce8', border: '#fde047', positive: false },
         no_need: { icon: '🚫', label: 'Không có nhu cầu', color: '#6366f1', bg: '#eef2ff', border: '#a5b4fc', positive: false },
     };
     // Highlight selected button, dim others
@@ -1305,21 +1332,24 @@ function _gd_ssSelectDisposition(key) {
             btn.style.opacity = '0.5';
         }
     });
+    // Show/hide CRM row based on positive/negative
+    const crmRow = document.getElementById('gdSSCrmRow');
+    const sel = dispositions[key];
+    if (crmRow) crmRow.style.display = sel && sel.positive ? 'block' : 'none';
     // Show hint
     const hint = document.getElementById('gdSSDispHint');
-    const sel = dispositions[key];
     if (hint && sel) {
         hint.style.display = 'block';
         if (sel.positive) {
             hint.style.background = '#f0fdf4';
             hint.style.color = '#065f46';
             hint.style.border = '1px solid #bbf7d0';
-            hint.innerHTML = `✅ KH sẽ được tạo vào <b>CRM Tự Tìm Kiếm Telesale</b> → hiển thị ở "Đã xử lý hôm nay"`;
+            hint.innerHTML = `✅ KH sẽ được chuyển vào <b>CRM</b> + ghi nhận Tự Tìm Kiếm Telesale`;
         } else {
             hint.style.background = '#fef2f2';
             hint.style.color = '#991b1b';
             hint.style.border = '1px solid #fecaca';
-            hint.innerHTML = `⛔ KH chỉ hiện ở <b>Gọi Điện Telesale</b>, không tạo vào CRM Tự Tìm Kiếm`;
+            hint.innerHTML = `⛔ KH chỉ ghi nhận ở <b>Tự Tìm Kiếm Telesale</b>, không đổ vào CRM`;
         }
     }
 }
@@ -1345,6 +1375,28 @@ async function _gd_submitSelfSearch() {
     if (!source_id) return showToast('Chọn Lĩnh Vực!', 'error');
     if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
     if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');
+
+    const isPositive = ['transfer', 'quote', 'meet', 'considering'].includes(call_disposition);
+    if (isPositive) {
+        const crmType = document.getElementById('gdSSCrm')?.value;
+        if (!crmType) return showToast('Chọn CRM!', 'error');
+        // Create customer in CRM
+        try {
+            const custRes = await apiCall('/api/customers', 'POST', {
+                crm_type: crmType,
+                customer_name: customer_name,
+                phone: phone || null,
+                facebook_link: fb_link || null,
+                source_name: 'TỰ TÌM KIẾM TELESALE',
+                receiver_id: currentUser.id,
+                notes: notes || null,
+                cong_viec: 'Gọi Điện Telesale'
+            });
+            if (!custRes.success) return showToast(custRes.error || 'Lỗi chuyển số CRM', 'error');
+        } catch(e) {
+            return showToast(e.message || 'Lỗi chuyển số CRM', 'error');
+        }
+    }
 
     try {
         const res = await apiCall('/api/telesale/self-search', 'POST', {
