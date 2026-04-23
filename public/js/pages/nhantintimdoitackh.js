@@ -618,7 +618,7 @@ function _poAddModal(editEntry) {
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
                 <div>
-                    <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH</label>
+                    <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH <span style="color:#dc2626;">*</span></label>
                     <input id="poFName" value="${editEntry?.partner_name||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="VD: Nguyễn Văn A (không bắt buộc)">
                 </div>
                 <div>
@@ -800,6 +800,7 @@ async function _poSave(editId) {
     const catId = document.getElementById('poFCat').value;
     const channel = document.getElementById('poFChannel').value;
     if (!channel) { showToast('Vui lòng chọn Kênh Isocal trước!', 'error'); return; }
+    if (!name) { showToast('Vui lòng nhập Tên Đối Tác / KH!', 'error'); return; }
     if (!fb) { showToast('Vui lòng nhập link!', 'error'); return; }
     // Validate domain matches selected channel
     if (window._poChCfg && window._poChCfg[channel]) {
