@@ -1869,6 +1869,20 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
     const isPoPage = pageId === 'nhantintimdoitackh';
     const isDangGroup = pageId === 'danggruop';
     const needsLinhVucDropdown = isPoPage || isDangGroup;
+    // Công Việc auto-mapping
+    const _congViecMap = {
+        'nhantintimdoitackh': 'Nhắn Tìm Đối Tác KH KOL Tiktok',
+        'addcmtdoitackh': 'Add/Cmt Đối Tác KH',
+        'dangvideo': 'Đăng Video Isocal',
+        'dangcontent': 'Đăng Content Isocal',
+        'danggruop': 'Đăng & Tìm KH Group',
+        'sedding': 'Sedding Cộng Đồng & Lẫn Nhau',
+        'dangbanthan': 'Đăng Bản Thân & Sản Phẩm',
+        'timgrzalo': 'Tìm Gr Zalo Và Join',
+        'tuyendung': 'Tuyển Dụng SV KD',
+        'goidientelesale': 'Gọi Điện Telesale'
+    };
+    const congViecValue = _congViecMap[pageId] || 'Mặc Định';
     const apiCalls = [
         apiCall('/api/settings/sources'),
         apiCall('/api/settings/promotions'),
@@ -1995,10 +2009,17 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
                         <input type="text" id="csMxhPhone" class="_csMxh-input" placeholder="Nhập SĐT" oninput="_csMxhToggleReq()">
                     </div>
                 </div>
-                <div style="margin-bottom:16px;">
-                    <label class="_csMxh-label">🔗 Link Facebook <span class="_csMxh-required" id="csMxhFbStar">*</span></label>
-                    <input type="url" id="csMxhFacebook" class="_csMxh-input" placeholder="https://www.facebook.com/username" oninput="_csMxhToggleReq();_csMxhValidateFb()">
-                    <small id="csMxhFbHint" style="color:#9ca3af;font-size:10px;">Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân</small>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label class="_csMxh-label">🔗 Link Khách Hàng <span class="_csMxh-required" id="csMxhFbStar">*</span></label>
+                        <input type="url" id="csMxhFacebook" class="_csMxh-input" placeholder="https://facebook.com, instagram.com, tiktok.cr..." oninput="_csMxhToggleReq();_csMxhValidateFb()">
+                        <small id="csMxhFbHint" style="color:#9ca3af;font-size:10px;">Nhập SĐT hoặc Link MXH (ít nhất 1)</small>
+                    </div>
+                    <div>
+                        <label class="_csMxh-label">Công Việc</label>
+                        <input type="text" class="_csMxh-input" value="${congViecValue}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                        <input type="hidden" id="csMxhCongViec" value="${congViecValue}">
+                    </div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
@@ -2072,7 +2093,8 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
             receiver_id: document.getElementById('csMxhReceiver').value,
             notes: document.getElementById('csMxhNotes').value,
             facebook_link: document.getElementById('csMxhFacebook')?.value?.trim() || null,
-            job: document.getElementById('csMxhLinhVuc')?.value || null
+            job: document.getElementById('csMxhLinhVuc')?.value || null,
+            cong_viec: document.getElementById('csMxhCongViec')?.value || null
         };
         if (!body.crm_type || !body.receiver_id) { showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
         if (!body.customer_name || !body.customer_name.trim()) { showToast('Vui lòng nhập Tên Khách Hàng', 'error'); return; }

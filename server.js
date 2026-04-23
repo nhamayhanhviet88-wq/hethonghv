@@ -56,6 +56,7 @@ async function start() {
 
     // Migration: add phone2 column to customers
     try { await db.exec('ALTER TABLE customers ADD COLUMN phone2 TEXT'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE customers ADD COLUMN cong_viec TEXT'); } catch(e) { /* exists */ }
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
