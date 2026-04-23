@@ -513,10 +513,16 @@ module.exports = async function (fastify) {
 
             // Also create customer record in target CRM
             const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong: 'Chăm Sóc Affiliate' };
+            // Get category name for Lĩnh Vực
+            let catName = null;
+            if (entry.category_id) {
+                const catRow = await db.get('SELECT name FROM partner_outreach_categories WHERE id = $1', [entry.category_id]);
+                if (catRow) catName = catRow.name;
+            }
             await db.run(
-                `INSERT INTO customers (customer_name, phone, facebook_link, crm_type, assigned_to, source_name, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-                [entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, 'Nhắn Tìm Đối Tác']
+                `INSERT INTO customers (customer_name, phone, facebook_link, crm_type, assigned_to, source_name, job, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                [entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, 'Nhắn Tìm Đối Tác', catName]
             );
         }
 

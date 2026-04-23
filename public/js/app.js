@@ -880,7 +880,21 @@ async function handleRoute() {
     if (CHUYEN_SO_PAGES.includes(currentPage)) {
         const csBtn = document.createElement('button');
         csBtn.id = 'topbarChuyenSoBtn';
-        csBtn.onclick = function(){ openChuyenSoMXH(currentPage); };
+        csBtn.onclick = function(){
+            // Detect active Lĩnh Vực from current page category filter
+            let linhVuc = '';
+            // nhantintimdoitackh: _poSelectedCat + _po.categories
+            if (typeof _poSelectedCat !== 'undefined' && _poSelectedCat && typeof _po !== 'undefined') {
+                const cat = (_po.categories || []).find(c => c.id === _poSelectedCat);
+                if (cat) linhVuc = cat.name;
+            }
+            // dailylinks (danggruop): _dlCatFilter + _dl.categories
+            if (!linhVuc && typeof _dlCatFilter !== 'undefined' && _dlCatFilter !== 'all' && typeof _dl !== 'undefined') {
+                const cat = (_dl.categories || []).find(c => String(c.id) === String(_dlCatFilter));
+                if (cat) linhVuc = cat.name;
+            }
+            openChuyenSoMXH(currentPage, linhVuc);
+        };
         csBtn.innerHTML = '📱 CHUYỂN SỐ';
         csBtn.style.cssText = 'background:#ea580c;color:white;border:none;padding:8px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(234,88,12,0.3);transition:all 0.2s;letter-spacing:0.5px;margin-left:16px;white-space:nowrap;font-family:Inter,system-ui,-apple-system,sans-serif;';
         csBtn.onmouseover = function(){ this.style.transform='scale(1.05)'; this.style.background='#c2410c'; };
@@ -1847,7 +1861,7 @@ async function _mgrPenaltyAcknowledge() {
 }
 
 // ========== CHUYỂN SỐ MXH — GLOBAL MODAL ==========
-async function openChuyenSoMXH(pageId) {
+async function openChuyenSoMXH(pageId, linhVucName) {
     // Load dropdown data
     const [sources, promotions, industries, usersRes, deptData, configData] = await Promise.all([
         apiCall('/api/settings/sources'),
@@ -1990,6 +2004,13 @@ async function openChuyenSoMXH(pageId) {
                         </select>
                     </div>
                 </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                    <div>
+                        <label class="_csMxh-label">Lĩnh Vực</label>
+                        <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;" placeholder="Tự động điền từ nguồn">
+                    </div>
+                    <div></div>
+                </div>
                 <div style="margin-bottom:16px;">
                     <label class="_csMxh-label">Người Nhận Số <span class="_csMxh-required">*</span></label>
                     ${isNVorTP ? `
@@ -2026,7 +2047,8 @@ async function openChuyenSoMXH(pageId) {
             industry_id: document.getElementById('csMxhIndustry')?.value || null,
             receiver_id: document.getElementById('csMxhReceiver').value,
             notes: document.getElementById('csMxhNotes').value,
-            facebook_link: document.getElementById('csMxhFacebook')?.value?.trim() || null
+            facebook_link: document.getElementById('csMxhFacebook')?.value?.trim() || null,
+            job: document.getElementById('csMxhLinhVuc')?.value || null
         };
         if (!body.crm_type || !body.receiver_id) { showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
         if (!body.customer_name || !body.customer_name.trim()) { showToast('Vui lòng nhập Tên Khách Hàng', 'error'); return; }

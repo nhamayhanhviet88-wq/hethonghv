@@ -768,6 +768,13 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
                 </div>
                 <div></div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group">
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Lĩnh Vực</label>
+                    <input type="text" id="gdCSLinhVuc" class="form-control" value="${call.source_name || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                </div>
+                <div></div>
+            </div>
             <div class="form-group">
                 <label style="font-weight:700;font-size:12px;color:#374151;">Người Nhận Số <span style="color:#dc2626;">*</span></label>
                 <input type="text" class="form-control" value="${currentUser.full_name || currentUser.username}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
