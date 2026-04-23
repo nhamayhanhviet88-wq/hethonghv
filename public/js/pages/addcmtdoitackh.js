@@ -259,8 +259,4 @@ async function _acDel(id) {
     catch(e) { showToast(e.message || 'Lỗi', 'error'); }
 }
 
-(function() {
-    const orig = window.handleRoute;
-    if (orig) { window.handleRoute = function() { orig.apply(this, arguments); if (window.location.pathname === '/addcmtdoitackh') _acInit(); }; }
-    if (window.location.pathname === '/addcmtdoitackh') setTimeout(_acInit, 100);
-})();
+

@@ -1,7 +1,6 @@
 // ========== DAILY LINKS — UNIFIED FRONTEND ==========
 let _dlCollapsedDepts = new Set();
 const _DL_MODULES = {
-    '/addcmtdoitackh':    { type:'addcmt',       label:'Add/Cmt Đối Tác KH',    icon:'👥', grad:'linear-gradient(135deg,#16a34a,#15803d)', accent:'#16a34a' },
     '/dangvideo':         { type:'dang_video',    label:'Đăng Video Isocal',      icon:'🎬', grad:'linear-gradient(135deg,#dc2626,#b91c1c)', accent:'#dc2626' },
     '/dangcontent':       { type:'dang_content',  label:'Đăng Content Isocal',    icon:'✍️', grad:'linear-gradient(135deg,#8b5cf6,#7c3aed)', accent:'#8b5cf6' },
     '/danggruop':         { type:'dang_group',    label:'Đăng & Tìm KH Group',   icon:'📢', grad:'linear-gradient(135deg,#0891b2,#0e7490)', accent:'#0891b2' },
