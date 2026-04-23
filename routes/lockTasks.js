@@ -913,7 +913,86 @@ async function lockTaskRoutes(fastify, options) {
         return { success: true };
     });
 
+    // GET: All unreported CV Khóa + CV Chuỗi (for "CV Chưa BC" modal)
+    fastify.get('/api/lock-tasks/unreported', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const userRole = request.user.role;
+
+        // Scope: GĐ sees all, QL/TP sees own team
+        let scopeFilter = '';
+        let scopeParams = [];
+        if (userRole === 'giam_doc') {
+            scopeFilter = '';
+            scopeParams = [];
+        } else {
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            const deptIds = [user?.department_id].filter(Boolean);
+            if (user?.department_id) {
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+                children.forEach(c => deptIds.push(c.id));
+                for (const child of children) {
+                    const gc = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
+                    gc.forEach(g => deptIds.push(g.id));
+                }
+            }
+            if (deptIds.length === 0) return { khoa: [], chuoi: [] };
+            scopeFilter = `AND u.department_id IN (${deptIds.map((_, i) => `$${i + 1}`).join(',')})`;
+            scopeParams = deptIds;
+        }
+
+        // CV Khóa unreported (expired, penalty_applied, no resubmission)
+        const khoa = await db.all(
+            `SELECT ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as task_date,
+                    ltc.penalty_amount, ltc.redo_count,
+                    lt.task_name, u.full_name, u.username, d.name as dept_name
+             FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.is_active = true
+             JOIN users u ON u.id = ltc.user_id
+             LEFT JOIN departments d ON d.id = u.department_id
+             WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
+               AND ltc.redo_count = 0
+               AND ltc.completion_date >= (NOW() - INTERVAL '90 days')::date
+               AND NOT EXISTS (
+                   SELECT 1 FROM lock_task_completions sub
+                   WHERE sub.lock_task_id = ltc.lock_task_id AND sub.user_id = ltc.user_id
+                     AND sub.completion_date = ltc.completion_date
+                     AND sub.status IN ('pending','approved') AND sub.redo_count > 0
+               )
+               ${scopeFilter}
+             ORDER BY ltc.completion_date DESC
+             LIMIT 200`,
+            scopeParams
+        );
+
+        // CV Chuỗi unreported
+        const chuoi = await db.all(
+            `SELECT cc.chain_item_id, cc.user_id, ci.deadline::text as task_date,
+                    cc.penalty_amount,
+                    ci.task_name, cins.chain_name, u.full_name, u.username, d.name as dept_name
+             FROM chain_task_completions cc
+             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+             JOIN users u ON u.id = cc.user_id
+             LEFT JOIN departments d ON d.id = u.department_id
+             WHERE cc.status = 'expired' AND cc.penalty_applied = true
+               AND cc.redo_count = 0
+               AND ci.deadline >= (NOW() - INTERVAL '90 days')::date
+               AND NOT EXISTS (
+                   SELECT 1 FROM chain_task_completions sub
+                   WHERE sub.chain_item_id = cc.chain_item_id AND sub.user_id = cc.user_id
+                     AND sub.status IN ('pending','approved') AND sub.redo_count > 0
+               )
+               ${scopeFilter}
+             ORDER BY ci.deadline DESC
+             LIMIT 200`,
+            scopeParams
+        );
+
+        return { khoa, chuoi };
+    });
+
 }
 
 module.exports = lockTaskRoutes;
+
 

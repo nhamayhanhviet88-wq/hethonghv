@@ -648,6 +648,7 @@ async function renderLichKhoaBieuPage(container) {
                 ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">⚙️ Setup Người Duyệt</button>` : ''}
                 ${isGD ? `<button onclick="_kbShowCreateDeptModal()" style="padding:6px 14px;font-size:12px;border:1px dashed #16a34a;border-radius:8px;background:rgba(22,163,74,0.04);color:#16a34a;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='rgba(22,163,74,0.04)'">＋ Tạo mới</button>` : ''}
                 ${isGD ? `<button onclick="_kbShowReorderModal()" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🔢 STT</button>` : ''}
+                ${isManager ? `<button onclick="_kbShowUnreportedModal()" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🔍 CV Chưa BC</button>` : ''}
             </div>
             <div id="kbViewingLabel" style="font-size:13px;color:#6b7280;"></div>
         </div>
@@ -4652,4 +4653,81 @@ async function _kbResetOverrideKhoa(lockTaskId) {
         var lm = document.getElementById('kbLockDetailModal'); if (lm) lm.remove();
         _kbLoadSchedule();
     } catch(e) { showToast('Lỗi: ' + (e.message || ''), 'error'); }
+}
+
+// ========== UNREPORTED CV MODAL ==========
+async function _kbShowUnreportedModal() {
+    const existing = document.getElementById('kbUnreportedModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'kbUnreportedModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = '<div style="background:white;border-radius:16px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);"><div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:18px 24px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;"><div style="color:white;font-weight:800;font-size:18px;">\ud83d\udd0d CV Ch\u01b0a B\u00e1o C\u00e1o</div><button onclick="document.getElementById(\'kbUnreportedModal\').remove()" style="background:rgba(255,255,255,.15);border:none;width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;color:white;">\u00d7</button></div><div id="kbUnreportedContent" style="padding:20px 24px;"><div style="text-align:center;padding:30px;color:#9ca3af;">\u23f3 \u0110ang t\u1ea3i...</div></div></div>';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+
+    try {
+        const data = await apiCall('/api/lock-tasks/unreported');
+        const content = document.getElementById('kbUnreportedContent');
+        if (!content) return;
+
+        const khoaList = data.khoa || [];
+        const chuoiList = data.chuoi || [];
+
+        if (khoaList.length === 0 && chuoiList.length === 0) {
+            content.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:48px;margin-bottom:12px;">\u2705</div><div style="font-size:16px;font-weight:700;color:#166534;">Kh\u00f4ng c\u00f3 CV ch\u01b0a b\u00e1o c\u00e1o!</div><div style="font-size:12px;color:#6b7280;margin-top:6px;">T\u1ea5t c\u1ea3 CV Kh\u00f3a v\u00e0 CV Chu\u1ed7i \u0111\u00e3 \u0111\u01b0\u1ee3c ho\u00e0n th\u00e0nh</div></div>';
+            return;
+        }
+
+        const fmtDate = (d) => { const p = (d||'').slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : d; };
+        const jumpBtn = (date, userId, bgColor) => {
+            return '<button onclick="document.getElementById(\'kbUnreportedModal\').remove();' +
+                'var d=new Date(\'' + (date||'').slice(0,10) + 'T00:00:00\');' +
+                'var day=d.getDay();var diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);' +
+                '_kbWeekStart=d;' +
+                'var el=document.querySelector(\'.kb-member-item[data-uid=\\x22' + userId + '\\x22]\');' +
+                'if(el){_kbSelectMember(' + userId + ');}else{_kbLoadSchedule();}" ' +
+                'style="padding:6px 12px;border:none;border-radius:8px;background:' + bgColor + ';color:white;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">\ud83d\udcc5 Xem l\u1ecbch</button>';
+        };
+
+        let html = '';
+
+        if (khoaList.length > 0) {
+            html += '<div style="margin-bottom:20px;"><div style="font-size:14px;font-weight:800;color:#991b1b;margin-bottom:10px;display:flex;align-items:center;gap:6px;">\ud83d\udd10 CV Kh\u00f3a ch\u01b0a BC <span style="background:#fecaca;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;">' + khoaList.length + '</span></div>';
+            khoaList.forEach(k => {
+                html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #fecaca;border-radius:10px;margin-bottom:6px;background:#fef2f2;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\ud83d\udd34 ' + k.task_name + '</div>' +
+                    '<div style="font-size:11px;color:#6b7280;margin-top:2px;">\ud83d\udc64 ' + k.full_name + ' (' + k.username + ') \u00b7 \ud83c\udfe2 ' + (k.dept_name||'\u2014') + ' \u00b7 \ud83d\udcc5 ' + fmtDate(k.task_date) + ' \u00b7 \ud83d\udcb0 ' + Number(k.penalty_amount||0).toLocaleString() + '\u0111</div>' +
+                    '</div>' + jumpBtn(k.task_date, k.user_id, '#dc2626') + '</div>';
+            });
+            html += '</div>';
+        }
+
+        if (chuoiList.length > 0) {
+            html += '<div><div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px;display:flex;align-items:center;gap:6px;">\ud83d\udd17 CV Chu\u1ed7i ch\u01b0a BC <span style="background:#ede9fe;color:#7c3aed;padding:2px 10px;border-radius:12px;font-size:12px;">' + chuoiList.length + '</span></div>';
+            chuoiList.forEach(c => {
+                html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #c4b5fd;border-radius:10px;margin-bottom:6px;background:#f5f3ff;">' +
+                    '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\ud83d\udd34 ' + c.task_name + ' <span style="font-size:10px;color:#7c3aed;">(' + c.chain_name + ')</span></div>' +
+                    '<div style="font-size:11px;color:#6b7280;margin-top:2px;">\ud83d\udc64 ' + c.full_name + ' (' + c.username + ') \u00b7 \ud83c\udfe2 ' + (c.dept_name||'\u2014') + ' \u00b7 \ud83d\udcc5 ' + fmtDate(c.task_date) + ' \u00b7 \ud83d\udcb0 ' + Number(c.penalty_amount||0).toLocaleString() + '\u0111</div>' +
+                    '</div>' + jumpBtn(c.task_date, c.user_id, '#7c3aed') + '</div>';
+            });
+            html += '</div>';
+        }
+
+        const totalPenalty = [...khoaList, ...chuoiList].reduce((s, i) => s + Number(i.penalty_amount || 0), 0);
+        content.innerHTML = '<div style="display:flex;gap:12px;margin-bottom:16px;">' +
+            '<div style="flex:1;background:#fef2f2;border:2px solid #fecaca;border-radius:10px;padding:12px;text-align:center;">' +
+            '<div style="font-size:24px;font-weight:900;color:#dc2626;">' + (khoaList.length + chuoiList.length) + '</div>' +
+            '<div style="font-size:11px;color:#991b1b;font-weight:600;">CV ch\u01b0a BC</div></div>' +
+            '<div style="flex:1;background:#fef2f2;border:2px solid #fecaca;border-radius:10px;padding:12px;text-align:center;">' +
+            '<div style="font-size:24px;font-weight:900;color:#dc2626;">' + totalPenalty.toLocaleString() + '\u0111</div>' +
+            '<div style="font-size:11px;color:#991b1b;font-weight:600;">T\u1ed5ng ph\u1ea1t</div></div></div>' + html;
+
+    } catch(e) {
+        const content = document.getElementById('kbUnreportedContent');
+        if (content) content.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">\u274c L\u1ed7i t\u1ea3i d\u1eef li\u1ec7u</div>';
+    }
 }
