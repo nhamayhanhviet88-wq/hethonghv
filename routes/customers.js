@@ -119,6 +119,16 @@ async function customersRoutes(fastify, options) {
         if (globalId) targetIds.push(globalId);
         broadcastTelegram(targetIds, tgMessage);
 
+        // Auto-update partner_outreach_entries: mark as transferred
+        try {
+            if (phone && phone.trim()) {
+                await db.run(`UPDATE partner_outreach_entries SET transferred_to_crm = TRUE, transferred_at = NOW(), crm_data_id = $1 WHERE REPLACE(phone, ' ', '') LIKE $2 AND transferred_to_crm = FALSE`, [result.lastInsertRowid, `%${phone.trim()}%`]);
+            }
+            if (facebook_link && facebook_link.trim()) {
+                await db.run(`UPDATE partner_outreach_entries SET transferred_to_crm = TRUE, transferred_at = NOW(), crm_data_id = $1 WHERE LOWER(fb_link) = $2 AND transferred_to_crm = FALSE`, [result.lastInsertRowid, facebook_link.trim().toLowerCase()]);
+            }
+        } catch(e) { console.error('[Customers] Auto-update partner_outreach error:', e.message); }
+
         return { success: true, id: result.lastInsertRowid, dailyNum, message: 'Chuyển số thành công!' };
     });
 
@@ -505,6 +515,47 @@ async function customersRoutes(fastify, options) {
         }
         const depositRow = await db.get(`SELECT COALESCE(SUM(deposit_amount), 0) as total_deposit FROM consultation_logs WHERE customer_id = ? AND log_type = 'dat_coc'`, [custId]);
         return { codes, total_deposit: depositRow?.total_deposit || 0 };
+    });
+
+    // ========== CHECK PARTNER OUTREACH — Auto-detect khi nhập SĐT/Link ==========
+    fastify.get('/api/customers/check-partner-outreach', { preHandler: [authenticate] }, async (request, reply) => {
+        const { phone, link } = request.query;
+        if ((!phone || phone.trim().length < 3) && (!link || link.trim().length < 5)) return { match: null };
+
+        let row = null;
+        if (phone && phone.trim().length >= 3) {
+            row = await db.get(
+                `SELECT e.id, e.partner_name, e.phone, e.fb_link, e.transferred_to_crm,
+                 c.name as category_name
+                 FROM partner_outreach_entries e
+                 LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
+                 WHERE REPLACE(e.phone, ' ', '') LIKE $1
+                 ORDER BY e.created_at DESC LIMIT 1`,
+                [`%${phone.trim()}%`]
+            );
+        }
+        if (!row && link && link.trim().length >= 5) {
+            row = await db.get(
+                `SELECT e.id, e.partner_name, e.phone, e.fb_link, e.transferred_to_crm,
+                 c.name as category_name
+                 FROM partner_outreach_entries e
+                 LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
+                 WHERE LOWER(e.fb_link) = $1
+                 ORDER BY e.created_at DESC LIMIT 1`,
+                [link.trim().toLowerCase()]
+            );
+        }
+        if (!row) return { match: null };
+        return {
+            match: {
+                id: row.id,
+                partner_name: row.partner_name,
+                phone: row.phone,
+                fb_link: row.fb_link,
+                category_name: row.category_name,
+                already_transferred: !!row.transferred_to_crm
+            }
+        };
     });
 
     // ========== SMART SEARCH — Tìm SĐT/Link qua tất cả công việc ==========

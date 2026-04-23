@@ -421,6 +421,45 @@ async function renderChuyenSoPage(container) {
             if (e.key === 'Enter') { e.preventDefault(); _csoDoSearch(); }
         });
     }
+
+    // ========== AUTO-CHECK PARTNER OUTREACH on phone/link input ==========
+    let _csoCheckTimer = null;
+    function _csoAutoCheckPO() {
+        clearTimeout(_csoCheckTimer);
+        _csoCheckTimer = setTimeout(async () => {
+            const phone = document.getElementById('csoPhone')?.value?.trim();
+            const link = document.getElementById('csoFacebook')?.value?.trim();
+            if ((!phone || phone.length < 3) && (!link || link.length < 5)) return;
+            try {
+                const params = new URLSearchParams();
+                if (phone) params.set('phone', phone);
+                if (link) params.set('link', link);
+                const data = await apiCall(`/api/customers/check-partner-outreach?${params}`);
+                if (data.match && !data.match.already_transferred) {
+                    const m = data.match;
+                    // Auto-fill
+                    if (m.partner_name) { const n = document.getElementById('csoName'); if (n) n.value = m.partner_name; }
+                    // Update Công Việc
+                    const cv = document.getElementById('csoCongViec');
+                    const cvd = document.getElementById('csoCongViecDisplay');
+                    if (cv) cv.value = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
+                    if (cvd) { cvd.value = 'Nhắn Tìm Đối Tác KH KOL Tiktok'; cvd.style.color = '#6d28d9'; cvd.style.background = '#f5f3ff'; cvd.style.borderColor = '#c4b5fd'; }
+                    // Update Lĩnh Vực
+                    if (m.category_name) {
+                        const lv = document.getElementById('csoLinhVuc');
+                        if (lv) { lv.value = m.category_name; lv.style.color = '#6d28d9'; lv.style.background = '#f5f3ff'; lv.style.borderColor = '#c4b5fd'; }
+                    }
+                    showToast(`ℹ️ Phát hiện KH "${m.partner_name}" thuộc Nhắn Tìm Đối Tác KH KOL Tiktok (${m.category_name || ''}) → Đã tự động chuyển Công Việc & Lĩnh Vực`);
+                } else if (data.match && data.match.already_transferred) {
+                    showToast(`⛔ KH "${data.match.partner_name}" đã được chuyển số trước đó!`, 'error');
+                }
+            } catch(e) { /* silent */ }
+        }, 600);
+    }
+    const _csoPhoneEl = document.getElementById('csoPhone');
+    const _csoFbEl = document.getElementById('csoFacebook');
+    if (_csoPhoneEl) _csoPhoneEl.addEventListener('input', _csoAutoCheckPO);
+    if (_csoFbEl) _csoFbEl.addEventListener('input', _csoAutoCheckPO);
 }
 
 // Settings modal — GĐ only

@@ -2081,6 +2081,55 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
     `;
     document.body.appendChild(overlay);
 
+    // ========== AUTO-CHECK PARTNER OUTREACH on phone/link input ==========
+    let _csMxhCheckTimer = null;
+    function _csMxhAutoCheckPO() {
+        clearTimeout(_csMxhCheckTimer);
+        _csMxhCheckTimer = setTimeout(async () => {
+            const phone = document.getElementById('csMxhPhone')?.value?.trim();
+            const link = document.getElementById('csMxhFacebook')?.value?.trim();
+            if ((!phone || phone.length < 3) && (!link || link.length < 5)) return;
+            try {
+                const params = new URLSearchParams();
+                if (phone) params.set('phone', phone);
+                if (link) params.set('link', link);
+                const data = await apiCall(`/api/customers/check-partner-outreach?${params}`);
+                if (data.match && !data.match.already_transferred) {
+                    const m = data.match;
+                    // Auto-fill name
+                    if (m.partner_name) { const n = document.getElementById('csMxhName'); if (n) n.value = m.partner_name; }
+                    // Update Công Việc
+                    const cvh = document.getElementById('csMxhCongViec');
+                    if (cvh) cvh.value = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
+                    // Find & update display (the disabled input next to hidden)
+                    const cvDisplay = cvh?.previousElementSibling;
+                    if (cvDisplay && cvDisplay.tagName === 'INPUT') { cvDisplay.value = 'Nhắn Tìm Đối Tác KH KOL Tiktok'; cvDisplay.style.color = '#6d28d9'; cvDisplay.style.background = '#f5f3ff'; }
+                    // Update Lĩnh Vực
+                    if (m.category_name) {
+                        const lv = document.getElementById('csMxhLinhVuc');
+                        if (lv) {
+                            if (lv.tagName === 'SELECT') {
+                                // Try to select option, add if not exists
+                                let found = false;
+                                for (const opt of lv.options) { if (opt.value === m.category_name) { opt.selected = true; found = true; break; } }
+                                if (!found) { const opt = new Option(m.category_name, m.category_name, true, true); lv.add(opt); }
+                            } else {
+                                lv.value = m.category_name; lv.style.color = '#6d28d9'; lv.style.background = '#f5f3ff';
+                            }
+                        }
+                    }
+                    showToast(`ℹ️ Phát hiện KH "${m.partner_name}" thuộc Nhắn Tìm Đối Tác KH KOL Tiktok (${m.category_name || ''}) → Đã tự động chuyển Công Việc & Lĩnh Vực`);
+                } else if (data.match && data.match.already_transferred) {
+                    showToast(`⛔ KH "${data.match.partner_name}" đã được chuyển số trước đó!`, 'error');
+                }
+            } catch(e) { /* silent */ }
+        }, 600);
+    }
+    const _mxhPhoneEl = document.getElementById('csMxhPhone');
+    const _mxhFbEl = document.getElementById('csMxhFacebook');
+    if (_mxhPhoneEl) _mxhPhoneEl.addEventListener('input', _csMxhAutoCheckPO);
+    if (_mxhFbEl) _mxhFbEl.addEventListener('input', _csMxhAutoCheckPO);
+
     // Submit handler
     document.getElementById('csMxhForm').addEventListener('submit', async (e) => {
         e.preventDefault();
