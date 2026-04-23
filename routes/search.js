@@ -52,8 +52,8 @@ async function searchRoutes(fastify, options) {
 
         // ========== 3. Order Codes ==========
         let ordQuery = `
-            SELECT oc.id, oc.order_code, oc.status, oc.deposit_amount, oc.created_at,
-                   c.customer_name, c.phone,
+            SELECT oc.id, oc.customer_id, oc.order_code, oc.status, oc.deposit_amount, oc.created_at,
+                   c.customer_name, c.phone, c.crm_type,
                    u.full_name as user_name
             FROM order_codes oc
             LEFT JOIN customers c ON c.id = oc.customer_id

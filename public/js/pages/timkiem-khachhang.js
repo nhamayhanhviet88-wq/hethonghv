@@ -24,6 +24,19 @@ async function renderTimKiemKhachHang(container) {
     </div>`;
 }
 
+// Map crm_type → page ID for navigate()
+const _TKKH_CRM_PAGE = {
+    nhu_cau: 'crm-nhu-cau',
+    ctv_hoa_hong: 'crm-ctv',
+    ctv: 'crm-ctv',
+    koc_tiktok: 'cham-soc-koc-kol'
+};
+
+function _tkkhGoTo(pageId, customerId) {
+    if (customerId) sessionStorage.setItem('_tkkhTargetCustomer', customerId);
+    navigate(pageId);
+}
+
 async function _tkkhSearch() {
     const input = document.getElementById('tkkhInput');
     const resultsEl = document.getElementById('tkkhResults');
@@ -98,7 +111,8 @@ function _tkkhRenderResults(data, query) {
             </div>`;
         crm.forEach(c => {
             const crmLabel = CRM_LABELS[c.crm_type] || c.crm_type || '—';
-            html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+            const targetPage = _TKKH_CRM_PAGE[c.crm_type] || 'crm-nhu-cau';
+            html += `<div onclick="_tkkhGoTo('${targetPage}', ${c.id})" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#16a34a'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#bbf7d0'">
                 <div style="width:42px;height:42px;background:linear-gradient(135deg,#16a34a,#15803d);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">👤</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;color:#1e293b;">${highlight(c.customer_name || '—')}</div>
@@ -116,6 +130,7 @@ function _tkkhRenderResults(data, query) {
                         ${c.order_count > 0 ? '<span style="background:#fce7f3;color:#be185d;padding:2px 8px;border-radius:6px;font-weight:600;">📦 ' + c.order_count + ' đơn</span>' : ''}
                     </div>
                 </div>
+                <div style="flex-shrink:0;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#166534;">📋 Xem →</div>
             </div>`;
         });
         html += '</div>';
@@ -129,7 +144,7 @@ function _tkkhRenderResults(data, query) {
                 <span style="background:#fecaca;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;">${telesale.length}</span>
             </div>`;
         telesale.forEach(t => {
-            html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #fecaca;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+            html += `<div onclick="navigate('goidien')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #fecaca;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#ef4444'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#fecaca'">
                 <div style="width:42px;height:42px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">📞</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;color:#1e293b;">${highlight(t.customer_name || t.company_name || '—')}</div>
@@ -145,6 +160,7 @@ function _tkkhRenderResults(data, query) {
                         <span style="color:#9ca3af;">📅 ${fmtDate(t.created_at)}</span>
                     </div>
                 </div>
+                <div style="flex-shrink:0;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#dc2626;">📞 Xem →</div>
             </div>`;
         });
         html += '</div>';
@@ -158,7 +174,8 @@ function _tkkhRenderResults(data, query) {
                 <span style="background:#ede9fe;color:#6d28d9;padding:2px 10px;border-radius:12px;font-size:12px;">${orders.length}</span>
             </div>`;
         orders.forEach(o => {
-            html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #c4b5fd;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+            const orderTargetPage = _TKKH_CRM_PAGE[o.crm_type] || 'crm-nhu-cau';
+            html += `<div onclick="_tkkhGoTo('${orderTargetPage}', ${o.customer_id || 0})" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #c4b5fd;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#7c3aed'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#c4b5fd'">
                 <div style="width:42px;height:42px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">📦</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;color:#1e293b;">Mã đơn: ${highlight(o.order_code)}</div>
@@ -171,6 +188,7 @@ function _tkkhRenderResults(data, query) {
                         <span style="color:#9ca3af;margin-left:4px;">👤 NV: ${o.user_name || '—'}</span>
                     </div>
                 </div>
+                <div style="flex-shrink:0;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#7c3aed;">📦 Xem →</div>
             </div>`;
         });
         html += '</div>';
@@ -184,7 +202,7 @@ function _tkkhRenderResults(data, query) {
                 <span style="background:#cffafe;color:#0e7490;padding:2px 10px;border-radius:12px;font-size:12px;">${addcmt.length}</span>
             </div>`;
         addcmt.forEach(a => {
-            html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #a5f3fc;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+            html += `<div onclick="navigate('addcmtdoitackh')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #a5f3fc;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#06b6d4'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#a5f3fc'">
                 <div style="width:42px;height:42px;background:linear-gradient(135deg,#06b6d4,#0891b2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">👥</div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;color:#1e293b;">🔗 ${highlight(a.fb_link || '—')}</div>
@@ -192,6 +210,7 @@ function _tkkhRenderResults(data, query) {
                         👤 NV: ${a.user_name || '—'} · 📅 ${fmtDate(a.entry_date)}
                     </div>
                 </div>
+                <div style="flex-shrink:0;background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#0891b2;">👥 Xem →</div>
             </div>`;
         });
         html += '</div>';

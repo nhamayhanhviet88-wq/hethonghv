@@ -810,6 +810,18 @@ async function loadCrmCtvData() {
     } else {
         _kockolRenderFilteredTable();
     }
+
+    // Auto-open target customer from search page
+    const targetId = sessionStorage.getItem('_tkkhTargetCustomer');
+    if (targetId) {
+        sessionStorage.removeItem('_tkkhTargetCustomer');
+        _kockolActiveCat = null;
+        document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
+        const cardsContainer = document.getElementById('crmStatCards');
+        if (cardsContainer) cardsContainer.classList.remove('has-active');
+        _kockolRenderFilteredTable();
+        setTimeout(() => { if (typeof _kockolOpenCustomerDetail === 'function') _kockolOpenCustomerDetail(parseInt(targetId)); }, 300);
+    }
 }
 
 function applyCrmCtvFilter() { loadCrmCtvData(); }
