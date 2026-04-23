@@ -1861,7 +1861,7 @@ async function _mgrPenaltyAcknowledge() {
 }
 
 // ========== CHUYỂN SỐ MXH — GLOBAL MODAL ==========
-async function openChuyenSoMXH(pageId, linhVucName) {
+async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
     // Load dropdown data
     const isPoPage = pageId === 'nhantintimdoitackh';
     const apiCalls = [
@@ -2074,6 +2074,7 @@ async function openChuyenSoMXH(pageId, linhVucName) {
             if (data.success) {
                 showToast(`✅ Chuyển số thành công! Mã: ${data.dailyNum}`);
                 document.getElementById('chuyenSoMXHOverlay').remove();
+                if (typeof onSuccess === 'function') onSuccess(data);
             } else {
                 showToast(data.error, 'error');
             }

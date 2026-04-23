@@ -342,7 +342,7 @@ function _poRenderStats() {
         { label:'Hôm Nay', val:`${todayDone}/${target}`, bg:'linear-gradient(135deg,#3b82f6,#2563eb)', icon:'📊' },
         { label:'Tuần Này', val:`${s.week||0}/${wt}`, bg:'linear-gradient(135deg,#f59e0b,#d97706)', icon:'📅' },
         { label:'Tháng Này', val:`${s.month||0}/${mt}`, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', icon:'📆' },
-        { label:'Đã Chuyển CRM', val:s.transferred||0, bg:'linear-gradient(135deg,#10b981,#059669)', icon:'🔄' },
+        { label:'Đã Chuyển Số', val:s.transferred||0, bg:'linear-gradient(135deg,#10b981,#059669)', icon:'🔄' },
     ];
     el.innerHTML = cards.map(c => `
         <div style="flex:1;min-width:180px;background:${c.bg};border-radius:14px;padding:18px 20px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.15);">
@@ -566,7 +566,7 @@ function _poRenderTable() {
         const channelBadge = r.channel ? `<span style="background:${chColor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${r.channel}</span>` : '—';
         let actions = '';
         if (r.transferred_to_crm) {
-            actions = '<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã CRM</span>';
+            actions = '<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã Chuyển Số</span>';
         } else {
             actions += `<button onclick="_poChuyenSo(${r.id})" style="padding:3px 8px;border:1px solid #ea580c;border-radius:6px;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển Số Khách Hàng">📱 Chuyển Số</button>`;
             actions += `<button onclick="_poTransfer(${r.id})" style="padding:3px 8px;border:1px solid #10b981;border-radius:6px;background:#ecfdf5;color:#059669;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển vào CRM TTK">🔄 CRM</button>`;
@@ -837,8 +837,14 @@ async function _poChuyenSo(id) {
     // Get category name for Lĩnh Vực
     const cat = (_po.categories || []).find(c => c.id === entry.category_id);
     const linhVuc = cat ? cat.name : '';
-    // Open the global MXH Chuyển Số modal
-    await openChuyenSoMXH('nhantintimdoitackh', linhVuc);
+    // Open the global MXH Chuyển Số modal with callback
+    await openChuyenSoMXH('nhantintimdoitackh', linhVuc, async () => {
+        // Mark entry as transferred after successful Chuyển Số
+        try {
+            await apiCall('/api/partner-outreach/entries/' + id + '/mark-transferred', 'POST');
+        } catch(e) { /* ignore if fails */ }
+        _poLoadData(); // Reload table to reflect new status
+    });
     // Pre-fill fields from entry data
     setTimeout(() => {
         const nameEl = document.getElementById('csMxhName');

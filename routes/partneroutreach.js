@@ -467,6 +467,18 @@ module.exports = async function (fastify) {
         };
     });
 
+    // ===== MARK AS TRANSFERRED (from Chuyển Số MXH modal) =====
+    fastify.post('/api/partner-outreach/entries/:id/mark-transferred', { preHandler: [authenticate] }, async (req, reply) => {
+        const entry = await db.get('SELECT * FROM partner_outreach_entries WHERE id = $1', [Number(req.params.id)]);
+        if (!entry) return reply.code(404).send({ error: 'Không tìm thấy' });
+        if (entry.transferred_to_crm) return { success: true }; // already marked
+        await db.run(
+            'UPDATE partner_outreach_entries SET transferred_to_crm = true, transferred_at = NOW() WHERE id = $1',
+            [Number(req.params.id)]
+        );
+        return { success: true };
+    });
+
     // ===== TRANSFER TO CRM =====
     fastify.post('/api/partner-outreach/entries/:id/transfer', { preHandler: [authenticate] }, async (req, reply) => {
         const entry = await db.get('SELECT * FROM partner_outreach_entries WHERE id = $1', [Number(req.params.id)]);
