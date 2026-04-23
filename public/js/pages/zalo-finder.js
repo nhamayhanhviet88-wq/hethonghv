@@ -960,7 +960,7 @@ function _zpRenderTable() {
     let rows=f.map((r,i)=>{
         const sz=r.zalo_link.length>35?r.zalo_link.substring(0,35)+'...':r.zalo_link;
         const sf=r.pool_url.length>40?r.pool_url.substring(0,40)+'...':r.pool_url;
-        const sc=r.spam_status==='done'?`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`:`<button onclick="_zpSpamModal(${r.id})" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;">📸 Đánh dấu Spam</button>`;
+        const sc=r.spam_status==='done'?`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`:!r.join_status?`<span style="background:#f1f5f9;color:#9ca3af;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px dashed #d1d5db;">🔒 Cần Join trước</span>`:`<button onclick="_zpSpamModal(${r.id})" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;">📸 Đánh dấu Spam</button>`;
         return `<tr style="border-bottom:1px solid #e5e7eb;background:${i%2===0?'white':'#f9fafb'};">
         <td style="padding:8px 12px;font-size:13px;font-weight:800;color:#0f172a;">${r.user_name||''}</td>
         <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.zalo_name||'—'}${r.zalo_name?cp(r.zalo_name):''}</td>
