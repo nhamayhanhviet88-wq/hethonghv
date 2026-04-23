@@ -2096,8 +2096,8 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
                 const data = await apiCall(`/api/customers/check-partner-outreach?${params}`);
                 if (data.match && !data.match.already_transferred) {
                     const m = data.match;
-                    // Auto-fill name
-                    if (m.partner_name) { const n = document.getElementById('csMxhName'); if (n) n.value = m.partner_name; }
+                    // Auto-fill name + LOCK it
+                    if (m.partner_name) { const n = document.getElementById('csMxhName'); if (n) { n.value = m.partner_name; n.readOnly = true; n.style.background = '#f5f3ff'; n.style.color = '#6d28d9'; n.style.fontWeight = '700'; n.style.cursor = 'not-allowed'; n.style.borderColor = '#c4b5fd'; } }
                     // Update Công Việc
                     const cvh = document.getElementById('csMxhCongViec');
                     if (cvh) cvh.value = 'Nhắn Tìm Đối Tác KH KOL Tiktok';

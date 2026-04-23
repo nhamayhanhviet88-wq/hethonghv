@@ -437,8 +437,8 @@ async function renderChuyenSoPage(container) {
                 const data = await apiCall(`/api/customers/check-partner-outreach?${params}`);
                 if (data.match && !data.match.already_transferred) {
                     const m = data.match;
-                    // Auto-fill
-                    if (m.partner_name) { const n = document.getElementById('csoName'); if (n) n.value = m.partner_name; }
+                    // Auto-fill + LOCK name
+                    if (m.partner_name) { const n = document.getElementById('csoName'); if (n) { n.value = m.partner_name; n.readOnly = true; n.style.background = '#f5f3ff'; n.style.color = '#6d28d9'; n.style.fontWeight = '700'; n.style.cursor = 'not-allowed'; n.style.borderColor = '#c4b5fd'; } }
                     // Update Công Việc
                     const cv = document.getElementById('csoCongViec');
                     const cvd = document.getElementById('csoCongViecDisplay');
