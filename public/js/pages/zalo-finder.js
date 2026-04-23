@@ -338,7 +338,7 @@ function _zlRenderTasks(res) {
                                     : `<button onclick="_zlSpamChoose(${r.id})" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Đánh dấu</button>`;
                 const copyBtn = (text) => `<button onclick="navigator.clipboard.writeText('${text.replace(/'/g,"\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;vertical-align:middle;" title="Copy">📋</button>`;
                 rows.push(`<tr style="border-bottom:1px solid #e5e7eb;">
-                    ${ri===0 ? `<td rowspan="${displayResults.length}" style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}
+                    ${ri===0 ? `<td rowspan="${displayResults.length}" style="padding:10px 12px;font-size:13px;font-weight:800;color:#0f172a;vertical-align:top;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>` : ''}
                     <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;border-right:1px solid #e5e7eb;">${r.zalo_name || '—'}${r.zalo_name ? copyBtn(r.zalo_name) : ''}</td>
                     <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${shortZalo}</a>${copyBtn(r.zalo_link)}
                         ${currentUser.role === 'giam_doc' ? `<button onclick="_zlDelResult(${r.id})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:10px;padding:0 4px;vertical-align:middle;">🗑️</button>` : ''}</td>
@@ -364,7 +364,7 @@ function _zlRenderTasks(res) {
                     <button onclick="_zlNoResult(${t.id})" style="padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:10px;">❌ K tìm thấy</button>
                   </div>`;
             rows.push(`<tr style="border-bottom:1px solid #e5e7eb;background:${isNoResult ? '#fef3c7' : '#f0f9ff'};">
-                <td style="padding:10px 12px;font-size:12px;font-weight:600;color:#334155;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>
+                <td style="padding:10px 12px;font-size:13px;font-weight:800;color:#0f172a;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#9ca3af;" colspan="3">${statusLabel}
                     <a href="${t.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;margin-left:8px;">${shortFbUrl}</a></td>
                 <td style="padding:8px 8px;text-align:center;border-left:1px solid #e5e7eb;">—</td>
@@ -962,7 +962,7 @@ function _zpRenderTable() {
         const sf=r.pool_url.length>40?r.pool_url.substring(0,40)+'...':r.pool_url;
         const sc=r.spam_status==='done'?`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`:`<button onclick="_zpSpamModal(${r.id})" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;">📸 Đánh dấu Spam</button>`;
         return `<tr style="border-bottom:1px solid #e5e7eb;background:${i%2===0?'white':'#f9fafb'};">
-        <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.user_name||''}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:800;color:#0f172a;">${r.user_name||''}</td>
         <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.zalo_name||'—'}${r.zalo_name?cp(r.zalo_name):''}</td>
         <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;">${sz}</a>${cp(r.zalo_link)}</td>
         <td style="padding:8px 12px;"><a href="${r.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;">${sf}</a></td>
