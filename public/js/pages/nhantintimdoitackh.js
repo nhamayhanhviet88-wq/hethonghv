@@ -595,7 +595,6 @@ function _poAddModal(editEntry) {
     const isEdit = !!editEntry;
     _po.imageData = null;
     document.getElementById('poModal')?.remove();
-    const catOpts = _po.categories.map(c => `<option value="${c.id}" ${editEntry?.category_id==c.id?'selected':''}>${c.name}</option>`).join('');
     const m = document.createElement('div'); m.id = 'poModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
     m.onclick = e => { if(e.target===m) m.remove(); };
@@ -609,21 +608,22 @@ function _poAddModal(editEntry) {
         </div>
         <div style="padding:24px;">
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH</label>
-                <input id="poFName" value="${editEntry?.partner_name||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="VD: Nguyễn Văn A (không bắt buộc)">
+                <label style="font-weight:600;font-size:13px;color:#374151;">Kênh Isocal <span style="color:#dc2626;">*</span> <span style="font-size:11px;color:#6b7280;font-weight:400;">(chọn trước)</span></label>
+                <div id="poFChannelWrap" style="position:relative;margin-top:4px;"></div>
             </div>
             <div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Link Facebook <span style="color:#dc2626;">*</span></label>
-                <input id="poFFb" value="${editEntry?.fb_link||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="https://fb.com/...">
+                <label id="poFLinkLabel" style="font-weight:600;font-size:13px;color:#374151;">Link MXH <span style="color:#dc2626;">*</span></label>
+                <input id="poFFb" value="${editEntry?.fb_link||''}" ${editEntry?.channel ? '' : 'disabled'} style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;${editEntry?.channel ? '' : 'background:#f1f5f9;cursor:not-allowed;'}" placeholder="${editEntry?.channel ? '' : 'Vui lòng chọn Kênh Isocal trước'}">
+                <small id="poFLinkHint" style="font-size:10px;margin-top:2px;display:${editEntry?.channel ? 'block' : 'none'};color:#6b7280;"></small>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
                 <div>
-                    <label style="font-weight:600;font-size:13px;color:#374151;">SĐT (nếu có)</label>
-                    <input id="poFPhone" value="${editEntry?.phone||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="09xx...">
+                    <label style="font-weight:600;font-size:13px;color:#374151;">Tên Đối Tác / KH</label>
+                    <input id="poFName" value="${editEntry?.partner_name||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="VD: Nguyễn Văn A (không bắt buộc)">
                 </div>
                 <div>
-                    <label style="font-weight:600;font-size:13px;color:#374151;">Kênh Isocal <span style="color:#dc2626;">*</span></label>
-                    <div id="poFChannelWrap" style="position:relative;margin-top:4px;"></div>
+                    <label style="font-weight:600;font-size:13px;color:#374151;">SĐT (nếu có)</label>
+                    <input id="poFPhone" value="${editEntry?.phone||''}" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box;" placeholder="09xx...">
                 </div>
             </div>
             <div style="margin-bottom:14px;">
@@ -666,31 +666,74 @@ function _poAddModal(editEntry) {
     if (editEntry?.image_path) {
         document.getElementById('poFImgPreview').innerHTML = `<img src="${editEntry.image_path}" style="max-width:100%;max-height:200px;border-radius:8px;">`;
     }
-    // Auto-extract FB username when link is pasted/typed
+    // Channel → Link mapping
+    const _poChCfg = {
+        'Facebook Cá Nhân': { label: 'Link Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/vietkahv' },
+        'Page Facebook':    { label: 'Page Facebook', domain: 'facebook.com', ph: 'https://www.facebook.com/dongphuchvv/' },
+        'Tiktok':           { label: 'Tiktok', domain: 'tiktok.com', ph: 'https://www.tiktok.com/@vietbeochaybo' },
+        'Instagram':        { label: 'Instagram', domain: 'instagram.com', ph: 'https://www.instagram.com/vietbeochaybo' },
+        'Threads':          { label: 'Threads', domain: 'threads.com', ph: 'https://www.threads.com/@aolophv' },
+        'Linkedin':         { label: 'Linkedin', domain: 'linkedin.com', ph: 'https://www.linkedin.com/in/sidra-minhas/' },
+        'Twitter':          { label: 'Twitter', domain: 'x.com', ph: 'https://x.com/username' },
+    };
+    window._poChCfg = _poChCfg; // expose for validation in _poSave
+    function _poOnChannelChange(channelValue) {
+        const linkInput = document.getElementById('poFFb');
+        const linkLabel = document.getElementById('poFLinkLabel');
+        const linkHint = document.getElementById('poFLinkHint');
+        if (!linkInput || !linkLabel) return;
+        const cfg = _poChCfg[channelValue];
+        if (cfg) {
+            linkLabel.innerHTML = cfg.label + ' <span style="color:#dc2626;">*</span>';
+            linkInput.placeholder = cfg.ph;
+            linkInput.disabled = false;
+            linkInput.style.background = '#fff';
+            linkInput.style.cursor = 'text';
+            if (linkHint) { linkHint.style.display = 'block'; linkHint.textContent = 'Link phải chứa "' + cfg.domain + '"'; linkHint.style.color = '#6b7280'; }
+        } else {
+            linkLabel.innerHTML = 'Link MXH <span style="color:#dc2626;">*</span>';
+            linkInput.placeholder = 'Vui lòng chọn Kênh Isocal trước';
+            linkInput.disabled = true;
+            linkInput.style.background = '#f1f5f9';
+            linkInput.style.cursor = 'not-allowed';
+            linkInput.value = '';
+            if (linkHint) { linkHint.style.display = 'none'; }
+        }
+    }
+    // Link input validation feedback + auto-extract username
     const fbInput = document.getElementById('poFFb');
     fbInput.addEventListener('input', () => {
+        const channelVal = document.getElementById('poFChannel')?.value;
+        const cfg = _poChCfg[channelVal];
+        const linkHint = document.getElementById('poFLinkHint');
+        const url = fbInput.value.trim().toLowerCase();
+        if (cfg && linkHint) {
+            if (!url) { linkHint.style.color = '#6b7280'; linkHint.textContent = 'Link phải chứa "' + cfg.domain + '"'; fbInput.style.borderColor = '#d1d5db'; }
+            else if (url.includes(cfg.domain)) { linkHint.style.color = '#10b981'; linkHint.textContent = '✅ Link ' + cfg.label + ' hợp lệ'; fbInput.style.borderColor = '#10b981'; }
+            else { linkHint.style.color = '#ef4444'; linkHint.textContent = '❌ Link phải chứa "' + cfg.domain + '"'; fbInput.style.borderColor = '#ef4444'; }
+        }
+        // Auto-extract username for name field
         const nameInput = document.getElementById('poFName');
-        if (nameInput.value.trim()) return; // already has name, skip
-        const url = fbInput.value.trim();
-        if (!url) return;
-        try {
-            const match = url.match(/facebook\.com\/([^/?&#]+)/i) || url.match(/fb\.com\/([^/?&#]+)/i);
-            if (match && match[1] && !['profile.php','pages','groups','watch','reel','share','photo','video','story'].includes(match[1].toLowerCase())) {
-                nameInput.value = decodeURIComponent(match[1]);
-            } else if (url.match(/profile\.php.*id=(\d+)/)) {
-                nameInput.value = url.match(/profile\.php.*id=(\d+)/)[1];
-            }
-        } catch(e) {}
+        if (nameInput && !nameInput.value.trim() && url) {
+            try {
+                const match = url.match(/(?:facebook|fb)\.com\/([^/?&#]+)/i) || url.match(/tiktok\.com\/@?([^/?&#]+)/i) || url.match(/instagram\.com\/([^/?&#]+)/i) || url.match(/threads\.com\/@?([^/?&#]+)/i) || url.match(/linkedin\.com\/in\/([^/?&#]+)/i) || url.match(/x\.com\/([^/?&#]+)/i);
+                if (match && match[1] && !['profile.php','pages','groups','watch','reel','share','photo','video','story'].includes(match[1].toLowerCase())) {
+                    nameInput.value = decodeURIComponent(match[1]).replace('@','');
+                }
+            } catch(e) {}
+        }
     });
     // Init searchable dropdowns
     const channelOpts = ['Facebook Cá Nhân','Page Facebook','Tiktok','Instagram','Threads','Linkedin','Twitter'];
-    _poInitSearchDropdown('poFChannelWrap', 'poFChannel', channelOpts, editEntry?.channel || '');
+    _poInitSearchDropdown('poFChannelWrap', 'poFChannel', channelOpts, editEntry?.channel || '', _poOnChannelChange);
     const catItems = (_po.categories||[]).map(c => ({value: String(c.id), label: c.name}));
     _poInitSearchDropdown('poFCatWrap', 'poFCat', catItems, editEntry?.category_id ? String(editEntry.category_id) : '');
+    // If editing, update link field for existing channel
+    if (editEntry?.channel) _poOnChannelChange(editEntry.channel);
 }
 
 // Reusable searchable dropdown component
-function _poInitSearchDropdown(wrapperId, hiddenId, options, initialValue) {
+function _poInitSearchDropdown(wrapperId, hiddenId, options, initialValue, onChange) {
     const wrap = document.getElementById(wrapperId);
     if (!wrap) return;
     // options can be [{value, label}] or ['string', ...]
@@ -724,6 +767,7 @@ function _poInitSearchDropdown(wrapperId, hiddenId, options, initialValue) {
                 hiddenInput.value = el.dataset.value;
                 searchInput.value = el.textContent.trim();
                 listEl.style.display = 'none';
+                if (typeof onChange === 'function') onChange(el.dataset.value);
             });
         });
     }
@@ -736,8 +780,8 @@ function _poInitSearchDropdown(wrapperId, hiddenId, options, initialValue) {
             // If no valid selection, reset
             if (!hiddenInput.value) {
                 const match = items.find(i => i.label.toLowerCase() === searchInput.value.toLowerCase().trim());
-                if (match) { hiddenInput.value = match.value; searchInput.value = match.label; }
-                else searchInput.value = '';
+                if (match) { hiddenInput.value = match.value; searchInput.value = match.label; if (typeof onChange === 'function') onChange(match.value); }
+                else { searchInput.value = ''; if (typeof onChange === 'function') onChange(''); }
             }
         }, 200);
     });
@@ -755,8 +799,16 @@ async function _poSave(editId) {
     const phone = document.getElementById('poFPhone').value.trim();
     const catId = document.getElementById('poFCat').value;
     const channel = document.getElementById('poFChannel').value;
-    if (!fb) { showToast('Vui lòng nhập link FB!', 'error'); return; }
-    if (!channel) { showToast('Vui lòng chọn Kênh Isocal!', 'error'); return; }
+    if (!channel) { showToast('Vui lòng chọn Kênh Isocal trước!', 'error'); return; }
+    if (!fb) { showToast('Vui lòng nhập link!', 'error'); return; }
+    // Validate domain matches selected channel
+    if (window._poChCfg && window._poChCfg[channel]) {
+        const reqDomain = window._poChCfg[channel].domain;
+        if (!fb.toLowerCase().includes(reqDomain)) {
+            showToast('Link phải chứa "' + reqDomain + '" cho kênh ' + channel + '!', 'error');
+            return;
+        }
+    }
     if (!catId) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
     if (!editId && !_po.imageData) { showToast('Vui lòng dán hình ảnh chụp tin nhắn!', 'error'); return; }
     const payload = { partner_name: name, fb_link: fb, phone, category_id: catId || null, channel, image_data: _po.imageData };
