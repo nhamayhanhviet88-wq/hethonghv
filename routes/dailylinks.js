@@ -1430,6 +1430,117 @@ module.exports = async function (fastify) {
         return { success: true, screenshot: screenshotPath };
     });
 
+    // POST /api/zalo-results/:id/mark-spam — Step 1: Lightweight mark (no image needed)
+    fastify.post('/api/zalo-results/:id/mark-spam', { preHandler: [authenticate] }, async (req, reply) => {
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (!isManager) {
+            const hasSpamTask = await db.get(
+                `SELECT lt.id FROM lock_tasks lt
+                 JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                 WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+                   AND lta.user_id = $1 LIMIT 1`, [req.user.id]
+            );
+            if (!hasSpamTask) {
+                return reply.code(403).send({ error: 'Không có quyền đánh dấu spam' });
+            }
+        }
+        const id = Number(req.params.id);
+        const result = await db.get('SELECT * FROM zalo_task_results WHERE id = $1', [id]);
+        if (!result) return reply.code(404).send({ error: 'Không tìm thấy' });
+        // Toggle: if already marked, unmark it
+        if (result.spam_status === 'marked') {
+            await db.run("UPDATE zalo_task_results SET spam_status = 'pending', marked_at = NOW() WHERE id = $1", [id]);
+            return { success: true, marked: false };
+        }
+        await db.run("UPDATE zalo_task_results SET spam_status = 'marked', marked_at = NOW() WHERE id = $1", [id]);
+        return { success: true, marked: true };
+    });
+
+    // POST /api/zalo-results/bulk-confirm-spam — Step 2: Confirm all marked with 1 image
+    fastify.post('/api/zalo-results/bulk-confirm-spam', { preHandler: [authenticate] }, async (req, reply) => {
+        const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(req.user.role);
+        if (!isManager) {
+            const hasSpamTask = await db.get(
+                `SELECT lt.id FROM lock_tasks lt
+                 JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                 WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+                   AND lta.user_id = $1 LIMIT 1`, [req.user.id]
+            );
+            if (!hasSpamTask) {
+                return reply.code(403).send({ error: 'Không có quyền' });
+            }
+        }
+        const { result_ids, image_data, reason } = req.body || {};
+        if (!result_ids || !Array.isArray(result_ids) || result_ids.length === 0) {
+            return reply.code(400).send({ error: 'Không có nhóm nào để xác nhận' });
+        }
+        if (!image_data) return reply.code(400).send({ error: 'Vui lòng chụp ảnh minh chứng' });
+
+        // Save screenshot once
+        let screenshotPath = null;
+        try {
+            const commaIdx = image_data.indexOf(',');
+            if (commaIdx > -1) {
+                const header = image_data.substring(0, commaIdx);
+                const extMatch = header.match(/image\/(\w+)/);
+                const ext = extMatch ? (extMatch[1] === 'jpeg' ? 'jpg' : extMatch[1]) : 'png';
+                const buffer = Buffer.from(image_data.substring(commaIdx + 1), 'base64');
+                const uploadDir = path.join(__dirname, '..', 'uploads', 'zalo_spam');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const filename = `bulk_spam_${Date.now()}.${ext}`;
+                fs.writeFileSync(path.join(uploadDir, filename), buffer);
+                screenshotPath = '/uploads/zalo_spam/' + filename;
+            }
+        } catch (e) { console.error('[ZaloSpam] Bulk image save error:', e); }
+
+        // Update all marked results to done
+        let confirmed = 0;
+        for (const rid of result_ids) {
+            await db.run(
+                `UPDATE zalo_task_results SET spam_status = 'done', spam_screenshot = $1, spam_by = $2, spam_at = NOW(), marked_at = NOW(), spam_reason = COALESCE($3, spam_reason) WHERE id = $4 AND spam_status = 'marked'`,
+                [screenshotPath, req.user.id, reason || null, Number(rid)]
+            );
+            confirmed++;
+
+            // Check pool completion
+            const taskR = await db.get('SELECT task_id FROM zalo_task_results WHERE id = $1', [Number(rid)]);
+            if (taskR) {
+                const task = await db.get('SELECT pool_id FROM zalo_daily_tasks WHERE id = $1', [taskR.task_id]);
+                if (task) {
+                    const pendingR = await db.get(`SELECT COUNT(*) as c FROM zalo_task_results WHERE task_id = $1 AND spam_status != 'done'`, [taskR.task_id]);
+                    if (Number(pendingR.c) === 0) {
+                        await db.run(`UPDATE zalo_link_pool SET status = 'completed' WHERE id = $1`, [task.pool_id]);
+                    }
+                }
+            }
+        }
+
+        // Auto-complete check
+        try {
+            const remainingCount = await db.get(`SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`);
+            if (Number(remainingCount.c) === 0) {
+                const nowVN = new Date(Date.now() + 7 * 3600000);
+                const todayStr = nowVN.toISOString().split('T')[0];
+                const spamTask = await db.get(
+                    `SELECT lt.id FROM lock_tasks lt JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+                     WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%' AND lta.user_id = $1 LIMIT 1`, [req.user.id]
+                );
+                if (spamTask) {
+                    const existing = await db.get(`SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`, [spamTask.id, req.user.id, todayStr]);
+                    if (!existing) {
+                        await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
+                             VALUES ($1, $2, $3, 0, $4, $5, 'approved', 0) ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm']
+                        );
+                    }
+                }
+            }
+        } catch (autoErr) { console.error('[ZaloSpam] Bulk auto-complete error:', autoErr); }
+
+        return { success: true, confirmed, screenshot: screenshotPath };
+    });
+
     // POST /api/zalo-results/:id/reset-to-group — Reset result back to "Group Có Zalo" (Chưa Join)
     fastify.post('/api/zalo-results/:id/reset-to-group', { preHandler: [authenticate] }, async (req, reply) => {
         // Allow managers OR users assigned "Setup Spam Zalo" lock task

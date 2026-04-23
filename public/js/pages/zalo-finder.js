@@ -940,9 +940,16 @@ function _zpRenderStats() {
 
 function _zpRenderToolbar() {
     const tb = document.getElementById('zpToolbar'); if (!tb) return;
-    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length, nj=_zpAllResults.filter(r=>!r.join_status&&!r.spam_eligible&&r.spam_status!=='done').length;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done'&&r.spam_status!=='marked').length;
+    const marked=_zpAllResults.filter(r=>r.spam_status==='marked').length;
+    const da=_zpAllResults.filter(r=>r.spam_status==='done').length;
+    const nj=_zpAllResults.filter(r=>!r.join_status&&!r.spam_eligible&&r.spam_status!=='done').length;
     const btn=(f,l,ic,c,bc,tc)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?(bc||'#7c3aed'):'#d1d5db'};border-radius:8px;background:${a?(tc||'#ede9fe'):'white'};color:${a?(bc||'#7c3aed'):'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
-    tb.innerHTML = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da)+btn('not_joined','Chưa tham gia nhóm','❌',nj,'#d97706','#fef3c7');
+    let html = btn('pending_spam','QL Chưa Spam','🔥',chua+marked)+btn('done_spam','QL Đã Spam','📣',da)+btn('not_joined','Chưa tham gia nhóm','❌',nj,'#d97706','#fef3c7');
+    if (marked > 0) {
+        html += `<button onclick="_zpBulkConfirmModal()" style="padding:8px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:800;font-size:12px;box-shadow:0 3px 10px rgba(22,163,74,0.3);margin-left:8px;animation:zlSparkle 1.5s ease-in-out infinite;">📸 Xác nhận đã Spam (${marked} nhóm)</button>`;
+    }
+    tb.innerHTML = html;
 }
 
 function _zpRenderProgress() {
@@ -956,12 +963,21 @@ function _zpRenderTable() {
     const el = document.getElementById('zpTaskList'); if (!el) return;
     let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpFilter==='not_joined' ? _zpAllResults.filter(r=>!r.join_status&&!r.spam_eligible&&r.spam_status!=='done') : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
     if (!f.length) { el.innerHTML='<div style="text-align:center;padding:60px;color:#9ca3af;">Không có nhóm nào.</div>'; return; }
-    const cp=(t)=>`<button onclick="navigator.clipboard.writeText('${t.replace(/'/g,"\\\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;" title="Copy">📋</button>`;
+    const cp=(t)=>`<button onclick="navigator.clipboard.writeText('${t.replace(/'/g,"\\\\\\\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;" title="Copy">📋</button>`;
     let rows=f.map((r,i)=>{
         const sz=r.zalo_link.length>35?r.zalo_link.substring(0,35)+'...':r.zalo_link;
         const sf=r.pool_url.length>40?r.pool_url.substring(0,40)+'...':r.pool_url;
-        const sc=r.spam_status==='done'?`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`:!r.join_status?`<span style="background:#f1f5f9;color:#9ca3af;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px dashed #d1d5db;">🔒 Cần Join trước</span>`:`<button onclick="_zpSpamModal(${r.id})" style="padding:5px 14px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:11px;">📸 Đánh dấu Spam</button>`;
-        return `<tr style="border-bottom:1px solid #e5e7eb;background:${i%2===0?'white':'#f9fafb'};">
+        let sc;
+        if (r.spam_status==='done') {
+            sc=`<span style="font-size:11px;font-weight:700;color:#166534;">✅ Đã Spam</span>`;
+        } else if (!r.join_status) {
+            sc=`<span style="background:#f1f5f9;color:#9ca3af;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px dashed #d1d5db;">🔒 Cần Join trước</span>`;
+        } else if (r.spam_status==='marked') {
+            sc=`<button onclick="_zpToggleMark(${r.id})" style="padding:5px 14px;border:2px solid #16a34a;border-radius:6px;background:#f0fdf4;color:#16a34a;cursor:pointer;font-weight:700;font-size:11px;">✅ Đã đánh dấu</button>`;
+        } else {
+            sc=`<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;"><button onclick="_zpToggleMark(${r.id})" style="padding:4px 10px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;font-size:10px;" title="Đánh dấu đã spam">✅ Đã Spam</button><button onclick="_zpResetToGroupCoZalo(${r.id})" style="padding:4px 10px;border:none;border-radius:6px;background:#d97706;color:white;cursor:pointer;font-weight:700;font-size:10px;" title="Chưa join nhóm">❌ Chưa Join</button></div>`;
+        }
+        return `<tr style="border-bottom:1px solid #e5e7eb;background:${r.spam_status==='marked'?'#f0fdf4':i%2===0?'white':'#f9fafb'};">
         <td style="padding:8px 12px;font-size:13px;font-weight:800;color:#0f172a;">${r.user_name||''}</td>
         <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#334155;">${r.zalo_name||'—'}${r.zalo_name?cp(r.zalo_name):''}</td>
         <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;">${sz}</a>${cp(r.zalo_link)}</td>
@@ -972,46 +988,66 @@ function _zpRenderTable() {
         <td style="padding:6px;text-align:center;">${r.spam_image?`<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;"/>`:'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
         <td style="padding:6px 8px;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason||'<span style="color:#9ca3af;">—</span>'}</td>
         <td style="padding:8px;text-align:center;font-size:10px;color:#6b7280;white-space:nowrap;">${r.marked_at?new Date(r.marked_at).toLocaleDateString('vi-VN')+'<br>'+new Date(r.marked_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-        <td style="padding:6px;text-align:center;">${r.spam_screenshot?`<img src="${r.spam_screenshot}" onclick="window.open('${r.spam_screenshot}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>`:'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td></tr>`;
+        <td style="padding:6px;text-align:center;">${r.spam_screenshot?`<img src="${r.spam_screenshot}" onclick="window.open('${r.spam_screenshot}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;border:1px solid #e5e7eb;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"/>`:r.spam_status==='marked'?'<span style="color:#f59e0b;font-size:10px;font-weight:700;">⏳ Chờ ảnh</span>':'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td></tr>`;
     }).join('');
     el.innerHTML=`<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:${_ZP_GRAD};color:white;"><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NV</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">TÊN NHÓM</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK ZALO</th><th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;">LINK GROUP</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TV</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">JOIN</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">SPAM</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">ẢNH NV</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">LÝ DO</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">TIME</th><th style="padding:10px;text-align:center;font-size:11px;font-weight:700;">ẢNH QL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-function _zpSpamModal(resultId) {
-    let old=document.getElementById('zlModal'); if(old) old.remove();
-    const d=document.createElement('div'); d.id='zlModal'; d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
-    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(400px,90vw);overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#1e293b,#334155);padding:16px 20px;color:white;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:15px;font-weight:800;">📋 Chọn hành động</div>
-            <button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button>
-        </div>
-        <div style="padding:24px;display:flex;flex-direction:column;gap:14px;">
-            <button onclick="document.getElementById('zlModal').remove();_zpOpenSpamReport(${resultId})" style="padding:16px 20px;border:2px solid #dc2626;border-radius:12px;background:linear-gradient(135deg,#fef2f2,#fee2e2);cursor:pointer;display:flex;align-items:center;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                <div style="font-size:28px;">📸</div>
-                <div style="text-align:left;"><div style="font-weight:800;font-size:14px;color:#dc2626;">Báo cáo Spam</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">Đã spam xong — chụp ảnh minh chứng</div></div>
-            </button>
-            <button onclick="document.getElementById('zlModal').remove();_zpResetToGroupCoZalo(${resultId})" style="padding:16px 20px;border:2px solid #f59e0b;border-radius:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);cursor:pointer;display:flex;align-items:center;gap:12px;transition:transform .15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                <div style="font-size:28px;">❌</div>
-                <div style="text-align:left;"><div style="font-weight:800;font-size:14px;color:#d97706;">Chưa tham gia nhóm</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">NV chưa join — trả về Group Có Zalo để join lại</div></div>
-            </button>
-        </div>
-    </div>`;
-    document.body.appendChild(d);
+// Step 1: Toggle mark/unmark a result
+async function _zpToggleMark(resultId) {
+    try {
+        const res = await apiCall('/api/zalo-results/'+resultId+'/mark-spam', 'POST');
+        if (res.marked) { showToast('✅ Đã đánh dấu spam!'); }
+        else { showToast('↩️ Đã bỏ đánh dấu'); }
+        _zpLoadData();
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
 }
 
-function _zpOpenSpamReport(resultId) {
-    _zlSpamImg=null;
+// Step 2: Bulk confirm modal — 1 image for all marked results
+let _zpBulkImg = null;
+function _zpBulkConfirmModal() {
+    _zpBulkImg = null;
+    const marked = _zpAllResults.filter(r=>r.spam_status==='marked');
+    if (!marked.length) { showToast('Chưa có nhóm nào được đánh dấu!','error'); return; }
+    let old=document.getElementById('zlModal'); if(old) old.remove();
+    const names = marked.map(r=>'• '+(r.zalo_name||r.zalo_link.substring(0,30))+' ('+r.user_name+')').join('\n');
     const d=document.createElement('div'); d.id='zlModal'; d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
-    d.innerHTML=`<div style="background:white;border-radius:16px;width:min(440px,92vw);" tabindex="-1"><div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;font-weight:800;">📸 Báo Cáo Đã Spam</div><button onclick="document.getElementById('zlModal').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button></div><div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;"><div><label style="font-size:13px;font-weight:700;color:#334155;">📝 Lý do <span style="color:red;">*</span></label><textarea id="zpSpamReason" rows="3" placeholder="VD: Đã spam thành công..." style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:6px;"></textarea></div><div><label style="font-size:13px;font-weight:700;color:#334155;">📷 Hình ảnh <span style="color:red;">*</span></label><div id="zpImgPre" style="display:none;margin:8px 0;text-align:center;"><img id="zpImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid #dc2626;"/></div><div id="zpPasteZone" style="width:100%;padding:16px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;text-align:center;font-weight:700;font-size:13px;color:#64748b;box-sizing:border-box;margin-top:6px;"><div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Copy ảnh rồi nhấn Ctrl+V</div></div></div><button onclick="_zpSubmitSpam(${resultId})" style="padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;cursor:pointer;font-weight:800;font-size:14px;">✅ Xác nhận Spam</button></div></div>`;
+    d.innerHTML='<div style="background:white;border-radius:16px;width:min(500px,92vw);" tabindex="-1">'
+        +'<div style="background:linear-gradient(135deg,#16a34a,#15803d);padding:16px 20px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">'
+        +'<div style="font-size:15px;font-weight:800;">📸 Xác nhận đã Spam — '+marked.length+' nhóm</div>'
+        +'<button onclick="document.getElementById(\'zlModal\').remove()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;">✕</button>'
+        +'</div>'
+        +'<div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">'
+        +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;max-height:120px;overflow-y:auto;font-size:12px;color:#166534;font-weight:600;white-space:pre-line;">'+marked.length+' nhóm sẽ được xác nhận:\n'+names+'</div>'
+        +'<div><label style="font-size:13px;font-weight:700;color:#334155;">📝 Lý do</label>'
+        +'<textarea id="zpBulkReason" rows="2" placeholder="VD: Đã spam thành công tất cả nhóm..." style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:6px;"></textarea></div>'
+        +'<div><label style="font-size:13px;font-weight:700;color:#334155;">📷 Ảnh chụp chung <span style="color:red;">*</span></label>'
+        +'<div id="zpBulkImgPre" style="display:none;margin:8px 0;text-align:center;"><img id="zpBulkImgTag" src="" style="max-width:100%;max-height:200px;border-radius:10px;border:2px solid #16a34a;"/></div>'
+        +'<div id="zpBulkPasteZone" style="width:100%;padding:16px;border:2px dashed #cbd5e1;border-radius:10px;background:#f8fafc;text-align:center;font-weight:700;font-size:13px;color:#64748b;box-sizing:border-box;margin-top:6px;">'
+        +'<div>📋 Dán ảnh bằng <strong style="color:#3b82f6;">Ctrl+V</strong></div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">1 ảnh chung cho tất cả '+marked.length+' nhóm</div></div></div>'
+        +'<button onclick="_zpBulkConfirmSubmit()" style="padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:800;font-size:14px;">✅ Xác nhận '+marked.length+' nhóm đã Spam</button>'
+        +'</div></div>';
     document.body.appendChild(d);
-    d.addEventListener('paste',function(e){ const items=e.clipboardData?.items; if(!items) return; for(let i=0;i<items.length;i++){ if(items[i].type.startsWith('image/')){ e.preventDefault(); const reader=new FileReader(); reader.onload=function(ev){ _zlSpamImg=ev.target.result; const tag=document.getElementById('zpImgTag'),pre=document.getElementById('zpImgPre'),z=document.getElementById('zpPasteZone'); if(tag)tag.src=_zlSpamImg; if(pre)pre.style.display='block'; if(z)z.innerHTML='<div>✅ Đã dán ảnh — Ctrl+V để đổi</div>'; }; reader.readAsDataURL(items[i].getAsFile()); break; } } });
+    d.addEventListener('paste',function(e){ const items=e.clipboardData?.items; if(!items) return; for(let i=0;i<items.length;i++){ if(items[i].type.startsWith('image/')){ e.preventDefault(); const reader=new FileReader(); reader.onload=function(ev){ _zpBulkImg=ev.target.result; const tag=document.getElementById('zpBulkImgTag'),pre=document.getElementById('zpBulkImgPre'),z=document.getElementById('zpBulkPasteZone'); if(tag)tag.src=_zpBulkImg; if(pre)pre.style.display='block'; if(z)z.innerHTML='<div>✅ Đã dán ảnh — Ctrl+V để đổi</div>'; }; reader.readAsDataURL(items[i].getAsFile()); break; } } });
     d.setAttribute('tabindex','-1'); d.focus();
 }
 
-async function _zpSubmitSpam(resultId) {
-    const reason=document.getElementById('zpSpamReason')?.value?.trim();
-    if(!reason){showToast('Vui lòng nhập lý do!','error');return;} if(!_zlSpamImg){showToast('Vui lòng dán ảnh (Ctrl+V)!','error');return;}
-    try{ await apiCall('/api/zalo-results/'+resultId+'/spam','POST',{image_data:_zlSpamImg,reason}); document.getElementById('zlModal')?.remove(); showToast('✅ Đã đánh dấu Spam!'); _zpLoadData(); }catch(e){showToast(e.message||'Lỗi','error');}
+async function _zpBulkConfirmSubmit() {
+    const reason = document.getElementById('zpBulkReason')?.value?.trim() || '';
+    if (!_zpBulkImg) { showToast('Vui lòng dán ảnh chụp (Ctrl+V)!','error'); return; }
+    const marked = _zpAllResults.filter(r=>r.spam_status==='marked');
+    if (!marked.length) { showToast('Không có nhóm nào!','error'); return; }
+    try {
+        await apiCall('/api/zalo-results/bulk-confirm-spam', 'POST', {
+            result_ids: marked.map(r=>r.id),
+            image_data: _zpBulkImg,
+            reason: reason || null
+        });
+        document.getElementById('zlModal')?.remove();
+        showToast('✅ Đã xác nhận '+marked.length+' nhóm spam thành công!');
+        _zpLoadData();
+    } catch(e) { showToast(e.message||'Lỗi','error'); }
 }
 
 async function _zpResetToGroupCoZalo(resultId) {
