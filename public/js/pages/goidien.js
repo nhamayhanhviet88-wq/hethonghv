@@ -822,6 +822,7 @@ async function _gd_csLoadJobTitles(crmType, preselect) {
 }
 
 async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
+    const call = _gd_calls.find(c => c.id === assignmentId) || {};
     const crmType = document.getElementById('gdCSCrm')?.value;
     const phone = document.getElementById('gdCSPhone')?.value?.trim();
     const phone2 = document.getElementById('gdCSPhone2')?.value?.trim() || null;
