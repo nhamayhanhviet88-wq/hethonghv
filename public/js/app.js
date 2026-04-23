@@ -34,6 +34,7 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'TỔNG QUAN' },
+    { id: 'timkiemkhachhang', label: 'Tìm Kiếm Khách Hàng', icon: '🔍', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'TỔNG QUAN', href: '/timkiemkhachhanghv' },
     { id: 'goidien', label: 'Gọi Điện Telesale', icon: '📞', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/goidien' },
     { id: 'hethonggoidien', label: 'Hệ Thống Phân Chia Gọi Điện', icon: '📡', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/hethonggoidien' },
     { id: 'nhantintimdoitackh', label: 'Nhắn Tìm Đối Tác KH KOL Tiktok', icon: '💬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'], section: 'CÔNG VIỆC NV KINH DOANH', href: '/nhantintimdoitackh' },
@@ -982,6 +983,7 @@ async function handleRoute() {
             case 'timgrzalovathongke': content.innerHTML=''; setTimeout(function(){if(typeof _dlInit==='function')_dlInit();},50); break;
             case 'hethongphanchiagrzalo': content.innerHTML=''; setTimeout(function(){if(typeof _zpInit==='function')_zpInit();},50); break;
             case 'addcmtdoitackh': content.innerHTML=''; setTimeout(function(){if(typeof _acInit==='function')_acInit();},50); break;
+            case 'timkiemkhachhang': case 'timkiemkhachhanghv': renderTimKiemKhachHang(content); break;
             default:
                 // ========== CONVENTION-BASED AUTO-RENDER ==========
                 // Try multiple naming patterns to auto-discover page render functions
