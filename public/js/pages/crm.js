@@ -283,7 +283,7 @@ async function showCustomerDetail(id) {
             <div><strong>SĐT:</strong> <a href="tel:${c.phone}">${c.phone}</a></div>
             <div><strong>Nguồn:</strong> ${c.source_name || '-'}</div>
             <div><strong>Khuyến mãi:</strong> ${c.promotion_name || '-'}</div>
-            <div><strong>Sản phẩm:</strong> ${c.industry_name || '-'}</div>
+            <div><strong>Lĩnh vực:</strong> ${c.industry_name || '-'}</div>
             <div><strong>Người nhận:</strong> ${c.assigned_to_name || '-'}</div>
             <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
             <div><strong>Ngày bàn giao:</strong> ${formatDate(c.handover_date)}</div>

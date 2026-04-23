@@ -13,9 +13,9 @@ async function renderSettingsPage(container) {
                     <div class="tab active" data-tab="commission-tiers" onclick="switchSettingTab('commission-tiers', this)">💰 Tầng Hoa Hồng</div>
                     <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách NV Kinh Doanh</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
-                    <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Sản Phẩm</div>
+                    <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Lĩnh Vực</div>
                     <div class="tab" data-tab="emergency-popup" onclick="switchSettingTab('emergency-popup', this)">🚨 Cấp Cứu</div>
-                    <div class="tab" data-tab="job-titles" onclick="switchSettingTab('job-titles', this)">👔 Chức Danh</div>
+                    <div class="tab" data-tab="job-titles" onclick="switchSettingTab('job-titles', this)">👔 Lĩnh Vực</div>
                     <div class="tab" data-tab="leaderboard-roles" onclick="switchSettingTab('leaderboard-roles', this)">🏆 BXH Affiliate</div>
                     <div class="tab" data-tab="prize-popup" onclick="switchSettingTab('prize-popup', this)">🎉 Giải Thưởng</div>
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
@@ -326,7 +326,7 @@ async function loadJobTitlesSettings() {
         const data = await apiCall(`/api/telesale/sources?crm_type=${currentJobCrm}`);
         const sources = data.sources || [];
         if (sources.length === 0) {
-            listHtml = `<div class="text-muted" style="padding:20px;text-align:center;">Chưa có chức danh nào cho CRM này.<br><span style="font-size:11px;color:#6b7280;">Thêm nguồn tại <strong>📊 Hệ Thống Phân Chia Gọi Điện → Cài Đặt</strong></span></div>`;
+            listHtml = `<div class="text-muted" style="padding:20px;text-align:center;">Chưa có lĩnh vực nào cho CRM này.<br><span style="font-size:11px;color:#6b7280;">Thêm nguồn tại <strong>📊 Hệ Thống Phân Chia Gọi Điện → Cài Đặt</strong></span></div>`;
         } else {
             listHtml = `<ul class="setting-list">${sources.map(item => `
                 <li class="setting-item">
@@ -348,12 +348,12 @@ async function loadJobTitlesSettings() {
                 </select>
             </div>
             ${currentJobCrm ? `<div style="padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
-                <h4 style="margin-bottom:12px;color:#122546;">👔 Danh sách Chức Danh</h4>
+                <h4 style="margin-bottom:12px;color:#122546;">👔 Danh sách Lĩnh Vực</h4>
                 <div style="margin-bottom:10px;padding:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;">
-                    📌 Chức danh được đồng bộ từ <strong>Nguồn Gọi Điện</strong> tại Hệ Thống Phân Chia Gọi Điện. Thêm/xóa nguồn tại đó sẽ tự động cập nhật ở đây.
+                    📌 Lĩnh vực được đồng bộ từ <strong>Nguồn Gọi Điện</strong> tại Hệ Thống Phân Chia Gọi Điện. Thêm/xóa nguồn tại đó sẽ tự động cập nhật ở đây.
                 </div>
                 ${listHtml}
-            </div>` : '<div class="text-muted" style="text-align:center;padding:30px;">Chọn CRM để xem chức danh</div>'}
+            </div>` : '<div class="text-muted" style="text-align:center;padding:30px;">Chọn CRM để xem lĩnh vực</div>'}
         </div>
     `;
 }

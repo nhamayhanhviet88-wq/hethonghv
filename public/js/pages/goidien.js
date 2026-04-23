@@ -727,9 +727,9 @@ function _gd_openChuyenSoForm(assignmentId, answerStatusId, notes, call) {
             </div>
             <div id="gdCSJobTitleRow" style="display:none;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">Chức Danh <span style="color:#dc2626;">*</span></label>
+                    <label style="font-weight:700;font-size:12px;color:#374151;">Lĩnh Vực <span style="color:#dc2626;">*</span></label>
                     <select id="gdCSJobTitle" class="form-control">
-                        <option value="">-- Chọn Chức Danh --</option>
+                        <option value="">-- Chọn Lĩnh Vực --</option>
                     </select>
                 </div>
                 <div></div>
@@ -783,12 +783,12 @@ async function _gd_csLoadJobTitles(crmType, preselect) {
     if (crmTypesWithJobs.includes(crmType)) {
         const data = await apiCall(`/api/telesale/sources?crm_type=${crmType}`);
         const sources = data.sources || [];
-        jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>' +
+        jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>' +
             sources.map(s => `<option value="${s.name}" ${preselect && s.name === preselect ? 'selected' : ''}>${s.name}</option>`).join('');
         jobRow.style.display = 'grid';
     } else {
         jobRow.style.display = 'none';
-        jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>';
+        jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
     }
 }
 
@@ -1066,8 +1066,8 @@ function _gd_openSelfSearchModal() {
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
-                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📂 Sản Phẩm <span style="color:#dc2626;">*</span></label>
-                    <select id="gdSSSource" class="form-control" style="font-size:13px;"><option value="">-- Chọn sản phẩm --</option>${srcOptions}</select>
+                    <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📂 Lĩnh Vực <span style="color:#dc2626;">*</span></label>
+                    <select id="gdSSSource" class="form-control" style="font-size:13px;"><option value="">-- Chọn lĩnh vực --</option>${srcOptions}</select>
                 </div>
                 <div>
                     <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">📍 Nơi tìm kiếm <span style="color:#dc2626;">*</span></label>
@@ -1165,7 +1165,7 @@ async function _gd_submitSelfSearch() {
 
     if (!customer_name) return showToast('Nhập tên KH!', 'error');
     if (!fb_link && !phone) return showToast('Cần ít nhất Link MXH hoặc SĐT!', 'error');
-    if (!source_id) return showToast('Chọn Sản Phẩm!', 'error');
+    if (!source_id) return showToast('Chọn Lĩnh Vực!', 'error');
     if (!search_location_id) return showToast('Chọn Nơi tìm kiếm!', 'error');
     if (!call_disposition) return showToast('Chọn tình trạng bắt máy!', 'error');
 

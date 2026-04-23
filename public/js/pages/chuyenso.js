@@ -157,9 +157,9 @@ async function renderChuyenSoPage(container) {
                     </div>
                     <div id="csoJobTitleRow" style="display:none; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
-                            <label>Chức Danh <span style="color:var(--danger)">*</span></label>
+                            <label>Lĩnh Vực <span style="color:var(--danger)">*</span></label>
                             <select id="csoJobTitle" class="form-control">
-                                <option value="">-- Chọn Chức Danh --</option>
+                                <option value="">-- Chọn Lĩnh Vực --</option>
                             </select>
                         </div>
                         <div></div>
@@ -290,7 +290,7 @@ async function renderChuyenSoPage(container) {
                 document.getElementById('csoAffiliateRow').style.display = 'none';
                 document.getElementById('csoAffiliateCrm').value = '';
                 document.getElementById('csoJobTitleRow').style.display = 'none';
-                document.getElementById('csoJobTitle').innerHTML = '<option value="">-- Chọn Chức Danh --</option>';
+                document.getElementById('csoJobTitle').innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
                 if (document.getElementById('csoFacebook')) document.getElementById('csoFacebook').value = '';
             } else {
                 showToast(data.error, 'error');
@@ -318,12 +318,12 @@ async function renderChuyenSoPage(container) {
             const crmTypesWithJobs = [];
             if (crmTypesWithJobs.includes(this.value)) {
                 const data = await apiCall(`/api/telesale/sources?crm_type=${this.value}`);
-                jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>' +
+                jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>' +
                     (data.sources || []).map(j => `<option value="${j.name}">${j.name}</option>`).join('');
                 jobRow.style.display = 'grid';
             } else {
                 jobRow.style.display = 'none';
-                jobSel.innerHTML = '<option value="">-- Chọn Chức Danh --</option>';
+                jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
             }
         });
     }

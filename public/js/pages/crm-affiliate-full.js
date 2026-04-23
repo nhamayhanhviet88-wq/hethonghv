@@ -250,7 +250,7 @@ async function renderCRMAffPage(container) {
                         <th style="min-width:100px">Nguồn</th>
                         <th style="min-width:120px">Người GT</th>
                         <th style="min-width:110px">CRM Người GT</th>
-                        <th style="min-width:100px">Sản Phẩm</th>
+                        <th style="min-width:100px">Lĩnh Vực</th>
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                     </tr></thead>

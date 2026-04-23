@@ -1983,9 +1983,9 @@ async function openChuyenSoMXH(pageId) {
                         </select>
                     </div>
                     <div>
-                        <label class="_csMxh-label">Sản Phẩm</label>
+                        <label class="_csMxh-label">Lĩnh Vực</label>
                         <select id="csMxhIndustry" class="_csMxh-input">
-                            <option value="">-- Chọn sản phẩm --</option>
+                            <option value="">-- Chọn lĩnh vực --</option>
                             ${(industries.items || []).map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
                         </select>
                     </div>
