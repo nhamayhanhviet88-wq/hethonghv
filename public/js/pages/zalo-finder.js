@@ -924,7 +924,7 @@ async function _zpLoadData() {
         const res = await apiCall(url);
         _zpAllResults = [];
         (res.tasks||[]).forEach(t => { (t.results||[]).forEach(r => {
-            if (r.spam_eligible || r.spam_status==='done' || r.spam_status==='not_joined') _zpAllResults.push({...r, user_id:t.user_id, user_name:t.user_name||t.username, pool_url:t.pool_url||''});
+            if (r.spam_eligible || r.spam_status==='done' || !r.join_status) _zpAllResults.push({...r, user_id:t.user_id, user_name:t.user_name||t.username, pool_url:t.pool_url||''});
         }); });
         _zpRenderStats(); _zpRenderToolbar(); _zpRenderProgress(); _zpRenderTable();
     } catch(e) { console.error(e); const el=document.getElementById('zpTaskList'); if(el) el.innerHTML=`<div style="color:#dc2626;padding:20px;">Lỗi: ${e.message}</div>`; }
@@ -940,7 +940,7 @@ function _zpRenderStats() {
 
 function _zpRenderToolbar() {
     const tb = document.getElementById('zpToolbar'); if (!tb) return;
-    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length, nj=_zpAllResults.filter(r=>r.spam_status==='not_joined'&&!r.spam_eligible).length;
+    const chua=_zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done').length, da=_zpAllResults.filter(r=>r.spam_status==='done').length, nj=_zpAllResults.filter(r=>!r.join_status&&!r.spam_eligible&&r.spam_status!=='done').length;
     const btn=(f,l,ic,c,bc,tc)=>{ const a=_zpFilter===f; return `<button onclick="_zpSetFilter('${f}')" style="padding:6px 14px;border:2px solid ${a?(bc||'#7c3aed'):'#d1d5db'};border-radius:8px;background:${a?(tc||'#ede9fe'):'white'};color:${a?(bc||'#7c3aed'):'#6b7280'};cursor:pointer;font-weight:700;font-size:11px;">${ic} ${l} (${c})</button>`; };
     tb.innerHTML = btn('pending_spam','QL Chưa Spam','🔥',chua)+btn('done_spam','QL Đã Spam','📣',da)+btn('not_joined','Chưa tham gia nhóm','❌',nj,'#d97706','#fef3c7');
 }
@@ -954,7 +954,7 @@ function _zpRenderProgress() {
 
 function _zpRenderTable() {
     const el = document.getElementById('zpTaskList'); if (!el) return;
-    let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpFilter==='not_joined' ? _zpAllResults.filter(r=>r.spam_status==='not_joined'&&!r.spam_eligible) : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
+    let f = _zpFilter==='done_spam' ? _zpAllResults.filter(r=>r.spam_status==='done') : _zpFilter==='not_joined' ? _zpAllResults.filter(r=>!r.join_status&&!r.spam_eligible&&r.spam_status!=='done') : _zpAllResults.filter(r=>r.spam_eligible&&r.spam_status!=='done');
     if (!f.length) { el.innerHTML='<div style="text-align:center;padding:60px;color:#9ca3af;">Không có nhóm nào.</div>'; return; }
     const cp=(t)=>`<button onclick="navigator.clipboard.writeText('${t.replace(/'/g,"\\\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1000)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 3px;" title="Copy">📋</button>`;
     let rows=f.map((r,i)=>{
@@ -967,7 +967,7 @@ function _zpRenderTable() {
         <td style="padding:8px 12px;"><a href="${r.zalo_link}" target="_blank" style="color:#0284c7;font-size:12px;text-decoration:none;">${sz}</a>${cp(r.zalo_link)}</td>
         <td style="padding:8px 12px;"><a href="${r.pool_url}" target="_blank" style="color:#6b7280;font-size:11px;text-decoration:none;">${sf}</a></td>
         <td style="padding:8px;text-align:center;font-size:12px;font-weight:600;">${r.member_count||'—'}</td>
-        <td style="padding:8px;text-align:center;font-size:11px;color:#334155;">${r.join_status?'Đã Join':'—'}</td>
+        <td style="padding:8px;text-align:center;font-size:11px;color:#334155;">${r.join_status?'<span style="font-weight:600;color:#166534;">Đã Join</span>':'<span style="font-weight:700;color:#dc2626;">❌ Chưa Join</span>'}</td>
         <td style="padding:8px;text-align:center;">${sc}</td>
         <td style="padding:6px;text-align:center;">${r.spam_image?`<img src="${r.spam_image}" onclick="window.open('${r.spam_image}','_blank')" style="max-width:60px;max-height:45px;border-radius:6px;cursor:pointer;"/>`:'<span style="color:#9ca3af;font-size:10px;">—</span>'}</td>
         <td style="padding:6px 8px;font-size:11px;color:#374151;max-width:180px;word-break:break-word;">${r.spam_reason||'<span style="color:#9ca3af;">—</span>'}</td>
