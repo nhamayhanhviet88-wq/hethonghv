@@ -5,7 +5,7 @@ let _poSelectedCat = null; // null = all, or category id
 let _poOverrideUserIds = new Set(); // users with task overrides
 let _poTransferFilter = 'all'; // 'all' | 'transferred' | 'not_transferred'
 let _poSelectedDay = null; // null = all days, or specific day number
-let _poDatePreset = 'today';
+let _poDatePreset = 'this_month';
 let _poDateFrom = '';
 let _poDateTo = '';
 let _poSelectedYear = new Date().getFullYear();
