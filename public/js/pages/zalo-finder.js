@@ -865,6 +865,7 @@ function _zpInit() {
     _zpLoadSidebar();
     _zpRenderDateBar();
     _zpLoadData();
+    _zpLoadLockTaskStatus();
 }
 
 function _zpSelAll() { _zpCurUser = null; _zpCurDept = null; _zpRenderSidebar(); _zpLoadData(); }
@@ -1047,6 +1048,7 @@ async function _zpBulkConfirmSubmit() {
         document.getElementById('zlModal')?.remove();
         showToast('✅ Đã xác nhận '+marked.length+' nhóm spam thành công!');
         _zpLoadData();
+        _zpCheckAutoComplete();
     } catch(e) { showToast(e.message||'Lỗi','error'); }
 }
 
@@ -1060,3 +1062,44 @@ async function _zpResetToGroupCoZalo(resultId) {
 }
 
 // Init is triggered by handleRoute switch case in app.js
+
+// ========== AUTO-COMPLETE CHECK for Setup Spam Zalo lock task ==========
+async function _zpCheckAutoComplete() {
+    try {
+        const res = await apiCall('/api/zalo-spam/check-completion');
+        if (res.has_task && res.remaining === 0 && res.completed) {
+            // Show success banner
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#16a34a,#059669);color:white;padding:18px 32px;border-radius:16px;box-shadow:0 10px 40px rgba(22,163,74,0.4);z-index:99999;animation:_zpSlideIn .4s ease;font-family:Segoe UI,sans-serif;text-align:center;min-width:320px;';
+            banner.innerHTML = '<div style="font-size:28px;margin-bottom:6px;">✅</div><div style="font-size:16px;font-weight:800;">CV Khóa hoàn thành!</div><div style="font-size:13px;opacity:0.9;margin-top:4px;">Đã spam hết tất cả nhóm — CV \"Setup Spam Zalo\" tự động hoàn thành</div>';
+            document.body.appendChild(banner);
+            if (!document.getElementById('_zpSlideCSS')) {
+                const st = document.createElement('style'); st.id = '_zpSlideCSS';
+                st.textContent = '@keyframes _zpSlideIn{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+                document.head.appendChild(st);
+            }
+            setTimeout(() => { banner.style.transition='opacity .5s'; banner.style.opacity='0'; setTimeout(()=>banner.remove(), 500); }, 4000);
+        }
+    } catch(e) { console.error('[ZaloSpam] Auto-complete check error:', e); }
+}
+
+// ========== LOCK TASK STATUS BANNER ==========
+async function _zpLoadLockTaskStatus() {
+    try {
+        const res = await apiCall('/api/zalo-spam/check-completion');
+        if (!res.has_task) return; // User doesn't have the task
+        const el = document.getElementById('zpStats');
+        if (!el) return;
+        const remaining = res.remaining;
+        const completed = res.completed;
+        let statusHtml = '';
+        if (completed) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#dcfce7,#f0fdf4);border:2px solid #86efac;border-radius:12px;display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">✅</span><div><div style="font-size:14px;font-weight:800;color:#166534;">CV Khóa đã hoàn thành!</div><div style="font-size:11px;color:#15803d;font-weight:600;">Setup Spam Zalo Cho NV — Tự động hoàn thành vì đã spam hết nhóm</div></div></div>';
+        } else if (remaining > 0) {
+            statusHtml = '<div style="width:100%;padding:12px 18px;background:linear-gradient(135deg,#fef2f2,#fff5f5);border:2px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">⚠️</span><div><div style="font-size:14px;font-weight:800;color:#991b1b;">CV Khóa: Còn ' + remaining + ' nhóm chưa spam</div><div style="font-size:11px;color:#dc2626;font-weight:600;">Spam hết tất cả nhóm trong 🔥 QL Chưa Spam để tự động hoàn thành</div></div></div>';
+        }
+        if (statusHtml) {
+            el.insertAdjacentHTML('beforeend', statusHtml);
+        }
+    } catch(e) { console.error('[ZaloSpam] Lock task status error:', e); }
+}

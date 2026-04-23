@@ -1613,6 +1613,42 @@ module.exports = async function (fastify) {
         };
     });
 
+    // GET /api/zalo-spam/check-completion — Check remaining QL Chưa Spam count
+    fastify.get('/api/zalo-spam/check-completion', { preHandler: [authenticate] }, async (req, reply) => {
+        const userId = req.user.id;
+        const pendingSpam = await db.get(
+            `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
+        );
+        const cnt = Number(pendingSpam?.c || 0);
+
+        // Check if user has the lock task
+        const spamTask = await db.get(
+            `SELECT lt.id, lt.task_name FROM lock_tasks lt
+             JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
+             WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%'
+               AND lta.user_id = $1 LIMIT 1`, [userId]
+        );
+
+        // Check today's completion
+        const nowVN = new Date(Date.now() + 7 * 3600000);
+        const todayStr = nowVN.toISOString().split('T')[0];
+        let completed = false;
+        if (spamTask) {
+            const existing = await db.get(
+                `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
+                [spamTask.id, userId, todayStr]
+            );
+            completed = !!existing;
+        }
+
+        return {
+            remaining: cnt,
+            has_task: !!spamTask,
+            completed,
+            task_id: spamTask?.id || null
+        };
+    });
+
 };
 
 
