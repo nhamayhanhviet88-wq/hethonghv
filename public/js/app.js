@@ -2051,7 +2051,7 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
                                 ${poCats.map(c => '<option value="' + c.name + '"' + (c.name === linhVucName ? ' selected' : '') + '>' + c.name + '</option>').join('')}
                             </select>
                         ` : `
-                            <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || 'Mặc Định'}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;" placeholder="Tự động điền từ nguồn gọi điện / MXH">
                         `}
                     </div>
                     <div></div>
