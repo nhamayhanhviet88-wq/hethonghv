@@ -546,10 +546,11 @@ function _dlRenderTable() {
     let h=`<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f8fafc;border-bottom:2px solid #e5e7eb;">
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
+        ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         ${hasLink?'<th style="padding:10px 8px;">LINK</th>':''}
         ${hasCat?'<th style="padding:10px 8px;text-align:center;">LĨNH VỰC</th>':''}
-        ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         ${hasImg?'<th style="padding:10px 8px;text-align:center;">ẢNH CHỤP</th>':''}
+        <th style="padding:10px 8px;text-align:center;">TIME CẬP NHẬT</th>
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
     </tr></thead><tbody>`;
     rows.forEach((r,i)=>{
@@ -558,13 +559,16 @@ function _dlRenderTable() {
         const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
         const imgCell = hasImg ? (r.image_path ? `<img src="${r.image_path}" class="dl-thumb" onclick="_dlOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">` : '<span style="color:#d1d5db;">—</span>') : '';
         const catBadge = hasCat && r.category_name ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:${r.category_color||'#6366f1'}20;color:${r.category_color||'#6366f1'};font-size:11px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:${r.category_color||'#6366f1'};"></span>${r.category_name}</span>` : (hasCat ? '<span style="color:#d1d5db;font-size:11px;">—</span>' : '');
+        const updatedAt = r.updated_at || r.created_at || '';
+        const fmtTime = updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
         h+=`<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
+            ${showUser?`<td style="padding:10px 8px;font-size:13px;color:#1e293b;font-weight:700;">${r.user_name||''}</td>`:''}
             ${hasLink?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
             ${hasCat?`<td style="padding:10px 8px;text-align:center;">${catBadge}</td>`:''}
-            ${showUser?`<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>`:''}
             ${hasImg?`<td style="padding:10px 8px;text-align:center;">${imgCell}</td>`:''}
+            <td style="padding:10px 8px;text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${fmtTime}</td>
             <td style="padding:10px 8px;text-align:center;">${canDel?`<button onclick="_dlDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`:''}</td>
         </tr>`;
     });
