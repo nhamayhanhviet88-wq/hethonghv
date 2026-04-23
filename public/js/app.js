@@ -1863,14 +1863,20 @@ async function _mgrPenaltyAcknowledge() {
 // ========== CHUYỂN SỐ MXH — GLOBAL MODAL ==========
 async function openChuyenSoMXH(pageId, linhVucName) {
     // Load dropdown data
-    const [sources, promotions, industries, usersRes, deptData, configData] = await Promise.all([
+    const isPoPage = pageId === 'nhantintimdoitackh';
+    const apiCalls = [
         apiCall('/api/settings/sources'),
         apiCall('/api/settings/promotions'),
         apiCall('/api/settings/industries'),
         apiCall('/api/users/dropdown'),
         apiCall('/api/departments'),
         apiCall('/api/app-config/chuyenso_allowed_depts')
-    ]);
+    ];
+    // Load categories for nhantintimdoitackh page (for Lĩnh Vực dropdown)
+    if (isPoPage) apiCalls.push(apiCall('/api/partner-outreach/categories'));
+    const results = await Promise.all(apiCalls);
+    const [sources, promotions, industries, usersRes, deptData, configData] = results;
+    const poCats = isPoPage ? (results[6]?.categories || []) : [];
 
     const allDepts = deptData.departments || [];
     const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null;
@@ -2006,8 +2012,15 @@ async function openChuyenSoMXH(pageId, linhVucName) {
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div>
-                        <label class="_csMxh-label">Lĩnh Vực</label>
-                        <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;" placeholder="Tự động điền từ nguồn">
+                        <label class="_csMxh-label">Lĩnh Vực ${isPoPage ? '<span class="_csMxh-required">*</span>' : ''}</label>
+                        ${(isPoPage && !linhVucName) ? `
+                            <select id="csMxhLinhVuc" class="_csMxh-input" ${isPoPage ? 'required' : ''}>
+                                <option value="">-- Chọn lĩnh vực --</option>
+                                ${poCats.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('')}
+                            </select>
+                        ` : `
+                            <input type="text" id="csMxhLinhVuc" class="_csMxh-input" value="${linhVucName || ''}" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;" placeholder="Tự động điền từ nguồn">
+                        `}
                     </div>
                     <div></div>
                 </div>
@@ -2055,6 +2068,7 @@ async function openChuyenSoMXH(pageId, linhVucName) {
         if (!body.source_id) { showToast('Vui lòng chọn Nguồn Khách', 'error'); return; }
         if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
         if (body.facebook_link && !_csMxhIsValidFbProfile(body.facebook_link)) { showToast('Link Facebook không hợp lệ! Chỉ chấp nhận link trang cá nhân (VD: https://www.facebook.com/username)', 'error'); return; }
+        if ('${pageId}' === 'nhantintimdoitackh' && !body.job) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
         try {
             const data = await apiCall('/api/customers', 'POST', body);
             if (data.success) {
