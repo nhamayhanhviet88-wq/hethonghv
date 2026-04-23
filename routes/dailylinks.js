@@ -1643,6 +1643,22 @@ module.exports = async function (fastify) {
             );
             completed = !!existing;
 
+            // AUTO-COMPLETE: If QL Chưa Spam = 0 and task not completed today → auto-create completion
+            if (!completed && cnt === 0) {
+                try {
+                    await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, proof_url)
+                         VALUES ($1, $2, $3, 0, 'approved', 0, false, $4, $5)
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE
+                         SET status = 'approved', penalty_amount = 0, penalty_applied = false, content = $4, proof_url = $5`,
+                        [spamTask.id, userId, todayStr,
+                         'Tự động hoàn thành — QL Chưa Spam đã trống',
+                         '/uploads/zalo_spam/auto_complete_' + Date.now() + '.png']
+                    );
+                    completed = true;
+                } catch(e) { console.error('[ZaloSpam] Auto-complete error:', e.message); }
+            }
+
             // Check overdue days (past penalties for this task)
             const penalties = await db.all(
                 `SELECT completion_date::text as d, penalty_amount FROM lock_task_completions
