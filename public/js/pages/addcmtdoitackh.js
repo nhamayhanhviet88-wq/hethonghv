@@ -260,7 +260,7 @@ function _acRenderTable() {
         const fmtTime = updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
-            ${showUserCol ? `<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>` : ''}
+            ${showUserCol ? `<td style="padding:10px 8px;font-size:13px;color:#1e293b;font-weight:700;">${r.user_name||''}</td>` : ''}
             <td style="padding:10px 8px;text-align:center;">${imgCell}</td>
             <td style="padding:10px 8px;text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${fmtTime}</td>
             <td style="padding:10px 8px;text-align:center;">${canDel ? `<button onclick="_acDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>` : ''}</td>
