@@ -2149,8 +2149,8 @@ async function openChuyenSoMXH(pageId, linhVucName, onSuccess) {
         if (!body.crm_type || !body.receiver_id) { showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
         if (!body.customer_name || !body.customer_name.trim()) { showToast('Vui lòng nhập Tên Khách Hàng', 'error'); return; }
         if (!body.source_id) { showToast('Vui lòng chọn Nguồn Khách', 'error'); return; }
-        if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link Facebook', 'error'); return; }
-        if (body.facebook_link && !_csMxhIsValidFbProfile(body.facebook_link)) { showToast('Link Facebook không hợp lệ! Chỉ chấp nhận link trang cá nhân (VD: https://www.facebook.com/username)', 'error'); return; }
+        if (!body.phone && !body.facebook_link) { showToast('Vui lòng nhập Số Điện Thoại hoặc Link MXH', 'error'); return; }
+        if (body.facebook_link && !_csMxhIsValidSocialLink(body.facebook_link)) { showToast('Link không hợp lệ! Chỉ chấp nhận link từ Facebook, Instagram, TikTok, Threads, LinkedIn, Twitter/X', 'error'); return; }
         if ('${pageId}' === 'nhantintimdoitackh' && !body.job) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
         if ('${pageId}' === 'danggruop' && !body.job) { showToast('Vui lòng chọn Lĩnh Vực!', 'error'); return; }
         try {
@@ -2177,20 +2177,33 @@ function _csMxhToggleReq() {
     if (fs) fs.style.display = phone ? 'none' : '';
 }
 
-function _csMxhIsValidFbProfile(url) {
+function _csMxhIsValidSocialLink(url) {
     if (!url) return true;
     try {
         const u = new URL(url);
-        if (!['www.facebook.com', 'facebook.com', 'm.facebook.com'].includes(u.hostname)) return false;
-        const path = u.pathname.replace(/\/+$/, '');
-        const blocked = ['/groups', '/posts', '/watch', '/reel', '/reels', '/stories', '/story', '/pages', '/events', '/marketplace', '/gaming', '/live', '/photo', '/photos', '/videos', '/notes', '/permalink'];
-        for (const b of blocked) { if (path.startsWith(b + '/') || path === b) return false; }
-        if (path === '' || path === '/') return false;
-        const segments = path.split('/').filter(Boolean);
-        if (segments.length > 1 && segments[0] !== 'profile.php' && segments[0] !== 'people') return false;
+        const host = u.hostname.replace(/^www\./, '');
+        // Allowed social media domains
+        const allowedDomains = [
+            'facebook.com', 'm.facebook.com',
+            'instagram.com',
+            'tiktok.com',
+            'threads.net',
+            'linkedin.com',
+            'twitter.com', 'x.com'
+        ];
+        if (!allowedDomains.includes(host)) return false;
+        // Facebook-specific: block non-profile pages
+        if (host === 'facebook.com' || host === 'm.facebook.com') {
+            const path = u.pathname.replace(/\/+$/, '');
+            const blocked = ['/groups', '/posts', '/watch', '/reel', '/reels', '/stories', '/story', '/pages', '/events', '/marketplace', '/gaming', '/live', '/photo', '/photos', '/videos', '/notes', '/permalink'];
+            for (const b of blocked) { if (path.startsWith(b + '/') || path === b) return false; }
+            if (path === '' || path === '/') return false;
+        }
         return true;
     } catch (e) { return false; }
 }
+// Keep old name as alias for compatibility
+function _csMxhIsValidFbProfile(url) { return _csMxhIsValidSocialLink(url); }
 
 function _csMxhValidateFb() {
     const input = document.getElementById('csMxhFacebook');
@@ -2199,17 +2212,17 @@ function _csMxhValidateFb() {
     const val = input.value.trim();
     if (!val) {
         hint.style.color = '#9ca3af';
-        hint.textContent = 'Nhập SĐT hoặc Link FB (ít nhất 1). Chỉ chấp nhận link trang cá nhân';
+        hint.textContent = 'Nhập SĐT hoặc Link MXH (ít nhất 1). Chấp nhận: Facebook, Instagram, TikTok, Threads, LinkedIn, Twitter/X';
         input.style.borderColor = '';
         return;
     }
-    if (_csMxhIsValidFbProfile(val)) {
+    if (_csMxhIsValidSocialLink(val)) {
         hint.style.color = '#10b981';
-        hint.textContent = '✅ Link trang cá nhân hợp lệ';
+        hint.textContent = '✅ Link MXH hợp lệ';
         input.style.borderColor = '#10b981';
     } else {
         hint.style.color = '#ef4444';
-        hint.textContent = '❌ Chỉ chấp nhận link trang cá nhân (VD: facebook.com/username)';
+        hint.textContent = '❌ Chỉ chấp nhận link từ Facebook, Instagram, TikTok, Threads, LinkedIn, Twitter/X';
         input.style.borderColor = '#ef4444';
     }
 }
