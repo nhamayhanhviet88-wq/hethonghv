@@ -3,6 +3,8 @@ let _poCollapsedDepts = new Set(); // Track which depts are manually collapsed
 let _po = { entries:[], categories:[], members:[], stats:{}, selectedUser:null, selectedDept:null, imageData:null, scheduleInfo:null };
 let _poSelectedCat = null; // null = all, or category id
 let _poOverrideUserIds = new Set(); // users with task overrides
+let _poTransferFilter = 'all'; // 'all' | 'transferred' | 'not_transferred'
+let _poSelectedDay = null; // null = all days, or specific day number
 let _poDatePreset = 'today';
 let _poDateFrom = '';
 let _poDateTo = '';
@@ -16,14 +18,14 @@ function _poGetDateRange() {
         case 'today': return { from: todayStr, to: todayStr, label: 'hôm nay' };
         case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); const ys=fmt(y); return { from: ys, to: ys, label: 'hôm qua' }; }
         case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: todayStr, label: '7 ngày' }; }
-        case 'this_month': { const m = new Date(_poSelectedYear, today.getMonth(), 1); return { from: fmt(m), to: todayStr, label: 'tháng này' }; }
+        case 'this_month': { const m = new Date(_poSelectedYear, today.getMonth(), 1); const end = new Date(_poSelectedYear, today.getMonth() + 1, 0); return { from: fmt(m), to: fmt(end), label: 'tháng này' }; }
         case 'last_month': { const m1 = new Date(_poSelectedYear, today.getMonth()-1, 1); const m2 = new Date(_poSelectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2), label: 'tháng trước' }; }
         case 'custom': return { from: _poDateFrom, to: _poDateTo, label: `${_poDateFrom} → ${_poDateTo}` };
         case 'all': return { from: `${_poSelectedYear}-01-01`, to: `${_poSelectedYear}-12-31`, label: `năm ${_poSelectedYear}` };
         default: return { from: todayStr, to: todayStr, label: 'hôm nay' };
     }
 }
-function _poSwitchPreset(preset) { _poDatePreset = preset; if (preset === 'custom') return; _poLoadData(); _poLoadAll(); }
+function _poSwitchPreset(preset) { _poDatePreset = preset; _poSelectedDay = null; _poTransferFilter = 'all'; if (preset === 'custom') return; _poLoadData(); _poLoadAll(); }
 function _poApplyCustomDate() { _poDateFrom = document.getElementById('poDateFrom')?.value||''; _poDateTo = document.getElementById('poDateTo')?.value||''; if (_poDateFrom&&_poDateTo) { _poLoadData(); _poLoadAll(); } }
 
 function _poInit() {
@@ -38,6 +40,8 @@ function _poInit() {
             <div id="poStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
             <div id="poDateFilter"></div>
             <div id="poCatFilter" style="margin-bottom:14px;"></div>
+            <div id="poDayStrip" style="margin-bottom:14px;"></div>
+            <div id="poTransferFilter" style="margin-bottom:14px;"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h2 id="poTableTitle" style="margin:0;font-size:18px;color:#122546;">📋 Danh sách hôm nay</h2>
                 <div id="poActionButtons" style="display:flex;gap:8px;"></div>
@@ -141,6 +145,8 @@ async function _poLoadData() {
     _poRenderStats();
     _poRenderDateFilter();
     _poRenderCategoryFilter();
+    _poRenderDayStrip();
+    _poRenderTransferFilter();
     _poRenderTable();
     _poUpdateActionButtons();
 }
@@ -473,6 +479,7 @@ function _poRenderDateFilter() {
 function _poSelectCat(catId) {
     _poSelectedCat = _poSelectedCat === catId ? null : catId;
     _poRenderCategoryFilter();
+    _poRenderTransferFilter();
     _poRenderTable();
 }
 
@@ -528,6 +535,113 @@ function _poRenderCategoryFilter() {
     el.innerHTML = h;
 }
 
+// ========== DAY STRIP — Smart day picker within month ==========
+function _poRenderDayStrip() {
+    const el = document.getElementById('poDayStrip');
+    if (!el) return;
+    // Only show for month views
+    if (!['this_month','last_month'].includes(_poDatePreset)) { el.innerHTML = ''; return; }
+    const entries = _po.entries || [];
+    const today = new Date();
+    const todayDay = today.getDate();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+    // Determine month/year for the strip
+    const dr = _poGetDateRange();
+    const fromDate = new Date(dr.from + 'T00:00:00');
+    const stripMonth = fromDate.getMonth();
+    const stripYear = fromDate.getFullYear();
+    const daysInMonth = new Date(stripYear, stripMonth + 1, 0).getDate();
+    const isCurrentMonth = stripMonth === todayMonth && stripYear === todayYear;
+    const monthLabel = `Tháng ${stripMonth + 1}/${stripYear}`;
+    // Count entries per day
+    const dayCounts = {};
+    entries.forEach(e => {
+        const d = new Date((e.entry_date || '').split('T')[0] + 'T00:00:00');
+        if (!isNaN(d)) dayCounts[d.getDate()] = (dayCounts[d.getDate()] || 0) + 1;
+    });
+    const isAll = _poSelectedDay === null;
+    let h = `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;">`;
+    h += `<span style="font-size:12px;font-weight:800;color:#92400e;white-space:nowrap;">📅 ${monthLabel}</span>`;
+    h += `<div id="poDayStripScroll" style="display:flex;gap:4px;overflow-x:auto;flex:1;padding:4px 0;scroll-behavior:smooth;">`;
+    // "All" chip
+    h += `<div onclick="_poSelectDay(null)" style="min-width:42px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:all .15s;flex-shrink:0;
+        background:${isAll ? 'linear-gradient(135deg,#f59e0b,#d97706)' : 'white'};
+        color:${isAll ? 'white' : '#64748b'};
+        border:1.5px solid ${isAll ? '#f59e0b' : '#e5e7eb'};
+        box-shadow:${isAll ? '0 2px 8px rgba(245,158,11,0.3)' : 'none'};">Tất cả<br><span style="font-size:9px;opacity:0.8;">${entries.length}</span></div>`;
+    // Day chips
+    const maxDay = isCurrentMonth ? todayDay : daysInMonth;
+    for (let d = 1; d <= maxDay; d++) {
+        const count = dayCounts[d] || 0;
+        const isSel = _poSelectedDay === d;
+        const isToday = isCurrentMonth && d === todayDay;
+        let bg, clr, border, shadow;
+        if (isSel) { bg = 'linear-gradient(135deg,#f59e0b,#d97706)'; clr = 'white'; border = '#f59e0b'; shadow = '0 2px 8px rgba(245,158,11,0.3)'; }
+        else if (isToday) { bg = 'linear-gradient(135deg,#dbeafe,#eff6ff)'; clr = '#1e40af'; border = '#3b82f6'; shadow = '0 1px 4px rgba(37,99,235,0.15)'; }
+        else if (count > 0) { bg = 'white'; clr = '#334155'; border = '#e5e7eb'; shadow = 'none'; }
+        else { bg = '#f9fafb'; clr = '#d1d5db'; border = '#f3f4f6'; shadow = 'none'; }
+        h += `<div id="poDayChip_${d}" onclick="_poSelectDay(${d})" style="min-width:36px;padding:6px 6px;border-radius:8px;cursor:pointer;text-align:center;font-size:11px;font-weight:700;transition:all .15s;flex-shrink:0;
+            background:${bg};color:${clr};border:1.5px solid ${border};box-shadow:${shadow};">${d}${count > 0 ? `<br><span style="font-size:9px;opacity:0.7;">${count}</span>` : ''}</div>`;
+    }
+    h += `</div></div>`;
+    el.innerHTML = h;
+    // Auto-scroll to today or selected day
+    setTimeout(() => {
+        const targetDay = _poSelectedDay || (isCurrentMonth ? todayDay : null);
+        if (targetDay) {
+            const chip = document.getElementById('poDayChip_' + targetDay);
+            if (chip) chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }, 100);
+}
+
+function _poSelectDay(day) {
+    _poSelectedDay = _poSelectedDay === day ? null : day;
+    _poRenderDayStrip();
+    _poRenderTransferFilter();
+    _poRenderTable();
+}
+
+// ========== TRANSFER FILTER — Đã/Chưa Chuyển Số ==========
+function _poRenderTransferFilter() {
+    const el = document.getElementById('poTransferFilter');
+    if (!el) return;
+    let rows = _po.entries || [];
+    // Apply day filter for counting
+    if (_poSelectedDay !== null) {
+        rows = rows.filter(r => {
+            const d = new Date((r.entry_date || '').split('T')[0] + 'T00:00:00');
+            return d.getDate() === _poSelectedDay;
+        });
+    }
+    if (_poSelectedCat !== null) {
+        rows = rows.filter(r => r.category_id === _poSelectedCat);
+    }
+    const transferred = rows.filter(r => r.transferred_to_crm).length;
+    const notTransferred = rows.filter(r => !r.transferred_to_crm).length;
+    const filters = [
+        { key: 'all', label: 'Tất cả', count: rows.length, bg: '#2563eb', icon: '📋' },
+        { key: 'transferred', label: 'Đã Chuyển Số', count: transferred, bg: '#059669', icon: '✅' },
+        { key: 'not_transferred', label: 'Chưa Chuyển', count: notTransferred, bg: '#ea580c', icon: '⏳' },
+    ];
+    el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">${filters.map(f => {
+        const isSel = _poTransferFilter === f.key;
+        return `<button onclick="_poSwitchTransferFilter('${f.key}')" style="padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;
+            background:${isSel ? f.bg : 'white'};color:${isSel ? 'white' : '#475569'};
+            border:2px solid ${isSel ? f.bg : '#e2e8f0'};
+            box-shadow:${isSel ? '0 3px 10px ' + f.bg + '40' : 'none'};">
+            ${f.icon} ${f.label} <span style="background:${isSel ? 'rgba(255,255,255,0.25)' : '#f1f5f9'};padding:2px 8px;border-radius:6px;font-size:10px;margin-left:4px;">${f.count}</span>
+        </button>`;
+    }).join('')}</div>`;
+}
+
+function _poSwitchTransferFilter(key) {
+    _poTransferFilter = key;
+    _poRenderTransferFilter();
+    _poRenderTable();
+}
+
 function _poRenderTable() {
     const el = document.getElementById('poTable');
     if (!el) return;
@@ -535,6 +649,19 @@ function _poRenderTable() {
     // Filter by selected category
     if (_poSelectedCat !== null) {
         rows = rows.filter(r => r.category_id === _poSelectedCat);
+    }
+    // Filter by selected day
+    if (_poSelectedDay !== null) {
+        rows = rows.filter(r => {
+            const d = new Date((r.entry_date || '').split('T')[0] + 'T00:00:00');
+            return d.getDate() === _poSelectedDay;
+        });
+    }
+    // Filter by transfer status
+    if (_poTransferFilter === 'transferred') {
+        rows = rows.filter(r => r.transferred_to_crm);
+    } else if (_poTransferFilter === 'not_transferred') {
+        rows = rows.filter(r => !r.transferred_to_crm);
     }
     const dr = _poGetDateRange();
     const isMultiDay = dr.from !== dr.to;
