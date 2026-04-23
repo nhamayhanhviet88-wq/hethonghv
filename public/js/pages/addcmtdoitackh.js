@@ -247,6 +247,7 @@ function _acRenderTable() {
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${showUserCol ? '<th style="padding:10px 8px;">NHÂN VIÊN</th>' : ''}
         <th style="padding:10px 8px;text-align:center;">ẢNH CHỤP MÀN HÌNH</th>
+        <th style="padding:10px 8px;text-align:center;">TIME CẬP NHẬT</th>
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
     </tr></thead><tbody>`;
     rows.forEach((r, i) => {
@@ -255,10 +256,13 @@ function _acRenderTable() {
         const imgCell = r.image_path
             ? `<img src="${r.image_path}" class="ac-thumb" onclick="_acOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">`
             : '<span style="color:#d1d5db;">—</span>';
+        const updatedAt = r.updated_at || r.created_at || '';
+        const fmtTime = updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
         h += `<tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${showUserCol ? `<td style="padding:10px 8px;font-size:12px;color:#6b7280;">${r.user_name||''}</td>` : ''}
             <td style="padding:10px 8px;text-align:center;">${imgCell}</td>
+            <td style="padding:10px 8px;text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${fmtTime}</td>
             <td style="padding:10px 8px;text-align:center;">${canDel ? `<button onclick="_acDel(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>` : ''}</td>
         </tr>`;
     });
