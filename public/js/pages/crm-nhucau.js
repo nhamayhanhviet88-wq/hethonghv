@@ -510,7 +510,7 @@ function _crmRenderFilteredTable() {
         const hasMonth = selMonth && parseInt(selMonth);
         const hasYear = selYear && parseInt(selYear);
         const hasDay = selDay && parseInt(selDay);
-        if (hasYear || hasMonth || hasDay) {
+        if (hasMonth || hasDay) {
             filtered = filtered.filter(c => {
                 let dateField;
                 if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
