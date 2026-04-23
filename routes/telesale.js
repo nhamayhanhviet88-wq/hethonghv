@@ -1740,12 +1740,14 @@ async function runTelesalePump() {
             // Nếu daily_quota = NULL → dùng tổng source quota (chế độ mặc định)
             const totalSourceQuota = sources.reduce((s, src) => s + (src.daily_quota || 0), 0);
             let remaining = member.daily_quota != null ? member.daily_quota : totalSourceQuota;
-            // Check if already pumped today for this CRM's sources
+            // Check how many already pumped today for this CRM's sources → bơm bù phần thiếu
             const existing = await db.get(`SELECT COUNT(*) as cnt FROM telesale_assignments a
                 JOIN telesale_data d ON d.id = a.data_id
                 WHERE a.user_id = ? AND a.assigned_date = ? AND d.source_id = ANY($3::int[])`,
                 [member.user_id, today, sourceIds]);
-            if (existing && existing.cnt > 0) continue;
+            const alreadyPumped = existing ? parseInt(existing.cnt) : 0;
+            if (alreadyPumped >= remaining) continue; // Đã đủ quota → skip
+            remaining -= alreadyPumped; // Trừ số đã bơm, chỉ bơm bù phần thiếu
 
             // Add callbacks due today
             const callbacks = await db.all(`SELECT DISTINCT a.data_id FROM telesale_assignments a
