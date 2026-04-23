@@ -116,6 +116,19 @@ async function renderChuyenSoPage(container) {
         : '';
 
     container.innerHTML = `
+        <div class="card" style="margin-bottom:16px;border:2px solid #6366f1;">
+            <div class="card-header" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:14px 20px;">
+                <h3 style="color:#fff;margin:0;font-size:15px;">🔍 Tìm Kiếm Nhanh — SĐT / Link Khách Hàng</h3>
+            </div>
+            <div class="card-body" style="padding:16px 20px;">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <input type="text" id="csoSmartSearch" class="form-control" placeholder="Nhập SĐT hoặc Link khách hàng để tìm công việc..." style="flex:1;font-size:14px;border:2px solid #c7d2fe;border-radius:10px;padding:10px 14px;">
+                    <button type="button" id="csoSearchBtn" class="btn" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:10px;white-space:nowrap;font-weight:600;" onclick="_csoDoSearch()">🔍 Tìm</button>
+                </div>
+                <small style="color:#6b7280;font-size:11px;margin-top:4px;display:block;">Tìm nhanh xem SĐT hoặc Link đã nằm trong công việc nào → chọn để auto-fill</small>
+                <div id="csoSearchResults" style="margin-top:10px;display:none;"></div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
                 <h3>📱 Chuyển Số Khách Hàng</h3>
@@ -218,7 +231,7 @@ async function renderChuyenSoPage(container) {
                         </div>
                         <div class="form-group">
                             <label>Công Việc</label>
-                            <input type="text" class="form-control" value="Mặc Định" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="text" id="csoCongViecDisplay" class="form-control" value="Mặc Định" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
                             <input type="hidden" id="csoCongViec" value="Mặc Định">
                         </div>
                     </div>
@@ -304,6 +317,13 @@ async function renderChuyenSoPage(container) {
                 document.getElementById('csoJobTitleRow').style.display = 'none';
                 document.getElementById('csoJobTitle').innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
                 if (document.getElementById('csoFacebook')) document.getElementById('csoFacebook').value = '';
+                // Reset Công Việc back to default
+                const cvd = document.getElementById('csoCongViecDisplay');
+                if (cvd) { cvd.value = 'Mặc Định'; cvd.style.color = '#122546'; cvd.style.background = '#f1f5f9'; cvd.style.borderColor = ''; }
+                const cvh = document.getElementById('csoCongViec'); if (cvh) cvh.value = 'Mặc Định';
+                // Clear smart search
+                const ss = document.getElementById('csoSmartSearch'); if (ss) ss.value = '';
+                const sr = document.getElementById('csoSearchResults'); if (sr) { sr.style.display = 'none'; sr.innerHTML = ''; }
             } else {
                 showToast(data.error, 'error');
             }
@@ -385,6 +405,19 @@ async function renderChuyenSoPage(container) {
         // Listen for CRM change
         document.getElementById('csoCrm').addEventListener('change', _affSyncSource);
     }
+
+    // ========== SMART SEARCH LOGIC ==========
+    const searchInput = document.getElementById('csoSmartSearch');
+    if (searchInput) {
+        let _csoSearchTimer = null;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(_csoSearchTimer);
+            _csoSearchTimer = setTimeout(() => _csoDoSearch(), 500);
+        });
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); _csoDoSearch(); }
+        });
+    }
 }
 
 // Settings modal — GĐ only
@@ -453,4 +486,89 @@ function _csoToggleRequired() {
     if (fbStar) fbStar.style.display = phone ? 'none' : '';
 }
 
-// Facebook-only validation removed — now accepts any social media link
+// ========== SMART SEARCH — Tìm SĐT/Link qua tất cả công việc ==========
+async function _csoDoSearch() {
+    const q = document.getElementById('csoSmartSearch')?.value?.trim();
+    const box = document.getElementById('csoSearchResults');
+    if (!box) return;
+    if (!q || q.length < 3) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+    box.style.display = 'block';
+    box.innerHTML = '<div style="text-align:center;padding:12px;color:#6b7280;"><span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid #c7d2fe;border-top-color:#6366f1;border-radius:50%;animation:spin 0.6s linear infinite;"></span> Đang tìm kiếm...</div>';
+
+    try {
+        const data = await apiCall(`/api/customers/search-modules?q=${encodeURIComponent(q)}`);
+        const results = data.results || [];
+
+        if (results.length === 0) {
+            box.innerHTML = `<div style="padding:12px 16px;background:#fef2f2;border-radius:8px;color:#991b1b;font-size:13px;">❌ Không tìm thấy kết quả nào cho "<b>${q}</b>"</div>`;
+            return;
+        }
+
+        // Group by module_label
+        const groups = {};
+        results.forEach(r => {
+            if (!groups[r.module_label]) groups[r.module_label] = [];
+            groups[r.module_label].push(r);
+        });
+
+        let html = `<div style="padding:8px 12px;background:#eef2ff;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;color:#4338ca;">✅ Tìm thấy ${results.length} kết quả trong ${Object.keys(groups).length} công việc — Bấm chọn để auto-fill</div>`;
+        html += '<div style="max-height:300px;overflow-y:auto;border:1px solid #e0e7ff;border-radius:0 0 8px 8px;">';
+
+        for (const [label, items] of Object.entries(groups)) {
+            html += `<div style="padding:6px 12px;background:#f5f3ff;font-weight:700;font-size:12px;color:#6d28d9;border-top:1px solid #e0e7ff;">${label} (${items.length})</div>`;
+            for (const r of items) {
+                const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '';
+                const nameStr = r.customer_name ? `<b>${r.customer_name}</b>` : '<i style="color:#9ca3af">Không tên</i>';
+                const phoneStr = r.phone ? `📞 ${r.phone}` : '';
+                const linkStr = r.link ? `🔗 ${r.link.length > 50 ? r.link.substring(0, 50) + '...' : r.link}` : '';
+                const assignStr = r.assigned_to ? `👤 ${r.assigned_to}` : '';
+                html += `<div class="cso-search-row" data-result='${JSON.stringify(r).replace(/'/g, '&#39;')}'
+                    style="padding:10px 12px;cursor:pointer;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px;transition:background 0.15s;"
+                    onmouseenter="this.style.background='#eef2ff'" onmouseleave="this.style.background=''"
+                    onclick="_csoSelectResult(this)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:13px;">${nameStr}</span>
+                        <span style="font-size:11px;color:#9ca3af;">${dateStr}</span>
+                    </div>
+                    <div style="font-size:11px;color:#6b7280;display:flex;gap:12px;flex-wrap:wrap;">
+                        ${phoneStr ? `<span>${phoneStr}</span>` : ''}
+                        ${linkStr ? `<span>${linkStr}</span>` : ''}
+                        ${assignStr ? `<span>${assignStr}</span>` : ''}
+                        ${r.source_name ? `<span>📂 ${r.source_name}</span>` : ''}
+                    </div>
+                </div>`;
+            }
+        }
+        html += '</div>';
+        box.innerHTML = html;
+    } catch(err) {
+        box.innerHTML = `<div style="padding:12px;color:#991b1b;font-size:13px;">❌ Lỗi tìm kiếm: ${err.message}</div>`;
+    }
+}
+
+function _csoSelectResult(el) {
+    try {
+        const r = JSON.parse(el.dataset.result);
+        // Auto-fill form fields
+        if (r.customer_name) { const n = document.getElementById('csoName'); if (n) n.value = r.customer_name; }
+        if (r.phone) { const p = document.getElementById('csoPhone'); if (p) p.value = r.phone; }
+        if (r.link) { const f = document.getElementById('csoFacebook'); if (f) f.value = r.link; }
+        // Update Công Việc
+        if (r.cong_viec) {
+            const cv = document.getElementById('csoCongViec');
+            const cvd = document.getElementById('csoCongViecDisplay');
+            if (cv) cv.value = r.cong_viec;
+            if (cvd) { cvd.value = r.cong_viec; cvd.style.color = '#6d28d9'; cvd.style.background = '#f5f3ff'; cvd.style.borderColor = '#c4b5fd'; }
+        }
+        // Toggle required stars
+        _csoToggleRequired();
+        // Show success toast
+        if (typeof showToast === 'function') showToast(`✅ Đã chọn: ${r.module_label} — ${r.customer_name || r.link || r.phone}`);
+        // Collapse search results
+        const box = document.getElementById('csoSearchResults');
+        if (box) box.innerHTML = `<div style="padding:8px 12px;background:#ecfdf5;border-radius:8px;font-size:13px;color:#065f46;">✅ Đã auto-fill từ <b>${r.module_label}</b> → Công Việc: <b>${r.cong_viec}</b>. Kiểm tra và bấm CHUYỂN SỐ.</div>`;
+        // Scroll to form
+        document.getElementById('chuyenSoForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) { console.error('[CSO] Select result error:', e); }
+}

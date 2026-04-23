@@ -507,6 +507,193 @@ async function customersRoutes(fastify, options) {
         return { codes, total_deposit: depositRow?.total_deposit || 0 };
     });
 
+    // ========== SMART SEARCH — Tìm SĐT/Link qua tất cả công việc ==========
+    fastify.get('/api/customers/search-modules', { preHandler: [authenticate] }, async (request, reply) => {
+        const { q } = request.query;
+        if (!q || q.trim().length < 3) return { results: [] };
+        const search = q.trim();
+        const searchLower = search.toLowerCase();
+        const isPhone = /^\d+$/.test(search);
+
+        const results = [];
+
+        // 1. Tìm trong telesale_data (Gọi Điện Telesale / Hệ Thống Phân Chia)
+        try {
+            let telesaleRows;
+            if (isPhone) {
+                telesaleRows = await db.all(
+                    `SELECT d.id, d.customer_name, d.phone, d.fb_link, d.created_at,
+                     s.name as source_name, s.crm_type,
+                     u.full_name as assigned_user_name
+                     FROM telesale_data d
+                     LEFT JOIN telesale_sources s ON s.id = d.source_id
+                     LEFT JOIN users u ON u.id = d.last_assigned_user_id
+                     WHERE d.phone ILIKE $1
+                     ORDER BY d.created_at DESC LIMIT 10`,
+                    [`%${search}%`]
+                );
+            } else {
+                telesaleRows = await db.all(
+                    `SELECT d.id, d.customer_name, d.phone, d.fb_link, d.created_at,
+                     s.name as source_name, s.crm_type,
+                     u.full_name as assigned_user_name
+                     FROM telesale_data d
+                     LEFT JOIN telesale_sources s ON s.id = d.source_id
+                     LEFT JOIN users u ON u.id = d.last_assigned_user_id
+                     WHERE LOWER(d.fb_link) LIKE $1 OR LOWER(d.customer_name) LIKE $1
+                     ORDER BY d.created_at DESC LIMIT 10`,
+                    [`%${searchLower}%`]
+                );
+            }
+            for (const row of telesaleRows) {
+                results.push({
+                    module: 'telesale',
+                    module_label: '📞 Gọi Điện Telesale',
+                    cong_viec: 'Gọi Điện Telesale',
+                    id: row.id,
+                    customer_name: row.customer_name || '',
+                    phone: row.phone || '',
+                    link: row.fb_link || '',
+                    source_name: row.source_name || '',
+                    assigned_to: row.assigned_user_name || '',
+                    created_at: row.created_at
+                });
+            }
+        } catch(e) { console.error('[SearchModules] telesale error:', e.message); }
+
+        // 2. Tìm trong partner_outreach_entries (Nhắn Tìm Đối Tác KH)
+        try {
+            let poRows;
+            if (isPhone) {
+                poRows = await db.all(
+                    `SELECT e.id, e.partner_name, e.phone, e.fb_link, e.created_at, e.entry_date,
+                     u.full_name as user_name, c.name as category_name
+                     FROM partner_outreach_entries e
+                     LEFT JOIN users u ON e.user_id = u.id
+                     LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
+                     WHERE REPLACE(e.phone, ' ', '') LIKE $1
+                     ORDER BY e.created_at DESC LIMIT 10`,
+                    [`%${search}%`]
+                );
+            } else {
+                poRows = await db.all(
+                    `SELECT e.id, e.partner_name, e.phone, e.fb_link, e.created_at, e.entry_date,
+                     u.full_name as user_name, c.name as category_name
+                     FROM partner_outreach_entries e
+                     LEFT JOIN users u ON e.user_id = u.id
+                     LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
+                     WHERE LOWER(e.fb_link) LIKE $1 OR LOWER(e.partner_name) LIKE $1
+                     ORDER BY e.created_at DESC LIMIT 10`,
+                    [`%${searchLower}%`]
+                );
+            }
+            for (const row of poRows) {
+                results.push({
+                    module: 'partner_outreach',
+                    module_label: '💬 Nhắn Tìm Đối Tác KH',
+                    cong_viec: 'Nhắn Tìm Đối Tác KH KOL Tiktok',
+                    id: row.id,
+                    customer_name: row.partner_name || '',
+                    phone: row.phone || '',
+                    link: row.fb_link || '',
+                    source_name: row.category_name || '',
+                    assigned_to: row.user_name || '',
+                    created_at: row.created_at
+                });
+            }
+        } catch(e) { console.error('[SearchModules] partner_outreach error:', e.message); }
+
+        // 3. Tìm trong daily_link_entries (Add/Cmt, Đăng Video, Đăng Content, Đăng Group, Sedding, Tuyển Dụng)
+        try {
+            const MODULE_LABELS = {
+                addcmt: '👥 Add/Cmt Đối Tác KH',
+                dang_video: '🎬 Đăng Video Isocal',
+                dang_content: '✍️ Đăng Content Isocal',
+                dang_group: '📢 Đăng & Tìm KH Group',
+                sedding: '🌐 Sedding Cộng Đồng',
+                tuyen_dung: '🎓 Tuyển Dụng SV KD',
+                tim_gr_zalo: '🔍 Tìm Gr Zalo Và Join',
+                dang_banthan_sp: '📸 Đăng Bản Thân & Sản Phẩm'
+            };
+            const CONG_VIEC_MAP = {
+                addcmt: 'Add/Cmt Đối Tác KH',
+                dang_video: 'Đăng Video Isocal',
+                dang_content: 'Đăng Content Isocal',
+                dang_group: 'Đăng & Tìm KH Group',
+                sedding: 'Sedding Cộng Đồng & Lẫn Nhau',
+                tuyen_dung: 'Tuyển Dụng SV KD',
+                tim_gr_zalo: 'Tìm Gr Zalo Và Join',
+                dang_banthan_sp: 'Đăng Bản Thân & Sản Phẩm'
+            };
+            const dlRows = await db.all(
+                `SELECT e.id, e.fb_link, e.module_type, e.created_at, e.entry_date,
+                 u.full_name as user_name
+                 FROM daily_link_entries e
+                 LEFT JOIN users u ON e.user_id = u.id
+                 WHERE LOWER(e.fb_link) LIKE $1
+                 ORDER BY e.created_at DESC LIMIT 10`,
+                [`%${searchLower}%`]
+            );
+            for (const row of dlRows) {
+                results.push({
+                    module: 'daily_links',
+                    module_label: MODULE_LABELS[row.module_type] || `📋 ${row.module_type}`,
+                    cong_viec: CONG_VIEC_MAP[row.module_type] || row.module_type,
+                    id: row.id,
+                    customer_name: '',
+                    phone: '',
+                    link: row.fb_link || '',
+                    source_name: '',
+                    assigned_to: row.user_name || '',
+                    created_at: row.created_at
+                });
+            }
+        } catch(e) { console.error('[SearchModules] daily_links error:', e.message); }
+
+        // 4. Tìm trong customers (CRM đã chuyển số)
+        try {
+            const CRM_LABELS = { nhu_cau: 'CRM Nhu Cầu', ctv: 'CRM CTV', ctv_hoa_hong: 'CRM Affiliate', koc_tiktok: 'CRM KOL/KOC' };
+            let custRows;
+            if (isPhone) {
+                custRows = await db.all(
+                    `SELECT c.id, c.customer_name, c.phone, c.facebook_link, c.crm_type, c.cong_viec, c.created_at,
+                     a.full_name as assigned_to_name
+                     FROM customers c
+                     LEFT JOIN users a ON c.assigned_to_id = a.id
+                     WHERE c.phone LIKE $1
+                     ORDER BY c.created_at DESC LIMIT 10`,
+                    [`%${search}%`]
+                );
+            } else {
+                custRows = await db.all(
+                    `SELECT c.id, c.customer_name, c.phone, c.facebook_link, c.crm_type, c.cong_viec, c.created_at,
+                     a.full_name as assigned_to_name
+                     FROM customers c
+                     LEFT JOIN users a ON c.assigned_to_id = a.id
+                     WHERE LOWER(c.facebook_link) LIKE $1 OR LOWER(c.customer_name) LIKE $1
+                     ORDER BY c.created_at DESC LIMIT 10`,
+                    [`%${searchLower}%`]
+                );
+            }
+            for (const row of custRows) {
+                results.push({
+                    module: 'customers',
+                    module_label: `📋 ${CRM_LABELS[row.crm_type] || 'CRM'}`,
+                    cong_viec: row.cong_viec || 'Mặc Định',
+                    id: row.id,
+                    customer_name: row.customer_name || '',
+                    phone: row.phone || '',
+                    link: row.facebook_link || '',
+                    source_name: CRM_LABELS[row.crm_type] || '',
+                    assigned_to: row.assigned_to_name || '',
+                    created_at: row.created_at
+                });
+            }
+        } catch(e) { console.error('[SearchModules] customers error:', e.message); }
+
+        return { results };
+    });
+
     // Cancel + approve-cancel + emergencies + dashboard + withdrawals in next part
     require('./customers_part2')(fastify, db, getManagedDeptIds);
 }
