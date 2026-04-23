@@ -30,10 +30,15 @@ module.exports = async function (fastify) {
 
     // GET entries
     fastify.get('/api/addcmt/entries', { preHandler: [authenticate] }, async (req) => {
-        const { date, user_id, dept_id } = req.query;
-        const targetDate = date || _vnToday();
+        const { date, date_from, date_to, user_id, dept_id } = req.query;
         const role = req.user.role;
-        let where = 'e.entry_date = $1', params = [targetDate], pi = 2;
+        let where, params, pi;
+        if (date_from && date_to) {
+            where = 'e.entry_date >= $1 AND e.entry_date <= $2'; params = [date_from, date_to]; pi = 3;
+        } else {
+            const targetDate = date || _vnToday();
+            where = 'e.entry_date = $1'; params = [targetDate]; pi = 2;
+        }
 
         if (user_id) { where += ` AND e.user_id = $${pi}`; params.push(Number(user_id)); pi++; }
         else if (role === 'nhan_vien' || role === 'part_time') { where += ` AND e.user_id = $${pi}`; params.push(req.user.id); pi++; }
