@@ -569,7 +569,6 @@ function _poRenderTable() {
             actions = '<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;">✅ Đã Chuyển Số</span>';
         } else {
             actions += `<button onclick="_poChuyenSo(${r.id})" style="padding:3px 8px;border:1px solid #ea580c;border-radius:6px;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển Số Khách Hàng">📱 Chuyển Số</button>`;
-            actions += `<button onclick="_poTransfer(${r.id})" style="padding:3px 8px;border:1px solid #10b981;border-radius:6px;background:#ecfdf5;color:#059669;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển vào CRM TTK">🔄 CRM</button>`;
             if (isOwner(r.user_id) && entryDate === today) {
                 actions += `<button onclick="_poEditModal(${r.id})" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>`;
                 actions += `<button onclick="_poDelete(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`;
