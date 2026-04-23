@@ -654,7 +654,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
     }
 
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
-    return `<tr class="${_pinClass}">
+    return `<tr class="${_pinClass}" data-customer-id="${c.id}">
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_crmTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
@@ -811,16 +811,24 @@ async function loadCrmNhuCauData() {
         _crmRenderFilteredTable();
     }
 
-    // Auto-open target customer from search page
+    // Auto-navigate to target customer from search page
     const targetId = sessionStorage.getItem('_tkkhTargetCustomer');
     if (targetId) {
         sessionStorage.removeItem('_tkkhTargetCustomer');
+        const tid = parseInt(targetId);
+        // Clear all filters to show full list
         _crmActiveCat = null;
         document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
         const cardsContainer = document.getElementById('crmStatCards');
         if (cardsContainer) cardsContainer.classList.remove('has-active');
+        // Find customer index in full unfiltered list
+        const idx = _crmAllCustomers.findIndex(c => c.id === tid);
+        if (idx >= 0) {
+            _crmCurrentPage = Math.floor(idx / _crmPageSize) + 1;
+        }
         _crmRenderFilteredTable();
-        setTimeout(() => { if (typeof openCustomerDetail === 'function') openCustomerDetail(parseInt(targetId)); }, 300);
+        // Scroll to and highlight the row
+        setTimeout(() => _tkkhScrollToRow(tid), 200);
     }
 }
 

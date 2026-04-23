@@ -218,3 +218,38 @@ function _tkkhRenderResults(data, query) {
 
     el.innerHTML = html;
 }
+
+// ========== SCROLL TO TARGET ROW (shared utility for CRM pages) ==========
+function _tkkhScrollToRow(customerId) {
+    const row = document.querySelector(`tr[data-customer-id="${customerId}"]`);
+    if (!row) {
+        showToast('🔍 Khách hàng đã được tìm thấy nhưng không nằm trong trang hiện tại', 'info');
+        return;
+    }
+    // Inject highlight animation CSS (once)
+    if (!document.getElementById('_tkkhHighlightCSS')) {
+        const style = document.createElement('style');
+        style.id = '_tkkhHighlightCSS';
+        style.textContent = `
+            @keyframes _tkkhBlink {
+                0%, 100% { background: transparent; }
+                50% { background: linear-gradient(90deg, rgba(250,210,76,0.35), rgba(245,158,11,0.20), rgba(250,210,76,0.35)); }
+            }
+            tr._tkkh-highlight {
+                animation: _tkkhBlink 0.8s ease-in-out 5;
+                outline: 2px solid #f59e0b;
+                outline-offset: -1px;
+                border-radius: 4px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    // Scroll into center of viewport
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Apply highlight class
+    row.classList.add('_tkkh-highlight');
+    // Remove after animation completes (5 cycles × 0.8s = 4s)
+    setTimeout(() => {
+        row.classList.remove('_tkkh-highlight');
+    }, 4500);
+}
