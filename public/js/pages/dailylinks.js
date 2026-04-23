@@ -212,7 +212,7 @@ function _dlUpdateActions() {
     let h = '';
     // Category management button for dang_group (GD only)
     if (m.type === 'dang_group' && currentUser.role === 'giam_doc') {
-        h += `<button onclick="_dlCatModal()" style="padding:8px 14px;border:1px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Sản Phẩm</button>`;
+        h += `<button onclick="_dlCatModal()" style="padding:8px 14px;border:1px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer;font-weight:700;font-size:12px;">⚙️ Quản Lý Lĩnh Vực</button>`;
     }
     if (canAdd) {
         h += `<button onclick="_dlBackfillModal()" style="padding:8px 16px;border:2px solid ${m.accent};border-radius:8px;background:white;color:${m.accent};cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">📋 Báo cáo bù</button>`;
@@ -548,7 +548,7 @@ function _dlRenderTable() {
         <th style="padding:10px 8px;text-align:center;width:50px;">STT</th>
         ${isMultiDay?'<th style="padding:10px 8px;width:100px;">NGÀY</th>':''}
         ${hasLink?'<th style="padding:10px 8px;">LINK</th>':''}
-        ${hasCat?'<th style="padding:10px 8px;text-align:center;">SẢN PHẨM</th>':''}
+        ${hasCat?'<th style="padding:10px 8px;text-align:center;">LĨNH VỰC</th>':''}
         ${showUser?'<th style="padding:10px 8px;">NHÂN VIÊN</th>':''}
         ${hasImg?'<th style="padding:10px 8px;text-align:center;">ẢNH CHỤP</th>':''}
         <th style="padding:10px 8px;text-align:center;width:80px;">XÓA</th>
@@ -755,9 +755,9 @@ async function _dlAddModal() {
                 <div id="dlFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
             </div>` : ''}
             ${m.type === 'dang_group' ? `<div style="margin-bottom:14px;">
-                <label style="font-weight:600;font-size:13px;color:#374151;">Sản phẩm <span style="color:#dc2626;">*</span></label>
+                <label style="font-weight:600;font-size:13px;color:#374151;">Lĩnh vực <span style="color:#dc2626;">*</span></label>
                 <select id="dlFCategory" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;background:white;cursor:pointer;">
-                    <option value="">-- Chọn sản phẩm --</option>
+                    <option value="">-- Chọn lĩnh vực --</option>
                     ${(_dl.categories||[]).map(c => '<option value="'+c.id+'">'+c.name+'</option>').join('')}
                 </select>
             </div>` : ''}
@@ -902,7 +902,7 @@ async function _dlSave() {
     // Category validation for dang_group
     const catEl = document.getElementById('dlFCategory');
     const categoryId = catEl ? catEl.value : null;
-    if(m.type === 'dang_group' && !categoryId){showToast('Vui lòng chọn sản phẩm!','error');return;}
+    if(m.type === 'dang_group' && !categoryId){showToast('Vui lòng chọn lĩnh vực!','error');return;}
     try{
         const body = {fb_link:link, module_type:m.type, backfill_date: window._dlBackfillDate || undefined};
         if((needImg || needScreenshot) && _dl.imageData) body.image_data = _dl.imageData;
@@ -929,13 +929,13 @@ function _dlCatModal() {
     m.innerHTML = `
     <div style="background:white;border-radius:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.25);">
         <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:18px 24px;border-radius:16px 16px 0 0;color:white;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:16px;font-weight:800;">⚙️ Quản Lý Sản Phẩm</div>
+            <div style="font-size:16px;font-weight:800;">⚙️ Quản Lý Lĩnh Vực</div>
             <button onclick="document.getElementById('dlCatModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:28px;height:28px;border-radius:50%;cursor:pointer;">×</button>
         </div>
         <div style="padding:20px 24px;max-height:60vh;overflow-y:auto;">
-            <div style="margin-bottom:14px;">${listHtml||'<div style="color:#9ca3af;text-align:center;">Chưa có sản phẩm</div>'}</div>
+            <div style="margin-bottom:14px;">${listHtml||'<div style="color:#9ca3af;text-align:center;">Chưa có lĩnh vực</div>'}</div>
             <div style="display:flex;gap:8px;">
-                <input id="dlCatName" placeholder="Tên sản phẩm mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
+                <input id="dlCatName" placeholder="Tên lĩnh vực mới..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;">
                 <input id="dlCatColor" type="color" value="#3b82f6" style="width:40px;height:36px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;">
                 <button onclick="_dlCatAdd()" style="padding:8px 16px;border:none;border-radius:8px;background:#16a34a;color:white;cursor:pointer;font-weight:700;font-size:13px;">＋</button>
             </div>
@@ -958,7 +958,7 @@ async function _dlCatAdd() {
 }
 
 async function _dlCatDel(id) {
-    if (!confirm('Xóa sản phẩm này?')) return;
+    if (!confirm('Xóa lĩnh vực này?')) return;
     try {
         await apiCall('/api/dailylinks/categories/' + id, 'DELETE');
         showToast('✅ Đã xóa'); document.getElementById('dlCatModal')?.remove();
