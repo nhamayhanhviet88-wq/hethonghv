@@ -248,7 +248,7 @@ const _KB_LINKED_PAGES = [
     { re: /tuyển.*dụng.*sv/i, page: '/tuyendungsvkd', label: 'Tuyển Dụng SV KD', icon: '🎓' },
     { re: /gọi.*điện.*telesale/i, page: '/hethonggoidien', label: 'Gọi Điện Telesale', icon: '📞' },
     { re: /tự.*tìm.*kiếm.*telesale/i, page: '/hethonggoidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎' },
-    { re: /nh[ấắ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c.*kh/i, page: '/crm-koctiktok', label: 'Nhắn Tìm ĐT KH', icon: '🎵' },
+    { re: /nh[ấắ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c.*kh/i, page: '/nhantintimdoitackh', label: 'Nhắn Tìm ĐT KH', icon: '🎵' },
     { re: /thông.*báo.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'Thông Báo Gr Zalo Spam', icon: '📋' },
     { re: /setup.*spam.*zalo/i, page: '/hethongphanchiagrzalo', label: 'Nhóm Spam Zalo', icon: '🔥' },
 ];
