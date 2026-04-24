@@ -65,7 +65,10 @@ function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
     
     if (targetRoute) {
         // Has dedicated page → navigate there with user + date
-        const url = targetRoute + '?sel_user=' + userId + '&sel_date=' + reportDate;
+        let url = targetRoute + '?sel_user=' + userId + '&sel_date=' + reportDate;
+        // Check for CRM tab metadata (e.g. Tự Tìm Kiếm Telesale → sel_crm=tu_tim_kiem)
+        const _svLinked = _kbGetLinkedPage(taskName);
+        if (_svLinked && _svLinked.crm) url += '&sel_crm=' + _svLinked.crm;
         window.open(url, '_blank');
     } else if (taskType === 'lock') {
         // CV Khóa → show detail modal popup
@@ -249,7 +252,7 @@ const _KB_LINKED_PAGES = [
     { re: /tìm.*gr.*zalo/i, page: '/timgrzalovathongke', label: 'Tìm Gr Zalo', icon: '🔍' },
     { re: /tuyển.*dụng.*sv/i, page: '/tuyendungsvkd', label: 'Tuyển Dụng SV KD', icon: '🎓' },
     { re: /gọi.*điện.*telesale/i, page: '/goidien', label: 'Gọi Điện Telesale', icon: '📞' },
-    { re: /tự.*tìm.*kiếm.*telesale/i, page: '/goidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎' },
+    { re: /tự.*tìm.*kiếm.*telesale/i, page: '/goidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎', crm: 'tu_tim_kiem' },
     { re: /nh[ấắ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c.*kh/i, page: '/nhantintimdoitackh', label: 'Nhắn Tìm ĐT KH', icon: '🎵' },
     { re: /thông.*báo.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'Thông Báo Gr Zalo Spam', icon: '📋' },
     { re: /setup.*spam.*zalo/i, page: '/hethongphanchiagrzalo', label: 'Nhóm Spam Zalo', icon: '🔥' },
@@ -291,7 +294,8 @@ async function _kbViewReport(el) {
     const _vrLinkedPage = _kbGetLinkedPage(data.task_name);
     if (_vrLinkedPage) {
         const _vrUserId = data.user_id || (_kbViewUserId || currentUser?.id || '');
-        const url = _vrLinkedPage.page + '?sel_user=' + _vrUserId + '&sel_date=' + (data.report_date || '');
+        let url = _vrLinkedPage.page + '?sel_user=' + _vrUserId + '&sel_date=' + (data.report_date || '');
+        if (_vrLinkedPage.crm) url += '&sel_crm=' + _vrLinkedPage.crm;
         window.open(url, '_blank');
         return;
     }

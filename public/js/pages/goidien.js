@@ -147,6 +147,10 @@ async function renderGoiDienPage(container) {
         _gd_dateFrom = _gdSelDate;
         _gd_dateTo = _gdSelDate;
     }
+    const _gdSelCrm = _gdUrlParams.get('sel_crm');
+    if (_gdSelCrm) {
+        _gd_activeCrmTab = _gdSelCrm;
+    }
 
     // Auto-select logic
     if (_gdSelUser) {
