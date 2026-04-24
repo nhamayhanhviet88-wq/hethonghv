@@ -1436,11 +1436,11 @@ function _kbRenderGrid() {
 
                 // Check if this is a "Sedding" task
                 const isSedding = /sedding/i.test(task.task_name);
-                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : '';
+                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" data-lock-approved="0" style="margin-top:6px;"></div>` : '';
 
                 // Check if this is a "Tìm Gr Zalo" task
                 const isZalo = /tìm.*gr.*zalo/i.test(task.task_name);
-                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : '';
+                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" data-lock-approved="0" style="margin-top:6px;"></div>` : '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
