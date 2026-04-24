@@ -1425,7 +1425,7 @@ function _kbRenderGrid() {
                         lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                         lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                     } else if (realComp.status === 'pending') {
-                        lockStatusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⏳ Chờ duyệt</span>';
+                        lockStatusBadge = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:5px 10px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;display:inline-block;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt</span></div>';
                         lockBg = '#fffbeb'; lockBorder = '#fde68a';
                     } else if (realComp.status === 'rejected') {
                         lockStatusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ Từ chối</span>';
@@ -1670,7 +1670,7 @@ function _kbRenderGrid() {
                         if (myComp && myComp.length > 0) {
                             const lastComp = myComp[myComp.length - 1];
                             if (lastComp.status === 'pending') {
-                                statusBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">⏳ Chờ duyệt</span>';
+                                statusBadge = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;display:inline-block;"><span style="font-size:10px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt</span></div>';
                             } else if (lastComp.status === 'rejected') {
                                 statusBadge = '<span style="background:#fecaca;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;">❌ Từ chối</span>';
                             }
@@ -4058,7 +4058,7 @@ function _kbRenderAddCmtMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         const statusLabel = done
@@ -4128,7 +4128,7 @@ function _kbRenderDangVideoMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         const statusLabel = done
@@ -4193,7 +4193,8 @@ function _kbRenderDangContentMini(el, res) {
     const count = res.count || 0, target = res.target || 1;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    if (done && isPending) {
+    const isPending = res.report_status === 'pending';
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
@@ -4254,7 +4255,7 @@ function _kbRenderDangGroupMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
@@ -4376,7 +4377,7 @@ function _kbRenderSeddingMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
@@ -4470,7 +4471,7 @@ function _kbRenderZaloMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
@@ -4564,7 +4565,7 @@ function _kbRenderDangBTMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
