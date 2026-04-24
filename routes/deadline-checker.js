@@ -1204,8 +1204,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     );
 
                     if (existing) {
-                        if (existing.status === 'pending') {
-                            // PROTECTED: only update quantity, NOT status
+                        if (existing.status === 'pending' || existing.status === 'approved') {
+                            // PROTECTED: only update quantity, NOT status (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const s11 = needsApproval11 ? 'pending' : 'approved';
@@ -1303,7 +1303,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     );
 
                     if (existing) {
-                        if (existing.status === 'pending') {
+                        if (existing.status === 'pending' || existing.status === 'approved') {
+                            // PROTECTED: preserve manual approval, only update quantity
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const s12 = needsApproval12 ? 'pending' : 'approved';
@@ -1432,8 +1433,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const needsApproval13 = tmpl.requires_approval || _fa13?.force_approval || !!_ft13;
 
                     if (existing) {
-                        if (existing.status === 'pending') {
-                            // PROTECTED: only update quantity, NOT status
+                        if (existing.status === 'pending' || existing.status === 'approved') {
+                            // PROTECTED: only update quantity, NOT status (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const newStatus13 = needsApproval13 ? 'pending' : 'approved';
@@ -1538,7 +1539,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const needsApproval14 = tmpl.requires_approval || _fa14?.force_approval || !!_ft14;
 
                     if (existing) {
-                        if (existing.status === 'pending') {
+                        if (existing.status === 'pending' || existing.status === 'approved') {
+                            // PROTECTED: preserve manual approval, only update quantity
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const newStatus14 = needsApproval14 ? 'pending' : 'approved';
