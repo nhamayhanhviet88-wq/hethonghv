@@ -71,6 +71,19 @@ function _poInit() {
         document.head.appendChild(st);
     }
     document.getElementById('pageTitle').textContent = 'Nhắn Tìm Đối Tác KH KOL Tiktok';
+    // Handle URL params: ?sel_user=ID&sel_date=YYYY-MM-DD
+    const _poUrlParams = new URLSearchParams(window.location.search);
+    const _poSelUser = _poUrlParams.get('sel_user');
+    const _poSelDate = _poUrlParams.get('sel_date');
+    if (_poSelUser) {
+        _po.selectedUser = parseInt(_poSelUser);
+    }
+    if (_poSelDate) {
+        // Set date filter to show specific date
+        _poDatePreset = 'custom';
+        _poDateFrom = _poSelDate;
+        _poDateTo = _poSelDate;
+    }
     _poLoadAll();
 }
 
