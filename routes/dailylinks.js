@@ -285,30 +285,50 @@ module.exports = async function (fastify) {
                         if (ov.custom_points != null) tmplPoints = Number(ov.custom_points);
                     }
 
+                    // Check force_approval: ép duyệt CV cho NV yếu kém
+                    const _forceUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                    const _forceTask = await db.get(
+                        'SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3',
+                        [uid, 'schedule', tpl.id]
+                    );
+                    const needsForceApproval = _forceUser?.force_approval || !!_forceTask;
+                    const shouldAutoApprove = !needsForceApproval;
+
                     // Count total entries today
                     const countRes = await db.get('SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3', [uid, today, module_type]);
                     const entryCount = parseInt(countRes?.cnt || 0);
-                    const tmplEarned = entryCount >= tmplTarget ? tmplPoints : 0;  // all-or-nothing
+                    const metTarget = entryCount >= tmplTarget;
+                    const tmplEarned = (metTarget && shouldAutoApprove) ? tmplPoints : 0;
                     const tmplQty = Math.min(entryCount, tmplTarget);
 
                     const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, today]);
                     if (existing) {
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             content = $3, report_value = $4,
-                             status = CASE WHEN $5 >= $6 THEN 'approved' ELSE status END
-                             WHERE id = $7`,
-                            [tmplQty, tmplEarned, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, entryCount, tmplTarget, existing.id]
-                        );
+                        if (existing.status === 'approved' && !shouldAutoApprove) {
+                            // Already approved by reviewer, just update quantity
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, content = $2, report_value = $3 WHERE id = $4`,
+                                [tmplQty, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, existing.id]
+                            );
+                        } else {
+                            const newStatus = shouldAutoApprove ? (metTarget ? 'approved' : existing.status) : 'pending';
+                            const newPoints = shouldAutoApprove ? (metTarget ? tmplPoints : 0) : 0;
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 content = $3, report_value = $4, status = $5
+                                 WHERE id = $6`,
+                                [tmplQty, newPoints, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, newStatus, existing.id]
+                            );
+                        }
                     } else {
-                        const status = 'approved';
+                        const status = shouldAutoApprove ? 'approved' : 'pending';
+                        const earnedPoints = shouldAutoApprove ? (metTarget ? tmplPoints : 0) : 0;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tpl.id, uid, today, tmplQty, tmplEarned, status, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, 'link', `${entryCount}/${tmplTarget}`]
+                            [tpl.id, uid, today, tmplQty, earnedPoints, status, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                     }
-                    console.log(`[DailyLinks] Auto-scored: user=${uid}, module=${module_type}, count=${entryCount}/${tmplTarget}, pts=${tmplEarned}/${tmplPoints}`);
+                    console.log(`[DailyLinks] Auto-scored: user=${uid}, module=${module_type}, count=${entryCount}/${tmplTarget}, pts=${tmplEarned}/${tmplPoints}, forceApproval=${needsForceApproval}`);
                 }
             }
         } catch(scoreErr) {
