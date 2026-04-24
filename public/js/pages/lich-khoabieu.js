@@ -2728,7 +2728,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;text-align:center;">${countdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbApproveGroupReports(${idsJson})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt${count > 1 ? ' ('+count+')' : ''}</button>
-                    ${!!_kbGetLinkedPage(g.task_name) ? `<button onclick="_kbSendFeedback(${g.user_id}, '${taskNameEsc}', '${g.report_date}', 'schedule')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;">💬 Góp ý</button>` : `<button onclick="_kbRejectGroupReports(${idsJson}, '${g.task_name.replace(/'/g, "\\'")}', '${g.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>`}
+                    ${!!_kbGetLinkedPage(g.task_name) ? `<button onclick="_kbSendFeedback(${g.user_id}, '${taskNameEsc}', '${g.report_date}', 'schedule', ${idsJson})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;">💬 Góp ý</button>` : `<button onclick="_kbRejectGroupReports(${idsJson}, '${g.task_name.replace(/'/g, "\\'")}', '${g.user_name.replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>`}
                 </td>
             </tr>`;
         });
@@ -2851,7 +2851,8 @@ async function _kbApproveGroupReports(ids) {
 }
 
 // ===== SEND FEEDBACK (for linked page tasks — replaces Reject) =====
-function _kbSendFeedback(userId, taskName, taskDate, taskType) {
+function _kbSendFeedback(userId, taskName, taskDate, taskType, reportIds) {
+    window._kbFeedbackReportIds = reportIds || [];
     let modal = document.getElementById('kbFeedbackModal');
     if (modal) modal.remove();
     modal = document.createElement('div');
@@ -2862,13 +2863,14 @@ function _kbSendFeedback(userId, taskName, taskDate, taskType) {
     <div style="background:white;border-radius:16px;padding:24px;width:420px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,.3);border-top:4px solid #f59e0b;">
         <div style="text-align:center;margin-bottom:16px;">
             <div style="font-size:28px;margin-bottom:8px;">💬</div>
-            <div style="font-size:16px;font-weight:800;color:#92400e;">Góp ý công việc</div>
+            <div style="font-size:16px;font-weight:800;color:#92400e;">Góp ý & Duyệt công việc</div>
             <div style="font-size:13px;color:#6b7280;margin-top:4px;">${taskName} ${dateF ? '(' + dateF + ')' : ''}</div>
+            <div style="font-size:11px;color:#059669;margin-top:6px;font-weight:700;">✅ Công việc sẽ được duyệt sau khi gửi góp ý</div>
         </div>
         <textarea id="kbFeedbackContent" placeholder="Nhập nội dung góp ý cho nhân viên..." style="width:100%;height:100px;border:2px solid #fde68a;border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;outline:none;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fde68a'"></textarea>
         <div style="display:flex;gap:10px;margin-top:16px;justify-content:center;">
             <button onclick="document.getElementById('kbFeedbackModal').remove()" style="padding:8px 20px;font-size:13px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#374151;cursor:pointer;font-weight:600;">Hủy</button>
-            <button onclick="_kbConfirmFeedback(${userId}, '${taskName.replace(/'/g, "\\'")}', '${taskDate}', '${taskType}')" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(217,119,6,0.3);">💬 Gửi góp ý</button>
+            <button onclick="_kbConfirmFeedback(${userId}, '${taskName.replace(/'/g, "\\'")}', '${taskDate}', '${taskType}')" style="padding:8px 20px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#059669);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(5,150,105,0.3);">💬 Góp ý + ✅ Duyệt</button>
         </div>
     </div>`;
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
@@ -2883,9 +2885,17 @@ async function _kbConfirmFeedback(userId, taskName, taskDate, taskType) {
         const res = await apiCall('/api/notifications/feedback', 'POST', {
             user_id: userId, task_name: taskName, task_date: taskDate, task_type: taskType, content: content
         });
+        // Auto-approve the reports after sending feedback
+        const reportIds = window._kbFeedbackReportIds || [];
+        if (reportIds.length > 0) {
+            for (const id of reportIds) {
+                await apiCall('/api/schedule/report/' + id + '/approve', 'PUT', { action: 'approve' });
+            }
+        }
         document.getElementById('kbFeedbackModal')?.remove();
-        showToast('✅ ' + (res.message || 'Đã gửi góp ý'));
+        showToast('✅ Đã gửi góp ý + duyệt công việc');
         _kbLoadApprovalPanel();
+        _kbLoadSchedule();
     } catch(e) { alert('Lỗi: ' + (e.message || 'Không thể gửi góp ý')); }
 }
 // ===== GROUP REJECT: reject all reports in a group =====
