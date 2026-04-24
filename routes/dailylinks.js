@@ -700,11 +700,30 @@ module.exports = async function (fastify) {
             if (rpt) reportStatus = rpt.status;
         }
 
+        // Also check lock_task_completions for CV Khóa tasks
+        let lockStatus = null;
+        if (pattern) {
+            const lockComp = await db.get(
+                `SELECT ltc.status FROM lock_task_completions ltc
+                 JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+                 WHERE ltc.user_id = $1 AND ltc.completion_date = $2 AND lt.task_name ILIKE $3
+                 ORDER BY ltc.redo_count DESC, ltc.id DESC LIMIT 1`,
+                [uid, date, pattern]
+            );
+            if (lockComp) lockStatus = lockComp.status;
+        }
+
+        // If lock is approved, override report_status
+        if (lockStatus === 'approved' && reportStatus === 'pending') {
+            reportStatus = 'approved';
+        }
+
         return {
             count: Number(countResult.c),
             target: targetVal,
             total_points: pointsVal,
-            report_status: reportStatus
+            report_status: reportStatus,
+            lock_status: lockStatus
         };
     });
 

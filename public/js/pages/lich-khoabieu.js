@@ -4627,7 +4627,7 @@ function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4721,7 +4721,7 @@ function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4815,7 +4815,7 @@ function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
