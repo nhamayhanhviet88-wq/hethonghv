@@ -364,18 +364,27 @@ module.exports = async function (fastify) {
                             "SELECT id, status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY id DESC LIMIT 1",
                             [lt.id, uid, bfDate]
                         );
-                        if (comp && comp.status !== 'approved') {
+                        if (comp && comp.status !== 'approved' && comp.status !== 'pending') {
+                            // Check force_approval before blindly approving
+                            const _bfUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                            const _bfForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
+                            const _bfNeedsApproval = lt.requires_approval || _bfUser?.force_approval || !!_bfForce;
+                            const _bfStatus = _bfNeedsApproval ? 'pending' : 'approved';
                             await db.run(
-                                "UPDATE lock_task_completions SET status = 'approved', proof_url = $1, updated_at = NOW() WHERE id = $2",
-                                [fb_link.trim(), comp.id]
+                                `UPDATE lock_task_completions SET status = $1, proof_url = $2, updated_at = NOW() WHERE id = $3`,
+                                [_bfStatus, fb_link.trim(), comp.id]
                             );
-                            console.log(`[DailyLinks BACKFILL] Updated lock_task_completion id=${comp.id} to approved for ${bfDate}`);
+                            console.log(`[DailyLinks BACKFILL] Updated lock_task_completion id=${comp.id} to ${_bfStatus} for ${bfDate}`);
                         } else if (!comp) {
+                            const _bfUser2 = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                            const _bfForce2 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
+                            const _bfNeedsApproval2 = lt.requires_approval || _bfUser2?.force_approval || !!_bfForce2;
+                            const _bfStatus2 = _bfNeedsApproval2 ? 'pending' : 'approved';
                             await db.run(
-                                "INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, status, created_at, updated_at) VALUES ($1, $2, $3, $4, 'approved', NOW(), NOW())",
-                                [lt.id, uid, bfDate, fb_link.trim()]
+                                `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+                                [lt.id, uid, bfDate, fb_link.trim(), _bfStatus2]
                             );
-                            console.log(`[DailyLinks BACKFILL] Created approved lock_task_completion for ${bfDate}`);
+                            console.log(`[DailyLinks BACKFILL] Created ${_bfStatus2} lock_task_completion for ${bfDate}`);
                         }
                     }
                 }
@@ -1243,7 +1252,11 @@ module.exports = async function (fastify) {
             if (existing && (existing.status === 'approved' || existing.status === 'pending')) return; // Already done
 
             const redoCount = existing ? existing.redo_count + 1 : 0;
-            const status = lockTask.requires_approval ? 'pending' : 'approved';
+            // Check force_approval for user
+            const _zaUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+            const _zaForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'lock', lockTask.id]);
+            const _zaNeedsApproval = lockTask.requires_approval || _zaUser?.force_approval || !!_zaForce;
+            const status = _zaNeedsApproval ? 'pending' : 'approved';
 
             // Build summary content
             const spamOk = allResults.filter(r => r.spam_eligible).length;
@@ -1467,13 +1480,18 @@ module.exports = async function (fastify) {
                         [spamTask.id, req.user.id, todayStr]
                     );
                     if (!existing) {
+                        // Check force_approval
+                        const _ssUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [req.user.id]);
+                        const _ssForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [req.user.id, 'lock', spamTask.id]);
+                        const _ssNeedsApproval = _ssUser?.force_approval || !!_ssForce;
+                        const _ssStatus = _ssNeedsApproval ? 'pending' : 'approved';
                         await db.run(
                             `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
-                             VALUES ($1, $2, $3, 0, $4, $5, 'approved', 0)
+                             VALUES ($1, $2, $3, 0, $4, $5, $6, 0)
                              ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
-                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm QL Chưa Spam']
+                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm QL Chưa Spam', _ssStatus]
                         );
-                        console.log(`[ZaloSpam] Auto-completed "Setup Spam Zalo" for user ${req.user.id} on ${todayStr}`);
+                        console.log(`[ZaloSpam] Auto-completed "Setup Spam Zalo" for user ${req.user.id} on ${todayStr} (status=${_ssStatus})`);
                     }
                 }
             }
@@ -1581,10 +1599,14 @@ module.exports = async function (fastify) {
                 if (spamTask) {
                     const existing = await db.get(`SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`, [spamTask.id, req.user.id, todayStr]);
                     if (!existing) {
+                        const _bsUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [req.user.id]);
+                        const _bsForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [req.user.id, 'lock', spamTask.id]);
+                        const _bsNeedsApproval = _bsUser?.force_approval || !!_bsForce;
+                        const _bsStatus = _bsNeedsApproval ? 'pending' : 'approved';
                         await db.run(
                             `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, proof_url, content, status, quantity_done)
-                             VALUES ($1, $2, $3, 0, $4, $5, 'approved', 0) ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
-                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm']
+                             VALUES ($1, $2, $3, 0, $4, $5, $6, 0) ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                            [spamTask.id, req.user.id, todayStr, screenshotPath || '', 'Tự động hoàn thành — đã spam hết tất cả nhóm', _bsStatus]
                         );
                     }
                 }
@@ -1699,12 +1721,16 @@ module.exports = async function (fastify) {
             // AUTO-COMPLETE: If QL Chưa Spam = 0 and task not completed today → auto-create completion
             if (!completed && cnt === 0) {
                 try {
+                    const _acUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                    const _acForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'lock', spamTask.id]);
+                    const _acNeedsApproval = _acUser?.force_approval || !!_acForce;
+                    const _acStatus = _acNeedsApproval ? 'pending' : 'approved';
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, proof_url)
-                         VALUES ($1, $2, $3, 0, 'approved', 0, false, $4, $5)
+                         VALUES ($1, $2, $3, 0, $4, 0, false, $5, $6)
                          ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE
-                         SET status = 'approved', penalty_amount = 0, penalty_applied = false, content = $4, proof_url = $5`,
-                        [spamTask.id, userId, todayStr,
+                         SET status = $4, penalty_amount = 0, penalty_applied = false, content = $5, proof_url = $6`,
+                        [spamTask.id, userId, todayStr, _acStatus,
                          'Tự động hoàn thành — QL Chưa Spam đã trống',
                          '/uploads/zalo_spam/auto_complete_' + Date.now() + '.png']
                     );
