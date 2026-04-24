@@ -1648,8 +1648,13 @@ function _kbRenderGrid() {
                     if (_ltLinkedPage.crm) _ltUrl += '&sel_crm=' + _ltLinkedPage.crm;
                     if (_ltLinkedPage.tab) _ltUrl += '&sel_tab=' + _ltLinkedPage.tab;
                     actionHtml = `<div style="margin-top:6px;text-align:center;"><a href="${_ltUrl}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_ltLinkedPage.icon} Mở trang →</a></div>`;
-                } else if (_ltLinkedPage && !isSelf ) {
-                    actionHtml = ''; // manager view
+                } else if (_ltLinkedPage && !isSelf) {
+                    // Manager viewing subordinate: show Xem bao cao if lock report exists
+                    if (realComp) {
+                        actionHtml = `<div style="margin-top:4px;text-align:center;"><span onclick="_kbShowLockReport(${realComp.id})" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                    } else {
+                        actionHtml = '';
+                    }
                 } else if (isSelf) {
                     if (dateStr === todayStr && !realComp) {
                         // Today, not submitted: show Báo cáo (for self)
