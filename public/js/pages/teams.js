@@ -356,7 +356,7 @@ async function toggleDeptAccordion(deptId) {
 
     sorted.forEach((m, i) => {
         const isHead = dept && dept.head_user_id === m.id;
-        const ROLE_MAP = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', part_time: 'Part Time', hoa_hong: 'Hoa Hồng' };
+        const ROLE_MAP = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time', hoa_hong: 'Hoa Hồng' };
         const headBadge = isHead ? ' <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;border:1px solid #f59e0b44;">⭐ Trưởng đơn vị</span>' : '';
         const roleLabel = `<span style="color:${isHead ? '#d97706' : '#6b7280'};font-weight:${isHead ? '700' : '400'};">${ROLE_MAP[m.role] || m.role}</span>${headBadge}`;
         const statusBg = m.status === 'active' ? '#10b981' : '#ef4444';
@@ -709,7 +709,7 @@ async function showDeptMembers(deptId) {
     // Exclude users already in this dept, giam_doc, already assigned to ANOTHER dept
     const available = allStaff.filter(u => !members.find(m => m.id === u.id) && u.role !== 'giam_doc' && (!u.department_id || u.department_id === deptId));
 
-    const ROLE_LABELS = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', part_time: 'Part Time', hoa_hong: 'Hoa Hồng' };
+    const ROLE_LABELS = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time', hoa_hong: 'Hoa Hồng' };
 
     const membersHTML = members.length > 0 ? members.map(m => {
         const isHead = m._is_head;

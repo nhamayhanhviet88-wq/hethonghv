@@ -3,6 +3,7 @@ const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
 const { runTelesalePumpForUser } = require('./telesale');
+const { sendTelegramMessage } = require('../utils/telegram');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,6 +16,7 @@ async function usersRoutes(fastify, options) {
                      u.telegram_group_id, u.commission_tier_id, u.assigned_to_user_id, u.managed_by_user_id,
                      u.balance, u.bank_name, u.bank_account, u.bank_holder, u.order_code_prefix,
                      u.contract_file, u.rules_file, u.source_crm_type, u.position_id, u.department_id,
+                     u.probation_end_date, u.probation_days, u.probation_contract_file,
                      p.name as position_name,
                      u.created_at, u.updated_at,
                      ct.name as tier_name, ct.percentage as tier_percentage, ct.parent_percentage as tier_parent_percentage,
@@ -101,7 +103,8 @@ async function usersRoutes(fastify, options) {
         const { username, password, full_name, phone, address, role, contract_info,
                 start_date, telegram_group_id, commission_tier_id, assigned_to_user_id,
                 bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-                managed_by_user_id, source_customer_id, province, source_crm_type, position_id } = request.body || {};
+                managed_by_user_id, source_customer_id, province, source_crm_type, position_id,
+                probation_days } = request.body || {};
 
         if (!username || !password || !full_name || !role) {
             return reply.code(400).send({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' });
@@ -134,12 +137,24 @@ async function usersRoutes(fastify, options) {
         }
 
         const hash = await bcrypt.hash(password, 10);
+
+        // Tính probation_end_date nếu role = thu_viec
+        let probationEndDate = null;
+        let probDays = null;
+        if (role === 'thu_viec') {
+            probDays = Math.max(7, Math.min(180, Number(probation_days) || 30));
+            const startD = new Date(start_date || Date.now());
+            startD.setDate(startD.getDate() + probDays);
+            probationEndDate = startD.toISOString();
+        }
+
         const result = await db.run(
              `INSERT INTO users (username, password_hash, full_name, phone, address, role,
              contract_info, start_date, telegram_group_id, commission_tier_id,
              assigned_to_user_id, bank_name, bank_account, bank_holder, order_code_prefix, department_id, birth_date,
-             managed_by_user_id, source_customer_id, province, source_crm_type, position_id, department_joined_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             managed_by_user_id, source_customer_id, province, source_crm_type, position_id, department_joined_at,
+             probation_end_date, probation_days)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [username, hash, full_name, phone || null, address || null, role,
              contract_info || null, start_date || null, telegram_group_id || null,
              commission_tier_id ? Number(commission_tier_id) : null,
@@ -153,7 +168,9 @@ async function usersRoutes(fastify, options) {
              province || null,
              source_crm_type || null,
              position_id ? Number(position_id) : null,
-             department_id ? new Date().toISOString() : null]
+             department_id ? new Date().toISOString() : null,
+             probationEndDate,
+             probDays]
         );
 
         // Track department history for new user
@@ -406,11 +423,11 @@ async function usersRoutes(fastify, options) {
     // Đổi trạng thái
     fastify.put('/api/users/:id/status', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { status } = request.body || {};
-        if (!['active', 'resigned', 'locked'].includes(status)) {
+        if (!['active', 'resigned', 'locked', 'probation_locked'].includes(status)) {
             return reply.code(400).send({ error: 'Trạng thái không hợp lệ' });
         }
         await db.run("UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?", [status, Number(request.params.id)]);
-        return { success: true, message: `Đã chuyển trạng thái thành ${status === 'active' ? 'Đi làm' : status === 'locked' ? 'Bị khóa' : 'Nghỉ việc'}` };
+        return { success: true, message: `Đã chuyển trạng thái thành ${status === 'active' ? 'Đi làm' : status === 'locked' ? 'Bị khóa' : status === 'probation_locked' ? 'Hết hạn TV' : 'Nghỉ việc'}` };
     });
 
     // 🔓 Mở khóa tài khoản affiliate (chỉ Giám Đốc)
@@ -446,6 +463,64 @@ async function usersRoutes(fastify, options) {
         } catch (e) { console.error('[Telesale] Auto-pump error:', e.message); }
 
         return { success: true, message: `Đã mở khóa tài khoản ${user.full_name}. Khách hàng nguồn đã được phục hồi với lịch tư vấn hôm nay.${pumpMsg}` };
+    });
+
+    // 📝 Mở khóa thử việc + Ký hợp đồng mới → Chuyển thành Nhân Viên
+    fastify.post('/api/users/:id/unlock-probation', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
+        const userId = Number(request.params.id);
+        const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+        if (!user) return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
+        if (user.status !== 'probation_locked') return reply.code(400).send({ error: 'Tài khoản không ở trạng thái hết hạn thử việc' });
+        if (user.role !== 'thu_viec') return reply.code(400).send({ error: 'Tài khoản không phải vai trò Thử Việc' });
+
+        // Parse multipart form (contract file)
+        const parts = request.parts();
+        const uploadDir = path.join(__dirname, '..', 'uploads', 'contracts');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        let newContractPath = null;
+        for await (const part of parts) {
+            if (part.file && part.fieldname === 'contract_file') {
+                const ext = path.extname(part.filename) || '.pdf';
+                const fileName = `${userId}_contract_official_${Date.now()}${ext}`;
+                const filePath = path.join(uploadDir, fileName);
+                const chunks = [];
+                for await (const chunk of part.file) chunks.push(chunk);
+                fs.writeFileSync(filePath, Buffer.concat(chunks));
+                newContractPath = `/uploads/contracts/${fileName}`;
+            }
+        }
+
+        if (!newContractPath) {
+            return reply.code(400).send({ error: 'Vui lòng upload Hợp Đồng chính thức (PDF) để mở khóa' });
+        }
+
+        // Giữ lại HĐ thử việc cũ → probation_contract_file
+        // Lưu HĐ mới → contract_file
+        // Chuyển role → nhan_vien, status → active
+        await db.run(
+            `UPDATE users SET 
+             probation_contract_file = COALESCE(contract_file, probation_contract_file),
+             contract_file = $1,
+             role = 'nhan_vien',
+             status = 'active',
+             probation_end_date = NULL,
+             probation_warned = false,
+             updated_at = NOW()
+             WHERE id = $2`,
+            [newContractPath, userId]
+        );
+
+        console.log(`📝 [PROBATION] Unlocked user #${userId} (${user.full_name}) — thu_viec → nhan_vien by ${request.user.username}`);
+
+        // Telegram notification
+        if (user.telegram_group_id) {
+            sendTelegramMessage(user.telegram_group_id,
+                `✅ <b>Chúc mừng!</b>\nBạn đã được ký hợp đồng chính thức.\nVai trò: <b>Nhân Viên</b>\n\nChúc bạn làm việc hiệu quả! 🎉`
+            );
+        }
+
+        return { success: true, message: `✅ Đã ký hợp đồng và chuyển ${user.full_name} thành Nhân Viên chính thức!` };
     });
 
     // Upload hợp đồng PDF

@@ -10,11 +10,13 @@ async function renderAccountsPage(container) {
                     <option value="quan_ly">Quản Lý</option>
                     <option value="truong_phong">Trưởng Phòng</option>
                     <option value="nhan_vien">Nhân Viên</option>
+                    <option value="thu_viec">Thử Việc</option>
                     <option value="part_time">Part Time</option>
                 </select>
                 <select class="form-control" id="filterStatus" onchange="loadAccounts()">
                     <option value="">Tất cả trạng thái</option>
                     <option value="active">Đang làm</option>
+                    <option value="probation_locked">Hết hạn TV</option>
                     <option value="resigned">Nghỉ việc</option>
                 </select>
                 <select class="form-control" id="filterCrm" onchange="loadAccounts()">
@@ -90,7 +92,7 @@ async function loadAccounts() {
         return;
     }
     // Sort by role order, then by work days descending
-    const ROLE_ORDER = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'];
+    const ROLE_ORDER = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'];
     users.sort((a, b) => {
         const ai = ROLE_ORDER.indexOf(a.role);
         const bi = ROLE_ORDER.indexOf(b.role);
@@ -104,7 +106,8 @@ async function loadAccounts() {
 
     const filtered = users.filter(u => u.role !== 'giam_doc');
     const activeUsers = filtered.filter(u => u.status === 'active');
-    const resignedUsers = filtered.filter(u => u.status !== 'active');
+    const probLockedUsers = filtered.filter(u => u.status === 'probation_locked');
+    const resignedUsers = filtered.filter(u => u.status !== 'active' && u.status !== 'probation_locked');
 
     function calcWorkDays(user) {
         if (!user.start_date) return '-';
@@ -137,6 +140,7 @@ async function loadAccounts() {
                     giam_doc:['#fef3c7','#fde68a','#92400e','#fcd34d'], quan_ly_cap_cao:['#fff7ed','#fed7aa','#c2410c','#fdba74'],
                     quan_ly:['#dbeafe','#bfdbfe','#1e40af','#93c5fd'],
                     truong_phong:['#d1fae5','#a7f3d0','#065f46','#6ee7b7'], nhan_vien:['#e0f2fe','#bae6fd','#0c4a6e','#7dd3fc'],
+                    thu_viec:['#f3e8ff','#e9d5ff','#7c3aed','#c4b5fd'],
                     part_time:['#f0fdf4','#dcfce7','#15803d','#86efac']
                 };
                 const c = rc[user.role] || ['#e5e7eb','#d1d5db','#374151','#9ca3af'];
@@ -146,7 +150,7 @@ async function loadAccounts() {
             <td><span class="role-badge role-${user.role}">${ROLE_LABELS[user.role] || user.role}</span></td>
             <td style="font-size:12px;color:#6b7280;">${user.position_name || '-'}</td>
             <td>${user.phone || '-'}</td>
-            <td><span class="badge badge-${user.status}" style="cursor:pointer;" onclick="event.stopPropagation();showUserStatusModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}', '${user.status}')" title="Ấn để đổi trạng thái">${user.status === 'active' ? 'Đang làm' : user.status === 'locked' ? '🔒 Bị khóa' : 'Nghỉ việc'}</span></td>
+            <td><span class="badge badge-${user.status}" style="cursor:pointer;" onclick="event.stopPropagation();showUserStatusModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}', '${user.status}')" title="Ấn để đổi trạng thái">${user.status === 'active' ? (user.role === 'thu_viec' && user.probation_end_date ? '🧪 TV: ' + Math.max(0, Math.ceil((new Date(user.probation_end_date) - new Date()) / 86400000)) + ' ngày' : 'Đang làm') : user.status === 'locked' ? '🔒 Bị khóa' : user.status === 'probation_locked' ? '⏰ Hết hạn TV' : 'Nghỉ việc'}</span></td>
             <td style="white-space:nowrap;">${(() => {
                 if (!user.birth_date) return '-';
                 const bd = new Date(user.birth_date);
@@ -170,6 +174,12 @@ async function loadAccounts() {
                             : '')
                         : ''
                     }
+                    ${user.status === 'probation_locked' 
+                        ? (['giam_doc','quan_ly_cap_cao'].includes(currentUser.role)
+                            ? `<button class="btn btn-xs" onclick="showProbationUnlockModal(${user.id})" title="Ký HĐ & Mở khóa" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;">📝 Ký HĐ</button>`
+                            : '')
+                        : ''
+                    }
                     ${currentUser.role === 'giam_doc' ? `<button class="btn btn-xs" onclick="deleteUser(${user.id}, '${user.full_name}')" title="Xóa" style="background:transparent;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.background='#ef4444';this.style.color='#fff';this.style.borderColor='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#ef4444';this.style.borderColor='#fca5a5'">✕</button>` : ''}
                 </div>
             </td>
@@ -181,6 +191,11 @@ async function loadAccounts() {
     if (activeUsers.length > 0) {
         html += `<tr><td colspan="10" style="background:#ecfdf5;padding:10px 16px;font-weight:700;font-size:13px;color:#166534;border-bottom:2px solid #10b981;">✅ Đang Làm <span style="font-weight:400;color:#6b7280;font-size:12px;">(${activeUsers.length})</span></td></tr>`;
         html += activeUsers.map(renderUserRow).join('');
+    }
+    // Section: Hết Hạn Thử Việc
+    if (probLockedUsers.length > 0) {
+        html += `<tr><td colspan="10" style="background:#faf5ff;padding:10px 16px;font-weight:700;font-size:13px;color:#7c3aed;border-bottom:2px solid #a855f7;">⏰ Hết Hạn Thử Việc <span style="font-weight:400;color:#6b7280;font-size:12px;">(${probLockedUsers.length})</span></td></tr>`;
+        html += probLockedUsers.map(renderUserRow).join('');
     }
     // Section: Nghỉ Việc
     if (resignedUsers.length > 0) {
@@ -265,6 +280,15 @@ async function showCreateAccountModal() {
             <div class="form-group">
                 <label>Ngày vào làm</label>
                 <input type="date" id="accStartDate" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+        </div>
+        <div class="form-row" id="probationDaysGroup" style="display:none;">
+            <div class="form-group">
+                <label>🧪 Số ngày thử việc</label>
+                <input type="number" id="accProbationDays" class="form-control" value="30" min="7" max="180" placeholder="30">
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;">
+                <span id="probEndDateLabel" style="font-size:13px;font-weight:600;color:#7c3aed;padding:8px 0;">⏰ Hết hạn: --/--/----</span>
             </div>
         </div>
         <div class="form-row">
@@ -475,6 +499,28 @@ function onRoleChange() {
 
     // Populate province dropdown
     populateProvinceDropdown('accProvince');
+
+    // Probation days field (thử việc)
+    const probDiv = document.getElementById('probationDaysGroup');
+    if (probDiv) {
+        if (role === 'thu_viec') {
+            probDiv.style.display = 'block';
+            // Auto calc end date
+            const startEl = document.getElementById('accStartDate');
+            const daysEl = document.getElementById('accProbationDays');
+            const labelEl = document.getElementById('probEndDateLabel');
+            const calcEnd = () => {
+                const d = new Date(startEl?.value || Date.now());
+                d.setDate(d.getDate() + (parseInt(daysEl?.value) || 30));
+                if (labelEl) labelEl.textContent = `⏰ Hết hạn: ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+            };
+            calcEnd();
+            if (startEl) startEl.addEventListener('change', calcEnd);
+            if (daysEl) daysEl.addEventListener('input', calcEnd);
+        } else {
+            probDiv.style.display = 'none';
+        }
+    }
 }
 
 const PROVINCES_VN = [
@@ -634,6 +680,7 @@ async function submitCreateAccount() {
         province: document.getElementById('accProvince')?.value || null,
         source_crm_type: document.getElementById('accSourceCrmType')?.value || null,
         position_id: document.getElementById('accPosition')?.value || null,
+        probation_days: document.getElementById('accProbationDays')?.value || null,
     };
 
     if (!body.username || !body.password || !body.full_name || !body.role) {
@@ -1218,8 +1265,8 @@ async function showAccountDetail(userId) {
                         <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:6px;">@${user.username}</div>
                         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                             <span class="role-badge role-${user.role}" style="font-size:11px;">${ROLE_LABELS[user.role]}</span>
-                            <span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;background:${isActive ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'};color:${isActive ? '#22c55e' : '#ef4444'};border:1px solid ${isActive ? '#22c55e' : '#ef4444'};">
-                                ${isActive ? '✅ Đang làm' : '🚫 Nghỉ việc'}
+                            <span style="font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600;background:${isActive ? 'rgba(34,197,94,0.15)' : user.status === 'probation_locked' ? 'rgba(124,58,237,0.15)' : 'rgba(239,68,68,0.15)'};color:${isActive ? '#22c55e' : user.status === 'probation_locked' ? '#7c3aed' : '#ef4444'};border:1px solid ${isActive ? '#22c55e' : user.status === 'probation_locked' ? '#7c3aed' : '#ef4444'};">
+                                ${isActive ? (user.role === 'thu_viec' && user.probation_end_date ? '🧪 TV: ' + Math.max(0, Math.ceil((new Date(user.probation_end_date) - new Date()) / 86400000)) + ' ngày' : '✅ Đang làm') : user.status === 'probation_locked' ? '⏰ Hết hạn TV' : '🚫 Nghỉ việc'}
                             </span>
                         </div>
                     </div>
@@ -1431,7 +1478,7 @@ async function showHandoverModal(userId, managed) {
     const managers = (staffList.users || []).filter(u => 
         !['hoa_hong','ctv','tkaffiliate'].includes(u.role) && u.id !== userId
     );
-    const ROLE_MAP = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', part_time:'Part Time' };
+    const ROLE_MAP = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', thu_viec:'Thử Việc', part_time:'Part Time' };
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_MAP[e.role] || e.role})</option>`).join('');
 
     const custList = managed.customers.map(c => 
@@ -1566,5 +1613,97 @@ async function deleteUser(userId, name) {
         await loadAccounts();
     } else {
         showToast(data.error, 'error');
+    }
+}
+
+// ========== PROBATION UNLOCK (Ký Hợp Đồng Thử Việc) ==========
+async function showProbationUnlockModal(userId) {
+    const { user } = await apiCall(`/api/users/${userId}`);
+    if (!user) { showToast('Không tìm thấy', 'error'); return; }
+
+    const startDate = user.start_date ? new Date(user.start_date) : null;
+    const startStr = startDate ? `${String(startDate.getDate()).padStart(2,'0')}/${String(startDate.getMonth()+1).padStart(2,'0')}/${startDate.getFullYear()}` : '—';
+    const endDate = user.probation_end_date ? new Date(user.probation_end_date) : null;
+    const endStr = endDate ? `${String(endDate.getDate()).padStart(2,'0')}/${String(endDate.getMonth()+1).padStart(2,'0')}/${endDate.getFullYear()}` : '—';
+
+    const bodyHTML = `
+        <div style="margin:-10px -10px 0;">
+            <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:20px;border-radius:12px 12px 0 0;text-align:center;color:white;">
+                <div style="font-size:40px;margin-bottom:8px;">📝</div>
+                <div style="font-size:18px;font-weight:800;">Ký Hợp Đồng Chính Thức</div>
+                <div style="font-size:13px;opacity:0.85;margin-top:4px;">Chuyển thành Nhân Viên</div>
+            </div>
+            <div style="padding:20px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                    <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">👤 Nhân Viên</div>
+                        <div style="font-weight:700;color:#0f172a;">${user.full_name}</div>
+                    </div>
+                    <div style="background:#faf5ff;padding:10px 14px;border-radius:8px;border:1px solid #e9d5ff;">
+                        <div style="font-size:10px;color:#7c3aed;font-weight:600;text-transform:uppercase;">🧪 Vai Trò</div>
+                        <div style="font-weight:700;color:#7c3aed;">Thử Việc</div>
+                    </div>
+                    <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">📅 Ngày Bắt Đầu</div>
+                        <div style="font-weight:700;color:#0f172a;">${startStr}</div>
+                    </div>
+                    <div style="background:#fef2f2;padding:10px 14px;border-radius:8px;border:1px solid #fecaca;">
+                        <div style="font-size:10px;color:#ef4444;font-weight:600;text-transform:uppercase;">⏰ Hết Hạn TV</div>
+                        <div style="font-weight:700;color:#ef4444;">${endStr}</div>
+                    </div>
+                </div>
+                ${user.contract_file ? `
+                <div style="margin-bottom:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                    <div style="font-size:11px;color:#166534;font-weight:600;">📄 HĐ Thử Việc Hiện Tại</div>
+                    <a href="${user.contract_file}" target="_blank" style="color:#3b82f6;font-weight:600;font-size:13px;text-decoration:none;">Xem PDF ↗</a>
+                    <div style="font-size:10px;color:#6b7280;margin-top:4px;">ℹ️ HĐ thử việc sẽ được giữ lại sau khi ký HĐ mới.</div>
+                </div>
+                ` : ''}
+                <div style="border-top:1px solid #e5e7eb;padding-top:16px;">
+                    <label style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:8px;display:block;">
+                        📎 Upload Hợp Đồng Chính Thức (PDF) <span style="color:#ef4444;">*</span>
+                    </label>
+                    <input type="file" id="probContractFile" class="form-control" accept=".pdf" style="margin-bottom:8px;">
+                    <div style="font-size:11px;color:#6b7280;">
+                        ✅ HĐ mới sẽ thay thế làm HĐ chính thức.<br>
+                        ✅ Vai trò sẽ tự chuyển thành <strong style="color:#10b981;">Nhân Viên</strong>.<br>
+                        ✅ Tài khoản sẽ được mở khóa ngay lập tức.
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn" style="background:#7c3aed;color:white;" onclick="submitProbationUnlock(${userId})">✅ Ký HĐ & Chuyển NV</button>
+    `;
+    openModal('', bodyHTML, footerHTML);
+}
+
+async function submitProbationUnlock(userId) {
+    const fileInput = document.getElementById('probContractFile');
+    if (!fileInput || !fileInput.files[0]) {
+        showToast('Vui lòng upload Hợp Đồng chính thức (PDF)', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('contract_file', fileInput.files[0]);
+
+    try {
+        const res = await fetch(`/api/users/${userId}/unlock-probation`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeModal();
+            await loadAccounts();
+        } else {
+            showToast(data.error || 'Lỗi', 'error');
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
     }
 }

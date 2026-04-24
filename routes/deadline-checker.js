@@ -1613,8 +1613,84 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ [Nhắn Tìm ĐT CV Điểm] Error:', e.message);
     }
 
+    // ========== CHECK THỬ VIỆC HẾT HẠN ==========
+    try {
+        const { sendTelegramMessage } = require('../utils/telegram');
+
+        // 1. Cảnh báo 3 ngày trước hết hạn (gửi 1 lần duy nhất)
+        const warningUsers = await db.all(
+            `SELECT id, full_name, telegram_group_id, probation_end_date
+             FROM users
+             WHERE role = 'thu_viec' AND status = 'active'
+               AND probation_end_date IS NOT NULL
+               AND probation_end_date <= NOW() + INTERVAL '3 days'
+               AND probation_warned = false`
+        );
+
+        for (const wu of warningUsers) {
+            await db.run("UPDATE users SET probation_warned = true WHERE id = $1", [wu.id]);
+
+            const endDate = new Date(wu.probation_end_date);
+            const daysLeft = Math.max(0, Math.ceil((endDate - now) / 86400000));
+            const endStr = `${String(endDate.getDate()).padStart(2,'0')}/${String(endDate.getMonth()+1).padStart(2,'0')}/${endDate.getFullYear()}`;
+
+            const warnMsg = `⚠️ <b>CẢNH BÁO THỬ VIỆC SẮP HẾT HẠN</b>\n\n👤 NV: <b>${wu.full_name}</b>\n📅 Hết hạn: ${endStr}\n⏰ Còn: <b>${daysLeft} ngày</b>\n\nVui lòng chuẩn bị hợp đồng mới nếu muốn giữ NV.`;
+
+            // Gửi cho NV
+            if (wu.telegram_group_id) {
+                sendTelegramMessage(wu.telegram_group_id, warnMsg);
+            }
+
+            // Gửi cho tất cả GĐ + QLCC
+            const managers = await db.all(
+                "SELECT telegram_group_id FROM users WHERE role IN ('giam_doc','quan_ly_cap_cao') AND status = 'active' AND telegram_group_id IS NOT NULL"
+            );
+            for (const mgr of managers) {
+                sendTelegramMessage(mgr.telegram_group_id, warnMsg);
+            }
+
+            console.log(`  ⚠️ [THỬ VIỆC] Cảnh báo sắp hết hạn: ${wu.full_name} (còn ${daysLeft} ngày)`);
+        }
+
+        // 2. Auto-lock tài khoản đã hết hạn
+        const expiredUsers = await db.all(
+            `SELECT id, full_name, telegram_group_id, probation_end_date
+             FROM users
+             WHERE role = 'thu_viec' AND status = 'active'
+               AND probation_end_date IS NOT NULL
+               AND probation_end_date <= NOW()`
+        );
+
+        for (const eu of expiredUsers) {
+            await db.run("UPDATE users SET status = 'probation_locked', updated_at = NOW() WHERE id = $1", [eu.id]);
+
+            const endDate = new Date(eu.probation_end_date);
+            const endStr = `${String(endDate.getDate()).padStart(2,'0')}/${String(endDate.getMonth()+1).padStart(2,'0')}/${endDate.getFullYear()}`;
+
+            const lockMsg = `🔒 <b>TÀI KHOẢN THỬ VIỆC ĐÃ BỊ KHÓA</b>\n\n👤 NV: <b>${eu.full_name}</b>\n📅 Hết hạn: ${endStr}\n\n➡️ GĐ/QLCC vào Tài Khoản Nhân Viên → Upload HĐ mới để mở khóa.`;
+
+            // Gửi cho NV
+            if (eu.telegram_group_id) {
+                sendTelegramMessage(eu.telegram_group_id, lockMsg);
+            }
+
+            // Gửi cho tất cả GĐ + QLCC
+            const managers2 = await db.all(
+                "SELECT telegram_group_id FROM users WHERE role IN ('giam_doc','quan_ly_cap_cao') AND status = 'active' AND telegram_group_id IS NOT NULL"
+            );
+            for (const mgr of managers2) {
+                sendTelegramMessage(mgr.telegram_group_id, lockMsg);
+            }
+
+            penaltyCount++;
+            console.log(`  🔒 [THỬ VIỆC] Auto-locked: ${eu.full_name} (hết hạn ${endStr})`);
+        }
+    } catch(e) {
+        console.error('  ❌ [THỬ VIỆC] Error:', e.message);
+    }
+
     const elapsed = Date.now() - now.getTime();
-    console.log(`⏰ Deadline check hoàn thành sau ${elapsed}ms (${(elapsed/1000).toFixed(1)}s)`);
+    console.log(`⏰ Deadline check hoàn thành sau ${elapsed}ms (${(elapsed/1000).toFixed(1)}s`);
 }
 
 // ===== START CRON =====

@@ -157,7 +157,7 @@ function renderPermOrgTree() {
 
         if (!isCollapsed) {
             // Render head user FIRST (directly under department) with role badge
-            var ROLE_BADGES = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', hoa_hong: 'Hoa Hồng' };
+            var ROLE_BADGES = { giam_doc: 'Giám Đốc', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', hoa_hong: 'Hoa Hồng' };
             var headId = dept.head_user_id;
             var headUser = headId ? members.find(function(u) { return u.id === headId; }) : null;
             // Also check if head is not in members (e.g. department_id is null)

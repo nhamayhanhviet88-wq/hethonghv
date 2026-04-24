@@ -72,6 +72,17 @@ async function start() {
             UNIQUE(user_id, task_type, task_ref_id)
         )`);
     } catch(e) { /* exists */ }
+
+    // Migration: Probation (Thử Việc) — vai trò thử việc có thời hạn
+    try { await db.exec('ALTER TABLE users ADD COLUMN probation_end_date TIMESTAMP'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN probation_days INTEGER DEFAULT 30'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN probation_contract_file TEXT'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN probation_warned BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
+    // Seed 'thu_viec' role
+    try {
+        await db.run("INSERT INTO system_roles (name, slug, level) VALUES ('Thử Việc', 'thu_viec', 15) ON CONFLICT (slug) DO NOTHING");
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

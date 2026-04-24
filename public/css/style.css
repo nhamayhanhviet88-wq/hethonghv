@@ -446,6 +446,7 @@ body {
 .role-quan_ly { background: rgba(59,130,246,0.2); color: #93c5fd; }
 .role-truong_phong { background: rgba(16,185,129,0.2); color: #6ee7b7; }
 .role-nhan_vien { background: rgba(6,182,212,0.2); color: #67e8f9; }
+.role-thu_viec { background: rgba(139,92,246,0.2); color: #c4b5fd; }
 .role-part_time { background: rgba(163,230,53,0.15); color: #bef264; }
 .role-hoa_hong { background: rgba(245,158,11,0.2); color: #fcd34d; }
 
@@ -465,6 +466,7 @@ table .role-quan_ly_cap_cao { background: linear-gradient(135deg,#fff7ed,#fed7aa
 table .role-quan_ly        { background: #dbeafe; color: #1e40af; }
 table .role-truong_phong   { background: #d1fae5; color: #065f46; }
 table .role-nhan_vien      { background: #e0f2fe; color: #0c4a6e; }
+table .role-thu_viec       { background: #f3e8ff; color: #7c3aed; }
 table .role-part_time      { background: #ecfccb; color: #3f6212; }
 table .role-hoa_hong       { background: #ffedd5; color: #9a3412; }
 table .role-ctv            { background: #ede9fe; color: #5b21b6; }
@@ -487,6 +489,7 @@ table .role-tkaffiliate    { background: #fef3c7; color: #d97706; border: 1px so
 .role-quan_ly        { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #1e40af; border: 1px solid #93c5fd; }
 .role-truong_phong   { background: linear-gradient(135deg,#d1fae5,#a7f3d0); color: #065f46; border: 1px solid #6ee7b7; }
 .role-nhan_vien      { background: linear-gradient(135deg,#e0f2fe,#bae6fd); color: #0c4a6e; border: 1px solid #7dd3fc; }
+.role-thu_viec       { background: linear-gradient(135deg,#f3e8ff,#e9d5ff); color: #7c3aed; border: 1px solid #c4b5fd; }
 .role-part_time      { background: linear-gradient(135deg,#ecfccb,#d9f99d); color: #3f6212; border: 1px solid #bef264; }
 .role-hoa_hong       { background: linear-gradient(135deg,#ffedd5,#fed7aa); color: #9a3412; border: 1px solid #fdba74; }
 .role-ctv            { background: linear-gradient(135deg,#ede9fe,#ddd6fe); color: #5b21b6; border: 1px solid #c4b5fd; }
@@ -647,6 +650,7 @@ tbody tr:last-child td {
 .badge-resigned { background: var(--danger-bg); color: var(--danger); }
 .badge-pending { background: var(--warning-bg); color: var(--warning); }
 .badge-info { background: var(--info-bg); color: var(--info); }
+.badge-probation_locked { background: #fef3c7; color: #b45309; }
 
 /* Order status badges */
 .status-consulting { background: rgba(156,163,175,0.15); color: #6b7280; }

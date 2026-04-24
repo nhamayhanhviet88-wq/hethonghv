@@ -1,5 +1,5 @@
 // ========== HỆ THỐNG CHUYỂN SỐ ==========
-const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', part_time: 'Part Time', hoa_hong: 'Hoa Hồng', tkaffiliate: 'TK Affiliate' };
+const ROLE_LABELS_CSO = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time', hoa_hong: 'Hoa Hồng', tkaffiliate: 'TK Affiliate' };
 
 async function renderChuyenSoPage(container) {
     // Load dropdowns + departments + allowed depts config

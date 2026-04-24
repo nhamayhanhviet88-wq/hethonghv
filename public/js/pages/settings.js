@@ -502,7 +502,7 @@ async function loadRolesPositionsSettings() {
     const roles = data.roles || [];
     const positions = data.positions || [];
 
-    const CORE_ROLES = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','part_time'];
+    const CORE_ROLES = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'];
 
     el.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">

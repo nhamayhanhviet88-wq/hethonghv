@@ -24,6 +24,20 @@ async function authRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Tài khoản đã bị vô hiệu hóa' });
         }
 
+        // Nếu TK thử việc bị khóa (hết hạn) → CHẶN, không tự mở khóa
+        if (user.status === 'probation_locked') {
+            return reply.code(403).send({ error: 'Tài khoản thử việc đã hết hạn. Vui lòng liên hệ Giám Đốc hoặc Quản Lý Cấp Cao để ký hợp đồng mới.' });
+        }
+
+        // Double-check: Nếu thu_viec + active + quá hạn → khóa ngay tại login
+        if (user.role === 'thu_viec' && user.status === 'active') {
+            const probRow = await db.get('SELECT probation_end_date FROM users WHERE id = ?', [user.id]);
+            if (probRow && probRow.probation_end_date && new Date(probRow.probation_end_date) <= new Date()) {
+                await db.run("UPDATE users SET status = 'probation_locked' WHERE id = $1", [user.id]);
+                return reply.code(403).send({ error: 'Tài khoản thử việc đã hết hạn. Vui lòng liên hệ Giám Đốc hoặc Quản Lý Cấp Cao để ký hợp đồng mới.' });
+            }
+        }
+
         // Nếu TK bị locked (từ dữ liệu cũ) → tự mở khóa, cho login bình thường
         // Popup thông báo phạt sẽ hiện sau khi login (xử lý trong app.js)
         if (user.status === 'locked') {
