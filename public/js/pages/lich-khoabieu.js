@@ -4903,9 +4903,15 @@ async function _kbShowForceApprovalSetup(userId, userName) {
         // Get lock tasks for user
         let lockTasks = [];
         try {
-            const ltData = await apiCall(`/api/lock-tasks?user_id=${uid}`);
-            lockTasks = ltData.tasks || ltData.lockTasks || [];
-        } catch(e) {}
+            const ltData = await apiCall(`/api/lock-tasks/user/${uid}`);
+            // Deduplicate lock tasks by task_name
+            const lockMap = {};
+            (ltData.tasks || []).forEach(t => {
+                if (!t.task_name || lockMap[t.task_name]) return;
+                lockMap[t.task_name] = t;
+            });
+            lockTasks = Object.values(lockMap);
+        } catch(e) { console.log('Lock tasks error:', e); }
 
         // Get chain items for user
         let chainItems = [];
