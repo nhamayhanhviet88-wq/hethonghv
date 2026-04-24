@@ -196,11 +196,28 @@ async function renderBanGiaoDiemPage(container) {
         </div>
     </div>`;
 
+    // ===== AUTO-SELECT from query params (from "Xem" button in approval panel) =====
+    const _tpUrlParams = new URLSearchParams(window.location.search);
+    const _tpAutoUserId = _tpUrlParams.get('sel_user') ? Number(_tpUrlParams.get('sel_user')) : null;
+    const _tpAutoDate = _tpUrlParams.get('sel_date');
+    if (_tpAutoUserId || _tpAutoDate) {
+        // Navigate to correct week if date specified
+        if (_tpAutoDate) {
+            const d = new Date(_tpAutoDate + 'T00:00:00');
+            const day = d.getDay();
+            const mon = new Date(d);
+            mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+            _tpCurrentWeekStart = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate());
+        }
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
     // Auto-select (restore from localStorage or default to first dept)
     if (activeDepts.length > 0) {
         // Load members for ALL active depts in parallel instead of sequential
         await Promise.all(activeDepts.map(dept => _tpLoadDeptMembers(dept.id)));
-        const saved = _tpGetSavedSelection();
+        const saved = _tpAutoUserId ? { type: 'member', userId: _tpAutoUserId } : _tpGetSavedSelection();
         if (saved && saved.type === 'member' && saved.userId) {
             // Find which dept this member belongs to
             const memberEl = document.querySelector(`.tp-member-item[data-uid="${saved.userId}"]`);

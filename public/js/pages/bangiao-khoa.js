@@ -15,6 +15,14 @@ let _lkIsParentDept = false; // true if selected dept is a PHÒNG (not sub-team)
 let _lkIsSystemDept = false; // true if selected dept is HỆ THỐNG
 
 async function renderBanGiaoKhoaPage(container) {
+    // ===== AUTO-SELECT from query params =====
+    const _lkUrlParams = new URLSearchParams(window.location.search);
+    window._lkAutoUserId = _lkUrlParams.get('sel_user') ? Number(_lkUrlParams.get('sel_user')) : null;
+    window._lkAutoDate = _lkUrlParams.get('sel_date') || null;
+    if (window._lkAutoUserId || window._lkAutoDate) {
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
     const isManager = ['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(currentUser.role);
 
     // Load departments + members using same data source as Lịch Khóa Biểu
@@ -633,6 +641,26 @@ function _lkSaveState() {
 }
 
 function _lkRestoreState() {
+    // ===== Check URL params first (from "Xem" button in approval panel) =====
+    if (window._lkAutoUserId) {
+        _lkSelectedUserId = window._lkAutoUserId;
+        _lkUserName = '';
+        setTimeout(() => {
+            const el = document.querySelector(`.lk-user-item[data-user-id="${window._lkAutoUserId}"]`);
+            if (el) {
+                el.classList.add('lk-selected');
+                el.style.background = '#eff6ff';
+                el.style.color = '#1e40af';
+                el.style.fontWeight = '700';
+                el.style.borderLeft = '3px solid #2563eb';
+                el.scrollIntoView({ block: 'center', behavior: 'instant' });
+                _lkUserName = el.dataset.name || '';
+            }
+            _lkLoadUserTasks(window._lkAutoUserId, _lkUserName);
+            window._lkAutoUserId = null; // Clear
+        }, 300);
+        return; // Skip normal restore
+    }
     try {
         const raw = sessionStorage.getItem('_lk_state');
         if (!raw) return;

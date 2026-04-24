@@ -22,7 +22,53 @@ let _kbViewUserName = ''; // Name of user currently being viewed
 let _kbForceApproval = false; // Force approval flag for viewed user
 let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed user
 let _kbForceLockIds = new Set(); // Set of lock_task_ids forced for viewed user
-let _kbForceChainIds = new Set(); // Set of chain_item_ids forced for viewed user
+let _kbForceChainIds = new Set();
+
+// ========== SMART NAVIGATION — "Xem" button routes to correct page ==========
+const _KB_TASK_ROUTE_MAP = {
+    'add/cmt đối tác': '/addcmtdoitackh',
+    'đăng video': '/dangvideo',
+    'đăng content': '/dangcontent',
+    'đăng & tìm kh group': '/danggruop',
+    'đăng tìm kh group': '/danggruop',
+    'sedding cộng đồng': '/seddingcongdong',
+    'đăng bản thân': '/dangbanthansp',
+    'tuyển dụng sv': '/tuyendungsvkd',
+    'tìm gr zalo': '/timgrzalovathongke',
+};
+
+function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
+    // Determine route based on task name
+    const nameLower = (taskName || '').toLowerCase();
+    let targetRoute = null;
+    
+    // Check if task has a dedicated dailylinks page
+    for (const [pattern, route] of Object.entries(_KB_TASK_ROUTE_MAP)) {
+        if (nameLower.includes(pattern)) {
+            targetRoute = route;
+            break;
+        }
+    }
+    
+    if (targetRoute) {
+        // Has dedicated page → navigate there with user + date
+        const url = targetRoute + '?sel_user=' + userId + '&sel_date=' + reportDate;
+        window.open(url, '_blank');
+    } else if (taskType === 'lock') {
+        // CV Khóa → go to Bàn Giao CV Khóa
+        const url = '/bangiao-khoa?sel_user=' + userId + '&sel_date=' + reportDate + (taskRefId ? '&lock_task_id=' + taskRefId : '');
+        window.open(url, '_blank');
+    } else if (taskType === 'chain') {
+        // CV Chuỗi → go to Bàn Giao CV Khóa (chain tab)
+        const url = '/bangiao-khoa?sel_user=' + userId + '&sel_date=' + reportDate + (taskRefId ? '&chain_item_id=' + taskRefId : '');
+        window.open(url, '_blank');
+    } else {
+        // CV Điểm without dedicated page → go to Bàn Giao CV Điểm
+        const url = '/bangiao-diem-kd?sel_user=' + userId + '&sel_date=' + reportDate;
+        window.open(url, '_blank');
+    }
+}
+ // Set of chain_item_ids forced for viewed user
 const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
 const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
 const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
@@ -2423,27 +2469,8 @@ async function _kbLoadApprovalPanel() {
             const countBadge = count > 1 ? `<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:800;margin-left:6px;">${count}/${g.min_quantity}</span>` : '';
             const idsJson = JSON.stringify(g.ids).replace(/"/g, '&quot;');
 
-            let viewBtn = '';
-            if (g.guide_url && g.guide_url.includes('/')) {
-                try {
-                    const url = new URL(g.guide_url, window.location.origin);
-                    const viewPath = url.pathname;
-                    viewBtn = `<span onclick="window.open('${viewPath}?view_user_id=${g.user_id}&view_date=${g.report_date}', '_blank')" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết (tab mới)">👁️ Xem</span>`;
-                } catch(e) { viewBtn = ''; }
-            }
-            if (!viewBtn) {
-                const rData = JSON.stringify({
-                    template_id: g.template_id, task_name: g.task_name, status: 'pending',
-                    points_earned: 0, quantity: count, min_quantity: g.min_quantity,
-                    report_value: g.reports.map(r => r.report_value).filter(Boolean).join(', '),
-                    report_image: g.reports[0]?.report_image || '',
-                    report_date: g.report_date, content: g.reports.map(r => r.content).filter(Boolean).join('\n'),
-                    reject_reason: '', redo_count: 0, redo_deadline: '',
-                    guide_url: g.guide_url, user_id: g.user_id,
-                    input_requirements: g.input_requirements, output_requirements: g.output_requirements
-                }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                viewBtn = `<span onclick="_kbViewApprovalReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem báo cáo">📋 Xem</span>`;
-            }
+            const taskNameEsc = (g.task_name||'').replace(/'/g, "\\'");
+            const viewBtn = `<span onclick="_kbSmartViewTask('${taskNameEsc}', ${g.user_id}, '${g.report_date}', 'schedule', ${g.template_id})" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết">👁️ Xem</span>`;
 
             rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${g.user_name}</td>
@@ -2479,7 +2506,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbViewLockApprovalReport(${r.lock_task_id}, ${r.user_id}, '${r.completion_date}')" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
+                    <span onclick="_kbSmartViewTask('${(r.task_name||'').replace(/'/g, "\\'")}', ${r.user_id}, '${r.completion_date}', 'lock', ${r.lock_task_id})" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">
@@ -2514,7 +2541,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${deadlineFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">🔗</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbViewChainReport(this)" data-report="${rData}" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px;" title="Xem báo cáo">📋</span>
+                    <span onclick="_kbSmartViewTask('${(r.task_name||'').replace(/'/g, "\\'")}', ${r.user_id}, '${r.deadline || r.completion_date || ''}', 'chain', ${r.chain_item_id})" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">

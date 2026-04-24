@@ -89,6 +89,27 @@ function _dlInit() {
     _dl.mod = cfg;
     _dl.imageData = null;
     _dlRestoreState();
+    // ===== AUTO-SELECT from query params (from "Xem" button in approval panel) =====
+    const _dlUrlParams = new URLSearchParams(window.location.search);
+    if (_dlUrlParams.get('sel_user')) {
+        _dl.selUser = Number(_dlUrlParams.get('sel_user'));
+        _dl.selDept = null;
+        console.log('[DailyLinks] Auto-select user from URL:', _dl.selUser);
+    }
+    if (_dlUrlParams.get('sel_date')) {
+        const selDate = _dlUrlParams.get('sel_date');
+        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+        if (selDate === today) {
+            _dlDatePreset = 'today';
+        } else {
+            _dlDatePreset = 'custom';
+            _dlDateFrom = selDate;
+            _dlDateTo = selDate;
+        }
+        console.log('[DailyLinks] Auto-select date from URL:', selDate);
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+    }
     document.getElementById('pageTitle').textContent = cfg.label;
 
     // === ZALO GROUP FINDER: completely custom UI ===
