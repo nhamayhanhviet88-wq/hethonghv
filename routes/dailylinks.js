@@ -622,10 +622,16 @@ module.exports = async function (fastify) {
             }
         }
 
-        // Check report status (pending/approved)
+        // Check report status (pending/approved) - search by task name pattern since template_id may differ per day_of_week
         let reportStatus = null;
-        if (tpl && tpl.id) {
-            const rpt = await db.get("SELECT status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3 ORDER BY redo_count DESC LIMIT 1", [tpl.id, uid, date]);
+        if (pattern) {
+            const rpt = await db.get(
+                `SELECT r.status FROM task_point_reports r
+                 JOIN task_point_templates t ON r.template_id = t.id
+                 WHERE r.user_id = $1 AND r.report_date = $2 AND t.task_name ILIKE $3
+                 ORDER BY r.redo_count DESC LIMIT 1`,
+                [uid, date, pattern]
+            );
             if (rpt) reportStatus = rpt.status;
         }
 
