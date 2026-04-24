@@ -1065,6 +1065,7 @@ async function _kbLoadSchedule() {
     _kbInjectSeddingStats();
     _kbInjectZaloStats();
     _kbInjectDangBTStats();
+    _kbInjectFeedbackBadges();
 }
 
 function _kbChangeWeek(offset) {
@@ -1446,6 +1447,7 @@ function _kbRenderGrid() {
 
                             ${isSelf && dateStr === todayStr && !report && !_kbSupportRequests[`${reportTemplateId}_${dateStr}`] ? `<button onclick="_kbSendSupportRequest(${reportTemplateId},'${dateStr}','${(task.task_name||'').replace(/'/g,"\\\\\\\\'")}')" style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;line-height:1;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 6px rgba(217,119,6,0.3);" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 10px rgba(217,119,6,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 6px rgba(217,119,6,0.3)'">🆘 Sếp HT</button>` : ''}
                             ${actionBtn}
+                            <div data-fb-task="${task.task_name}" data-fb-date="${dateStr}" data-fb-uid="${_kbViewUserId || currentUser.id}"></div>
                         </div>
                         ${ssPlaceholder}
                         ${tsPlaceholder}
@@ -1713,6 +1715,7 @@ function _kbRenderGrid() {
 
                         <div style="margin-top:6px;">${lockStatusBadge}</div>${lockForceBadge}
                         ${actionHtml}
+                        <div data-fb-task="${lt.task_name}" data-fb-date="${dateStr}" data-fb-uid="${_kbViewUserId || currentUser.id}"></div>
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
@@ -5423,4 +5426,104 @@ async function _kbCheckForceApprovalNotification() {
         // Auto-dismiss after 30s
         setTimeout(() => { if (notif.parentNode) notif.remove(); }, 30000);
     } catch(e) { /* silent */ }
+}
+
+// ========== INJECT FEEDBACK BADGES (Gop Y on schedule cards) ==========
+async function _kbInjectFeedbackBadges() {
+    const els = document.querySelectorAll('[data-fb-task]');
+    if (els.length === 0) return;
+
+    // Collect unique user+date combos
+    const combos = new Set();
+    els.forEach(el => {
+        const uid = el.dataset.fbUid;
+        const date = el.dataset.fbDate;
+        if (uid && date) combos.add(uid + '_' + date);
+    });
+
+    // Fetch feedbacks for each combo
+    const feedbackMap = {}; // key: taskName_date => array of feedbacks
+    for (const combo of combos) {
+        const [uid, date] = combo.split('_');
+        try {
+            const res = await apiCall('/api/notifications/task-feedbacks?user_id=' + uid + '&date=' + date);
+            if (res.feedbacks && res.feedbacks.length > 0) {
+                res.feedbacks.forEach(fb => {
+                    const key = (fb.ref_task_name || '') + '_' + (fb.ref_date || '');
+                    if (!feedbackMap[key]) feedbackMap[key] = [];
+                    feedbackMap[key].push(fb);
+                });
+            }
+        } catch(e) {}
+    }
+
+    // Inject badges into placeholders
+    els.forEach(el => {
+        const taskName = el.dataset.fbTask;
+        const date = el.dataset.fbDate;
+        const key = taskName + '_' + date;
+        const fbs = feedbackMap[key];
+        if (!fbs || fbs.length === 0) return;
+
+        const latest = fbs[0]; // most recent
+        const contentPreview = (latest.content || '').length > 30 ? latest.content.substring(0, 30) + '...' : latest.content;
+        const fbData = JSON.stringify(fbs).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+        el.innerHTML = '<div style="margin-top:4px;text-align:center;">' +
+            '<button onclick="_kbShowFeedbackDetail(&quot;' + taskName.replace(/"/g, '&quot;') + '&quot;, &quot;' + date + '&quot;)" ' +
+            'style="padding:3px 10px;font-size:10px;border:none;border-radius:5px;' +
+            'background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;' +
+            'box-shadow:0 2px 6px rgba(217,119,6,0.3);display:inline-flex;align-items:center;gap:3px;' +
+            'animation:_kbPulse 2s infinite;">' +
+            '\uD83D\uDCAC G\u00F3p \u00FD' +
+            '</button></div>';
+    });
+}
+
+// ========== SHOW FEEDBACK DETAIL POPUP ==========
+async function _kbShowFeedbackDetail(taskName, date) {
+    try {
+        const uid = _kbViewUserId || (typeof currentUser !== 'undefined' ? currentUser.id : null);
+        const res = await apiCall('/api/notifications/task-feedbacks?user_id=' + uid + '&date=' + date);
+        const fbs = (res.feedbacks || []).filter(f => f.ref_task_name === taskName);
+        if (fbs.length === 0) { showToast('\u274C Kh\u00F4ng t\u00ECm th\u1EA5y g\u00F3p \u00FD'); return; }
+
+        let modal = document.getElementById('kbFbDetailModal');
+        if (modal) modal.remove();
+        modal = document.createElement('div');
+        modal.id = 'kbFbDetailModal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+        const dateF = date ? date.split('-').reverse().join('/') : '';
+        let items = '';
+        fbs.forEach((fb, i) => {
+            const time = fb.created_at ? new Date(fb.created_at).toLocaleString('vi-VN') : '';
+            items += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:8px;">' +
+                '<div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:4px;">\uD83D\uDCAC G\u00F3p \u00FD ' + (i+1) + '</div>' +
+                '<div style="font-size:12px;color:#78350f;margin-bottom:6px;line-height:1.5;white-space:pre-wrap;">' + (fb.content || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+                '<div style="font-size:10px;color:#9ca3af;">\uD83D\uDC64 ' + (fb.sender_name || 'Qu\u1EA3n l\u00FD') + ' \u00B7 ' + time + '</div>' +
+            '</div>';
+        });
+
+        modal.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;width:450px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);border-top:4px solid #f59e0b;">' +
+            '<div style="text-align:center;margin-bottom:16px;">' +
+                '<div style="font-size:28px;margin-bottom:8px;">\uD83D\uDCAC</div>' +
+                '<div style="font-size:16px;font-weight:800;color:#92400e;">G\u00F3p \u00FD c\u00F4ng vi\u1EC7c</div>' +
+                '<div style="font-size:13px;color:#6b7280;margin-top:4px;">' + taskName + (dateF ? ' (' + dateF + ')' : '') + '</div>' +
+            '</div>' +
+            items +
+            '<div style="text-align:center;margin-top:16px;">' +
+                '<button onclick="document.getElementById(\'kbFbDetailModal\').remove()" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(245,158,11,0.3);">\u0110\u00E3 hi\u1EC3u \u2713</button>' +
+            '</div>' +
+        '</div>';
+
+        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+        document.body.appendChild(modal);
+
+        // Mark feedbacks as read
+        fbs.forEach(fb => {
+            if (!fb.is_read) apiCall('/api/notifications/' + fb.id + '/read', 'PUT').catch(function(){});
+        });
+        if (typeof _notifCheckUnread === 'function') _notifCheckUnread();
+    } catch(e) { console.error('Feedback detail error:', e); }
 }
