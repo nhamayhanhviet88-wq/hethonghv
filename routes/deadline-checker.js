@@ -1208,11 +1208,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             // PROTECTED: only update quantity, NOT status
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
+                            const s11 = needsApproval11 ? 'pending' : 'approved';
+                            const p11 = needsApproval11 ? 0 : tmplEarned;
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                                 status = 'approved'
-                                 WHERE id = $3`,
-                                [tmplQty, tmplEarned, existing.id]
+                                 status = $3
+                                 WHERE id = $4`,
+                                [tmplQty, p11, s11, existing.id]
                             );
                         }
                     } else {
@@ -1304,11 +1306,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         if (existing.status === 'pending') {
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
+                            const s12 = needsApproval12 ? 'pending' : 'approved';
+                            const p12 = needsApproval12 ? 0 : tmplEarned;
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                                 status = 'approved'
-                                 WHERE id = $3`,
-                                [tmplQty, tmplEarned, existing.id]
+                                 status = $3
+                                 WHERE id = $4`,
+                                [tmplQty, p12, s12, existing.id]
                             );
                         }
                     } else {
@@ -1432,7 +1436,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             // PROTECTED: only update quantity, NOT status
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
-                            const newStatus13 = needsApproval13 ? existing.status : 'approved';
+                            const newStatus13 = needsApproval13 ? 'pending' : 'approved';
                             const newPts13 = needsApproval13 ? 0 : tmplEarned;
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
@@ -1537,7 +1541,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         if (existing.status === 'pending') {
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
-                            const newStatus14 = needsApproval14 ? existing.status : 'approved';
+                            const newStatus14 = needsApproval14 ? 'pending' : 'approved';
                             const newPts14 = needsApproval14 ? 0 : tmplEarned;
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, points_earned = $2,

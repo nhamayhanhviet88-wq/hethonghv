@@ -353,21 +353,31 @@ async function taskScheduleRoutes(fastify, options) {
                 const tmplQty = Math.min(entryCount, tmplTarget);
 
                 try {
-                    const existing = await db.get("SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
+                    // Check force_approval
+                    const _faBf1 = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                    const _ftBf1 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'schedule', tpl.id]);
+                    const needsBf1 = tpl.requires_approval || _faBf1?.force_approval || !!_ftBf1;
+
+                    const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
                     if (existing) {
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                             updated_at = NOW() WHERE id = $5`,
-                            [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
-                        );
+                        if (existing.status === 'pending') {
+                            await db.run(`UPDATE task_point_reports SET quantity = $1, updated_at = NOW() WHERE id = $2`, [tmplQty, existing.id]);
+                        } else {
+                            const sBf1 = needsBf1 ? 'pending' : 'approved';
+                            const pBf1 = needsBf1 ? 0 : tmplEarned;
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2, status = $3, updated_at = NOW() WHERE id = $4`,
+                                [tmplQty, pBf1, sBf1, existing.id]
+                            );
+                        }
                         updated++;
                     } else {
-                        const status = 'approved';
+                        const status = needsBf1 ? 'pending' : 'approved';
+                        const earnedBf1 = needsBf1 ? 0 : tmplEarned;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} ${moduleType}`, 'link', `${entryCount}/${tmplTarget}`]
+                            [tpl.id, uid, dateStr, tmplQty, earnedBf1, status, `[Backfill] ${entryCount}/${tmplTarget} ${moduleType}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                         created++;
                     }
@@ -414,21 +424,31 @@ async function taskScheduleRoutes(fastify, options) {
                     const tmplQty = Math.min(entryCount, tmplTarget);
 
                     try {
-                        const existing = await db.get("SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
+                        // Check force_approval
+                        const _faBf2 = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                        const _ftBf2 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'schedule', tpl.id]);
+                        const needsBf2 = tpl.requires_approval || _faBf2?.force_approval || !!_ftBf2;
+
+                        const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, dateStr]);
                         if (existing) {
-                            await db.run(
-                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                                 status = CASE WHEN $3 >= $4 THEN 'approved' ELSE status END,
-                                 updated_at = NOW() WHERE id = $5`,
-                                [tmplQty, tmplEarned, entryCount, tmplTarget, existing.id]
-                            );
+                            if (existing.status === 'pending') {
+                                await db.run(`UPDATE task_point_reports SET quantity = $1, updated_at = NOW() WHERE id = $2`, [tmplQty, existing.id]);
+                            } else {
+                                const sBf2 = needsBf2 ? 'pending' : 'approved';
+                                const pBf2 = needsBf2 ? 0 : tmplEarned;
+                                await db.run(
+                                    `UPDATE task_point_reports SET quantity = $1, points_earned = $2, status = $3, updated_at = NOW() WHERE id = $4`,
+                                    [tmplQty, pBf2, sBf2, existing.id]
+                                );
+                            }
                             updated++;
                         } else {
-                            const status = 'approved';
+                            const status = needsBf2 ? 'pending' : 'approved';
+                            const earnedBf2 = needsBf2 ? 0 : tmplEarned;
                             await db.run(
                                 `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                                [tpl.id, uid, dateStr, tmplQty, tmplEarned, status, `[Backfill] ${entryCount}/${tmplTarget} nhắn tin ĐT`, 'link', `${entryCount}/${tmplTarget}`]
+                                [tpl.id, uid, dateStr, tmplQty, earnedBf2, status, `[Backfill] ${entryCount}/${tmplTarget} nhắn tin đối tác`, 'link', `${entryCount}/${tmplTarget}`]
                             );
                             created++;
                         }
