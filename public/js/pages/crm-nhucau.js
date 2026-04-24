@@ -869,13 +869,25 @@ async function loadCrmNhuCauData() {
             
             // 6. Compute correct page and render
             const idxInFiltered = filtered.findIndex(c => c.id === tid);
+            console.log('[TKKH-NAV] targetCat:', targetCat, 'tabCat:', tabCat, 'filteredLen:', filtered.length, 'idxInFiltered:', idxInFiltered, 'page:', idxInFiltered >= 0 ? Math.floor(idxInFiltered / _crmPageSize) + 1 : '?', 'tid:', tid);
             if (idxInFiltered >= 0) {
                 _crmCurrentPage = Math.floor(idxInFiltered / _crmPageSize) + 1;
             }
             _crmRenderFilteredTable();
             
-            // 7. Scroll to and highlight the target row
-            setTimeout(() => _tkkhScrollToRow(tid), 300);
+            // 7. Scroll to and highlight the target row (with retry for slow DOM)
+            const _tryScroll = (attempts) => {
+                const row = document.querySelector('tr[data-customer-id="' + tid + '"]');
+                if (row) {
+                    _tkkhScrollToRow(tid);
+                } else if (attempts > 0) {
+                    setTimeout(() => _tryScroll(attempts - 1), 300);
+                } else {
+                    console.warn('[TKKH-NAV] Row not found after retries. tid:', tid, 'activeCat:', _crmActiveCat, 'page:', _crmCurrentPage);
+                    showToast('🔍 Khách hàng đã được tìm thấy nhưng không nằm trong trang hiện tại', 'info');
+                }
+            };
+            setTimeout(() => _tryScroll(3), 300);
         } else {
             showToast('🔍 Khách hàng không tìm thấy trong danh sách CRM này', 'info');
         }
