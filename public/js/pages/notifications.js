@@ -63,13 +63,16 @@ async function _notifShowPanel() {
         if (notifications.length === 0) {
             itemsHtml = '<div style="text-align:center;padding:40px 20px;color:#9ca3af;"><div style="font-size:40px;margin-bottom:12px;">🔔</div><div style="font-size:14px;font-weight:600;">Chưa có thông báo nào</div></div>';
         } else {
-            notifications.forEach(n => {
+            notifications.forEach((n, _ni) => {
                 const isUnread = !n.is_read;
                 const timeAgo = _notifTimeAgo(n.created_at);
                 const icon = n.type === 'feedback' ? '💬' : '📢';
                 const dateStr = n.ref_date ? ` (${n.ref_date.split('-').reverse().join('/')})` : '';
+                // Store notification data globally for click handler
+                window._notifItems = window._notifItems || {};
+                window._notifItems[n.id] = n;
 
-                itemsHtml += `<div onclick="_notifRead(${n.id}, this)" style="padding:14px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .15s;${isUnread ? 'background:#fffbeb;' : ''}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isUnread ? '#fffbeb' : 'white'}'">
+                itemsHtml += `<div onclick="_notifShowDetail(${n.id})" style="padding:14px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .15s;${isUnread ? 'background:#fffbeb;' : ''}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isUnread ? '#fffbeb' : 'white'}'">
                     <div style="display:flex;align-items:flex-start;gap:10px;">
                         <div style="font-size:22px;flex-shrink:0;margin-top:2px;">${icon}</div>
                         <div style="flex:1;min-width:0;">
@@ -115,6 +118,50 @@ function _notifOutsideClick(e) {
         _notifPanel = null;
         document.removeEventListener('click', _notifOutsideClick);
     }
+}
+
+// ==================== SHOW NOTIFICATION DETAIL POPUP ====================
+function _notifShowDetail(id) {
+    const n = (window._notifItems || {})[id];
+    if (!n) return;
+
+    // Mark as read
+    apiCall(`/api/notifications/${id}/read`, 'PUT').catch(() => {});
+    _notifCheckUnread();
+
+    // Close panel
+    if (_notifPanel) { _notifPanel.remove(); _notifPanel = null; }
+
+    // Build popup
+    const dateF = n.ref_date ? n.ref_date.split('-').reverse().join('/') : '';
+    const time = n.created_at ? new Date(n.created_at).toLocaleString('vi-VN') : '';
+    const icon = n.type === 'feedback' ? '💬' : '📢';
+
+    let modal = document.getElementById('notifDetailModal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'notifDetailModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:24px;width:450px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);border-top:4px solid #f59e0b;">
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:36px;margin-bottom:8px;">${icon}</div>
+            <div style="font-size:16px;font-weight:800;color:#92400e;">${n.type === 'feedback' ? 'GÓP Ý TỪ QUẢN LÝ' : 'THÔNG BÁO'}</div>
+        </div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:8px;">${_notifEscapeHtml(n.ref_task_name || 'Công việc')} ${dateF ? '(' + dateF + ')' : ''}</div>
+            <div style="font-size:13px;color:#78350f;line-height:1.6;white-space:pre-wrap;background:white;border-radius:8px;padding:12px;border:1px solid #fde68a;">${_notifEscapeHtml(n.content || '')}</div>
+            <div style="margin-top:10px;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between;">
+                <span>👤 ${_notifEscapeHtml(n.sender_name || 'Quản lý')}</span>
+                <span>🕐 ${time}</span>
+            </div>
+        </div>
+        <div style="text-align:center;">
+            <button onclick="document.getElementById('notifDetailModal').remove()" style="padding:10px 28px;font-size:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(245,158,11,0.3);">Đã hiểu ✓</button>
+        </div>
+    </div>`;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
 }
 
 // ==================== MARK AS READ ====================
