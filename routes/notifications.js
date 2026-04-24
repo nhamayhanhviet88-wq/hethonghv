@@ -1,5 +1,6 @@
 'use strict';
 const db = require('../db/pool');
+const { authenticate } = require('../middleware/auth');
 
 module.exports = async function(fastify) {
     // ==================== INIT TABLE ====================
@@ -20,7 +21,7 @@ module.exports = async function(fastify) {
     } catch(e) { /* exists */ }
 
     // ==================== SEND FEEDBACK (Manager → Employee) ====================
-    fastify.post('/api/notifications/feedback', async (request, reply) => {
+    fastify.post('/api/notifications/feedback', { preHandler: [authenticate] }, async (request, reply) => {
         const mgr = request.user;
         if (!mgr || !['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(mgr.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
@@ -51,9 +52,8 @@ module.exports = async function(fastify) {
     });
 
     // ==================== GET MY NOTIFICATIONS ====================
-    fastify.get('/api/notifications/my', async (request, reply) => {
+    fastify.get('/api/notifications/my', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
 
         const notifications = await db.all(
             `SELECT n.*, u.full_name as sender_name
@@ -74,9 +74,8 @@ module.exports = async function(fastify) {
     });
 
     // ==================== GET UNREAD COUNT ====================
-    fastify.get('/api/notifications/unread-count', async (request, reply) => {
+    fastify.get('/api/notifications/unread-count', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
 
         const result = await db.get(
             'SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND is_read = false',
@@ -87,9 +86,8 @@ module.exports = async function(fastify) {
     });
 
     // ==================== MARK AS READ ====================
-    fastify.put('/api/notifications/:id/read', async (request, reply) => {
+    fastify.put('/api/notifications/:id/read', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
 
         await db.run(
             'UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2',
@@ -100,9 +98,8 @@ module.exports = async function(fastify) {
     });
 
     // ==================== MARK ALL AS READ ====================
-    fastify.put('/api/notifications/read-all', async (request, reply) => {
+    fastify.put('/api/notifications/read-all', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
 
         await db.run(
             'UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false',
@@ -113,9 +110,8 @@ module.exports = async function(fastify) {
     });
 
     // ==================== GET FEEDBACKS FOR A TASK (for schedule card badge) ====================
-    fastify.get('/api/notifications/task-feedbacks', async (request, reply) => {
+    fastify.get('/api/notifications/task-feedbacks', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
 
         const { user_id, date } = request.query;
         const targetUserId = user_id || user.id;
