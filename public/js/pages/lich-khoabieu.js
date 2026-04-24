@@ -1436,11 +1436,11 @@ function _kbRenderGrid() {
 
                 // Check if this is a "Sedding" task
                 const isSedding = /sedding/i.test(task.task_name);
-                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : '';
 
                 // Check if this is a "Tìm Gr Zalo" task
                 const isZalo = /tìm.*gr.*zalo/i.test(task.task_name);
-                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
@@ -1727,9 +1727,9 @@ function _kbRenderGrid() {
                         ${actionHtml}
                         <div data-fb-task="${lt.task_name}" data-fb-date="${dateStr}" data-fb-uid="${_kbViewUserId || currentUser.id}"></div>
                         <div style="margin-top:6px;">${lockStatusBadge}</div>${lockForceBadge}
-                        ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
-                        ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
-                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : ''}
+                        ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : ''}
+                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" data-lock-approved="${realComp && realComp.status === 'approved' ? '1' : '0'}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -4627,7 +4627,7 @@ function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved' || el.dataset.lockApproved === '1'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4721,7 +4721,7 @@ function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved' || el.dataset.lockApproved === '1'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4815,7 +4815,7 @@ function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const lockApproved = res.lock_status === 'approved' || el.dataset.lockApproved === '1'; const isPending = !lockApproved && ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
