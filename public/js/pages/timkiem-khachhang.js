@@ -27,7 +27,7 @@ async function renderTimKiemKhachHang(container) {
 // Map crm_type → page ID for navigate()
 const _TKKH_CRM_PAGE = {
     nhu_cau: 'crm-nhu-cau',
-    ctv_hoa_hong: 'crm-ctv',
+    ctv_hoa_hong: 'cham-soc-affiliate',
     ctv: 'crm-ctv',
     koc_tiktok: 'cham-soc-koc-kol'
 };
@@ -100,7 +100,7 @@ function _tkkhRenderResults(data, query) {
         </div>
     </div>`;
 
-    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc CTV', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
+    const CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv_hoa_hong:'Chăm Sóc Affiliate', ctv:'Chăm Sóc CTV', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
 
     // CRM Results
     if (crm.length > 0) {
