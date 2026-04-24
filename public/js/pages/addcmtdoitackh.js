@@ -64,6 +64,18 @@ function _acInit() {
         document.head.appendChild(st);
     }
     document.getElementById('pageTitle').textContent = 'Add/Cmt Đối Tác KH';
+    // Handle URL params: ?sel_user=ID&sel_date=YYYY-MM-DD
+    const _acUrlParams = new URLSearchParams(window.location.search);
+    const _acSelUser = _acUrlParams.get('sel_user');
+    const _acSelDate = _acUrlParams.get('sel_date');
+    if (_acSelUser) {
+        _ac.selectedUser = parseInt(_acSelUser);
+    }
+    if (_acSelDate) {
+        _acDatePreset = 'custom';
+        _acDateFrom = _acSelDate;
+        _acDateTo = _acSelDate;
+    }
     _acLoadAll();
 }
 
