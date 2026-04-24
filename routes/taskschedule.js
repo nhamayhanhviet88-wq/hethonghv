@@ -552,11 +552,18 @@ async function taskScheduleRoutes(fastify, options) {
             const allDeptIds = new Set(assigned.map(a => a.department_id));
             // Also include own department
             if (user.department_id) allDeptIds.add(user.department_id);
-            // Include child departments (sub-teams) of each approver dept
-            const baseDeptIds = [...allDeptIds];
-            for (const dId of baseDeptIds) {
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [dId]);
-                children.forEach(c => allDeptIds.add(c.id));
+            // Recursive: include ALL descendant departments (children, grandchildren, etc.)
+            let toExpand = [...allDeptIds];
+            while (toExpand.length > 0) {
+                const ph = toExpand.map((_, i) => `$${i + 1}`).join(',');
+                const children = await db.all(`SELECT id FROM departments WHERE parent_id IN (${ph}) AND status = 'active'`, toExpand);
+                toExpand = [];
+                for (const c of children) {
+                    if (!allDeptIds.has(c.id)) {
+                        allDeptIds.add(c.id);
+                        toExpand.push(c.id);
+                    }
+                }
             }
             if (allDeptIds.size > 0) {
                 const ids = [...allDeptIds];
