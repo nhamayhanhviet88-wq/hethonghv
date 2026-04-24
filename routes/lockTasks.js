@@ -291,6 +291,15 @@ async function lockTaskRoutes(fastify, options) {
     fastify.delete('/api/lock-tasks/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const taskId = Number(request.params.id);
         await db.run('UPDATE lock_tasks SET is_active = false WHERE id = $1', [taskId]);
+
+        // Mark expired penalty records as "task removed" (redo_count=-2)
+        // so they don't appear in CV Chưa BC modal, but penalty history is preserved
+        await db.run(
+            `UPDATE lock_task_completions SET redo_count = -2
+             WHERE lock_task_id = $1 AND status = 'expired' AND penalty_applied = true AND redo_count = 0`,
+            [taskId]
+        );
+
         return { success: true };
     });
 
@@ -838,6 +847,7 @@ async function lockTaskRoutes(fastify, options) {
             JOIN users u ON u.id = ltc.user_id
             LEFT JOIN departments d ON d.id = u.department_id
             WHERE ltc.status IN ('expired','rejected')
+              AND ltc.redo_count != -2
               AND NOT EXISTS (
                   SELECT 1 FROM lock_task_completions ltc2
                   WHERE ltc2.lock_task_id = ltc.lock_task_id
@@ -913,6 +923,7 @@ async function lockTaskRoutes(fastify, options) {
                 SELECT COUNT(*) as cnt FROM lock_task_completions ltc
                 JOIN lock_task_assignments lta ON lta.lock_task_id = ltc.lock_task_id AND lta.user_id = ltc.user_id
                 WHERE ltc.user_id = $1 AND ltc.status IN ('expired','rejected')
+                  AND ltc.redo_count != -2
                   AND NOT EXISTS (
                       SELECT 1 FROM lock_task_completions ltc2
                       WHERE ltc2.lock_task_id = ltc.lock_task_id
@@ -956,8 +967,13 @@ async function lockTaskRoutes(fastify, options) {
             [taskId, targetUserId]
         );
 
-        // 3. Keep expired penalty records (redo_count >= 0 AND status='expired' AND penalty_applied=true)
-        // Already kept by the WHERE clause above
+        // 3. Keep expired penalty records but mark as "task removed" (redo_count=-2)
+        // so they don't appear in CV Chưa BC modal, but penalty history is preserved
+        await db.run(
+            `UPDATE lock_task_completions SET redo_count = -2
+             WHERE lock_task_id = $1 AND user_id = $2 AND status = 'expired' AND penalty_applied = true AND redo_count >= 0`,
+            [taskId, targetUserId]
+        );
 
         console.log(`🗑️ GĐ ${request.user.username} xóa assignment: task=${taskId}, user=${targetUserId}`);
         return { success: true };
