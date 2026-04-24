@@ -4316,7 +4316,7 @@ function _kbRenderTuyenDungMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    if (done && isPending) {
+    if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
         el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
@@ -4357,19 +4357,6 @@ async function _kbLoadDetailTuyenDung() {
 
 
 
-// Helper: check if any lock completion for this mini-render element's date is pending
-function _kbCheckLockPending(el, done) {
-    // Check 1: if lock task needs approval and progress is done → show pending
-    if (done && el.getAttribute('data-needs-approval') === '1') return true;
-    // Check 2: if any lock completion for this date is actually pending
-    const dateStr = el.getAttribute('data-sd-date') || el.getAttribute('data-zl-date') || el.getAttribute('data-bt-date') || '';
-    if (!dateStr || typeof _kbLockCompletions === 'undefined') return false;
-    for (const key of Object.keys(_kbLockCompletions)) {
-        if (key.endsWith('_' + dateStr) && _kbLockCompletions[key] && _kbLockCompletions[key].status === 'pending') return true;
-    }
-    return false;
-}
-
 // ========== SEDDING CỘNG ĐỒNG PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectSeddingStats() {
     const placeholders = document.querySelectorAll('[data-sd-date]');
@@ -4391,7 +4378,7 @@ function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || (done && el.getAttribute('data-needs-approval') === '1');
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4485,7 +4472,7 @@ function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || (done && el.getAttribute('data-needs-approval') === '1');
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4579,7 +4566,7 @@ function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || (done && el.getAttribute('data-needs-approval') === '1');
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
