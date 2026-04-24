@@ -21,6 +21,9 @@ let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
 let _kbForceApproval = false; // Force approval flag for viewed user
 let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed user being viewed
+const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
+const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
+const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
 
 // ===== SELECTION PERSISTENCE — shared key with Bàn Giao =====
 function _kbSaveSelection(sel) {
@@ -503,9 +506,6 @@ async function renderLichKhoaBieuPage(container) {
             });
 
             const memberDeptNames = new Set(Object.keys(byDept));
-            const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
-            const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
-            const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
 
             // Helper: render members for a dept
             const renderDeptMembers = (dept, isChild) => {
