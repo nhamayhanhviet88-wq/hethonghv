@@ -284,6 +284,15 @@ function _kbGetColor(name) {
 // View report detail modal
 async function _kbViewReport(el) {
     const data = JSON.parse(el.getAttribute('data-report').replace(/&quot;/g, '"'));
+
+    // If task has a linked page → navigate there with user + date instead of modal
+    const _vrLinkedPage = _kbGetLinkedPage(data.task_name);
+    if (_vrLinkedPage) {
+        const _vrUserId = data.user_id || (_kbViewUserId || currentUser?.id || '');
+        const url = _vrLinkedPage.page + '?sel_user=' + _vrUserId + '&sel_date=' + (data.report_date || '');
+        window.open(url, '_blank');
+        return;
+    }
     const statusMap = {
         approved: { label: '✅ Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
         pending: { label: '⏳ Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
@@ -1284,7 +1293,7 @@ function _kbRenderGrid() {
                 if (report) {
                     // HAS REPORT — make it clickable to view details
                     const rData = JSON.stringify({
-                        template_id: reportTemplateId, task_name: task.task_name, status: report.status, points_earned: report.points_earned,
+                        template_id: reportTemplateId, task_name: task.task_name, user_id: (_kbViewUserId || currentUser.id), status: report.status, points_earned: report.points_earned,
                         quantity: report.quantity, min_quantity: task.min_quantity || 1, report_value: report.report_value || '', report_image: report.report_image || '',
                         report_date: dateStr, content: report.content || '', reject_reason: report.reject_reason || '',
                         redo_count: report.redo_count || 0, redo_deadline: report.redo_deadline || ''
@@ -3830,6 +3839,16 @@ function _kbShowLockReport(compId) {
 
     const lt = _kbLockTasks.find(t => t.id === comp.lock_task_id);
     const taskName = lt ? lt.task_name : 'Công việc khóa';
+
+    // If task has a linked page → navigate there with user + date
+    const _lrLinkedPage = _kbGetLinkedPage(taskName);
+    if (_lrLinkedPage) {
+        const _lrUserId = comp.user_id || (_kbViewUserId || currentUser?.id || '');
+        const _lrDate = comp.completion_date || '';
+        const url = _lrLinkedPage.page + '?sel_user=' + _lrUserId + '&sel_date=' + _lrDate;
+        window.open(url, '_blank');
+        return;
+    }
 
     const statusMap = {
         approved: { icon: '✅', label: 'Đã duyệt', color: '#16a34a', bg: '#dcfce7' },
