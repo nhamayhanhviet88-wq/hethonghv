@@ -718,8 +718,31 @@ module.exports = async function (fastify) {
             reportStatus = 'approved';
         }
 
+        // Auto-fix: if entries >= target but lock is expired → bao cao bu completed
+        const entryCount = Number(countResult.c);
+        if (entryCount >= targetVal && lockStatus === 'expired' && pattern) {
+            // Check force_approval
+            const _faU = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+            const lockTask = await db.get(`SELECT lt.id FROM lock_tasks lt WHERE lt.task_name ILIKE $1 LIMIT 1`, [pattern]);
+            let needsApproval = false;
+            if (lockTask) {
+                const _ftL = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lockTask.id]);
+                needsApproval = _faU?.force_approval || !!_ftL;
+            }
+            const newStatus = needsApproval ? 'pending' : 'approved';
+            // Update all expired records for this task+user+date
+            if (lockTask) {
+                await db.run(
+                    `UPDATE lock_task_completions SET status = $1, penalty_applied = false
+                     WHERE lock_task_id = $2 AND user_id = $3 AND completion_date = $4 AND status = 'expired'`,
+                    [newStatus, lockTask.id, uid, date]
+                );
+                lockStatus = newStatus;
+            }
+        }
+
         return {
-            count: Number(countResult.c),
+            count: entryCount,
             target: targetVal,
             total_points: pointsVal,
             report_status: reportStatus,
