@@ -5042,18 +5042,13 @@ async function _kbSaveForceApproval(userId) {
 
     try {
         // Save toggle + reviewer
-        await apiCall(`/api/users/${userId}/force-approval`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ force_approval: forceAll, reviewer_id: reviewerId ? Number(reviewerId) : null })
+        await apiCall(`/api/users/${userId}/force-approval`, 'PUT', {
+            force_approval: forceAll,
+            reviewer_id: reviewerId ? Number(reviewerId) : null
         });
 
         // Save per-task list
-        await apiCall(`/api/users/${userId}/force-approval/tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks })
-        });
+        await apiCall(`/api/users/${userId}/force-approval/tasks`, 'POST', { tasks });
 
         showToast('✅ Đã lưu cài đặt kiểm soát CV', 'success');
         document.getElementById('kbForceApprovalPopup')?.remove();
