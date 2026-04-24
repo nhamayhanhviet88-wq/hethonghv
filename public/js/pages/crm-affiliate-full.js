@@ -870,13 +870,8 @@ async function loadCrmAffData() {
                 _affRenderFilteredTable();
             }
             
-            // 7. Scroll to highlight + auto-open customer detail
-            setTimeout(() => {
-                _tkkhScrollToRow(tid);
-                if (typeof _affOpenCustomerDetail === 'function') {
-                    _affOpenCustomerDetail(tid);
-                }
-            }, 300);
+            // 7. Scroll to and highlight the target row
+            setTimeout(() => _tkkhScrollToRow(tid), 300);
         } else {
             showToast('🔍 Khách hàng không tìm thấy trong danh sách CRM này', 'info');
         }
