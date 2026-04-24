@@ -400,6 +400,26 @@ async function runDeadlineCheck(forceFullCheck = false) {
             [ninetyDaysAgoStr, todayForStack]
         );
 
+        // Module type mapping for checking daily_link_entries
+        const _lockModuleMap = {
+            'sedding': 'sedding',
+            'bản thân': 'dang_banthan_sp',
+            'zalo spam': 'tim_gr_zalo',
+            'video isocal': 'dang_video', 'video ': 'dang_video',
+            'content isocal': 'dang_content', 'content ': 'dang_content',
+            'tìm kh group': 'dang_group', 'tìm.*kh.*group': 'dang_group',
+            'add/cmt': 'addcmt', 'add cmt': 'addcmt',
+            'tuyển dụng': 'tuyen_dung'
+        };
+
+        function _getModuleType(taskName) {
+            const lower = taskName.toLowerCase();
+            for (const [key, val] of Object.entries(_lockModuleMap)) {
+                if (lower.includes(key)) return val;
+            }
+            return null;
+        }
+
         // Group by (lock_task_id, user_id), filter out resubmitted originals
         const taskUserMap = {};
         for (const exp of unreportedExpired) {
@@ -410,6 +430,27 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 [exp.lock_task_id, exp.user_id, exp.completion_date]
             );
             if (resubmitted) continue;
+
+            // AUTO-FIX: check if user has enough entries (báo cáo bù)
+            const moduleType = _getModuleType(exp.task_name);
+            if (moduleType) {
+                const lt = await db.get('SELECT min_quantity FROM lock_tasks WHERE id = $1', [exp.lock_task_id]);
+                const target = lt?.min_quantity || 1;
+                const cnt = await db.get(
+                    `SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3`,
+                    [exp.user_id, exp.completion_date, moduleType]
+                );
+                if (parseInt(cnt?.c || 0) >= target) {
+                    // Entries đủ → auto-fix expired → approved, skip stacking
+                    await db.run(
+                        `UPDATE lock_task_completions SET status = 'approved', penalty_applied = false
+                         WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired'`,
+                        [exp.lock_task_id, exp.user_id, exp.completion_date]
+                    );
+                    console.log(`  ✅ [Auto-fix] ${exp.task_name} ${exp.completion_date} user=${exp.user_id} → entries đủ → approved`);
+                    continue;
+                }
+            }
 
             const key = `${exp.lock_task_id}_${exp.user_id}`;
             if (!taskUserMap[key]) {
