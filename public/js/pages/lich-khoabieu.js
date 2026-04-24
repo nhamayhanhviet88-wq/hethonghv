@@ -1300,9 +1300,11 @@ function _kbRenderGrid() {
                     if (_linkedPage.tab) _lpUrl += '&sel_tab=' + _linkedPage.tab;
                     actionBtn = `<a href="${_lpUrl}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Mở trang →</a>`;
                     // Also show status badge for linked-page tasks with reports
-                    if (report && report.status === 'pending') {
+                    // Skip tasks that have their own inject placeholder (TuyenDung, Sedding, etc.)
+                    const _hasOwnInject = /tuyển\s*dụng|sedding|đăng.*bản.*thân|tìm.*gr.*zalo/i.test(task.task_name);
+                    if (!_hasOwnInject && report && report.status === 'pending') {
                         statusBadge = `<div style="margin-top:4px;"><span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ Duyệt ${report.quantity || ''}/ ${task.min_quantity || 1}</span></div>`;
-                    } else if (report && report.status === 'approved') {
+                    } else if (!_hasOwnInject && report && report.status === 'approved') {
                         statusBadge = `<div style="margin-top:4px;"><span style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;border:1px solid #86efac;">✅ +${report.points_earned}đ</span></div>`;
                     }
                 } else if (_linkedPage && !canReport) {
