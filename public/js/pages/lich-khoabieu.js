@@ -1233,7 +1233,7 @@ function _kbRenderGrid() {
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
                         ${overrideBadge}
-                        ${(task.requires_approval || _kbForceApproval || _kbForceScheduleIds.has(task.id || task.template_id)) ? `<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,${task.requires_approval ? '#f59e0b,#d97706' : '#ef4444,#dc2626'});color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid ${task.requires_approval ? '#fbbf24' : '#f87171'};">🔒 CẦN DUYỆT</span>` : ''}
+                        ${(task.requires_approval || _kbForceApproval || _kbForceScheduleIds.has(task.template_id || task.id)) ? `<span style="position:absolute;top:-7px;right:-7px;background:linear-gradient(135deg,${task.requires_approval ? '#f59e0b,#d97706' : '#ef4444,#dc2626'});color:white;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800;line-height:1.2;box-shadow:0 2px 6px rgba(217,119,6,0.4);animation:_kbPulse 2s infinite;border:1px solid ${task.requires_approval ? '#fbbf24' : '#f87171'};">🔒 CẦN DUYỆT</span>` : ''}
                         <div onclick="_kbShowTaskDetail(${task._source === 'snapshot' ? task.template_id : task.id})" style="font-weight:700;color:${c.text};font-size:13px;margin-bottom:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.textDecoration='underline';this.style.opacity='0.8'" onmouseout="this.style.textDecoration='none';this.style.opacity='1'">${task.task_name}</div>
                         <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
                             <span style="background:${c.badge};color:white;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;">${task.points}đ</span>
@@ -4908,7 +4908,7 @@ async function _kbShowForceApprovalSetup(userId, userName) {
             const name = t.task_name;
             if (!name) return;
             if (!schedTaskMap[name]) schedTaskMap[name] = { ...t, allIds: [] };
-            const tid = t.id || t.template_id;
+            const tid = t.template_id || t.id; // Prefer template_id (actual task_point_templates.id)
             if (tid && !schedTaskMap[name].allIds.includes(tid)) schedTaskMap[name].allIds.push(tid);
         });
         const schedTasks = Object.values(schedTaskMap);
@@ -4970,7 +4970,7 @@ async function _kbShowForceApprovalSetup(userId, userName) {
         if (schedTasks.length > 0) {
             html += `<div style="font-weight:700;font-size:13px;color:#1d4ed8;margin:12px 0 6px;display:flex;align-items:center;gap:6px;">📊 CV ĐIỂM</div>`;
             schedTasks.forEach(t => {
-                const allIds = t.allIds || [t.id || t.template_id];
+                const allIds = t.allIds || [t.template_id || t.id];
                 // Check if ANY of the IDs is in forceTaskMap
                 const isChecked = allIds.some(id => forceTaskMap[`schedule_${id}`]);
                 const checked = isChecked ? 'checked' : '';
