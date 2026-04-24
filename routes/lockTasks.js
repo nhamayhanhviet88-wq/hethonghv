@@ -706,6 +706,29 @@ async function lockTaskRoutes(fastify, options) {
         return { reviews };
     });
 
+    // GET: Single completion detail (for review modal popup)
+    fastify.get('/api/lock-tasks/completion-detail', { preHandler: [authenticate] }, async (request, reply) => {
+        if (!isManager(request.user.role)) {
+            return reply.code(403).send({ error: 'Không có quyền' });
+        }
+        const lockTaskId = Number(request.query.lock_task_id);
+        const userId = Number(request.query.user_id);
+        const date = request.query.date;
+        if (!lockTaskId || !userId) return reply.code(400).send({ error: 'lock_task_id and user_id required' });
+
+        const task = await db.get('SELECT id, task_name, guide_link, input_requirements, output_requirements FROM lock_tasks WHERE id = $1', [lockTaskId]);
+        const completion = await db.get(
+            `SELECT ltc.*, ltc.completion_date::text as completion_date,
+                    u.full_name as user_name, u.username
+             FROM lock_task_completions ltc
+             JOIN users u ON u.id = ltc.user_id
+             WHERE ltc.lock_task_id = $1 AND ltc.user_id = $2 AND ltc.status = 'pending'
+             ORDER BY ltc.created_at DESC LIMIT 1`,
+            [lockTaskId, userId]
+        );
+        return { task, completion };
+    });
+
     // GET: Dept users for assignment modal
     fastify.get('/api/lock-tasks/dept-users/:deptId', { preHandler: [authenticate] }, async (request, reply) => {
         const deptId = Number(request.params.deptId);
