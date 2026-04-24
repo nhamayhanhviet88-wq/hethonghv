@@ -4355,6 +4355,18 @@ async function _kbLoadDetailTuyenDung() {
     } catch(e) {}
 }
 
+
+
+// Helper: check if any lock completion for this mini-render element's date is pending
+function _kbCheckLockPending(el) {
+    const dateStr = el.getAttribute('data-sd-date') || el.getAttribute('data-zl-date') || el.getAttribute('data-bt-date') || '';
+    if (!dateStr || typeof _kbLockCompletions === 'undefined') return false;
+    for (const key of Object.keys(_kbLockCompletions)) {
+        if (key.endsWith('_' + dateStr) && _kbLockCompletions[key] && _kbLockCompletions[key].status === 'pending') return true;
+    }
+    return false;
+}
+
 // ========== SEDDING CỘNG ĐỒNG PROGRESS IN LỊCH KHÓA BIỂU ==========
 async function _kbInjectSeddingStats() {
     const placeholders = document.querySelectorAll('[data-sd-date]');
@@ -4374,7 +4386,7 @@ async function _kbInjectSeddingStats() {
 
 function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
-    const isPending = res.report_status === 'pending';
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     if (isPending) {
@@ -4468,7 +4480,7 @@ async function _kbInjectZaloStats() {
 
 function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
-    const isPending = res.report_status === 'pending';
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     if (isPending) {
@@ -4562,7 +4574,7 @@ async function _kbInjectDangBTStats() {
 
 function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
-    const isPending = res.report_status === 'pending';
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     if (isPending) {
