@@ -115,6 +115,16 @@ module.exports = async function (fastify) {
         }
         const linkLower = fb_link.trim().toLowerCase();
 
+        // LAYER 3 (Backend): Time-window duplicate prevention — block if same user + same module within 5 seconds
+        const recentDup = await db.get(
+            `SELECT id FROM daily_link_entries WHERE user_id = $1 AND module_type = $2 AND created_at > NOW() - INTERVAL '5 seconds' LIMIT 1`,
+            [req.user.id, module_type]
+        );
+        if (recentDup) {
+            console.log(`[DailyLinks POST] BLOCKED double-submit: user=${req.user.id}, module=${module_type}, recent_id=${recentDup.id}`);
+            return reply.code(429).send({ error: 'Bạn vừa lưu xong, vui lòng đợi vài giây trước khi lưu tiếp!' });
+        }
+
         // Server-side link format validation per module
         const _linkRules = {
             dang_group: { check: l => l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')), err: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },

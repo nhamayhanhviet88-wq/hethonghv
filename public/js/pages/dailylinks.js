@@ -11,6 +11,7 @@ const _DL_MODULES = {
 };
 
 let _dl = { entries:[], stats:{}, selUser:null, selDept:null, mod:null, imageData:null, categories:[] };
+let _dlSaving = false; // Global lock to prevent double-click submissions
 let _dlPlatFilter = 'all'; // platform filter for dangvideo
 let _dlCatFilter = 'all'; // category filter for dang_group
 let _dlOverrideUserIds = new Set();
@@ -695,7 +696,7 @@ async function _dlAddModal() {
                 ${fieldsHtml}
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #f3f4f6;">
                     <button onclick="document.getElementById('dlModal').remove()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
-                    <button onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
+                    <button id="dlSaveBtn" onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
                 </div>
             </div>
         </div>`;
@@ -783,7 +784,7 @@ async function _dlAddModal() {
             </div>` : ''}
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
                 <button onclick="document.getElementById('dlModal').remove()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:white;color:#374151;cursor:pointer;font-size:13px;">Hủy</button>
-                <button onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
+                <button id="dlSaveBtn" onclick="_dlSave()" style="padding:9px 22px;border:none;border-radius:8px;background:${m.accent};color:white;cursor:pointer;font-size:13px;font-weight:700;">💾 Lưu</button>
             </div>
         </div>
     </div>`;
@@ -834,6 +835,21 @@ async function _dlAddModal() {
 }
 
 async function _dlSave() {
+    // ===== LAYER 1: Global lock — prevent double-click =====
+    if (_dlSaving) { console.log('[DailyLinks] Blocked duplicate save — already saving'); return; }
+    _dlSaving = true;
+
+    // ===== LAYER 2: Disable button + show loading =====
+    const saveBtn = document.getElementById('dlSaveBtn');
+    const saveBtnOrigText = saveBtn?.innerHTML;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Đang lưu...'; saveBtn.style.opacity = '0.6'; saveBtn.style.cursor = 'not-allowed'; }
+
+    // Helper to re-enable on error
+    function _dlUnlockSave() {
+        _dlSaving = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtnOrigText; saveBtn.style.opacity = '1'; saveBtn.style.cursor = 'pointer'; }
+    }
+
     const m = _dl.mod;
     const needImg = m.type === 'addcmt';
     const multiPlatforms = _dlGetMultiPlatforms(m.type);
@@ -877,7 +893,7 @@ async function _dlSave() {
                 linksJson[p.key] = val;
             }
         }
-        if (hasError) { showToast(`Vui lòng điền đầy đủ ${multiPlatforms.length} mục hợp lệ!`, 'error'); return; }
+        if (hasError) { showToast(`Vui lòng điền đầy đủ ${multiPlatforms.length} mục hợp lệ!`, 'error'); _dlUnlockSave(); return; }
         try {
             const firstLink = Object.values(linksJson).find(v => v !== '__IMAGE__') || ('multilink_' + Date.now());
             const body = {
@@ -891,10 +907,11 @@ async function _dlSave() {
                 body.content_images = _dl.contentImages;
             }
             const res = await apiCall('/api/dailylinks/entries', 'POST', body);
-            if (res?.error) { showToast('❌ ' + res.error, 'error'); return; }
+            if (res?.error) { showToast('❌ ' + res.error, 'error'); _dlUnlockSave(); return; }
             document.getElementById('dlModal')?.remove();
+            _dlSaving = false;
             window._dlBackfillDate = null; showToast('✅ Đã thêm thành công!'); _dlLoadData();
-        } catch(e) { showToast(e.message || 'Lỗi', 'error'); }
+        } catch(e) { showToast(e.message || 'Lỗi', 'error'); _dlUnlockSave(); }
         return;
     }
 
@@ -902,26 +919,27 @@ async function _dlSave() {
     const needScreenshot = _DL_NEED_SCREENSHOT.includes(m.type);
     const linkEl = document.getElementById('dlFLink');
     const link = needImg ? ('addcmt_' + Date.now()) : (linkEl?.value?.trim() || '');
-    if(!needImg && !link){showToast('Vui lòng nhập link!','error');return;}
-    if((needImg || needScreenshot) && !_dl.imageData){showToast('Vui lòng dán hình ảnh chụp màn hình (Ctrl+V)!','error');return;}
+    if(!needImg && !link){showToast('Vui lòng nhập link!','error');_dlUnlockSave();return;}
+    if((needImg || needScreenshot) && !_dl.imageData){showToast('Vui lòng dán hình ảnh chụp màn hình (Ctrl+V)!','error');_dlUnlockSave();return;}
     // Link validation
     const linkRule = _DL_LINK_RULES[m.type];
     if(linkRule && !linkRule.validate(link)){
-        showToast(`❌ ${linkRule.errHint}`,'error');return;
+        showToast(`❌ ${linkRule.errHint}`,'error');_dlUnlockSave();return;
     }
     // Category validation for dang_group
     const catEl = document.getElementById('dlFCategory');
     const categoryId = catEl ? catEl.value : null;
-    if(m.type === 'dang_group' && !categoryId){showToast('Vui lòng chọn lĩnh vực!','error');return;}
+    if(m.type === 'dang_group' && !categoryId){showToast('Vui lòng chọn lĩnh vực!','error');_dlUnlockSave();return;}
     try{
         const body = {fb_link:link, module_type:m.type, backfill_date: window._dlBackfillDate || undefined};
         if((needImg || needScreenshot) && _dl.imageData) body.image_data = _dl.imageData;
         if(categoryId) body.category_id = Number(categoryId);
         const res = await apiCall('/api/dailylinks/entries','POST', body);
-        if(res?.error){showToast('❌ '+res.error,'error');return;}
+        if(res?.error){showToast('❌ '+res.error,'error');_dlUnlockSave();return;}
         document.getElementById('dlModal')?.remove();
+        _dlSaving = false;
         window._dlBackfillDate = null; showToast('✅ Đã thêm thành công!');_dlLoadData();
-    }catch(e){showToast(e.message||'Lỗi','error');}
+    }catch(e){showToast(e.message||'Lỗi','error');_dlUnlockSave();}
 }
 
 // ===== CATEGORY MANAGEMENT MODAL =====
