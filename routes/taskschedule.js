@@ -269,6 +269,8 @@ async function taskScheduleRoutes(fastify, options) {
         const _faUser = await db.get('SELECT force_approval, force_approval_reviewer_id FROM users WHERE id = $1', [uid]);
         const _faTasks = await db.all('SELECT task_type, task_ref_id FROM user_force_approvals WHERE user_id = $1', [uid]);
         const forceScheduleIds = _faTasks.filter(t => t.task_type === 'schedule').map(t => t.task_ref_id);
+        const forceLockIds = _faTasks.filter(t => t.task_type === 'lock').map(t => t.task_ref_id);
+        const forceChainIds = _faTasks.filter(t => t.task_type === 'chain').map(t => t.task_ref_id);
 
         return {
             tasks: allTasks,
@@ -282,7 +284,9 @@ async function taskScheduleRoutes(fastify, options) {
             overrides_diem: overrideDiem,
             overrides_khoa: overrideKhoa,
             force_approval: _faUser?.force_approval || false,
-            force_schedule_ids: forceScheduleIds
+            force_schedule_ids: forceScheduleIds,
+            force_lock_ids: forceLockIds,
+            force_chain_ids: forceChainIds
         };
     });
 

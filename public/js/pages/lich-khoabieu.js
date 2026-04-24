@@ -20,7 +20,9 @@ let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // 
 let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
 let _kbForceApproval = false; // Force approval flag for viewed user
-let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed user being viewed
+let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed user
+let _kbForceLockIds = new Set(); // Set of lock_task_ids forced for viewed user
+let _kbForceChainIds = new Set(); // Set of chain_item_ids forced for viewed user
 const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
 const _kbRoleLabel = { giam_doc: '⭐ Giám đốc', quan_ly_cap_cao: '⭐ Quản lý cấp cao', quan_ly: '⭐ Quản lý', truong_phong: '⭐ Trưởng phòng', nhan_vien: 'Nhân viên', part_time: 'Part time' };
 const _kbIsLeader = (role) => ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(role);
@@ -790,6 +792,8 @@ async function _kbLoadSchedule() {
         // Store force approval data
         _kbForceApproval = data.force_approval || false;
         _kbForceScheduleIds = new Set(data.force_schedule_ids || []);
+        _kbForceLockIds = new Set(data.force_lock_ids || []);
+        _kbForceChainIds = new Set(data.force_chain_ids || []);
     } catch(e) {
         _kbTasks = []; _kbReports = {}; _kbSummary = {};
         _kbHolidayMap = {}; _kbMonthlySummary = 0; _kbMonthlyHolidays = [];
@@ -1380,6 +1384,15 @@ function _kbRenderGrid() {
                     lockBg = '#fafbfc'; lockBorder = '#e5e7eb';
                 }
 
+                // Force approval badge for lock tasks
+                const _lockForced = _kbForceApproval || _kbForceLockIds.has(lt.id);
+                let lockForceBadge = '';
+                if (_lockForced && !realComp) {
+                    lockForceBadge = '<div style="text-align:center;margin-top:4px;"><span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:2px 8px;border-radius:5px;font-size:9px;font-weight:800;box-shadow:0 1px 4px rgba(220,38,38,0.3);">🔒 CẦN DUYỆT</span></div>';
+                } else if (_lockForced && realComp && realComp.status === 'pending') {
+                    lockForceBadge = '<div style="text-align:center;margin-top:4px;"><span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:2px 8px;border-radius:5px;font-size:9px;font-weight:800;box-shadow:0 1px 4px rgba(220,38,38,0.3);">🔒 CẦN DUYỆT</span></div>';
+                }
+
                 // Determine action buttons
                 const viewUserId = _kbViewUserId || currentUser.id;
                 const isSelf = viewUserId === currentUser.id;
@@ -1485,7 +1498,7 @@ function _kbRenderGrid() {
                         <div onclick="_kbShowLockTaskDetail(${lt.id})" style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${lt.task_name}</div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
 
-                        <div style="margin-top:6px;">${lockStatusBadge}</div>
+                        <div style="margin-top:6px;">${lockStatusBadge}</div>${lockForceBadge}
                         ${actionHtml}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
