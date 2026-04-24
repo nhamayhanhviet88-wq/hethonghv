@@ -2754,7 +2754,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbLockApprove(${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
-                    ${!!_kbGetLinkedPage(r.task_name) ? `<button onclick="_kbSendFeedback(${r.user_id}, '${(r.task_name||'').replace(/'/g, "\\\\'")}', '${r.completion_date}', 'lock')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;">💬 Góp ý</button>` : `<button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>`}
+                    ${!!_kbGetLinkedPage(r.task_name) ? `<button onclick="_kbSendFeedback(${r.user_id}, '${(r.task_name||'').replace(/'/g, "\\\\'")}', '${r.completion_date}', 'lock', [${r.id}])" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;">💬 Góp ý</button>` : `<button onclick="_kbLockReject(${r.id}, '${(r.task_name||'').replace(/'/g, "\\'")}', '${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>`}
                 </td>
             </tr>`;
         });
@@ -2789,7 +2789,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbChainApprove(${r.chain_item_id},${r.id})" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;margin-right:4px;">✅ Duyệt</button>
-                    <button onclick="_kbChainReject(${r.chain_item_id},${r.id},'${(r.task_name||'').replace(/'/g, "\\'")}','${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>
+                    ${!!_kbGetLinkedPage(r.task_name) ? `<button onclick="_kbSendFeedback(${r.user_id}, '${(r.task_name||'').replace(/'/g, "\\\\'")}', '${r.deadline || r.completion_date || ''}', 'chain', [{itemId:${r.chain_item_id},completionId:${r.id}}])" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;cursor:pointer;font-weight:700;">💬 Góp ý</button>` : `<button onclick="_kbChainReject(${r.chain_item_id},${r.id},'${(r.task_name||'').replace(/'/g, "\\'")}','${(r.user_name||'').replace(/'/g, "\\'")}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-weight:700;">❌ Từ chối</button>`}
                 </td>
             </tr>`;
         });
@@ -2889,7 +2889,13 @@ async function _kbConfirmFeedback(userId, taskName, taskDate, taskType) {
         const reportIds = window._kbFeedbackReportIds || [];
         if (reportIds.length > 0) {
             for (const id of reportIds) {
-                await apiCall('/api/schedule/report/' + id + '/approve', 'PUT', { action: 'approve' });
+                if (taskType === 'lock') {
+                    await apiCall('/api/lock-tasks/' + id + '/review', 'POST', { action: 'approve' });
+                } else if (taskType === 'chain') {
+                    await apiCall('/api/chain-tasks/items/' + id.itemId + '/approve', 'POST', { completion_id: id.completionId });
+                } else {
+                    await apiCall('/api/schedule/report/' + id + '/approve', 'PUT', { action: 'approve' });
+                }
             }
         }
         document.getElementById('kbFeedbackModal')?.remove();
