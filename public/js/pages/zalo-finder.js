@@ -13,6 +13,25 @@ function _zlInit() {
     _zlViewUserId = localStorage.getItem('zl_userId') ? Number(localStorage.getItem('zl_userId')) : null;
     _zlViewDeptId = localStorage.getItem('zl_deptId') ? Number(localStorage.getItem('zl_deptId')) : null;
     _zlFilter = localStorage.getItem('zl_filter') || 'pending';
+
+    // ===== Override from URL params (from "Xem báo cáo" in schedule) =====
+    // _dl.selUser is set by dailylinks.js before calling _zlInit()
+    if (typeof _dl !== 'undefined' && _dl.selUser) {
+        _zlViewUserId = _dl.selUser;
+        _zlViewDeptId = null;
+    }
+    const _zlUrlParams = new URLSearchParams(window.location.search);
+    const _zlSelDate = _zlUrlParams.get('sel_date');
+    if (_zlSelDate) {
+        _zlDateFilter = 'custom';
+        _zlCustomFrom = _zlSelDate;
+        _zlCustomTo = _zlSelDate;
+    }
+    const _zlSelTab = _zlUrlParams.get('sel_tab');
+    if (_zlSelTab) {
+        _zlFilter = _zlSelTab;
+    }
+
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);
     area.innerHTML = `
     <div style="display:flex;gap:0;min-height:calc(100vh - 60px);">

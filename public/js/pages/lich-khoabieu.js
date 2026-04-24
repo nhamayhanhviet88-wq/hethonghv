@@ -69,6 +69,7 @@ function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
         // Check for CRM tab metadata (e.g. Tự Tìm Kiếm Telesale → sel_crm=tu_tim_kiem)
         const _svLinked = _kbGetLinkedPage(taskName);
         if (_svLinked && _svLinked.crm) url += '&sel_crm=' + _svLinked.crm;
+        if (_svLinked && _svLinked.tab) url += '&sel_tab=' + _svLinked.tab;
         window.open(url, '_blank');
     } else if (taskType === 'lock') {
         // CV Khóa → show detail modal popup
@@ -254,7 +255,7 @@ const _KB_LINKED_PAGES = [
     { re: /gọi.*điện.*telesale/i, page: '/goidien', label: 'Gọi Điện Telesale', icon: '📞' },
     { re: /tự.*tìm.*kiếm.*telesale/i, page: '/goidien', label: 'Tự Tìm Kiếm Telesale', icon: '🔎', crm: 'tu_tim_kiem' },
     { re: /nh[ấắ]n.*t[iì]m.*đ[ốồ]i.*t[áà]c.*kh/i, page: '/nhantintimdoitackh', label: 'Nhắn Tìm ĐT KH', icon: '🎵' },
-    { re: /thông.*báo.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'Thông Báo Gr Zalo Spam', icon: '📋' },
+    { re: /thông.*báo.*gr.*zalo.*spam/i, page: '/timgrzalovathongke', label: 'Thông Báo Gr Zalo Spam', icon: '📋', tab: 'spam_ok' },
     { re: /setup.*spam.*zalo/i, page: '/hethongphanchiagrzalo', label: 'Nhóm Spam Zalo', icon: '🔥' },
 ];
 function _kbGetLinkedPage(taskName) {
@@ -296,6 +297,7 @@ async function _kbViewReport(el) {
         const _vrUserId = data.user_id || (_kbViewUserId || currentUser?.id || '');
         let url = _vrLinkedPage.page + '?sel_user=' + _vrUserId + '&sel_date=' + (data.report_date || '');
         if (_vrLinkedPage.crm) url += '&sel_crm=' + _vrLinkedPage.crm;
+        if (_vrLinkedPage.tab) url += '&sel_tab=' + _vrLinkedPage.tab;
         window.open(url, '_blank');
         return;
     }
