@@ -112,20 +112,26 @@ function _tkkhRenderResults(data, query) {
         crm.forEach(c => {
             const crmLabel = CRM_LABELS[c.crm_type] || c.crm_type || '—';
             const targetPage = _TKKH_CRM_PAGE[c.crm_type] || 'crm-nhu-cau';
-            html += `<div onclick="_tkkhGoTo('${targetPage}', ${c.id})" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#16a34a'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#bbf7d0'">
+            const fmtAppt = c.appointment_date ? (() => { const d = new Date(c.appointment_date); const days = ['CN','T2','T3','T4','T5','T6','T7']; return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear(); })() : '';
+            html += `<div onclick="_tkkhGoTo('${targetPage}', ${c.id})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:8px;background:white;transition:all .15s;cursor:pointer;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#16a34a'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#bbf7d0'">
                 <div style="width:42px;height:42px;background:linear-gradient(135deg,#16a34a,#15803d);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">👤</div>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-size:14px;font-weight:700;color:#1e293b;">${highlight(c.customer_name || '—')}</div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;">
-                        <span>📞 ${highlight(c.phone || '—')}</span>
-                        ${c.phone2 ? '<span>📱 ' + highlight(c.phone2) + '</span>' : ''}
-                        ${c.facebook_link ? '<span>🔗 ' + highlight(c.facebook_link).substring(0,40) + '...</span>' : ''}
-                        <span>📅 ${fmtDate(c.created_at)}</span>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:15px;font-weight:800;color:#1e293b;">${highlight(c.customer_name || '—')}</span>
+                        <span style="font-size:11px;color:#6b7280;">📞 ${highlight(c.phone || '—')}</span>
+                        ${c.phone2 ? '<span style="font-size:11px;color:#6b7280;">📱 ' + highlight(c.phone2) + '</span>' : ''}
                     </div>
-                    <div style="font-size:11px;margin-top:3px;display:flex;flex-wrap:wrap;gap:6px;">
-                        <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-weight:600;">${crmLabel}</span>
+                    <div style="font-size:11px;margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
+                        <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-weight:700;">🏷️ ${crmLabel}</span>
                         ${c.order_status ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:600;">' + c.order_status + '</span>' : ''}
-                        <span style="color:#9ca3af;">👤 NV: ${c.created_by_name || '—'}</span>
+                        <span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:6px;font-weight:600;">👤 NV: ${c.assigned_to_name || c.created_by_name || '—'}</span>
+                    </div>
+                    <div style="font-size:11px;margin-top:4px;display:flex;flex-wrap:wrap;gap:8px;color:#6b7280;">
+                        <span title="Ngày tạo đơn">📅 Ngày tạo: <b style="color:#1e293b;">${fmtDate(c.created_at)}</b></span>
+                        ${fmtAppt ? '<span title="Ngày hẹn làm việc">📆 Ngày hẹn: <b style="color:#e65100;">' + fmtAppt + '</b></span>' : ''}
+                        ${c.facebook_link ? '<span title="Link khách hàng" onclick="event.stopPropagation()"><a href="' + c.facebook_link + '" target="_blank" style="color:#1877F2;font-weight:600;text-decoration:none;" onclick="event.stopPropagation()">🔗 ' + highlight(c.facebook_link.length > 50 ? c.facebook_link.substring(0,50) + '...' : c.facebook_link) + '</a></span>' : '<span style="color:#d1d5db;">🔗 Chưa có link</span>'}
+                    </div>
+                    <div style="font-size:11px;margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;">
                         ${c.consult_count > 0 ? '<span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-weight:600;">💬 ' + c.consult_count + ' lần tư vấn</span>' : ''}
                         ${c.order_count > 0 ? '<span style="background:#fce7f3;color:#be185d;padding:2px 8px;border-radius:6px;font-weight:600;">📦 ' + c.order_count + ' đơn</span>' : ''}
                     </div>

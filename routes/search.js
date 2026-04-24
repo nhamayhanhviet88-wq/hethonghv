@@ -18,11 +18,14 @@ async function searchRoutes(fastify, options) {
         let crmQuery = `
             SELECT c.id, c.crm_type, c.customer_name, c.phone, c.phone2, c.facebook_link,
                    c.order_status, c.created_at, c.address, c.province, c.cong_viec,
+                   c.appointment_date,
                    u.full_name as created_by_name, u.username as created_by_username,
+                   asgn.full_name as assigned_to_name,
                    (SELECT COUNT(*) FROM consultation_logs cl WHERE cl.customer_id = c.id) as consult_count,
                    (SELECT COUNT(*) FROM order_codes oc WHERE oc.customer_id = c.id) as order_count
             FROM customers c
             LEFT JOIN users u ON u.id = c.created_by
+            LEFT JOIN users asgn ON asgn.id = c.assigned_to_id
             WHERE (c.customer_name ILIKE $1 OR c.phone ILIKE $1 OR c.phone2 ILIKE $1 OR c.facebook_link ILIKE $1 OR c.address ILIKE $1)
         `;
         let crmParams = [searchPattern];
