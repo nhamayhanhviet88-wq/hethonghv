@@ -678,7 +678,7 @@ async function _dlAddModal() {
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${p.color};color:white;font-size:12px;">${p.icon}</span>
                     ${p.label} <span style="color:#dc2626;">*</span>
                 </label>
-                <input id="dlV_${p.key}" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border-color .2s;" placeholder="${p.placeholder}">
+                <input id="dlV_${p.key}" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;transition:border-color .2s;" placeholder="${p.placeholder}">
                 <div id="dlVErr_${p.key}" style="display:none;margin-top:4px;padding:4px 10px;border-radius:6px;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:600;"></div>
             </div>`;
         }).join('');
@@ -762,7 +762,7 @@ async function _dlAddModal() {
         <div style="padding:24px;">
             ${!needImg ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
-                <input id="dlFLink" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
+                <input id="dlFLink" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
                 <div id="dlFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
             </div>` : ''}
             ${m.type === 'dang_group' ? `<div style="margin-bottom:14px;">
