@@ -80,8 +80,11 @@ async function start() {
     try { await db.exec('ALTER TABLE users ADD COLUMN probation_warned BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
     // Seed 'thu_viec' role
     try {
-        await db.run("INSERT INTO system_roles (name, slug, level) VALUES ('Thử Việc', 'thu_viec', 15) ON CONFLICT (slug) DO NOTHING");
-    } catch(e) { /* exists */ }
+        const existsTV = await db.get("SELECT id FROM system_roles WHERE slug = 'thu_viec'");
+        if (!existsTV) {
+            await db.run("INSERT INTO system_roles (name, slug, level) VALUES ('Thử Việc', 'thu_viec', 15)");
+        }
+    } catch(e) { console.log('thu_viec seed:', e.message); }
 
     // Plugins
     fastify.register(require('@fastify/cookie'));

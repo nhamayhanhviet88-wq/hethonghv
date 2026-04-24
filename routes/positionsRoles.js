@@ -85,7 +85,7 @@ async function positionsRolesRoutes(fastify, options) {
         if (!role) return reply.code(404).send({ error: 'Không tìm thấy vai trò' });
         
         // Protect core roles
-        const coreRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'part_time'];
+        const coreRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'];
         if (coreRoles.includes(role.slug)) {
             return reply.code(400).send({ error: 'Không thể xóa vai trò hệ thống mặc định' });
         }
