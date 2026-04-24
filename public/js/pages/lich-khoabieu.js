@@ -46,6 +46,8 @@ const _KB_TASK_ROUTE_MAP = {
     'đăng bản thân': '/dangbanthansp',
     'tuyển dụng sv': '/tuyendungsvkd',
     'tìm gr zalo': '/timgrzalovathongke',
+    'gọi điện telesale': '/goidien',
+    'tự tìm kiếm telesale': '/goidien',
 };
 
 function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {

@@ -138,8 +138,27 @@ async function renderGoiDienPage(container) {
         }
     }
 
+    // Handle URL params: ?sel_user=ID&sel_date=YYYY-MM-DD (from "Xem báo cáo" in schedule)
+    const _gdUrlParams = new URLSearchParams(window.location.search);
+    const _gdSelUser = _gdUrlParams.get('sel_user');
+    const _gdSelDate = _gdUrlParams.get('sel_date');
+    if (_gdSelDate) {
+        _gd_datePreset = 'custom';
+        _gd_dateFrom = _gdSelDate;
+        _gd_dateTo = _gdSelDate;
+    }
+
     // Auto-select logic
-    if (_isNhanVien) {
+    if (_gdSelUser) {
+        // URL param specifies user → select that user
+        const targetUserId = parseInt(_gdSelUser);
+        const targetUser = _gd_allUsers.find(u => u.id === targetUserId);
+        _gd_selectedUserId = targetUserId;
+        _gd_selectedUserName = targetUser ? (targetUser.full_name || targetUser.username) : 'Nhân viên';
+        _gd_isViewOnly = (targetUserId !== currentUser.id);
+        if (!_isNhanVien) _gd_renderSidebar();
+        await _gd_loadCallsForUser(targetUserId);
+    } else if (_isNhanVien) {
         // NV/PT: luôn load data bản thân (không cần sidebar)
         _gd_selectedUserId = currentUser.id;
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
