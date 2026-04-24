@@ -1283,11 +1283,11 @@ function _kbRenderGrid() {
 
                 // Check if this is a "Sedding" task
                 const isSedding = /sedding/i.test(task.task_name);
-                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+                const sdPlaceholder = isSedding ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" data-needs-approval="${_lockForced || lt.requires_approval ? 1 : 0}" style="margin-top:6px;"></div>` : '';
 
                 // Check if this is a "Tìm Gr Zalo" task
                 const isZalo = /tìm.*gr.*zalo/i.test(task.task_name);
-                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : '';
+                const zlPlaceholder = isZalo ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" data-needs-approval="${_lockForced || lt.requires_approval ? 1 : 0}" style="margin-top:6px;"></div>` : '';
 
                 html += `<td style="padding:8px 10px;border-bottom:${borderB};vertical-align:top;">
                     <div style="background:${c.bg};border:1px solid ${c.border};border-left:3px solid ${c.badge};border-radius:8px;padding:10px 12px;text-align:center;position:relative;">
@@ -1561,7 +1561,7 @@ function _kbRenderGrid() {
                         ${actionHtml}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
-                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
+                        ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" data-needs-approval="${_lockForced || lt.requires_approval ? 1 : 0}" style="margin-top:6px;"></div>` : ''}
                     </div>
                 </td>`;
             }
@@ -4358,7 +4358,10 @@ async function _kbLoadDetailTuyenDung() {
 
 
 // Helper: check if any lock completion for this mini-render element's date is pending
-function _kbCheckLockPending(el) {
+function _kbCheckLockPending(el, done) {
+    // Check 1: if lock task needs approval and progress is done → show pending
+    if (done && el.getAttribute('data-needs-approval') === '1') return true;
+    // Check 2: if any lock completion for this date is actually pending
     const dateStr = el.getAttribute('data-sd-date') || el.getAttribute('data-zl-date') || el.getAttribute('data-bt-date') || '';
     if (!dateStr || typeof _kbLockCompletions === 'undefined') return false;
     for (const key of Object.keys(_kbLockCompletions)) {
@@ -4386,9 +4389,9 @@ async function _kbInjectSeddingStats() {
 
 function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4480,9 +4483,9 @@ async function _kbInjectZaloStats() {
 
 function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4574,9 +4577,9 @@ async function _kbInjectDangBTStats() {
 
 function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
-    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el);
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending' || el.getAttribute('data-lock-status') === 'pending' || _kbCheckLockPending(el, done);
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
