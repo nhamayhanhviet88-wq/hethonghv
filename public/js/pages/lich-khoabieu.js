@@ -1724,9 +1724,9 @@ function _kbRenderGrid() {
                         <div onclick="_kbShowLockTaskDetail(${lt.id})" style="font-weight:700;color:#991b1b;font-size:12px;margin-bottom:4px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${lt.task_name}</div>
                         <div style="font-size:9px;color:#9ca3af;margin-top:3px;">⏰ Hạn: 24:00</div>
 
-                        <div style="margin-top:6px;">${lockStatusBadge}</div>${lockForceBadge}
                         ${actionHtml}
                         <div data-fb-task="${lt.task_name}" data-fb-date="${dateStr}" data-fb-uid="${_kbViewUserId || currentUser.id}"></div>
+                        <div style="margin-top:6px;">${lockStatusBadge}</div>${lockForceBadge}
                         ${/sedding/i.test(lt.task_name) ? `<div id="kbSD_${dateStr}" data-sd-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/tìm.*gr.*zalo/i.test(lt.task_name) ? `<div id="kbZL_${dateStr}" data-zl-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
                         ${/đăng.*bản.*thân/i.test(lt.task_name) ? `<div id="kbBT_${dateStr}" data-bt-date="${dateStr}" style="margin-top:6px;"></div>` : ''}
