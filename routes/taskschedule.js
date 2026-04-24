@@ -814,6 +814,41 @@ async function taskScheduleRoutes(fastify, options) {
 
     // ========== PENDING APPROVALS ==========
 
+    // GET my own pending reports (for employee notification)
+    fastify.get('/api/schedule/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const reports = await db.all(
+            `SELECT r.id, r.template_id, r.report_date::text as report_date, r.status, r.created_at,
+                    t.task_name, t.points as template_points
+             FROM task_point_reports r
+             JOIN task_point_templates t ON r.template_id = t.id
+             WHERE r.user_id = $1 AND r.status = 'pending'
+             ORDER BY r.report_date DESC`,
+            [userId]
+        );
+        const lockPending = await db.all(
+            `SELECT c.id, c.lock_task_id, c.completion_date::text as completion_date, c.status,
+                    t.task_name
+             FROM lock_task_completions c
+             JOIN lock_tasks t ON c.lock_task_id = t.id
+             WHERE c.user_id = $1 AND c.status = 'pending'
+             ORDER BY c.completion_date DESC`,
+            [userId]
+        );
+        const chainPending = await db.all(
+            `SELECT cc.id, cc.chain_item_id, cc.status, cc.created_at,
+                    cii.task_name, cins.chain_name
+             FROM chain_task_completions cc
+             JOIN chain_task_instance_items cii ON cc.chain_item_id = cii.id
+             JOIN chain_task_instances cins ON cins.id = cii.chain_instance_id
+             WHERE cc.user_id = $1 AND cc.status = 'pending'
+             ORDER BY cc.created_at DESC`,
+            [userId]
+        );
+        return { reports, lockPending, chainPending };
+    });
+
+
     // GET pending reports for current user's approval scope
     fastify.get('/api/schedule/pending-approvals', { preHandler: [authenticate] }, async (request, reply) => {
         // Auto-expire overdue first

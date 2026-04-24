@@ -303,20 +303,29 @@ module.exports = async function (fastify) {
 
                     const existing = await db.get("SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3", [tpl.id, uid, today]);
                     if (existing) {
-                        if (existing.status === 'approved' && !shouldAutoApprove) {
-                            // Already approved by reviewer, just update quantity
+                        if (!shouldAutoApprove && (existing.status === 'approved' || existing.status === 'pending')) {
+                            // Force-approval user: report approved/pending → CHỈNH SỐ LƯỢNG, KHÔNG ĐỔI STATUS
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, content = $2, report_value = $3 WHERE id = $4`,
                                 [tmplQty, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, existing.id]
                             );
-                        } else {
-                            const newStatus = shouldAutoApprove ? (metTarget ? 'approved' : existing.status) : 'pending';
-                            const newPoints = shouldAutoApprove ? (metTarget ? tmplPoints : 0) : 0;
+                        } else if (shouldAutoApprove) {
+                            // Normal user: auto-approve normally
+                            const newStatus = metTarget ? 'approved' : existing.status;
+                            const newPoints = metTarget ? tmplPoints : 0;
                             await db.run(
                                 `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
                                  content = $3, report_value = $4, status = $5
                                  WHERE id = $6`,
                                 [tmplQty, newPoints, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, newStatus, existing.id]
+                            );
+                        } else {
+                            // Force-approval user, status is rejected/expired → set pending
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = 0,
+                                 content = $2, report_value = $3, status = 'pending'
+                                 WHERE id = $4`,
+                                [tmplQty, `[Tự động] ${entryCount}/${tmplTarget} ${module_type}`, `${entryCount}/${tmplTarget}`, existing.id]
                             );
                         }
                     } else {

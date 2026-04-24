@@ -24,6 +24,17 @@ let _kbForceScheduleIds = new Set(); // Set of template_ids forced for viewed us
 let _kbForceLockIds = new Set(); // Set of lock_task_ids forced for viewed user
 let _kbForceChainIds = new Set();
 
+// CSS: Employee pending banner animation
+if (!document.getElementById('_kbPendingBannerCSS')) {
+    const _pbSt = document.createElement('style'); _pbSt.id = '_kbPendingBannerCSS';
+    _pbSt.textContent = `
+        @keyframes _kbPendingPulse { 0%,100%{box-shadow:0 4px 20px rgba(217,119,6,0.35)} 50%{box-shadow:0 6px 30px rgba(217,119,6,0.55)} }
+        @keyframes _kbBellShake { 0%,100%{transform:rotate(0)} 10%{transform:rotate(-12deg)} 20%{transform:rotate(12deg)} 30%{transform:rotate(-8deg)} 40%{transform:rotate(8deg)} 50%{transform:rotate(0)} }
+    `;
+    document.head.appendChild(_pbSt);
+}
+
+
 // ========== SMART NAVIGATION — "Xem" button routes to correct page ==========
 const _KB_TASK_ROUTE_MAP = {
     'add/cmt đối tác': '/addcmtdoitackh',
@@ -707,6 +718,7 @@ async function renderLichKhoaBieuPage(container) {
         </div>
         <div id="kbSetupPanel" style="display:none;margin-bottom:16px;"></div>
         <div id="kbApprovalPanel" style="margin-bottom:14px;"></div>
+        <div id="kbMyPendingBanner" style="margin-bottom:14px;"></div>
         <div id="kbSupportPanel" style="margin-bottom:14px;"></div>
         <div style="display:flex;gap:16px;">
             ${membersHtml}
@@ -749,6 +761,7 @@ async function renderLichKhoaBieuPage(container) {
     }
     if (hasApprovalScope) _kbLoadApprovalPanel();
     if (hasApprovalScope) _kbLoadSupportPanel();
+    _kbLoadMyPendingBanner(); // Show pending notification for employees
     _kbCheckRejectedPopup();
     setTimeout(() => _kbCheckForceApprovalNotification(), 3000);
 }
@@ -2407,6 +2420,70 @@ function _kbFormatCountdown(deadlineStr) {
     if (hours < 6) { color = '#dc2626'; bg = '#fef2f2'; } // red
     else if (hours < 12) { color = '#d97706'; bg = '#fef3c7'; } // orange
     return `<span style="font-weight:800;color:${color};background:${bg};padding:2px 8px;border-radius:6px;font-size:11px;">${hours}h${mins > 0 ? String(mins).padStart(2,'0') + 'p' : ''}</span>`;
+}
+
+
+// ========== EMPLOYEE PENDING BANNER ==========
+async function _kbLoadMyPendingBanner() {
+    const panel = document.getElementById('kbMyPendingBanner');
+    if (!panel) return;
+    try {
+        const data = await apiCall('/api/schedule/my-pending');
+        const reports = data.reports || [];
+        const lockPending = data.lockPending || [];
+        const chainPending = data.chainPending || [];
+        const total = reports.length + lockPending.length + chainPending.length;
+        if (total === 0) { panel.innerHTML = ''; return; }
+
+        let items = '';
+        reports.forEach(r => {
+            const dateF = r.report_date.split('-').reverse().join('/');
+            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
+                <span style="font-size:18px;">📊</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${dateF} • ${r.template_points}đ</div>
+                </div>
+                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
+            </div>`;
+        });
+        lockPending.forEach(r => {
+            const dateF = (r.completion_date||'').split('-').reverse().join('/');
+            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
+                <span style="font-size:18px;">🔐</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${dateF} • CV Khóa</div>
+                </div>
+                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
+            </div>`;
+        });
+        chainPending.forEach(r => {
+            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
+                <span style="font-size:18px;">🔗</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${r.chain_name} • CV Chuỗi</div>
+                </div>
+                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
+            </div>`;
+        });
+
+        panel.innerHTML = `
+        <div style="background:linear-gradient(135deg,#d97706,#f59e0b);border:2px solid #fbbf24;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(217,119,6,0.35);animation:_kbPendingPulse 3s infinite;">
+            <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;">
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;animation:_kbBellShake 2s infinite;">⏳</div>
+                <div style="flex:1;">
+                    <div style="color:white;font-weight:900;font-size:16px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">🔔 BẠN CÓ ${total} CÔNG VIỆC ĐANG CHỜ DUYỆT!</div>
+                    <div style="color:rgba(255,255,255,0.9);font-size:12px;margin-top:2px;">Hãy liên hệ quản lý để được duyệt sớm nhất</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.3);padding:6px 16px;border-radius:20px;font-size:20px;font-weight:900;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.2);min-width:36px;text-align:center;">${total}</div>
+            </div>
+            <div style="padding:0 18px 14px;display:flex;flex-direction:column;gap:6px;">
+                ${items}
+            </div>
+        </div>`;
+    } catch(e) { console.warn('[MyPending]', e); }
 }
 
 // ========== APPROVAL PANEL (pending reports) ==========
