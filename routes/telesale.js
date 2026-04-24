@@ -956,6 +956,8 @@ async function telesaleRoutes(fastify) {
             return reply.code(403).send({ error: 'Không có quyền xem data user này' });
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
+        // VN today for filtering out past pending
+        const vnToday = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
             d.customer_name, d.phone, d.address, d.extra_data, d.fb_link, d.self_searched_by,
             s.name as source_name, s.icon as source_icon, s.crm_type as source_crm_type,
@@ -965,7 +967,8 @@ async function telesaleRoutes(fastify) {
             LEFT JOIN telesale_sources s ON s.id = d.source_id
             LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
             WHERE a.user_id = $1 AND a.assigned_date >= $2 AND a.assigned_date <= $3
-            ORDER BY a.assigned_date DESC, a.call_status = 'pending' DESC, a.id`, [req.params.userId, dateFrom, dateTo]);
+            AND NOT (a.call_status = 'pending' AND a.assigned_date < $4)
+            ORDER BY a.assigned_date DESC, a.call_status = 'pending' DESC, a.id`, [req.params.userId, dateFrom, dateTo, vnToday]);
         return { calls, date_from: dateFrom, date_to: dateTo };
     });
 
@@ -1048,11 +1051,13 @@ async function telesaleRoutes(fastify) {
             return reply.code(403).send({ error: 'Không có quyền' });
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
+        // VN today for filtering out past pending
+        const vnToday = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
 
         const _buildUserStats = async (df, dt) => {
             const row = await db.get(`SELECT
-                COUNT(*) as total,
-                COUNT(*) FILTER (WHERE a.call_status = 'pending') as pending,
+                COUNT(*) FILTER (WHERE NOT (a.call_status = 'pending' AND a.assigned_date < $4)) as total,
+                COUNT(*) FILTER (WHERE a.call_status = 'pending' AND a.assigned_date >= $4) as pending,
                 COUNT(*) FILTER (WHERE a.call_status = 'answered') as answered,
                 COUNT(*) FILTER (WHERE a.call_status = 'no_answer') as no_answer,
                 COUNT(*) FILTER (WHERE a.call_status = 'busy') as busy,
@@ -1063,7 +1068,7 @@ async function telesaleRoutes(fastify) {
                 FROM telesale_assignments a
                 LEFT JOIN telesale_answer_statuses ans ON ans.id = a.answer_status_id
                 WHERE a.user_id = $1 AND a.assigned_date >= $2 AND a.assigned_date <= $3`,
-                [req.params.userId, df, dt]);
+                [req.params.userId, df, dt, vnToday]);
             return row || { total:0, pending:0, answered:0, no_answer:0, busy:0, invalid:0, transferred:0, cold_answered:0, ncc_answered:0 };
         };
 
