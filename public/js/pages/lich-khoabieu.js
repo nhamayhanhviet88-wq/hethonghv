@@ -1301,7 +1301,7 @@ function _kbRenderGrid() {
                     actionBtn = `<a href="${_lpUrl}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Mở trang →</a>`;
                     // Also show status badge for linked-page tasks with reports
                     // Skip tasks that have their own inject placeholder (TuyenDung, Sedding, etc.)
-                    const _hasOwnInject = /tuyển\s*dụng|sedding|đăng.*bản.*thân|tìm.*gr.*zalo/i.test(task.task_name);
+                    const _hasOwnInject = /tuyển\s*dụng|sedding|đăng.*bản.*thân|tìm.*gr.*zalo|đăng.*video|đăng.*content|đăng.*tìm.*kh/i.test(task.task_name);
                     if (!_hasOwnInject && report && report.status === 'pending') {
                         statusBadge = `<div style="margin-top:4px;"><span style="background:#fef3c7;color:#d97706;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;border:1px solid #fde68a;">⏳ Chờ Duyệt ${report.quantity || ''}/ ${task.min_quantity || 1}</span></div>`;
                     } else if (!_hasOwnInject && report && report.status === 'approved') {
@@ -4276,7 +4276,7 @@ function _kbRenderAddCmtMini(el, res) {
     const target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate = (el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
+    const _elDate = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4346,7 +4346,7 @@ function _kbRenderDangVideoMini(el, res) {
     const target = res.target || 1;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate = (el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
+    const _elDate = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4412,7 +4412,7 @@ function _kbRenderDangContentMini(el, res) {
     const count = res.count || 0, target = res.target || 1;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate = (el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
+    const _elDate = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4473,7 +4473,7 @@ function _kbRenderDangGroupMini(el, res) {
     const count = res.count || 0, target = res.target || 5;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate = (el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
+    const _elDate = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4534,7 +4534,7 @@ function _kbRenderTuyenDungMini(el, res) {
     const count = res.count || 0, target = res.target || 5;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate = (el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
+    const _elDate = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.acDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = (res.report_status === 'pending') && (_elDate >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4608,7 +4608,7 @@ function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4702,7 +4702,7 @@ function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
@@ -4796,7 +4796,7 @@ function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    const _elDate2 = (el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
+    const _elDate2 = (el.dataset.dvDate||el.dataset.dcDate||el.dataset.dgDate||el.dataset.sdDate||el.dataset.btDate||el.dataset.acDate||el.dataset.zlDate||el.dataset.tdDate||''); const isPending = ((res.report_status === 'pending') || (done && _kbLockNeedsApproval())) && (_elDate2 >= _kbDateStr(new Date()));
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
