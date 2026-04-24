@@ -179,7 +179,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
                          VALUES ($1, $2, $3, 0, 'expired', $4, true)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)`,
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)
+                         WHERE lock_task_completions.status != 'approved'`,
                         [sr.lock_task_id, sr.user_id, sr.task_date, nvPenalty]
                     );
                 } catch(e) {}
@@ -367,7 +368,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     await db.run(
                         `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, acknowledged)
                          VALUES ($1, $2, $3, 0, 'expired', $4, true, false)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true
+                         WHERE lock_task_completions.status != 'approved'`,
                         [la.task_id, la.user_id, checkDateStr, penaltyAmount]
                     );
                 } catch(e) {
@@ -529,7 +531,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
             await db.run(
                 `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
                  VALUES ($1, $2, $3, -1, 'expired', $4, true, $5, false)
-                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true`,
+                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true
+                 WHERE lock_task_completions.status != 'approved'`,
                 [pr.lock_task_id, managerId, pr.completion_date, penaltyAmount, `QL không duyệt CV Khóa: ${pr.task_name}`]
             );
         } catch(e) {}
