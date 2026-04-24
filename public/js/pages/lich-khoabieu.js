@@ -2425,64 +2425,61 @@ function _kbFormatCountdown(deadlineStr) {
 
 // ========== EMPLOYEE PENDING BANNER ==========
 async function _kbLoadMyPendingBanner() {
-    const panel = document.getElementById('kbMyPendingBanner');
-    if (!panel) return;
+    // Remove old banner if exists
+    document.getElementById('_kbPendingStickyBanner')?.remove();
     try {
         const data = await apiCall('/api/schedule/my-pending');
         const reports = data.reports || [];
         const lockPending = data.lockPending || [];
         const chainPending = data.chainPending || [];
         const total = reports.length + lockPending.length + chainPending.length;
-        if (total === 0) { panel.innerHTML = ''; return; }
+        if (total === 0) return;
 
-        let items = '';
+        let taskList = [];
         reports.forEach(r => {
             const dateF = r.report_date.split('-').reverse().join('/');
-            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
-                <span style="font-size:18px;">📊</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${dateF} • ${r.template_points}đ</div>
-                </div>
-                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
-            </div>`;
+            taskList.push('📊 ' + r.task_name + ' (' + dateF + ')');
         });
         lockPending.forEach(r => {
             const dateF = (r.completion_date||'').split('-').reverse().join('/');
-            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
-                <span style="font-size:18px;">🔐</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${dateF} • CV Khóa</div>
-                </div>
-                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
-            </div>`;
+            taskList.push('🔐 ' + r.task_name + ' (' + dateF + ')');
         });
         chainPending.forEach(r => {
-            items += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.15);border-radius:8px;backdrop-filter:blur(4px);">
-                <span style="font-size:18px;">🔗</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:13px;color:white;">${r.task_name}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.8);">${r.chain_name} • CV Chuỗi</div>
-                </div>
-                <span style="background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:white;">⏳ Chờ duyệt</span>
-            </div>`;
+            taskList.push('🔗 ' + r.task_name);
         });
 
-        panel.innerHTML = `
-        <div style="background:linear-gradient(135deg,#d97706,#f59e0b);border:2px solid #fbbf24;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(217,119,6,0.35);animation:_kbPendingPulse 3s infinite;">
-            <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;">
-                <div style="width:48px;height:48px;background:rgba(255,255,255,0.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;animation:_kbBellShake 2s infinite;">⏳</div>
-                <div style="flex:1;">
-                    <div style="color:white;font-weight:900;font-size:16px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">🔔 BẠN CÓ ${total} CÔNG VIỆC ĐANG CHỜ DUYỆT!</div>
-                    <div style="color:rgba(255,255,255,0.9);font-size:12px;margin-top:2px;">Hãy liên hệ quản lý để được duyệt sớm nhất</div>
+        const banner = document.createElement('div');
+        banner.id = '_kbPendingStickyBanner';
+        banner.innerHTML = `
+        <div style="background:linear-gradient(135deg,#d97706,#f59e0b);padding:12px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 4px 20px rgba(217,119,6,0.4);position:relative;">
+            <div style="width:44px;height:44px;background:rgba(255,255,255,0.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;animation:_kbBellShake 2s infinite;">⏳</div>
+            <div style="flex:1;min-width:0;">
+                <div style="color:white;font-weight:900;font-size:15px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">
+                    🔔 BẠN CÓ ${total} CÔNG VIỆC ĐANG CHỜ DUYỆT!
                 </div>
-                <div style="background:rgba(255,255,255,0.3);padding:6px 16px;border-radius:20px;font-size:20px;font-weight:900;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.2);min-width:36px;text-align:center;">${total}</div>
+                <div style="color:rgba(255,255,255,0.9);font-size:12px;margin-top:3px;">
+                    ${taskList.join(' • ')}
+                </div>
+                <div style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:2px;">
+                    💡 Hãy liên hệ quản lý để được duyệt sớm nhất
+                </div>
             </div>
-            <div style="padding:0 18px 14px;display:flex;flex-direction:column;gap:6px;">
-                ${items}
-            </div>
+            <div style="background:rgba(255,255,255,0.3);padding:8px 18px;border-radius:20px;font-size:22px;font-weight:900;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.2);min-width:36px;text-align:center;flex-shrink:0;">${total}</div>
+            <button onclick="document.getElementById('_kbPendingStickyBanner').style.display='none'" style="position:absolute;top:6px;right:10px;background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:16px;padding:2px 6px;">✕</button>
         </div>`;
+        banner.style.cssText = 'position:sticky;top:0;z-index:100;margin:-20px -20px 16px -20px;border-radius:0 0 12px 12px;overflow:hidden;animation:_kbPendingPulse 3s infinite;';
+
+        // Insert at top of the content area (inside the flex>right column, before stats bar)
+        const gridWrap = document.getElementById('kbGridWrap');
+        if (gridWrap && gridWrap.parentElement) {
+            gridWrap.parentElement.insertBefore(banner, gridWrap.parentElement.firstChild);
+        } else {
+            // Fallback: insert after kbApprovalPanel
+            const ap = document.getElementById('kbApprovalPanel');
+            if (ap && ap.parentElement) {
+                ap.parentElement.insertBefore(banner, ap.nextSibling);
+            }
+        }
     } catch(e) { console.warn('[MyPending]', e); }
 }
 
