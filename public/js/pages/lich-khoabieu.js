@@ -4888,13 +4888,17 @@ async function _kbShowForceApprovalSetup(userId, userName) {
         const monStr = _kbDateStr(mon);
         const schedData = await apiCall(`/api/schedule/dashboard?user_id=${uid}&week_start=${monStr}`);
 
-        // Deduplicate schedule tasks by id
-        const schedTasks = [];
-        const seenIds = new Set();
+        // Deduplicate schedule tasks by task_name (same template repeats for each day)
+        // Collect ALL template IDs per task_name for force approval
+        const schedTaskMap = {};
         (schedData.tasks || []).forEach(t => {
+            const name = t.task_name;
+            if (!name) return;
+            if (!schedTaskMap[name]) schedTaskMap[name] = { ...t, allIds: [] };
             const tid = t.id || t.template_id;
-            if (tid && !seenIds.has(tid)) { seenIds.add(tid); schedTasks.push(t); }
+            if (tid && !schedTaskMap[name].allIds.includes(tid)) schedTaskMap[name].allIds.push(tid);
         });
+        const schedTasks = Object.values(schedTaskMap);
 
         // Get lock tasks for user
         let lockTasks = [];
@@ -4947,11 +4951,13 @@ async function _kbShowForceApprovalSetup(userId, userName) {
         if (schedTasks.length > 0) {
             html += `<div style="font-weight:700;font-size:13px;color:#1d4ed8;margin:12px 0 6px;display:flex;align-items:center;gap:6px;">📊 CV ĐIỂM</div>`;
             schedTasks.forEach(t => {
-                const tid = t.id || t.template_id;
-                const checked = forceTaskMap[`schedule_${tid}`] ? 'checked' : '';
+                const allIds = t.allIds || [t.id || t.template_id];
+                // Check if ANY of the IDs is in forceTaskMap
+                const isChecked = allIds.some(id => forceTaskMap[`schedule_${id}`]);
+                const checked = isChecked ? 'checked' : '';
                 const nativeApproval = t.requires_approval ? '<span style="background:#fbbf24;color:#78350f;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px;">Cần duyệt gốc</span>' : '';
                 html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                    <input type="checkbox" class="kbForceTask" data-type="schedule" data-ref="${tid}" ${checked} style="width:16px;height:16px;accent-color:#dc2626;">
+                    <input type="checkbox" class="kbForceTask" data-type="schedule" data-ref="${allIds.join(',')}" ${checked} style="width:16px;height:16px;accent-color:#dc2626;">
                     <span style="font-size:13px;color:#334155;">${t.task_name} <span style="color:#94a3b8;font-size:11px;">(${t.points || 0}đ)</span>${nativeApproval}</span>
                 </label>`;
             });
@@ -5019,10 +5025,13 @@ async function _kbSaveForceApproval(userId) {
     const forceAll = document.getElementById('kbForceAll')?.checked || false;
     const reviewerId = document.getElementById('kbForceReviewer')?.value || null;
 
-    // Collect selected tasks
+    // Collect selected tasks (schedule checkboxes may have comma-separated IDs)
     const tasks = [];
     document.querySelectorAll('.kbForceTask:checked').forEach(cb => {
-        tasks.push({ task_type: cb.dataset.type, task_ref_id: Number(cb.dataset.ref) });
+        const refs = cb.dataset.ref.split(',');
+        refs.forEach(ref => {
+            if (ref) tasks.push({ task_type: cb.dataset.type, task_ref_id: Number(ref) });
+        });
     });
 
     try {
