@@ -1275,8 +1275,7 @@ function _kbRenderGrid() {
                 let actionBtn = ''; // inline with guide button row
                 const _linkedPage = _kbGetLinkedPage(task.task_name);
                 const _isPastDay = dateStr < _kbDateStr(new Date());
-                const _taskDoneOrPending = report && (report.status === 'approved' || report.status === 'pending');
-                if (_linkedPage && canReport && !(_isPastDay && _taskDoneOrPending)) {
+                if (_linkedPage && canReport && !_isPastDay) {
                     // Task has a linked menu page → navigate there instead of showing Báo cáo
                     actionBtn = `<a href="${_linkedPage.page}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;font-size:10px;border:none;border-radius:5px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;cursor:pointer;font-weight:700;text-decoration:none;box-shadow:0 2px 6px rgba(99,102,241,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">${_linkedPage.icon} Mở trang →</a>`;
                 } else if (_linkedPage && !canReport) {
