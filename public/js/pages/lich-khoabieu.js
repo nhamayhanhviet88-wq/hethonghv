@@ -1003,7 +1003,7 @@ function _kbRenderGrid() {
     if (!document.getElementById('_kbPulseStyle')) {
         const s = document.createElement('style');
         s.id = '_kbPulseStyle';
-        s.textContent = '@keyframes _kbPulse { 0%,100%{transform:scale(1);box-shadow:0 2px 6px rgba(217,119,6,0.4)} 50%{transform:scale(1.08);box-shadow:0 3px 10px rgba(217,119,6,0.6)} }';
+        s.textContent = '@keyframes _kbPulse { 0%,100%{transform:scale(1);box-shadow:0 2px 6px rgba(217,119,6,0.4)} 50%{transform:scale(1.08);box-shadow:0 3px 10px rgba(217,119,6,0.6)} } @keyframes _kbPendingPulse { 0%,100%{opacity:1;box-shadow:0 2px 8px rgba(245,158,11,0.4)} 50%{opacity:0.85;box-shadow:0 3px 14px rgba(245,158,11,0.7)} }';
         document.head.appendChild(s);
     }
 
@@ -4058,16 +4058,14 @@ function _kbRenderAddCmtMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    const statusLabel = done
-        ? `<span style="color:${isPending?'#d97706':'#16a34a'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>`
-        : `<span style="color:#16a34a;font-weight:700;">👥 ${count}/${target}</span>`;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#16a34a;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        const statusLabel = done
+            ? `<span style="color:#16a34a;font-weight:800;">✅ ${count}/${target}</span>`
+            : `<span style="color:#16a34a;font-weight:700;">👥 ${count}/${target}</span>`;
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#16a34a;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailAddCmt() {
@@ -4130,16 +4128,14 @@ function _kbRenderDangVideoMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    const statusLabel = done
-        ? `<span style="color:${isPending?'#d97706':'#dc2626'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>`
-        : `<span style="color:#dc2626;font-weight:700;">🎬 ${count}/${target}</span>`;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#dc2626;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        const statusLabel = done
+            ? `<span style="color:#dc2626;font-weight:800;">✅ ${count}/${target}</span>`
+            : `<span style="color:#dc2626;font-weight:700;">🎬 ${count}/${target}</span>`;
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#dc2626;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailDangVideo() {
@@ -4197,13 +4193,11 @@ function _kbRenderDangContentMini(el, res) {
     const count = res.count || 0, target = res.target || 1;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#8b5cf6'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailDangContent() {
@@ -4260,13 +4254,11 @@ function _kbRenderDangGroupMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#0891b2'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailDangGroup() {
@@ -4323,13 +4315,11 @@ function _kbRenderTuyenDungMini(el, res) {
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     const isPending = res.report_status === 'pending';
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#be185d'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailTuyenDung() {
@@ -4386,13 +4376,11 @@ function _kbRenderSeddingMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#ea580c'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailSedding() {
@@ -4482,13 +4470,11 @@ function _kbRenderZaloMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#0284c7'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailZalo() {
@@ -4578,13 +4564,11 @@ function _kbRenderDangBTMini(el, res) {
     const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
-    el.innerHTML = `
-        <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#a21caf'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
-                <div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-        </div>`;
+    if (done && isPending) {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
+    } else {
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+    }
 }
 
 async function _kbLoadDetailDangBT() {
