@@ -1308,7 +1308,25 @@ function _kbRenderGrid() {
                         statusBadge = `<div style="margin-top:4px;"><span style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;border:1px solid #86efac;">✅ +${report.points_earned}đ</span></div>`;
                     }
                 } else if (_linkedPage && !canReport) {
-                    actionBtn = '';
+                    // Manager/GD viewing subordinate: show Xem bao cao if report exists
+                    if (report) {
+                        const rData = JSON.stringify({
+                            template_id: reportTemplateId, task_name: task.task_name, user_id: (_kbViewUserId || currentUser.id), status: report.status, points_earned: report.points_earned,
+                            quantity: report.quantity, min_quantity: task.min_quantity || 1, report_value: report.report_value || '', report_image: report.report_image || '',
+                            report_date: dateStr, content: report.content || '', reject_reason: report.reject_reason || '',
+                            redo_count: report.redo_count || 0, redo_deadline: report.redo_deadline || ''
+                        }).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        if (report.status === 'approved') {
+                            actionBtn = `<span onclick="_kbViewReport(this)" data-report="${rData}" style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;border:1px solid #86efac;transition:all .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">✅ +${report.points_earned}đ</span>`;
+                        } else if (report.status === 'pending') {
+                            actionBtn = `<div onclick="_kbViewReport(this)" data-report="${rData}" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;cursor:pointer;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ ${report.redo_count > 0 ? 'Chờ duyệt lại' : 'Chờ duyệt'}</span></div>`;
+                        } else if (report.status === 'rejected') {
+                            actionBtn = `<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;border:1px solid #b91c1c;box-shadow:0 2px 8px rgba(220,38,38,0.35);animation:_kbPulse 2s infinite;">⚠️ Chờ NV nộp lại</span>`;
+                        }
+                        statusBadge = `<div style="margin-top:4px;"><span onclick="_kbViewReport(this)" data-report="${rData}" style="display:inline-block;padding:4px 12px;border-radius:6px;background:#2563eb;border:1px solid #1d4ed8;color:white;font-size:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);">📄 Xem báo cáo</span></div>`;
+                    } else {
+                        actionBtn = '';
+                    }
                 } else
                 if (report) {
                     // HAS REPORT — make it clickable to view details
