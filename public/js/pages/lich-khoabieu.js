@@ -3853,7 +3853,9 @@ function _kbShowLockReport(compId) {
     if (_lrLinkedPage) {
         const _lrUserId = comp.user_id || (_kbViewUserId || currentUser?.id || '');
         const _lrDate = comp.completion_date || '';
-        const url = _lrLinkedPage.page + '?sel_user=' + _lrUserId + '&sel_date=' + _lrDate;
+        let url = _lrLinkedPage.page + '?sel_user=' + _lrUserId + '&sel_date=' + _lrDate;
+        if (_lrLinkedPage.crm) url += '&sel_crm=' + _lrLinkedPage.crm;
+        if (_lrLinkedPage.tab) url += '&sel_tab=' + _lrLinkedPage.tab;
         window.open(url, '_blank');
         return;
     }

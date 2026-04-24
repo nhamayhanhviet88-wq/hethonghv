@@ -881,6 +881,20 @@ function _zpInit() {
             </div>
         </div>
     </div>`;
+    // ===== Override from URL params (from "Xem báo cáo" in schedule) =====
+    const _zpUrlParams = new URLSearchParams(window.location.search);
+    const _zpSelUser = _zpUrlParams.get('sel_user');
+    const _zpSelDate = _zpUrlParams.get('sel_date');
+    if (_zpSelUser) {
+        _zpCurUser = Number(_zpSelUser);
+        _zpCurDept = null;
+    }
+    if (_zpSelDate) {
+        _zpDateFilter = 'custom';
+        _zpCustomFrom = _zpSelDate;
+        _zpCustomTo = _zpSelDate;
+        window.history.replaceState({}, '', window.location.pathname);
+    }
     _zpLoadSidebar();
     _zpRenderDateBar();
     _zpLoadData();
