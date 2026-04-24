@@ -1583,7 +1583,10 @@ function _kbRenderGrid() {
                             lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                             lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                         } else {
+                        const _lockHasInject = /sedding|đăng.*bản.*thân|tìm.*gr.*zalo/i.test(lt.task_name);
+                        if (!_lockHasInject) {
                         lockStatusBadge = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:5px 10px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;display:inline-block;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt</span></div>';
+                        }
                         lockBg = '#fffbeb'; lockBorder = '#fde68a';
                         }
                     } else if (realComp.status === 'rejected') {
