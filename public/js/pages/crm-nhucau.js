@@ -816,19 +816,73 @@ async function loadCrmNhuCauData() {
     if (targetId) {
         sessionStorage.removeItem('_tkkhTargetCustomer');
         const tid = parseInt(targetId);
-        // Clear all filters to show full list
-        _crmActiveCat = null;
-        document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
-        const cardsContainer = document.getElementById('crmStatCards');
-        if (cardsContainer) cardsContainer.classList.remove('has-active');
-        // Find customer index in full unfiltered list
-        const idx = _crmAllCustomers.findIndex(c => c.id === tid);
-        if (idx >= 0) {
-            _crmCurrentPage = Math.floor(idx / _crmPageSize) + 1;
+        const targetCustomer = _crmAllCustomers.find(c => c.id === tid);
+        if (targetCustomer) {
+            // 1. Detect the customer's actual category
+            const targetCat = _crmGetCategory(targetCustomer, _crmAllStats);
+            // Map moi_chuyen → phai_xu_ly tab (they share the same tab)
+            const tabCat = targetCat === 'moi_chuyen' ? 'phai_xu_ly' : targetCat;
+            
+            // 2. Switch to the correct tab
+            _crmActiveCat = tabCat;
+            document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
+            const activeCard = document.querySelector('.crm-stat-card[data-cat="' + tabCat + '"]');
+            if (activeCard) activeCard.classList.add('active');
+            const cardsContainer = document.getElementById('crmStatCards');
+            if (cardsContainer) cardsContainer.classList.add('has-active');
+            
+            // 3. Build the filtered+sorted list (same logic as _crmRenderFilteredTable)
+            let filtered = _crmAllCustomers;
+            if (tabCat === 'phai_xu_ly') {
+                filtered = _crmAllCustomers.filter(c => {
+                    const cat = _crmGetCategory(c, _crmAllStats);
+                    return cat === 'phai_xu_ly' || cat === 'moi_chuyen';
+                });
+            } else {
+                filtered = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === tabCat);
+            }
+            // Sort same as render
+            filtered = [...filtered].sort((a, b) => {
+                const pinA = a.is_pinned ? 1 : 0;
+                const pinB = b.is_pinned ? 1 : 0;
+                if (pinA !== pinB) return pinB - pinA;
+                if (pinA && pinB) return new Date(b.pinned_at || 0) - new Date(a.pinned_at || 0);
+                if (tabCat === 'huy_khach') {
+                    return new Date((b.cancel_approved_at || b.created_at) || 0) - new Date((a.cancel_approved_at || a.created_at) || 0);
+                }
+                const dateA = a.appointment_date, dateB = b.appointment_date;
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return new Date(dateA) - new Date(dateB);
+            });
+            
+            // 4. Find customer's position and compute correct page
+            const idxInFiltered = filtered.findIndex(c => c.id === tid);
+            if (idxInFiltered >= 0) {
+                _crmCurrentPage = Math.floor(idxInFiltered / _crmPageSize) + 1;
+            }
+            
+            // 5. Show date filter UI if needed
+            _crmFilterByCat(tabCat);
+            
+            // 6. Re-set page (filterByCat resets to page 1)
+            if (idxInFiltered >= 0) {
+                _crmCurrentPage = Math.floor(idxInFiltered / _crmPageSize) + 1;
+                _crmRenderFilteredTable();
+            }
+            
+            // 7. Scroll to highlight + auto-open customer detail
+            setTimeout(() => {
+                _tkkhScrollToRow(tid);
+                // Auto-open customer detail popup for immediate viewing
+                if (typeof openCustomerDetail === 'function') {
+                    openCustomerDetail(tid);
+                }
+            }, 300);
+        } else {
+            showToast('🔍 Khách hàng không tìm thấy trong danh sách CRM này', 'info');
         }
-        _crmRenderFilteredTable();
-        // Scroll to and highlight the row
-        setTimeout(() => _tkkhScrollToRow(tid), 200);
     }
 }
 
