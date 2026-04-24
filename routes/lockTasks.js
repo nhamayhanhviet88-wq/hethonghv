@@ -681,8 +681,9 @@ async function lockTaskRoutes(fastify, options) {
                  LEFT JOIN departments d ON d.id = u.department_id
                  WHERE ltc.status = 'pending'
                  AND u.department_id IN (${placeholders})
+                 AND (u.force_approval_reviewer_id IS NULL OR u.force_approval_reviewer_id = $${deptIds.length + 1})
                  ORDER BY ltc.created_at DESC`,
-                deptIds
+                [...deptIds, userId]
             );
         }
 

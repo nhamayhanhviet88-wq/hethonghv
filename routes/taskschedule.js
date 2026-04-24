@@ -909,6 +909,7 @@ async function taskScheduleRoutes(fastify, options) {
                  JOIN task_point_templates t ON r.template_id = t.id
                  JOIN users u ON r.user_id = u.id
                  WHERE r.status = 'pending' AND u.department_id IN (${placeholders}) AND r.user_id != $${deptIds.length + 1}
+                 AND (u.force_approval_reviewer_id IS NULL OR u.force_approval_reviewer_id = $${deptIds.length + 1})
                  ORDER BY r.report_date DESC, u.full_name`,
                 [...deptIds, userId]
             );

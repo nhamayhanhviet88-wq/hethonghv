@@ -883,7 +883,60 @@ async function chainTaskRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
 
-        const reviews = await db.all(`
+        const userId = request.user.id;
+        const userRole = request.user.role;
+
+        if (userRole === 'giam_doc') {
+            // GĐ sees all
+            const reviews = await db.all(`
+                SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
+                       cc.status, cc.created_at, cc.redo_count, cc.approval_deadline,
+                       ci.task_name, ci.deadline, ci.min_quantity,
+                       cti.chain_name as chain_name,
+                       u.full_name as user_name, u.username
+                FROM chain_task_completions cc
+                JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+                JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                LEFT JOIN chain_task_templates cti ON cti.id = cins.chain_template_id
+                JOIN users u ON u.id = cc.user_id
+                WHERE cc.status = 'pending'
+                ORDER BY cc.created_at ASC
+            `);
+            return { reviews };
+        }
+
+        // Get department scope
+        const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+        const deptIds = [user?.department_id].filter(Boolean);
+        if (user?.department_id) {
+            const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
+            children.forEach(c => deptIds.push(c.id));
+        }
+
+        let reviews = [];
+        if (deptIds.length > 0) {
+            const placeholders = deptIds.map((_, i) => `$${i + 1}`).join(',');
+            reviews = await db.all(`
+                SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
+                       cc.status, cc.created_at, cc.redo_count, cc.approval_deadline,
+                       ci.task_name, ci.deadline, ci.min_quantity,
+                       cti.chain_name as chain_name,
+                       u.full_name as user_name, u.username
+                FROM chain_task_completions cc
+                JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
+                JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                LEFT JOIN chain_task_templates cti ON cti.id = cins.chain_template_id
+                JOIN users u ON u.id = cc.user_id
+                WHERE cc.status = 'pending'
+                AND u.department_id IN (${placeholders})
+                AND (u.force_approval_reviewer_id IS NULL OR u.force_approval_reviewer_id = $${deptIds.length + 1})
+                ORDER BY cc.created_at ASC`,
+                [...deptIds, userId]
+            );
+        }
+
+        // Also include from force_approval_reviewer scope
+        const forceReviews = await db.all(`
             SELECT cc.id, cc.chain_item_id, cc.user_id, cc.proof_url, cc.content, cc.quantity_done,
                    cc.status, cc.created_at, cc.redo_count, cc.approval_deadline,
                    ci.task_name, ci.deadline, ci.min_quantity,
@@ -892,11 +945,14 @@ async function chainTaskRoutes(fastify, options) {
             FROM chain_task_completions cc
             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-            JOIN chain_task_templates cti ON cti.id = cins.chain_template_id
+            LEFT JOIN chain_task_templates cti ON cti.id = cins.chain_template_id
             JOIN users u ON u.id = cc.user_id
-            WHERE cc.status = 'pending'
-            ORDER BY cc.created_at ASC
-        `);
+            WHERE cc.status = 'pending' AND u.force_approval_reviewer_id = $1
+            ORDER BY cc.created_at ASC`,
+            [userId]
+        );
+        const seenIds = new Set(reviews.map(r => r.id));
+        forceReviews.forEach(fr => { if (!seenIds.has(fr.id)) reviews.push(fr); });
 
         return { reviews };
     });
