@@ -423,11 +423,22 @@ async function usersRoutes(fastify, options) {
     // Đổi trạng thái
     fastify.put('/api/users/:id/status', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { status } = request.body || {};
-        if (!['active', 'resigned', 'locked', 'probation_locked'].includes(status)) {
+        if (!['active', 'resigned', 'locked'].includes(status)) {
             return reply.code(400).send({ error: 'Trạng thái không hợp lệ' });
         }
-        await db.run("UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?", [status, Number(request.params.id)]);
-        return { success: true, message: `Đã chuyển trạng thái thành ${status === 'active' ? 'Đi làm' : status === 'locked' ? 'Bị khóa' : status === 'probation_locked' ? 'Hết hạn TV' : 'Nghỉ việc'}` };
+
+        const userId = Number(request.params.id);
+        const user = await db.get('SELECT status, role FROM users WHERE id = ?', [userId]);
+        if (!user) return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
+
+        // 🔒 CHẶN: Không cho đổi status của TK probation_locked bằng API thường
+        // Phải dùng /unlock-probation (upload HĐ) để mở khóa
+        if (user.status === 'probation_locked') {
+            return reply.code(403).send({ error: 'Tài khoản thử việc hết hạn. Phải dùng chức năng "Ký HĐ" để mở khóa (upload hợp đồng bắt buộc).' });
+        }
+
+        await db.run("UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?", [status, userId]);
+        return { success: true, message: `Đã chuyển trạng thái thành ${status === 'active' ? 'Đi làm' : status === 'locked' ? 'Bị khóa' : 'Nghỉ việc'}` };
     });
 
     // 🔓 Mở khóa tài khoản affiliate (chỉ Giám Đốc)

@@ -1421,6 +1421,11 @@ async function toggleUserStatusFromModal(userId, newStatus) {
 }
 
 function showUserStatusModal(userId, userName, currentStatus) {
+    // Chặn đổi trạng thái TK probation_locked bằng modal thường
+    if (currentStatus === 'probation_locked') {
+        showToast('Tài khoản thử việc hết hạn. Ấn nút "📝 Ký HĐ" để mở khóa.', 'error');
+        return;
+    }
     const isActive = currentStatus === 'active';
     const bodyHTML = `
         <div style="text-align:center;padding:10px 0;">
