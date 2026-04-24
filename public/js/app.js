@@ -2246,21 +2246,38 @@ function _tkkhScrollToRow(customerId) {
                 0%, 100% { background: transparent; }
                 50% { background: linear-gradient(90deg, rgba(250,210,76,0.35), rgba(245,158,11,0.20), rgba(250,210,76,0.35)); }
             }
+            @keyframes _tkkhNameBlink {
+                0%, 100% { background: rgba(245,158,11,0.15); box-shadow: 0 0 0 2px transparent; transform: scale(1); }
+                50% { background: rgba(245,158,11,0.5); box-shadow: 0 0 12px 3px rgba(245,158,11,0.4); transform: scale(1.08); }
+            }
             tr._tkkh-highlight {
-                animation: _tkkhBlink 0.8s ease-in-out 5;
+                animation: _tkkhBlink 0.8s ease-in-out 6;
                 outline: 2px solid #f59e0b;
                 outline-offset: -1px;
                 border-radius: 4px;
+            }
+            ._tkkh-name-highlight {
+                animation: _tkkhNameBlink 0.6s ease-in-out 10 !important;
+                border-radius: 20px !important;
+                z-index: 10;
+                position: relative;
             }
         `;
         document.head.appendChild(style);
     }
     // Scroll into center of viewport
     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Apply highlight class
+    // Apply highlight class to row
     row.classList.add('_tkkh-highlight');
-    // Remove after animation completes (5 cycles × 0.8s = 4s)
+    // Find and highlight the customer NAME span inside the row (clickable span with onclick containing OpenCustomerDetail or openCustomerDetail)
+    const nameSpan = row.querySelector('span[onclick*="OpenCustomerDetail"], span[onclick*="openCustomerDetail"]');
+    if (nameSpan) {
+        nameSpan.classList.add('_tkkh-name-highlight');
+        // Remove name highlight after animation (10 cycles × 0.6s = 6s)
+        setTimeout(() => nameSpan.classList.remove('_tkkh-name-highlight'), 6500);
+    }
+    // Remove row highlight after animation (6 cycles × 0.8s = 4.8s)
     setTimeout(() => {
         row.classList.remove('_tkkh-highlight');
-    }, 4500);
+    }, 5000);
 }

@@ -820,10 +820,9 @@ async function loadCrmNhuCauData() {
         if (targetCustomer) {
             // 1. Detect the customer's actual category
             const targetCat = _crmGetCategory(targetCustomer, _crmAllStats);
-            // Map moi_chuyen → phai_xu_ly tab (they share the same tab)
             const tabCat = targetCat === 'moi_chuyen' ? 'phai_xu_ly' : targetCat;
             
-            // 2. Switch to the correct tab
+            // 2. Set active category directly (DO NOT use _crmFilterByCat — it toggles!)
             _crmActiveCat = tabCat;
             document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
             const activeCard = document.querySelector('.crm-stat-card[data-cat="' + tabCat + '"]');
@@ -831,46 +830,49 @@ async function loadCrmNhuCauData() {
             const cardsContainer = document.getElementById('crmStatCards');
             if (cardsContainer) cardsContainer.classList.add('has-active');
             
-            // 3. Build the filtered+sorted list (same logic as _crmRenderFilteredTable)
+            // 3. Clear all sub-filters (date + consult type) so customer is NOT filtered out
+            const ms = document.getElementById('crmDateMonth');
+            const ys = document.getElementById('crmDateYear');
+            const ds = document.getElementById('crmDateDay');
+            if (ms) ms.value = '';
+            if (ys) ys.value = new Date().getFullYear();
+            if (ds) ds.value = '';
+            const ctFilter = document.getElementById('crmFilterConsultType');
+            if (ctFilter) ctFilter.value = '';
+            
+            // 4. Show/hide date filter UI based on category
+            const dateFilter = document.getElementById('crmDateFilter');
+            const dateLabel = document.getElementById('crmDateFilterLabel');
+            if (dateFilter) {
+                if (tabCat === 'cho_xu_ly') { dateFilter.classList.add('visible'); if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:'; }
+                else if (tabCat === 'huy_khach') { dateFilter.classList.add('visible'); if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:'; }
+                else if (tabCat === 'xu_ly_tre') { dateFilter.classList.add('visible'); if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:'; }
+                else { dateFilter.classList.remove('visible'); }
+            }
+            
+            // 5. Build filtered+sorted list (mirrors _crmRenderFilteredTable logic, no date/consult sub-filters)
             let filtered = _crmAllCustomers;
             if (tabCat === 'phai_xu_ly') {
-                filtered = _crmAllCustomers.filter(c => {
-                    const cat = _crmGetCategory(c, _crmAllStats);
-                    return cat === 'phai_xu_ly' || cat === 'moi_chuyen';
-                });
+                filtered = _crmAllCustomers.filter(c => { const cat = _crmGetCategory(c, _crmAllStats); return cat === 'phai_xu_ly' || cat === 'moi_chuyen'; });
             } else {
                 filtered = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === tabCat);
             }
-            // Sort same as render
             filtered = [...filtered].sort((a, b) => {
-                const pinA = a.is_pinned ? 1 : 0;
-                const pinB = b.is_pinned ? 1 : 0;
+                const pinA = a.is_pinned ? 1 : 0, pinB = b.is_pinned ? 1 : 0;
                 if (pinA !== pinB) return pinB - pinA;
                 if (pinA && pinB) return new Date(b.pinned_at || 0) - new Date(a.pinned_at || 0);
-                if (tabCat === 'huy_khach') {
-                    return new Date((b.cancel_approved_at || b.created_at) || 0) - new Date((a.cancel_approved_at || a.created_at) || 0);
-                }
-                const dateA = a.appointment_date, dateB = b.appointment_date;
-                if (!dateA && !dateB) return 0;
-                if (!dateA) return 1;
-                if (!dateB) return -1;
-                return new Date(dateA) - new Date(dateB);
+                if (tabCat === 'huy_khach') return new Date((b.cancel_approved_at || b.created_at) || 0) - new Date((a.cancel_approved_at || a.created_at) || 0);
+                const dA = a.appointment_date, dB = b.appointment_date;
+                if (!dA && !dB) return 0; if (!dA) return 1; if (!dB) return -1;
+                return new Date(dA) - new Date(dB);
             });
             
-            // 4. Find customer's position and compute correct page
+            // 6. Compute correct page and render
             const idxInFiltered = filtered.findIndex(c => c.id === tid);
             if (idxInFiltered >= 0) {
                 _crmCurrentPage = Math.floor(idxInFiltered / _crmPageSize) + 1;
             }
-            
-            // 5. Show date filter UI if needed
-            _crmFilterByCat(tabCat);
-            
-            // 6. Re-set page (filterByCat resets to page 1)
-            if (idxInFiltered >= 0) {
-                _crmCurrentPage = Math.floor(idxInFiltered / _crmPageSize) + 1;
-                _crmRenderFilteredTable();
-            }
+            _crmRenderFilteredTable();
             
             // 7. Scroll to and highlight the target row
             setTimeout(() => _tkkhScrollToRow(tid), 300);
