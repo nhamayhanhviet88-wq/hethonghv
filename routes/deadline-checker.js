@@ -1193,24 +1193,35 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const tmplQty = Math.min(remaining, tmplTarget);
                     if (tmplEarned > 0) remaining -= tmplTarget; // consume from pool
 
+                    // Check force_approval
+                    const _fa11 = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                    const _ft11 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'schedule', tmpl.id]);
+                    const needsApproval11 = tmpl.requires_approval || _fa11?.force_approval || !!_ft11;
+
                     const existing = await db.get(
                         "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
                         [tmpl.id, userId, todayCV]
                     );
 
                     if (existing) {
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = 'approved'
-                             WHERE id = $3`,
-                            [tmplQty, tmplEarned, existing.id]
-                        );
+                        if (existing.status === 'pending') {
+                            // PROTECTED: only update quantity, NOT status
+                            await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
+                        } else {
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 status = 'approved'
+                                 WHERE id = $3`,
+                                [tmplQty, tmplEarned, existing.id]
+                            );
+                        }
                     } else {
-                        const status = 'approved';
+                        const status = needsApproval11 ? 'pending' : 'approved';
+                        const earnedPts = needsApproval11 ? 0 : tmplEarned;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tmpl.id, userId, todayCV, tmplQty, tmplEarned, status,
+                            [tmpl.id, userId, todayCV, tmplQty, earnedPts, status,
                              `[Tự động] ${tmplQty}/${tmplTarget} SĐT bắt máy`, 'link', `${tmplQty}/${tmplTarget}`]
                         );
                     }
@@ -1279,24 +1290,34 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const tmplQty = Math.min(remainingSS, tmplTarget);
                     if (tmplEarned > 0) remainingSS -= tmplTarget;
 
+                    // Check force_approval
+                    const _fa12 = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                    const _ft12 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'schedule', tmpl.id]);
+                    const needsApproval12 = tmpl.requires_approval || _fa12?.force_approval || !!_ft12;
+
                     const existing = await db.get(
                         "SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3",
                         [tmpl.id, userId, todaySS]
                     );
 
                     if (existing) {
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = 'approved'
-                             WHERE id = $3`,
-                            [tmplQty, tmplEarned, existing.id]
-                        );
+                        if (existing.status === 'pending') {
+                            await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
+                        } else {
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 status = 'approved'
+                                 WHERE id = $3`,
+                                [tmplQty, tmplEarned, existing.id]
+                            );
+                        }
                     } else {
-                        const status = 'approved';
+                        const status = needsApproval12 ? 'pending' : 'approved';
+                        const earnedPts = needsApproval12 ? 0 : tmplEarned;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tmpl.id, userId, todaySS, tmplQty, tmplEarned, status,
+                            [tmpl.id, userId, todaySS, tmplQty, earnedPts, status,
                              `[Tự động] ${tmplQty}/${tmplTarget} KH tự tìm kiếm`, 'link', `${tmplQty}/${tmplTarget}`]
                         );
                     }
@@ -1401,21 +1422,33 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         [tmpl.id, userId, todayDL]
                     );
 
+                    // Check force_approval
+                    const _fa13 = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                    const _ft13 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'schedule', tmpl.id]);
+                    const needsApproval13 = tmpl.requires_approval || _fa13?.force_approval || !!_ft13;
+
                     if (existing) {
-                        // Update existing — always update quantity and points, upgrade status to approved if target met
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = 'approved'
-                             WHERE id = $3`,
-                            [tmplQty, tmplEarned, existing.id]
-                        );
+                        if (existing.status === 'pending') {
+                            // PROTECTED: only update quantity, NOT status
+                            await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
+                        } else {
+                            const newStatus13 = needsApproval13 ? existing.status : 'approved';
+                            const newPts13 = needsApproval13 ? 0 : tmplEarned;
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 status = $3
+                                 WHERE id = $4`,
+                                [tmplQty, newPts13, newStatus13, existing.id]
+                            );
+                        }
                     } else {
                         // Create new auto-scored report
-                        const status = 'approved';
+                        const status = needsApproval13 ? 'pending' : 'approved';
+                        const earnedPts = needsApproval13 ? 0 : tmplEarned;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tmpl.id, userId, todayDL, tmplQty, tmplEarned, status,
+                            [tmpl.id, userId, todayDL, tmplQty, earnedPts, status,
                              `[Tự động] ${entryCount}/${tmplTarget} ${moduleType}`, 'link', `${entryCount}/${tmplTarget}`]
                         );
                     }
@@ -1495,19 +1528,31 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         [tmpl.id, userId, todayPO]
                     );
 
+                    // Check force_approval
+                    const _fa14 = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                    const _ft14 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'schedule', tmpl.id]);
+                    const needsApproval14 = tmpl.requires_approval || _fa14?.force_approval || !!_ft14;
+
                     if (existing) {
-                        await db.run(
-                            `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
-                             status = 'approved'
-                             WHERE id = $3`,
-                            [tmplQty, tmplEarned, existing.id]
-                        );
+                        if (existing.status === 'pending') {
+                            await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
+                        } else {
+                            const newStatus14 = needsApproval14 ? existing.status : 'approved';
+                            const newPts14 = needsApproval14 ? 0 : tmplEarned;
+                            await db.run(
+                                `UPDATE task_point_reports SET quantity = $1, points_earned = $2,
+                                 status = $3
+                                 WHERE id = $4`,
+                                [tmplQty, newPts14, newStatus14, existing.id]
+                            );
+                        }
                     } else {
-                        const status = 'approved';
+                        const status = needsApproval14 ? 'pending' : 'approved';
+                        const earnedPts = needsApproval14 ? 0 : tmplEarned;
                         await db.run(
                             `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                            [tmpl.id, userId, todayPO, tmplQty, tmplEarned, status,
+                            [tmpl.id, userId, todayPO, tmplQty, earnedPts, status,
                              `[Tự động] ${poEntryCount}/${tmplTarget} nhắn tin đối tác`, 'link', `${poEntryCount}/${tmplTarget}`]
                         );
                     }
