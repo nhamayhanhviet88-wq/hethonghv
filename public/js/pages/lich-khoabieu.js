@@ -1585,9 +1585,9 @@ function _kbRenderGrid() {
                 // Force approval badge for lock tasks
                 const _lockForced = _kbForceApproval || _kbForceLockIds.has(lt.id);
                 let lockForceBadge = '';
-                if (_lockForced && !realComp) {
+                if (_lockForced && !realComp && dateStr >= todayStr) {
                     lockForceBadge = '<div style="text-align:center;margin-top:4px;"><span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:2px 8px;border-radius:5px;font-size:9px;font-weight:800;box-shadow:0 1px 4px rgba(220,38,38,0.3);">🔒 CẦN DUYỆT</span></div>';
-                } else if (_lockForced && realComp && realComp.status === 'pending') {
+                } else if (_lockForced && realComp && realComp.status === 'pending' && dateStr >= todayStr) {
                     lockForceBadge = '<div style="text-align:center;margin-top:4px;"><span style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:2px 8px;border-radius:5px;font-size:9px;font-weight:800;box-shadow:0 1px 4px rgba(220,38,38,0.3);">🔒 CẦN DUYỆT</span></div>';
                 }
 
