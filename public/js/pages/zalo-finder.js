@@ -20,16 +20,14 @@ function _zlInit() {
         _zlViewUserId = _dl.selUser;
         _zlViewDeptId = null;
     }
-    const _zlUrlParams = new URLSearchParams(window.location.search);
-    const _zlSelDate = _zlUrlParams.get('sel_date');
-    if (_zlSelDate) {
+    // _dl.selDate and _dl.selTab are stored by dailylinks.js before URL cleanup
+    if (typeof _dl !== 'undefined' && _dl.selDate) {
         _zlDateFilter = 'custom';
-        _zlCustomFrom = _zlSelDate;
-        _zlCustomTo = _zlSelDate;
+        _zlCustomFrom = _dl.selDate;
+        _zlCustomTo = _dl.selDate;
     }
-    const _zlSelTab = _zlUrlParams.get('sel_tab');
-    if (_zlSelTab) {
-        _zlFilter = _zlSelTab;
+    if (typeof _dl !== 'undefined' && _dl.selTab) {
+        _zlFilter = _dl.selTab;
     }
 
     const isManager = ['giam_doc','quan_ly_cap_cao','truong_phong'].includes(currentUser.role);

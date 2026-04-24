@@ -96,8 +96,11 @@ function _dlInit() {
         _dl.selDept = null;
         console.log('[DailyLinks] Auto-select user from URL:', _dl.selUser);
     }
-    if (_dlUrlParams.get('sel_date')) {
-        const selDate = _dlUrlParams.get('sel_date');
+    // Store all params for child inits (e.g. _zlInit) before URL is cleaned
+    _dl.selDate = _dlUrlParams.get('sel_date') || null;
+    _dl.selTab = _dlUrlParams.get('sel_tab') || null;
+    if (_dl.selDate) {
+        const selDate = _dl.selDate;
         const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
         if (selDate === today) {
             _dlDatePreset = 'today';
