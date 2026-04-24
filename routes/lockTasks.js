@@ -593,14 +593,22 @@ async function lockTaskRoutes(fastify, options) {
 
         const targetUserId = Number(user_id);
 
-        // Get all active tasks assigned to this user
+        // Get completions date range for this week
+        const ws2 = new Date(week_start + 'T00:00:00');
+        const we2 = new Date(ws2); we2.setDate(we2.getDate() + 6);
+        const weekEndCalc = `${we2.getFullYear()}-${String(we2.getMonth()+1).padStart(2,'0')}-${String(we2.getDate()).padStart(2,'0')}`;
+
+        // Get active tasks + inactive tasks that have completions in this week (for history)
         const tasks = await db.all(
-            `SELECT lt.*
-             FROM lock_task_assignments lta
+            `SELECT lt.* FROM lock_task_assignments lta
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true
              WHERE lta.user_id = $1
-             ORDER BY lt.task_name`,
-            [targetUserId]
+             UNION
+             SELECT DISTINCT lt.* FROM lock_task_completions ltc
+             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.is_active = false
+             WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
+             ORDER BY task_name`,
+            [targetUserId, week_start, weekEndCalc]
         );
 
         // Get completions for this week
