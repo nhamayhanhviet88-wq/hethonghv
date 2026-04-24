@@ -344,6 +344,62 @@ module.exports = async function (fastify) {
             console.error('[DailyLinks] Auto-score error (non-fatal):', scoreErr.message);
         }
 
+        // ===== SYNC lock_task_completions for TODAY =====
+        // Ensures CV Khóa tasks appear in approval panel when NV submits via dailylinks
+        try {
+            const LOCK_PATTERNS_TODAY = {
+                addcmt: /add.*cmt.*đối.*tác/i, dang_video: /đăng.*video/i,
+                dang_content: /đăng.*content/i, dang_group: /đăng.*tìm.*kh.*group/i,
+                sedding: /sedding.*cộng.*đồng/i, dang_banthan_sp: /đăng.*bản.*thân/i,
+                tim_gr_zalo: /tìm.*gr.*zalo/i, tuyen_dung: /tuyển.*dụng.*sv/i,
+            };
+            const ltPatternToday = LOCK_PATTERNS_TODAY[module_type];
+            if (ltPatternToday) {
+                const uid = req.user.id;
+                const lockTasks = await db.all("SELECT id, task_name, requires_approval FROM lock_tasks WHERE is_active = true");
+                const matchLTs = lockTasks.filter(lt => ltPatternToday.test(lt.task_name));
+                for (const lt of matchLTs) {
+                    const comp = await db.get(
+                        "SELECT id, status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY id DESC LIMIT 1",
+                        [lt.id, uid, today]
+                    );
+                    if (!comp) {
+                        // No completion record for today — create one
+                        const _fuUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                        const _fuForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
+                        const _fuNeedsApproval = lt.requires_approval || _fuUser?.force_approval || !!_fuForce;
+                        const _fuStatus = _fuNeedsApproval ? 'pending' : 'approved';
+                        let _fuDeadline = null;
+                        if (_fuStatus === 'pending') {
+                            try {
+                                const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+                                _fuDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+                            } catch(e2) {}
+                        }
+                        await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, content, status, approval_deadline, created_at, updated_at)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+                            [lt.id, uid, today, fb_link.trim(), `[Tự động] ${module_type}`, _fuStatus, _fuDeadline]
+                        );
+                        console.log(`[DailyLinks] Created ${_fuStatus} lock_task_completion for TODAY ${today}, task=${lt.task_name}`);
+                    } else if (comp.status !== 'approved' && comp.status !== 'pending') {
+                        // Existing but expired/rejected — update to pending/approved
+                        const _fuUser2 = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
+                        const _fuForce2 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
+                        const _fuNeedsApproval2 = lt.requires_approval || _fuUser2?.force_approval || !!_fuForce2;
+                        const _fuStatus2 = _fuNeedsApproval2 ? 'pending' : 'approved';
+                        await db.run(
+                            `UPDATE lock_task_completions SET status = $1, proof_url = $2, updated_at = NOW() WHERE id = $3`,
+                            [_fuStatus2, fb_link.trim(), comp.id]
+                        );
+                        console.log(`[DailyLinks] Updated lock_task_completion id=${comp.id} to ${_fuStatus2} for TODAY ${today}`);
+                    }
+                }
+            }
+        } catch(ltSyncErr) {
+            console.error('[DailyLinks] Lock task sync error (non-fatal):', ltSyncErr.message);
+        }
+
         // ===== BACKFILL: update lock_task_completions so penalty is cleared =====
         if (req.body?.backfill_date) {
             try {
