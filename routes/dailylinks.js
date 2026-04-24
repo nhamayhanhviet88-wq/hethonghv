@@ -622,10 +622,18 @@ module.exports = async function (fastify) {
             }
         }
 
+        // Check report status (pending/approved)
+        let reportStatus = null;
+        if (tpl && tpl.id) {
+            const rpt = await db.get("SELECT status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3 ORDER BY redo_count DESC LIMIT 1", [tpl.id, uid, date]);
+            if (rpt) reportStatus = rpt.status;
+        }
+
         return {
             count: Number(countResult.c),
             target: targetVal,
-            total_points: pointsVal
+            total_points: pointsVal,
+            report_status: reportStatus
         };
     });
 

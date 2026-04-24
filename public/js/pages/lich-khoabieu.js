@@ -4057,8 +4057,9 @@ function _kbRenderAddCmtMini(el, res) {
     const target = res.target || 10;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending';
     const statusLabel = done
-        ? `<span style="color:#16a34a;font-weight:800;">✅ ${count}/${target}</span>`
+        ? `<span style="color:${isPending?'#d97706':'#16a34a'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>`
         : `<span style="color:#16a34a;font-weight:700;">👥 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
@@ -4128,8 +4129,9 @@ function _kbRenderDangVideoMini(el, res) {
     const target = res.target || 1;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending';
     const statusLabel = done
-        ? `<span style="color:#dc2626;font-weight:800;">✅ ${count}/${target}</span>`
+        ? `<span style="color:${isPending?'#d97706':'#dc2626'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>`
         : `<span style="color:#dc2626;font-weight:700;">🎬 ${count}/${target}</span>`;
     el.innerHTML = `
         <div style="margin-top:4px;">
@@ -4197,7 +4199,7 @@ function _kbRenderDangContentMini(el, res) {
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#8b5cf6'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4257,9 +4259,10 @@ function _kbRenderDangGroupMini(el, res) {
     const count = res.count || 0, target = res.target || 5;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending';
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#0891b2'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4319,9 +4322,10 @@ function _kbRenderTuyenDungMini(el, res) {
     const count = res.count || 0, target = res.target || 5;
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
+    const isPending = res.report_status === 'pending';
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#be185d'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4379,11 +4383,12 @@ async function _kbInjectSeddingStats() {
 
 function _kbRenderSeddingMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
+    const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#ea580c'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4474,11 +4479,12 @@ async function _kbInjectZaloStats() {
 
 function _kbRenderZaloMini(el, res) {
     const count = res.count || 0, target = res.target || 20;
+    const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#0284c7'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
@@ -4569,11 +4575,12 @@ async function _kbInjectDangBTStats() {
 
 function _kbRenderDangBTMini(el, res) {
     const count = res.count || 0, target = res.target || 10;
+    const isPending = res.report_status === 'pending';
     const pct = Math.min(100, Math.round(count / target * 100));
     const done = count >= target;
     el.innerHTML = `
         <div style="margin-top:4px;">
-            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div>
+            <div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:${isPending?'#d97706':'#a21caf'};font-weight:800;">${isPending?'⏳ Chờ Duyệt':'✅'} ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div>
             <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;">
                 <div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div>
             </div>
