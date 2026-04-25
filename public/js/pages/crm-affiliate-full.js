@@ -269,9 +269,12 @@ async function renderCRMAffPage(container) {
 
     await loadCrmAffData();
 
-    // Auto-select 'Phải xử lý hôm nay' on page load
-    _affActiveCat = null;
-    _affFilterByCat('phai_xu_ly');
+    if (!sessionStorage.getItem('_tkkhNavDone')) {
+        _affActiveCat = null;
+        _affFilterByCat('phai_xu_ly');
+    } else {
+        sessionStorage.removeItem('_tkkhNavDone');
+    }
 }
 
 var _affActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
@@ -848,6 +851,7 @@ async function loadCrmAffData() {
             const idxInFiltered = filtered.findIndex(c => c.id === tid);
             if (idxInFiltered >= 0) { _affCurrentPage = Math.floor(idxInFiltered / _affPageSize) + 1; }
             _affRenderFilteredTable();
+            sessionStorage.setItem('_tkkhNavDone', '1');
             const _tryScroll = (attempts) => { const row = document.querySelector('tr[data-customer-id="' + tid + '"]'); if (row) { _tkkhScrollToRow(tid); } else if (attempts > 0) { setTimeout(() => _tryScroll(attempts - 1), 300); } };
             setTimeout(() => _tryScroll(3), 300);
         } else {

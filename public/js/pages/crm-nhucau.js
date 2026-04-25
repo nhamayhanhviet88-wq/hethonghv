@@ -270,8 +270,13 @@ async function renderCRMNhuCauPage(container) {
     await loadCrmNhuCauData();
 
     // Auto-select 'Phải xử lý hôm nay' on page load
-    _crmActiveCat = null;
-    _crmFilterByCat('phai_xu_ly');
+    // BUT skip if search navigation already set the correct tab (inside loadCrmNhuCauData)
+    if (!sessionStorage.getItem('_tkkhNavDone')) {
+        _crmActiveCat = null;
+        _crmFilterByCat('phai_xu_ly');
+    } else {
+        sessionStorage.removeItem('_tkkhNavDone');
+    }
 }
 
 var _crmActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
@@ -868,6 +873,9 @@ async function loadCrmNhuCauData() {
             _crmRenderFilteredTable();
             
             // 7. Scroll to and highlight the target row (with retry for slow DOM)
+            // Signal to renderCRMNhuCauPage: don't override our tab selection
+            sessionStorage.setItem('_tkkhNavDone', '1');
+            
             const _tryScroll = (attempts) => {
                 const row = document.querySelector('tr[data-customer-id="' + tid + '"]');
                 if (row) {
