@@ -803,15 +803,7 @@ async function loadCrmCtvData() {
     // Update consult type dropdown
     _ctvUpdateConsultTypeDropdown();
 
-    // Render table
-    // Auto-select 'Phải xử lý hôm nay' on first load
-    if (!_ctvActiveCat) {
-        _ctvFilterByCat('phai_xu_ly');
-    } else {
-        _ctvRenderFilteredTable();
-    }
-
-    // Auto-navigate to target customer from search page
+    // Render table — check for search navigation FIRST (before default tab)
     const targetId = sessionStorage.getItem('_tkkhTargetCustomer');
     if (targetId) {
         sessionStorage.removeItem('_tkkhTargetCustomer');
@@ -820,22 +812,16 @@ async function loadCrmCtvData() {
         if (targetCustomer) {
             const targetCat = _ctvGetCategory(targetCustomer, _ctvAllStats);
             const tabCat = targetCat === 'moi_chuyen' ? 'phai_xu_ly' : targetCat;
-            
-            // Set active category directly (DO NOT use _ctvFilterByCat — it toggles!)
             _ctvActiveCat = tabCat;
             document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
             const activeCard = document.querySelector('.crm-stat-card[data-cat="' + tabCat + '"]');
             if (activeCard) activeCard.classList.add('active');
             const cardsContainer = document.getElementById('crmStatCards');
             if (cardsContainer) cardsContainer.classList.add('has-active');
-            
-            // Clear all sub-filters
             const ms = document.getElementById('crmDateMonth'), ys = document.getElementById('crmDateYear'), ds = document.getElementById('crmDateDay');
             if (ms) ms.value = ''; if (ys) ys.value = new Date().getFullYear(); if (ds) ds.value = '';
             const ctFilter = document.getElementById('crmFilterConsultType');
             if (ctFilter) ctFilter.value = '';
-            
-            // Show/hide date filter UI
             const dateFilter = document.getElementById('crmDateFilter');
             const dateLabel = document.getElementById('crmDateFilterLabel');
             if (dateFilter) {
@@ -844,8 +830,6 @@ async function loadCrmCtvData() {
                 else if (tabCat === 'xu_ly_tre') { dateFilter.classList.add('visible'); if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:'; }
                 else { dateFilter.classList.remove('visible'); }
             }
-            
-            // Build filtered+sorted list
             let filtered = _ctvAllCustomers;
             if (tabCat === 'phai_xu_ly') {
                 filtered = _ctvAllCustomers.filter(c => { const cat = _ctvGetCategory(c, _ctvAllStats); return cat === 'phai_xu_ly' || cat === 'moi_chuyen'; });
@@ -861,17 +845,18 @@ async function loadCrmCtvData() {
                 if (!dA && !dB) return 0; if (!dA) return 1; if (!dB) return -1;
                 return new Date(dA) - new Date(dB);
             });
-            
             const idxInFiltered = filtered.findIndex(c => c.id === tid);
-            if (idxInFiltered >= 0) {
-                _ctvCurrentPage = Math.floor(idxInFiltered / _ctvPageSize) + 1;
-            }
+            if (idxInFiltered >= 0) { _ctvCurrentPage = Math.floor(idxInFiltered / _ctvPageSize) + 1; }
             _ctvRenderFilteredTable();
-            
-            setTimeout(() => _tkkhScrollToRow(tid), 300);
+            const _tryScroll = (attempts) => { const row = document.querySelector('tr[data-customer-id="' + tid + '"]'); if (row) { _tkkhScrollToRow(tid); } else if (attempts > 0) { setTimeout(() => _tryScroll(attempts - 1), 300); } };
+            setTimeout(() => _tryScroll(3), 300);
         } else {
             showToast('🔍 Khách hàng không tìm thấy trong danh sách CRM này', 'info');
         }
+    } else if (!_ctvActiveCat) {
+        _ctvFilterByCat('phai_xu_ly');
+    } else {
+        _ctvRenderFilteredTable();
     }
 }
 

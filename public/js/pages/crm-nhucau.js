@@ -803,15 +803,7 @@ async function loadCrmNhuCauData() {
     // Update consult type dropdown
     _crmUpdateConsultTypeDropdown();
 
-    // Render table
-    // Auto-select 'Phải xử lý hôm nay' on first load
-    if (!_crmActiveCat) {
-        _crmFilterByCat('phai_xu_ly');
-    } else {
-        _crmRenderFilteredTable();
-    }
-
-    // Auto-navigate to target customer from search page
+    // Render table — check for search navigation FIRST (before default tab)
     const targetId = sessionStorage.getItem('_tkkhTargetCustomer');
     if (targetId) {
         sessionStorage.removeItem('_tkkhTargetCustomer');
@@ -884,13 +876,17 @@ async function loadCrmNhuCauData() {
                     setTimeout(() => _tryScroll(attempts - 1), 300);
                 } else {
                     console.warn('[TKKH-NAV] Row not found after retries. tid:', tid, 'activeCat:', _crmActiveCat, 'page:', _crmCurrentPage);
-                    showToast('🔍 Khách hàng đã được tìm thấy nhưng không nằm trong trang hiện tại', 'info');
                 }
             };
             setTimeout(() => _tryScroll(3), 300);
         } else {
             showToast('🔍 Khách hàng không tìm thấy trong danh sách CRM này', 'info');
         }
+    } else if (!_crmActiveCat) {
+        // Default: select 'Phải xử lý hôm nay' tab on first load
+        _crmFilterByCat('phai_xu_ly');
+    } else {
+        _crmRenderFilteredTable();
     }
 }
 
