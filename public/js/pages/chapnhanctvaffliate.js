@@ -54,6 +54,7 @@ async function renderChapNhanCTVAffiliatePage(container) {
         </div>
         <div class="cnca-tabs" id="cncaTabs">
             <div class="cnca-tab active" data-tab="pending" onclick="_cncaSwitchTab('pending')">📋 Chờ Duyệt <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
+            <div class="cnca-tab" data-tab="affaccount" onclick="_cncaSwitchTab('affaccount')">🔑 Tạo TK Affiliate <span class="cnca-badge" id="cncaAffAccBadge" style="background:#8b5cf6;">0</span></div>
             <div class="cnca-tab" data-tab="history" onclick="_cncaSwitchTab('history')">📊 Lịch Sử</div>
         </div>
         <div class="cnca-card">
@@ -83,6 +84,15 @@ function _cncaSwitchTab(tab) {
 }
 
 async function _cncaLoadData() {
+    // Load affiliate account pending count for badge
+    try {
+        const affData = await apiCall('/api/affiliate-account/pending-count');
+        const affBadge = document.getElementById('cncaAffAccBadge');
+        if (affBadge) affBadge.textContent = affData.count || 0;
+    } catch(e) {}
+
+    if (_cncaCurrentTab === 'affaccount') { return _cncaLoadAffAccountData(); }
+
     const status = _cncaCurrentTab === 'pending' ? 'pending' : 'all';
     const data = await apiCall(`/api/crm-conversion/list?status=${status}`);
     const requests = data.requests || [];
@@ -348,3 +358,154 @@ async function _affSubmitProposal(customerId) {
         } else showToast(data.error, 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
+
+// ========== TAB: Tạo TK Affiliate ==========
+async function _cncaLoadAffAccountData() {
+    const data = await apiCall('/api/affiliate-account/list?status=all');
+    const requests = data.requests || [];
+    const badge = document.getElementById('cncaAffAccBadge');
+    if (badge) badge.textContent = data.pendingCount || 0;
+
+    const thead = document.getElementById('cncaThead');
+    const tbody = document.getElementById('cncaTbody');
+
+    const pending = requests.filter(r => r.status === 'pending');
+    const processed = requests.filter(r => r.status !== 'pending');
+
+    thead.innerHTML = `<tr>
+        <th>STT</th><th>Tên KH</th><th>SĐT</th><th>Username</th>
+        <th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th style="text-align:center">Hành Động</th>
+    </tr>`;
+
+    if (requests.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = [...pending, ...processed].map((r, i) => {
+        const isPending = r.status === 'pending';
+        const statusHtml = isPending
+            ? '<span class="cnca-status cnca-status-pending">⏳ Chờ duyệt</span>'
+            : r.status === 'approved'
+                ? `<span class="cnca-status cnca-status-approved">✅ Đã tạo TK</span>`
+                : `<span class="cnca-status cnca-status-rejected">❌ Từ chối</span>`;
+
+        const actionHtml = isPending
+            ? `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt & Tạo TK</button>
+               <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`
+            : r.status === 'approved'
+                ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
+                : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
+
+        return `<tr style="${isPending ? 'background:rgba(139,92,246,.04);' : ''}">
+            <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
+            <td style="font-weight:700;color:var(--navy);">${r.customer_name || '—'}</td>
+            <td>${r.phone ? '<a href="tel:'+r.phone+'" style="color:var(--info)">'+r.phone+'</a>' : '—'}</td>
+            <td style="font-weight:700;color:#8b5cf6;font-family:'Courier New',monospace;font-size:13px;">🔑 ${r.proposed_username}</td>
+            <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e65100;font-weight:600;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
+            <td style="font-size:12px;">${r.requested_by_name || '—'} <span style="color:#94a3b8;font-size:10px;">(${CNCA_ROLE_LABELS[r.requested_by_role] || ''})</span></td>
+            <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
+            <td>${statusHtml}</td>
+            <td style="text-align:center;white-space:nowrap;">${actionHtml}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function _cncaApproveAffAcc(id) {
+    if (!confirm('Xác nhận DUYỆT & TẠO TK Affiliate cho khách này?\n\nHệ thống sẽ tự động tạo tài khoản ngay lập tức.')) return;
+    try {
+        const data = await apiCall(`/api/affiliate-account/${id}/approve`, 'POST');
+        if (data.success) { showToast(data.message); _cncaLoadData(); }
+        else showToast(data.error, 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _cncaRejectAffAcc(id) {
+    const reason = prompt('Nhập lý do từ chối tạo TK:');
+    if (!reason || !reason.trim()) return;
+    try {
+        const data = await apiCall(`/api/affiliate-account/${id}/reject`, 'POST', { reject_reason: reason.trim() });
+        if (data.success) { showToast(data.message); _cncaLoadData(); }
+        else showToast(data.error, 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ========== GLOBAL: Popup xin tạo TK Affiliate (dùng cho CRM Affiliate) ==========
+function _generateUsername(name) {
+    if (!name) return '';
+    return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd')
+        .toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '').substring(0, 20);
+}
+
+async function openAffiliateAccountPopup(customerId) {
+    // Pre-check
+    const check = await apiCall(`/api/affiliate-account/check/${customerId}`);
+    if (check.hasAccount) { showToast(`⚠️ KH đã có TK Affiliate: ${check.account.username}`, 'error'); return; }
+    if (check.hasPending) { showToast('⚠️ KH đã có yêu cầu đang chờ duyệt!', 'error'); return; }
+
+    const cust = await apiCall(`/api/customers/${customerId}`);
+    const c = cust.customer || {};
+    if (c.cancel_approved === 1) { showToast('Không thể xin TK cho khách đã bị hủy', 'error'); return; }
+
+    const suggestedUsername = _generateUsername(c.customer_name);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'affAccOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;width:500px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
+            <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);padding:22px 24px;text-align:center;">
+                <div style="font-size:36px;margin-bottom:6px;">🔑</div>
+                <div style="color:white;font-size:17px;font-weight:800;">Xin Tạo TK Affiliate</div>
+            </div>
+            <div style="padding:24px;">
+                <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #e2e8f0;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:4px;">Khách hàng</div>
+                    <div style="font-size:16px;font-weight:700;color:#122546;">${c.customer_name}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">${c.phone || ''} ${c.facebook_link ? '· 🔗 Link' : ''}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div>
+                        <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Tên đăng nhập <span style="color:#dc2626;">*</span></div>
+                        <input type="text" id="affAccUsername" class="form-control" value="${suggestedUsername}" placeholder="vd: nguyenvana"
+                            style="font-family:'Courier New',monospace;font-weight:700;color:#7c3aed;">
+                    </div>
+                    <div>
+                        <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Mật khẩu <span style="color:#dc2626;">*</span></div>
+                        <input type="text" id="affAccPassword" class="form-control" value="123456" placeholder="Mật khẩu">
+                    </div>
+                </div>
+                <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Lý do xin tạo TK <span style="color:#dc2626;">*</span></div>
+                <textarea id="affAccReason" class="form-control" rows="3" placeholder="VD: KH muốn đăng nhập hệ thống để theo dõi đơn hàng, hoa hồng..."></textarea>
+                <div style="background:#fef3c7;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e;">
+                    ⚠️ Sau khi gửi, GĐ/QL sẽ duyệt. Nếu được duyệt, TK sẽ <b>tự động tạo</b> ngay lập tức.
+                </div>
+                <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('affAccOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
+                    <button onclick="_affAccSubmit(${c.id})" class="btn" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;width:auto;padding:10px 24px;font-weight:700;">🔑 Gửi Yêu Cầu</button>
+                </div>
+            </div>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function _affAccSubmit(customerId) {
+    const username = document.getElementById('affAccUsername')?.value?.trim();
+    const password = document.getElementById('affAccPassword')?.value;
+    const reason = document.getElementById('affAccReason')?.value?.trim();
+    if (!username) { showToast('Vui lòng nhập tên đăng nhập', 'error'); return; }
+    if (!password || password.length < 4) { showToast('Mật khẩu phải ít nhất 4 ký tự', 'error'); return; }
+    if (!reason) { showToast('Vui lòng nhập lý do', 'error'); return; }
+    try {
+        const data = await apiCall('/api/affiliate-account/request', 'POST', {
+            customer_id: customerId, proposed_username: username, proposed_password: password, reason
+        });
+        if (data.success) {
+            showToast('✅ ' + data.message);
+            document.getElementById('affAccOverlay')?.remove();
+        } else showToast(data.error, 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+

@@ -259,6 +259,7 @@ async function renderCRMAffPage(container) {
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
+                        <th style="min-width:40px;text-align:center" title="Xin Tạo TK Affiliate">🔑</th>
                     </tr></thead>
                     <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
@@ -763,6 +764,9 @@ function _affRenderCustomerRow(c, stats, stt) {
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCTVProposalPopup(${c.id})" title="Đề Xuất Chuyển CTV" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
+        </td>
+        <td style="text-align:center;padding:4px 2px;">
+            ${!c.readonly && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
         </td>
     </tr>`;
 }
@@ -2350,6 +2354,7 @@ async function _affOpenCustomerDetail(customerId) {
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
         ${!c.cancel_requested && !c.cancel_approved && !_affPendingCtvIds.includes(customerId) ? `
+            <button onclick="closeModal();openAffiliateAccountPopup(${customerId});" style="padding:8px 20px;border:2px solid rgba(139,92,246,.4);background:rgba(139,92,246,.12);color:#8b5cf6;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(139,92,246,.25)'" onmouseout="this.style.background='rgba(139,92,246,.12)'">🔑 Xin Tạo TK</button>
             <button class="btn btn-primary" onclick="closeModal();_affOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
         ` : _affPendingCtvIds.includes(customerId) ? `
             <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
