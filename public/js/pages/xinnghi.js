@@ -22,7 +22,7 @@ async function renderXinNghiPage(container) {
                         <div style="color:white;font-weight:800;font-size:16px;">📝 GỬI ĐƠN XIN NGHỈ</div>
                         <div style="color:#a7f3d0;font-size:11px;margin-top:2px;">Điền đầy đủ thông tin bên dưới</div>
                     </div>
-                    <div style="padding:20px;" id="leaveFormBody">
+                    ${canDo('xin_nghi_nv', 'create') ? `<div style="padding:20px;" id="leaveFormBody">` : `<div style="padding:20px;text-align:center;"><span style="padding:8px 16px;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:600;border:1px solid #e2e8f0;">🔒 Bạn không có quyền gửi đơn xin nghỉ</span></div><div style="display:none;" id="leaveFormBody">`}
                         <!-- MODE SELECTOR -->
                         <div style="margin-bottom:16px;">
                             <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">📅 Chọn loại nghỉ</label>
