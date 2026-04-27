@@ -20,6 +20,18 @@ let _dlDateFrom = '';
 let _dlDateTo = '';
 let _dlSelectedYear = new Date().getFullYear();
 
+// ===== Permission key mapping: module_type → permKey =====
+const _DL_PERM_KEYS = {
+    'dang_video': 'dang_video',
+    'dang_content': 'dang_content',
+    'dang_group': 'dang_group',
+    'sedding': 'sedding_cong_dong',
+    'dang_banthan_sp': 'dang_ban_than',
+    'tuyen_dung': 'tuyen_dung_sv',
+    'addcmt': 'add_cmt_doi_tac',
+    'tim_gr_zalo': 'tim_gr_zalo',
+};
+
 // ===== Helper: đang xem chính mình? =====
 function _dlIsViewingSelf() {
     if (_dl.selUser) return _dl.selUser == currentUser.id;
@@ -232,7 +244,8 @@ function _dlUpdateActions() {
     const el = document.getElementById('dlActionBtns');
     if (!el) return;
     const m = _dl.mod;
-    const canAdd = _dlIsViewingSelf();
+    const permKey = _DL_PERM_KEYS[m.type];
+    const canAdd = _dlIsViewingSelf() && canDo(permKey, 'create');
     let h = '';
     // Category management button for dang_group (GD only)
     if (m.type === 'dang_group' && currentUser.role === 'giam_doc') {
@@ -530,7 +543,7 @@ function _dlRenderTable() {
         let h = '';
         filteredRows.forEach((r,i)=>{
             const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
-            const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
+            const canDel=(r.user_id===currentUser.id&&ed===today&&canDo(_DL_PERM_KEYS[m.type],'delete'))||currentUser.role==='giam_doc';
             let lj = r.links_json;
             if (typeof lj === 'string') try { lj = JSON.parse(lj); } catch(e) { lj = null; }
             // Show only filtered platform or all platforms
@@ -588,7 +601,7 @@ function _dlRenderTable() {
     rows.forEach((r,i)=>{
         const fbShort=r.fb_link.length>60?r.fb_link.substring(0,60)+'...':r.fb_link;
         const ed=typeof r.entry_date==='string'?r.entry_date.split('T')[0]:r.entry_date;
-        const canDel=(r.user_id===currentUser.id&&ed===today)||currentUser.role==='giam_doc';
+        const canDel=(r.user_id===currentUser.id&&ed===today&&canDo(_DL_PERM_KEYS[m.type],'delete'))||currentUser.role==='giam_doc';
         const imgCell = hasImg ? (r.image_path ? `<img src="${r.image_path}" class="dl-thumb" onclick="_dlOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">` : '<span style="color:#d1d5db;">—</span>') : '';
         const catBadge = hasCat && r.category_name ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:${r.category_color||'#6366f1'}20;color:${r.category_color||'#6366f1'};font-size:11px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:${r.category_color||'#6366f1'};"></span>${r.category_name}</span>` : (hasCat ? '<span style="color:#d1d5db;font-size:11px;">—</span>' : '');
         const updatedAt = r.updated_at || r.created_at || '';

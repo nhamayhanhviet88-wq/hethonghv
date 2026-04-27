@@ -6,18 +6,18 @@ const PERM_FEATURES = [
     { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
 
     // ===== CÔNG VIỆC NV KINH DOANH =====
-    { key: 'goi_dien', label: 'Gọi Điện Telesale', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'he_thong_goi_dien', label: 'Hệ Thống Phân Chia Gọi Điện', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'nhan_tin_doi_tac', label: 'Nhắn Tìm Đối Tác KH KOL Tiktok', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'add_cmt_doi_tac', label: 'Add/Cmt Đối Tác KH', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'dang_video', label: 'Đăng Video Isocal', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'dang_content', label: 'Đăng Content Isocal', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'dang_group', label: 'Đăng & Tìm KH Group', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'sedding_cong_dong', label: 'Sedding Cộng Đồng & Lẫn Nhau', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'dang_ban_than', label: 'Đăng Bản Thân & Sản Phẩm', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'tim_gr_zalo', label: 'Tìm Gr Zalo Và Join', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'nhom_spam_zalo', label: 'Nhóm Spam Zalo', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
-    { key: 'tuyen_dung_sv', label: 'Tuyển Dụng SV KD', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'goi_dien', label: 'Gọi Điện Telesale', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'he_thong_goi_dien', label: 'Hệ Thống Phân Chia Gọi Điện', perms: ['view','create','edit'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'nhan_tin_doi_tac', label: 'Nhắn Tìm Đối Tác KH KOL Tiktok', perms: ['view','create','edit','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'add_cmt_doi_tac', label: 'Add/Cmt Đối Tác KH', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_video', label: 'Đăng Video Isocal', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_content', label: 'Đăng Content Isocal', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_group', label: 'Đăng & Tìm KH Group', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'sedding_cong_dong', label: 'Sedding Cộng Đồng & Lẫn Nhau', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_ban_than', label: 'Đăng Bản Thân & Sản Phẩm', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'tim_gr_zalo', label: 'Tìm Gr Zalo Và Join', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'nhom_spam_zalo', label: 'Nhóm Spam Zalo', perms: ['view','create'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'tuyen_dung_sv', label: 'Tuyển Dụng SV KD', perms: ['view','create','delete'], section: 'CÔNG VIỆC NV KINH DOANH' },
 
     // ===== KINH DOANH CHĂM SÓC =====
     { key: 'crm_nhu_cau', label: 'Chăm Sóc KH Nhu Cầu', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
@@ -42,7 +42,7 @@ const PERM_FEATURES = [
     { key: 'cap_cuu_sep', label: 'Cấp Cứu Sếp', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'chuyen_so', label: 'Chuyển Số NV Kinh Doanh', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'khoa_tk_nv', label: 'Nhân Viên Bị Phạt Tiền', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
-    { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view','create'], section: 'HỖ TRỢ NHÂN VIÊN' },
 
     // ===== QUẢN LÝ NHÂN VIÊN =====
     { key: 'nhan_vien', label: 'Tài Khoản Nhân Viên', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },

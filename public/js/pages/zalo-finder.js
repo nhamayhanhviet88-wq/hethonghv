@@ -378,10 +378,11 @@ function _zlRenderTasks(res) {
         } else {
             const statusLabel = isNoResult
                 ? '<span style="color:#92400e;font-size:11px;font-weight:600;">❌ Không tìm thấy</span>'
-                : `<div style="display:flex;gap:4px;">
+                : canDo('tim_gr_zalo', 'create') ? `<div style="display:flex;gap:4px;">
                     <button onclick="_zlAddResultModal(${t.id})" style="padding:4px 10px;border:none;border-radius:6px;background:#16a34a;color:white;cursor:pointer;font-weight:700;font-size:10px;">➕ Thêm Zalo</button>
                     <button onclick="_zlNoResult(${t.id})" style="padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-weight:600;font-size:10px;">❌ K tìm thấy</button>
-                  </div>`;
+                  </div>`
+                : '<span style="color:#9ca3af;font-size:11px;font-weight:600;">🔒 Chỉ xem</span>';
             rows.push(`<tr style="border-bottom:1px solid #e5e7eb;background:${isNoResult ? '#fef3c7' : '#f0f9ff'};">
                 <td style="padding:10px 12px;font-size:13px;font-weight:800;color:#0f172a;border-right:1px solid #e5e7eb;white-space:nowrap;">${t.user_name || ''}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#9ca3af;" colspan="3">${statusLabel}

@@ -180,7 +180,7 @@ function _acToggleDept(id) { if(_acCollapsedDepts.has(id)){_acCollapsedDepts.del
 function _acUpdateActions() {
     const el = document.getElementById('acActionBtns');
     if (!el) return;
-    const canAdd = _acIsViewingSelf();
+    const canAdd = _acIsViewingSelf() && canDo('add_cmt_doi_tac', 'create');
     let h = '';
     if (canAdd) {
         h += '<button onclick="_acAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(22,163,74,0.3);">＋ Báo cáo công việc</button>';
@@ -206,10 +206,10 @@ function _acRenderStats() {
             else if (si.report.status === 'pending') reportHtml = '<span style="background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">⏳ Chờ duyệt</span>';
             else if (si.report.status === 'rejected') {
                 reportHtml = '<span style="background:#fecaca;color:#dc2626;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">❌ Từ chối</span>';
-                reportHtml += ` <button onclick="_acSubmitReport()" style="padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:700;font-size:12px;">🔄 Nộp lại</button>`;
+                if (canDo('add_cmt_doi_tac', 'create')) reportHtml += ` <button onclick="_acSubmitReport()" style="padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:700;font-size:12px;">🔄 Nộp lại</button>`;
             }
         } else if (todayDone > 0) {
-            reportHtml = `<button onclick="_acSubmitReport()" style="padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:700;font-size:12px;animation:_acPulse 2s infinite;">📤 Báo Cáo (${todayDone})</button>`;
+            if (canDo('add_cmt_doi_tac', 'create')) reportHtml = `<button onclick="_acSubmitReport()" style="padding:6px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:700;font-size:12px;animation:_acPulse 2s infinite;">📤 Báo Cáo (${todayDone})</button>`;
         }
     }
 
@@ -264,7 +264,7 @@ function _acRenderTable() {
     </tr></thead><tbody>`;
     rows.forEach((r, i) => {
         const ed = typeof r.entry_date === 'string' ? r.entry_date.split('T')[0] : r.entry_date;
-        const canDel = (r.user_id === currentUser.id && ed === today) || currentUser.role === 'giam_doc';
+        const canDel = (r.user_id === currentUser.id && ed === today && canDo('add_cmt_doi_tac', 'delete')) || currentUser.role === 'giam_doc';
         const imgCell = r.image_path
             ? `<img src="${r.image_path}" class="ac-thumb" onclick="_acOpenLB('${r.image_path}')" alt="Ảnh" loading="lazy">`
             : '<span style="color:#d1d5db;">—</span>';

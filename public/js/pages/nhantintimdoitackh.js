@@ -186,7 +186,7 @@ function _poUpdateActionButtons() {
         h += '<button onclick="_poCatModal()" style="padding:8px 16px;border:1px solid #6366f1;border-radius:8px;background:#eef2ff;color:#6366f1;cursor:pointer;font-weight:600;font-size:13px;">⚙️ Lĩnh Vực</button>';
     }
     // Chỉ hiện nút Thêm khi xem chính tài khoản mình
-    if (canAdd) {
+    if (canAdd && canDo('nhan_tin_doi_tac', 'create')) {
         h += '<button onclick="_poAddModal()" style="padding:8px 20px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(37,99,235,0.3);">＋ Thêm Đối Tác</button>';
     }
     // Hiện nhãn khi xem phòng/team tổng hợp
@@ -348,10 +348,14 @@ function _poRenderStats() {
             else if (si.report.status === 'pending') reportBadge = '<div style="margin-top:8px;"><span style="background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">⏳ Chờ duyệt</span></div>';
             else if (si.report.status === 'rejected') {
                 reportBadge = '<div style="margin-top:8px;"><span style="background:#fecaca;color:#dc2626;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;">❌ Bị từ chối</span></div>';
-                reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(220,38,38,0.4);transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">🔄 Nộp lại</button>`;
+                if (canDo('nhan_tin_doi_tac', 'create')) {
+                    reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(220,38,38,0.4);transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">🔄 Nộp lại</button>`;
+                }
             }
         } else if (todayDone > 0) {
-            reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(22,163,74,0.4);transition:all .2s;animation:_poPulse 2s infinite;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">📤 Báo Cáo (${todayDone} đối tác)</button>`;
+            if (canDo('nhan_tin_doi_tac', 'create')) {
+                reportBtn = `<button onclick="_poSubmitReport()" style="margin-top:8px;padding:8px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;cursor:pointer;font-weight:800;font-size:13px;box-shadow:0 3px 12px rgba(22,163,74,0.4);transition:all .2s;animation:_poPulse 2s infinite;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">📤 Báo Cáo (${todayDone} đối tác)</button>`;
+            }
         }
     }
 
@@ -712,8 +716,8 @@ function _poRenderTable() {
         } else {
             actions += `<button onclick="_poChuyenSo(${r.id})" style="padding:3px 8px;border:1px solid #ea580c;border-radius:6px;background:#fff7ed;color:#ea580c;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;" title="Chuyển Số Khách Hàng">📱 Chuyển Số</button>`;
             if (isOwner(r.user_id) && entryDate === today) {
-                actions += `<button onclick="_poEditModal(${r.id})" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>`;
-                actions += `<button onclick="_poDelete(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`;
+                if (canDo('nhan_tin_doi_tac', 'edit')) actions += `<button onclick="_poEditModal(${r.id})" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;font-size:11px;margin-right:4px;">✏️</button>`;
+                if (canDo('nhan_tin_doi_tac', 'delete')) actions += `<button onclick="_poDelete(${r.id})" style="padding:3px 8px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>`;
             }
         }
         const updatedAt = r.updated_at || r.created_at || '';

@@ -577,7 +577,7 @@ async function _gd_loadCallsForUser(userId) {
         });
     } else {
         callsHtml = filteredCalls.length === 0
-            ? `<div class="ts-empty"><span class="ts-empty-icon">📭</span><div class="ts-empty-title">Chưa có SĐT nào</div><div class="ts-empty-desc">Chưa có data được phân cho ${isSingleDay ? 'ngày này' : 'khoảng thời gian này'}</div></div>`
+            ? `<div class="ts-empty"><span class="ts-empty-icon">📭</span><div class="ts-empty-title">Chưa có SĐT nào</div><div class="ts-empty-desc">Chưa có data được phân cho ${isSingleDay && canDo('goi_dien', 'create') ? 'ngày này' : 'khoảng thời gian này'}</div></div>`
             : filteredCalls.map(call => _gd_renderCallCard(call)).join('');
     }
 
@@ -1220,10 +1220,10 @@ async function _gd_loadSelfSearchProgress(userId) {
     el.innerHTML = `
     <div style="margin-bottom:14px;padding:14px 16px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1.5px solid #a5b4fc;border-radius:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tự Tìm Kiếm Telesale: ${_gd_selfSearchCount}/${target} KH${isSingleDay ? ' hôm nay' : ''}</span>
+            <span style="font-size:13px;font-weight:700;color:#3730a3;">🔍 Tự Tìm Kiếm Telesale: ${_gd_selfSearchCount}/${target} KH${isSingleDay && canDo('goi_dien', 'create') ? ' hôm nay' : ''}</span>
             <div style="display:flex;gap:8px;align-items:center;">
                 <span style="font-size:12px;font-weight:800;color:${done?'#059669':'#6366f1'};">${pct}%${done?' ✅':''}</span>
-                ${isSingleDay ? `<button onclick="_gd_openSelfSearchModal()" style="padding:6px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">＋ Thêm KH</button>` : ''}
+                ${isSingleDay && canDo('goi_dien', 'create') ? `<button onclick="_gd_openSelfSearchModal()" style="padding:6px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,0.3);transition:all .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">＋ Thêm KH</button>` : ''}
             </div>
         </div>
         <div style="background:#c7d2fe;border-radius:10px;height:10px;overflow:hidden;"><div style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a78bfa);height:100%;width:${pct}%;border-radius:10px;transition:width 0.5s ease;"></div></div>
