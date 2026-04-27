@@ -25,6 +25,7 @@ async function affiliateAccountRoutes(fastify, options) {
     } catch(e) { /* already exists */ }
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_aar_status ON affiliate_account_requests(status)'); } catch(e) {}
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_aar_customer ON affiliate_account_requests(customer_id)'); } catch(e) {}
+    try { await db.exec('ALTER TABLE affiliate_account_requests ADD COLUMN proposed_data JSONB'); } catch(e) {}
 
     // ========== Helper: send Telegram ==========
     async function _sendTg(message) {
@@ -55,7 +56,7 @@ async function affiliateAccountRoutes(fastify, options) {
 
     // ========== CREATE REQUEST ==========
     fastify.post('/api/affiliate-account/request', { preHandler: [authenticate] }, async (request, reply) => {
-        const { customer_id, proposed_username, proposed_password, reason } = request.body || {};
+        const { customer_id, proposed_username, proposed_password, reason, proposed_data } = request.body || {};
         if (!customer_id) return reply.code(400).send({ error: 'Thiếu customer_id' });
         if (!proposed_username || !proposed_username.trim()) return reply.code(400).send({ error: 'Vui lòng nhập tên đăng nhập' });
         if (!proposed_password || proposed_password.length < 4) return reply.code(400).send({ error: 'Mật khẩu phải ít nhất 4 ký tự' });
@@ -103,10 +104,13 @@ async function affiliateAccountRoutes(fastify, options) {
         // Hash password before storing
         const passwordHash = await bcrypt.hash(proposed_password, 10);
 
+        // Store full proposed_data as JSON for complete account creation on approve
+        const pdJson = proposed_data ? JSON.stringify(proposed_data) : null;
+
         await db.run(
-            `INSERT INTO affiliate_account_requests (customer_id, requested_by, proposed_username, proposed_password_hash, reason)
-             VALUES (?, ?, ?, ?, ?)`,
-            [Number(customer_id), user.id, username, passwordHash, reason.trim()]
+            `INSERT INTO affiliate_account_requests (customer_id, requested_by, proposed_username, proposed_password_hash, reason, proposed_data)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [Number(customer_id), user.id, username, passwordHash, reason.trim(), pdJson]
         );
 
         // Telegram
@@ -185,14 +189,28 @@ async function affiliateAccountRoutes(fastify, options) {
             return reply.code(400).send({ error: 'KH đã có TK Affiliate rồi' });
         }
 
-        // === CREATE THE ACCOUNT ===
+        // === CREATE THE ACCOUNT (with full proposed_data if available) ===
+        const pd = accReq.proposed_data ? (typeof accReq.proposed_data === 'string' ? JSON.parse(accReq.proposed_data) : accReq.proposed_data) : {};
         const result = await db.run(
-            `INSERT INTO users (username, password_hash, full_name, phone, address, role, managed_by_user_id, source_customer_id, province)
-             VALUES (?, ?, ?, ?, ?, 'tkaffiliate', ?, ?, ?)`,
+            `INSERT INTO users (username, password_hash, full_name, phone, address, role,
+             managed_by_user_id, source_customer_id, province, birth_date,
+             department_id, commission_tier_id, assigned_to_user_id,
+             bank_name, bank_account, bank_holder, source_crm_type)
+             VALUES (?, ?, ?, ?, ?, 'tkaffiliate', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [accReq.proposed_username, accReq.proposed_password_hash, customer.customer_name,
-             customer.phone || null, customer.address || null,
-             accReq.requested_by, accReq.customer_id,
-             customer.province || null]
+             pd.phone || customer.phone || null,
+             pd.address || customer.address || null,
+             pd.managed_by_user_id || accReq.requested_by,
+             accReq.customer_id,
+             pd.province || customer.province || null,
+             pd.birth_date || null,
+             pd.department_id ? Number(pd.department_id) : null,
+             pd.commission_tier_id ? Number(pd.commission_tier_id) : null,
+             pd.assigned_to_user_id ? Number(pd.assigned_to_user_id) : null,
+             pd.bank_name || null,
+             pd.bank_account || null,
+             pd.bank_holder || null,
+             pd.source_crm_type || customer.crm_type || null]
         );
 
         const newUserId = result?.lastInsertRowid || result?.insertId;

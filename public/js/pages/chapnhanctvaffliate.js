@@ -374,11 +374,11 @@ async function _cncaLoadAffAccountData() {
 
     thead.innerHTML = `<tr>
         <th>STT</th><th>Tên KH</th><th>SĐT</th><th>Username</th>
-        <th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th style="text-align:center">Hành Động</th>
+        <th>Chi Tiết TK</th><th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th style="text-align:center">Hành Động</th>
     </tr>`;
 
     if (requests.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
         return;
     }
 
@@ -397,11 +397,22 @@ async function _cncaLoadAffAccountData() {
                 ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
                 : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
 
+        // Parse proposed_data for detail display
+        let pd = {};
+        try { pd = r.proposed_data ? (typeof r.proposed_data === 'string' ? JSON.parse(r.proposed_data) : r.proposed_data) : {}; } catch(e) {}
+        const detailBadges = [];
+        if (pd.commission_tier_id) detailBadges.push(`<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;">💰 Tầng #${pd.commission_tier_id}</span>`);
+        if (pd.department_id) detailBadges.push(`<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;">📁 PB</span>`);
+        if (pd.bank_name) detailBadges.push(`<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;">🏦 ${pd.bank_name}</span>`);
+        if (pd.assigned_to_user_id) detailBadges.push(`<span style="background:#f3e8ff;color:#7c3aed;padding:2px 6px;border-radius:4px;font-size:10px;">👥 Cha</span>`);
+        const detailHtml = detailBadges.length > 0 ? detailBadges.join(' ') : '<span style="color:#9ca3af;font-size:11px;">—</span>';
+
         return `<tr style="${isPending ? 'background:rgba(139,92,246,.04);' : ''}">
             <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
             <td style="font-weight:700;color:var(--navy);">${r.customer_name || '—'}</td>
             <td>${r.phone ? '<a href="tel:'+r.phone+'" style="color:var(--info)">'+r.phone+'</a>' : '—'}</td>
             <td style="font-weight:700;color:#8b5cf6;font-family:'Courier New',monospace;font-size:13px;">🔑 ${r.proposed_username}</td>
+            <td style="font-size:11px;">${detailHtml}</td>
             <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e65100;font-weight:600;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
             <td style="font-size:12px;">${r.requested_by_name || '—'} <span style="color:#94a3b8;font-size:10px;">(${CNCA_ROLE_LABELS[r.requested_by_role] || ''})</span></td>
             <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
@@ -430,11 +441,60 @@ async function _cncaRejectAffAcc(id) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-// ========== GLOBAL: Popup xin tạo TK Affiliate (dùng cho CRM Affiliate) ==========
+// ========== GLOBAL: Popup xin tạo TK Affiliate ĐẦY ĐỦ (dùng cho CRM Affiliate/KOC) ==========
 function _generateUsername(name) {
     if (!name) return '';
     return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd')
         .toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '').substring(0, 20);
+}
+
+// Local helper: build affiliate dept options
+function _reqAffDeptOptions(depts) {
+    const affParent = depts.find(d => !d.parent_id && d.name.toUpperCase().includes('AFFILIATE'));
+    if (!affParent) return '';
+    const children = depts.filter(d => d.parent_id === affParent.id);
+    let first = true;
+    return children.map(c => {
+        const sel = first ? (first = false, 'selected') : '';
+        return `<option value="${c.id}" ${sel}>📁 ${c.name}</option>`;
+    }).join('');
+}
+
+// Local helper: province list
+const _REQ_AFF_PROVINCES = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hồ Chí Minh','Hòa Bình','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
+
+// Local state for affiliate assign-to search
+let _reqAffAssignToList = [];
+
+function _reqAffShowAssignDropdown() {
+    _reqAffFilterAssignTo(document.getElementById('reqAffAssignToSearch')?.value || '');
+}
+
+function _reqAffFilterAssignTo(q) {
+    const resDiv = document.getElementById('reqAffAssignToResults');
+    if (!resDiv) return;
+    const filtered = q ? _reqAffAssignToList.filter(u =>
+        (u.full_name || '').toLowerCase().includes(q.toLowerCase()) ||
+        (u.username || '').toLowerCase().includes(q.toLowerCase())
+    ) : _reqAffAssignToList;
+    if (filtered.length === 0) {
+        resDiv.innerHTML = '<div style="padding:8px;color:#9ca3af;font-size:12px;">Không tìm thấy</div>';
+    } else {
+        resDiv.innerHTML = filtered.map(u =>
+            `<div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f3f4f6;transition:background .15s;"
+                 onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
+                 onmousedown="_reqAffSelectAssignTo(${u.id},'${(u.full_name||'').replace(/'/g,"\\'")} (${u.username})')">
+                <b>${u.full_name}</b> <span style="color:#6b7280;">(${u.username})</span>
+            </div>`
+        ).join('');
+    }
+    resDiv.style.display = 'block';
+}
+
+function _reqAffSelectAssignTo(id, label) {
+    document.getElementById('reqAffAssignTo').value = id;
+    document.getElementById('reqAffAssignToSearch').value = label;
+    document.getElementById('reqAffAssignToResults').style.display = 'none';
 }
 
 async function openAffiliateAccountPopup(customerId) {
@@ -443,69 +503,197 @@ async function openAffiliateAccountPopup(customerId) {
     if (check.hasAccount) { showToast(`⚠️ KH đã có TK Affiliate: ${check.account.username}`, 'error'); return; }
     if (check.hasPending) { showToast('⚠️ KH đã có yêu cầu đang chờ duyệt!', 'error'); return; }
 
-    const cust = await apiCall(`/api/customers/${customerId}`);
-    const c = cust.customer || {};
+    // Fetch all data in parallel
+    const [custRes, tiers, staffList, deptData] = await Promise.all([
+        apiCall(`/api/customers/${customerId}`),
+        apiCall('/api/settings/commission-tiers'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
+    const c = custRes.customer || {};
     if (c.cancel_approved === 1) { showToast('Không thể xin TK cho khách đã bị hủy', 'error'); return; }
 
+    const depts = deptData.departments || [];
     const suggestedUsername = _generateUsername(c.customer_name);
+    const managedById = c.assigned_to_id || currentUser.id;
+    const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv:'Chăm Sóc CTV', ctv_hoa_hong:'Chăm Sóc Affiliate', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
 
-    const overlay = document.createElement('div');
-    overlay.id = 'affAccOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
-    overlay.innerHTML = `
-        <div style="background:white;border-radius:16px;width:500px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
-            <div style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);padding:22px 24px;text-align:center;">
-                <div style="font-size:36px;margin-bottom:6px;">🔑</div>
-                <div style="color:white;font-size:17px;font-weight:800;">Xin Tạo TK Affiliate</div>
+    // Load affiliates for "Gán cho TK Affiliate nào?"
+    try {
+        const affData = await apiCall('/api/users?role=tkaffiliate');
+        _reqAffAssignToList = (affData.users || []).filter(u => String(u.managed_by_user_id) === String(managedById));
+    } catch(e) { _reqAffAssignToList = []; }
+
+    // Find managed-by employee name
+    const staffUsers = staffList.users || [];
+    const managedByUser = staffUsers.find(u => u.id === managedById);
+    const managedByLabel = managedByUser ? `${managedByUser.full_name} (${ROLE_LABELS[managedByUser.role] || managedByUser.role})` : currentUser.full_name;
+
+    // Province options
+    const provValue = c.province || '';
+    const provOptions = _REQ_AFF_PROVINCES.map(p => `<option value="${p}" ${p === provValue ? 'selected' : ''}>${p}</option>`).join('');
+
+    const bodyHTML = `
+        <div class="form-row">
+            <div class="form-group">
+                <label>Tên đăng nhập <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="reqAffUsername" class="form-control" value="${suggestedUsername}" placeholder="Tên đăng nhập"
+                    style="font-family:'Courier New',monospace;font-weight:700;color:#7c3aed;">
             </div>
-            <div style="padding:24px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #e2e8f0;">
-                    <div style="font-size:13px;color:#64748b;margin-bottom:4px;">Khách hàng</div>
-                    <div style="font-size:16px;font-weight:700;color:#122546;">${c.customer_name}</div>
-                    <div style="font-size:12px;color:#64748b;margin-top:2px;">${c.phone || ''} ${c.facebook_link ? '· 🔗 Link' : ''}</div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-                    <div>
-                        <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Tên đăng nhập <span style="color:#dc2626;">*</span></div>
-                        <input type="text" id="affAccUsername" class="form-control" value="${suggestedUsername}" placeholder="vd: nguyenvana"
-                            style="font-family:'Courier New',monospace;font-weight:700;color:#7c3aed;">
-                    </div>
-                    <div>
-                        <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Mật khẩu <span style="color:#dc2626;">*</span></div>
-                        <input type="text" id="affAccPassword" class="form-control" value="123456" placeholder="Mật khẩu">
-                    </div>
-                </div>
-                <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Lý do xin tạo TK <span style="color:#dc2626;">*</span></div>
-                <textarea id="affAccReason" class="form-control" rows="3" placeholder="VD: KH muốn đăng nhập hệ thống để theo dõi đơn hàng, hoa hồng..."></textarea>
-                <div style="background:#fef3c7;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e;">
-                    ⚠️ Sau khi gửi, GĐ/QL sẽ duyệt. Nếu được duyệt, TK sẽ <b>tự động tạo</b> ngay lập tức.
-                </div>
-                <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
-                    <button onclick="document.getElementById('affAccOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
-                    <button onclick="_affAccSubmit(${c.id})" class="btn" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;width:auto;padding:10px 24px;font-weight:700;">🔑 Gửi Yêu Cầu</button>
-                </div>
+            <div class="form-group">
+                <label>Mật khẩu <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="reqAffPassword" class="form-control" value="123456" placeholder="Mật khẩu">
             </div>
         </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input type="text" class="form-control" value="${c.customer_name || ''}" readonly style="background:#e5e7eb;cursor:not-allowed;color:#374151;">
+            </div>
+            <div class="form-group">
+                <label>Vai trò</label>
+                <input type="text" class="form-control" value="TK Affiliate" disabled style="background:#e5e7eb;cursor:not-allowed;color:#374151;">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>👤 Nhân viên quản lý</label>
+                <input type="text" class="form-control" value="${managedByLabel}" readonly style="background:#e5e7eb;cursor:not-allowed;color:#374151;">
+                <input type="hidden" id="reqAffManagedBy" value="${managedById}">
+            </div>
+            <div class="form-group">
+                <label>📋 Khách hàng nguồn</label>
+                <input type="text" class="form-control" value="${c.customer_name} - ${c.phone || 'N/A'}" readonly style="background:#e5e7eb;cursor:not-allowed;color:#374151;">
+                <input type="hidden" id="reqAffSourceCrmType" value="${c.crm_type || ''}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>📌 Khách CRM từ đâu?</label>
+            <input type="text" class="form-control" disabled value="${CRM_L[c.crm_type] || c.crm_type || ''}" style="background:#e5e7eb;cursor:not-allowed;color:#374151;font-weight:600;">
+        </div>
+        <div class="form-group">
+            <label>👔 Chức Danh</label>
+            <input type="text" class="form-control" disabled value="${c.job || ''}" style="background:#e5e7eb;cursor:not-allowed;color:#374151;font-weight:600;">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Số điện thoại</label>
+                <input type="text" id="reqAffPhone" class="form-control" value="${c.phone || ''}" placeholder="10 chữ số" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+            </div>
+            <div class="form-group">
+                <label>🎂 Sinh nhật</label>
+                <input type="date" id="reqAffBirthDate" class="form-control" value="${c.birthday ? c.birthday.split('T')[0] : ''}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Địa chỉ</label>
+                <input type="text" id="reqAffAddress" class="form-control" value="${c.address || ''}" placeholder="Địa chỉ">
+            </div>
+            <div class="form-group">
+                <label>Tỉnh / Thành phố</label>
+                <select id="reqAffProvince" class="form-control">
+                    <option value="">— Chọn tỉnh thành —</option>
+                    ${provOptions}
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Đơn vị / Phòng ban</label>
+            <select id="reqAffDepartment" class="form-control">
+                <option value="">— Chọn phòng ban —</option>
+                ${_reqAffDeptOptions(depts)}
+            </select>
+        </div>
+        <div>
+            <hr style="margin: 15px 0; border-color: var(--gray-200);">
+            <h4 style="color:var(--navy);margin-bottom:10px;">💰 Hoa Hồng</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tầng chiết khấu</label>
+                    <select id="reqAffTierId" class="form-control">
+                        <option value="">Chọn tầng</option>
+                        ${(tiers.items || []).map(t => `<option value="${t.id}">${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="position:relative;">
+                    <label>Gán cho TK Affiliate nào?</label>
+                    <input type="text" id="reqAffAssignToSearch" class="form-control"
+                        placeholder="${_reqAffAssignToList.length > 0 ? 'Gõ tên hoặc username...' : 'Không có affiliate nào'}"
+                        ${_reqAffAssignToList.length === 0 ? 'disabled' : ''}
+                        autocomplete="off" oninput="_reqAffFilterAssignTo(this.value)" onfocus="_reqAffShowAssignDropdown()">
+                    <input type="hidden" id="reqAffAssignTo" value="">
+                    <div id="reqAffAssignToResults" style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:white;margin-top:2px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ngân hàng</label>
+                    <input type="text" id="reqAffBankName" class="form-control" placeholder="VD: Vietcombank">
+                </div>
+                <div class="form-group">
+                    <label>Số tài khoản</label>
+                    <input type="text" id="reqAffBankAccount" class="form-control" placeholder="Số TK ngân hàng">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Chủ tài khoản</label>
+                <input type="text" id="reqAffBankHolder" class="form-control" placeholder="Tên chủ tài khoản">
+            </div>
+        </div>
+        <hr style="margin: 15px 0; border-color: var(--gray-200);">
+        <div class="form-group">
+            <label>📝 Lý do xin tạo TK <span style="color:var(--danger)">*</span></label>
+            <textarea id="reqAffReason" class="form-control" rows="2" placeholder="VD: KH muốn đăng nhập hệ thống để theo dõi đơn hàng, hoa hồng..."></textarea>
+        </div>
+        <div style="background:#fef3c7;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;">
+            ⚠️ Sau khi gửi, GĐ/QL sẽ duyệt. Nếu được duyệt, TK sẽ <b>tự động kích hoạt</b> ngay lập tức với đầy đủ thông tin.
+        </div>
     `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
+
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">❌ Hủy</button>
+        <button class="btn" onclick="_affAccSubmit(${c.id})" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;font-weight:700;">🔑 Gửi Yêu Cầu</button>
+    `;
+    openModal('🔑 Xin Tạo TK Affiliate', bodyHTML, footerHTML);
 }
 
 async function _affAccSubmit(customerId) {
-    const username = document.getElementById('affAccUsername')?.value?.trim();
-    const password = document.getElementById('affAccPassword')?.value;
-    const reason = document.getElementById('affAccReason')?.value?.trim();
+    const username = document.getElementById('reqAffUsername')?.value?.trim();
+    const password = document.getElementById('reqAffPassword')?.value;
+    const reason = document.getElementById('reqAffReason')?.value?.trim();
     if (!username) { showToast('Vui lòng nhập tên đăng nhập', 'error'); return; }
     if (!password || password.length < 4) { showToast('Mật khẩu phải ít nhất 4 ký tự', 'error'); return; }
     if (!reason) { showToast('Vui lòng nhập lý do', 'error'); return; }
+
+    const phone = document.getElementById('reqAffPhone')?.value || '';
+    if (phone && !/^\d{10}$/.test(phone)) { showToast('Số điện thoại phải đúng 10 chữ số', 'error'); return; }
+
+    // Collect all proposed data for complete account creation on approve
+    const proposed_data = {
+        phone: phone || null,
+        address: document.getElementById('reqAffAddress')?.value || null,
+        province: document.getElementById('reqAffProvince')?.value || null,
+        birth_date: document.getElementById('reqAffBirthDate')?.value || null,
+        department_id: document.getElementById('reqAffDepartment')?.value || null,
+        commission_tier_id: document.getElementById('reqAffTierId')?.value || null,
+        assigned_to_user_id: document.getElementById('reqAffAssignTo')?.value || null,
+        bank_name: document.getElementById('reqAffBankName')?.value || null,
+        bank_account: document.getElementById('reqAffBankAccount')?.value || null,
+        bank_holder: document.getElementById('reqAffBankHolder')?.value || null,
+        managed_by_user_id: document.getElementById('reqAffManagedBy')?.value || null,
+        source_crm_type: document.getElementById('reqAffSourceCrmType')?.value || null,
+    };
+
     try {
         const data = await apiCall('/api/affiliate-account/request', 'POST', {
-            customer_id: customerId, proposed_username: username, proposed_password: password, reason
+            customer_id: customerId, proposed_username: username, proposed_password: password, reason, proposed_data
         });
         if (data.success) {
             showToast('✅ ' + data.message);
-            document.getElementById('affAccOverlay')?.remove();
+            closeModal();
         } else showToast(data.error, 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
+
 
