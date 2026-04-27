@@ -130,6 +130,7 @@ async function _crmSyncConsultTypes() {
 }
 
 async function renderCRMNhuCauPage(container) {
+    window._crmReloadCurrentPage = () => loadCrmNhuCauData();
     let topStaffOptions = '';
     if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         const staff = await apiCall('/api/managed-staff');

@@ -333,6 +333,8 @@ async function _crmTfSubmit(customerId) {
         if (data.success) {
             showToast('✅ ' + data.message);
             document.getElementById('crmTransferOverlay')?.remove();
+            // Auto-reload CRM page data so customer disappears immediately
+            if (typeof window._crmReloadCurrentPage === 'function') window._crmReloadCurrentPage();
         } else showToast(data.error, 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }

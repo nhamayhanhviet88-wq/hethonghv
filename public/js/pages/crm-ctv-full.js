@@ -130,6 +130,7 @@ async function _ctvSyncConsultTypes() {
 }
 
 async function renderCRMCtvPage(container) {
+    window._crmReloadCurrentPage = () => loadCrmCtvData();
     let topStaffOptions = '';
     if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         const staff = await apiCall('/api/managed-staff');

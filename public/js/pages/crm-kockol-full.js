@@ -130,6 +130,7 @@ async function _kockolSyncConsultTypes() {
 }
 
 async function renderCRMKocKolPage(container) {
+    window._crmReloadCurrentPage = () => loadCrmKocKolData();
     let topStaffOptions = '';
     if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         const staff = await apiCall('/api/managed-staff');
