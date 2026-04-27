@@ -95,23 +95,15 @@ async function authRoutes(fastify, options) {
             return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
         }
 
-        // Compute effective permissions
-        // IMPORTANT: These keys must match PERM_FEATURES in permissions.js AND MENU_PERM_MAP in app.js
-        // Any key here that is NOT in PERM_FEATURES will always resolve to {can_view:0,...} (harmless but dead code)
-        // Any key in MENU_PERM_MAP that is NOT here will cause the menu to be HIDDEN for non-giam_doc users
-        const ALL_FEATURES = [
-            'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv',
-            'crm_affiliate','crm_koc_kol',
-            'huy_khach',
-            'nhan_vien','co_cau_to_chuc','phan_quyen','cap_cuu_sep','chuyen_so','cai_dat',
-            'lich_su_bao_cao','trao_giai_thuong'
-        ];
-
+        // Compute effective permissions — DYNAMIC: reads from DB, no hardcoded feature list
+        // Adding a new feature in permissions.js UI automatically works here without code changes
         let permissions = {};
 
         if (user.role === 'giam_doc') {
-            ALL_FEATURES.forEach(f => {
-                permissions[f] = { can_view: 1, can_create: 1, can_edit: 1, can_delete: 1 };
+            // GĐ gets full permissions for ALL features that exist in the system
+            const allFeatures = await db.all("SELECT DISTINCT feature FROM permissions");
+            allFeatures.forEach(row => {
+                permissions[row.feature] = { can_view: 1, can_create: 1, can_edit: 1, can_delete: 1 };
             });
         } else {
             const deptPerms = {};
@@ -130,8 +122,10 @@ async function authRoutes(fastify, options) {
             );
             uRows.forEach(r => { userPerms[r.feature] = r; });
 
+            // Dynamic merge: process ALL features found in DB (no hardcoded list needed)
+            const allFeatureKeys = new Set([...Object.keys(deptPerms), ...Object.keys(userPerms)]);
             const PERM_KEYS = ['can_view','can_create','can_edit','can_delete'];
-            ALL_FEATURES.forEach(f => {
+            allFeatureKeys.forEach(f => {
                 const d = deptPerms[f] || {};
                 const u = userPerms[f] || {};
                 const result = {};

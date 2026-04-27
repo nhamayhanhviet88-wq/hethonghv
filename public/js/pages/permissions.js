@@ -1,20 +1,57 @@
 // ========== PHAN QUYEN (PERMISSIONS) ==========
 
 const PERM_FEATURES = [
-    { key: 'tong_quan', label: 'Tổng Quan', perms: ['view'] },
-    { key: 'so_hom_nay', label: 'Sổ Hôm Nay', perms: ['view'] },
-    { key: 'crm_nhu_cau', label: 'Chăm Sóc KH Nhu Cầu', perms: ['view','create','edit','delete'] },
-    { key: 'crm_ctv', label: 'Chăm Sóc CTV', perms: ['view','create','edit','delete'] },
-    { key: 'crm_affiliate', label: 'Chăm Sóc Affiliate', perms: ['view','create','edit','delete'] },
-    { key: 'crm_koc_kol', label: 'Chăm Sóc KOL/KOC Tiktok', perms: ['view','create','edit','delete'] },
-    { key: 'huy_khach', label: 'Hủy Khách Hàng', perms: ['view','delete'] },
-    { key: 'nhan_vien', label: 'Nhân Viên', perms: ['view','create','edit','delete'] },
-    { key: 'co_cau_to_chuc', label: 'Cơ cấu tổ chức', perms: ['view','create','edit','delete'] },
-    { key: 'phan_quyen', label: 'Phân quyền', perms: ['view','edit'] },
-    { key: 'cap_cuu_sep', label: 'Cấp Cứu Sếp', perms: ['view','create','edit'] },
-    { key: 'chuyen_so', label: 'Hệ Thống Chuyển Số', perms: ['view','create','edit'] },
-    { key: 'cai_dat', label: 'Cài Đặt', perms: ['view','edit'] },
-    { key: 'lich_su_bao_cao', label: 'Lịch Sử Báo Cáo CV', perms: ['view','create','edit','delete'] },
+    // ===== TỔNG QUAN =====
+    { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
+
+    // ===== CÔNG VIỆC NV KINH DOANH =====
+    { key: 'goi_dien', label: 'Gọi Điện Telesale', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'he_thong_goi_dien', label: 'Hệ Thống Phân Chia Gọi Điện', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'nhan_tin_doi_tac', label: 'Nhắn Tìm Đối Tác KH KOL Tiktok', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'add_cmt_doi_tac', label: 'Add/Cmt Đối Tác KH', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_video', label: 'Đăng Video Isocal', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_content', label: 'Đăng Content Isocal', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_group', label: 'Đăng & Tìm KH Group', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'sedding_cong_dong', label: 'Sedding Cộng Đồng & Lẫn Nhau', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'dang_ban_than', label: 'Đăng Bản Thân & Sản Phẩm', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'tim_gr_zalo', label: 'Tìm Gr Zalo Và Join', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'nhom_spam_zalo', label: 'Nhóm Spam Zalo', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+    { key: 'tuyen_dung_sv', label: 'Tuyển Dụng SV KD', perms: ['view'], section: 'CÔNG VIỆC NV KINH DOANH' },
+
+    // ===== KINH DOANH CHĂM SÓC =====
+    { key: 'crm_nhu_cau', label: 'Chăm Sóc KH Nhu Cầu', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
+    { key: 'crm_ctv', label: 'Chăm Sóc CTV', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
+    { key: 'crm_affiliate', label: 'Chăm Sóc Affiliate', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
+    { key: 'crm_koc_kol', label: 'Chăm Sóc KOL/KOC Tiktok', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
+    { key: 'huy_khach', label: 'Hủy Khách Hàng', perms: ['view','delete'], section: 'KINH DOANH CHĂM SÓC' },
+
+    // ===== CÔNG VIỆC HẰNG NGÀY =====
+    { key: 'lich_khoa_bieu', label: 'Lịch Khóa Biểu Công Việc', perms: ['view'], section: 'CÔNG VIỆC HẰNG NGÀY' },
+    { key: 'lich_su_bao_cao', label: 'Lịch Sử Báo Cáo CV', perms: ['view','create','edit','delete'], section: 'CÔNG VIỆC HẰNG NGÀY' },
+    { key: 'bangiao_diem', label: 'Bàn Giao CV Điểm', perms: ['view'], section: 'CÔNG VIỆC HẰNG NGÀY' },
+    { key: 'bangiao_khoa', label: 'Bàn Giao CV Khóa - Chuỗi', perms: ['view'], section: 'CÔNG VIỆC HẰNG NGÀY' },
+
+    // ===== CÔNG VIỆC CHĂM SÓC KHÁCH =====
+    { key: 'don_khach_sll', label: 'Đơn Khách SLL', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
+    { key: 'don_khach_nhieu_lan', label: 'Đơn Khách Nhiều Lần', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
+    { key: 'don_khach_moi', label: 'Đơn Khách Mới', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
+    { key: 'don_quan_he', label: 'Đơn Quan Hệ', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
+
+    // ===== HỖ TRỢ NHÂN VIÊN =====
+    { key: 'cap_cuu_sep', label: 'Cấp Cứu Sếp', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'chuyen_so', label: 'Chuyển Số NV Kinh Doanh', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'khoa_tk_nv', label: 'Nhân Viên Bị Phạt Tiền', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
+
+    // ===== QUẢN LÝ NHÂN VIÊN =====
+    { key: 'nhan_vien', label: 'Tài Khoản Nhân Viên', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
+    { key: 'co_cau_to_chuc', label: 'Cơ Cấu Tổ Chức', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
+    { key: 'phan_quyen', label: 'Phân Quyền', perms: ['view','edit'], section: 'QUẢN LÝ NHÂN VIÊN' },
+    { key: 'trao_giai_thuong', label: 'Trao Giải Thưởng', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+
+    // ===== HỆ THỐNG =====
+    { key: 'cai_dat', label: 'Cài Đặt Phân Tầng', perms: ['view','edit'], section: 'HỆ THỐNG' },
 ];
 
 const PERM_LABELS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa' };
@@ -275,13 +312,19 @@ async function loadPermPanel() {
 
     const typeLabel = type === 'department' ? '&#127970; Đơn vị' : '&#128100; Tài khoản';
 
+    let lastSection = '';
     let featuresHTML = PERM_FEATURES.map(feat => {
+        let sectionHeader = '';
+        if (feat.section && feat.section !== lastSection) {
+            lastSection = feat.section;
+            sectionHeader = `<div style="font-weight:800;color:#6366f1;font-size:13px;margin:${sectionHeader ? '20' : '0'}px 0 10px;padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#f0f4ff);border-radius:8px;border-left:3px solid #6366f1;text-transform:uppercase;letter-spacing:0.5px;">📁 ${feat.section}</div>`;
+        }
         const p = permMap[feat.key] || {};
         const dp = deptPermMap[feat.key] || {};
 
         if (type === 'department') {
             // Department: simple checkboxes
-            return `
+            return sectionHeader + `
             <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                     <div style="font-weight:700;color:#122546;font-size:14px;">${feat.label}</div>
@@ -308,7 +351,7 @@ async function loadPermPanel() {
         }
 
         // User: 3-state checkboxes
-        return `
+        return sectionHeader + `
         <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
             <div style="font-weight:700;color:#122546;font-size:14px;margin-bottom:12px;">${feat.label}</div>
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
