@@ -159,7 +159,7 @@ async function _cncaLoadData() {
 }
 
 async function _cncaApprove(id) {
-    if (!confirm('Xác nhận DUYỆT chuyển đổi khách hàng này sang CTV?')) return;
+    if (!confirm('Xác nhận DUYỆT chuyển đổi CRM cho khách hàng này?')) return;
     try {
         const data = await apiCall(`/api/crm-conversion/${id}/approve`, 'POST');
         if (data.success) { showToast(data.message); _cncaLoadData(); }
