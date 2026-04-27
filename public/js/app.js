@@ -4,6 +4,17 @@ let currentPage = 'dashboard';
 let userPermissions = {};
 let _configCache = {}; // Cache for app-config values
 
+// ========== PERMISSION HELPER ==========
+// Usage: canDo('crm_nhu_cau', 'edit') → true/false
+// Actions: 'view', 'create', 'edit', 'delete'
+function canDo(featureKey, action) {
+    if (!currentUser) return false;
+    if (currentUser.role === 'giam_doc') return true;
+    var p = userPermissions[featureKey];
+    if (!p) return false;
+    return p['can_' + action] > 0;
+}
+
 // ========== ROLE CONFIG ==========
 const ROLE_LABELS = {
     giam_doc: 'Giám Đốc',

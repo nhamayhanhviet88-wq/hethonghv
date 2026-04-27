@@ -670,13 +670,13 @@ function _kockolRenderCustomerRow(c, stats, stt) {
     const _pinClass = c.is_pinned ? ' crm-row-pinned' : '';
     return `<tr class="${_pinClass}" data-customer-id="${c.id}">
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_kockolTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
+            ${!c.readonly && canDo('crm_koc_kol', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_kockolTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_kockolOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
-            ${c.readonly ? (
+            ${c.readonly || !canDo('crm_koc_kol', 'edit') ? (
                 _kockolPendingCtvIds.includes(c.id) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
                     ⏳ Chờ Duyệt CTV/Affiliate
@@ -731,7 +731,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         </td>
         <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
         <td>
-            ${!c.readonly ? '<button class="btn btn-sm" onclick="event.stopPropagation();_kockolOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
+            ${!c.readonly && canDo('crm_koc_kol', 'edit') ? '<button class="btn btn-sm" onclick="event.stopPropagation();_kockolOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
             ${(() => {
                 const _colors = [
                     {bg:'rgba(239,68,68,0.12)',text:'#dc2626',border:'rgba(239,68,68,0.25)'},
@@ -763,10 +763,10 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCTVProposalPopup(${c.id})" title="Đề Xuất Chuyển CTV" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
+            ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCTVProposalPopup(${c.id})" title="Đề Xuất Chuyển CTV" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
+            ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
         </td>
     </tr>`;
 }
