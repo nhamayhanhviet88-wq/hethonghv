@@ -199,6 +199,29 @@ async function teamsRoutes(fastify, options) {
             [userId, deptId]
         );
 
+        // Auto-sync: copy department permissions to user so sidebar works immediately
+        const deptPerms = await db.all(
+            'SELECT feature, can_view, can_create, can_edit, can_delete FROM permissions WHERE target_type = ? AND target_id = ?',
+            ['department', deptId]
+        );
+        if (deptPerms.length > 0) {
+            // Only set user perms if user doesn't already have any (preserve existing overrides)
+            const existingUserPerms = await db.all(
+                'SELECT id FROM permissions WHERE target_type = ? AND target_id = ? LIMIT 1',
+                ['user', userId]
+            );
+            if (existingUserPerms.length === 0) {
+                for (const p of deptPerms) {
+                    if (p.can_view !== 0 || p.can_create !== 0 || p.can_edit !== 0 || p.can_delete !== 0) {
+                        await db.run(
+                            'INSERT INTO permissions (target_type, target_id, feature, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            ['user', userId, p.feature, p.can_view, p.can_create, p.can_edit, p.can_delete]
+                        );
+                    }
+                }
+            }
+        }
+
         return { success: true, message: 'Đã gán nhân viên vào đơn vị' };
     });
 
@@ -305,8 +328,9 @@ async function teamsRoutes(fastify, options) {
             }
             await collectChildren(Number(targetId));
 
-            async function cascadePerms(tType, tId) {
-                await db.run('DELETE FROM permissions WHERE target_type = ? AND target_id = ?', [tType, tId]);
+            // Cascade to child departments (full overwrite is correct for dept→dept)
+            async function cascadeDeptPerms(deptId) {
+                await db.run('DELETE FROM permissions WHERE target_type = ? AND target_id = ?', ['department', deptId]);
                 for (const p of permissions) {
                     const cv = typeof p.can_view === 'number' ? p.can_view : 0;
                     const cc = typeof p.can_create === 'number' ? p.can_create : 0;
@@ -314,20 +338,55 @@ async function teamsRoutes(fastify, options) {
                     const cd = typeof p.can_delete === 'number' ? p.can_delete : 0;
                     if (cv !== 0 || cc !== 0 || ce !== 0 || cd !== 0) {
                         await db.run('INSERT INTO permissions (target_type, target_id, feature, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                            [tType, tId, p.feature, cv, cc, ce, cd]);
+                            ['department', deptId, p.feature, cv, cc, ce, cd]);
                     }
                 }
             }
 
             for (const childId of childDeptIds) {
-                await cascadePerms('department', childId);
+                await cascadeDeptPerms(childId);
             }
 
+            // Cascade to users: apply dept perms but PRESERVE user-level denied (-1) overrides
             const allDeptIds = [Number(targetId), ...childDeptIds];
             for (const deptId of allDeptIds) {
                 const usersInDept = await db.all('SELECT id FROM users WHERE department_id = ? AND status = ?', [deptId, 'active']);
                 for (const u of usersInDept) {
-                    await cascadePerms('user', u.id);
+                    // Read existing user overrides (specifically denied = -1 values)
+                    const existingUserPerms = await db.all(
+                        'SELECT feature, can_view, can_create, can_edit, can_delete FROM permissions WHERE target_type = ? AND target_id = ?',
+                        ['user', u.id]
+                    );
+                    const userOverrides = {};
+                    existingUserPerms.forEach(ep => {
+                        // Track features where user has any denied (-1) permission
+                        if (ep.can_view === -1 || ep.can_create === -1 || ep.can_edit === -1 || ep.can_delete === -1) {
+                            userOverrides[ep.feature] = ep;
+                        }
+                    });
+
+                    // Delete and re-insert with dept values
+                    await db.run('DELETE FROM permissions WHERE target_type = ? AND target_id = ?', ['user', u.id]);
+                    for (const p of permissions) {
+                        let cv = typeof p.can_view === 'number' ? p.can_view : 0;
+                        let cc = typeof p.can_create === 'number' ? p.can_create : 0;
+                        let ce = typeof p.can_edit === 'number' ? p.can_edit : 0;
+                        let cd = typeof p.can_delete === 'number' ? p.can_delete : 0;
+
+                        // Re-apply user-level denied overrides
+                        const override = userOverrides[p.feature];
+                        if (override) {
+                            if (override.can_view === -1) cv = -1;
+                            if (override.can_create === -1) cc = -1;
+                            if (override.can_edit === -1) ce = -1;
+                            if (override.can_delete === -1) cd = -1;
+                        }
+
+                        if (cv !== 0 || cc !== 0 || ce !== 0 || cd !== 0) {
+                            await db.run('INSERT INTO permissions (target_type, target_id, feature, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                ['user', u.id, p.feature, cv, cc, ce, cd]);
+                        }
+                    }
                 }
             }
         }

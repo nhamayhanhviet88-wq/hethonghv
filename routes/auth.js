@@ -97,13 +97,14 @@ async function authRoutes(fastify, options) {
 
         // Compute effective permissions
         // IMPORTANT: These keys must match PERM_FEATURES in permissions.js AND MENU_PERM_MAP in app.js
+        // Any key here that is NOT in PERM_FEATURES will always resolve to {can_view:0,...} (harmless but dead code)
+        // Any key in MENU_PERM_MAP that is NOT here will cause the menu to be HIDDEN for non-giam_doc users
         const ALL_FEATURES = [
             'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv',
             'crm_affiliate','crm_koc_kol',
-            'crm_ctv_hoa_hong','crm_koc_tiktok','affiliate_hv',
             'huy_khach',
             'nhan_vien','co_cau_to_chuc','phan_quyen','cap_cuu_sep','chuyen_so','cai_dat',
-            'lich_su_bao_cao'
+            'lich_su_bao_cao','trao_giai_thuong'
         ];
 
         let permissions = {};
