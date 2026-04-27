@@ -676,7 +676,11 @@ function _affRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_affOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly ? (
-                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                _affPendingCtvIds.includes(c.id) ? `
+                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
+                    ⏳ Chờ Duyệt CTV/Affiliate
+                </span>
+            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
@@ -2345,8 +2349,10 @@ async function _affOpenCustomerDetail(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved ? `
+        ${!c.cancel_requested && !c.cancel_approved && !_affPendingCtvIds.includes(customerId) ? `
             <button class="btn btn-primary" onclick="closeModal();_affOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
+        ` : _affPendingCtvIds.includes(customerId) ? `
+            <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
         ` : ''}
     `;
 
