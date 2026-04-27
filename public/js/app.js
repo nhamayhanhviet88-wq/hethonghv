@@ -188,6 +188,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         wdPollPending();
         setInterval(wdPollPending, 15000);
     }
+
+    // CTV Conversion pending badge polling
+    if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
+        _ctvPollBadge();
+        setInterval(_ctvPollBadge, 30000);
+    }
 });
 
 // ========== WITHDRAWAL PENDING POLLING (GĐ/TRINH) ==========
@@ -199,6 +205,22 @@ async function wdPollPending() {
         }
         window._wdLastPendingCount = data.count;
     } catch (e) { /* silent */ }
+}
+
+// ========== CTV CONVERSION PENDING BADGE POLLING ==========
+async function _ctvPollBadge() {
+    try {
+        const data = await apiCall('/api/crm-conversion/pending-count');
+        const badge = document.getElementById('ctvPendingBadge');
+        if (badge) {
+            if (data.count > 0) {
+                badge.textContent = data.count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch(e) { /* silent */ }
 }
 
 function wdShowNewRequestPopup(info) {
@@ -591,6 +613,7 @@ function renderSidebar() {
                 var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
                 html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
                 html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
+                if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
                 html += '</a>';
             });
             html += '</div></div>';
@@ -620,6 +643,7 @@ function renderSidebar() {
             var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
             html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
             html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
+            if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
             html += '</a>';
         });
         html += '</div></div>';
