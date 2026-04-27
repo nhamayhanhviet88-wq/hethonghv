@@ -221,22 +221,13 @@ async function crmConversionRoutes(fastify, options) {
             [convReq.to_crm_type, convReq.customer_id]
         );
 
-        // 2. Log consultation for audit trail
-        await db.run(
-            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
-             VALUES (?, 'chuyen_doi_crm', ?, ?)`,
-            [convReq.customer_id,
-             `🔄 Chuyển đổi từ ${CRM_LABELS[convReq.from_crm_type]} sang ${CRM_LABELS[convReq.to_crm_type]} — Lý do: ${convReq.reason}`,
-             user.id]
-        );
-
-        // 3. Update request status
+        // 2. Update request status (audit trail kept in crm_conversion_requests table)
         await db.run(
             "UPDATE crm_conversion_requests SET status = 'approved', approved_by = ?, processed_at = NOW() WHERE id = ?",
             [user.id, reqId]
         );
 
-        // 4. Telegram
+        // 3. Telegram
         const approver = await db.get('SELECT full_name FROM users WHERE id = ?', [user.id]);
         const assignedTo = customer.assigned_to_id ?
             await db.get('SELECT full_name FROM users WHERE id = ?', [customer.assigned_to_id]) : null;
