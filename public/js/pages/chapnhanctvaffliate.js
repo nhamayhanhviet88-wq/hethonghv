@@ -486,7 +486,25 @@ async function openAffiliateAccountPopup(customerId) {
     const managedById = c.assigned_to_id || currentUser.id;
     const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv:'Chăm Sóc CTV', ctv_hoa_hong:'Chăm Sóc Affiliate', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
 
-
+    // Auto-detect affiliate parent from referrer (AFFILIATE GIỚI THIỆU AFFILIATE)
+    let autoParentId = null;
+    let autoParentLabel = '';
+    if (c.referrer_id) {
+        try {
+            const refUser = (staffList.users || []).find(u => u.id === c.referrer_id && u.role === 'tkaffiliate');
+            if (!refUser) {
+                const refData = await apiCall(`/api/users/${c.referrer_id}`);
+                const ru = refData.user || {};
+                if (ru.role === 'tkaffiliate') {
+                    autoParentId = ru.id;
+                    autoParentLabel = `${ru.full_name} (${ru.username})`;
+                }
+            } else {
+                autoParentId = refUser.id;
+                autoParentLabel = `${refUser.full_name} (TK Affiliate)`;
+            }
+        } catch(e) { /* skip */ }
+    }
 
     // Find managed-by employee name
     const staffUsers = staffList.users || [];
@@ -580,7 +598,13 @@ async function openAffiliateAccountPopup(customerId) {
                 </select>
             </div>
             <div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;font-size:11px;color:#3b82f6;margin-bottom:10px;">
-                ℹ️ <b>Gán Affiliate cha</b> sẽ do GĐ/QL thiết lập sau khi duyệt (tại Tài Khoản Affiliate → ✏️ Sửa).
+                ${autoParentId
+                    ? `🔗 <b>Affiliate cha (tự động):</b> <span style="color:#7c3aed;font-weight:700;">${autoParentLabel}</span>
+                       <br><span style="color:#6b7280;">Hệ thống tự phát hiện KH được giới thiệu bởi affiliate này → tự động gán cha.</span>
+                       <input type="hidden" id="reqAffAutoParentId" value="${autoParentId}">`
+                    : `ℹ️ <b>Gán Affiliate cha</b> sẽ do GĐ/QL thiết lập sau khi duyệt (tại Tài Khoản Affiliate → ✏️ Sửa).
+                       <input type="hidden" id="reqAffAutoParentId" value="">`
+                }
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -633,6 +657,7 @@ async function _affAccSubmit(customerId) {
         birth_date: document.getElementById('reqAffBirthDate')?.value || null,
         department_id: document.getElementById('reqAffDepartment')?.value || null,
         commission_tier_id: document.getElementById('reqAffTierId')?.value || null,
+        assigned_to_user_id: document.getElementById('reqAffAutoParentId')?.value || null,
         bank_name: document.getElementById('reqAffBankName')?.value || null,
         bank_account: document.getElementById('reqAffBankAccount')?.value || null,
         bank_holder: document.getElementById('reqAffBankHolder')?.value || null,
