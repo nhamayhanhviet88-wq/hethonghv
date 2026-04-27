@@ -52,6 +52,7 @@ const MENU_CONFIG = [
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC' },
     { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate' },
     { id: 'cham-soc-koc-kol', label: 'Chăm Sóc KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsockockol' },
+    { id: 'chap-nhan-ctv-affiliate', label: 'Chấp Nhận CTV / Affiliate', icon: '✅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'], section: 'KINH DOANH CHĂM SÓC', href: '/chapnhanctvaffliate', dynamicRoles: 'crm_conversion_approver_roles' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
@@ -951,6 +952,7 @@ async function handleRoute() {
             case 'crm-ctv': renderCRMCtvPage(content); break;
             case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;
             case 'cham-soc-koc-kol': case 'chamsockockol': renderCRMKocKolPage(content); break;
+            case 'chap-nhan-ctv-affiliate': case 'chapnhanctvaffliate': renderChapNhanCTVAffiliatePage(content); break;
             case 'cap-cuu-sep': renderEmergencyPage(content); break;
             case 'huy-khach': renderCancelPage(content); break;
             case 'tai-khoan-affiliate': renderTaiKhoanAffiliatePage(content); break;
