@@ -234,6 +234,12 @@ async function renderCRMKocKolPage(container) {
                 <option value="">Tất cả trạng thái</option>
             </select>
             <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
+            <select id="crmFilterAffStatus" class="form-control" style="width:auto;min-width:180px;" onchange="_kockolRenderFilteredTable()">
+                <option value="">🔑 Tất cả TK</option>
+                <option value="approved">🔑✅ Đã Có TK</option>
+                <option value="pending">🔑⏳ Chờ Duyệt</option>
+                <option value="none">🔑 Chưa Có TK</option>
+            </select>
             ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
         </div>
         <div class="card">
@@ -241,6 +247,7 @@ async function renderCRMKocKolPage(container) {
                 <table class="table crm-ctv-table" id="crmCtvTable">
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
+                        <th style="min-width:30px;text-align:center;padding:4px 2px" title="TK Affiliate">🔑</th>
                         <th style="min-width:45px;text-align:center">STT</th>
                         <th style="min-width:100px">NV Phụ Trách</th>
                         <th style="min-width:80px">Mã Đơn</th>
@@ -260,7 +267,6 @@ async function renderCRMKocKolPage(container) {
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
-                        <th style="min-width:40px;text-align:center" title="Xin Tạo TK Affiliate">🔑</th>
                     </tr></thead>
                     <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
@@ -291,6 +297,7 @@ var _kockolAllStats = {}; // consult stats
 var _kockolPendingCtvIds = []; // customer IDs with pending CTV requests
 var _kockolAffPendingIds = []; // customer IDs with pending affiliate account requests
 var _kockolAffApprovedIds = []; // customer IDs that already have affiliate accounts
+var _kockolAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _kockolCurrentPage = 1;
 var _kockolPageSize = 50;
 
@@ -566,7 +573,28 @@ function _kockolRenderFilteredTable() {
         }
     }
 
-
+    // Apply affiliate account filter
+    const affFilterVal = document.getElementById('crmFilterAffStatus')?.value;
+    if (affFilterVal) {
+        if (affFilterVal === 'approved') {
+            filtered = filtered.filter(c => _kockolAffApprovedIds.includes(c.id));
+        } else if (affFilterVal === 'pending') {
+            filtered = filtered.filter(c => _kockolAffPendingIds.includes(c.id));
+        } else if (affFilterVal === 'none') {
+            filtered = filtered.filter(c => !_kockolAffApprovedIds.includes(c.id) && !_kockolAffPendingIds.includes(c.id));
+        }
+    }
+    const _affFilterEl = document.getElementById('crmFilterAffStatus');
+    if (_affFilterEl) {
+        const _allForAff = _kockolAllCustomers;
+        const _appCnt = _allForAff.filter(c => _kockolAffApprovedIds.includes(c.id)).length;
+        const _penCnt = _allForAff.filter(c => _kockolAffPendingIds.includes(c.id)).length;
+        const _noneCnt = _allForAff.length - _appCnt - _penCnt;
+        _affFilterEl.options[0].textContent = '🔑 Tất cả TK (' + _allForAff.length + ')';
+        _affFilterEl.options[1].textContent = '🔑✅ Đã Có TK (' + _appCnt + ')';
+        _affFilterEl.options[2].textContent = '🔑⏳ Chờ Duyệt (' + _penCnt + ')';
+        _affFilterEl.options[3].textContent = '🔑 Chưa Có TK (' + _noneCnt + ')';
+    }
 
     // Sort: pinned first, then by appointment_date ASC
     filtered = [...filtered].sort((a, b) => {
@@ -675,6 +703,9 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_koc_kol', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_kockolTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
+        <td style="text-align:center;padding:4px 2px;">
+            ${_kockolAffApprovedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_kockolOpenAffiliateDetail(${_kockolAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>` : _kockolAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
+        </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_kockolOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
@@ -768,9 +799,6 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
-        <td style="text-align:center;padding:4px 2px;">
-            ${_kockolAffApprovedIds.includes(c.id) ? `<span title="Đã Có TK Affiliate" style="font-size:14px;cursor:default;">🔑✅</span>` : _kockolAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
-        </td>
     </tr>`;
 }
 
@@ -819,7 +847,8 @@ async function loadCrmKocKolData() {
         const affStatus = await apiCall('/api/affiliate-account/batch-status');
         _kockolAffPendingIds = affStatus.pendingCustomerIds || [];
         _kockolAffApprovedIds = affStatus.approvedCustomerIds || [];
-    } catch(e) { _kockolAffPendingIds = []; _kockolAffApprovedIds = []; }
+        _kockolAffApprovedMap = affStatus.approvedMap || {};
+    } catch(e) { _kockolAffPendingIds = []; _kockolAffApprovedIds = []; _kockolAffApprovedMap = {}; }
 
     // Store for re-filtering
     _kockolAllCustomers = customers;
