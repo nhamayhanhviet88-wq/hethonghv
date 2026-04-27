@@ -463,39 +463,7 @@ function _reqAffDeptOptions(depts) {
 // Local helper: province list
 const _REQ_AFF_PROVINCES = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hồ Chí Minh','Hòa Bình','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
 
-// Local state for affiliate assign-to search
-let _reqAffAssignToList = [];
 
-function _reqAffShowAssignDropdown() {
-    _reqAffFilterAssignTo(document.getElementById('reqAffAssignToSearch')?.value || '');
-}
-
-function _reqAffFilterAssignTo(q) {
-    const resDiv = document.getElementById('reqAffAssignToResults');
-    if (!resDiv) return;
-    const filtered = q ? _reqAffAssignToList.filter(u =>
-        (u.full_name || '').toLowerCase().includes(q.toLowerCase()) ||
-        (u.username || '').toLowerCase().includes(q.toLowerCase())
-    ) : _reqAffAssignToList;
-    if (filtered.length === 0) {
-        resDiv.innerHTML = '<div style="padding:8px;color:#9ca3af;font-size:12px;">Không tìm thấy</div>';
-    } else {
-        resDiv.innerHTML = filtered.map(u =>
-            `<div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f3f4f6;transition:background .15s;"
-                 onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
-                 onmousedown="_reqAffSelectAssignTo(${u.id},'${(u.full_name||'').replace(/'/g,"\\'")} (${u.username})')">
-                <b>${u.full_name}</b> <span style="color:#6b7280;">(${u.username})</span>
-            </div>`
-        ).join('');
-    }
-    resDiv.style.display = 'block';
-}
-
-function _reqAffSelectAssignTo(id, label) {
-    document.getElementById('reqAffAssignTo').value = id;
-    document.getElementById('reqAffAssignToSearch').value = label;
-    document.getElementById('reqAffAssignToResults').style.display = 'none';
-}
 
 async function openAffiliateAccountPopup(customerId) {
     // Pre-check
@@ -518,11 +486,7 @@ async function openAffiliateAccountPopup(customerId) {
     const managedById = c.assigned_to_id || currentUser.id;
     const CRM_L = {nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv:'Chăm Sóc CTV', ctv_hoa_hong:'Chăm Sóc Affiliate', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok'};
 
-    // Load affiliates for "Gán cho TK Affiliate nào?"
-    try {
-        const affData = await apiCall('/api/users?role=tkaffiliate');
-        _reqAffAssignToList = (affData.users || []).filter(u => String(u.managed_by_user_id) === String(managedById));
-    } catch(e) { _reqAffAssignToList = []; }
+
 
     // Find managed-by employee name
     const staffUsers = staffList.users || [];
@@ -608,23 +572,15 @@ async function openAffiliateAccountPopup(customerId) {
         <div>
             <hr style="margin: 15px 0; border-color: var(--gray-200);">
             <h4 style="color:var(--navy);margin-bottom:10px;">💰 Hoa Hồng</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Tầng chiết khấu</label>
-                    <select id="reqAffTierId" class="form-control">
-                        <option value="">Chọn tầng</option>
-                        ${(tiers.items || []).map(t => `<option value="${t.id}">${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group" style="position:relative;">
-                    <label>Gán cho TK Affiliate nào?</label>
-                    <input type="text" id="reqAffAssignToSearch" class="form-control"
-                        placeholder="${_reqAffAssignToList.length > 0 ? 'Gõ tên hoặc username...' : 'Không có affiliate nào'}"
-                        ${_reqAffAssignToList.length === 0 ? 'disabled' : ''}
-                        autocomplete="off" oninput="_reqAffFilterAssignTo(this.value)" onfocus="_reqAffShowAssignDropdown()">
-                    <input type="hidden" id="reqAffAssignTo" value="">
-                    <div id="reqAffAssignToResults" style="position:absolute;z-index:10;width:100%;max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:white;margin-top:2px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
-                </div>
+            <div class="form-group">
+                <label>Tầng chiết khấu</label>
+                <select id="reqAffTierId" class="form-control">
+                    <option value="">Chọn tầng</option>
+                    ${(tiers.items || []).map(t => `<option value="${t.id}">${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
+                </select>
+            </div>
+            <div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;font-size:11px;color:#3b82f6;margin-bottom:10px;">
+                ℹ️ <b>Gán Affiliate cha</b> sẽ do GĐ/QL thiết lập sau khi duyệt (tại Tài Khoản Affiliate → ✏️ Sửa).
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -677,7 +633,6 @@ async function _affAccSubmit(customerId) {
         birth_date: document.getElementById('reqAffBirthDate')?.value || null,
         department_id: document.getElementById('reqAffDepartment')?.value || null,
         commission_tier_id: document.getElementById('reqAffTierId')?.value || null,
-        assigned_to_user_id: document.getElementById('reqAffAssignTo')?.value || null,
         bank_name: document.getElementById('reqAffBankName')?.value || null,
         bank_account: document.getElementById('reqAffBankAccount')?.value || null,
         bank_holder: document.getElementById('reqAffBankHolder')?.value || null,
