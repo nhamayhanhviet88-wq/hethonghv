@@ -83,6 +83,11 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Không thể đề xuất khách đã bị hủy' });
         }
 
+        // Block: customer pending cancel approval
+        if (customer.cancel_requested === 1 && customer.cancel_approved === 0) {
+            return reply.code(400).send({ error: 'Không thể đề xuất khách đang chờ duyệt hủy' });
+        }
+
         // Block: only NV assigned or GĐ/QL/QLCC can request
         const user = request.user;
         const isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(user.role);
