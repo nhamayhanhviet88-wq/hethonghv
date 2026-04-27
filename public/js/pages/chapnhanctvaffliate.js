@@ -239,24 +239,44 @@ async function _cncaSaveSettings() {
     } catch(e) { showToast('Lỗi lưu cài đặt', 'error'); }
 }
 
-// ========== GLOBAL: Popup đề xuất chuyển CTV (dùng chung cho 3 CRM) ==========
-async function openCTVProposalPopup(customerId) {
+// ========== GLOBAL: Popup đề xuất chuyển CRM (dùng chung cho tất cả CRM modules) ==========
+const _CRM_TRANSFER_MAP = {
+    nhu_cau: { label: 'Chăm Sóc KH Nhu Cầu', color: '#dc2626', bg: '#fee2e2', icon: '❤️' },
+    ctv: { label: 'Chăm Sóc CTV', color: '#d97706', bg: '#fef3c7', icon: '🤝' },
+    ctv_hoa_hong: { label: 'Chăm Sóc Affiliate', color: '#7c3aed', bg: '#f3e8ff', icon: '💎' },
+    koc_tiktok: { label: 'Chăm Sóc KOL/KOC Tiktok', color: '#0891b2', bg: '#cffafe', icon: '🎬' }
+};
+
+async function openCrmTransferPopup(customerId) {
     const check = await apiCall(`/api/crm-conversion/check/${customerId}`);
     if (check.hasPending) { showToast('⚠️ Khách này đã có yêu cầu đang chờ duyệt!', 'error'); return; }
 
     const cust = await apiCall(`/api/customers/${customerId}`);
     const c = cust.customer || {};
-    if (c.crm_type === 'ctv') { showToast('Khách đã thuộc Chăm Sóc CTV', 'error'); return; }
     if (c.cancel_approved === 1) { showToast('Không thể đề xuất khách đã bị hủy', 'error'); return; }
 
+    const currentCrm = c.crm_type;
+    const currentInfo = _CRM_TRANSFER_MAP[currentCrm] || { label: currentCrm, color: '#64748b', bg: '#f1f5f9' };
+
+    // Build target CRM buttons (exclude current)
+    const targets = Object.entries(_CRM_TRANSFER_MAP)
+        .filter(([key]) => key !== currentCrm)
+        .map(([key, info]) =>
+            `<div class="crm-tf-opt" data-crm="${key}" onclick="_crmTfSelect(this,'${key}')"
+                 style="padding:10px 14px;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;text-align:center;transition:all .2s;background:white;">
+                <div style="font-size:20px;margin-bottom:2px;">${info.icon}</div>
+                <div style="font-size:11px;font-weight:700;color:#374151;">${info.label}</div>
+            </div>`
+        ).join('');
+
     const overlay = document.createElement('div');
-    overlay.id = 'ctvProposalOverlay';
+    overlay.id = 'crmTransferOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
     overlay.innerHTML = `
-        <div style="background:white;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
+        <div style="background:white;border-radius:16px;width:500px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
             <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:22px 24px;text-align:center;">
                 <div style="font-size:36px;margin-bottom:6px;">🔄</div>
-                <div style="color:#fad24c;font-size:17px;font-weight:800;">Đề Xuất Chuyển Sang CTV</div>
+                <div style="color:#fad24c;font-size:17px;font-weight:800;">Đề Xuất Chuyển CRM</div>
             </div>
             <div style="padding:24px;">
                 <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #e2e8f0;">
@@ -264,21 +284,20 @@ async function openCTVProposalPopup(customerId) {
                     <div style="font-size:16px;font-weight:700;color:#122546;">${c.customer_name}</div>
                     <div style="font-size:12px;color:#64748b;margin-top:2px;">${c.phone || ''} ${c.facebook_link ? '· 🔗 Link' : ''}</div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                    <div style="background:#fee2e2;padding:10px;border-radius:8px;text-align:center;">
-                        <div style="font-size:10px;color:#991b1b;font-weight:600;">CRM HIỆN TẠI</div>
-                        <div style="font-size:12px;font-weight:700;color:#dc2626;margin-top:2px;">${CNCA_CRM_LABELS[c.crm_type] || c.crm_type}</div>
-                    </div>
-                    <div style="background:#dcfce7;padding:10px;border-radius:8px;text-align:center;">
-                        <div style="font-size:10px;color:#166534;font-weight:600;">→ CHUYỂN SANG</div>
-                        <div style="font-size:12px;font-weight:700;color:#16a34a;margin-top:2px;">Chăm Sóc CTV</div>
-                    </div>
+                <div style="background:${currentInfo.bg};padding:10px 14px;border-radius:8px;text-align:center;margin-bottom:16px;border:2px solid ${currentInfo.color}30;">
+                    <div style="font-size:10px;color:${currentInfo.color};font-weight:600;">CRM HIỆN TẠI</div>
+                    <div style="font-size:13px;font-weight:700;color:${currentInfo.color};margin-top:2px;">${currentInfo.label}</div>
                 </div>
+                <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">→ Chuyển sang <span style="color:#dc2626;">*</span></div>
+                <div id="crmTfTargets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+                    ${targets}
+                </div>
+                <input type="hidden" id="crmTfSelectedCrm" value="">
                 <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Lý do đề xuất <span style="color:#dc2626;">*</span></div>
-                <textarea id="ctvProposalReason" class="form-control" rows="3" placeholder="VD: Khách muốn hợp tác làm CTV bán hàng..."></textarea>
+                <textarea id="crmTfReason" class="form-control" rows="3" placeholder="VD: Khách muốn chuyển sang hợp tác..."></textarea>
                 <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
-                    <button onclick="document.getElementById('ctvProposalOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
-                    <button onclick="_ctvSubmitProposal(${c.id})" class="btn btn-primary" style="width:auto;padding:10px 24px;">✅ Gửi Đề Xuất</button>
+                    <button onclick="document.getElementById('crmTransferOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
+                    <button onclick="_crmTfSubmit(${c.id})" class="btn btn-primary" style="width:auto;padding:10px 24px;">✅ Gửi Đề Xuất</button>
                 </div>
             </div>
         </div>
@@ -287,77 +306,40 @@ async function openCTVProposalPopup(customerId) {
     document.body.appendChild(overlay);
 }
 
-async function _ctvSubmitProposal(customerId) {
-    const reason = document.getElementById('ctvProposalReason')?.value?.trim();
+function _crmTfSelect(el, crmType) {
+    // Clear all selections
+    document.querySelectorAll('#crmTfTargets .crm-tf-opt').forEach(opt => {
+        opt.style.border = '2px solid #e2e8f0';
+        opt.style.background = 'white';
+        opt.style.transform = '';
+    });
+    // Highlight selected
+    const info = _CRM_TRANSFER_MAP[crmType];
+    if (info) {
+        el.style.border = `2px solid ${info.color}`;
+        el.style.background = info.bg;
+        el.style.transform = 'scale(1.05)';
+    }
+    document.getElementById('crmTfSelectedCrm').value = crmType;
+}
+
+async function _crmTfSubmit(customerId) {
+    const toCrm = document.getElementById('crmTfSelectedCrm')?.value;
+    const reason = document.getElementById('crmTfReason')?.value?.trim();
+    if (!toCrm) { showToast('Vui lòng chọn CRM muốn chuyển sang', 'error'); return; }
     if (!reason) { showToast('Vui lòng nhập lý do đề xuất', 'error'); return; }
     try {
-        const data = await apiCall('/api/crm-conversion/request', 'POST', { customer_id: customerId, to_crm_type: 'ctv', reason });
+        const data = await apiCall('/api/crm-conversion/request', 'POST', { customer_id: customerId, to_crm_type: toCrm, reason });
         if (data.success) {
             showToast('✅ ' + data.message);
-            document.getElementById('ctvProposalOverlay')?.remove();
+            document.getElementById('crmTransferOverlay')?.remove();
         } else showToast(data.error, 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-// ========== GLOBAL: Popup đề xuất chuyển AFFILIATE (dùng cho CRM CTV) ==========
-async function openAffiliateProposalPopup(customerId) {
-    const check = await apiCall(`/api/crm-conversion/check/${customerId}`);
-    if (check.hasPending) { showToast('⚠️ Khách này đã có yêu cầu đang chờ duyệt!', 'error'); return; }
-
-    const cust = await apiCall(`/api/customers/${customerId}`);
-    const c = cust.customer || {};
-    if (c.crm_type === 'ctv_hoa_hong') { showToast('Khách đã thuộc Chăm Sóc Affiliate', 'error'); return; }
-    if (c.cancel_approved === 1) { showToast('Không thể đề xuất khách đã bị hủy', 'error'); return; }
-
-    const overlay = document.createElement('div');
-    overlay.id = 'affProposalOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
-    overlay.innerHTML = `
-        <div style="background:white;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
-            <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:22px 24px;text-align:center;">
-                <div style="font-size:36px;margin-bottom:6px;">🔄</div>
-                <div style="color:#fad24c;font-size:17px;font-weight:800;">Đề Xuất Chuyển Sang Affiliate</div>
-            </div>
-            <div style="padding:24px;">
-                <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #e2e8f0;">
-                    <div style="font-size:13px;color:#64748b;margin-bottom:4px;">Khách hàng</div>
-                    <div style="font-size:16px;font-weight:700;color:#122546;">${c.customer_name}</div>
-                    <div style="font-size:12px;color:#64748b;margin-top:2px;">${c.phone || ''} ${c.facebook_link ? '· 🔗 Link' : ''}</div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                    <div style="background:#fee2e2;padding:10px;border-radius:8px;text-align:center;">
-                        <div style="font-size:10px;color:#991b1b;font-weight:600;">CRM HIỆN TẠI</div>
-                        <div style="font-size:12px;font-weight:700;color:#dc2626;margin-top:2px;">${CNCA_CRM_LABELS[c.crm_type] || c.crm_type}</div>
-                    </div>
-                    <div style="background:#dcfce7;padding:10px;border-radius:8px;text-align:center;">
-                        <div style="font-size:10px;color:#166534;font-weight:600;">→ CHUYỂN SANG</div>
-                        <div style="font-size:12px;font-weight:700;color:#16a34a;margin-top:2px;">Chăm Sóc Affiliate</div>
-                    </div>
-                </div>
-                <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Lý do đề xuất <span style="color:#dc2626;">*</span></div>
-                <textarea id="affProposalReason" class="form-control" rows="3" placeholder="VD: Khách muốn chuyển sang hợp tác Affiliate hoa hồng..."></textarea>
-                <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
-                    <button onclick="document.getElementById('affProposalOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
-                    <button onclick="_affSubmitProposal(${c.id})" class="btn btn-primary" style="width:auto;padding:10px 24px;">✅ Gửi Đề Xuất</button>
-                </div>
-            </div>
-        </div>
-    `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-async function _affSubmitProposal(customerId) {
-    const reason = document.getElementById('affProposalReason')?.value?.trim();
-    if (!reason) { showToast('Vui lòng nhập lý do đề xuất', 'error'); return; }
-    try {
-        const data = await apiCall('/api/crm-conversion/request', 'POST', { customer_id: customerId, to_crm_type: 'ctv_hoa_hong', reason });
-        if (data.success) {
-            showToast('✅ ' + data.message);
-            document.getElementById('affProposalOverlay')?.remove();
-        } else showToast(data.error, 'error');
-    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
-}
+// Legacy aliases for backward compatibility
+function openCTVProposalPopup(customerId) { openCrmTransferPopup(customerId); }
+function openAffiliateProposalPopup(customerId) { openCrmTransferPopup(customerId); }
 
 // ========== TAB: Tạo TK Affiliate ==========
 async function _cncaLoadAffAccountData() {

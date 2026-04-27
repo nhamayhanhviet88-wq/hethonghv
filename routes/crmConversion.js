@@ -67,7 +67,7 @@ async function crmConversionRoutes(fastify, options) {
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do đề xuất' });
 
         const targetCrm = to_crm_type || 'ctv';
-        if (!['ctv', 'ctv_hoa_hong'].includes(targetCrm)) {
+        if (!['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok'].includes(targetCrm)) {
             return reply.code(400).send({ error: 'Loại CRM chuyển đổi không hợp lệ' });
         }
 

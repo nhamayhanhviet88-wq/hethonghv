@@ -763,7 +763,7 @@ function _affRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCTVProposalPopup(${c.id})" title="Đề Xuất Chuyển CTV" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
+            ${!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
@@ -2264,9 +2264,9 @@ async function _affOpenCustomerDetail(customerId) {
                         <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;">LẦN CHĂM</div>
                     </div>
                 </div>
-                ${!c.readonly && c.cancel_approved !== 1 && c.crm_type !== 'ctv' ? `
+                ${!c.readonly && c.cancel_approved !== 1 ? `
                 <div style="margin-top:10px;text-align:center;">
-                    <button onclick="document.getElementById('customerDetailOverlay')?.remove();openCTVProposalPopup(${c.id})" style="padding:8px 20px;border:2px solid rgba(250,210,76,.4);background:rgba(250,210,76,.12);color:#fad24c;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(250,210,76,.25)'" onmouseout="this.style.background='rgba(250,210,76,.12)'">🔄 Đề Xuất Chuyển CTV</button>
+                    <button onclick="document.getElementById('customerDetailOverlay')?.remove();openCrmTransferPopup(${c.id})" style="padding:8px 20px;border:2px solid rgba(250,210,76,.4);background:rgba(250,210,76,.12);color:#fad24c;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(250,210,76,.25)'" onmouseout="this.style.background='rgba(250,210,76,.12)'">🔄 Chuyển CRM</button>
                 </div>
                 ` : ''}
             </div>
