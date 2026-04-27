@@ -198,9 +198,9 @@ async function crmConversionRoutes(fastify, options) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [convReq.customer_id]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
-        // 1. Update customer crm_type (assigned_to_id stays the same)
+        // 1. Update customer crm_type + set appointment to today (assigned_to_id stays the same)
         await db.run(
-            'UPDATE customers SET crm_type = ?, updated_at = NOW() WHERE id = ?',
+            'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
             [convReq.to_crm_type, convReq.customer_id]
         );
 
