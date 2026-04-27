@@ -158,13 +158,61 @@ async function crmConversionRoutes(fastify, options) {
         return { hasPending: !!pending, request: pending || null };
     });
 
+    // ========== STATS FOR DASHBOARD CARDS ==========
+    fastify.get('/api/crm-conversion/stats', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+        const allowed = await canApprove(user.role);
+        if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
+
+        const year = Number(request.query.year) || new Date().getFullYear();
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year + 1}-01-01`;
+
+        // CRM conversion counts by to_crm_type (approved only)
+        const convRows = await db.all(
+            `SELECT to_crm_type, COUNT(*) as cnt FROM crm_conversion_requests
+             WHERE status = 'approved' AND created_at >= ? AND created_at < ?
+             GROUP BY to_crm_type`,
+            [yearStart, yearEnd]
+        );
+        const convMap = {};
+        convRows.forEach(r => { convMap[r.to_crm_type] = r.cnt; });
+
+        // Affiliate account request counts
+        let affApproved = 0, affRejected = 0;
+        try {
+            const affApp = await db.get(
+                `SELECT COUNT(*) as cnt FROM affiliate_account_requests
+                 WHERE status = 'approved' AND created_at >= ? AND created_at < ?`,
+                [yearStart, yearEnd]
+            );
+            affApproved = affApp?.cnt || 0;
+            const affRej = await db.get(
+                `SELECT COUNT(*) as cnt FROM affiliate_account_requests
+                 WHERE status = 'rejected' AND created_at >= ? AND created_at < ?`,
+                [yearStart, yearEnd]
+            );
+            affRejected = affRej?.cnt || 0;
+        } catch(e) {}
+
+        return {
+            conv_to_affiliate: convMap['ctv_hoa_hong'] || 0,
+            conv_to_ctv: convMap['ctv'] || 0,
+            conv_to_nhucau: convMap['nhu_cau'] || 0,
+            conv_to_koctiktok: convMap['koc_tiktok'] || 0,
+            aff_account_approved: affApproved,
+            aff_account_rejected: affRejected,
+            year
+        };
+    });
+
     // ========== LIST CONVERSION REQUESTS ==========
     fastify.get('/api/crm-conversion/list', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
         const allowed = await canApprove(user.role);
         if (!allowed) return reply.code(403).send({ error: 'Bạn không có quyền xem trang này' });
 
-        const { status } = request.query;
+        const { status, year } = request.query;
         let query = `SELECT r.*,
             c.customer_name, c.phone, c.facebook_link, c.address,
             c.assigned_to_id, c.crm_type as current_crm_type,
@@ -177,11 +225,17 @@ async function crmConversionRoutes(fastify, options) {
             LEFT JOIN users ass ON c.assigned_to_id = ass.id
             LEFT JOIN users apr ON r.approved_by = apr.id`;
 
+        const conditions = [];
         const params = [];
         if (status && status !== 'all') {
-            query += ' WHERE r.status = ?';
+            conditions.push('r.status = ?');
             params.push(status);
         }
+        if (year) {
+            conditions.push('r.created_at >= ? AND r.created_at < ?');
+            params.push(`${year}-01-01`, `${Number(year) + 1}-01-01`);
+        }
+        if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
         query += ' ORDER BY CASE r.status WHEN \'pending\' THEN 0 ELSE 1 END, r.created_at DESC';
 
         const requests = await db.all(query, params);

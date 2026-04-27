@@ -2585,6 +2585,16 @@ async function toggleAffiliateStatus(userId, newStatus) {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
             showToast(`✅ ${data.message}`);
+            // Update lockedIds array locally for instant icon change
+            const custId = Number(Object.entries(_crmAffApprovedMap).find(([k,v]) => v === userId)?.[0]);
+            if (custId) {
+                if (newStatus === 'locked') {
+                    if (!_crmAffLockedIds.includes(custId)) _crmAffLockedIds.push(custId);
+                } else {
+                    _crmAffLockedIds = _crmAffLockedIds.filter(id => id !== custId);
+                }
+            }
+            _crmRenderFilteredTable();
             closeModal();
             // Re-open to refresh data
             openAffiliateDetail(userId);

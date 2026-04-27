@@ -2548,6 +2548,16 @@ async function _ctvToggleAffiliateStatus(userId, newStatus) {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
             showToast(`✅ ${data.message}`);
+            // Update lockedIds array locally for instant icon change
+            const custId = Number(Object.entries(_ctvAffApprovedMap).find(([k,v]) => v === userId)?.[0]);
+            if (custId) {
+                if (newStatus === 'locked') {
+                    if (!_ctvAffLockedIds.includes(custId)) _ctvAffLockedIds.push(custId);
+                } else {
+                    _ctvAffLockedIds = _ctvAffLockedIds.filter(id => id !== custId);
+                }
+            }
+            _ctvRenderFilteredTable();
             closeModal();
             // Re-open to refresh data
             _ctvOpenAffiliateDetail(userId);

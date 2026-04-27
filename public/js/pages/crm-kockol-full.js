@@ -2538,6 +2538,16 @@ async function _kockolToggleAffiliateStatus(userId, newStatus) {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
             showToast(`✅ ${data.message}`);
+            // Update lockedIds array locally for instant icon change
+            const custId = Number(Object.entries(_kockolAffApprovedMap).find(([k,v]) => v === userId)?.[0]);
+            if (custId) {
+                if (newStatus === 'locked') {
+                    if (!_kockolAffLockedIds.includes(custId)) _kockolAffLockedIds.push(custId);
+                } else {
+                    _kockolAffLockedIds = _kockolAffLockedIds.filter(id => id !== custId);
+                }
+            }
+            _kockolRenderFilteredTable();
             closeModal();
             // Re-open to refresh data
             _kockolOpenAffiliateDetail(userId);

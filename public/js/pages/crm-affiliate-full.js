@@ -2549,6 +2549,16 @@ async function _affToggleAffiliateStatus(userId, newStatus) {
         const data = await apiCall(`/api/users/${userId}/status`, 'PUT', { status: newStatus });
         if (data.success) {
             showToast(`✅ ${data.message}`);
+            // Update lockedIds array locally for instant icon change
+            const custId = Number(Object.entries(_affAffApprovedMap).find(([k,v]) => v === userId)?.[0]);
+            if (custId) {
+                if (newStatus === 'locked') {
+                    if (!_affAffLockedIds.includes(custId)) _affAffLockedIds.push(custId);
+                } else {
+                    _affAffLockedIds = _affAffLockedIds.filter(id => id !== custId);
+                }
+            }
+            _affRenderFilteredTable();
             closeModal();
             // Re-open to refresh data
             _affOpenAffiliateDetail(userId);

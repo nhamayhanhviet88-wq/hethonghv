@@ -132,7 +132,7 @@ async function affiliateAccountRoutes(fastify, options) {
         const allowed = await canApprove(user.role);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
-        const { status } = request.query;
+        const { status, year } = request.query;
         let query = `SELECT r.*,
             c.customer_name, c.phone, c.facebook_link, c.crm_type,
             req.full_name as requested_by_name, req.role as requested_by_role,
@@ -144,11 +144,17 @@ async function affiliateAccountRoutes(fastify, options) {
             LEFT JOIN users apr ON r.approved_by = apr.id
             LEFT JOIN users cu ON r.created_user_id = cu.id`;
 
+        const conditions = [];
         const params = [];
         if (status && status !== 'all') {
-            query += ' WHERE r.status = ?';
+            conditions.push('r.status = ?');
             params.push(status);
         }
+        if (year) {
+            conditions.push('r.created_at >= ? AND r.created_at < ?');
+            params.push(`${year}-01-01`, `${Number(year) + 1}-01-01`);
+        }
+        if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
         query += " ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.created_at DESC";
 
         const requests = await db.all(query, params);
