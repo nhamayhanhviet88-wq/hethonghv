@@ -289,6 +289,8 @@ var _kockolActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_
 var _kockolAllCustomers = []; // full list for re-filtering
 var _kockolAllStats = {}; // consult stats
 var _kockolPendingCtvIds = []; // customer IDs with pending CTV requests
+var _kockolAffPendingIds = []; // customer IDs with pending affiliate account requests
+var _kockolAffApprovedIds = []; // customer IDs that already have affiliate accounts
 var _kockolCurrentPage = 1;
 var _kockolPageSize = 50;
 
@@ -767,7 +769,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
+            ${_kockolAffApprovedIds.includes(c.id) ? `<span title="Đã Có TK Affiliate" style="font-size:14px;cursor:default;">🔑✅</span>` : _kockolAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
         </td>
     </tr>`;
 }
@@ -811,6 +813,13 @@ async function loadCrmKocKolData() {
         const pendingData = await apiCall('/api/crm-conversion/pending-customers');
         _kockolPendingCtvIds = (pendingData.customers || []).map(c => c.id);
     } catch(e) { _kockolPendingCtvIds = []; }
+
+    // Fetch affiliate account status (pending + approved)
+    try {
+        const affStatus = await apiCall('/api/affiliate-account/batch-status');
+        _kockolAffPendingIds = affStatus.pendingCustomerIds || [];
+        _kockolAffApprovedIds = affStatus.approvedCustomerIds || [];
+    } catch(e) { _kockolAffPendingIds = []; _kockolAffApprovedIds = []; }
 
     // Store for re-filtering
     _kockolAllCustomers = customers;

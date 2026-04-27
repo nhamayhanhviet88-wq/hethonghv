@@ -260,6 +260,7 @@ async function renderCRMNhuCauPage(container) {
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
                         <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
+                        <th style="min-width:40px;text-align:center" title="TK Affiliate">🔑</th>
                     </tr></thead>
                     <tbody id="crmNhuCauTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
@@ -290,6 +291,8 @@ var _crmActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'
 var _crmAllCustomers = []; // full list for re-filtering
 var _crmAllStats = {}; // consult stats
 var _crmPendingCtvIds = []; // customer IDs with pending CTV requests
+var _crmAffPendingIds = []; // customer IDs with pending affiliate account requests
+var _crmAffApprovedIds = []; // customer IDs that already have affiliate accounts
 var _crmCurrentPage = 1;
 var _crmPageSize = 50;
 
@@ -767,6 +770,9 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_nhu_cau', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
+        <td style="text-align:center;padding:4px 2px;">
+            ${_crmAffApprovedIds.includes(c.id) ? `<span title="Đã Có TK Affiliate" style="font-size:14px;cursor:default;">🔑✅</span>` : _crmAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_nhu_cau', 'edit') && c.cancel_approved !== 1 && !_crmPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
+        </td>
     </tr>`;
 }
 
@@ -809,6 +815,13 @@ async function loadCrmNhuCauData() {
         const pendingData = await apiCall('/api/crm-conversion/pending-customers');
         _crmPendingCtvIds = (pendingData.customers || []).map(c => c.id);
     } catch(e) { _crmPendingCtvIds = []; }
+
+    // Fetch affiliate account status (pending + approved)
+    try {
+        const affStatus = await apiCall('/api/affiliate-account/batch-status');
+        _crmAffPendingIds = affStatus.pendingCustomerIds || [];
+        _crmAffApprovedIds = affStatus.approvedCustomerIds || [];
+    } catch(e) { _crmAffPendingIds = []; _crmAffApprovedIds = []; }
 
     // Store for re-filtering
     _crmAllCustomers = customers;

@@ -317,6 +317,21 @@ async function affiliateAccountRoutes(fastify, options) {
             account: existingAccount || null
         };
     });
+    // ========== BATCH STATUS FOR CRM PAGES ==========
+    fastify.get('/api/affiliate-account/batch-status', { preHandler: [authenticate] }, async (request, reply) => {
+        // Pending requests
+        const pendingRows = await db.all(
+            "SELECT DISTINCT customer_id FROM affiliate_account_requests WHERE status = 'pending'"
+        );
+        // Approved (has tkaffiliate account)
+        const approvedRows = await db.all(
+            "SELECT DISTINCT source_customer_id FROM users WHERE role = 'tkaffiliate' AND source_customer_id IS NOT NULL"
+        );
+        return {
+            pendingCustomerIds: pendingRows.map(r => r.customer_id),
+            approvedCustomerIds: approvedRows.map(r => r.source_customer_id)
+        };
+    });
 }
 
 module.exports = affiliateAccountRoutes;

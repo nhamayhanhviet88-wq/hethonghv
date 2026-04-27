@@ -289,6 +289,8 @@ var _affActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'
 var _affAllCustomers = []; // full list for re-filtering
 var _affAllStats = {}; // consult stats
 var _affPendingCtvIds = []; // customer IDs with pending CTV requests
+var _affAffPendingIds = []; // customer IDs with pending affiliate account requests
+var _affAffApprovedIds = []; // customer IDs that already have affiliate accounts
 var _affCurrentPage = 1;
 var _affPageSize = 50;
 
@@ -767,7 +769,7 @@ function _affRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : ''}
+            ${_affAffApprovedIds.includes(c.id) ? `<span title="Đã Có TK Affiliate" style="font-size:14px;cursor:default;">🔑✅</span>` : _affAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
         </td>
     </tr>`;
 }
@@ -811,6 +813,13 @@ async function loadCrmAffData() {
         const pendingData = await apiCall('/api/crm-conversion/pending-customers');
         _affPendingCtvIds = (pendingData.customers || []).map(c => c.id);
     } catch(e) { _affPendingCtvIds = []; }
+
+    // Fetch affiliate account status (pending + approved)
+    try {
+        const affStatus = await apiCall('/api/affiliate-account/batch-status');
+        _affAffPendingIds = affStatus.pendingCustomerIds || [];
+        _affAffApprovedIds = affStatus.approvedCustomerIds || [];
+    } catch(e) { _affAffPendingIds = []; _affAffApprovedIds = []; }
 
     // Store for re-filtering
     _affAllCustomers = customers;
