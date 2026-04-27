@@ -206,7 +206,7 @@ async function renderCRMNhuCauPage(container) {
             <div class="crm-stat-card" data-cat="cho_duyet_ctv" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;" onclick="_crmFilterByCat('cho_duyet_ctv')">
                 <div class="stat-icon">⏳</div>
                 <div class="stat-count" id="crmStatChoDuyetCtv">0</div>
-                <div class="stat-label">Chờ Duyệt CTV</div>
+                <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
             </div>
         </div>
         <div class="crm-date-filter" id="crmDateFilter">
@@ -694,7 +694,11 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : _crmPendingCtvIds.includes(c.id) ? `
+                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;">
+                    ⏳ Chờ Duyệt CTV/Affiliate
+                </button>
+            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </button>

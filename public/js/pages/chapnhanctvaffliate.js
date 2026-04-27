@@ -288,3 +288,63 @@ async function _ctvSubmitProposal(customerId) {
         } else showToast(data.error, 'error');
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
+
+// ========== GLOBAL: Popup đề xuất chuyển AFFILIATE (dùng cho CRM CTV) ==========
+async function openAffiliateProposalPopup(customerId) {
+    const check = await apiCall(`/api/crm-conversion/check/${customerId}`);
+    if (check.hasPending) { showToast('⚠️ Khách này đã có yêu cầu đang chờ duyệt!', 'error'); return; }
+
+    const cust = await apiCall(`/api/customers/${customerId}`);
+    const c = cust.customer || {};
+    if (c.crm_type === 'ctv_hoa_hong') { showToast('Khách đã thuộc Chăm Sóc Affiliate', 'error'); return; }
+    if (c.cancel_approved === 1) { showToast('Không thể đề xuất khách đã bị hủy', 'error'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'affProposalOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;width:460px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
+            <div style="background:linear-gradient(135deg,#122546,#1e3a5f);padding:22px 24px;text-align:center;">
+                <div style="font-size:36px;margin-bottom:6px;">🔄</div>
+                <div style="color:#fad24c;font-size:17px;font-weight:800;">Đề Xuất Chuyển Sang Affiliate</div>
+            </div>
+            <div style="padding:24px;">
+                <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #e2e8f0;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:4px;">Khách hàng</div>
+                    <div style="font-size:16px;font-weight:700;color:#122546;">${c.customer_name}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">${c.phone || ''} ${c.facebook_link ? '· 🔗 Link' : ''}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                    <div style="background:#fee2e2;padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:10px;color:#991b1b;font-weight:600;">CRM HIỆN TẠI</div>
+                        <div style="font-size:12px;font-weight:700;color:#dc2626;margin-top:2px;">${CNCA_CRM_LABELS[c.crm_type] || c.crm_type}</div>
+                    </div>
+                    <div style="background:#dcfce7;padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:10px;color:#166534;font-weight:600;">→ CHUYỂN SANG</div>
+                        <div style="font-size:12px;font-weight:700;color:#16a34a;margin-top:2px;">Chăm Sóc Affiliate</div>
+                    </div>
+                </div>
+                <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">Lý do đề xuất <span style="color:#dc2626;">*</span></div>
+                <textarea id="affProposalReason" class="form-control" rows="3" placeholder="VD: Khách muốn chuyển sang hợp tác Affiliate hoa hồng..."></textarea>
+                <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('affProposalOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">❌ Hủy</button>
+                    <button onclick="_affSubmitProposal(${c.id})" class="btn btn-primary" style="width:auto;padding:10px 24px;">✅ Gửi Đề Xuất</button>
+                </div>
+            </div>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function _affSubmitProposal(customerId) {
+    const reason = document.getElementById('affProposalReason')?.value?.trim();
+    if (!reason) { showToast('Vui lòng nhập lý do đề xuất', 'error'); return; }
+    try {
+        const data = await apiCall('/api/crm-conversion/request', 'POST', { customer_id: customerId, to_crm_type: 'ctv_hoa_hong', reason });
+        if (data.success) {
+            showToast('✅ ' + data.message);
+            document.getElementById('affProposalOverlay')?.remove();
+        } else showToast(data.error, 'error');
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
