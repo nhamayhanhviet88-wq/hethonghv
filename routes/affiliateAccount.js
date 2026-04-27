@@ -323,16 +323,21 @@ async function affiliateAccountRoutes(fastify, options) {
         const pendingRows = await db.all(
             "SELECT DISTINCT customer_id FROM affiliate_account_requests WHERE status = 'pending'"
         );
-        // Approved (has tkaffiliate account) — include user id for detail popup
+        // Approved (has tkaffiliate account) — include user id + status for detail popup
         const approvedRows = await db.all(
-            "SELECT id, source_customer_id FROM users WHERE role = 'tkaffiliate' AND source_customer_id IS NOT NULL"
+            "SELECT id, source_customer_id, status FROM users WHERE role = 'tkaffiliate' AND source_customer_id IS NOT NULL"
         );
         // Map: customer_id -> affiliate user_id
         const approvedMap = {};
-        approvedRows.forEach(r => { approvedMap[r.source_customer_id] = r.id; });
+        const lockedCustomerIds = [];
+        approvedRows.forEach(r => {
+            approvedMap[r.source_customer_id] = r.id;
+            if (r.status === 'locked') lockedCustomerIds.push(r.source_customer_id);
+        });
         return {
             pendingCustomerIds: pendingRows.map(r => r.customer_id),
             approvedCustomerIds: approvedRows.map(r => r.source_customer_id),
+            lockedCustomerIds,
             approvedMap // { customer_id: affiliate_user_id }
         };
     });

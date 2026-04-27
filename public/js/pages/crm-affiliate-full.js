@@ -237,6 +237,7 @@ async function renderCRMAffPage(container) {
             <select id="crmFilterAffStatus" class="form-control" style="width:auto;min-width:180px;" onchange="_affRenderFilteredTable()">
                 <option value="">🔑 Tất cả TK</option>
                 <option value="approved">🔑✅ Đã Có TK</option>
+                <option value="locked">🔑🔒 Đã Khóa</option>
                 <option value="pending">🔑⏳ Chờ Duyệt</option>
                 <option value="none">🔑 Chưa Có TK</option>
             </select>
@@ -297,6 +298,7 @@ var _affAllStats = {}; // consult stats
 var _affPendingCtvIds = []; // customer IDs with pending CTV requests
 var _affAffPendingIds = []; // customer IDs with pending affiliate account requests
 var _affAffApprovedIds = []; // customer IDs that already have affiliate accounts
+var _affAffLockedIds = []; // customer IDs with locked affiliate accounts
 var _affAffApprovedMap = {}; // customer_id -> affiliate user_id
 var _affCurrentPage = 1;
 var _affPageSize = 50;
@@ -573,11 +575,12 @@ function _affRenderFilteredTable() {
         }
     }
 
-    // Apply affiliate account filter
     const affFilterVal = document.getElementById('crmFilterAffStatus')?.value;
     if (affFilterVal) {
         if (affFilterVal === 'approved') {
-            filtered = filtered.filter(c => _affAffApprovedIds.includes(c.id));
+            filtered = filtered.filter(c => _affAffApprovedIds.includes(c.id) && !_affAffLockedIds.includes(c.id));
+        } else if (affFilterVal === 'locked') {
+            filtered = filtered.filter(c => _affAffLockedIds.includes(c.id));
         } else if (affFilterVal === 'pending') {
             filtered = filtered.filter(c => _affAffPendingIds.includes(c.id));
         } else if (affFilterVal === 'none') {
@@ -587,13 +590,15 @@ function _affRenderFilteredTable() {
     const _affFilterEl = document.getElementById('crmFilterAffStatus');
     if (_affFilterEl) {
         const _allForAff = _affAllCustomers;
-        const _appCnt = _allForAff.filter(c => _affAffApprovedIds.includes(c.id)).length;
+        const _appCnt = _allForAff.filter(c => _affAffApprovedIds.includes(c.id) && !_affAffLockedIds.includes(c.id)).length;
+        const _lockCnt = _allForAff.filter(c => _affAffLockedIds.includes(c.id)).length;
         const _penCnt = _allForAff.filter(c => _affAffPendingIds.includes(c.id)).length;
-        const _noneCnt = _allForAff.length - _appCnt - _penCnt;
+        const _noneCnt = _allForAff.length - _appCnt - _lockCnt - _penCnt;
         _affFilterEl.options[0].textContent = '🔑 Tất cả TK (' + _allForAff.length + ')';
         _affFilterEl.options[1].textContent = '🔑✅ Đã Có TK (' + _appCnt + ')';
-        _affFilterEl.options[2].textContent = '🔑⏳ Chờ Duyệt (' + _penCnt + ')';
-        _affFilterEl.options[3].textContent = '🔑 Chưa Có TK (' + _noneCnt + ')';
+        _affFilterEl.options[2].textContent = '🔑🔒 Đã Khóa (' + _lockCnt + ')';
+        _affFilterEl.options[3].textContent = '🔑⏳ Chờ Duyệt (' + _penCnt + ')';
+        _affFilterEl.options[4].textContent = '🔑 Chưa Có TK (' + _noneCnt + ')';
     }
 
     // Sort: pinned first, then by appointment_date ASC
@@ -704,7 +709,7 @@ function _affRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_affiliate', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_affTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${_affAffApprovedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>` : _affAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
+            ${_affAffApprovedIds.includes(c.id) ? (_affAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _affAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
@@ -847,8 +852,9 @@ async function loadCrmAffData() {
         const affStatus = await apiCall('/api/affiliate-account/batch-status');
         _affAffPendingIds = affStatus.pendingCustomerIds || [];
         _affAffApprovedIds = affStatus.approvedCustomerIds || [];
+        _affAffLockedIds = affStatus.lockedCustomerIds || [];
         _affAffApprovedMap = affStatus.approvedMap || {};
-    } catch(e) { _affAffPendingIds = []; _affAffApprovedIds = []; _affAffApprovedMap = {}; }
+    } catch(e) { _affAffPendingIds = []; _affAffApprovedIds = []; _affAffLockedIds = []; _affAffApprovedMap = {}; }
 
     // Store for re-filtering
     _affAllCustomers = customers;
@@ -2496,6 +2502,22 @@ async function _affOpenAffiliateDetail(userId) {
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🏷️ Vai trò</div>
                                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${AFF_ROLE_LABELS_AFF[u.role] || u.role}</div>
                             </div>
+                            <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">💰 Chiết khấu</div>
+                                <div style="font-size:14px;font-weight:700;color:#059669;">${u.tier_percentage ? u.tier_percentage + '%' : '—'} ${u.tier_name ? '(' + u.tier_name + ')' : ''}</div>
+                            </div>
+                            <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">👨‍👦 Affiliate Cha</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.source_customer_name || '—'}</div>
+                            </div>
+                            <div style="padding:14px 16px;border-right:1px solid #e2e8f0;">
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🎂 Ngày sinh</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.birth_date ? new Date(u.birth_date).toLocaleDateString('vi-VN') : '—'}</div>
+                            </div>
+                            <div style="padding:14px 16px;">
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">💵 Số dư</div>
+                                <div style="font-size:14px;font-weight:700;color:#059669;">${u.balance ? formatCurrency(u.balance) : '0đ'}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2540,80 +2562,49 @@ async function _affToggleAffiliateStatus(userId, newStatus) {
 
 async function _affOpenEditAffiliateFromCrm(userId) {
     try {
-        const userData = await apiCall(`/api/users/${userId}`);
+        const [userData, tiersData] = await Promise.all([apiCall(`/api/users/${userId}`), apiCall('/api/settings/commission-tiers')]);
         const u = userData.user;
         if (!u) { showToast('Không tìm thấy tài khoản', 'error'); return; }
-
+        const tiers = tiersData.items || [];
+        const provinceOptions = AFF_VN_PROVINCES.map(p => `<option value="${p}" ${u.province === p ? 'selected' : ''}>${p}</option>`).join('');
+        const tierOptions = tiers.map(t => `<option value="${t.id}" ${u.commission_tier_id == t.id ? 'selected' : ''}>${t.name} (${t.percentage}%)</option>`).join('');
         const bodyHTML = `
-            <form id="editAffCrmForm" style="max-width:500px;">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                    <div class="form-group">
-                        <label>Họ tên</label>
-                        <input type="text" id="eafFullName" class="form-control" value="${u.full_name || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>SĐT</label>
-                        <input type="text" id="eafPhone" class="form-control" value="${u.phone || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Địa chỉ</label>
-                        <input type="text" id="eafAddress" class="form-control" value="${u.address || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Tỉnh/TP</label>
-                        <input type="text" id="eafProvince" class="form-control" value="${u.province || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Ngân hàng</label>
-                        <input type="text" id="eafBankName" class="form-control" value="${u.bank_name || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>Số TK</label>
-                        <input type="text" id="eafBankAccount" class="form-control" value="${u.bank_account || ''}">
-                    </div>
-                    <div class="form-group" style="grid-column:1/-1;">
-                        <label>Chủ TK</label>
-                        <input type="text" id="eafBankHolder" class="form-control" value="${u.bank_holder || ''}">
-                    </div>
-                </div>
-            </form>
-        `;
-
-        const footerHTML = `<button class="btn" onclick="_affSubmitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">💾 Lưu thay đổi</button>`;
-
-        openModal(`✏️ Sửa TK Affiliate: ${u.full_name}`, bodyHTML, footerHTML);
-    } catch (err) {
-        showToast('Lỗi tải thông tin', 'error');
-    }
+            <form id="editAffCrmForm" style="max-width:520px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-group"><label>Họ tên</label><input type="text" id="eafFullName" class="form-control" value="${u.full_name || ''}"></div>
+                <div class="form-group"><label>SĐT</label><input type="text" id="eafPhone" class="form-control" value="${u.phone || ''}"></div>
+                <div class="form-group"><label>🔑 Mật khẩu mới <span style="color:#94a3b8;font-size:11px;">(để trống = không đổi)</span></label><input type="password" id="eafPassword" class="form-control" placeholder="••••••"></div>
+                <div class="form-group"><label>🎂 Ngày sinh</label><input type="date" id="eafBirthDate" class="form-control" value="${u.birth_date ? u.birth_date.split('T')[0] : ''}"></div>
+                <div class="form-group"><label>Địa chỉ</label><input type="text" id="eafAddress" class="form-control" value="${u.address || ''}"></div>
+                <div class="form-group"><label>Tỉnh/TP</label><select id="eafProvince" class="form-control"><option value="">— Chọn tỉnh thành —</option>${provinceOptions}</select></div>
+                <div class="form-group"><label>💰 Tầng chiết khấu</label><select id="eafCommissionTier" class="form-control"><option value="">— Chưa gán —</option>${tierOptions}</select></div>
+                <div class="form-group"><label>Ngân hàng</label><input type="text" id="eafBankName" class="form-control" value="${u.bank_name || ''}"></div>
+                <div class="form-group"><label>Số TK</label><input type="text" id="eafBankAccount" class="form-control" value="${u.bank_account || ''}"></div>
+                <div class="form-group"><label>Chủ TK</label><input type="text" id="eafBankHolder" class="form-control" value="${u.bank_holder || ''}"></div>
+            </div></form>`;
+        openModal(`✏️ Sửa TK Affiliate: ${u.full_name}`, bodyHTML, `<button class="btn" onclick="_affSubmitEditAffFromCrm(${u.id})" style="background:var(--gold);color:#122546;padding:8px 24px;border-radius:8px;font-weight:600;">💾 Lưu thay đổi</button>`);
+    } catch (err) { showToast('Lỗi tải thông tin', 'error'); }
 }
 
 async function _affSubmitEditAffFromCrm(userId) {
+    const newPassword = document.getElementById('eafPassword')?.value?.trim();
     const body = {
-        full_name: document.getElementById('eafFullName').value,
-        phone: document.getElementById('eafPhone').value,
-        address: document.getElementById('eafAddress').value,
-        province: document.getElementById('eafProvince').value,
-        bank_name: document.getElementById('eafBankName').value,
-        bank_account: document.getElementById('eafBankAccount').value,
-        bank_holder: document.getElementById('eafBankHolder').value,
-        sync_source: true
+        full_name: document.getElementById('eafFullName').value, phone: document.getElementById('eafPhone').value,
+        address: document.getElementById('eafAddress').value, province: document.getElementById('eafProvince').value,
+        birth_date: document.getElementById('eafBirthDate').value || null,
+        commission_tier_id: document.getElementById('eafCommissionTier').value || null,
+        bank_name: document.getElementById('eafBankName').value, bank_account: document.getElementById('eafBankAccount').value,
+        bank_holder: document.getElementById('eafBankHolder').value, sync_source: true
     };
-
-    if (body.phone && !/^\d{10}$/.test(body.phone)) {
-        showToast('SĐT phải đúng 10 chữ số', 'error');
-        return;
-    }
-
+    if (body.phone && !/^\d{10}$/.test(body.phone)) { showToast('SĐT phải đúng 10 chữ số', 'error'); return; }
     try {
         const data = await apiCall(`/api/users/${userId}`, 'PUT', body);
-        if (data.success) {
-            showToast('✅ Cập nhật thành công!');
-            closeModal();
-            _affOpenAffiliateDetail(userId);
-        } else {
-            showToast(data.error, 'error');
+        if (!data.success) { showToast(data.error, 'error'); return; }
+        if (newPassword) {
+            if (newPassword.length < 4) { showToast('Mật khẩu mới phải ít nhất 4 ký tự', 'error'); return; }
+            const pwData = await apiCall(`/api/users/${userId}/change-password`, 'PUT', { newPassword });
+            if (!pwData.success) { showToast(pwData.error || 'Lỗi đổi mật khẩu', 'error'); return; }
         }
-    } catch (err) {
-        showToast('Lỗi cập nhật', 'error');
-    }
+        showToast('✅ Cập nhật thành công!' + (newPassword ? ' Đã đổi mật khẩu.' : ''));
+        closeModal(); _affOpenAffiliateDetail(userId);
+    } catch (err) { showToast('Lỗi cập nhật', 'error'); }
 }

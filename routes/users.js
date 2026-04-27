@@ -328,12 +328,13 @@ async function usersRoutes(fastify, options) {
             } catch(e) { console.error('[DEPT-HISTORY] Error:', e.message); }
         }
 
-        // Sync phone/address/province/birthday to source customer (affiliate = same person)
+        // Sync phone/address/province/birthday/name to source customer (affiliate = same person)
         if (request.body.sync_source === true) {
             const srcId = source_customer_id || (await db.get('SELECT source_customer_id FROM users WHERE id = ?', [userId]))?.source_customer_id;
             if (srcId) {
                 const updates = [];
                 const params = [];
+                if (full_name) { updates.push('customer_name = ?'); params.push(full_name); }
                 if (phone) { updates.push('phone = ?'); params.push(phone); }
                 if (address) { updates.push('address = ?'); params.push(address); }
                 if (province) { updates.push('province = ?'); params.push(province); }
