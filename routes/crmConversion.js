@@ -24,9 +24,11 @@ async function crmConversionRoutes(fastify, options) {
             approved_by INTEGER,
             reject_reason TEXT,
             created_at TIMESTAMP DEFAULT NOW(),
-            processed_at TIMESTAMP
+            processed_at TIMESTAMP,
+            expires_at TIMESTAMP
         )`);
     } catch(e) { /* already exists */ }
+    try { await db.exec('ALTER TABLE crm_conversion_requests ADD COLUMN expires_at TIMESTAMP'); } catch(e) {}
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_ccr_status ON crm_conversion_requests(status)'); } catch(e) {}
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_ccr_customer ON crm_conversion_requests(customer_id)'); } catch(e) {}
 
@@ -104,7 +106,7 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Khách này đã có yêu cầu đang chờ duyệt' });
         }
 
-        // Block: recently rejected (within 24 hours)
+        // Block: recently rejected (within 24 hours) — expired requests can be re-submitted immediately
         const recentReject = await db.get(
             `SELECT id FROM crm_conversion_requests WHERE customer_id = ? AND status = 'rejected'
              AND processed_at > NOW() - INTERVAL '24 hours'`,
@@ -114,10 +116,20 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Yêu cầu bị từ chối gần đây. Vui lòng đợi 24 giờ để đề xuất lại.' });
         }
 
-        // Create request
+        // Block: recently expired (within 24 hours) — give some cooldown
+        const recentExpired = await db.get(
+            `SELECT id FROM crm_conversion_requests WHERE customer_id = ? AND status = 'expired'
+             AND processed_at > NOW() - INTERVAL '24 hours'`,
+            [Number(customer_id)]
+        );
+        if (recentExpired) {
+            return reply.code(400).send({ error: 'Yêu cầu vừa hết hạn gần đây. Vui lòng đợi 24 giờ để đề xuất lại.' });
+        }
+
+        // Create request with expiry (midnight of day+2, Vietnam time)
         const result = await db.run(
-            `INSERT INTO crm_conversion_requests (customer_id, from_crm_type, to_crm_type, reason, requested_by)
-             VALUES (?, ?, ?, ?, ?)`,
+            `INSERT INTO crm_conversion_requests (customer_id, from_crm_type, to_crm_type, reason, requested_by, expires_at)
+             VALUES (?, ?, ?, ?, ?, (DATE(NOW()) + INTERVAL '2 days'))`,
             [Number(customer_id), customer.crm_type, targetCrm, reason.trim(), user.id]
         );
 
@@ -195,6 +207,11 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
         }
 
+        // Block approve if expired
+        if (convReq.expires_at && new Date(convReq.expires_at) <= new Date()) {
+            return reply.code(400).send({ error: 'Yêu cầu đã hết hạn duyệt' });
+        }
+
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [convReq.customer_id]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
@@ -258,6 +275,21 @@ async function crmConversionRoutes(fastify, options) {
             [user.id, reject_reason.trim(), reqId]
         );
 
+        // Set appointment_date to TOMORROW (customer wasn't handled during freeze)
+        await db.run(
+            'UPDATE customers SET appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
+            [convReq.customer_id]
+        );
+
+        // Log rejection in consultation_logs
+        await db.run(
+            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+             VALUES (?, 'chuyen_doi_crm', ?, ?)`,
+            [convReq.customer_id,
+             `❌ Từ chối chuyển CTV — Lý do: ${reject_reason.trim()}`,
+             user.id]
+        );
+
         // Telegram
         const rejector = await db.get('SELECT full_name FROM users WHERE id = ?', [user.id]);
         const tgMsg = `❌ <b>TỪ CHỐI CHUYỂN ĐỔI ${CRM_LABELS[convReq.to_crm_type]?.toUpperCase()}</b>\n` +
@@ -312,6 +344,123 @@ async function crmConversionRoutes(fastify, options) {
         const count = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending'");
         return { count: count?.cnt || 0 };
     });
+
+    // ========== PENDING CUSTOMER IDS (batch for CRM pages freeze) ==========
+    fastify.get('/api/crm-conversion/pending-customers', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(
+            "SELECT customer_id, expires_at FROM crm_conversion_requests WHERE status = 'pending'"
+        );
+        return { customers: rows.map(r => ({ id: r.customer_id, expires_at: r.expires_at })) };
+    });
+
+    // ========== AUTO-EXPIRE EXPIRED REQUESTS (called by deadline-checker) ==========
+    fastify.expireCtvRequests = async function() {
+        const expired = await db.all(
+            "SELECT r.*, c.customer_name, c.phone FROM crm_conversion_requests r LEFT JOIN customers c ON r.customer_id = c.id WHERE r.status = 'pending' AND r.expires_at <= NOW()"
+        );
+        if (expired.length === 0) return;
+
+        for (const req of expired) {
+            // 1. Mark as expired
+            await db.run(
+                "UPDATE crm_conversion_requests SET status = 'expired', processed_at = NOW() WHERE id = ?",
+                [req.id]
+            );
+
+            // 2. Set customer appointment to TOMORROW
+            await db.run(
+                'UPDATE customers SET appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
+                [req.customer_id]
+            );
+
+            // 3. Log in consultation history
+            await db.run(
+                `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+                 VALUES (?, 'chuyen_doi_crm', '⏰ Đề xuất chuyển CTV hết hạn — không được duyệt trong thời hạn', ?)`,
+                [req.customer_id, req.requested_by]
+            );
+
+            // 4. Create notification for the requesting employee
+            try {
+                await db.run(
+                    `INSERT INTO notifications (user_id, type, title, message, related_id)
+                     VALUES (?, 'ctv_expired', '⏰ Đề xuất CTV hết hạn', ?, ?)`,
+                    [req.requested_by,
+                     `KH "${req.customer_name || ''}" không được duyệt CTV trong thời hạn. KH đã trở lại lịch chăm sóc ngày mai.`,
+                     req.customer_id]
+                );
+            } catch(e) { /* notification table might not have all columns */ }
+
+            // 5. Telegram notification
+            const tgMsg = `⏰ <b>HẾT HẠN ĐỀ XUẤT CTV</b>\n` +
+                `Khách: <b>${req.customer_name || '—'}</b> — ${req.phone || 'N/A'}\n` +
+                `CRM: ${CRM_LABELS[req.from_crm_type]} (giữ nguyên)\n` +
+                `Trạng thái: Hết hạn — không có người duyệt trong thời hạn\n` +
+                `KH sẽ trở lại "Phải xử lý" vào ngày mai`;
+            sendConversionTelegram(tgMsg);
+
+            console.log(`[CTV Expire] Request #${req.id} for customer ${req.customer_id} (${req.customer_name}) expired`);
+        }
+        console.log(`[CTV Expire] Processed ${expired.length} expired request(s)`);
+    };
+}
+
+// Standalone expire function (called by deadline-checker)
+async function expireCtvRequests() {
+    const expired = await db.all(
+        "SELECT r.*, c.customer_name, c.phone FROM crm_conversion_requests r LEFT JOIN customers c ON r.customer_id = c.id WHERE r.status = 'pending' AND r.expires_at <= NOW()"
+    );
+    if (expired.length === 0) return;
+
+    // Helper: send to configured telegram group
+    async function _sendTg(message) {
+        try {
+            const config = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_telegram_group'");
+            if (config && config.value && config.value.trim()) {
+                sendTelegramMessage(config.value.trim(), message);
+            }
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId && globalId !== config?.value?.trim()) {
+                sendTelegramMessage(globalId, message);
+            }
+        } catch(e) {}
+    }
+
+    for (const req of expired) {
+        await db.run(
+            "UPDATE crm_conversion_requests SET status = 'expired', processed_at = NOW() WHERE id = ?",
+            [req.id]
+        );
+        await db.run(
+            'UPDATE customers SET appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
+            [req.customer_id]
+        );
+        await db.run(
+            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
+             VALUES (?, 'chuyen_doi_crm', '⏰ Đề xuất chuyển CTV hết hạn — không được duyệt trong thời hạn', ?)`,
+            [req.customer_id, req.requested_by]
+        );
+        try {
+            await db.run(
+                `INSERT INTO notifications (user_id, type, title, message, related_id)
+                 VALUES (?, 'ctv_expired', '⏰ Đề xuất CTV hết hạn', ?, ?)`,
+                [req.requested_by,
+                 `KH "${req.customer_name || ''}" không được duyệt CTV trong thời hạn. KH đã trở lại lịch chăm sóc ngày mai.`,
+                 req.customer_id]
+            );
+        } catch(e) {}
+
+        const tgMsg = `⏰ <b>HẾT HẠN ĐỀ XUẤT CTV</b>\n` +
+            `Khách: <b>${req.customer_name || '—'}</b> — ${req.phone || 'N/A'}\n` +
+            `CRM: ${CRM_LABELS[req.from_crm_type]} (giữ nguyên)\n` +
+            `Trạng thái: Hết hạn — không có người duyệt trong thời hạn\n` +
+            `KH sẽ trở lại "Phải xử lý" vào ngày mai`;
+        _sendTg(tgMsg);
+
+        console.log(`[CTV Expire] Request #${req.id} for customer ${req.customer_id} (${req.customer_name}) expired`);
+    }
+    console.log(`[CTV Expire] Processed ${expired.length} expired request(s)`);
 }
 
 module.exports = crmConversionRoutes;
+module.exports.expireCtvRequests = expireCtvRequests;

@@ -203,6 +203,11 @@ async function renderCRMAffPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
+            <div class="crm-stat-card" data-cat="cho_duyet_ctv" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;" onclick="_affFilterByCat('cho_duyet_ctv')">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-count" id="crmStatChoDuyetCtv">0</div>
+                <div class="stat-label">Chờ Duyệt CTV</div>
+            </div>
         </div>
         <div class="crm-date-filter" id="crmDateFilter">
             <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
@@ -281,6 +286,7 @@ async function renderCRMAffPage(container) {
 var _affActiveCat = null; // null = all, or 'phai_xu_ly'|'moi_chuyen'|'da_xu_ly'|'cho_xu_ly'|'huy_khach'
 var _affAllCustomers = []; // full list for re-filtering
 var _affAllStats = {}; // consult stats
+var _affPendingCtvIds = []; // customer IDs with pending CTV requests
 var _affCurrentPage = 1;
 var _affPageSize = 50;
 
@@ -375,6 +381,9 @@ function _affUpdateDateFilterCounts() {
 
 
 function _affGetCategory(c, stats) {
+    // Priority 0: ĐÓNG BĂNG — KH đang chờ duyệt CTV
+    if (_affPendingCtvIds.includes(c.id)) return 'cho_duyet_ctv';
+
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -784,13 +793,19 @@ async function loadCrmAffData() {
         stats = statsData.stats || {};
     }
 
+    // Fetch pending CTV conversion customer IDs (for freeze)
+    try {
+        const pendingData = await apiCall('/api/crm-conversion/pending-customers');
+        _affPendingCtvIds = (pendingData.customers || []).map(c => c.id);
+    } catch(e) { _affPendingCtvIds = []; }
+
     // Store for re-filtering
     _affAllCustomers = customers;
     _affAllStats = stats;
 
     // Count categories
-    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
-    customers.forEach(c => { const cat = _affGetCategory(c, stats); counts[cat]++; });
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, cho_duyet_ctv: 0 };
+    customers.forEach(c => { const cat = _affGetCategory(c, stats); if (counts[cat] !== undefined) counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
     const el = (id) => document.getElementById(id);
@@ -799,6 +814,7 @@ async function loadCrmAffData() {
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
     if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
+    if (el('crmStatChoDuyetCtv')) el('crmStatChoDuyetCtv').textContent = counts.cho_duyet_ctv;
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));

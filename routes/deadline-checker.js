@@ -889,6 +889,14 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ Error auto-reverting cancels:', e.message);
     }
 
+    // ========== 7b. AUTO-EXPIRE CTV CONVERSION REQUESTS ==========
+    try {
+        const { expireCtvRequests } = require('./crmConversion');
+        await expireCtvRequests();
+    } catch(e) {
+        console.error('  ❌ Error expiring CTV requests:', e.message);
+    }
+
     // ========== 8. PHẠT KH CHƯA XỬ LÝ HÔM NAY ==========
     // Chỉ chạy lúc 23:45+ — cho NV thời gian xử lý đến gần cuối ngày
     try {
@@ -916,6 +924,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
+                     AND NOT EXISTS (SELECT 1 FROM crm_conversion_requests ccr WHERE ccr.customer_id = c.id AND ccr.status = 'pending')
                      GROUP BY c.assigned_to_id, c.crm_type
                      HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
                          SELECT 1 FROM consultation_logs cl 
@@ -1077,6 +1086,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
+                     AND NOT EXISTS (SELECT 1 FROM crm_conversion_requests ccr WHERE ccr.customer_id = c.id AND ccr.status = 'pending')
                      GROUP BY c.assigned_to_id, c.crm_type
                      HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
                          SELECT 1 FROM consultation_logs cl

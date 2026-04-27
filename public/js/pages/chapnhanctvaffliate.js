@@ -2,6 +2,18 @@
 const CNCA_CRM_LABELS = { nhu_cau:'Chăm Sóc KH Nhu Cầu', ctv:'Chăm Sóc CTV', ctv_hoa_hong:'Chăm Sóc Affiliate', koc_tiktok:'Chăm Sóc KOL/KOC Tiktok' };
 const CNCA_ROLE_LABELS = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'Quản Lý Cấp Cao', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', thu_viec:'Thử Việc' };
 
+function _cncaFormatCountdown(expiresAt) {
+    const now = new Date();
+    const diff = expiresAt - now;
+    if (diff <= 0) return '<span class="cnca-countdown cnca-cd-red">⏰ Hết hạn!</span>';
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    let colorClass = 'cnca-cd-green';
+    if (hours < 6) colorClass = 'cnca-cd-red';
+    else if (hours < 12) colorClass = 'cnca-cd-yellow';
+    const icon = hours < 6 ? '🔴' : hours < 12 ? '🟡' : '🟢';
+    return `<span class="cnca-countdown ${colorClass}">${icon} ${hours}h ${String(mins).padStart(2,'0')}p</span>`;
+}
 async function renderChapNhanCTVAffiliatePage(container) {
     container.innerHTML = `
         <style>
@@ -29,6 +41,12 @@ async function renderChapNhanCTVAffiliatePage(container) {
             .cnca-status-approved { background:#dcfce7; color:#166534; }
             .cnca-status-rejected { background:#fee2e2; color:#991b1b; }
             .cnca-status-pending { background:#fef3c7; color:#92400e; }
+            .cnca-status-expired { background:#fde68a; color:#92400e; }
+            .cnca-countdown { font-weight:700; font-size:13px; font-variant-numeric:tabular-nums; }
+            .cnca-cd-green { color:#059669; }
+            .cnca-cd-yellow { color:#d97706; }
+            .cnca-cd-red { color:#dc2626; animation:cncaPulse 1.5s infinite; }
+            @keyframes cncaPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
         </style>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <h2 style="margin:0;color:var(--text-primary);">✅ Chấp Nhận CTV / Affiliate</h2>
@@ -46,6 +64,14 @@ async function renderChapNhanCTVAffiliatePage(container) {
     `;
     _cncaCurrentTab = 'pending';
     await _cncaLoadData();
+    // Start countdown timer (update every 60s)
+    if (window._cncaCountdownInterval) clearInterval(window._cncaCountdownInterval);
+    window._cncaCountdownInterval = setInterval(() => {
+        document.querySelectorAll('[data-expires-at]').forEach(el => {
+            const expiresAt = new Date(el.dataset.expiresAt);
+            el.innerHTML = _cncaFormatCountdown(expiresAt);
+        });
+    }, 60000);
 }
 
 var _cncaCurrentTab = 'pending';
@@ -70,11 +96,11 @@ async function _cncaLoadData() {
         thead.innerHTML = `<tr>
             <th>STT</th><th>Tên KH</th><th>SĐT</th><th>Link KH</th>
             <th>CRM Hiện Tại</th><th>→ Chuyển Sang</th><th>Lý Do</th>
-            <th>NV Đề Xuất</th><th>NV Phụ Trách</th><th>Ngày Tạo</th><th style="text-align:center">Hành Động</th>
+            <th>NV Đề Xuất</th><th>NV Phụ Trách</th><th>Ngày Tạo</th><th>⏱ Thời Hạn</th><th style="text-align:center">Hành Động</th>
         </tr>`;
         const pending = requests.filter(r => r.status === 'pending');
         if (pending.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="11"><div class="cnca-empty"><div class="icon">✅</div><h3>Không có yêu cầu chờ duyệt</h3></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="12"><div class="cnca-empty"><div class="icon">✅</div><h3>Không có yêu cầu chờ duyệt</h3></div></td></tr>`;
             return;
         }
         tbody.innerHTML = pending.map((r, i) => `<tr>
@@ -90,6 +116,7 @@ async function _cncaLoadData() {
             <td style="font-size:12px;">${r.requested_by_name || '—'} <span style="color:#94a3b8;font-size:10px;">(${CNCA_ROLE_LABELS[r.requested_by_role] || ''})</span></td>
             <td style="font-size:12px;font-weight:600;">${r.assigned_to_name || '—'}</td>
             <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
+            <td style="text-align:center;" data-expires-at="${r.expires_at || ''}">${r.expires_at ? _cncaFormatCountdown(new Date(r.expires_at)) : '—'}</td>
             <td style="text-align:center;white-space:nowrap;">
                 <button class="cnca-btn cnca-btn-approve" onclick="_cncaApprove(${r.id})">✅ Duyệt</button>
                 <button class="cnca-btn cnca-btn-reject" onclick="_cncaReject(${r.id})" style="margin-left:4px;">❌ Từ chối</button>
@@ -113,7 +140,7 @@ async function _cncaLoadData() {
             <td style="font-size:12px;">${CNCA_CRM_LABELS[r.to_crm_type] || r.to_crm_type}</td>
             <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
             <td style="font-size:12px;">${r.requested_by_name || '—'}</td>
-            <td><span class="cnca-status cnca-status-${r.status}">${r.status === 'approved' ? '✅ Đã duyệt' : '❌ Từ chối'}</span></td>
+            <td><span class="cnca-status cnca-status-${r.status}">${r.status === 'approved' ? '✅ Đã duyệt' : r.status === 'expired' ? '⏰ Hết hạn' : '❌ Từ chối'}</span></td>
             <td style="font-size:12px;">${r.approved_by_name || '—'}</td>
             <td style="font-size:12px;color:#dc2626;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason || '—'}</td>
             <td style="font-size:12px;color:#64748b;">${r.processed_at ? new Date(r.processed_at).toLocaleString('vi-VN') : '—'}</td>
