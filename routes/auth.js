@@ -96,10 +96,14 @@ async function authRoutes(fastify, options) {
         }
 
         // Compute effective permissions
+        // IMPORTANT: These keys must match PERM_FEATURES in permissions.js AND MENU_PERM_MAP in app.js
         const ALL_FEATURES = [
-            'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv','crm_ctv_hoa_hong',
-            'crm_koc_tiktok','affiliate_hv','huy_khach',
-            'nhan_vien','co_cau_to_chuc','phan_quyen','cap_cuu_sep','chuyen_so','cai_dat'
+            'tong_quan','so_hom_nay','crm_nhu_cau','crm_ctv',
+            'crm_affiliate','crm_koc_kol',
+            'crm_ctv_hoa_hong','crm_koc_tiktok','affiliate_hv',
+            'huy_khach',
+            'nhan_vien','co_cau_to_chuc','phan_quyen','cap_cuu_sep','chuyen_so','cai_dat',
+            'lich_su_bao_cao'
         ];
 
         let permissions = {};
