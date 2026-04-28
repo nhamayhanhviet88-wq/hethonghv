@@ -1,5 +1,127 @@
 // ========== CRM NHU CẦU — 14-column layout with consultation system ==========
 
+// ========== SIDEBAR & DATE FILTER STATE ==========
+let _crmSidebarUsers = [];
+let _crmSidebarDepts = [];
+let _crmSidebarSelectedUserId = null; // null = all
+let _crmSidebarDeptFilter = '';
+let _crmDatePreset = 'all'; // default show all
+let _crmDateFrom = '';
+let _crmDateTo = '';
+let _crmSelectedYear = new Date().getFullYear();
+let _crmIsManager = false;
+
+function _crmGetDateRange() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    switch (_crmDatePreset) {
+        case 'today': return { from: fmt(today), to: fmt(today) };
+        case 'yesterday': { const y = new Date(today); y.setDate(y.getDate()-1); return { from: fmt(y), to: fmt(y) }; }
+        case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: fmt(today) }; }
+        case 'this_month': { const m = new Date(_crmSelectedYear, today.getMonth(), 1); return { from: fmt(m), to: fmt(today) }; }
+        case 'last_month': { const m1 = new Date(_crmSelectedYear, today.getMonth()-1, 1); const m2 = new Date(_crmSelectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2) }; }
+        case 'custom': return { from: _crmDateFrom, to: _crmDateTo };
+        case 'all': return { from: '', to: '' };
+        default: return { from: '', to: '' };
+    }
+}
+function _crmSwitchDatePreset(preset) {
+    _crmDatePreset = preset;
+    _crmCurrentPage = 1;
+    if (preset !== 'custom') _crmRenderFilteredTable();
+}
+function _crmApplyCustomDate() {
+    _crmDateFrom = document.getElementById('crmCustomFrom')?.value || '';
+    _crmDateTo = document.getElementById('crmCustomTo')?.value || '';
+    if (_crmDateFrom && _crmDateTo) { _crmCurrentPage = 1; _crmRenderFilteredTable(); }
+}
+function _crmAvatarColor(n) { let h=0; for(let i=0;i<(n||'').length;i++) h=n.charCodeAt(i)+((h<<5)-h); return ['#3b82f6','#059669','#f59e0b','#8b5cf6','#06b6d4','#f43f5e','#ec4899','#6366f1'][Math.abs(h)%8]; }
+function _crmInitials(n) { if(!n) return '?'; const p=n.trim().split(/\s+/); return p.length>1?(p[0][0]+p[p.length-1][0]).toUpperCase():n.substring(0,2).toUpperCase(); }
+
+function _crmSelectSidebarUser(userId, userName) {
+    _crmSidebarSelectedUserId = userId;
+    _crmCurrentPage = 1;
+    _crmRenderSidebar();
+    loadCrmNhuCauData();
+}
+
+function _crmRenderSidebar() {
+    const list = document.getElementById('crmSidebarList');
+    if (!list) return;
+    const isAllActive = _crmSidebarSelectedUserId === null;
+    let topBtn = `<div onclick="_crmSelectSidebarUser(null,'Tất cả')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+        <span style="font-size:20px;">📊</span>
+        <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
+    </div>`;
+    const staffOnly = _crmSidebarUsers.filter(u => !['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'].includes(u.role));
+    let filtered = staffOnly;
+    if (_crmSidebarDeptFilter) filtered = staffOnly.filter(u => String(u.department_id) === _crmSidebarDeptFilter);
+    if (filtered.length === 0) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV</div>'; return; }
+    const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d; });
+    if (!_crmSidebarDeptFilter) {
+        const groups = {};
+        filtered.forEach(u => {
+            const dept = deptMap[u.department_id];
+            if (!dept) { if (!groups['_other']) groups['_other'] = { name: '📁 Khác', children: { '_ot': { name:'', users:[] } } }; groups['_other'].children['_ot'].users.push(u); return; }
+            const parent = dept.parent_id ? deptMap[dept.parent_id] : null;
+            if (parent) {
+                if (!groups[parent.id]) groups[parent.id] = { name: parent.name, children: {} };
+                if (!groups[parent.id].children[dept.id]) groups[parent.id].children[dept.id] = { name: dept.name, users: [] };
+                groups[parent.id].children[dept.id].users.push(u);
+            } else {
+                if (!groups[dept.id]) groups[dept.id] = { name: dept.name, children: {} };
+                if (!groups[dept.id].children['_d'+dept.id]) groups[dept.id].children['_d'+dept.id] = { name: '', users: [] };
+                groups[dept.id].children['_d'+dept.id].users.push(u);
+            }
+        });
+        let html = '';
+        Object.entries(groups).forEach(([pId, pData]) => {
+            html += `<div style="margin-bottom:8px;"><div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span></div>`;
+            Object.entries(pData.children).forEach(([cId, cData]) => {
+                if (cData.name) html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length===0?' <span style="color:#9ca3af;font-size:9px;">(trống)</span>':''}</span></div>`;
+                cData.users.forEach(u => { html += _crmRenderSidebarUser(u, cData.name ? 24 : 12); });
+            });
+            html += '</div>';
+        });
+        list.innerHTML = topBtn + html;
+    } else {
+        list.innerHTML = topBtn + filtered.map(u => _crmRenderSidebarUser(u, 0)).join('');
+    }
+}
+function _crmRenderSidebarUser(u, indent) {
+    const active = u.id === _crmSidebarSelectedUserId;
+    const c = _crmAvatarColor(u.full_name || u.username);
+    const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d.name; });
+    const dName = deptMap[u.department_id] || '';
+    return `<div onclick="_crmSelectSidebarUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\\'")}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
+        <span style="background:${active?'rgba(255,255,255,0.2)':c};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${_crmInitials(u.full_name || u.username)}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div><div style="font-size:9px;opacity:0.6;">${dName}</div></div>
+    </div>`;
+}
+function _crmBuildDateFilterHTML() {
+    const presets = [
+        { key:'today', label:'Hôm nay', icon:'📅' }, { key:'yesterday', label:'Hôm qua', icon:'⏪' },
+        { key:'7days', label:'7 ngày', icon:'📆' }, { key:'this_month', label:'Tháng này', icon:'🗓️' },
+        { key:'last_month', label:'Tháng trước', icon:'📋' }, { key:'all', label:'Tất cả', icon:'♾️' },
+    ];
+    const dr = _crmGetDateRange();
+    return `<div id="crmDateChips" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #e2e8f0;border-radius:12px;">
+        <span style="font-size:13px;font-weight:800;color:#334155;margin-right:4px;">📅</span>
+        ${presets.map(p => { const a = _crmDatePreset === p.key; return `<button onclick="_crmSwitchDatePreset('${p.key}')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid ${a?'#2563eb':'#e2e8f0'};background:${a?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${a?'white':'#64748b'};box-shadow:${a?'0 2px 8px rgba(37,99,235,0.3)':'none'};">${p.icon} ${p.label}</button>`; }).join('')}
+        <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
+        <button onclick="_crmDatePreset='custom';document.getElementById('crmCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_crmDatePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_crmDatePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_crmDatePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
+        <select onchange="_crmSelectedYear=parseInt(this.value);_crmCurrentPage=1;_crmRenderFilteredTable()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
+            ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _crmSelectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
+        </select>
+        <div id="crmCustomDateArea" style="display:${_crmDatePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
+            <input type="date" id="crmCustomFrom" value="${dr.from}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;">
+            <span style="font-size:11px;color:#9ca3af;">→</span>
+            <input type="date" id="crmCustomTo" value="${dr.to}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;">
+            <button onclick="_crmApplyCustomDate()" style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #059669;background:linear-gradient(135deg,#059669,#10b981);color:white;">✓</button>
+        </div>
+    </div>`;
+}
+
 // Format deposit input with thousand separators (500000 → 500.000)
 function formatDepositInput(el) {
     const cursor = el.selectionStart;
@@ -131,15 +253,38 @@ async function _crmSyncConsultTypes() {
 
 async function renderCRMNhuCauPage(container) {
     window._crmReloadCurrentPage = () => loadCrmNhuCauData();
-    let topStaffOptions = '';
-    if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
-        const staff = await apiCall('/api/managed-staff');
-        const staffUsers = (staff.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly'].includes(u.role));
-        topStaffOptions = staffUsers
-            .map(u => '<option value="' + u.id + '"' + ((['quan_ly','truong_phong'].includes(currentUser.role)) && u.id === currentUser.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS[u.role] || u.role) + ')' + '</option>').join('');
+    _crmIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
+    const _isNhanVien = ['nhan_vien', 'part_time'].includes(currentUser.role);
+
+    // Fetch sidebar data
+    if (_crmIsManager) {
+        const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
+        _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        _crmSidebarDepts = deptsRes.departments || deptsRes || [];
+        // Default: QL/TP auto-select themselves
+        if (['quan_ly','truong_phong'].includes(currentUser.role)) {
+            _crmSidebarSelectedUserId = currentUser.id;
+        } else {
+            _crmSidebarSelectedUserId = null; // GD sees all
+        }
     }
 
+    const sidebarHTML = _crmIsManager ? `
+        <div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="padding:14px;border-bottom:1.5px solid #e2e8f0;">
+                <h4 style="margin:0 0 10px;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc Nhu Cầu</h4>
+                <select id="crmSidebarDeptFilter" class="form-control" style="width:100%;padding:8px 10px;font-size:12px;" onchange="_crmSidebarDeptFilter=this.value;_crmRenderSidebar()">
+                    <option value="">📁 Tất cả phòng ban</option>
+                    ${_crmSidebarDepts.filter(d => !d.parent_id).map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                </select>
+            </div>
+            <div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div>
+        </div>` : '';
+
     container.innerHTML = `
+        <div style="display:flex;height:calc(100vh - 120px);gap:0;">
+        ${sidebarHTML}
+        <div id="crmMainContent" style="flex:1;overflow:auto;padding:16px 20px;">
         <style>
             .crm-stat-cards { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
             .crm-stat-card { flex:1; min-width:130px; padding:14px 16px; border-radius:12px; cursor:pointer; transition:all .25s; border:2px solid transparent; position:relative; overflow:hidden; }
@@ -210,24 +355,7 @@ async function renderCRMNhuCauPage(container) {
                 <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
             </div>
         </div>
-        <div class="crm-date-filter" id="crmDateFilter">
-            <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
-            <label>Ngày</label>
-            <select id="crmDateDay" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
-                <option value="">Tất Cả</option>
-                ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
-            </select>
-            <label>Tháng</label>
-            <select id="crmDateMonth" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
-                <option value="" selected>Tất Cả</option>
-                ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Tháng ' + m + '</option>'; return o; })()}
-            </select>
-            <label>Năm</label>
-            <select id="crmDateYear" onchange="_crmUpdateDateFilterCounts();_crmRenderFilteredTable()">
-                ${(() => { const now = new Date(); let o = ''; for (let y = 2024; y <= now.getFullYear()+1; y++) o += '<option value="' + y + '"' + (y === now.getFullYear() ? ' selected' : '') + '>' + y + '</option>'; return o; })()}
-            </select>
-            <span id="crmDateFilterCount" style="color:#94a3b8;font-size:12px;margin-left:auto;"></span>
-        </div>
+        <div id="crmDateChipsArea"></div>
 
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
             <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_crmRenderFilteredTable()">
@@ -241,7 +369,6 @@ async function renderCRMNhuCauPage(container) {
                 <option value="pending">🔑⏳ Chờ Duyệt</option>
                 <option value="none">🔑 Chưa Có TK</option>
             </select>
-            ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
         </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
@@ -274,18 +401,23 @@ async function renderCRMNhuCauPage(container) {
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
         </div>
+        </div></div>
     `;
 
+    // Render date chips
+    const dcArea = document.getElementById('crmDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
+
+    // Render sidebar
+    if (_crmIsManager) _crmRenderSidebar();
+
     document.getElementById('crmFilterConsultType').addEventListener('change', () => _crmRenderFilteredTable());
-    const topStaffEl = document.getElementById('crmTopStaffFilter');
-    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmNhuCauData());
     let st;
     document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmNhuCauData, 400); });
 
     await loadCrmNhuCauData();
 
     // Auto-select 'Phải xử lý hôm nay' on page load
-    // BUT skip if search navigation already set the correct tab (inside loadCrmNhuCauData)
     if (!sessionStorage.getItem('_tkkhNavDone')) {
         _crmActiveCat = null;
         _crmFilterByCat('phai_xu_ly');
@@ -307,7 +439,7 @@ var _crmPageSize = 50;
 
 function _crmFilterByCat(cat) {
     if (_crmActiveCat === cat) { _crmActiveCat = null; } else { _crmActiveCat = cat; }
-    _crmCurrentPage = 1; // reset page on category change
+    _crmCurrentPage = 1;
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
     const cardsContainer = document.getElementById('crmStatCards');
     if (_crmActiveCat) {
@@ -316,33 +448,6 @@ function _crmFilterByCat(cat) {
         if (cardsContainer) cardsContainer.classList.add('has-active');
     } else {
         if (cardsContainer) cardsContainer.classList.remove('has-active');
-    }
-    // Show/hide date filter for cho_xu_ly and huy_khach
-    const dateFilter = document.getElementById('crmDateFilter');
-    const dateLabel = document.getElementById('crmDateFilterLabel');
-    // Reset date filter to defaults (Tất Cả) when switching cards
-    const ms = document.getElementById('crmDateMonth');
-    const ys = document.getElementById('crmDateYear');
-    const ds = document.getElementById('crmDateDay');
-    if (ms) { ms.value = ''; }
-    if (ys) { ys.value = new Date().getFullYear(); }
-    if (ds) { ds.value = ''; }
-    if (dateFilter) {
-        if (_crmActiveCat === 'cho_xu_ly') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:';
-            _crmUpdateDateFilterCounts();
-        } else if (_crmActiveCat === 'huy_khach') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:';
-            _crmUpdateDateFilterCounts();
-        } else if (_crmActiveCat === 'xu_ly_tre') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:';
-            _crmUpdateDateFilterCounts();
-        } else {
-            dateFilter.classList.remove('visible');
-        }
     }
     _crmUpdateConsultTypeDropdown();
     _crmRenderFilteredTable();
@@ -529,32 +634,34 @@ function _crmRenderFilteredTable() {
         }
     }
 
-    // Apply date filter for cho_xu_ly and huy_khach (BEFORE consult type filter)
-    const isDateCat = (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'huy_khach' || _crmActiveCat === 'xu_ly_tre');
-    if (isDateCat) {
-        const selDay = document.getElementById('crmDateDay')?.value;
-        const selMonth = document.getElementById('crmDateMonth')?.value;
-        const selYear = document.getElementById('crmDateYear')?.value;
-        const hasMonth = selMonth && parseInt(selMonth);
-        const hasYear = selYear && parseInt(selYear);
-        const hasDay = selDay && parseInt(selDay);
-        if (hasMonth || hasDay) {
-            filtered = filtered.filter(c => {
-                let dateField;
-                if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') {
-                    dateField = c.appointment_date;
-                } else {
-                    dateField = c.cancel_approved_at || c.created_at;
-                }
-                if (!dateField) return false;
-                const d = new Date(dateField);
-                if (hasYear && d.getFullYear() !== parseInt(selYear)) return false;
-                if (hasMonth && d.getMonth() + 1 !== parseInt(selMonth)) return false;
-                if (hasDay && d.getDate() !== parseInt(selDay)) return false;
-                return true;
-            });
-        }
+    // Apply date filter using date chips (universal, not just specific categories)
+    const dr = _crmGetDateRange();
+    if (dr.from && dr.to) {
+        filtered = filtered.filter(c => {
+            // Use appointment_date for cho_xu_ly/xu_ly_tre, cancel_approved_at for huy_khach, created_at for others
+            let dateField;
+            if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') dateField = c.appointment_date;
+            else if (_crmActiveCat === 'huy_khach') dateField = c.cancel_approved_at || c.created_at;
+            else dateField = c.created_at;
+            if (!dateField) return true;
+            const dStr = new Date(dateField).toISOString().split('T')[0];
+            return dStr >= dr.from && dStr <= dr.to;
+        });
+    } else if (_crmDatePreset === 'all' && _crmSelectedYear) {
+        // Year-only filter
+        filtered = filtered.filter(c => {
+            let dateField;
+            if (_crmActiveCat === 'cho_xu_ly' || _crmActiveCat === 'xu_ly_tre') dateField = c.appointment_date;
+            else if (_crmActiveCat === 'huy_khach') dateField = c.cancel_approved_at || c.created_at;
+            else dateField = c.created_at;
+            if (!dateField) return true;
+            return new Date(dateField).getFullYear() === _crmSelectedYear;
+        });
     }
+
+    // Re-render date chips to update active state
+    const dcArea = document.getElementById('crmDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
 
     // Update consult type dropdown AFTER date filter
     _crmUpdateConsultTypeDropdown(filtered);
@@ -818,8 +925,7 @@ async function loadCrmNhuCauData() {
     let url = '/api/customers?crm_type=nhu_cau';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-    const topStaff = document.getElementById('crmTopStaffFilter')?.value;
-    if (topStaff) url += `&employee_id=${topStaff}`;
+    if (_crmSidebarSelectedUserId) url += `&employee_id=${_crmSidebarSelectedUserId}`;
 
     const data = await apiCall(url);
     const tbody = document.getElementById('crmNhuCauTbody');
@@ -1034,11 +1140,11 @@ async function _crmTogglePin(customerId) {
 })();
 function resetCrmNhuCauFilter() {
     _crmActiveCat = null;
+    _crmDatePreset = 'all';
+    _crmSelectedYear = new Date().getFullYear();
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
     document.getElementById('crmFilterConsultType').value = '';
     document.getElementById('crmSearch').value = '';
-    const topStaff = document.getElementById('crmTopStaffFilter');
-    if (topStaff) topStaff.value = '';
     loadCrmNhuCauData();
 }
 
