@@ -131,15 +131,16 @@ async function _affSyncConsultTypes() {
 
 async function renderCRMAffPage(container) {
     window._crmReloadCurrentPage = () => loadCrmAffData();
-    let topStaffOptions = '';
-    if (['giam_doc', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
-        const staff = await apiCall('/api/managed-staff');
-        const staffUsers = (staff.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly'].includes(u.role));
-        topStaffOptions = staffUsers
-            .map(u => '<option value="' + u.id + '"' + ((['quan_ly','truong_phong'].includes(currentUser.role)) && u.id === currentUser.id ? ' selected' : '') + '>' + u.full_name + ' (' + (ROLE_LABELS[u.role] || u.role) + ')' + '</option>').join('');
+    window._crmRenderCurrentTable = () => _affRenderFilteredTable();
+    _crmIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
+    if (_crmIsManager) {
+        const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
+        _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        _crmSidebarDepts = deptsRes.departments || deptsRes || [];
+        if (['quan_ly','truong_phong'].includes(currentUser.role)) { _crmSidebarSelectedUserId = currentUser.id; } else { _crmSidebarSelectedUserId = null; }
     }
-
-    container.innerHTML = `
+    const sidebarHTML = _crmIsManager ? `<div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;"><div style="padding:14px;border-bottom:1.5px solid #e2e8f0;"><h4 style="margin:0 0 10px;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc Affiliate</h4><select id="crmSidebarDeptFilter" class="form-control" style="width:100%;padding:8px 10px;font-size:12px;" onchange="_crmSidebarDeptFilter=this.value;_crmRenderSidebar()"><option value="">📁 Tất cả phòng ban</option>${_crmSidebarDepts.filter(d => !d.parent_id).map(d => `<option value="${d.id}">${d.name}</option>`).join('')}</select></div><div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div></div>` : '';
+    container.innerHTML = `<div style="display:flex;height:calc(100vh - 120px);gap:0;">${sidebarHTML}<div id="crmMainContent" style="flex:1;overflow:auto;padding:16px 20px;">` + `
         <style>
             .crm-stat-cards { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
             .crm-stat-card { flex:1; min-width:130px; padding:14px 16px; border-radius:12px; cursor:pointer; transition:all .25s; border:2px solid transparent; position:relative; overflow:hidden; }
@@ -210,25 +211,7 @@ async function renderCRMAffPage(container) {
                 <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
             </div>
         </div>
-        <div class="crm-date-filter" id="crmDateFilter">
-            <span class="df-label" id="crmDateFilterLabel">📅 Lọc theo:</span>
-            <label>Ngày</label>
-            <select id="crmDateDay" onchange="_affUpdateDateFilterCounts();_affRenderFilteredTable()">
-                <option value="">Tất Cả</option>
-                ${(() => { let o = ''; for (let d = 1; d <= 31; d++) o += '<option value="' + d + '">Ngày ' + d + '</option>'; return o; })()}
-            </select>
-            <label>Tháng</label>
-            <select id="crmDateMonth" onchange="_affUpdateDateFilterCounts();_affRenderFilteredTable()">
-                <option value="" selected>Tất Cả</option>
-                ${(() => { let o = ''; for (let m = 1; m <= 12; m++) o += '<option value="' + m + '">Tháng ' + m + '</option>'; return o; })()}
-            </select>
-            <label>Năm</label>
-            <select id="crmDateYear" onchange="_affUpdateDateFilterCounts();_affRenderFilteredTable()">
-                ${(() => { const now = new Date(); let o = ''; for (let y = 2024; y <= now.getFullYear()+1; y++) o += '<option value="' + y + '"' + (y === now.getFullYear() ? ' selected' : '') + '>' + y + '</option>'; return o; })()}
-            </select>
-            <span id="crmDateFilterCount" style="color:#94a3b8;font-size:12px;margin-left:auto;"></span>
-        </div>
-
+        <div id="crmDateChipsArea"></div>
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
             <select id="crmFilterConsultType" class="form-control" style="width:auto;min-width:200px;" onchange="_affRenderFilteredTable()">
                 <option value="">Tất cả trạng thái</option>
@@ -241,8 +224,7 @@ async function renderCRMAffPage(container) {
                 <option value="pending">🔑⏳ Chờ Duyệt</option>
                 <option value="none">🔑 Chưa Có TK</option>
             </select>
-            ${['giam_doc','quan_ly','truong_phong'].includes(currentUser.role) ? '<select id="crmTopStaffFilter" class="form-control" style="width:auto;min-width:180px;"><option value="">👤 Tất cả NV</option>' + topStaffOptions + '</select>' : ''}
-        </div>
+                    </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
                 <table class="table crm-ctv-table" id="crmCtvTable">
@@ -274,11 +256,13 @@ async function renderCRMAffPage(container) {
                 <div id="crmPagination" class="crm-pagination"></div>
             </div>
         </div>
+        </div></div>
     `;
+    const dcArea = document.getElementById('crmDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
+    if (_crmIsManager) _crmRenderSidebar();
 
     document.getElementById('crmFilterConsultType').addEventListener('change', () => _affRenderFilteredTable());
-    const topStaffEl = document.getElementById('crmTopStaffFilter');
-    if (topStaffEl) topStaffEl.addEventListener('change', () => loadCrmAffData());
     let st;
     document.getElementById('crmSearch').addEventListener('input', () => { clearTimeout(st); st = setTimeout(loadCrmAffData, 400); });
 
@@ -315,33 +299,7 @@ function _affFilterByCat(cat) {
     } else {
         if (cardsContainer) cardsContainer.classList.remove('has-active');
     }
-    // Show/hide date filter for cho_xu_ly and huy_khach
-    const dateFilter = document.getElementById('crmDateFilter');
-    const dateLabel = document.getElementById('crmDateFilterLabel');
-    // Reset date filter to defaults (Tất Cả) when switching cards
-    const ms = document.getElementById('crmDateMonth');
-    const ys = document.getElementById('crmDateYear');
-    const ds = document.getElementById('crmDateDay');
-    if (ms) { ms.value = ''; }
-    if (ys) { ys.value = new Date().getFullYear(); }
-    if (ds) { ds.value = ''; }
-    if (dateFilter) {
-        if (_affActiveCat === 'cho_xu_ly') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn:';
-            _affUpdateDateFilterCounts();
-        } else if (_affActiveCat === 'huy_khach') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hủy:';
-            _affUpdateDateFilterCounts();
-        } else if (_affActiveCat === 'xu_ly_tre') {
-            dateFilter.classList.add('visible');
-            if (dateLabel) dateLabel.textContent = '📅 Lọc theo ngày hẹn trễ:';
-            _affUpdateDateFilterCounts();
-        } else {
-            dateFilter.classList.remove('visible');
-        }
-    }
+    
     _affUpdateConsultTypeDropdown();
     _affRenderFilteredTable();
 }
@@ -527,32 +485,32 @@ function _affRenderFilteredTable() {
         }
     }
 
-    // Apply date filter for cho_xu_ly and huy_khach (BEFORE consult type filter)
-    const isDateCat = (_affActiveCat === 'cho_xu_ly' || _affActiveCat === 'huy_khach' || _affActiveCat === 'xu_ly_tre');
-    if (isDateCat) {
-        const selDay = document.getElementById('crmDateDay')?.value;
-        const selMonth = document.getElementById('crmDateMonth')?.value;
-        const selYear = document.getElementById('crmDateYear')?.value;
-        const hasMonth = selMonth && parseInt(selMonth);
-        const hasYear = selYear && parseInt(selYear);
-        const hasDay = selDay && parseInt(selDay);
-        if (hasMonth || hasDay) {
-            filtered = filtered.filter(c => {
-                let dateField;
-                if (_affActiveCat === 'cho_xu_ly' || _affActiveCat === 'xu_ly_tre') {
-                    dateField = c.appointment_date;
-                } else {
-                    dateField = c.cancel_approved_at || c.created_at;
-                }
-                if (!dateField) return false;
-                const d = new Date(dateField);
-                if (hasYear && d.getFullYear() !== parseInt(selYear)) return false;
-                if (hasMonth && d.getMonth() + 1 !== parseInt(selMonth)) return false;
-                if (hasDay && d.getDate() !== parseInt(selDay)) return false;
-                return true;
-            });
-        }
+    // Apply date filter using date chips
+    const dr = _crmGetDateRange();
+    if (dr.from && dr.to) {
+        filtered = filtered.filter(c => {
+            let dateField;
+            if (_affActiveCat === 'cho_xu_ly' || _affActiveCat === 'xu_ly_tre') dateField = c.appointment_date;
+            else if (_affActiveCat === 'huy_khach') dateField = c.cancel_approved_at || c.created_at;
+            else dateField = c.created_at;
+            if (!dateField) return true;
+            const dStr = new Date(dateField).toISOString().split('T')[0];
+            return dStr >= dr.from && dStr <= dr.to;
+        });
+    } else if (_crmDatePreset === 'all' && _crmSelectedYear) {
+        filtered = filtered.filter(c => {
+            let dateField;
+            if (_affActiveCat === 'cho_xu_ly' || _affActiveCat === 'xu_ly_tre') dateField = c.appointment_date;
+            else if (_affActiveCat === 'huy_khach') dateField = c.cancel_approved_at || c.created_at;
+            else dateField = c.created_at;
+            if (!dateField) return true;
+            return new Date(dateField).getFullYear() === _crmSelectedYear;
+        });
     }
+    const dcArea = document.getElementById('crmDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
+
+    
 
     // Update consult type dropdown AFTER date filter
     _affUpdateConsultTypeDropdown(filtered);
@@ -814,8 +772,7 @@ async function loadCrmAffData() {
     let url = '/api/customers?crm_type=affiliate';
     const search = document.getElementById('crmSearch')?.value;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-    const topStaff = document.getElementById('crmTopStaffFilter')?.value;
-    if (topStaff) url += `&employee_id=${topStaff}`;
+    if (_crmSidebarSelectedUserId) url += `&employee_id=${_crmSidebarSelectedUserId}`;
 
     const data = await apiCall(url);
     const tbody = document.getElementById('crmCtvTbody');
@@ -1000,8 +957,8 @@ function resetCrmAffFilter() {
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
     document.getElementById('crmFilterConsultType').value = '';
     document.getElementById('crmSearch').value = '';
-    const topStaff = document.getElementById('crmTopStaffFilter');
-    if (topStaff) topStaff.value = '';
+    _crmDatePreset = 'all';
+    _crmSelectedYear = new Date().getFullYear();
     loadCrmAffData();
 }
 
