@@ -403,7 +403,8 @@ function _gd_renderSidebar() {
                 <div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
                     <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span>
                 </div>`;
-            Object.entries(pData.children).forEach(([cId, cData]) => {
+            // Sort children: direct members (order=-1) first, then teams by display_order
+            Object.entries(pData.children).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0)).forEach(([cId, cData]) => {
                 if (cData.name) {
                     html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;">
                         <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length === 0 ? ' <span style="color:#9ca3af;font-size:9px;">(trống)</span>' : ''}</span>
