@@ -43,7 +43,7 @@ async function renderChuyenSoPage(container) {
         return ids;
     }
 
-    // Filter users: GĐ always visible, others only if their dept (or root dept) is in allowed list
+    // Filter users: only staff roles in PHÒNG KINH DOANH tree
     const allUsers = (users.users || []).filter(u =>
         ['giam_doc', 'quan_ly', 'truong_phong', 'nhan_vien', 'quan_ly_cap_cao'].includes(u.role)
     );
@@ -56,14 +56,20 @@ async function renderChuyenSoPage(container) {
     } else if (currentUser.role === 'tkaffiliate') {
         // Affiliate: auto-assign to their manager
         receiverUsers = allUsers.filter(u => u.id === currentUser.managed_by_user_id);
-    } else if (allowedDeptIds && allowedDeptIds.length > 0) {
-        // Get all dept IDs including children of allowed root depts
-        let visibleDeptIds = [];
-        allowedDeptIds.forEach(id => visibleDeptIds.push(...getAllChildDeptIds(id)));
+    } else {
+        // ★ Default: only show users in PHÒNG KINH DOANH tree (id=1 + child teams)
+        const kdDeptIds = getAllChildDeptIds(1); // PHÒNG KINH DOANH = id 1
+        // If allowedDeptIds config is set, intersect with it; otherwise use KD tree
+        let visibleDeptIds = kdDeptIds;
+        if (allowedDeptIds && allowedDeptIds.length > 0) {
+            let configDeptIds = [];
+            allowedDeptIds.forEach(id => configDeptIds.push(...getAllChildDeptIds(id)));
+            visibleDeptIds = kdDeptIds.filter(id => configDeptIds.includes(id));
+        }
 
         receiverUsers = allUsers.filter(u => {
             if (u.role === 'giam_doc') return currentUser.role === 'giam_doc'; // GĐ only visible to GĐ
-            if (!u.department_id) return false; // unassigned users hidden when filter active
+            if (!u.department_id) return false;
             return visibleDeptIds.includes(u.department_id);
         });
     }
