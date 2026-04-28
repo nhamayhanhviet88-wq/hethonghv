@@ -201,6 +201,11 @@ async function start() {
         return reply.sendFile('mobile-timkiem.html');
     });
 
+    // Mobile Tài Khoản — standalone touch-optimized page
+    fastify.get('/m/accounts', async (request, reply) => {
+        return reply.sendFile('mobile-accounts.html');
+    });
+
     // ========== AUTO-INJECT PAGE SCRIPTS ==========
     // Build dashboard HTML with all page scripts auto-injected
     let _cachedDashboardHtml = null;
