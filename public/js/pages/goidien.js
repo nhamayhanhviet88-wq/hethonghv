@@ -380,16 +380,18 @@ function _gd_renderSidebar() {
                 return;
             }
             const parentDept = dept.parent_id ? deptMap[dept.parent_id] : null;
-            if (parentDept) {
-                // dept is a child (team) — group under parent
+            // ★ If parent is a system dept (HỆ THỐNG...), treat THIS dept as a top-level group
+            const isTopLevel = !parentDept || (parentDept && parentDept.name && parentDept.name.startsWith('HỆ THỐNG'));
+            if (!isTopLevel && parentDept) {
+                // dept is a child team — group under its parent
                 const pId = parentDept.id;
                 if (!groups[pId]) groups[pId] = { name: parentDept.name, children: {} };
                 if (!groups[pId].children[dept.id]) groups[pId].children[dept.id] = { name: dept.name, users: [] };
                 groups[pId].children[dept.id].users.push(u);
             } else {
-                // dept is a top-level — no team subdivision
+                // dept IS a top-level group (like PHÒNG KINH DOANH)
                 if (!groups[dept.id]) groups[dept.id] = { name: dept.name, children: {} };
-                if (!groups[dept.id].children['_direct_' + dept.id]) groups[dept.id].children['_direct_' + dept.id] = { name: '', users: [] };
+                if (!groups[dept.id].children['_direct_' + dept.id]) groups[dept.id].children['_direct_' + dept.id] = { name: '', users: [], order: -1 };
                 groups[dept.id].children['_direct_' + dept.id].users.push(u);
             }
         });
