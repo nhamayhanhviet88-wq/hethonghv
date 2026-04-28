@@ -38,10 +38,14 @@ async function authRoutes(fastify, options) {
             }
         }
 
-        // Legacy: Nếu TK bị locked (từ hệ thống cũ) → tự mở khóa, cho login
-        // ★ Hệ thống mới dùng access_blocked thay vì status='locked'
-        // access_blocked xử lý ở middleware/auth.js — NV vẫn login được nhưng bị chặn API
+        // ★ Affiliate bị locked = dừng hợp tác → CHẶN login hoàn toàn
+        const AFFILIATE_LOCKED_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv'];
         if (user.status === 'locked') {
+            if (AFFILIATE_LOCKED_ROLES.includes(user.role)) {
+                return reply.code(403).send({ error: 'Tài khoản đã bị dừng hợp tác. Vui lòng liên hệ quản lý để được hỗ trợ.' });
+            }
+            // Legacy: NV nội bộ bị locked (hệ thống cũ) → tự mở khóa, cho login
+            // Hệ thống mới dùng access_blocked thay vì status='locked'
             await db.run("UPDATE users SET status = 'active' WHERE id = $1", [user.id]);
         }
 
