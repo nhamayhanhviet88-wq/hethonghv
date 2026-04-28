@@ -84,6 +84,10 @@ function _poInit() {
         _poDateFrom = _poSelDate;
         _poDateTo = _poSelDate;
     }
+    // Auto-select self for QLCC/QL/TP (GĐ sees "Tất cả" first)
+    if (!_poSelUser && ['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+        _po.selectedUser = currentUser.id;
+    }
     _poLoadAll();
 }
 

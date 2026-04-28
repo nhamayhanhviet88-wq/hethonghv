@@ -168,8 +168,15 @@ async function renderGoiDienPage(container) {
         _gd_selectedUserName = currentUser.full_name || currentUser.username;
         _gd_isViewOnly = false;
         await _gd_loadCallsForUser(_gd_selectedUserId);
+    } else if (['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+        // QLCC/QL/TP: auto-select self first
+        _gd_selectedUserId = currentUser.id;
+        _gd_selectedUserName = currentUser.full_name || currentUser.username;
+        _gd_isViewOnly = false;
+        _gd_renderSidebar();
+        await _gd_loadCallsForUser(_gd_selectedUserId);
     } else {
-        // QL/TP/GĐ/QLCC: default to aggregate view
+        // GĐ: default to aggregate view
         _gd_selectedUserId = 'all';
         _gd_selectedUserName = 'Tổng Phòng Kinh Doanh';
         _gd_isViewOnly = true;

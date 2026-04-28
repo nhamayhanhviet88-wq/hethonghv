@@ -76,6 +76,10 @@ function _acInit() {
         _acDateFrom = _acSelDate;
         _acDateTo = _acSelDate;
     }
+    // Auto-select self for QLCC/QL/TP (GĐ sees "Tất cả" first)
+    if (!_acSelUser && ['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+        _ac.selectedUser = currentUser.id;
+    }
     _acLoadAll();
 }
 

@@ -108,6 +108,10 @@ function _dlInit() {
         _dl.selDept = null;
         console.log('[DailyLinks] Auto-select user from URL:', _dl.selUser);
     }
+    // Auto-select self for QLCC/QL/TP when no URL param and no saved state (GĐ sees "Tất cả" first)
+    if (!_dl.selUser && !_dl.selDept && ['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+        _dl.selUser = currentUser.id;
+    }
     // Store all params for child inits (e.g. _zlInit) before URL is cleaned
     _dl.selDate = _dlUrlParams.get('sel_date') || null;
     _dl.selTab = _dlUrlParams.get('sel_tab') || null;

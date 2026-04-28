@@ -137,7 +137,7 @@ async function renderCRMAffPage(container) {
         const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
         _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
         _crmSidebarDepts = deptsRes.departments || deptsRes || [];
-        if (['quan_ly','truong_phong'].includes(currentUser.role)) { _crmSidebarSelectedUserId = currentUser.id; } else { _crmSidebarSelectedUserId = null; }
+        if (['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) { _crmSidebarSelectedUserId = currentUser.id; } else { _crmSidebarSelectedUserId = null; }
     }
     const sidebarHTML = _crmIsManager ? `<div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;"><div style="padding:14px;border-bottom:1.5px solid #e2e8f0;"><h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc Affiliate</h4></div><div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div></div>` : '';
     container.innerHTML = `<div style="display:flex;height:calc(100vh - 120px);gap:0;">${sidebarHTML}<div id="crmMainContent" style="flex:1;overflow:auto;padding:16px 20px;">` + `

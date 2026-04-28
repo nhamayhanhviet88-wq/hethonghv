@@ -277,8 +277,8 @@ async function renderCRMNhuCauPage(container) {
         const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
         _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
         _crmSidebarDepts = deptsRes.departments || deptsRes || [];
-        // Default: QL/TP auto-select themselves
-        if (['quan_ly','truong_phong'].includes(currentUser.role)) {
+        // Default: QLCC/QL/TP auto-select themselves, GĐ sees all
+        if (['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
             _crmSidebarSelectedUserId = currentUser.id;
         } else {
             _crmSidebarSelectedUserId = null; // GD sees all
