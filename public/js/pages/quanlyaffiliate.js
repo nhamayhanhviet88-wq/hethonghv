@@ -81,7 +81,7 @@ function renderQuanLyAffiliatePage(container) {
             <h2>🤝 Chỉ Số Affiliate HV</h2>
             <div class="actions">
                 <button class="btn btn-secondary" onclick="affLoadData()">🔄 Tải lại</button>
-                <button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>
+                ${currentUser.role === 'giam_doc' ? '<button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>' : ''}
             </div>
         </div>
         <div class="aff-filter-bar">
@@ -224,9 +224,48 @@ async function affLoadData() {
     if (_affDateTo) params.push(`to=${_affDateTo}`);
     if (params.length) url += '?' + params.join('&');
     _affData = await apiCall(url);
+    // Auto-populate visible depts for non-GĐ users
+    _affAutoPopulateDepts();
     affPopulateFilterDropdowns();
     affRenderStats();
     affRenderTree();
+}
+
+function _affAutoPopulateDepts() {
+    if (!currentUser || !_affData.departments) return;
+    const role = currentUser.role;
+    const depts = _affData.departments;
+
+    if (role === 'giam_doc') {
+        // GĐ: use localStorage (manual control), auto-add all roots if empty
+        if (_affVisibleDepts.length === 0) {
+            _affVisibleDepts = depts.filter(d => !d.parent_id).map(d => d.id);
+            localStorage.setItem('aff_visible_depts', JSON.stringify(_affVisibleDepts));
+        }
+        return;
+    }
+
+    // Non-GĐ: always auto-populate from hierarchy (ignore localStorage)
+    const myDeptId = currentUser.department_id;
+    if (!myDeptId) {
+        // No department — show nothing
+        _affVisibleDepts = [];
+        return;
+    }
+
+    if (['quan_ly_cap_cao'].includes(role)) {
+        // QLCC: show all root departments
+        _affVisibleDepts = depts.filter(d => !d.parent_id).map(d => d.id);
+    } else {
+        // QL/TP/NV: find root department in their chain
+        let rootId = myDeptId;
+        let current = depts.find(d => d.id === myDeptId);
+        while (current && current.parent_id) {
+            rootId = current.parent_id;
+            current = depts.find(d => d.id === current.parent_id);
+        }
+        _affVisibleDepts = [rootId];
+    }
 }
 
 function affPopulateFilterDropdowns() {
@@ -380,8 +419,8 @@ function affRenderTree() {
     if (_affVisibleDepts.length === 0) {
         container.innerHTML = `<div style="padding:40px;text-align:center;color:#6b7280;">
             <div style="font-size:40px;margin-bottom:12px;">🏢</div>
-            <div style="font-size:14px;margin-bottom:16px;">Chưa có đơn vị nào. Thêm đơn vị từ Cơ Cấu Tổ Chức.</div>
-            <button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>
+            <div style="font-size:14px;margin-bottom:16px;">${currentUser.role === 'giam_doc' ? 'Chưa có đơn vị nào. Thêm đơn vị từ Cơ Cấu Tổ Chức.' : 'Chưa có dữ liệu affiliate cho đơn vị của bạn.'}</div>
+            ${currentUser.role === 'giam_doc' ? '<button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>' : ''}
         </div>`;
         return;
     }
