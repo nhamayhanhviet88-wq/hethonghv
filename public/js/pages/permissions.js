@@ -48,6 +48,12 @@ const PERM_FEATURES = [
     { key: 'nhan_vien', label: 'Tài Khoản Nhân Viên', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
     { key: 'co_cau_to_chuc', label: 'Cơ Cấu Tổ Chức', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
     { key: 'phan_quyen', label: 'Phân Quyền', perms: ['view','edit'], section: 'QUẢN LÝ NHÂN VIÊN' },
+    { key: 'bxh_affiliate', label: 'Bảng Xếp Hạng Affiliate', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+    { key: 'bxh_kinh_doanh', label: 'Bảng Xếp Hạng Kinh Doanh', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+    { key: 'bxh_sale', label: 'Bảng Xếp Hạng Sale', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+    { key: 'bxh_ctv', label: 'Bảng Xếp Hạng CTV', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+    { key: 'bxh_san_xuat', label: 'BXH Khối Sản Xuất', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
+    { key: 'bxh_van_phong', label: 'BXH Khối Văn Phòng', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
     { key: 'trao_giai_thuong', label: 'Trao Giải Thưởng', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
 
     // ===== HỆ THỐNG =====
