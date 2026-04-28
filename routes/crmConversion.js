@@ -263,6 +263,11 @@ async function crmConversionRoutes(fastify, options) {
         const convReq = await db.get('SELECT * FROM crm_conversion_requests WHERE id = ?', [reqId]);
         if (!convReq) return reply.code(404).send({ error: 'Không tìm thấy yêu cầu' });
 
+        // ★ Chặn self-approve: không tự duyệt yêu cầu do chính mình tạo (trừ GĐ)
+        if (convReq.requested_by === user.id && user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu do chính mình tạo. Chỉ GĐ hoặc cấp trên mới duyệt được.' });
+        }
+
         // Race condition check
         if (convReq.status !== 'pending') {
             return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
@@ -322,6 +327,12 @@ async function crmConversionRoutes(fastify, options) {
         const reqId = Number(request.params.id);
         const convReq = await db.get('SELECT * FROM crm_conversion_requests WHERE id = ?', [reqId]);
         if (!convReq) return reply.code(404).send({ error: 'Không tìm thấy yêu cầu' });
+
+        // ★ Chặn self-reject
+        if (convReq.requested_by === user.id && user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Không thể tự xử lý yêu cầu do chính mình tạo.' });
+        }
+
         if (convReq.status !== 'pending') {
             return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
         }

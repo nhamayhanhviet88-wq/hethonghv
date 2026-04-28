@@ -178,8 +178,11 @@ async function _cncaLoadData() {
             <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
             <td style="text-align:center;" data-expires-at="${r.expires_at || ''}">${r.expires_at ? _cncaFormatCountdown(new Date(r.expires_at)) : '—'}</td>
             <td style="text-align:center;white-space:nowrap;">
-                <button class="cnca-btn cnca-btn-approve" onclick="_cncaApprove(${r.id})">✅ Duyệt</button>
-                <button class="cnca-btn cnca-btn-reject" onclick="_cncaReject(${r.id})" style="margin-left:4px;">❌ Từ chối</button>
+                ${(r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc')
+                    ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Yêu cầu của bạn</span>'
+                    : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApprove(${r.id})">✅ Duyệt</button>
+                       <button class="cnca-btn cnca-btn-reject" onclick="_cncaReject(${r.id})" style="margin-left:4px;">❌ Từ chối</button>`
+                }
             </td>
         </tr>`).join('');
     } else {
@@ -522,9 +525,12 @@ async function _cncaLoadAffAccountData() {
                 ? `<span class="cnca-status cnca-status-approved">✅ Đã tạo TK</span>`
                 : `<span class="cnca-status cnca-status-rejected">❌ Từ chối</span>`;
 
+        const isSelfRequest = r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc';
         const actionHtml = isPending
-            ? `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt & Tạo TK</button>
-               <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`
+            ? (isSelfRequest
+                ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Yêu cầu của bạn</span>'
+                : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt & Tạo TK</button>
+                   <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`)
             : r.status === 'approved'
                 ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
                 : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
