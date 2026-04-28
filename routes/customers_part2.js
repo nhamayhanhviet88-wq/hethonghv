@@ -29,7 +29,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
         }
 
-        if (['nhan_vien', 'truong_phong'].includes(request.user.role)) {
+        // ★ Helper: gửi yêu cầu hủy chờ duyệt
+        const _sendCancelRequest = async (msg) => {
             await db.run(
                 `UPDATE customers SET cancel_requested = 1, cancel_approved = 0, cancel_reason = ?,
                  cancel_requested_by = ?, cancel_requested_at = NOW()::text,
@@ -41,10 +42,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const tgMsg = `❌ <b>Yêu cầu HỦY khách hàng</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
             const globalId = process.env.TELEGRAM_GROUP_ID;
             if (globalId) sendTelegramMessage(globalId, tgMsg);
-            return { success: true, message: 'Yêu cầu hủy đã được gửi. Chờ Quản Lý/Giám Đốc duyệt.' };
-        }
+            return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
+        };
 
-        if (['giam_doc', 'quan_ly'].includes(request.user.role)) {
+        // ★ Helper: duyệt hủy trực tiếp
+        const _directCancel = async () => {
             await db.run(
                 `UPDATE customers SET cancel_requested = 1, cancel_reason = ?,
                  cancel_requested_by = ?, cancel_requested_at = NOW()::text,
@@ -53,7 +55,32 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [reason, request.user.id, request.user.id, custId]
             );
             return { success: true, message: 'Khách hàng đã được hủy.' };
+        };
+
+        // ★ GĐ / QLCC → duyệt trực tiếp mọi khách
+        if (['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role)) {
+            return _directCancel();
         }
+
+        // ★ QL → chỉ duyệt trực tiếp khách của CẤP DƯỚI thuộc phòng ban mình
+        if (request.user.role === 'quan_ly') {
+            if (customer.assigned_to_id !== request.user.id) {
+                // Khách không phải của QL → kiểm tra NV đó thuộc phòng ban QL quản lý không
+                const managedDeptIds = await getManagedDeptIds(request.user.id);
+                const assignee = await db.get('SELECT department_id FROM users WHERE id = ?', [customer.assigned_to_id]);
+                if (assignee && managedDeptIds.includes(assignee.department_id)) {
+                    return _directCancel(); // QL duyệt trực tiếp cho cấp dưới
+                }
+            }
+            // Khách của chính QL hoặc phòng khác → gửi yêu cầu chờ GĐ/QLCC duyệt
+            return _sendCancelRequest('Yêu cầu hủy đã được gửi. Chờ Giám Đốc/QLCC duyệt.');
+        }
+
+        // ★ NV / TP → gửi yêu cầu chờ duyệt
+        if (['nhan_vien', 'truong_phong'].includes(request.user.role)) {
+            return _sendCancelRequest('Yêu cầu hủy đã được gửi. Chờ Quản Lý/Giám Đốc duyệt.');
+        }
+
         return reply.code(403).send({ error: 'Không có quyền hủy' });
     });
 
@@ -61,6 +88,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const { approve, manager_note } = request.body || {};
         const custId = Number(request.params.id);
         if (!manager_note) return reply.code(400).send({ error: 'Vui lòng nhập lý do!' });
+
+        // ★ QL không được tự duyệt yêu cầu hủy của chính mình
+        if (request.user.role === 'quan_ly') {
+            const cancelCustomer = await db.get('SELECT cancel_requested_by FROM customers WHERE id = ?', [custId]);
+            if (cancelCustomer && cancelCustomer.cancel_requested_by === request.user.id) {
+                return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu hủy của chính mình. Vui lòng chờ Giám Đốc/QLCC duyệt.' });
+            }
+        }
 
         if (approve) {
             await db.run(
