@@ -97,13 +97,11 @@ async function usersRoutes(fastify, options) {
         }
         delete user.password_hash;
 
-        // Mask phone for QL/TP viewing affiliate/subordinate users not directly managed by them
+        // Mask phone for QL/TP viewing any affiliate user — QL/TP không được xem SĐT affiliate
         const requester = request.user;
         const AFFILIATE_USER_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
-        if (['quan_ly', 'truong_phong'].includes(requester.role)) {
-            if (AFFILIATE_USER_ROLES.includes(user.role) && user.managed_by_user_id !== requester.id) {
-                user.phone = maskPhone(user.phone);
-            }
+        if (['quan_ly', 'truong_phong'].includes(requester.role) && AFFILIATE_USER_ROLES.includes(user.role)) {
+            user.phone = maskPhone(user.phone);
         }
 
         return { user };
