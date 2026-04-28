@@ -579,11 +579,16 @@ function renderSidebar() {
 
     // Group items by section
     MENU_CONFIG.forEach(function(item) {
-        if (!item.roles.includes(currentUser.role)) return;
         if (currentUser.role !== 'giam_doc') {
             var permKey = item.permKey;
-            if (permKey && userPermissions[permKey] && !userPermissions[permKey].can_view) return;
-            if (permKey && !userPermissions[permKey]) return;
+            if (permKey) {
+                // permKey is the SOLE authority — ignore roles[]
+                // If user has can_view permission (direct or inherited), show it
+                if (!userPermissions[permKey] || !userPermissions[permKey].can_view) return;
+            } else {
+                // No permKey — fall back to roles[] check
+                if (!item.roles.includes(currentUser.role)) return;
+            }
         }
         if (!sectionItems[item.section]) { sectionItems[item.section] = []; sectionOrder.push(item.section); }
         sectionItems[item.section].push(item);
