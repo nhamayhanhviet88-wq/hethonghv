@@ -303,51 +303,7 @@ function _ctvFilterByCat(cat) {
     _ctvRenderFilteredTable();
 }
 
-function _ctvUpdateDateFilterCounts() {
-    const cat = _ctvActiveCat;
-    if (cat !== 'cho_xu_ly' && cat !== 'huy_khach' && cat !== 'xu_ly_tre') return;
-    const catCustomers = _ctvAllCustomers.filter(c => _ctvGetCategory(c, _ctvAllStats) === cat);
 
-    function getDateField(c) {
-        if (cat === 'cho_xu_ly' || cat === 'xu_ly_tre') return c.appointment_date;
-        return c.cancel_approved_at || c.created_at;
-    }
-
-    const monthYearCounts = {};
-    const yearCounts = {};
-    catCustomers.forEach(c => {
-        const df = getDateField(c);
-        if (!df) return;
-        const d = new Date(df);
-        const m = d.getMonth() + 1;
-        const y = d.getFullYear();
-        monthYearCounts[m + '_' + y] = (monthYearCounts[m + '_' + y] || 0) + 1;
-        yearCounts[y] = (yearCounts[y] || 0) + 1;
-    });
-
-    const monthSel = document.getElementById('crmDateMonth');
-    const yearSel = document.getElementById('crmDateYear');
-    if (!monthSel || !yearSel) return;
-    const selYear = yearSel.value ? parseInt(yearSel.value) : new Date().getFullYear();
-
-    // Calculate total for 'Tất Cả' options
-    const totalCat = catCustomers.length;
-    let totalInYear = 0;
-
-    for (const opt of monthSel.options) {
-        if (!opt.value) { opt.textContent = 'Tất Cả' + (totalCat > 0 ? ' (' + totalCat + ')' : ''); continue; }
-        const m = parseInt(opt.value);
-        const cnt = monthYearCounts[m + '_' + selYear] || 0;
-        opt.textContent = 'Tháng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
-        totalInYear += cnt;
-    }
-    for (const opt of yearSel.options) {
-        if (!opt.value) { opt.textContent = 'Tất Cả'; continue; }
-        const y = parseInt(opt.value);
-        const cnt = yearCounts[y] || 0;
-        opt.textContent = y + (cnt > 0 ? ' (' + cnt + ')' : '');
-    }
-}
 
 
 function _ctvGetCategory(c, stats) {

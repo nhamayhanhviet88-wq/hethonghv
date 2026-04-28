@@ -4,7 +4,7 @@
 let _crmSidebarUsers = [];
 let _crmSidebarDepts = [];
 let _crmSidebarSelectedUserId = null; // null = all
-let _crmSidebarDeptFilter = '';
+
 let _crmDatePreset = 'all'; // default show all
 let _crmDateFrom = '';
 let _crmDateTo = '';
@@ -125,7 +125,7 @@ function _crmBuildDateFilterHTML() {
         ${presets.map(p => { const a = _crmDatePreset === p.key; return `<button onclick="_crmSwitchDatePreset('${p.key}')" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid ${a?'#2563eb':'#e2e8f0'};background:${a?'linear-gradient(135deg,#2563eb,#3b82f6)':'white'};color:${a?'white':'#64748b'};box-shadow:${a?'0 2px 8px rgba(37,99,235,0.3)':'none'};">${p.icon} ${p.label}</button>`; }).join('')}
         <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
         <button onclick="_crmDatePreset='custom';document.getElementById('crmCustomDateArea').style.display='flex';" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid ${_crmDatePreset==='custom'?'#7c3aed':'#e2e8f0'};background:${_crmDatePreset==='custom'?'linear-gradient(135deg,#7c3aed,#8b5cf6)':'white'};color:${_crmDatePreset==='custom'?'white':'#64748b'};transition:all .2s;">🔧 Tùy chọn</button>
-        <select onchange="_crmSelectedYear=parseInt(this.value);_crmCurrentPage=1;_crmRenderFilteredTable()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
+        <select onchange="_crmSelectedYear=parseInt(this.value);_crmCurrentPage=1;if(window._crmRenderCurrentTable)window._crmRenderCurrentTable()" style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:1.5px solid #2563eb;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;cursor:pointer;">
             ${(() => { const cur = new Date().getFullYear(); let opts = ''; for (let y = cur; y >= 2024; y--) { opts += `<option value="${y}" ${y === _crmSelectedYear ? 'selected' : ''}>${y}</option>`; } return opts; })()}
         </select>
         <div id="crmCustomDateArea" style="display:${_crmDatePreset==='custom'?'flex':'none'};align-items:center;gap:6px;margin-left:4px;">
@@ -307,12 +307,7 @@ async function renderCRMNhuCauPage(container) {
             .crm-stat-card .stat-count { font-size:28px; font-weight:900; line-height:1; }
             .crm-stat-card .stat-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px; opacity:.8; }
             .crm-stat-card::after { content:''; position:absolute; right:-10px; bottom:-10px; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.15); }
-            .crm-date-filter { display:none; padding:10px 16px; background:linear-gradient(135deg,#1e293b,#334155); border-radius:10px; margin-bottom:12px; align-items:center; gap:12px; flex-wrap:wrap; animation:crmSlideIn .25s ease; }
-            .crm-date-filter.visible { display:flex; }
-            .crm-date-filter label { color:#94a3b8; font-size:12px; font-weight:600; margin:0; }
-            .crm-date-filter select { background:#0f172a; color:white; border:1px solid #475569; border-radius:6px; padding:5px 10px; font-size:13px; font-weight:600; cursor:pointer; }
-            .crm-date-filter select:focus { border-color:#3b82f6; outline:none; }
-            .crm-date-filter .df-label { color:#f59e0b; font-size:13px; font-weight:700; }
+
             @keyframes crmSlideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
             .crm-section-header td { background:linear-gradient(135deg,#1e293b,#334155); color:white; font-weight:700; font-size:13px; padding:10px 16px !important; border:none; letter-spacing:.5px; }
             .crm-section-header td .section-icon { margin-right:8px; }
@@ -465,51 +460,7 @@ function _crmFilterByCat(cat) {
     _crmRenderFilteredTable();
 }
 
-function _crmUpdateDateFilterCounts() {
-    const cat = _crmActiveCat;
-    if (cat !== 'cho_xu_ly' && cat !== 'huy_khach' && cat !== 'xu_ly_tre') return;
-    const catCustomers = _crmAllCustomers.filter(c => _crmGetCategory(c, _crmAllStats) === cat);
 
-    function getDateField(c) {
-        if (cat === 'cho_xu_ly' || cat === 'xu_ly_tre') return c.appointment_date;
-        return c.cancel_approved_at || c.created_at;
-    }
-
-    const monthYearCounts = {};
-    const yearCounts = {};
-    catCustomers.forEach(c => {
-        const df = getDateField(c);
-        if (!df) return;
-        const d = new Date(df);
-        const m = d.getMonth() + 1;
-        const y = d.getFullYear();
-        monthYearCounts[m + '_' + y] = (monthYearCounts[m + '_' + y] || 0) + 1;
-        yearCounts[y] = (yearCounts[y] || 0) + 1;
-    });
-
-    const monthSel = document.getElementById('crmDateMonth');
-    const yearSel = document.getElementById('crmDateYear');
-    if (!monthSel || !yearSel) return;
-    const selYear = yearSel.value ? parseInt(yearSel.value) : new Date().getFullYear();
-
-    // Calculate total for 'Tất Cả' options
-    const totalCat = catCustomers.length;
-    let totalInYear = 0;
-
-    for (const opt of monthSel.options) {
-        if (!opt.value) { opt.textContent = 'Tất Cả' + (totalCat > 0 ? ' (' + totalCat + ')' : ''); continue; }
-        const m = parseInt(opt.value);
-        const cnt = monthYearCounts[m + '_' + selYear] || 0;
-        opt.textContent = 'Tháng ' + m + (cnt > 0 ? ' (' + cnt + ')' : '');
-        totalInYear += cnt;
-    }
-    for (const opt of yearSel.options) {
-        if (!opt.value) { opt.textContent = 'Tất Cả'; continue; }
-        const y = parseInt(opt.value);
-        const cnt = yearCounts[y] || 0;
-        opt.textContent = y + (cnt > 0 ? ' (' + cnt + ')' : '');
-    }
-}
 
 
 function _crmGetCategory(c, stats) {
