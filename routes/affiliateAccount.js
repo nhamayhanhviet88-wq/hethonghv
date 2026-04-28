@@ -186,6 +186,11 @@ async function affiliateAccountRoutes(fastify, options) {
         if (!accReq) return reply.code(404).send({ error: 'Không tìm thấy yêu cầu' });
         if (accReq.status !== 'pending') return reply.code(400).send({ error: 'Yêu cầu đã được xử lý' });
 
+        // ★ Chặn self-approve: không tự duyệt yêu cầu do chính mình tạo (trừ GĐ)
+        if (accReq.requested_by === user.id && user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu do chính mình tạo. Chỉ Giám Đốc hoặc cấp trên mới duyệt được.' });
+        }
+
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [accReq.customer_id]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
@@ -278,6 +283,11 @@ async function affiliateAccountRoutes(fastify, options) {
         const accReq = await db.get('SELECT * FROM affiliate_account_requests WHERE id = ?', [reqId]);
         if (!accReq) return reply.code(404).send({ error: 'Không tìm thấy yêu cầu' });
         if (accReq.status !== 'pending') return reply.code(400).send({ error: 'Yêu cầu đã được xử lý' });
+
+        // ★ Chặn self-reject: không tự từ chối yêu cầu do chính mình tạo (trừ GĐ)
+        if (accReq.requested_by === user.id && user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Không thể tự xử lý yêu cầu do chính mình tạo.' });
+        }
 
         const customer = await db.get('SELECT customer_name, phone FROM customers WHERE id = ?', [accReq.customer_id]);
 
