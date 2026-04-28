@@ -1,4 +1,4 @@
-// ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
+﻿// ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 function _tpLinkify(t) { return t ? String(t).replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()">$1</a>') : ''; }
 let _tpTasks = [];
@@ -98,7 +98,9 @@ function _tpBuildDeptListHtml() {
             const sttLabel = !isChild
                 ? `<span style="color:#0f172a;font-size:12px;font-weight:900;margin-right:5px;background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:4px;">${parentStt}.</span>`
                 : `<span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${++childStt}.</span>`;
-            html += `<div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}</div><div id="tpMemberWrap_${d.id}" style="display:none;"></div>`;
+            // ★ Parent depts with sub-teams: always show member wrap (for direct managers like quanly1)
+            const hasSubTeams = subTeams.length > 0;
+            html += `<div class="tp-dept-item tp-dept-header" data-id="${d.id}" data-key="team-${d.id}" data-type="team" onclick="_tpSelectDept(${d.id})" style="display:flex;align-items:center;gap:6px;padding:${isChild ? '7px 14px 7px 28px' : '10px 14px'};font-size:${isChild ? '11px' : '13px'};color:${isChild ? '#475569' : '#fff'};cursor:pointer;border-bottom:${isChild ? '1px solid #e2e8f0' : '2px solid #1e40af'};transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:${isChild ? '0.3px' : '0.5px'};background:${isChild ? 'linear-gradient(135deg,#f1f5f9,#e8eef5)' : 'linear-gradient(135deg,#1e3a5f,#2563eb)'};${!isChild ? 'margin-top:4px;box-shadow:0 2px 8px rgba(37,99,235,0.25);border-radius:6px;' : 'border-left:3px solid #93c5fd;'}">${sttLabel}${isChild ? '<span style="color:#94a3b8;">└</span> ' : '<span style="font-size:14px;">🏢</span> '}<span style="flex:1;">${d.name}</span>${!isChild ? '<span style="font-size:10px;opacity:0.7;">▶</span>' : ''}</div><div id="tpMemberWrap_${d.id}" style="display:${hasSubTeams ? 'block' : 'none'};"></div>`;
             subTeams.forEach(sub => {
                 childStt++;
                 html += `<div class="tp-dept-item tp-dept-header" data-id="${sub.id}" data-key="team-${sub.id}" data-type="team" onclick="_tpSelectDept(${sub.id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px 7px 28px;font-size:11px;color:#475569;cursor:pointer;border-bottom:1px solid #e2e8f0;transition:all .2s;font-weight:900;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(135deg,#f1f5f9,#e8eef5);border-left:3px solid #93c5fd;"><span style="color:#1e3a5f;font-size:11px;font-weight:800;margin-right:3px;">${childStt}.</span><span style="color:#94a3b8;">└</span> <span style="flex:1;">${sub.name}</span></div><div id="tpMemberWrap_${sub.id}" style="display:none;"></div>`;
@@ -215,8 +217,11 @@ async function renderBanGiaoDiemPage(container) {
 
     // Auto-select (restore from localStorage or default to first dept)
     if (activeDepts.length > 0) {
-        // Load members for ALL active depts in parallel instead of sequential
-        await Promise.all(activeDepts.map(dept => _tpLoadDeptMembers(dept.id)));
+        // Load members for ALL active depts + parent depts with active sub-teams
+        const _tpParentIdsToLoad = new Set();
+        activeDepts.forEach(d => { const obj = _tpAllDepts.find(x => x.id === d.id); if (obj && obj.parent_id) { const p = _tpAllDepts.find(x => x.id === obj.parent_id); if (p && !p.name.startsWith('HỆ THỐNG') && !activeDepts.some(ad => ad.id === p.id)) _tpParentIdsToLoad.add(p.id); } });
+        const _tpAllIdsToLoad = [...activeDepts.map(d => d.id), ..._tpParentIdsToLoad];
+        await Promise.all(_tpAllIdsToLoad.map(id => _tpLoadDeptMembers(id)));
         const saved = _tpAutoUserId ? { type: 'member', userId: _tpAutoUserId } : _tpGetSavedSelection();
         if (saved && saved.type === 'member' && saved.userId) {
             // Find which dept this member belongs to

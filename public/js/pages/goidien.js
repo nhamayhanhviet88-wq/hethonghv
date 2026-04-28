@@ -79,9 +79,7 @@ async function renderGoiDienPage(container) {
                         <h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">📞 Gọi Điện Telesale</h4>
                         ${currentUser.role === 'giam_doc' ? `<button class="ts-btn ts-btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="_gd_openSettings()">⚙️ Cài đặt</button>` : ''}
                     </div>
-                    <select id="gdDeptFilter" class="ts-select" style="width:100%;margin-bottom:8px;padding:8px 10px;" onchange="_gd_sidebarDeptFilter=this.value;_gd_renderSidebar()">
-                        <option value="">📁 Tất cả phòng ban</option>
-                    </select>
+
                 </div>
                 <div id="gdSidebarList" class="ts-scroll" style="flex:1;overflow:auto;padding:8px;"></div>
             </div>`;
@@ -125,19 +123,7 @@ async function renderGoiDienPage(container) {
     _gd_visibleUserIds = new Set((visRes.user_ids || []).map(Number));
     console.log('[GD Debug] visibleIds=', [..._gd_visibleUserIds], 'memberIds=', [..._gd_memberIds]);
 
-    // Populate dept filter (chỉ khi có sidebar)
-    if (!_isNhanVien) {
-        const deptSelect = document.getElementById('gdDeptFilter');
-        if (deptSelect) {
-            const _gdMgrRolesInit = ['quan_ly_cap_cao', 'quan_ly'];
-            const deptsWithMembers = _gd_allDepts.filter(d => _gd_allUsers.some(u => u.department_id === d.id && (_gd_memberIds.has(u.id) || (_gdMgrRolesInit.includes(u.role) && !d.parent_id))));
-            deptsWithMembers.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.id; opt.textContent = d.name;
-                deptSelect.appendChild(opt);
-            });
-        }
-    }
+    // Dept filter dropdown removed — sidebar now shows only PHÒNG KINH DOANH tree
 
     // Handle URL params: ?sel_user=ID&sel_date=YYYY-MM-DD (from "Xem báo cáo" in schedule)
     const _gdUrlParams = new URLSearchParams(window.location.search);
@@ -347,15 +333,14 @@ function _gd_renderSidebar() {
     </div>`;
 
     // Filter members by active status and dept filter
-    // ★ Also include managers (QL/QLCC) in parent depts — they're supervisors, not active callers
-    const _gdParentDeptIds = new Set(_gd_allDepts.filter(d => !d.parent_id).map(d => d.id));
+    // ★ Only include users from PHÒNG KINH DOANH tree (dept_id=1 or parent_id=1)
+    const _gdKDDeptIds = new Set([1, ..._gd_allDepts.filter(d => d.parent_id === 1).map(d => d.id)]);
     const _gdMgrRoles = ['quan_ly_cap_cao', 'quan_ly'];
     let filtered = _gd_allUsers.filter(u => {
-        const isParentDeptManager = _gdMgrRoles.includes(u.role) && _gdParentDeptIds.has(u.department_id);
+        if (!_gdKDDeptIds.has(u.department_id)) return false; // Only KD tree
+        const isParentDeptManager = _gdMgrRoles.includes(u.role) && u.department_id === 1;
         if (!_gd_memberIds.has(u.id) && !isParentDeptManager) return false;
-        // Role-based visibility: if visibleUserIds loaded, apply filter; else show all (backend enforces security)
         if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager) return false;
-        if (_gd_sidebarDeptFilter && String(u.department_id) !== _gd_sidebarDeptFilter) return false;
         return true;
     });
 
@@ -364,8 +349,8 @@ function _gd_renderSidebar() {
         return;
     }
 
-    // For managers: group by dept hierarchy
-    if (isMgr && !_gd_sidebarDeptFilter) {
+    // For managers: group by dept hierarchy (PHÒNG KINH DOANH only)
+    if (isMgr) {
         const deptMap = {}; _gd_allDepts.forEach(d => { deptMap[d.id] = d; });
 
         // Build tree: find the top-level parent for each user's dept
@@ -410,7 +395,8 @@ function _gd_renderSidebar() {
         });
 
         let html = '';
-        Object.entries(groups).forEach(([pId, pData]) => {
+        // ★ Only show PHÒNG KINH DOANH tree (id=1), skip other depts
+        Object.entries(groups).filter(([pId]) => String(pId) === '1').forEach(([pId, pData]) => {
             html += `<div style="margin-bottom:8px;">
                 <div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
                     <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span>
