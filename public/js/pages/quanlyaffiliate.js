@@ -13,6 +13,7 @@ let _affAssignEmpId = null;
 let _affSelectedAffId = null;
 let _affExpandedDepts = {};
 let _affExpandedEmps = {};
+let _affScopeFilter = null; // { allowedDeptIds: Set, allowedEmpIds: Set|null }
 let _affDateFrom = '';
 let _affDateTo = '';
 let _affActivePreset = '';
@@ -235,36 +236,52 @@ function _affAutoPopulateDepts() {
     if (!currentUser || !_affData.departments) return;
     const role = currentUser.role;
     const depts = _affData.departments;
+    _affScopeFilter = null; // reset
+
+    // Helper: get all child dept IDs recursively
+    function getAllChildIds(parentId) {
+        const ids = [parentId];
+        depts.filter(d => d.parent_id === parentId).forEach(d => ids.push(...getAllChildIds(d.id)));
+        return ids;
+    }
+    // Helper: find root dept
+    function findRoot(deptId) {
+        let rid = deptId;
+        let cur = depts.find(d => d.id === deptId);
+        while (cur && cur.parent_id) { rid = cur.parent_id; cur = depts.find(d => d.id === cur.parent_id); }
+        return rid;
+    }
 
     if (role === 'giam_doc') {
-        // GĐ: use localStorage (manual control), auto-add all roots if empty
         if (_affVisibleDepts.length === 0) {
             _affVisibleDepts = depts.filter(d => !d.parent_id).map(d => d.id);
             localStorage.setItem('aff_visible_depts', JSON.stringify(_affVisibleDepts));
         }
-        return;
+        return; // no scope filter
     }
 
-    // Non-GĐ: always auto-populate from hierarchy (ignore localStorage)
     const myDeptId = currentUser.department_id;
-    if (!myDeptId) {
-        // No department — show nothing
-        _affVisibleDepts = [];
-        return;
-    }
+    if (!myDeptId) { _affVisibleDepts = []; return; }
 
-    if (['quan_ly_cap_cao'].includes(role)) {
-        // QLCC: show all root departments
-        _affVisibleDepts = depts.filter(d => !d.parent_id).map(d => d.id);
+    const rootId = findRoot(myDeptId);
+    _affVisibleDepts = [rootId];
+
+    if (role === 'quan_ly_cap_cao') {
+        // QLCC: see their root system + all children
+        _affScopeFilter = { allowedDeptIds: new Set(getAllChildIds(rootId)), allowedEmpIds: null };
+    } else if (role === 'quan_ly') {
+        // QL: see depts they head + children
+        const allowed = new Set();
+        const headDepts = depts.filter(d => d.head_user_id === currentUser.id);
+        headDepts.forEach(d => getAllChildIds(d.id).forEach(id => allowed.add(id)));
+        getAllChildIds(myDeptId).forEach(id => allowed.add(id));
+        _affScopeFilter = { allowedDeptIds: allowed, allowedEmpIds: null };
+    } else if (role === 'truong_phong') {
+        // TP: see only their team (dept + children)
+        _affScopeFilter = { allowedDeptIds: new Set(getAllChildIds(myDeptId)), allowedEmpIds: null };
     } else {
-        // QL/TP/NV: find root department in their chain
-        let rootId = myDeptId;
-        let current = depts.find(d => d.id === myDeptId);
-        while (current && current.parent_id) {
-            rootId = current.parent_id;
-            current = depts.find(d => d.id === current.parent_id);
-        }
-        _affVisibleDepts = [rootId];
+        // NV: see only themselves
+        _affScopeFilter = { allowedDeptIds: new Set([myDeptId]), allowedEmpIds: new Set([currentUser.id]) };
     }
 }
 
@@ -443,9 +460,23 @@ function affRenderTree() {
     }
 
     let html = '';
-    const empsOf = deptId => employees.filter(e => e.department_id === deptId);
+    // Scope-aware helpers
+    function deptIsInScope(deptId) {
+        if (!_affScopeFilter || !_affScopeFilter.allowedDeptIds) return true;
+        if (_affScopeFilter.allowedDeptIds.has(deptId)) return true;
+        // Check if any descendant is in scope
+        return departments.filter(d => d.parent_id === deptId).some(d => deptIsInScope(d.id));
+    }
+    const empsOf = deptId => {
+        let emps = employees.filter(e => e.department_id === deptId);
+        if (_affScopeFilter) {
+            if (_affScopeFilter.allowedDeptIds && !_affScopeFilter.allowedDeptIds.has(deptId)) return [];
+            if (_affScopeFilter.allowedEmpIds) emps = emps.filter(e => _affScopeFilter.allowedEmpIds.has(e.id));
+        }
+        return emps;
+    };
     const affsOf = empId => affiliates.filter(a => a.managed_by_user_id === empId);
-    const childrenOf = pid => departments.filter(d => d.parent_id === pid && !_affHiddenChildDepts.includes(d.id));
+    const childrenOf = pid => departments.filter(d => d.parent_id === pid && !_affHiddenChildDepts.includes(d.id) && deptIsInScope(d.id));
 
     // Recursively get all affiliates under a dept (its employees + child dept employees)
     function getAllDeptAffs(deptId) {
@@ -487,14 +518,16 @@ function affRenderTree() {
             <div class="dept-stats">
                 <span style="background:#dbeafe;color:#1e40af;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">👥 ${totalEmpCount} NV</span>
                 <span style="background:#fef3c7;color:#92400e;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">💰 ${affFormatMoney(deptRevenue)}</span>
-                ${_affVisibleDepts.includes(dept.id) ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affRemoveDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Xóa đơn vị">🗑️ Xóa</button>` : (!isRoot ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affHideChildDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Ẩn phòng ban">🗑️ Xóa</button>` : '')}
+                ${currentUser.role === 'giam_doc' ? (_affVisibleDepts.includes(dept.id) ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affRemoveDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Xóa đơn vị">🗑️ Xóa</button>` : (!isRoot ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affHideChildDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Ẩn phòng ban">🗑️ Xóa</button>` : '')) : ''}
             </div>
         </div>`;
 
         if (isExpanded) {
             // Render head user FIRST (directly under department)
             const headId = dept.head_user_id;
-            const headEmp = headId ? (allEmps.find(e => e.id === headId) || employees.find(e => e.id === headId)) : null;
+            let headEmp = headId ? (allEmps.find(e => e.id === headId) || employees.find(e => e.id === headId)) : null;
+            // Scope filter: hide head if not in allowed employees
+            if (headEmp && _affScopeFilter && _affScopeFilter.allowedEmpIds && !_affScopeFilter.allowedEmpIds.has(headEmp.id)) headEmp = null;
             if (headEmp) {
                 const headAffs = affsOf(headEmp.id);
                 const headRevenue = headAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
