@@ -1637,4 +1637,59 @@ select.form-control {
     .crm-nhucau-table td {
         padding: 4px 3px !important;
     }
+
+    /* --- 14. NON-ID SIDEBARS (LKB, Bàn Giao, Lịch Sử BC) --- */
+    /* These sidebars use inline width:230/250px with no ID */
+    .content-area div[style*="width:230px"][style*="min-width:230px"],
+    .content-area div[style*="width:250px"][style*="min-width:250px"],
+    .content-area div[style*="min-width:230px"][style*="max-width:240px"],
+    .content-area div[style*="min-width:230px"][style*="max-width:250px"] {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        max-height: 200px !important;
+        overflow-y: auto !important;
+    }
+
+    /* --- 15. FLEX LAYOUTS with gap:16px (LKB main, BG containers) --- */
+    .content-area > div > div[style*="display:flex"][style*="gap:16px"][style*="align-items"] {
+        flex-direction: column !important;
+    }
+
+    /* --- 16. STAT GRIDS: 4 cols → 2 cols on mobile --- */
+    .content-area div[style*="grid-template-columns:repeat(4"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    #kbStatsBar {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    /* --- 17. WIDER CONTAINERS: max-width → 100% --- */
+    .content-area div[style*="max-width:1500px"],
+    .content-area div[style*="max-width:1400px"],
+    .content-area div[style*="max-width:1200px"] {
+        max-width: 100% !important;
+        padding: 8px !important;
+    }
+
+    /* --- 18. WEEK NAV + HEADER BUTTONS: wrap --- */
+    .content-area div[style*="display:flex"][style*="justify-content:space-between"][style*="margin-bottom"] {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    /* --- 19. TELESALE stat cards: 3 → 2 cols --- */
+    .ts-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* --- 20. SCHEDULE table: ensure scroll --- */
+    #kbGridWrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    #kbGridWrap table {
+        min-width: 800px;
+    }
 }
