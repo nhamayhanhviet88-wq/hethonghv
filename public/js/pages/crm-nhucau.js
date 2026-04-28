@@ -2052,7 +2052,7 @@ async function openConsultHistory(customerId) {
                 <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span></div>
                 <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
                 <div><strong>Khách hàng:</strong> ${c.customer_name}</div>
-                <div><strong>SĐT:</strong> <a href="tel:${c.phone}">${c.phone}</a></div>
+                <div><strong>SĐT:</strong> ${c.readonly ? '<span style="color:var(--gray-400)">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '">' + c.phone + '</a>'}</div>
                 <div><strong>Nguồn:</strong> ${c.source_name || '—'}</div>
                 <div><strong>Ngày bàn giao:</strong> ${formatDate(c.handover_date)}</div>
                 <div><strong>Địa chỉ:</strong> ${c.address || '—'}</div>
@@ -2422,7 +2422,7 @@ async function openCustomerDetail(customerId) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📞 SĐT</div>
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;"><a href="tel:${c.phone}" style="color:#3b82f6;text-decoration:none;">${c.phone}</a></div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🏠 Địa chỉ</div>
@@ -2588,7 +2588,7 @@ async function openAffiliateDetail(userId) {
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📞 Số điện thoại</div>
-                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.phone || '—'}</div>
+                                <div style="font-size:14px;font-weight:600;color:#1e293b;">${(u.phone && u.phone.includes('*')) ? '<span style="color:#94a3b8">' + u.phone + '</span>' : (u.phone || '—')}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🔐 Tên tài khoản</div>

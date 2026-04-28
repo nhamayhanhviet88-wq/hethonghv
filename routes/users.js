@@ -4,6 +4,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
 const { runTelesalePumpForUser } = require('./telesale');
 const { sendTelegramMessage } = require('../utils/telegram');
+const { maskPhone } = require('../utils/dataMasking');
 const path = require('path');
 const fs = require('fs');
 
@@ -95,6 +96,16 @@ async function usersRoutes(fastify, options) {
             return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
         }
         delete user.password_hash;
+
+        // Mask phone for QL/TP viewing affiliate/subordinate users not directly managed by them
+        const requester = request.user;
+        const AFFILIATE_USER_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+        if (['quan_ly', 'truong_phong'].includes(requester.role)) {
+            if (AFFILIATE_USER_ROLES.includes(user.role) && user.managed_by_user_id !== requester.id) {
+                user.phone = maskPhone(user.phone);
+            }
+        }
+
         return { user };
     });
 
