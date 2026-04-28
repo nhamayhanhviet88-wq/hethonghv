@@ -73,12 +73,8 @@ function _crmRenderSidebar() {
 
     if (kdUsers.length === 0) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV trong Phòng KD</div>'; return; }
 
-    // Role priority for sorting (lower = higher priority)
-    const rolePriority = { quan_ly_cap_cao: 0, quan_ly: 1, truong_phong: 2, nhan_vien: 3, thu_viec: 4, part_time: 5 };
-    const getRolePrio = (r) => rolePriority[r] !== undefined ? rolePriority[r] : 6;
-
     // Separate: users directly in PHÒNG KINH DOANH vs users in child teams
-    const directUsers = kdUsers.filter(u => u.department_id === kdDept.id).sort((a,b) => getRolePrio(a.role) - getRolePrio(b.role));
+    const directUsers = _sidebarSortMembers(kdUsers.filter(u => u.department_id === kdDept.id));
     const childTeams = _crmSidebarDepts.filter(d => d.parent_id === kdDept.id).sort((a,b) => (a.display_order||0) - (b.display_order||0) || a.name.localeCompare(b.name));
 
     let html = '';
@@ -91,7 +87,7 @@ function _crmRenderSidebar() {
 
     // Child teams (TEAM CÁT CÁNH, TEAM XÃ HỘI, etc.)
     childTeams.forEach(team => {
-        const teamUsers = kdUsers.filter(u => u.department_id === team.id).sort((a,b) => getRolePrio(a.role) - getRolePrio(b.role));
+        const teamUsers = _sidebarSortMembers(kdUsers.filter(u => u.department_id === team.id));
         if (teamUsers.length === 0) return;
         html += `<div style="padding:3px 8px 3px 8px;margin:6px 0 2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${team.name}</span></div>`;
         teamUsers.forEach(u => { html += _crmRenderSidebarUser(u, 16); });
@@ -105,9 +101,8 @@ function _crmRenderSidebarUser(u, indent) {
     const c = _crmAvatarColor(u.full_name || u.username);
     const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d.name; });
     const dName = deptMap[u.department_id] || '';
-    // Role badge
-    const isLead = ['quan_ly','quan_ly_cap_cao','truong_phong'].includes(u.role);
-    const roleBadge = isLead ? `<span style="font-size:8px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;${u.role.startsWith('quan_ly')?'background:#fef3c7;color:#92400e;':'background:#dbeafe;color:#1e40af;'}">${u.role.startsWith('quan_ly')?'QL':'TP'}</span>` : '';
+    // Role badge (shared utility)
+    const roleBadge = _sidebarRoleBadge(u.role);
     return `<div onclick="_crmSelectSidebarUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\\\'")}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
         <span style="background:${active?'rgba(255,255,255,0.2)':c};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${_crmInitials(u.full_name || u.username)}</span>
         <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}${roleBadge}</div><div style="font-size:9px;opacity:0.6;">${dName}</div></div>

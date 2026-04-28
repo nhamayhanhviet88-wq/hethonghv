@@ -87,14 +87,14 @@ function _zlRenderSidebar() {
                 background:${isDeptSel ? _ZL_GRAD : '#f1f5f9'};color:${isDeptSel ? 'white' : '#334155'};transition:all .2s;border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">
                 🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${memberCount})</span>
             </div>`;
-        (d.members||[]).forEach(m => {
+        _sidebarSortMembers(d.members||[]).forEach(m => {
             const isSel = _zlViewUserId == m.id;
             const initials = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
             h += `<div onclick="_zlSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;
                 background:${isSel ? _ZL_GRAD : 'transparent'};color:${isSel ? 'white' : '#475569'};transition:all .15s;"
                 onmouseover="if(!${isSel})this.style.background='#e0f2fe'" onmouseout="if(!${isSel})this.style.background='transparent'">
                 <div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};flex-shrink:0;">${initials}</div>
-                <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span>
+                <span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${m.full_name}${_sidebarRoleBadge(m.role)}</span>
             </div>`;
         });
         h += '</div>';
@@ -918,10 +918,10 @@ function _zpRenderSidebar() {
     (_zpCachedDepts||[]).forEach(d => {
         const isDeptSel = _zpCurDept==d.id && !_zpCurUser;
         h += `<div style="margin-bottom:6px;"><div onclick="_zpSelDept(${d.id})" style="padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:${isDeptSel?_ZP_GRAD:'#f1f5f9'};color:${isDeptSel?'white':'#334155'};border:1px solid ${isDeptSel?'transparent':'#e2e8f0'};">🏢 ${d.name} <span style="font-size:10px;opacity:0.6;">(${d.members?.length||0})</span></div>`;
-        (d.members||[]).forEach(m => {
+        _sidebarSortMembers(d.members||[]).forEach(m => {
             const isSel = _zpCurUser == m.id;
             const ini = (m.full_name||'').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;background:${isSel?_ZP_GRAD:'transparent'};color:${isSel?'white':'#475569'};" onmouseover="if(!${isSel})this.style.background='#eef2ff'" onmouseout="if(!${isSel})this.style.background='transparent'"><div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};">${ini}</div><span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.full_name}</span></div>`;
+            h += `<div onclick="_zpSelUser(${m.id})" style="padding:6px 10px 6px 22px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;margin:2px 0;background:${isSel?_ZP_GRAD:'transparent'};color:${isSel?'white':'#475569'};" onmouseover="if(!${isSel})this.style.background='#eef2ff'" onmouseout="if(!${isSel})this.style.background='transparent'"><div style="width:24px;height:24px;border-radius:50%;background:${isSel?'rgba(255,255,255,0.25)':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:${isSel?'white':'#64748b'};">${ini}</div><span style="font-size:12px;font-weight:${isSel?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${m.full_name}${_sidebarRoleBadge(m.role)}</span></div>`;
         }); h += '</div>';
     }); sb.innerHTML = h;
 }

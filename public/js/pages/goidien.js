@@ -416,7 +416,7 @@ function _gd_renderSidebar() {
                         <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length === 0 ? ' <span style="color:#9ca3af;font-size:9px;">(trống)</span>' : ''}</span>
                     </div>`;
                 }
-                cData.users.forEach(u => {
+                _sidebarSortMembers(cData.users).forEach(u => {
                     html += _gd_renderUserCard(u, cData.name ? 24 : 12);
                 });
             });
@@ -425,7 +425,7 @@ function _gd_renderSidebar() {
         list.innerHTML = topBtn + html;
     } else {
         // Flat list (TP/NV self-only, or dept filter active)
-        list.innerHTML = topBtn + filtered.map(u => _gd_renderUserCard(u, 0)).join('');
+        list.innerHTML = topBtn + _sidebarSortMembers(filtered).map(u => _gd_renderUserCard(u, 0)).join('');
     }
 }
 
@@ -439,7 +439,7 @@ function _gd_renderUserCard(u, indent) {
         ${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
         <span class="ts-avatar" style="background:${active?'rgba(255,255,255,0.2)':c};width:32px;height:32px;font-size:12px;">${_gd_initials(u.full_name || u.username)}</span>
         <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name || u.username}${_gd_overrideUserIds.has(u.id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:7px;padding:1px 4px;border-radius:3px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
+            <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name || u.username}${_sidebarRoleBadge(u.role)}${_gd_overrideUserIds.has(u.id) ? '<span title="Đã tùy chỉnh công việc" style="display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:7px;padding:1px 4px;border-radius:3px;font-weight:800;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(217,119,6,0.3);">✏️ TC</span>' : ''}</div>
             <div style="font-size:9px;opacity:0.6;">${dName}</div>
         </div>
     </div>`;
