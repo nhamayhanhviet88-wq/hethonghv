@@ -2,6 +2,7 @@ const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
+const { maskCustomerData } = require('../utils/dataMasking');
 
 const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
@@ -28,10 +29,7 @@ async function customersRoutes(fastify, options) {
         return [...allIds];
     }
 
-    function maskPhone(phone) {
-        if (!phone || phone.length < 5) return phone;
-        return phone.substring(0, 3) + '*'.repeat(phone.length - 5) + phone.substring(phone.length - 2);
-    }
+    // maskPhone moved to utils/dataMasking.js — use maskCustomerData() instead
 
     fastify.get('/api/managed-staff', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
@@ -233,21 +231,16 @@ async function customersRoutes(fastify, options) {
         if (user.role === 'quan_ly' || user.role === 'truong_phong') {
             for (const c of customers) {
                 if (c.assigned_to_id !== user.id) {
-                    c.readonly = true;
-                    c.phone = maskPhone(c.phone);
-                    c.referrer_customer_phone = maskPhone(c.referrer_customer_phone);
+                    maskCustomerData(c);
                 }
             }
         }
 
-        // Mask phone/address for affiliate roles viewing non-direct referrals
+        // Mask phone/link/address for affiliate roles viewing non-direct referrals
         if (AFFILIATE_ROLES.includes(user.role)) {
             for (const c of customers) {
                 if (c.referrer_id !== user.id) {
-                    c.readonly = true;
-                    c.phone = maskPhone(c.phone);
-                    c.address = null;
-                    c.referrer_customer_phone = maskPhone(c.referrer_customer_phone);
+                    maskCustomerData(c, { maskAddress: true });
                 }
             }
         }
@@ -277,15 +270,12 @@ async function customersRoutes(fastify, options) {
 
         const user = request.user;
         if ((user.role === 'quan_ly' || user.role === 'truong_phong') && customer.assigned_to_id !== user.id) {
-            customer.readonly = true;
-            customer.phone = maskPhone(customer.phone);
+            maskCustomerData(customer);
         }
 
-        // Mask phone/address for affiliate roles viewing non-direct referrals
+        // Mask phone/link/address for affiliate roles viewing non-direct referrals
         if (AFFILIATE_ROLES.includes(user.role) && customer.referrer_id !== user.id) {
-            customer.readonly = true;
-            customer.phone = maskPhone(customer.phone);
-            customer.address = null;
+            maskCustomerData(customer, { maskAddress: true });
         }
 
         const activeOrder = await db.get('SELECT id FROM order_codes WHERE customer_id = ? AND status = \'active\' ORDER BY id DESC LIMIT 1', [Number(request.params.id)]);

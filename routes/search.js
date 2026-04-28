@@ -1,5 +1,6 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
+const { maskCustomerData } = require('../utils/dataMasking');
 
 async function searchRoutes(fastify, options) {
 
@@ -36,6 +37,15 @@ async function searchRoutes(fastify, options) {
         crmQuery += ` ORDER BY c.created_at DESC LIMIT 50`;
         const crm = await db.all(crmQuery, crmParams);
 
+        // Mask sensitive data for QL/TP viewing subordinate customers
+        if (['quan_ly', 'truong_phong'].includes(role)) {
+            for (const c of crm) {
+                if (c.assigned_to_id !== userId) {
+                    maskCustomerData(c);
+                }
+            }
+        }
+
         // ========== 2. Telesale ==========
         let telQuery = `
             SELECT td.id, td.customer_name, td.company_name, td.phone, td.fb_link, td.address,
@@ -70,6 +80,15 @@ async function searchRoutes(fastify, options) {
         }
         ordQuery += ` ORDER BY oc.created_at DESC LIMIT 50`;
         const orders = await db.all(ordQuery, ordParams);
+
+        // Mask phone in order results for QL/TP
+        if (['quan_ly', 'truong_phong'].includes(role)) {
+            for (const o of orders) {
+                if (o.user_id !== userId) {
+                    maskCustomerData(o);
+                }
+            }
+        }
 
         // ========== 4. Add/Cmt Entries ==========
         let addQuery = `
