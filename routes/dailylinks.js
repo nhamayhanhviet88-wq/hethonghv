@@ -1,5 +1,6 @@
 // ========== DAILY LINKS — UNIFIED MODULE ==========
 // Handles: Add/Cmt, Đăng Video, Đăng Content, Đăng Group, Sedding, Tuyển Dụng
+const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
 module.exports = async function (fastify) {
     const db = require('../db/pool');
     const { authenticate } = require('../middleware/auth');
@@ -84,7 +85,7 @@ module.exports = async function (fastify) {
             pi += allDeptIds.length;
         }
         else if (!['giam_doc', 'quan_ly_cap_cao'].includes(role)) {
-            const dIds = await _getDeptIds(req.user);
+            const dIds = await getManagedDeptIds(db, req.user.id);
             if (dIds.length > 0) { const ph = dIds.map((_, i) => `$${pi + i}`).join(','); where += ` AND u.department_id IN (${ph})`; params.push(...dIds); pi += dIds.length; }
             else { where += ` AND e.user_id = $${pi}`; params.push(req.user.id); pi++; }
         }
@@ -618,7 +619,7 @@ module.exports = async function (fastify) {
         if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
             members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.status='active' AND u.department_id IN (${kdPh}) ORDER BY d.display_order, d.id, u.full_name`, kdDeptIds);
         } else if (['quan_ly', 'truong_phong'].includes(role)) {
-            const dIds = await _getDeptIds(req.user);
+            const dIds = await getManagedDeptIds(db, req.user.id);
             const filtered = dIds.filter(id => kdDeptIds.includes(id));
             if (filtered.length > 0) { const ph = filtered.map((_, i) => `$${i + 1}`).join(','); members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name, d.display_order FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.department_id IN (${ph}) AND u.status='active' ORDER BY d.display_order, d.id, u.full_name`, filtered); }
         } else {
@@ -854,12 +855,7 @@ module.exports = async function (fastify) {
         return { dates: missingDates };
     });
 
-    async function _getDeptIds(user) {
-        const a = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
-        const s = new Set(a.map(x => x.department_id));
-        if (user.department_id) s.add(user.department_id);
-        return [...s];
-    }
+    // _getDeptIds removed — now using centralized getManagedDeptIds from utils/
 
     // ========== COMMUNITY PAGES — Trang cộng đồng gợi ý cho Sedding ==========
     await db.exec(`

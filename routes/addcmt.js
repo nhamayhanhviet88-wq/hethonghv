@@ -1,6 +1,7 @@
 // ========== ADD/CMT ĐỐI TÁC KH — BACKEND ==========
 const path = require('path');
 const fs = require('fs');
+const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
 
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -53,7 +54,7 @@ module.exports = async function (fastify) {
             pi += allDeptIds.length;
         }
         else if (!['giam_doc','quan_ly_cap_cao'].includes(role)) {
-            const dIds = await _getDeptIds(req.user);
+            const dIds = await getManagedDeptIds(db, req.user.id);
             if (dIds.length > 0) { const ph = dIds.map((_,i)=>`$${pi+i}`).join(','); where += ` AND u.department_id IN (${ph})`; params.push(...dIds); pi += dIds.length; }
             else { where += ` AND e.user_id = $${pi}`; params.push(req.user.id); pi++; }
         }
@@ -169,7 +170,7 @@ module.exports = async function (fastify) {
         if (role === 'giam_doc' || role === 'quan_ly_cap_cao') {
             members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.status='active' AND u.role NOT IN ('giam_doc','hoa_hong','tkaffiliate') ORDER BY d.name, u.full_name`);
         } else if (['quan_ly','truong_phong'].includes(role)) {
-            const dIds = await _getDeptIds(req.user);
+            const dIds = await getManagedDeptIds(db, req.user.id);
             if (dIds.length > 0) { const ph = dIds.map((_,i)=>`$${i+1}`).join(','); members = await db.all(`SELECT u.id, u.full_name, u.role, u.username, d.id as dept_id, d.name as dept_name FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.department_id IN (${ph}) AND u.status='active' ORDER BY d.name, u.full_name`, dIds); }
         }
         const depts = {};
@@ -201,10 +202,5 @@ module.exports = async function (fastify) {
         };
     });
 
-    async function _getDeptIds(user) {
-        const a = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
-        const s = new Set(a.map(x => x.department_id));
-        if (user.department_id) s.add(user.department_id);
-        return [...s];
-    }
+    // _getDeptIds removed — now using centralized getManagedDeptIds from utils/
 };

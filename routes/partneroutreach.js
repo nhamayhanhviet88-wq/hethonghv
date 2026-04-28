@@ -1,6 +1,7 @@
 // ========== NHẮN TIN TÌM ĐỐI TÁC KH — BACKEND ==========
 const path = require('path');
 const fs = require('fs');
+const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
 
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -131,7 +132,7 @@ module.exports = async function (fastify) {
             paramIdx += allDeptIds.length;
         } else if (!['giam_doc', 'quan_ly_cap_cao'].includes(role)) {
             // QL/TP see their team
-            const deptIds = await _getManagedDeptIds(req.user);
+            const deptIds = await getManagedDeptIds(db, req.user.id);
             if (deptIds.length > 0) {
                 const ph = deptIds.map((_, i) => `$${paramIdx + i}`).join(',');
                 whereClause += ` AND u.department_id IN (${ph})`;
@@ -566,7 +567,7 @@ module.exports = async function (fastify) {
                 kdDeptIds
             );
         } else if (['quan_ly', 'truong_phong'].includes(role)) {
-            const deptIds = await _getManagedDeptIds(req.user);
+            const deptIds = await getManagedDeptIds(db, req.user.id);
             const filtered = deptIds.filter(id => kdDeptIds.includes(id));
             if (filtered.length > 0) {
                 const ph = filtered.map((_, i) => `$${i + 1}`).join(',');
@@ -622,10 +623,5 @@ module.exports = async function (fastify) {
     }
 
     // ===== HELPER: Get managed department IDs =====
-    async function _getManagedDeptIds(user) {
-        const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
-        const ids = new Set(assigned.map(a => a.department_id));
-        if (user.department_id) ids.add(user.department_id);
-        return [...ids];
-    }
+    // _getManagedDeptIds removed — now using centralized getManagedDeptIds from utils/
 };
