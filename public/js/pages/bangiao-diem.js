@@ -638,7 +638,7 @@ function _tpRenderGrid() {
     if (!wrap) return;
 
     // ★ Self-view: QL/TP xem chính mình → readonly (chỉ GĐ mới tự quản lý)
-    const _tpIsSelfView = _tpViewMode === 'individual' && _tpViewUserId === (window._currentUser?.id || window.currentUser?.id) && !_tpIsDirector;
+    const _tpIsSelfView = _tpViewMode === 'individual' && Number(_tpViewUserId) === currentUser.id && !_tpIsDirector;
     const effectiveReadonly = _tpIsReadonly || _tpIsSelfView;
 
     // Inject approval badge pulse animation (once)
