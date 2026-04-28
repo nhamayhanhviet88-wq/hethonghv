@@ -100,11 +100,13 @@ async function renderChapNhanCTVAffiliatePage(container) {
 
 var _cncaCurrentTab = 'pending';
 
-function _cncaSwitchTab(tab) {
+function _cncaSwitchTab(tab, keepStatFilter) {
     _cncaCurrentTab = tab;
-    _cncaActiveStatCard = '';
+    if (!keepStatFilter) {
+        _cncaActiveStatCard = '';
+        document.querySelectorAll('.cnca-stat-card').forEach(c => c.classList.remove('active'));
+    }
     document.querySelectorAll('.cnca-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    document.querySelectorAll('.cnca-stat-card').forEach(c => c.classList.remove('active'));
     // Show date filter only for history tab
     const dateBar = document.getElementById('cncaDateFilterBar');
     if (dateBar) {
@@ -745,12 +747,12 @@ function _cncaClickStat(key) {
     }
     // Highlight active card
     document.querySelectorAll('.cnca-stat-card').forEach(c => c.classList.toggle('active', c.dataset.card === _cncaActiveStatCard));
-    // Switch to appropriate tab
-    if (['aff_approved','aff_rejected'].includes(key) || (['aff_approved','aff_rejected'].includes(_cncaActiveStatCard))) {
-        if (_cncaCurrentTab !== 'affaccount') _cncaSwitchTab('affaccount');
+    // Switch to appropriate tab (keepStatFilter = true to prevent reset)
+    if (['aff_approved','aff_rejected'].includes(key)) {
+        if (_cncaCurrentTab !== 'affaccount') _cncaSwitchTab('affaccount', true);
         else _cncaLoadData();
     } else {
-        if (_cncaCurrentTab !== 'history') _cncaSwitchTab('history');
+        if (_cncaCurrentTab !== 'history') _cncaSwitchTab('history', true);
         else _cncaLoadData();
     }
 }
