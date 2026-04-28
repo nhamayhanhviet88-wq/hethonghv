@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📱 Chuyển Số — Đồng Phục HV</title>
+    <meta name="description" content="Chuyển số khách hàng nhanh trên điện thoại">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+        }
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #122546, #1e3a5f);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .m-header img { width: 36px; height: 36px; border-radius: 8px; }
+        .m-header h1 { font-size: 16px; font-weight: 800; color: #fbbf24; flex: 1; }
+        .m-header .m-user {
+            font-size: 11px; color: #93c5fd; font-weight: 600;
+            background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;
+        }
+
+        /* Toast */
+        .m-toast-container { position: fixed; top: 70px; left: 10px; right: 10px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+        .m-toast {
+            padding: 14px 18px; border-radius: 12px; color: white; font-size: 14px; font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: mSlideIn .3s ease;
+        }
+        .m-toast-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .m-toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @keyframes mSlideIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+
+        /* Content */
+        .m-content { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+        /* Form card */
+        .m-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .m-card-header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 16px 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .m-card-header h2 { font-size: 16px; font-weight: 800; color: white; }
+        .m-card-body { padding: 20px; }
+
+        /* Form */
+        .m-form-group { margin-bottom: 18px; }
+        .m-form-group label {
+            display: block; font-size: 13px; font-weight: 700;
+            color: #94a3b8; margin-bottom: 6px; letter-spacing: 0.3px;
+        }
+        .m-form-group label .req { color: #f87171; }
+        .m-input, .m-select, .m-textarea {
+            width: 100%; padding: 14px 16px; border: 2px solid rgba(255,255,255,0.12);
+            border-radius: 12px; font-size: 16px; font-family: 'Inter', sans-serif;
+            background: rgba(255,255,255,0.06); color: #e2e8f0;
+            transition: all 0.2s; appearance: none;
+            -webkit-appearance: none;
+        }
+        .m-input:focus, .m-select:focus, .m-textarea:focus {
+            outline: none; border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
+            background: rgba(255,255,255,0.08);
+        }
+        .m-input::placeholder, .m-textarea::placeholder { color: #64748b; }
+        .m-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px;
+        }
+        .m-select option { background: #1e293b; color: #e2e8f0; }
+        .m-textarea { resize: vertical; min-height: 80px; }
+        .m-input[disabled], .m-select[disabled] {
+            opacity: 0.5; cursor: not-allowed;
+            background: rgba(255,255,255,0.03);
+        }
+
+        /* Row 2-col on wider phones */
+        .m-row { display: grid; gap: 14px; grid-template-columns: 1fr; }
+        @media (min-width: 480px) { .m-row { grid-template-columns: 1fr 1fr; } }
+
+        /* Submit button */
+        .m-submit {
+            width: 100%; padding: 18px; border: none; border-radius: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white; font-size: 18px; font-weight: 800; font-family: 'Inter', sans-serif;
+            cursor: pointer; transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+            letter-spacing: 0.5px;
+        }
+        .m-submit:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(99,102,241,0.3); }
+        .m-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Hint text */
+        .m-hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+        /* Back link */
+        .m-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: #93c5fd; font-size: 13px; font-weight: 600;
+            text-decoration: none; margin-top: 16px; padding: 10px 16px;
+            background: rgba(255,255,255,0.05); border-radius: 10px;
+        }
+
+        /* Loading */
+        .m-loading {
+            text-align: center; padding: 60px 20px; color: #94a3b8;
+        }
+        .m-spinner {
+            width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #818cf8; border-radius: 50%;
+            animation: spin .6s linear infinite; display: inline-block; margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="m-header">
+        <img src="/images/logo.png" alt="Logo">
+        <h1>📱 CHUYỂN SỐ</h1>
+        <span class="m-user" id="mUserBadge">...</span>
+    </div>
+
+    <div class="m-toast-container" id="mToastContainer"></div>
+
+    <div class="m-content" id="mContent">
+        <div class="m-loading">
+            <div class="m-spinner"></div>
+            <div>Đang tải...</div>
+        </div>
+    </div>
+
+    <script>
+    // ===== Auth & API =====
+    let currentUser = null;
+
+    async function apiCall(url, method = 'GET', body = null) {
+        const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (res.status === 401) { window.location.href = '/index.html'; return; }
+        return res.json();
+    }
+
+    function mToast(msg, type = 'success') {
+        const c = document.getElementById('mToastContainer');
+        const d = document.createElement('div');
+        d.className = 'm-toast m-toast-' + type;
+        d.textContent = msg;
+        c.appendChild(d);
+        setTimeout(() => d.remove(), 3500);
+    }
+
+    // ===== Init =====
+    async function mInit() {
+        try {
+            const auth = await apiCall('/api/auth/me');
+            if (!auth.user) { window.location.href = '/index.html'; return; }
+            currentUser = auth.user;
+            document.getElementById('mUserBadge').textContent = currentUser.full_name || currentUser.username;
+            await mRenderForm();
+        } catch(e) {
+            document.getElementById('mContent').innerHTML = '<div class="m-loading">❌ Lỗi kết nối server</div>';
+        }
+    }
+
+    async function mRenderForm() {
+        const [sourcesAll, sourcesCSO, promotions, industries, usersData, deptData, configData] = await Promise.all([
+            apiCall('/api/settings/sources'),
+            apiCall('/api/settings/sources-chuyenso'),
+            apiCall('/api/settings/promotions'),
+            apiCall('/api/settings/industries'),
+            apiCall('/api/users/dropdown'),
+            apiCall('/api/departments'),
+            apiCall('/api/app-config/chuyenso_allowed_depts')
+        ]);
+
+        const allDepts = deptData.departments || [];
+        const allowedDeptIds = configData.value ? JSON.parse(configData.value) : null;
+        const ROLE_LABELS = { giam_doc:'Giám Đốc', quan_ly_cap_cao:'QLCC', quan_ly:'Quản Lý', truong_phong:'Trưởng Phòng', nhan_vien:'Nhân Viên', thu_viec:'Thử Việc' };
+
+        function getDeptName(id) { const d = allDepts.find(x => x.id === id); return d ? d.name : ''; }
+        function getAllChildDeptIds(pid) { let ids = [pid]; allDepts.filter(d => d.parent_id === pid).forEach(c => ids.push(...getAllChildDeptIds(c.id))); return ids; }
+
+        const allUsers = (usersData.users || []).filter(u => ['giam_doc','quan_ly','truong_phong','nhan_vien','quan_ly_cap_cao'].includes(u.role));
+        const isNV = ['nhan_vien','truong_phong'].includes(currentUser.role);
+        const isAffiliate = currentUser.role === 'tkaffiliate';
+
+        let receiverUsers = allUsers;
+        if (isNV) {
+            receiverUsers = allUsers.filter(u => u.id === currentUser.id);
+        } else if (isAffiliate) {
+            receiverUsers = allUsers.filter(u => u.id === currentUser.managed_by_user_id);
+        } else if (allowedDeptIds && allowedDeptIds.length > 0) {
+            let visibleDeptIds = [];
+            allowedDeptIds.forEach(id => visibleDeptIds.push(...getAllChildDeptIds(id)));
+            receiverUsers = allUsers.filter(u => {
+                if (u.role === 'giam_doc') return currentUser.role === 'giam_doc';
+                return u.department_id && visibleDeptIds.includes(u.department_id);
+            });
+        }
+
+        function userLabel(u) {
+            let label = `${u.full_name} (${ROLE_LABELS[u.role] || u.role})`;
+            const dn = getDeptName(u.department_id);
+            if (dn) label += ` — ${dn}`;
+            return label;
+        }
+
+        const sources = sourcesCSO.items || [];
+        const container = document.getElementById('mContent');
+
+        container.innerHTML = `
+        <div class="m-card">
+            <div class="m-card-header">
+                <span style="font-size:24px;">📱</span>
+                <h2>Chuyển Số Khách Hàng</h2>
+            </div>
+            <div class="m-card-body">
+                <form id="mForm">
+                    <div class="m-row">
+                        <div class="m-form-group">
+                            <label>CRM <span class="req">*</span></label>
+                            <select id="mCrm" class="m-select" required>
+                                <option value="">-- Chọn CRM --</option>
+                                <option value="nhu_cau">Chăm Sóc KH Nhu Cầu</option>
+                                <option value="ctv_hoa_hong">Chăm Sóc Affiliate</option>
+                            </select>
+                        </div>
+                        <div class="m-form-group">
+                            <label>Nguồn Khách <span class="req">*</span></label>
+                            <select id="mSource" class="m-select" required>
+                                <option value="">-- Chọn nguồn --</option>
+                                ${sources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label>Tên Khách Hàng <span class="req">*</span></label>
+                        <input type="text" id="mName" class="m-input" placeholder="Nhập tên khách hàng" required>
+                    </div>
+
+                    <div class="m-form-group">
+                        <label>Số Điện Thoại <span class="req" id="mPhoneStar">*</span></label>
+                        <input type="tel" id="mPhone" class="m-input" placeholder="Nhập SĐT" inputmode="tel" oninput="_mToggleReq()">
+                    </div>
+
+                    <div class="m-form-group">
+                        <label>🔗 Link Khách Hàng <span class="req" id="mLinkStar">*</span></label>
+                        <input type="url" id="mLink" class="m-input" placeholder="https://facebook.com/..." oninput="_mToggleReq()">
+                        <div class="m-hint">Nhập SĐT hoặc Link MXH (ít nhất 1)</div>
+                    </div>
+
+                    ${!isAffiliate ? `
+                    <div class="m-row">
+                        <div class="m-form-group">
+                            <label>Khuyến Mãi</label>
+                            <select id="mPromotion" class="m-select">
+                                <option value="">-- Không --</option>
+                                ${(promotions.items || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="m-form-group">
+                            <label>Sản Phẩm</label>
+                            <select id="mIndustry" class="m-select">
+                                <option value="">-- Không --</option>
+                                ${(industries.items || []).map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>` : ''}
+
+                    <div class="m-form-group">
+                        <label>Người Nhận Số <span class="req">*</span></label>
+                        ${isNV || isAffiliate ? `
+                            <input type="text" class="m-input" value="${userLabel(receiverUsers[0] || currentUser)}" disabled>
+                            <input type="hidden" id="mReceiver" value="${receiverUsers[0]?.id || currentUser.id}">
+                        ` : `
+                            <select id="mReceiver" class="m-select" required>
+                                <option value="">-- Chọn --</option>
+                                ${receiverUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${userLabel(u)}</option>`).join('')}
+                            </select>
+                        `}
+                    </div>
+
+                    <div class="m-form-group">
+                        <label>Ghi chú</label>
+                        <textarea id="mNotes" class="m-textarea" placeholder="Ghi chú thêm..." rows="2"></textarea>
+                    </div>
+
+                    <button type="submit" class="m-submit" id="mSubmitBtn">📱 CHUYỂN SỐ</button>
+                </form>
+            </div>
+        </div>
+        <a href="/chuyen-so" class="m-back">← Về trang Desktop</a>
+        `;
+
+        // Form submit
+        document.getElementById('mForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('mSubmitBtn');
+            btn.disabled = true; btn.textContent = '⏳ Đang xử lý...';
+
+            const body = {
+                crm_type: document.getElementById('mCrm').value,
+                customer_name: document.getElementById('mName').value,
+                phone: document.getElementById('mPhone').value,
+                source_id: document.getElementById('mSource')?.value || null,
+                promotion_id: document.getElementById('mPromotion')?.value || null,
+                industry_id: document.getElementById('mIndustry')?.value || null,
+                receiver_id: document.getElementById('mReceiver').value,
+                notes: document.getElementById('mNotes').value,
+                facebook_link: document.getElementById('mLink')?.value?.trim() || null,
+                cong_viec: 'Mặc Định'
+            };
+
+            if (!body.crm_type || !body.receiver_id) {
+                mToast('Vui lòng điền đầy đủ thông tin', 'error');
+                btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ'; return;
+            }
+            if (!body.customer_name?.trim()) {
+                mToast('Vui lòng nhập Tên Khách Hàng', 'error');
+                btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ'; return;
+            }
+            if (!body.phone && !body.facebook_link) {
+                mToast('Nhập SĐT hoặc Link KH', 'error');
+                btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ'; return;
+            }
+
+            try {
+                const data = await apiCall('/api/customers', 'POST', body);
+                if (data.success) {
+                    mToast(`✅ Chuyển số thành công! Mã: ${data.dailyNum}`);
+                    e.target.reset();
+                    // Re-select receiver for NV
+                    if (isNV || isAffiliate) {
+                        document.getElementById('mReceiver').value = receiverUsers[0]?.id || currentUser.id;
+                    }
+                } else {
+                    mToast(data.error || 'Lỗi', 'error');
+                }
+            } catch(err) {
+                mToast('Lỗi kết nối', 'error');
+            }
+            btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ';
+        });
+    }
+
+    function _mToggleReq() {
+        const phone = document.getElementById('mPhone')?.value?.trim();
+        const link = document.getElementById('mLink')?.value?.trim();
+        const ps = document.getElementById('mPhoneStar');
+        const ls = document.getElementById('mLinkStar');
+        if (ps) ps.style.display = link ? 'none' : '';
+        if (ls) ls.style.display = phone ? 'none' : '';
+    }
+
+    mInit();
+    </script>
+</body>
+</html>

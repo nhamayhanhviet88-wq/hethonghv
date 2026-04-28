@@ -191,6 +191,11 @@ async function start() {
         return reply.sendFile('quanlyaffiliate.html');
     });
 
+    // Mobile Chuyển Số — standalone touch-optimized page
+    fastify.get('/m/chuyen-so', async (request, reply) => {
+        return reply.sendFile('mobile-chuyenso.html');
+    });
+
     // ========== AUTO-INJECT PAGE SCRIPTS ==========
     // Build dashboard HTML with all page scripts auto-injected
     let _cachedDashboardHtml = null;

@@ -1157,6 +1157,25 @@ select.form-control {
         font-size: 12px;
         white-space: nowrap;
     }
+
+    /* Chuyển Số mobile */
+    #chuyenSoForm { max-width: 100% !important; }
+    #chuyenSoForm > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+    #chuyenSoForm .form-control,
+    #chuyenSoForm select.form-control {
+        min-height: 44px;
+        font-size: 15px !important;
+    }
+    #chuyenSoForm textarea.form-control {
+        font-size: 15px !important;
+    }
+    #chuyenSoForm button[type="submit"] {
+        width: 100% !important;
+        min-height: 52px;
+        font-size: 17px !important;
+    }
 }
 
 /* Mobile overlay */
