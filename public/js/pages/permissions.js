@@ -43,6 +43,8 @@ const PERM_FEATURES = [
     { key: 'chuyen_so', label: 'Chuyển Số NV Kinh Doanh', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'khoa_tk_nv', label: 'Nhân Viên Bị Phạt Tiền', perms: ['view'], section: 'HỖ TRỢ NHÂN VIÊN' },
     { key: 'xin_nghi_nv', label: 'Xin Nghỉ NV', perms: ['view','create'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'mo_khoa_tk_phat', label: 'Mở Khóa Phạt Tài Khoản', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
+    { key: 'setup_ngay_le', label: 'Setup Ngày Lễ', perms: ['view','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
 
     // ===== QUẢN LÝ NHÂN VIÊN =====
     { key: 'nhan_vien', label: 'Tài Khoản Nhân Viên', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
