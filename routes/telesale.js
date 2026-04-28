@@ -1708,6 +1708,8 @@ async function runTelesalePump() {
     const alerts = [];
 
     // ★ Step 0: Tự Tìm Kiếm — gán lại KH cho NV gốc (safety net nếu recall chưa chạy)
+    // IMPORTANT: Exclude data that already has an 'answered' assignment (e.g. Chuyển Số)
+    // to prevent infinite re-assignment loops
     const selfSearchedAvail = await db.all(`
         SELECT DISTINCT d.id as data_id, d.self_searched_by as original_user_id
         FROM telesale_data d
@@ -1716,6 +1718,7 @@ async function runTelesalePump() {
           AND d.status = 'available'
           AND u.status = 'active'
           AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = d.id AND a2.assigned_date = $1)
+          AND NOT EXISTS (SELECT 1 FROM telesale_assignments a3 WHERE a3.data_id = d.id AND a3.call_status = 'answered')
     `, [today]);
     for (const ss of selfSearchedAvail) {
         try {
@@ -1875,8 +1878,14 @@ async function runTelesaleRecall() {
     let recalled = 0, invalidated = 0;
 
     // 1. Pending (not called) → return to pool
+    // IMPORTANT: Only return data that has NO 'answered' assignments at all
+    // This prevents numbers that were already "Chuyển Số" from being recycled
     const pendingAssigns = await db.all(`SELECT a.data_id FROM telesale_assignments a
-        WHERE a.assigned_date <= $1 AND a.call_status = 'pending'`, [yesterday]);
+        WHERE a.assigned_date <= $1 AND a.call_status = 'pending'
+        AND NOT EXISTS (
+            SELECT 1 FROM telesale_assignments a2
+            WHERE a2.data_id = a.data_id AND a2.call_status = 'answered'
+        )`, [yesterday]);
     for (const a of pendingAssigns) {
         await db.run("UPDATE telesale_data SET status = 'available', updated_at = NOW() WHERE id = ? AND status = 'assigned'", [a.data_id]);
         recalled++;
@@ -1887,6 +1896,8 @@ async function runTelesaleRecall() {
 
     // ★ 2.1. Tự Tìm Kiếm: KH do NV tự tìm → gán lại cho NV gốc (không trả về pool chung)
     let selfReassigned = 0;
+    // IMPORTANT: Exclude data that already has an 'answered' assignment
+    // to prevent re-assigning numbers that were already "Chuyển Số"
     const selfSearchedRecalled = await db.all(`
         SELECT DISTINCT d.id as data_id, d.self_searched_by as original_user_id, u.username
         FROM telesale_data d
@@ -1895,6 +1906,7 @@ async function runTelesaleRecall() {
           AND d.status = 'available'
           AND u.status = 'active'
           AND NOT EXISTS (SELECT 1 FROM telesale_assignments a2 WHERE a2.data_id = d.id AND a2.assigned_date = $1)
+          AND NOT EXISTS (SELECT 1 FROM telesale_assignments a3 WHERE a3.data_id = d.id AND a3.call_status = 'answered')
     `, [vnToday]);
     for (const ss of selfSearchedRecalled) {
         try {
