@@ -62,40 +62,19 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return _directCancel();
         }
 
-        // ★ QL → chỉ duyệt trực tiếp khách của CẤP DƯỚI thuộc phòng ban mình
-        if (request.user.role === 'quan_ly') {
-            if (customer.assigned_to_id !== request.user.id) {
-                // Khách không phải của QL → kiểm tra NV đó thuộc phòng ban QL quản lý không
-                const managedDeptIds = await getManagedDeptIds(request.user.id);
-                const assignee = await db.get('SELECT department_id FROM users WHERE id = ?', [customer.assigned_to_id]);
-                if (assignee && managedDeptIds.includes(assignee.department_id)) {
-                    return _directCancel(); // QL duyệt trực tiếp cho cấp dưới
-                }
-            }
-            // Khách của chính QL hoặc phòng khác → gửi yêu cầu chờ GĐ/QLCC duyệt
+        // ★ QL / NV / TP → luôn gửi yêu cầu chờ GĐ/QLCC duyệt
+        if (['quan_ly', 'nhan_vien', 'truong_phong'].includes(request.user.role)) {
             return _sendCancelRequest('Yêu cầu hủy đã được gửi. Chờ Giám Đốc/QLCC duyệt.');
-        }
-
-        // ★ NV / TP → gửi yêu cầu chờ duyệt
-        if (['nhan_vien', 'truong_phong'].includes(request.user.role)) {
-            return _sendCancelRequest('Yêu cầu hủy đã được gửi. Chờ Quản Lý/Giám Đốc duyệt.');
         }
 
         return reply.code(403).send({ error: 'Không có quyền hủy' });
     });
 
-    fastify.post('/api/customers/:id/approve-cancel', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
+    // ★ Chỉ GĐ và QLCC mới được duyệt hủy khách (QL không có quyền)
+    fastify.post('/api/customers/:id/approve-cancel', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { approve, manager_note } = request.body || {};
         const custId = Number(request.params.id);
         if (!manager_note) return reply.code(400).send({ error: 'Vui lòng nhập lý do!' });
-
-        // ★ QL không được tự duyệt yêu cầu hủy của chính mình
-        if (request.user.role === 'quan_ly') {
-            const cancelCustomer = await db.get('SELECT cancel_requested_by FROM customers WHERE id = ?', [custId]);
-            if (cancelCustomer && cancelCustomer.cancel_requested_by === request.user.id) {
-                return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu hủy của chính mình. Vui lòng chờ Giám Đốc/QLCC duyệt.' });
-            }
-        }
 
         if (approve) {
             await db.run(
