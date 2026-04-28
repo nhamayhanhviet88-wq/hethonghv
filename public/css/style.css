@@ -1176,6 +1176,18 @@ select.form-control {
         min-height: 52px;
         font-size: 17px !important;
     }
+
+    /* Tìm Kiếm KH mobile */
+    #tkkhInput {
+        font-size: 16px !important;
+        min-height: 44px;
+    }
+    #tkkhResults > div > div[style*="display:flex"][style*="gap:12px"] {
+        flex-wrap: wrap !important;
+    }
+    #tkkhResults > div > div[style*="display:flex"][style*="gap:12px"] > div {
+        min-width: calc(50% - 6px) !important;
+    }
 }
 
 /* Mobile overlay */

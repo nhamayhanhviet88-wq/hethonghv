@@ -196,6 +196,11 @@ async function start() {
         return reply.sendFile('mobile-chuyenso.html');
     });
 
+    // Mobile Tìm Kiếm KH — standalone touch-optimized page
+    fastify.get('/m/tim-kiem', async (request, reply) => {
+        return reply.sendFile('mobile-timkiem.html');
+    });
+
     // ========== AUTO-INJECT PAGE SCRIPTS ==========
     // Build dashboard HTML with all page scripts auto-injected
     let _cachedDashboardHtml = null;
