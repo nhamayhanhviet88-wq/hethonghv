@@ -637,6 +637,10 @@ function _tpRenderGrid() {
     const wrap = document.getElementById('tpGridWrap');
     if (!wrap) return;
 
+    // ★ Self-view: QL/TP xem chính mình → readonly (chỉ GĐ mới tự quản lý)
+    const _tpIsSelfView = _tpViewMode === 'individual' && _tpViewUserId === (window._currentUser?.id || window.currentUser?.id) && !_tpIsDirector;
+    const effectiveReadonly = _tpIsReadonly || _tpIsSelfView;
+
     // Inject approval badge pulse animation (once)
     if (!document.getElementById('_tpPulseStyle')) {
         const s = document.createElement('style');
@@ -758,7 +762,7 @@ function _tpRenderGrid() {
     html += `<tbody>`;
     if (sortedSlots.length === 0) {
         html += `<tr><td colspan="7" style="padding:40px;text-align:center;color:#9ca3af;border-bottom:1px solid #f3f4f6;">
-            Chưa có công việc nào.${!_tpIsReadonly ? ' Ấn <b>+ Thêm</b> để bắt đầu.' : ''}
+            Chưa có công việc nào.${!effectiveReadonly ? ' Ấn <b>+ Thêm</b> để bắt đầu.' : ''}
         </td></tr>`;
     } else {
         sortedSlots.forEach((slot, idx) => {
@@ -791,7 +795,7 @@ function _tpRenderGrid() {
                     // Past-day protection: calculate actual date for this column
                     const colDate = new Date(monDate); colDate.setDate(monDate.getDate() + d - 1); colDate.setHours(0,0,0,0);
                     const isPast = colDate < today;
-                    const canEdit = !isPast && !task._fromSnapshot && !_tpIsReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
+                    const canEdit = !isPast && !task._fromSnapshot && !effectiveReadonly && (!isIndivView || !isTeamTask) && (isFixedTask ? canEditFixed : true);
                     // Director can delete team tasks from individual view (but not past)
                     const canDeleteTeam = !isPast && isIndivView && isTeamTask && _tpIsDirector;
                     
@@ -852,7 +856,7 @@ function _tpRenderGrid() {
     html += `</tbody>`;
 
     // Footer — Add buttons (skip holidays)
-    if (!_tpIsReadonly) {
+    if (!effectiveReadonly) {
         html += `<tfoot><tr>`;
         html += `<td style="padding:8px 14px;background:#fafbfc;font-weight:600;font-size:11px;color:#9ca3af;border-top:2px solid #e5e7eb;">THÊM</td>`;
         for (let d = 1; d <= 7; d++) {
