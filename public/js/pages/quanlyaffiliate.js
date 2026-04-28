@@ -22,59 +22,59 @@ let _affFilterEmpId = '';
 function renderQuanLyAffiliatePage(container) {
     container.innerHTML = `
         <style>
-            .aff-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:12px; }
-            .aff-toolbar h2 { color:#122546; font-size:20px; margin:0; }
+            .aff-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+            .aff-toolbar h2 { color:#122546; font-size:22px; margin:0; font-weight:800; }
             .aff-toolbar .actions { display:flex; gap:10px; }
-            .aff-filter-bar { display:flex; align-items:flex-end; gap:10px; margin-bottom:20px; flex-wrap:wrap; padding:14px 18px; background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0; }
+            .aff-filter-bar { display:flex; align-items:flex-end; gap:12px; margin-bottom:24px; flex-wrap:wrap; padding:16px 20px; background:linear-gradient(135deg,#f8fafc,#eef2ff); border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
             .aff-filter-bar label { font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; }
-            .aff-preset-btn { padding:6px 14px; border-radius:8px; border:1px solid #d1d5db; background:white; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; color:#374151; }
-            .aff-preset-btn:hover { background:#e0e7ff; border-color:#818cf8; color:#4338ca; }
-            .aff-preset-btn.active { background:#4338ca; color:white; border-color:#4338ca; }
-            .aff-date-input { padding:7px 12px; border-radius:10px; border:1px solid #d1d5db; font-size:12px; background:white; font-weight:600; color:#1e3a5f; box-shadow:0 1px 3px rgba(0,0,0,0.06); transition:border-color .2s,box-shadow .2s; }
+            .aff-preset-btn { padding:8px 16px; border-radius:10px; border:1px solid #d1d5db; background:white; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; color:#374151; }
+            .aff-preset-btn:hover { background:#e0e7ff; border-color:#818cf8; color:#4338ca; transform:translateY(-1px); }
+            .aff-preset-btn.active { background:linear-gradient(135deg,#4338ca,#6366f1); color:white; border-color:#4338ca; box-shadow:0 2px 8px rgba(67,56,202,0.3); }
+            .aff-date-input { padding:8px 14px; border-radius:10px; border:1px solid #d1d5db; font-size:13px; background:white; font-weight:600; color:#1e3a5f; box-shadow:0 1px 3px rgba(0,0,0,0.06); transition:border-color .2s,box-shadow .2s; }
             .aff-date-input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.15); }
-            .aff-filter-label { font-size:10px; color:#6b7280; font-weight:600; margin-bottom:3px; text-transform:uppercase; letter-spacing:.3px; }
-            .aff-filter-sep { width:1px; height:32px; background:#d1d5db; margin:0 4px; align-self:flex-end; margin-bottom:4px; }
-            .stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
-            .stat-card { background:white; border-radius:12px; padding:20px; flex:1; min-width:180px; border:1px solid #e5e7eb; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
-            .stat-card .label { font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase; }
-            .stat-card .value { font-size:26px; font-weight:700; color:#122546; margin-top:4px; }
-            .stat-card .sub { font-size:10px; color:#9ca3af; margin-top:2px; }
-            .tree-container { background:white; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden; }
-            .dept-row { padding:14px 20px; border-bottom:1px solid #f3f4f6; cursor:pointer; transition:background .15s; display:flex; align-items:center; justify-content:space-between; }
+            .aff-filter-label { font-size:11px; color:#6b7280; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+            .aff-filter-sep { width:1px; height:36px; background:#d1d5db; margin:0 4px; align-self:flex-end; margin-bottom:4px; }
+            .stats-row { display:flex; gap:18px; margin-bottom:28px; flex-wrap:wrap; }
+            .stat-card { background:white; border-radius:16px; padding:24px 28px; flex:1; min-width:200px; border:1px solid #e5e7eb; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform .2s,box-shadow .2s; }
+            .stat-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+            .stat-card .label { font-size:12px; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+            .stat-card .value { font-size:32px; font-weight:800; color:#122546; margin-top:6px; line-height:1.1; }
+            .stat-card .sub { font-size:11px; color:#9ca3af; margin-top:4px; font-weight:500; }
+            .tree-container { background:white; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+            .dept-row { padding:18px 24px; border-bottom:1px solid #f3f4f6; cursor:pointer; transition:background .15s; display:flex; align-items:center; justify-content:space-between; }
             .dept-row:hover { background:#f8fafc; }
-            .dept-row .dept-info { display:flex; align-items:center; gap:10px; }
-            .dept-row .dept-name { font-weight:700; color:#122546; font-size:14px; }
-            .dept-row .dept-stats { display:flex; gap:16px; font-size:11px; color:#6b7280; }
-            .dept-row .badge { background:#e0e7ff; color:#4338ca; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
-            .dept-row.root { background:#122546; }
-            .dept-row.root .dept-name { color:#fad24c; }
-            .dept-row.root .dept-stats { color:rgba(255,255,255,.6); }
+            .dept-row .dept-info { display:flex; align-items:center; gap:12px; }
+            .dept-row .dept-name { font-weight:800; color:#122546; font-size:16px; }
+            .dept-row .dept-stats { display:flex; gap:12px; font-size:12px; color:#6b7280; align-items:center; }
+            .dept-row .badge { background:#e0e7ff; color:#4338ca; padding:4px 14px; border-radius:12px; font-size:12px; font-weight:700; }
+            .dept-row.root { background:linear-gradient(135deg,#0f172a,#1e3a5f); }
+            .dept-row.root .dept-name { color:#fad24c; font-size:17px; }
+            .dept-row.root .dept-stats { color:rgba(255,255,255,.7); }
             .dept-row.root .badge { background:rgba(250,210,76,.2); color:#fad24c; }
-            .dept-row.root:hover { background:#1a3563; }
-            .child-dept { padding-left:24px; }
+            .dept-row.root:hover { background:linear-gradient(135deg,#1a2744,#24476e); }
+            .child-dept { padding-left:28px; border-left:3px solid #e0e7ff; margin-left:20px; }
             .child-dept .dept-row { background:#fafbfc; }
             .child-dept .dept-row:hover { background:#f0f4ff; }
-            .emp-row { padding:10px 20px 10px 56px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center; justify-content:space-between; transition:background .15s; cursor:pointer; }
-            .emp-row:hover { background:#f8fafc; }
-            .emp-row .emp-info { display:flex; align-items:center; gap:10px; }
-            .emp-row .emp-name { font-weight:600; color:#374151; font-size:13px; }
-            .emp-row .emp-role { font-size:11px; color:#6b7280; }
-            .emp-row .emp-stats { display:flex; gap:14px; font-size:11px; color:#6b7280; }
-            .aff-row { padding:8px 20px 8px 80px; border-bottom:1px solid #f9fafb; display:flex; align-items:center; justify-content:space-between; background:#fefce8; transition:background .15s; }
-            .aff-row:hover { background:#fef9c3; }
-            .aff-row .aff-info { display:flex; align-items:center; gap:8px; }
-            .aff-row .aff-name { font-size:13px; color:#92400e; font-weight:500; }
-            .aff-row .aff-role { font-size:10px; padding:1px 8px; border-radius:10px; font-weight:600; }
+            .emp-row { padding:14px 24px 14px 60px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center; justify-content:space-between; transition:background .15s; cursor:pointer; }
+            .emp-row:hover { background:#f0f4ff; }
+            .emp-row .emp-info { display:flex; align-items:center; gap:12px; }
+            .emp-row .emp-name { font-weight:700; color:#374151; font-size:15px; }
+            .emp-row .emp-role { font-size:12px; color:#6b7280; }
+            .emp-row .emp-stats { display:flex; gap:14px; font-size:12px; color:#6b7280; align-items:center; }
+            .aff-row { padding:12px 24px 12px 88px; border-bottom:1px solid #f9fafb; display:flex; align-items:center; justify-content:space-between; background:#fffef5; transition:all .15s; border-left:3px solid #f59e0b; margin-left:56px; }
+            .aff-row:hover { background:#fef9c3; transform:translateX(2px); }
+            .aff-row .aff-info { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+            .aff-row .aff-name { font-size:14px; color:#92400e; font-weight:600; }
+            .aff-row .aff-role { font-size:11px; padding:2px 10px; border-radius:10px; font-weight:700; }
             .aff-row .aff-role.hoa_hong { background:#fce7f3; color:#be185d; }
             .aff-row .aff-role.ctv { background:#dbeafe; color:#1d4ed8; }
-
-            .aff-row .aff-stats { display:flex; gap:14px; font-size:11px; color:#6b7280; }
-            .btn-aff-assign { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:4px 12px; border-radius:8px; font-size:11px; cursor:pointer; font-weight:600; transition:all .2s; }
-            .btn-aff-assign:hover { background:#d1fae5; }
-            .btn-aff-unassign { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:3px 10px; border-radius:8px; font-size:11px; cursor:pointer; transition:all .2s; }
+            .aff-row .aff-stats { display:flex; gap:16px; font-size:13px; color:#6b7280; font-weight:600; align-items:center; }
+            .btn-aff-assign { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:6px 14px; border-radius:10px; font-size:12px; cursor:pointer; font-weight:700; transition:all .2s; }
+            .btn-aff-assign:hover { background:#d1fae5; transform:translateY(-1px); }
+            .btn-aff-unassign { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:4px 12px; border-radius:10px; font-size:12px; cursor:pointer; font-weight:600; transition:all .2s; }
             .btn-aff-unassign:hover { background:#fee2e2; }
-            .no-affiliate { padding:6px 20px 6px 80px; font-size:12px; color:#9ca3af; font-style:italic; }
-            .expand-icon { font-size:12px; transition:transform .2s; display:inline-block; width:16px; }
+            .no-affiliate { padding:10px 24px 10px 88px; font-size:13px; color:#9ca3af; font-style:italic; }
+            .expand-icon { font-size:14px; transition:transform .2s; display:inline-block; width:18px; }
             .expand-icon.open { transform:rotate(90deg); }
         </style>
         <div class="aff-toolbar">
@@ -135,21 +135,21 @@ function renderQuanLyAffiliatePage(container) {
     // Reset expand states so default view is applied fresh
     _affExpandedDepts = {};
     _affExpandedEmps = {};
-    // Auto-select current month
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth() + 1;
-    _affDateFrom = `${curYear}-${pad(curMonth)}-01`;
-    _affDateTo = `${curYear}-${pad(curMonth)}-${pad(new Date(curYear, curMonth, 0).getDate())}`;
-    _affActivePreset = '';
+    // Default: "Tất cả" — no date filter so ALL affiliates are shown
+    _affDateFrom = '';
+    _affDateTo = '';
+    _affActivePreset = 'all';
     setTimeout(() => {
         const mp = document.getElementById('affMonthPicker');
-        if (mp) mp.value = `${curYear}-${pad(curMonth)}`;
+        if (mp) mp.value = '';
         const fromEl = document.getElementById('affDateFrom');
         const toEl = document.getElementById('affDateTo');
-        if (fromEl) fromEl.value = _affDateFrom;
-        if (toEl) toEl.value = _affDateTo;
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
+        // Highlight "Tất cả" button
+        document.querySelectorAll('.aff-preset-btn').forEach(b => {
+            b.classList.toggle('active', b.textContent.trim() === 'Tất cả');
+        });
     }, 0);
     affLoadData();
 }
@@ -174,7 +174,7 @@ function affSetPreset(preset, btn) {
     else if (preset === '3m') { from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()); }
     else if (preset === '6m') { from = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()); }
     else if (preset === '1y') { from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()); }
-    else { _affDateFrom = ''; _affDateTo = ''; }  // 'all'
+    else { _affDateFrom = ''; _affDateTo = ''; document.getElementById('affMonthPicker').value = ''; }  // 'all'
 
     if (from) {
         const pad = n => String(n).padStart(2, '0');
@@ -324,10 +324,9 @@ function affRenderStats() {
 
     // CRM breakdown
     const CRM_TYPES = [
-        { key: 'nhu_cau', label: 'Nhu Cầu', color: '#f59e0b', bg: '#fffbeb' },
-        { key: 'ctv', label: 'CTV', color: '#1d4ed8', bg: '#dbeafe' },
-
-        { key: 'koc_tiktok', label: 'KOC Tiktok', color: '#dc2626', bg: '#fef2f2' },
+        { key: 'nhu_cau', label: 'Nhu Cầu', icon: '🎯', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
+        { key: 'ctv', label: 'CTV', icon: '🤝', color: '#1d4ed8', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
+        { key: 'koc_tiktok', label: 'KOC Tiktok', icon: '🎬', color: '#dc2626', bg: 'linear-gradient(135deg,#fef2f2,#fee2e2)' },
     ];
     const crmCounts = {};
     CRM_TYPES.forEach(c => crmCounts[c.key] = 0);
@@ -336,20 +335,37 @@ function affRenderStats() {
     const el = document.getElementById('affStatsRow');
     if (!el) return;
     el.innerHTML = `
-        <div class="stat-card"><div class="label">Tổng Affiliate</div><div class="value">${totalAffs}</div><div class="sub">HH / CTV / ND / SV${lockedCount ? ' • 🔒' + lockedCount + ' khóa' : ''}</div></div>
-        <div class="stat-card"><div class="label">Khách Giới Thiệu</div><div class="value">${totalCustomers}</div><div class="sub">Từ affiliate</div></div>
-        <div class="stat-card"><div class="label">Đơn Hàng</div><div class="value">${totalOrders}</div><div class="sub">Từ khách affiliate</div></div>
-        <div class="stat-card"><div class="label">Doanh Thu</div><div class="value">${affFormatMoney(totalRevenue)}</div><div class="sub">Tổng doanh thu</div></div>
+        <div class="stat-card" style="border-left:4px solid #4338ca;">
+            <div class="label">👥 Tổng Affiliate</div>
+            <div class="value">${totalAffs}</div>
+            <div class="sub">${lockedCount ? '🔒 ' + lockedCount + ' đã khóa' : 'Đang hoạt động'}</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #059669;">
+            <div class="label">📋 Khách Giới Thiệu</div>
+            <div class="value">${totalCustomers}</div>
+            <div class="sub">Từ tất cả affiliate</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #2563eb;">
+            <div class="label">📦 Đơn Hàng</div>
+            <div class="value">${totalOrders}</div>
+            <div class="sub">Đã hoàn thành</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #f59e0b;">
+            <div class="label">💰 Doanh Thu</div>
+            <div class="value">${affFormatMoney(totalRevenue)}</div>
+            <div class="sub">Tổng doanh thu</div>
+        </div>
     `;
-    // CRM breakdown row - remove old first
+    // CRM breakdown row
     const oldBreakdown = document.getElementById('affCrmBreakdown');
     if (oldBreakdown) oldBreakdown.remove();
     el.insertAdjacentHTML('afterend', `
-        <div id="affCrmBreakdown" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+        <div id="affCrmBreakdown" style="display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap;">
             ${CRM_TYPES.map(c => `
-                <div style="flex:1;min-width:120px;background:${c.bg};border-radius:10px;padding:12px 16px;border:1px solid ${c.color}22;text-align:center;">
-                    <div style="font-size:10px;font-weight:700;color:${c.color};text-transform:uppercase;letter-spacing:.5px;">CRM ${c.label}</div>
-                    <div style="font-size:22px;font-weight:800;color:${c.color};margin-top:2px;">${crmCounts[c.key]}</div>
+                <div style="flex:1;min-width:140px;background:${c.bg};border-radius:14px;padding:16px 20px;border:1px solid ${c.color}22;text-align:center;transition:transform .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                    <div style="font-size:24px;margin-bottom:4px;">${c.icon}</div>
+                    <div style="font-size:11px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:.5px;">CRM ${c.label}</div>
+                    <div style="font-size:28px;font-weight:800;color:${c.color};margin-top:4px;">${crmCounts[c.key]}</div>
                 </div>
             `).join('')}
         </div>
@@ -406,7 +422,7 @@ function affRenderTree() {
         const allEmps = empsOf(dept.id);
         const deptAffs = getAllDeptAffs(dept.id);
         const deptRevenue = deptAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
-        if (_affExpandedDepts[dept.id] === undefined) _affExpandedDepts[dept.id] = isRoot;
+        if (_affExpandedDepts[dept.id] === undefined) _affExpandedDepts[dept.id] = true;
         const isExpanded = !!_affExpandedDepts[dept.id];
 
         // Count all employees recursively (including child depts)
@@ -430,9 +446,9 @@ function affRenderTree() {
                 <span class="badge">${deptAffs.length} affiliate</span>
             </div>
             <div class="dept-stats">
-                <span style="background:#dbeafe;color:#1e40af;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">👥 ${totalEmpCount} NV</span>
-                <span style="background:#fef3c7;color:#92400e;padding:3px 12px;border-radius:10px;font-size:13px;font-weight:800;">💰 ${affFormatMoney(deptRevenue)}</span>
-                ${_affVisibleDepts.includes(dept.id) ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affRemoveDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:11px;padding:3px 10px;" title="Xóa đơn vị">🗑️ Xóa</button>` : (!isRoot ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affHideChildDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:11px;padding:3px 10px;" title="Ẩn phòng ban">🗑️ Xóa</button>` : '')}
+                <span style="background:#dbeafe;color:#1e40af;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">👥 ${totalEmpCount} NV</span>
+                <span style="background:#fef3c7;color:#92400e;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">💰 ${affFormatMoney(deptRevenue)}</span>
+                ${_affVisibleDepts.includes(dept.id) ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affRemoveDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Xóa đơn vị">🗑️ Xóa</button>` : (!isRoot ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affHideChildDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Ẩn phòng ban">🗑️ Xóa</button>` : '')}
             </div>
         </div>`;
 
@@ -443,17 +459,18 @@ function affRenderTree() {
             if (headEmp) {
                 const headAffs = affsOf(headEmp.id);
                 const headRevenue = headAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+                if (_affExpandedEmps[headEmp.id] === undefined) _affExpandedEmps[headEmp.id] = true;
                 const isHeadExpanded = _affExpandedEmps[headEmp.id] === true;
                 const headIcon = !dept.parent_id ? '👑' : '⭐';
                 const ROLE_LABEL = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
 
                 html += `
-                <div class="emp-row" onclick="affToggleEmp(${headEmp.id})" style="background:#fffbeb;border-left:3px solid #f59e0b;">
+                <div class="emp-row" onclick="affToggleEmp(${headEmp.id})" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);border-left:4px solid #f59e0b;">
                     <div class="emp-info">
                         <span class="expand-icon ${isHeadExpanded ? 'open' : ''}">▶</span>
-                        <span class="emp-name" style="color:#92400e;font-weight:700;">${headIcon} ${headEmp.full_name}</span>
-                        <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;">${ROLE_LABEL[headEmp.role] || headEmp.role}</span>
-                        <span style="background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${headAffs.length} affiliate</span>
+                        <span class="emp-name" style="color:#92400e;font-weight:800;font-size:16px;">${headIcon} ${headEmp.full_name}</span>
+                        <span style="background:#fef3c7;color:#92400e;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL[headEmp.role] || headEmp.role}</span>
+                        <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${headAffs.length} affiliate</span>
 
                     </div>
                     <div class="emp-stats">
@@ -499,6 +516,7 @@ function affRenderTree() {
                 if (headEmp && emp.id === headEmp.id) return; // skip head
                 const empAffs = affsOf(emp.id);
                 const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = true;
                 const isEmpExpanded = _affExpandedEmps[emp.id] === true;
                 const ROLE_LABEL2 = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
 
@@ -507,9 +525,8 @@ function affRenderTree() {
                     <div class="emp-info">
                         <span class="expand-icon ${isEmpExpanded ? 'open' : ''}">▶</span>
                         <span class="emp-name">👤 ${emp.full_name}</span>
-                        <span style="background:#f3f4f6;color:#6b7280;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${ROLE_LABEL2[emp.role] || emp.role}</span>
-                        <span style="background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;">${empAffs.length} affiliate</span>
-
+                        <span style="background:#f3f4f6;color:#6b7280;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL2[emp.role] || emp.role}</span>
+                        <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${empAffs.length} affiliate</span>
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(empRevenue)}</span>

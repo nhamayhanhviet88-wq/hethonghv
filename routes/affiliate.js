@@ -117,8 +117,8 @@ async function affiliateRoutes(fastify) {
             }
         }
 
-        if (from) { affQuery += ` AND u.created_at >= ?`; affParams.push(from); }
-        if (to) { affQuery += ` AND u.created_at <= ?`; affParams.push(to + ' 23:59:59'); }
+        // NOTE: from/to are intentionally NOT applied to affiliate list query.
+        // They only filter stats (customers, orders, revenue) below.
         affQuery += ` ORDER BY u.full_name`;
         const affiliates = await db.all(affQuery, affParams);
 
