@@ -750,8 +750,8 @@ async function showEditAffModal(userId) {
     const bodyHTML = `
         <div class="form-row">
             <div class="form-group">
-                <label>Tên đăng nhập</label>
-                <input type="text" class="form-control" value="${user.username}" disabled style="background:#e5e7eb;cursor:not-allowed;color:#374151;">
+                <label>🔐 Tên tài khoản</label>
+                <input type="text" class="form-control" value="${user.username}" disabled style="background:#f0ecff;cursor:not-allowed;color:#7c3aed;font-weight:700;font-family:'Courier New',monospace;border:1px solid #c4b5fd;">
             </div>
             <div class="form-group">
                 <label>Vai trò</label>

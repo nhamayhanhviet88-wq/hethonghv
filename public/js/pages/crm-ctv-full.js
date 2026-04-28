@@ -2587,6 +2587,10 @@ async function _ctvOpenEditAffiliateFromCrm(userId) {
 
         const bodyHTML = `
             <form id="editAffCrmForm" style="max-width:520px;">
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label>🔐 Tên tài khoản</label>
+                    <input type="text" class="form-control" value="${u.username || ''}" disabled style="background:#f0ecff;cursor:not-allowed;color:#7c3aed;font-weight:700;font-family:'Courier New',monospace;border:1px solid #c4b5fd;">
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div class="form-group"><label>Họ tên</label><input type="text" id="eafFullName" class="form-control" value="${u.full_name || ''}"></div>
                     <div class="form-group"><label>SĐT</label><input type="text" id="eafPhone" class="form-control" value="${u.phone || ''}"></div>

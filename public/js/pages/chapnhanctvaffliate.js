@@ -951,7 +951,12 @@ async function _cncaEditAffUser(userId) {
     const tiers = tiersData.items || [];
     const provOpts = CNCA_VN_PROVINCES.map(p => `<option value="${p}" ${u.province===p?'selected':''}>${p}</option>`).join('');
     const tierOpts = tiers.map(t => `<option value="${t.id}" ${u.commission_tier_id==t.id?'selected':''}>${t.name} (${t.percentage}%)</option>`).join('');
-    const bodyHTML = `<form id="cncaEditAffForm"><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    const bodyHTML = `<form id="cncaEditAffForm">
+        <div class="form-group" style="margin-bottom:14px;">
+            <label>🔐 Tên tài khoản</label>
+            <input type="text" class="form-control" value="${u.username||''}" disabled style="background:#f0ecff;cursor:not-allowed;color:#7c3aed;font-weight:700;font-family:'Courier New',monospace;border:1px solid #c4b5fd;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group"><label>Họ tên</label><input type="text" id="cncaAffName" class="form-control" value="${u.full_name||''}"></div>
         <div class="form-group"><label>SĐT</label><input type="text" id="cncaAffPhone" class="form-control" value="${u.phone||''}" maxlength="10"></div>
         <div class="form-group"><label>🔑 Mật khẩu mới <small style="color:#94a3b8;">(trống = không đổi)</small></label><input type="password" id="cncaAffPass" class="form-control" placeholder="••••••"></div>
