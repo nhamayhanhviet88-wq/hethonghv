@@ -129,7 +129,8 @@ async function renderGoiDienPage(container) {
     if (!_isNhanVien) {
         const deptSelect = document.getElementById('gdDeptFilter');
         if (deptSelect) {
-            const deptsWithMembers = _gd_allDepts.filter(d => _gd_allUsers.some(u => u.department_id === d.id && _gd_memberIds.has(u.id)));
+            const _gdMgrRolesInit = ['quan_ly_cap_cao', 'quan_ly'];
+            const deptsWithMembers = _gd_allDepts.filter(d => _gd_allUsers.some(u => u.department_id === d.id && (_gd_memberIds.has(u.id) || (_gdMgrRolesInit.includes(u.role) && !d.parent_id))));
             deptsWithMembers.forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d.id; opt.textContent = d.name;
@@ -346,10 +347,14 @@ function _gd_renderSidebar() {
     </div>`;
 
     // Filter members by active status and dept filter
+    // ★ Also include managers (QL/QLCC) in parent depts — they're supervisors, not active callers
+    const _gdParentDeptIds = new Set(_gd_allDepts.filter(d => !d.parent_id).map(d => d.id));
+    const _gdMgrRoles = ['quan_ly_cap_cao', 'quan_ly'];
     let filtered = _gd_allUsers.filter(u => {
-        if (!_gd_memberIds.has(u.id)) return false;
+        const isParentDeptManager = _gdMgrRoles.includes(u.role) && _gdParentDeptIds.has(u.department_id);
+        if (!_gd_memberIds.has(u.id) && !isParentDeptManager) return false;
         // Role-based visibility: if visibleUserIds loaded, apply filter; else show all (backend enforces security)
-        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id)) return false;
+        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager) return false;
         if (_gd_sidebarDeptFilter && String(u.department_id) !== _gd_sidebarDeptFilter) return false;
         return true;
     });

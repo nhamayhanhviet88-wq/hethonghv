@@ -517,17 +517,34 @@ async function taskPointRoutes(fastify, options) {
     fastify.get('/api/task-points/users', { preHandler: [authenticate] }, async (request, reply) => {
         const { department_id } = request.query;
         if (!department_id) return reply.code(400).send({ error: 'Thiếu department_id' });
+        const deptId = Number(department_id);
         const users = await db.all(
             "SELECT id, full_name, username, role FROM users WHERE department_id = ? AND status = 'active' ORDER BY full_name",
-            [Number(department_id)]
+            [deptId]
         );
+
+        // ★ If this is a child team, also include QL/QLCC from parent dept
+        const dept = await db.get('SELECT parent_id FROM departments WHERE id = ?', [deptId]);
+        if (dept && dept.parent_id) {
+            const parentMgrs = await db.all(
+                "SELECT id, full_name, username, role FROM users WHERE department_id = ? AND role IN ('quan_ly_cap_cao','quan_ly') AND status = 'active' ORDER BY full_name",
+                [dept.parent_id]
+            );
+            parentMgrs.forEach(m => {
+                if (!users.some(u => u.id === m.id)) {
+                    m._is_dept_head = true;
+                    users.unshift(m);
+                }
+            });
+        }
+
         // NOTE: head_user_id injection removed — only department_id + task_approvers control membership
         // Include approvers from task_approvers table
         const approvers = await db.all(
             `SELECT u.id, u.full_name, u.username, u.role
              FROM task_approvers ta JOIN users u ON u.id = ta.user_id
              WHERE ta.department_id = ? AND u.status = 'active'`,
-            [Number(department_id)]
+            [deptId]
         );
         approvers.forEach(a => {
             const exists = users.some(u => u.id === a.id);
