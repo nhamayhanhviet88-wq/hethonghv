@@ -2082,7 +2082,51 @@ async function runTelesalePumpForUser(userId) {
     return { pumped: 0, message: '', skipped: false };
 }
 
+// ========== CLEANUP: Remove ghost pending assignments for already-answered data ==========
+async function cleanupGhostAssignments() {
+    try {
+        // Find pending assignments where data already has an 'answered' assignment
+        const ghosts = await db.all(`
+            SELECT a.id as assign_id, a.data_id, a.user_id, a.assigned_date
+            FROM telesale_assignments a
+            WHERE a.call_status = 'pending'
+            AND EXISTS (
+                SELECT 1 FROM telesale_assignments a2
+                WHERE a2.data_id = a.data_id AND a2.call_status = 'answered'
+            )
+        `);
+        if (ghosts.length === 0) {
+            console.log('[Telesale Cleanup] No ghost assignments found ✅');
+            return { cleaned: 0 };
+        }
+
+        // Delete ghost assignments
+        const ghostIds = ghosts.map(g => g.assign_id);
+        const dataIds = [...new Set(ghosts.map(g => g.data_id))];
+        for (let i = 0; i < ghostIds.length; i += 500) {
+            const chunk = ghostIds.slice(i, i + 500);
+            const phs = chunk.map((_, j) => `$${j + 1}`).join(',');
+            await db.run(`DELETE FROM telesale_assignments WHERE id IN (${phs})`, chunk);
+        }
+
+        // Reset data status back to 'answered' (it may have been set to 'assigned' by pump)
+        for (const dId of dataIds) {
+            await db.run("UPDATE telesale_data SET status = 'answered', updated_at = NOW() WHERE id = $1 AND status IN ('assigned', 'available')", [dId]);
+        }
+
+        console.log(`[Telesale Cleanup] Removed ${ghosts.length} ghost assignments for ${dataIds.length} data records ✅`);
+        return { cleaned: ghosts.length, dataFixed: dataIds.length };
+    } catch (e) {
+        console.error('[Telesale Cleanup] Error:', e.message);
+        return { cleaned: 0, error: e.message };
+    }
+}
+
+// Auto-run cleanup on server start (non-blocking)
+setTimeout(() => cleanupGhostAssignments(), 5000);
+
 module.exports = telesaleRoutes;
 module.exports.runTelesalePump = runTelesalePump;
 module.exports.runTelesaleRecall = runTelesaleRecall;
 module.exports.runTelesalePumpForUser = runTelesalePumpForUser;
+module.exports.cleanupGhostAssignments = cleanupGhostAssignments;
