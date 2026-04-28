@@ -56,6 +56,11 @@ const PERM_FEATURES = [
     { key: 'bxh_van_phong', label: 'BXH Khối Văn Phòng', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
     { key: 'trao_giai_thuong', label: 'Trao Giải Thưởng', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
 
+    // ===== QUẢN LÝ AFFILIATE =====
+    { key: 'tk_affiliate', label: 'Tài Khoản Affiliate', perms: ['view','edit'], section: 'QUẢN LÝ AFFILIATE' },
+    { key: 'chi_so_affiliate', label: 'Chỉ Số Affiliate HV', perms: ['view'], section: 'QUẢN LÝ AFFILIATE' },
+    { key: 'duyet_rut_tien', label: 'Duyệt Rút Tiền', perms: ['view','edit'], section: 'QUẢN LÝ AFFILIATE' },
+
     // ===== HỆ THỐNG =====
     { key: 'cai_dat', label: 'Cài Đặt Phân Tầng', perms: ['view','edit'], section: 'HỆ THỐNG' },
 ];
