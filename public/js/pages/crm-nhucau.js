@@ -49,53 +49,68 @@ function _crmRenderSidebar() {
     const list = document.getElementById('crmSidebarList');
     if (!list) return;
     const isAllActive = _crmSidebarSelectedUserId === null;
-    let topBtn = `<div onclick="_crmSelectSidebarUser(null,'Tất cả')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+
+    // "Tổng Phòng KD" button
+    let topBtn = `<div onclick="_crmSelectSidebarUser(null,'Tất cả')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:10px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
         <span style="font-size:20px;">📊</span>
         <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
     </div>`;
-    const staffOnly = _crmSidebarUsers.filter(u => !['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'].includes(u.role));
-    let filtered = staffOnly;
-    if (_crmSidebarDeptFilter) filtered = staffOnly.filter(u => String(u.department_id) === _crmSidebarDeptFilter);
-    if (filtered.length === 0) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV</div>'; return; }
+
+    // Build dept lookup
     const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d; });
-    if (!_crmSidebarDeptFilter) {
-        const groups = {};
-        filtered.forEach(u => {
-            const dept = deptMap[u.department_id];
-            if (!dept) { if (!groups['_other']) groups['_other'] = { name: '📁 Khác', children: { '_ot': { name:'', users:[] } } }; groups['_other'].children['_ot'].users.push(u); return; }
-            const parent = dept.parent_id ? deptMap[dept.parent_id] : null;
-            if (parent) {
-                if (!groups[parent.id]) groups[parent.id] = { name: parent.name, children: {} };
-                if (!groups[parent.id].children[dept.id]) groups[parent.id].children[dept.id] = { name: dept.name, users: [] };
-                groups[parent.id].children[dept.id].users.push(u);
-            } else {
-                if (!groups[dept.id]) groups[dept.id] = { name: dept.name, children: {} };
-                if (!groups[dept.id].children['_d'+dept.id]) groups[dept.id].children['_d'+dept.id] = { name: '', users: [] };
-                groups[dept.id].children['_d'+dept.id].users.push(u);
-            }
-        });
-        let html = '';
-        Object.entries(groups).forEach(([pId, pData]) => {
-            html += `<div style="margin-bottom:8px;"><div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span></div>`;
-            Object.entries(pData.children).forEach(([cId, cData]) => {
-                if (cData.name) html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length===0?' <span style="color:#9ca3af;font-size:9px;">(trống)</span>':''}</span></div>`;
-                cData.users.forEach(u => { html += _crmRenderSidebarUser(u, cData.name ? 24 : 12); });
-            });
-            html += '</div>';
-        });
-        list.innerHTML = topBtn + html;
-    } else {
-        list.innerHTML = topBtn + filtered.map(u => _crmRenderSidebarUser(u, 0)).join('');
+
+    // Find "PHÒNG KINH DOANH" department (match by name containing "KINH DOANH")
+    const kdDept = _crmSidebarDepts.find(d => d.name && d.name.toUpperCase().includes('KINH DOANH') && !d.name.toUpperCase().includes('XƯỞNG'));
+    if (!kdDept) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không tìm thấy Phòng KD</div>'; return; }
+
+    // Collect all dept IDs under PHÒNG KINH DOANH (itself + child teams)
+    const kdDeptIds = new Set([kdDept.id]);
+    _crmSidebarDepts.forEach(d => { if (d.parent_id === kdDept.id) kdDeptIds.add(d.id); });
+
+    // Filter users: only staff in KD dept tree, exclude non-staff roles
+    const excludeRoles = ['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'];
+    const kdUsers = _crmSidebarUsers.filter(u => kdDeptIds.has(u.department_id) && !excludeRoles.includes(u.role));
+
+    if (kdUsers.length === 0) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV trong Phòng KD</div>'; return; }
+
+    // Role priority for sorting (lower = higher priority)
+    const rolePriority = { quan_ly_cap_cao: 0, quan_ly: 1, truong_phong: 2, nhan_vien: 3, thu_viec: 4, part_time: 5 };
+    const getRolePrio = (r) => rolePriority[r] !== undefined ? rolePriority[r] : 6;
+
+    // Separate: users directly in PHÒNG KINH DOANH vs users in child teams
+    const directUsers = kdUsers.filter(u => u.department_id === kdDept.id).sort((a,b) => getRolePrio(a.role) - getRolePrio(b.role));
+    const childTeams = _crmSidebarDepts.filter(d => d.parent_id === kdDept.id).sort((a,b) => (a.display_order||0) - (b.display_order||0) || a.name.localeCompare(b.name));
+
+    let html = '';
+
+    // PHÒNG KINH DOANH header + direct members (quản lý etc.)
+    if (directUsers.length > 0) {
+        html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${kdDept.name}</span></div>`;
+        directUsers.forEach(u => { html += _crmRenderSidebarUser(u, 8); });
     }
+
+    // Child teams (TEAM CÁT CÁNH, TEAM XÃ HỘI, etc.)
+    childTeams.forEach(team => {
+        const teamUsers = kdUsers.filter(u => u.department_id === team.id).sort((a,b) => getRolePrio(a.role) - getRolePrio(b.role));
+        if (teamUsers.length === 0) return;
+        html += `<div style="padding:3px 8px 3px 8px;margin:6px 0 2px;"><span style="font-size:10px;font-weight:700;color:#64748b;">└ ${team.name}</span></div>`;
+        teamUsers.forEach(u => { html += _crmRenderSidebarUser(u, 16); });
+    });
+
+    list.innerHTML = topBtn + html;
 }
+
 function _crmRenderSidebarUser(u, indent) {
     const active = u.id === _crmSidebarSelectedUserId;
     const c = _crmAvatarColor(u.full_name || u.username);
     const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d.name; });
     const dName = deptMap[u.department_id] || '';
-    return `<div onclick="_crmSelectSidebarUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\\'")}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
+    // Role badge
+    const isLead = ['quan_ly','quan_ly_cap_cao','truong_phong'].includes(u.role);
+    const roleBadge = isLead ? `<span style="font-size:8px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;${u.role.startsWith('quan_ly')?'background:#fef3c7;color:#92400e;':'background:#dbeafe;color:#1e40af;'}">${u.role.startsWith('quan_ly')?'QL':'TP'}</span>` : '';
+    return `<div onclick="_crmSelectSidebarUser(${u.id},'${(u.full_name||u.username).replace(/'/g,"\\\\\\'")}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;${active ? 'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);' : 'background:white;border:1px solid #e5e7eb;color:#374151;'}">
         <span style="background:${active?'rgba(255,255,255,0.2)':c};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${_crmInitials(u.full_name || u.username)}</span>
-        <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}</div><div style="font-size:9px;opacity:0.6;">${dName}</div></div>
+        <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || u.username}${roleBadge}</div><div style="font-size:9px;opacity:0.6;">${dName}</div></div>
     </div>`;
 }
 function _crmBuildDateFilterHTML() {
@@ -273,11 +288,7 @@ async function renderCRMNhuCauPage(container) {
     const sidebarHTML = _crmIsManager ? `
         <div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
             <div style="padding:14px;border-bottom:1.5px solid #e2e8f0;">
-                <h4 style="margin:0 0 10px;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc Nhu Cầu</h4>
-                <select id="crmSidebarDeptFilter" class="form-control" style="width:100%;padding:8px 10px;font-size:12px;" onchange="_crmSidebarDeptFilter=this.value;_crmRenderSidebar()">
-                    <option value="">📁 Tất cả phòng ban</option>
-                    ${_crmSidebarDepts.filter(d => !d.parent_id).map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
-                </select>
+                <h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc Nhu Cầu</h4>
             </div>
             <div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div>
         </div>` : '';
