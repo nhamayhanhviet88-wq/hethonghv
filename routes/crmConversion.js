@@ -282,6 +282,12 @@ async function crmConversionRoutes(fastify, options) {
             [convReq.to_crm_type, convReq.customer_id]
         );
 
+        // 1b. Auto-sync: update source_crm_type for any linked tkaffiliate account
+        await db.run(
+            "UPDATE users SET source_crm_type = ? WHERE source_customer_id = ? AND role = 'tkaffiliate'",
+            [convReq.to_crm_type, convReq.customer_id]
+        );
+
         // 2. Update request status (audit trail kept in crm_conversion_requests table)
         await db.run(
             "UPDATE crm_conversion_requests SET status = 'approved', approved_by = ?, processed_at = NOW() WHERE id = ?",
