@@ -1,6 +1,33 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+
+// ★ Scope validation: QL/TP chỉ thao tác trên team/user thuộc phòng mình quản lý
+const SCOPED_ROLES = ['quan_ly', 'truong_phong'];
+async function _checkTaskScope(request, reply, target_type, target_id) {
+    if (!SCOPED_ROLES.includes(request.user.role)) return true; // GĐ/QLCC = full quyền
+    const managedDeptIds = await getManagedDeptIds(db, request.user.id);
+    if (target_type === 'team') {
+        if (!managedDeptIds.includes(Number(target_id))) {
+            reply.code(403).send({ error: 'Không có quyền thêm/sửa/xóa CV cho phòng này' });
+            return false;
+        }
+    } else if (target_type === 'individual') {
+        // Chặn self-assign
+        if (Number(target_id) === request.user.id) {
+            reply.code(403).send({ error: 'Không thể tự bàn giao CV cho chính mình. Chỉ GĐ hoặc QLCC mới giao CV cho bạn.' });
+            return false;
+        }
+        // Check target user thuộc phòng quản lý
+        const targetUser = await db.get('SELECT department_id FROM users WHERE id = $1', [Number(target_id)]);
+        if (!targetUser || !managedDeptIds.includes(targetUser.department_id)) {
+            reply.code(403).send({ error: 'Không có quyền thêm/sửa/xóa CV cho nhân viên phòng khác' });
+            return false;
+        }
+    }
+    return true;
+}
 
 const RE_TELESALE = /gọi\s*điện\s*telesale/i;
 const RE_TU_TIM_KIEM = /tự\s*tìm\s*kiếm/i;
@@ -237,6 +264,8 @@ async function taskPointRoutes(fastify, options) {
         if (!week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được tạo CV cố định vào lịch' });
         }
+        // ★ Scope check: QL/TP chỉ giao CV cho phòng mình quản lý
+        if (!(await _checkTaskScope(request, reply, target_type, target_id))) return;
         const result = await db.run(
             `INSERT INTO task_point_templates (target_type, target_id, day_of_week, task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, requires_approval, max_redo_count, week_only, input_requirements, output_requirements, created_by)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -254,10 +283,12 @@ async function taskPointRoutes(fastify, options) {
         const id = Number(request.params.id);
         const { task_name, points, min_quantity, time_start, time_end, guide_url, sort_order, day_of_week, requires_approval, max_redo_count, week_only, input_requirements, output_requirements } = request.body || {};
         // Only giam_doc can edit fixed tasks
-        const existing = await db.get('SELECT week_only FROM task_point_templates WHERE id = ?', [id]);
+        const existing = await db.get('SELECT week_only, target_type, target_id FROM task_point_templates WHERE id = ?', [id]);
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được sửa CV cố định' });
         }
+        // ★ Scope check
+        if (existing && !(await _checkTaskScope(request, reply, existing.target_type, existing.target_id))) return;
         // Get existing for log
         const oldTask = await db.get('SELECT * FROM task_point_templates WHERE id = ?', [id]);
         await db.run(
@@ -278,6 +309,8 @@ async function taskPointRoutes(fastify, options) {
         if (existing && !existing.week_only && request.user.role !== 'giam_doc') {
             return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa CV cố định' });
         }
+        // ★ Scope check
+        if (existing && !(await _checkTaskScope(request, reply, existing.target_type, existing.target_id))) return;
         // Snapshot today before deleting (preserve history)
         if (existing) {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -308,6 +341,8 @@ async function taskPointRoutes(fastify, options) {
         if (!task_name || !target_type || !target_id) {
             return reply.code(400).send({ error: 'Thiếu thông tin' });
         }
+        // ★ Scope check
+        if (!(await _checkTaskScope(request, reply, target_type, target_id))) return;
         try {
             // Build query with optional time_start/time_end filter
             let whereClause = 'task_name = ? AND target_type = ? AND target_id = ?';
@@ -370,6 +405,8 @@ async function taskPointRoutes(fastify, options) {
         if (!old_task_name || !target_type || !target_id) {
             return reply.code(400).send({ error: 'Thiếu thông tin' });
         }
+        // ★ Scope check
+        if (!(await _checkTaskScope(request, reply, target_type, target_id))) return;
         try {
             let whereClause = 'task_name = ? AND target_type = ? AND target_id = ?';
             let params = [old_task_name, target_type, Number(target_id)];
@@ -424,7 +461,7 @@ async function taskPointRoutes(fastify, options) {
 
     // GET departments list for dropdown (with template status)
     fastify.get('/api/task-points/departments', { preHandler: [authenticate] }, async (request, reply) => {
-        const depts = await db.all("SELECT id, name, parent_id, display_order, head_user_id FROM departments WHERE status = 'active' ORDER BY display_order, name");
+        let depts = await db.all("SELECT id, name, parent_id, display_order, head_user_id FROM departments WHERE status = 'active' ORDER BY display_order, name");
         const activeIds = await db.all("SELECT DISTINCT target_id FROM task_point_templates WHERE target_type = 'team'");
         const registeredIds = await db.all("SELECT team_id FROM task_schedule_active_teams");
         const activeSet = new Set([...activeIds.map(r => r.target_id), ...registeredIds.map(r => r.team_id)]);
@@ -436,6 +473,27 @@ async function taskPointRoutes(fastify, options) {
             WHERE u.status = 'active'
             ORDER BY u.full_name
         `);
+
+        // ★ QL/TP: chỉ trả về departments thuộc phạm vi quản lý + parent system depts
+        if (SCOPED_ROLES.includes(request.user.role)) {
+            const managedDeptIds = await getManagedDeptIds(db, request.user.id);
+            const managedSet = new Set(managedDeptIds);
+            // Also include parent depts of managed depts (for hierarchy display)
+            const parentIds = new Set();
+            for (const dept of depts) {
+                if (managedSet.has(dept.id) && dept.parent_id) {
+                    parentIds.add(dept.parent_id);
+                    // Also add grandparent (system dept)
+                    const parent = depts.find(d => d.id === dept.parent_id);
+                    if (parent && parent.parent_id) parentIds.add(parent.parent_id);
+                }
+            }
+            depts = depts.filter(d => managedSet.has(d.id) || parentIds.has(d.id) || d.name.startsWith('HỆ THỐNG'));
+            // Filter active_dept_ids to only managed ones
+            const filteredActiveIds = [...activeSet].filter(id => managedSet.has(id));
+            return { departments: depts, active_dept_ids: filteredActiveIds, approvers: approvers.filter(a => managedSet.has(a.department_id)) };
+        }
+
         return { departments: depts, active_dept_ids: [...activeSet], approvers };
     });
 
