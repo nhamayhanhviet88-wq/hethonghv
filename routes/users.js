@@ -67,7 +67,7 @@ async function usersRoutes(fastify, options) {
             return { users: [] };
         }
         const { role } = request.query;
-        let query = "SELECT id, full_name, role, department_id, source_crm_type, managed_by_user_id FROM users WHERE status = 'active'";
+        let query = "SELECT id, username, full_name, phone, role, department_id, source_crm_type, managed_by_user_id FROM users WHERE status = 'active'";
         const params = [];
         if (role) { query += ' AND role = ?'; params.push(role); }
         query += ' ORDER BY full_name';

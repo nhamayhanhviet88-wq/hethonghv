@@ -86,6 +86,28 @@ async function start() {
         }
     } catch(e) { console.log('thu_viec seed:', e.message); }
 
+    // Migration: Access Block — chặn truy cập thay vì khóa TK
+    try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked_at TIMESTAMP'); } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked_reason TEXT'); } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS access_unblock_logs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            unblocked_by INTEGER REFERENCES users(id),
+            blocked_reason TEXT,
+            penalty_total INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
+    // Seed app_config for unblock managers
+    try {
+        const existsUBM = await db.get("SELECT key FROM app_config WHERE key = 'access_unblock_managers'");
+        if (!existsUBM) {
+            await db.run("INSERT INTO app_config (key, value) VALUES ('access_unblock_managers', '[]')");
+        }
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -162,6 +184,7 @@ async function start() {
     fastify.register(require('./routes/notifications'));
     fastify.register(require('./routes/crmConversion'));
     fastify.register(require('./routes/affiliateAccount'));
+    fastify.register(require('./routes/accessBlock'));
 
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {

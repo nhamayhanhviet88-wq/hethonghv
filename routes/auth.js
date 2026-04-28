@@ -38,8 +38,9 @@ async function authRoutes(fastify, options) {
             }
         }
 
-        // Nếu TK bị locked (từ dữ liệu cũ) → tự mở khóa, cho login bình thường
-        // Popup thông báo phạt sẽ hiện sau khi login (xử lý trong app.js)
+        // Legacy: Nếu TK bị locked (từ hệ thống cũ) → tự mở khóa, cho login
+        // ★ Hệ thống mới dùng access_blocked thay vì status='locked'
+        // access_blocked xử lý ở middleware/auth.js — NV vẫn login được nhưng bị chặn API
         if (user.status === 'locked') {
             await db.run("UPDATE users SET status = 'active' WHERE id = $1", [user.id]);
         }
@@ -87,7 +88,7 @@ async function authRoutes(fastify, options) {
     // Lấy thông tin user hiện tại + effective permissions
     fastify.get('/api/auth/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await db.get(
-            'SELECT id, username, full_name, phone, role, status, telegram_group_id, order_code_prefix, department_id, managed_by_user_id FROM users WHERE id = ?',
+            'SELECT id, username, full_name, phone, role, status, telegram_group_id, order_code_prefix, department_id, managed_by_user_id, access_blocked FROM users WHERE id = ?',
             [request.user.id]
         );
 

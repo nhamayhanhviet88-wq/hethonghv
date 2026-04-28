@@ -2527,6 +2527,10 @@ async function openAffiliateDetail(userId) {
                                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${u.phone || '—'}</div>
                             </div>
                             <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
+                                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">🔐 Tên tài khoản</div>
+                                <div style="font-size:14px;font-weight:600;color:#7c3aed;font-family:'Courier New',monospace;">${u.username || '—'}</div>
+                            </div>
+                            <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">📋 Loại CRM</div>
                                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${CRM_LABELS_AFF[u.source_crm_type] || u.source_crm_type || '—'}</div>
                             </div>

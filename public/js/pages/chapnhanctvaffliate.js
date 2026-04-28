@@ -227,46 +227,74 @@ async function _cncaReject(id) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
+let _cncaApproverIds = [];
+let _cncaAllUsers = [];
+let _cncaApprovers = [];
+let _cncaDeptMap = {};
+
 async function _cncaShowSettings() {
-    const data = await apiCall('/api/crm-conversion/settings');
-    const roles = data.approver_roles || ['giam_doc'];
+    const [data, usersData, deptsData] = await Promise.all([
+        apiCall('/api/crm-conversion/settings'),
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
     const tgGroup = data.telegram_group || '';
-    const SETTABLE_ROLES = [
-        { key:'giam_doc', label:'🏆 Giám Đốc', locked:true },
-        { key:'quan_ly_cap_cao', label:'👔 Quản Lý Cấp Cao' },
-        { key:'quan_ly', label:'📊 Quản Lý' },
-        { key:'truong_phong', label:'📋 Trưởng Phòng' }
-    ];
-    const checksHtml = SETTABLE_ROLES.map(r => {
-        const checked = roles.includes(r.key) ? 'checked' : '';
-        const disabled = r.locked ? 'disabled' : '';
-        const bg = checked ? '#eef2ff' : '#f9fafb';
-        const border = checked ? '#6366f1' : '#e5e7eb';
-        return `<label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;cursor:${r.locked?'not-allowed':'pointer'};background:${bg};border:1px solid ${border};">
-            <input type="checkbox" class="cnca-role-cb" value="${r.key}" ${checked} ${disabled} style="width:18px;height:18px;">
-            <span style="font-weight:600;color:#122546;">${r.label}</span>
-            ${r.locked ? '<span style="font-size:10px;color:#6b7280;margin-left:auto;">🔒 Luôn có</span>' : ''}
-        </label>`;
-    }).join('');
+    _cncaApproverIds = data.approver_ids || [];
+    _cncaApprovers = data.approvers || [];
+    _cncaAllUsers = usersData.users || [];
+    const depts = deptsData.departments || [];
+    _cncaDeptMap = {};
+    depts.forEach(d => _cncaDeptMap[d.id] = d.name);
+
+    // Find GĐ users (always have access, shown locked)
+    const gdUsers = _cncaAllUsers.filter(u => u.role === 'giam_doc');
 
     const overlay = document.createElement('div');
     overlay.id = 'cncaSettingsOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:28px;width:520px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+        <div style="background:white;border-radius:16px;padding:28px;width:580px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h3 style="margin:0;color:#122546;">⚙️ Cài Đặt Chấp Nhận CTV/Affiliate</h3>
                 <span onclick="document.getElementById('cncaSettingsOverlay').remove()" style="cursor:pointer;font-size:22px;color:#6b7280;">✕</span>
             </div>
+
             <div style="margin-bottom:20px;">
                 <div style="font-weight:700;font-size:14px;color:#122546;margin-bottom:10px;">🔐 Quyền Duyệt</div>
-                <div style="display:flex;flex-direction:column;gap:6px;">${checksHtml}</div>
+                <div style="margin-bottom:10px;padding:10px 14px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
+                    <div style="font-size:11px;color:#3b82f6;">ℹ️ Chọn <strong>cụ thể từng người</strong> được phép duyệt. Giám Đốc luôn có quyền.</div>
+                </div>
+
+                <!-- GĐ (locked) -->
+                ${gdUsers.map(gd => `
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fefce8;border:1px solid #fde68a;border-radius:8px;margin-bottom:6px;">
+                    <span style="font-size:16px;">🏆</span>
+                    <div style="flex:1;">
+                        <span style="font-size:13px;font-weight:700;color:#92400e;">${gd.full_name}</span>
+                        <span style="font-size:11px;color:#6b7280;margin-left:4px;">(${gd.username})</span>
+                        <span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:#fef3c7;color:#92400e;font-weight:600;">GĐ</span>
+                    </div>
+                    <span style="font-size:10px;color:#6b7280;">🔒 Luôn có</span>
+                </div>`).join('')}
+
+                <!-- Dynamic approvers list -->
+                <div id="cncaApproversList"></div>
+
+                <!-- Add dropdown -->
+                <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+                    <select id="cncaAddApproverSelect" style="flex:1;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;outline:none;">
+                        <option value="">-- Chọn người duyệt --</option>
+                    </select>
+                    <button onclick="_cncaAddApprover()" style="padding:8px 16px;font-size:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:white;cursor:pointer;font-weight:700;white-space:nowrap;">+ Thêm</button>
+                </div>
             </div>
+
             <div style="margin-bottom:20px;">
                 <div style="font-weight:700;font-size:14px;color:#122546;margin-bottom:10px;">📢 Nhóm Telegram</div>
                 <input type="text" id="cncaTelegramGroup" class="form-control" value="${tgGroup}" placeholder="Nhập Telegram Group ID (VD: -100xxxxxxxxxx)">
                 <small style="color:#6b7280;font-size:11px;">Nhóm Telegram nhận thông báo khi có yêu cầu mới, duyệt, hoặc từ chối. Để trống = chỉ gửi nhóm chung.</small>
             </div>
+
             <div style="display:flex;gap:10px;justify-content:flex-end;">
                 <button onclick="document.getElementById('cncaSettingsOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">Hủy</button>
                 <button onclick="_cncaSaveSettings()" class="btn btn-primary" style="width:auto;">💾 Lưu Cài Đặt</button>
@@ -275,18 +303,83 @@ async function _cncaShowSettings() {
     `;
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
+    _cncaRenderApprovers();
+}
+
+function _cncaRenderApprovers() {
+    const listDiv = document.getElementById('cncaApproversList');
+    if (!listDiv) return;
+    const ROLE_SHORT = { giam_doc:'GĐ', quan_ly_cap_cao:'QLCC', quan_ly:'QL', truong_phong:'TP', nhan_vien:'NV', thu_viec:'TV', part_time:'PT', hoa_hong:'HH', tkaffiliate:'AFF' };
+    const ROLE_COLORS = { quan_ly_cap_cao:'#92400e', quan_ly:'#1e40af', truong_phong:'#6d28d9', nhan_vien:'#0369a1', thu_viec:'#166534' };
+
+    const approvers = _cncaApproverIds.map(id =>
+        _cncaApprovers.find(a => a.id === id) || _cncaAllUsers.find(u => u.id === id) || { id, full_name: 'ID: ' + id, role: '?', username: '?' }
+    );
+
+    if (approvers.length === 0) {
+        listDiv.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:10px;font-size:12px;">Chưa thêm ai. Chỉ GĐ được duyệt.</div>';
+    } else {
+        listDiv.innerHTML = approvers.map(u => {
+            const deptName = u.dept_name || _cncaDeptMap[u.department_id] || '';
+            const roleColor = ROLE_COLORS[u.role] || '#6b7280';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:6px;">
+                <span style="font-size:16px;">👤</span>
+                <div style="flex:1;">
+                    <span style="font-size:13px;font-weight:700;color:#166534;">${u.full_name}</span>
+                    <span style="font-size:11px;color:#6b7280;margin-left:4px;">(${u.username})</span>
+                    <span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:#e0f2fe;color:${roleColor};font-weight:600;">${ROLE_SHORT[u.role] || u.role}</span>
+                    ${deptName ? `<span style="font-size:9px;padding:1px 6px;border-radius:4px;margin-left:4px;background:#f0fdf4;color:#166534;font-weight:600;">📁 ${deptName}</span>` : ''}
+                </div>
+                <span style="font-size:11px;color:#6b7280;">${u.phone || ''}</span>
+                <button onclick="_cncaRemoveApprover(${u.id})" style="padding:3px 8px;font-size:11px;border:1px solid #fca5a5;border-radius:6px;background:white;color:#dc2626;cursor:pointer;font-weight:600;">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    // Update dropdown (exclude GĐ + already selected)
+    const select = document.getElementById('cncaAddApproverSelect');
+    if (select) {
+        const existing = new Set([..._cncaApproverIds]);
+        select.innerHTML = '<option value="">-- Chọn người duyệt --</option>' +
+            _cncaAllUsers
+                .filter(u => ['quan_ly_cap_cao', 'quan_ly'].includes(u.role) && !existing.has(u.id))
+                .map(u => {
+                    const rl = { quan_ly_cap_cao:'QLCC', quan_ly:'QL', truong_phong:'TP', nhan_vien:'NV', thu_viec:'TV', part_time:'PT' };
+                    const deptName = _cncaDeptMap[u.department_id] || '';
+                    return `<option value="${u.id}">${u.full_name} (${u.username}) — ${rl[u.role] || u.role}${deptName ? ' — ' + deptName : ''}</option>`;
+                }).join('');
+    }
+}
+
+function _cncaAddApprover() {
+    const select = document.getElementById('cncaAddApproverSelect');
+    const val = Number(select?.value);
+    if (!val) return;
+    if (!_cncaApproverIds.includes(val)) {
+        _cncaApproverIds.push(val);
+        _cncaRenderApprovers();
+    }
+}
+
+function _cncaRemoveApprover(id) {
+    _cncaApproverIds = _cncaApproverIds.filter(i => i !== id);
+    _cncaRenderApprovers();
 }
 
 async function _cncaSaveSettings() {
-    const roles = [...document.querySelectorAll('.cnca-role-cb:checked')].map(cb => cb.value);
     const telegram_group = document.getElementById('cncaTelegramGroup')?.value?.trim() || '';
+    console.log('[CTV-SAVE] Saving:', JSON.stringify(_cncaApproverIds), 'tg:', telegram_group);
     try {
-        const data = await apiCall('/api/crm-conversion/settings', 'PUT', { approver_roles: roles, telegram_group });
+        const data = await apiCall('/api/crm-conversion/settings', 'PUT', { approver_ids: _cncaApproverIds, telegram_group });
+        console.log('[CTV-SAVE] Response:', JSON.stringify(data));
         if (data.success) {
             showToast('✅ ' + data.message);
             document.getElementById('cncaSettingsOverlay')?.remove();
-        } else showToast(data.error, 'error');
-    } catch(e) { showToast('Lỗi lưu cài đặt', 'error'); }
+        } else showToast(data.error || data.message || 'Lỗi', 'error');
+    } catch(e) {
+        console.error('[CTV-SAVE] Error:', e);
+        showToast('Lỗi lưu cài đặt: ' + e.message, 'error');
+    }
 }
 
 // ========== GLOBAL: Popup đề xuất chuyển CRM (dùng chung cho tất cả CRM modules) ==========

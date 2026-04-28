@@ -63,7 +63,7 @@ const MENU_CONFIG = [
     { id: 'crm-ctv', label: 'Chăm Sóc CTV', icon: '🤝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', permKey: 'crm_ctv' },
     { id: 'cham-soc-affiliate', label: 'Chăm Sóc Affiliate', icon: '💝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsocaffiliate', permKey: 'crm_affiliate' },
     { id: 'cham-soc-koc-kol', label: 'Chăm Sóc KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsockockol', permKey: 'crm_koc_kol' },
-    { id: 'chap-nhan-ctv-affiliate', label: 'Chấp Nhận CTV / Affiliate', icon: '✅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'], section: 'KINH DOANH CHĂM SÓC', href: '/chapnhanctvaffliate', dynamicRoles: 'crm_conversion_approver_roles' },
+    { id: 'chap-nhan-ctv-affiliate', label: 'Chấp Nhận CTV / Affiliate', icon: '✅', roles: ['giam_doc'], section: 'KINH DOANH CHĂM SÓC', href: '/chapnhanctvaffliate' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE' },
     { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles' },
@@ -78,6 +78,7 @@ const MENU_CONFIG = [
     { id: 'cap-cuu-sep', label: 'Cấp Cứu Sếp', icon: '🚨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'cap_cuu_sep' },
     { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'huy_khach' },
     { id: 'chuyen-so', label: 'Chuyển Số NV Kinh Doanh', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'chuyen_so' },
+    { id: 'mo-khoa-tk-phat', label: 'Mở Khóa Phạt Tài Khoản', icon: '🔓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/mokhoatkphat' },
     { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', permKey: 'nhan_vien' },
     // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
     { id: 'teams', label: 'Cơ Cấu Tổ Chức', icon: '🏢', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', permKey: 'co_cau_to_chuc' },
@@ -489,6 +490,12 @@ async function checkAuth() {
         currentUser = data.user;
         userPermissions = data.user.permissions || {};
 
+        // ★ ACCESS BLOCK CHECK — chỉ GĐ được miễn
+        if (data.user.access_blocked && data.user.role !== 'giam_doc') {
+            _showAccessBlockScreen();
+            return;
+        }
+
         // Load dynamic roles for menu items (in parallel)
         const dynamicItems = MENU_CONFIG.filter(item => item.dynamicRoles);
         if (dynamicItems.length > 0) {
@@ -504,6 +511,30 @@ async function checkAuth() {
                 }
             });
         }
+
+        // Nhân Sự Toàn Quyền (HR) — cho thấy menu mở khóa dù role là nhan_vien
+        try {
+            const hrCfg = await fetch('/api/app-config/access_unblock_managers').then(r => r.json()).catch(() => ({}));
+            if (hrCfg?.value) {
+                const hrIds = JSON.parse(hrCfg.value);
+                if (hrIds.includes(data.user.id)) {
+                    const mkItem = MENU_CONFIG.find(m => m.id === 'mo-khoa-tk-phat');
+                    if (mkItem && !mkItem.roles.includes(data.user.role)) mkItem.roles.push(data.user.role);
+                }
+            }
+        } catch(e) {}
+
+        // CTV Approver — cho người được chỉ định thấy menu Chấp Nhận CTV
+        try {
+            const ctvCfg = await fetch('/api/app-config/crm_conversion_approver_ids').then(r => r.json()).catch(() => ({}));
+            if (ctvCfg?.value) {
+                const ctvIds = JSON.parse(ctvCfg.value);
+                if (ctvIds.includes(data.user.id)) {
+                    const ctvItem = MENU_CONFIG.find(m => m.id === 'chap-nhan-ctv-affiliate');
+                    if (ctvItem && !ctvItem.roles.includes(data.user.role)) ctvItem.roles.push(data.user.role);
+                }
+            }
+        } catch(e) {}
 
         renderSidebar();
         // Restore sidebar scroll position after href navigation
@@ -992,6 +1023,7 @@ async function handleRoute() {
             case 'congvieckhoaxuly': renderCongViecPhatPage(content); break;
             case 'lich-su-bao-cao': case 'lichsubaocaocv': renderLichSuBaoCaoPage(content); break;
             case 'khoa-tk-nv': case 'khoatknv': renderKhoaTKNVPage(content); break;
+            case 'mo-khoa-tk-phat': case 'mokhoatkphat': renderMoKhoaTKPhatPage(content); break;
             case 'xin-nghi-nv': case 'xinnghinhanvien': renderXinNghiPage(content); break;
             case 'setup-ngay-le': case 'setupngayle': renderSetupNgayLePage(content); break;
             case 'bangiao-khoa': case 'bangiaokhoa': renderBanGiaoKhoaPage(content); break;
@@ -2301,4 +2333,124 @@ function _tkkhScrollToRow(customerId) {
     setTimeout(() => {
         row.classList.remove('_tkkh-highlight');
     }, 5000);
+}
+
+// ========== ACCESS BLOCK SCREEN — Trang chặn full-screen ==========
+async function _showAccessBlockScreen() {
+    // Lấy chi tiết chặn
+    let blockData = { blocked: true, penalties: [], unlockers: [] };
+    try {
+        blockData = await apiCall('/api/access-block/status');
+    } catch(e) {}
+
+    const penalties = blockData.penalties || [];
+    const total = penalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
+    const unlockers = blockData.unlockers || [];
+    const blockedAt = blockData.blocked_at ? new Date(blockData.blocked_at).toLocaleString('vi-VN') : '---';
+
+    const penaltyListHtml = penalties.map((p, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.08);${i % 2 ? 'background:rgba(255,255,255,0.03);' : ''}">
+            <div style="flex:0 0 28px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-align:center;">${i + 1}</div>
+            <div style="flex:1;">
+                <div style="font-size:13px;font-weight:700;color:white;">${p.task_name || 'Vi phạm'}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;">${p.task_date ? '📅 ' + p.task_date.split('-').reverse().join('/') : ''}${p.penalty_reason ? ' — ' + p.penalty_reason : ''}</div>
+            </div>
+            <div style="font-size:14px;font-weight:800;color:#fbbf24;">${(p.penalty_amount || 0).toLocaleString()}đ</div>
+        </div>
+    `).join('');
+
+    const unlockersHtml = unlockers.length > 0
+        ? unlockers.map(u => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.08);border-radius:10px;margin-bottom:6px;">
+                <span style="font-size:20px;">👤</span>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:white;">${u.full_name}</div>
+                    <div style="font-size:12px;color:#93c5fd;">${u.phone ? '📞 ' + u.phone : 'Liên hệ qua hệ thống'}</div>
+                </div>
+            </div>
+        `).join('')
+        : '<div style="font-size:12px;color:rgba(255,255,255,0.5);text-align:center;padding:10px;">Liên hệ Giám Đốc để được mở khóa</div>';
+
+    // Thay thế TOÀN BỘ body
+    document.body.innerHTML = `
+    <style>
+        @keyframes abPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 20px rgba(220,38,38,0); } }
+        @keyframes abFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes abSlideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+        .ab-status-dot { width:8px;height:8px;border-radius:50%;background:#ef4444;animation:abPulse 2s infinite;display:inline-block;margin-right:6px; }
+    </style>
+    <div style="position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);z-index:999999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;">
+        <div style="max-width:520px;width:100%;animation:abSlideUp 0.5s ease;">
+            <!-- Logo + Header -->
+            <div style="text-align:center;margin-bottom:24px;">
+                <div style="width:90px;height:90px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;animation:abFloat 3s ease infinite;box-shadow:0 8px 30px rgba(220,38,38,0.4);">
+                    <span style="font-size:42px;">🚫</span>
+                </div>
+                <h1 style="font-size:22px;font-weight:900;color:white;margin:16px 0 6px;letter-spacing:1px;">TÀI KHOẢN BỊ TẠM CHẶN</h1>
+                <h2 style="font-size:15px;font-weight:700;color:#fbbf24;margin:0 0 8px;letter-spacing:0.5px;">DO KHÔNG BÁO CÁO CÔNG VIỆC</h2>
+                <p style="font-size:13px;color:#94a3b8;margin:0;">Bạn chưa hoàn thành báo cáo công việc được giao. Vui lòng liên hệ Quản Lý để được mở khóa.</p>
+                <div style="font-size:11px;color:#64748b;margin-top:6px;">⏰ Bị chặn lúc: ${blockedAt}</div>
+            </div>
+
+            <!-- Penalty Card -->
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;overflow:hidden;margin-bottom:16px;backdrop-filter:blur(10px);">
+                <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+                    <span style="color:white;font-weight:800;font-size:14px;">📋 Chi tiết vi phạm (${penalties.length})</span>
+                    <span style="background:rgba(0,0,0,0.3);color:#fbbf24;padding:4px 14px;border-radius:8px;font-size:15px;font-weight:900;">${total.toLocaleString()}đ</span>
+                </div>
+                <div style="max-height:250px;overflow-y:auto;">
+                    ${penaltyListHtml || '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.4);">Không có chi tiết</div>'}
+                </div>
+            </div>
+
+            <!-- Unlocker Info -->
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;overflow:hidden;margin-bottom:16px;backdrop-filter:blur(10px);">
+                <div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <span style="color:#93c5fd;font-weight:700;font-size:13px;">🔑 Quản Lý phụ trách mở khóa</span>
+                </div>
+                <div style="padding:12px 16px;">
+                    ${unlockersHtml}
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div id="abStatusBox" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:14px 18px;text-align:center;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <span class="ab-status-dot"></span>
+                    <span style="font-size:13px;color:#fbbf24;font-weight:700;">Đang chờ mở khóa...</span>
+                </div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Trang sẽ tự động mở khi được duyệt</div>
+            </div>
+
+            <!-- Buttons -->
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button onclick="_abCheckUnblock()" style="padding:12px 28px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(37,99,235,0.4);transition:all 0.2s;"
+                    onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                    🔃 Kiểm tra lại
+                </button>
+                <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>window.location.href='/')" style="padding:12px 24px;background:rgba(255,255,255,0.1);color:#94a3b8;border:1px solid rgba(255,255,255,0.2);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                    🚪 Đăng xuất
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align:center;margin-top:24px;">
+                <div style="font-size:11px;color:#475569;">ĐỒNG PHỤC HV — Hệ thống quản lý nhân sự</div>
+            </div>
+        </div>
+    </div>`;
+
+    // Auto-poll mỗi 30s để tự mở khi được duyệt (clear cũ tránh duplicate)
+    if (window._abPollInterval) clearInterval(window._abPollInterval);
+    window._abPollInterval = setInterval(_abCheckUnblock, 30000);
+}
+
+async function _abCheckUnblock() {
+    try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.user && !data.user.access_blocked) {
+            window.location.reload();
+        }
+    } catch(e) {}
 }

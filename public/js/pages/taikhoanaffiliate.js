@@ -1070,6 +1070,10 @@ async function showAffDetail(userId) {
                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${user.phone || '—'}</div>
             </div>
             <div style="background:#fff;padding:14px 16px;">
+                <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🔐 Tên tài khoản</div>
+                <div style="font-size:14px;font-weight:600;color:#7c3aed;font-family:'Courier New',monospace;">${user.username || '—'}</div>
+            </div>
+            <div style="background:#fff;padding:14px 16px;">
                 <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🎂 Sinh nhật</div>
                 <div style="font-size:14px;font-weight:600;color:#1e293b;">${user.birth_date ? formatDate(user.birth_date) : '—'}</div>
             </div>

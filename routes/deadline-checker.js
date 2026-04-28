@@ -111,6 +111,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
     
     let penaltyCount = 0;
 
+    // ★ ACCESS BLOCK: Gom user bị phạt để batch-update access_blocked ở cuối
+    // Map<userId, [{task_name, task_date, penalty_amount, penalty_reason}]>
+    const accessBlockPenalties = new Map();
+
     const nowLocal = toLocalTimestamp(now);
 
     // ★ Không khóa tài khoản nữa — chỉ ghi phạt + hiển thị popup thông báo
@@ -379,6 +383,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 // Ghi phạt (không khóa TK)
                 penaltyCount++;
                 console.log(`  ⚠️ [CV Khóa] Phạt NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${checkDateStr} (phạt ${penaltyAmount}đ)`);
+                // ★ Track for access blocking
+                if (!accessBlockPenalties.has(la.user_id)) accessBlockPenalties.set(la.user_id, []);
+                accessBlockPenalties.get(la.user_id).push({ task_name: `CV Khóa: ${la.task_name}`, task_date: checkDateStr, penalty_amount: penaltyAmount, penalty_reason: 'Không nộp CV Khóa' });
             }
         }
 
@@ -718,6 +725,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
             // Ghi phạt (không khóa TK)
             penaltyCount++;
             console.log(`  ⚠️ [CV Chuỗi] Phạt NV id=${oci.user_id} — Không nộp: ${oci.task_name} (${oci.chain_name}) deadline ${oci.deadline} (phạt ${penaltyAmount}đ)`);
+            // ★ Track for access blocking
+            if (!accessBlockPenalties.has(oci.user_id)) accessBlockPenalties.set(oci.user_id, []);
+            accessBlockPenalties.get(oci.user_id).push({ task_name: `CV Chuỗi: ${oci.task_name} (${oci.chain_name})`, task_date: oci.deadline, penalty_amount: penaltyAmount, penalty_reason: 'Không nộp CV Chuỗi' });
         }
 
         // ========== 5a. PHẠT CHỒNG PHẠT HÀNG NGÀY — Expired CV Chuỗi chưa báo cáo lại ==========
@@ -973,6 +983,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             penaltyCount++;
                             custPenaltyCount++;
                             console.log(`  ⚠️ [KH Chưa XL] Phạt user=${userId} — menu ${crmType} (${unhandled} KH chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
+                            // ★ Track for access blocking
+                            if (!accessBlockPenalties.has(userId)) accessBlockPenalties.set(userId, []);
+                            accessBlockPenalties.get(userId).push({ task_name: `KH chưa xử lý: ${crmType} (${unhandled} KH)`, task_date: today, penalty_amount: penaltyAmt, penalty_reason: `Không xử lý ${unhandled} khách hàng` });
                         }
                     } catch (insertErr) {
                         // Conflict = already penalized today for this menu
@@ -991,7 +1004,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     if (penaltyCount > 0) {
-        console.log(`  ✅ Tổng: ${penaltyCount} lỗi vi phạm (chỉ ghi phạt, không khóa TK)`);
+        console.log(`  ✅ Tổng: ${penaltyCount} lỗi vi phạm`);
     }
 
     // ========== 8b. AUTO-LOG "KHÔNG XỬ LÝ" VÀO LỊCH SỬ KH ==========
@@ -1134,6 +1147,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             penaltyCount++;
                             trePenaltyCount++;
                             console.log(`  ⚠️ [KH Xử Lý Trễ] Phạt user=${userId} — menu ${crmType} (${unhandled} KH trễ chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
+                            // ★ Track for access blocking
+                            if (!accessBlockPenalties.has(userId)) accessBlockPenalties.set(userId, []);
+                            accessBlockPenalties.get(userId).push({ task_name: `KH xử lý trễ: ${crmType} (${unhandled} KH)`, task_date: treToday, penalty_amount: penaltyAmt, penalty_reason: `Không xử lý ${unhandled} khách trễ` });
                         }
                     } catch (insertErr) {
                         // Conflict = already penalized today for this CRM type
@@ -1149,6 +1165,48 @@ async function runDeadlineCheck(forceFullCheck = false) {
         }
     } catch(e) {
         console.error('  ❌ Error checking overdue customer penalties:', e.message);
+    }
+
+    // ★★★ ACCESS BLOCK — Batch update access_blocked cho user bị phạt ★★★
+    // Đặt SAU TẤT CẢ penalty sections để gom đủ vi phạm trước khi chặn
+    if (accessBlockPenalties.size > 0) {
+        let blockCount = 0;
+        for (const [userId, penalties] of accessBlockPenalties) {
+            try {
+                // Kiểm tra role — CHỈ GĐ được miễn chặn
+                const userCheck = await db.get('SELECT role, access_blocked FROM users WHERE id = $1', [userId]);
+                if (!userCheck || userCheck.role === 'giam_doc') continue;
+
+                // Merge với reason hiện tại (nếu đã bị chặn từ trước)
+                let existingPenalties = [];
+                if (userCheck.access_blocked) {
+                    try {
+                        const existing = await db.get('SELECT access_blocked_reason FROM users WHERE id = $1', [userId]);
+                        if (existing && existing.access_blocked_reason) {
+                            existingPenalties = JSON.parse(existing.access_blocked_reason);
+                        }
+                    } catch(e) {}
+                }
+
+                // Gộp penalties mới (tránh trùng bằng task_name + task_date)
+                const existingKeys = new Set(existingPenalties.map(p => p.task_name + '|' + p.task_date));
+                const newPenalties = penalties.filter(p => !existingKeys.has(p.task_name + '|' + p.task_date));
+                const allPenalties = [...existingPenalties, ...newPenalties];
+
+                await db.run(
+                    `UPDATE users SET access_blocked = true, access_blocked_at = COALESCE(access_blocked_at, NOW()), access_blocked_reason = $2
+                     WHERE id = $1`,
+                    [userId, JSON.stringify(allPenalties)]
+                );
+                blockCount++;
+                console.log(`  🚫 [Access Block] Chặn user id=${userId} (${allPenalties.length} vi phạm)`);
+            } catch(e) {
+                console.error(`  ❌ [Access Block] Error blocking user ${userId}:`, e.message);
+            }
+        }
+        if (blockCount > 0) {
+            console.log(`  🚫 [Access Block] Tổng: ${blockCount} user bị chặn truy cập`);
+        }
     }
 
     // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 01:00) ==========

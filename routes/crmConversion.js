@@ -33,12 +33,19 @@ async function crmConversionRoutes(fastify, options) {
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_ccr_customer ON crm_conversion_requests(customer_id)'); } catch(e) {}
 
     // ========== Helper: check if user can approve ==========
-    async function canApprove(userRole) {
+    async function canApprove(userId, userRole) {
         if (userRole === 'giam_doc') return true;
         try {
-            const config = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_roles'");
+            // New: user-based config
+            const config = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_ids'");
             if (config && config.value) {
-                const roles = JSON.parse(config.value);
+                const ids = JSON.parse(config.value);
+                return ids.includes(userId);
+            }
+            // Fallback: old role-based config (backward compat)
+            const oldConfig = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_roles'");
+            if (oldConfig && oldConfig.value) {
+                const roles = JSON.parse(oldConfig.value);
                 return roles.includes(userRole);
             }
         } catch(e) {}
@@ -161,7 +168,7 @@ async function crmConversionRoutes(fastify, options) {
     // ========== STATS FOR DASHBOARD CARDS ==========
     fastify.get('/api/crm-conversion/stats', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const year = Number(request.query.year) || new Date().getFullYear();
@@ -209,7 +216,7 @@ async function crmConversionRoutes(fastify, options) {
     // ========== LIST CONVERSION REQUESTS ==========
     fastify.get('/api/crm-conversion/list', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Bạn không có quyền xem trang này' });
 
         const { status, year } = request.query;
@@ -249,7 +256,7 @@ async function crmConversionRoutes(fastify, options) {
     // ========== APPROVE CONVERSION ==========
     fastify.post('/api/crm-conversion/:id/approve', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Bạn không có quyền duyệt' });
 
         const reqId = Number(request.params.id);
@@ -298,7 +305,7 @@ async function crmConversionRoutes(fastify, options) {
     // ========== REJECT CONVERSION ==========
     fastify.post('/api/crm-conversion/:id/reject', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Bạn không có quyền từ chối' });
 
         const { reject_reason } = request.body || {};
@@ -348,38 +355,66 @@ async function crmConversionRoutes(fastify, options) {
 
     // ========== SETTINGS: GET ==========
     fastify.get('/api/crm-conversion/settings', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const roles = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_roles'");
         const telegram = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_telegram_group'");
+        const idsCfg = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_ids'");
+        const ids = idsCfg?.value ? JSON.parse(idsCfg.value) : [];
+        // Fetch user info for display
+        let approvers = [];
+        if (ids.length > 0) {
+            const phs = ids.map((_, i) => `$${i + 1}`).join(',');
+            approvers = await db.all(`SELECT id, username, full_name, role, phone, department_id FROM users WHERE id IN (${phs})`, ids);
+        }
+        // Get dept names
+        const depts = await db.all('SELECT id, name FROM departments');
+        const deptMap = {};
+        depts.forEach(d => deptMap[d.id] = d.name);
+        approvers = approvers.map(u => ({ ...u, dept_name: deptMap[u.department_id] || '' }));
         return {
-            approver_roles: roles?.value ? JSON.parse(roles.value) : ['giam_doc'],
+            approver_ids: ids,
+            approvers,
             telegram_group: telegram?.value || ''
         };
     });
 
     // ========== SETTINGS: SAVE ==========
     fastify.put('/api/crm-conversion/settings', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { approver_roles, telegram_group } = request.body || {};
+        const { approver_ids, telegram_group } = request.body || {};
 
-        // Ensure giam_doc is always included
-        let roles = Array.isArray(approver_roles) ? approver_roles : ['giam_doc'];
-        if (!roles.includes('giam_doc')) roles.unshift('giam_doc');
+        console.log('[CTV-SETTINGS] PUT received:', JSON.stringify({ approver_ids, telegram_group }));
 
-        // Upsert approver_roles
-        const existing1 = await db.get("SELECT key FROM app_config WHERE key = 'crm_conversion_approver_roles'");
-        if (existing1) {
-            await db.run("UPDATE app_config SET value = ? WHERE key = 'crm_conversion_approver_roles'", [JSON.stringify(roles)]);
+        if (!Array.isArray(approver_ids)) return reply.code(400).send({ error: 'approver_ids phải là mảng' });
+
+        // Filter: keep valid numeric IDs
+        const cleanIds = approver_ids.map(id => Number(id)).filter(id => id > 0 && !isNaN(id));
+
+        console.log('[CTV-SETTINGS] cleanIds:', JSON.stringify(cleanIds));
+
+        // Validate all IDs exist
+        for (const id of cleanIds) {
+            const u = await db.get('SELECT id FROM users WHERE id = ?', [id]);
+            if (!u) return reply.code(400).send({ error: `User id=${id} không tồn tại` });
+        }
+
+        // Upsert approver_ids
+        const existingIds = await db.get("SELECT key FROM app_config WHERE key = 'crm_conversion_approver_ids'");
+        if (existingIds) {
+            await db.run("UPDATE app_config SET value = ? WHERE key = 'crm_conversion_approver_ids'", [JSON.stringify(cleanIds)]);
         } else {
-            await db.run("INSERT INTO app_config (key, value) VALUES ('crm_conversion_approver_roles', ?)", [JSON.stringify(roles)]);
+            await db.run("INSERT INTO app_config (key, value) VALUES ('crm_conversion_approver_ids', ?)", [JSON.stringify(cleanIds)]);
         }
 
         // Upsert telegram_group
         const tgVal = (telegram_group || '').trim();
-        const existing2 = await db.get("SELECT key FROM app_config WHERE key = 'crm_conversion_telegram_group'");
-        if (existing2) {
+        const existingTg = await db.get("SELECT key FROM app_config WHERE key = 'crm_conversion_telegram_group'");
+        if (existingTg) {
             await db.run("UPDATE app_config SET value = ? WHERE key = 'crm_conversion_telegram_group'", [tgVal]);
         } else {
             await db.run("INSERT INTO app_config (key, value) VALUES ('crm_conversion_telegram_group', ?)", [tgVal]);
         }
+
+        // Verify
+        const saved = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_ids'");
+        console.log('[CTV-SETTINGS] Saved & verified:', saved?.value);
 
         return { success: true, message: 'Đã lưu cài đặt!' };
     });

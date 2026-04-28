@@ -42,12 +42,18 @@ async function affiliateAccountRoutes(fastify, options) {
     }
 
     // ========== Helper: can approve ==========
-    async function canApprove(userRole) {
+    async function canApprove(userId, userRole) {
         if (userRole === 'giam_doc') return true;
         try {
-            const config = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_roles'");
+            const config = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_ids'");
             if (config && config.value) {
-                const roles = JSON.parse(config.value);
+                const ids = JSON.parse(config.value);
+                return ids.includes(userId);
+            }
+            // Fallback: old role-based config
+            const oldConfig = await db.get("SELECT value FROM app_config WHERE key = 'crm_conversion_approver_roles'");
+            if (oldConfig && oldConfig.value) {
+                const roles = JSON.parse(oldConfig.value);
                 return roles.includes(userRole);
             }
         } catch(e) {}
@@ -129,7 +135,7 @@ async function affiliateAccountRoutes(fastify, options) {
     // ========== LIST REQUESTS ==========
     fastify.get('/api/affiliate-account/list', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const { status, year } = request.query;
@@ -172,7 +178,7 @@ async function affiliateAccountRoutes(fastify, options) {
     // ========== APPROVE → AUTO-CREATE ACCOUNT ==========
     fastify.post('/api/affiliate-account/:id/approve', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền duyệt' });
 
         const reqId = Number(request.params.id);
@@ -262,7 +268,7 @@ async function affiliateAccountRoutes(fastify, options) {
     // ========== REJECT ==========
     fastify.post('/api/affiliate-account/:id/reject', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
-        const allowed = await canApprove(user.role);
+        const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const { reject_reason } = request.body || {};

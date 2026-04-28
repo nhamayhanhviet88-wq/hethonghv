@@ -1701,13 +1701,16 @@ async function taskScheduleRoutes(fastify, options) {
         return { requests };
     });
 
-    // ========== AUTO-LOCK CRON (check every 30 min) ==========
+    // ========== AUTO-LOCK CRON — ĐÃ CHUYỂN SANG deadline-checker.js (access_blocked) ==========
+    // Logic khóa tài khoản cũ đã được thay thế bằng hệ thống "Chặn Truy Cập" (access_blocked)
+    // trong deadline-checker.js. Xem routes/accessBlock.js để biết chi tiết.
+    // Giữ setInterval để xử lý expired support requests (không khóa TK nữa)
     setInterval(async () => {
         try {
             const today = new Date();
             const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-            // Find expired pending requests
+            // Find expired pending requests — chỉ mark expired, KHÔNG khóa TK
             const expired = await db.all(
                 `SELECT sr.id, sr.manager_id, sr.task_name, sr.template_id, sr.user_id,
                         sr.source_type, sr.lock_task_id, sr.task_date::text as task_date,
@@ -1727,34 +1730,13 @@ async function taskScheduleRoutes(fastify, options) {
                 const penaltyAmount = penaltyConfig ? penaltyConfig.penalty_amount : 0;
                 const penaltyReason = `Không hỗ trợ công việc "${req.task_name}" cho nhân viên ${req.user_name} trong thời hạn quy định`;
 
-                // Mark as expired + set penalty
+                // Mark as expired + set penalty (KHÔNG khóa TK)
                 await db.run(
                     `UPDATE task_support_requests SET status = 'expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3`,
                     [penaltyAmount, penaltyReason, req.id]
                 );
-                // Lock manager account
-                await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [req.manager_id]);
-                console.log(`🔒 Auto-locked manager ${req.manager_id} for not supporting task "${req.task_name}" for ${req.user_name} — Fine: ${penaltyAmount.toLocaleString()}đ`);
-
-                // Check if NV submitted report — if not, lock NV too
-                let nvSubmitted = false;
-                if (req.source_type === 'khoa' && req.lock_task_id) {
-                    const comp = await db.get(
-                        `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('pending','approved')`,
-                        [req.lock_task_id, req.user_id, req.task_date]
-                    );
-                    nvSubmitted = !!comp;
-                } else if (req.template_id) {
-                    const report = await db.get(
-                        'SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3',
-                        [req.template_id, req.user_id, req.task_date]
-                    );
-                    nvSubmitted = !!report;
-                }
-                if (!nvSubmitted) {
-                    await db.run("UPDATE users SET status = 'locked' WHERE id = $1 AND status = 'active'", [req.user_id]);
-                    console.log(`🔐 Auto-locked NV ${req.user_id} for not submitting "${req.task_name}" during support extension`);
-                }
+                // ★ REMOVED: Không còn khóa TK ở đây — deadline-checker.js xử lý access_blocked
+                console.log(`⚠️ [TaskSchedule] Expired support request #${req.id}: ${req.task_name} — Fine: ${penaltyAmount.toLocaleString()}đ (KHÔNG khóa TK)`);
             }
         } catch(e) {
             console.error('Auto-lock cron error:', e.message);
