@@ -947,8 +947,9 @@ async function _cncaLoadStats() {
             affStats.total = affReqs.length;
         } catch(e) {}
 
+        const ctvCount = parseInt(stats.conv_to_ctv) || 0;
         const cards = [
-            { key:'conv_ctv', icon:'🔄', label:'Chuyển Vào CTV', num: stats.total_approved || 0, bg:'linear-gradient(135deg,#22c55e,#16a34a)' },
+            { key:'conv_ctv', icon:'🔄', label:'Chuyển Vào CTV', num: ctvCount, bg:'linear-gradient(135deg,#22c55e,#16a34a)' },
             { key:'aff_account', icon:'🔑', label:'Tạo TK Affiliate', num: affStats.approved, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
         ];
         const el = document.getElementById('cncaStatCards');
