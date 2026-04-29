@@ -302,7 +302,6 @@ async function affiliateRoutes(fastify) {
                 SELECT DISTINCT ON (customer_id) customer_id, log_type, content, created_at
                 FROM consultation_logs
                 WHERE customer_id IN (${cph})
-                AND log_type != 'khong_xu_ly'
                 ORDER BY customer_id, created_at DESC, id DESC
             `, customerIds);
             logs.forEach(l => { consultMap[l.customer_id] = l; });
