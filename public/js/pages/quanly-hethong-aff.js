@@ -178,6 +178,16 @@ async function _affOrgLoad() {
         if (!data.success) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>Lỗi</h3></div>`; return; }
         // ★ CHỈ giữ PHÒNG KINH DOANH
         _affOrgData = data.departments.filter(d => d.name && d.name.toUpperCase().includes('KINH DOANH'));
+        // ★ Auto-expand tất cả: dept → team → employee
+        _affOrgExpanded.clear();
+        _affOrgData.forEach(dept => {
+            _affOrgExpanded.add('dept_' + dept.id);
+            (dept.phongEmployees || []).forEach(emp => _affOrgExpanded.add('emp_' + emp.id));
+            (dept.teams || []).forEach(team => {
+                _affOrgExpanded.add('team_' + team.id);
+                (team.employees || []).forEach(emp => _affOrgExpanded.add('emp_' + emp.id));
+            });
+        });
         _affRenderOrg();
     } catch (err) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>${err.message||'Lỗi'}</h3></div>`; }
 }
