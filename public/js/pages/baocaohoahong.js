@@ -207,8 +207,7 @@ async function renderBaoCaoHoaHongPage(container) {
 }
 
 function _hhIsMobile() {
-    var m = document.getElementById('menuToggle');
-    return window.innerWidth <= 768 || (m && m.offsetWidth > 0);
+    return window.matchMedia('(max-width: 768px)').matches;
 }
 
 function hhRenderTable(items) {
