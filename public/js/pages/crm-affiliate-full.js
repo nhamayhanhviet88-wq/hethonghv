@@ -205,11 +205,7 @@ async function renderCRMAffPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
-            <div class="crm-stat-card" data-cat="cho_duyet_ctv" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;" onclick="_affFilterByCat('cho_duyet_ctv')">
-                <div class="stat-icon">⏳</div>
-                <div class="stat-count" id="crmStatChoDuyetCtv">0</div>
-                <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
-            </div>
+
         </div>
         <div id="crmDateChipsArea"></div>
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
@@ -772,7 +768,7 @@ async function loadCrmAffData() {
     _affAllStats = stats;
 
     // Count categories
-    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, cho_duyet_ctv: 0 };
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
     customers.forEach(c => { const cat = _affGetCategory(c, stats); if (counts[cat] !== undefined) counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
@@ -782,7 +778,7 @@ async function loadCrmAffData() {
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
     if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
-    if (el('crmStatChoDuyetCtv')) el('crmStatChoDuyetCtv').textContent = counts.cho_duyet_ctv;
+
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
