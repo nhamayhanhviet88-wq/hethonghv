@@ -65,7 +65,6 @@ const MENU_CONFIG = [
     { id: 'cham-soc-koc-kol', label: 'Chăm Sóc KOL/KOC Tiktok', icon: '🎵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'KINH DOANH CHĂM SÓC', href: '/chamsockockol', permKey: 'crm_koc_kol' },
     { id: 'chap-nhan-ctv-affiliate', label: 'Chấp Nhận CTV / Affiliate', icon: '✅', roles: ['giam_doc'], section: 'KINH DOANH CHĂM SÓC', href: '/chapnhanctvaffliate' },
     { id: 'tai-khoan-affiliate', label: 'Tài Khoản Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE', permKey: 'tk_affiliate' },
-    { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['giam_doc'], section: 'QUẢN LÝ AFFILIATE', href: '/quanlytkhethongaff' },
     { id: 'quan-ly-affiliate', label: 'Chỉ Số Affiliate HV', icon: '🤝', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ AFFILIATE', permKey: 'chi_so_affiliate' },
     { id: 'bang-xep-hang-affiliate', label: 'Bảng Xếp Hạng Affiliate', icon: '🏆', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangaffiliate', dynamicRoles: 'leaderboard_allowed_roles', permKey: 'bxh_affiliate' },
     { id: 'bang-xep-hang-kinh-doanh', label: 'Bảng Xếp Hạng Kinh Doanh', icon: '📊', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'BXH & GIẢI THƯỞNG', href: '/bangxephangkinhdoanh', dynamicRoles: 'bxh_kinhdoanh_allowed_roles', permKey: 'bxh_kinh_doanh' },
@@ -79,6 +78,7 @@ const MENU_CONFIG = [
     { id: 'cap-cuu-sep', label: 'Cấp Cứu Sếp', icon: '🚨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'cap_cuu_sep' },
     { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'huy_khach' },
     { id: 'chuyen-so', label: 'Chuyển Số NV Kinh Doanh', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'chuyen_so' },
+    { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['giam_doc','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/quanlytkhethongaff' },
     { id: 'mo-khoa-tk-phat', label: 'Mở Khóa Phạt Tài Khoản', icon: '🔓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/mokhoatkphat', permKey: 'mo_khoa_tk_phat' },
     { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', permKey: 'nhan_vien' },
     // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
@@ -92,7 +92,7 @@ const MENU_CONFIG = [
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'bao-cao-hoa-hong', label: 'Báo Cáo Hoa Hồng', icon: '💰', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
-    { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
     // { id: 'congvieckhoaxuly', label: 'CV Phạt Phải Xử Lý', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/congvieckhoaxuly' },
