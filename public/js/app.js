@@ -79,7 +79,7 @@ const MENU_CONFIG = [
     { id: 'cap-cuu-sep', label: 'Cấp Cứu Sếp', icon: '🚨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'cap_cuu_sep' },
     { id: 'huy-khach', label: 'Hủy Khách Hàng', icon: '❌', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'huy_khach' },
     { id: 'chuyen-so', label: 'Chuyển Số NV Kinh Doanh', icon: '📱', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time','hoa_hong','tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', permKey: 'chuyen_so' },
-    { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/quanlytkhethongaff' },
+    { id: 'quanlytkhethongaff', label: 'QL Hệ Thống Affiliate', icon: '📊', roles: ['tkaffiliate'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/quanlytkhethongaff', strictRoles: true },
     { id: 'mo-khoa-tk-phat', label: 'Mở Khóa Phạt Tài Khoản', icon: '🔓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly'], section: 'HỖ TRỢ NHÂN VIÊN HV', href: '/mokhoatkphat', permKey: 'mo_khoa_tk_phat' },
     { id: 'accounts', label: 'Tài Khoản Nhân Viên', icon: '👥', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', permKey: 'nhan_vien' },
     // { id: 'quan-ly-tk-affiliate', label: 'Quản Lý TK Affiliate', icon: '🔑', roles: ['giam_doc','quan_ly','quan_ly_cap_cao'], section: 'QUẢN LÝ NHÂN VIÊN HV', href: '/quanlyaffiliate' },
@@ -582,6 +582,7 @@ function renderSidebar() {
 
     // Group items by section
     MENU_CONFIG.forEach(function(item) {
+        if (item.strictRoles && !item.roles.includes(currentUser.role)) return;
         if (currentUser.role !== 'giam_doc') {
             var permKey = item.permKey;
             if (permKey) {
