@@ -190,8 +190,13 @@ function _affToggleOrg(key) {
 function _affRenderOrg() {
     const area = document.getElementById('affSysArea');
     if (!area || !_affOrgData) return;
-    let html = _affRenderTabs();
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <h3 style="margin:0;color:#122546;font-size:18px;font-weight:800;">📊 ${_aff_selectedMgrId ? _aff_selectedMgrName : 'Tổng Phòng Kinh Doanh'}</h3>
+        </div>
+    </div>`;
     html += _aff_dateFilterHtml();
+    html += _affRenderTabs();
     const grand = { affiliates:0, customers:0, revenue:0, closed:0 };
     _affOrgData.forEach(d => { grand.affiliates+=d.stats.affiliates; grand.customers+=d.stats.customers; grand.revenue+=d.stats.revenue; grand.closed+=d.stats.closed; });
 
