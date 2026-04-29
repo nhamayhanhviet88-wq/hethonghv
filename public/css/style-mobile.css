@@ -332,3 +332,99 @@ thead th, tbody td {
 #kbGridWrap table {
     min-width: 800px;
 }
+
+/* ========== BÁO CÁO HOA HỒNG — MOBILE ========== */
+/* Stat cards: compact grid */
+#hhSummary > div {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+}
+#hhSummary > div > div {
+    padding: 10px 8px !important;
+}
+#hhSummary > div > div > div:first-child {
+    font-size: 14px !important;
+}
+#hhSummary > div > div > div:last-child {
+    font-size: 10px !important;
+}
+
+/* Search/filter bar: stack vertically */
+#hhSearchFilter > div {
+    flex-direction: column !important;
+}
+#hhSearchFilter input,
+#hhSearchFilter select {
+    width: 100% !important;
+    min-width: 100% !important;
+    min-height: 44px !important;
+    font-size: 15px !important;
+}
+
+/* Card layout for mobile */
+#hhTableBody.hh-mobile-cards {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+#hhTableBody.hh-mobile-cards .hh-card {
+    display: block !important;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: box-shadow 0.2s;
+}
+#hhTableBody.hh-mobile-cards .hh-card:active {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+#hhTableBody.hh-mobile-cards .hh-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+#hhTableBody.hh-mobile-cards .hh-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+}
+#hhTableBody.hh-mobile-cards .hh-card-body .hh-field {
+    display: flex;
+    flex-direction: column;
+}
+#hhTableBody.hh-mobile-cards .hh-card-body .hh-label {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+#hhTableBody.hh-mobile-cards .hh-card-body .hh-value {
+    font-weight: 600;
+    color: #1e293b;
+    margin-top: 1px;
+}
+#hhTableBody.hh-mobile-cards .hh-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+}
+#hhTableBody.hh-mobile-cards .hh-card-actions > span {
+    flex: 1;
+    text-align: center;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+/* Hide the table on mobile when cards are active */
+.hh-mobile-table-hide {
+    display: none !important;
+}

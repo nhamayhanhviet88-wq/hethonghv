@@ -206,11 +206,71 @@ async function renderBaoCaoHoaHongPage(container) {
     }
 }
 
+function _hhIsMobile() {
+    var m = document.getElementById('menuToggle');
+    return window.innerWidth <= 768 || (m && m.offsetWidth > 0);
+}
+
 function hhRenderTable(items) {
     if (items.length === 0) {
         document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
+        document.getElementById('hhTableBody').className = '';
         return;
     }
+
+    // Mobile: card layout
+    if (_hhIsMobile()) {
+        // Hide table header
+        var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
+        if (thead) thead.classList.add('hh-mobile-table-hide');
+
+        var tbody = document.getElementById('hhTableBody');
+        tbody.className = 'hh-mobile-cards';
+
+        tbody.innerHTML = items.map((item, i) => {
+            const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
+            const consultLabel = ct ? `${ct.icon} ${ct.label}` : '📋 Tư Vấn';
+            const consultColor = ct ? ct.color : '#6b7280';
+            const consultTextColor = ct ? ct.textColor : 'white';
+            const commissionDisplay = item.commission > 0 ? hhFormatMoney(item.commission) : '—';
+            const referrerDisplay = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
+
+            return `<div class="hh-card" style="border-left:4px solid ${item.is_direct ? '#10b981' : '#8b5cf6'};">
+                <div class="hh-card-header">
+                    <span onclick="openCustomerDetail(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:5px 14px;border-radius:16px;font-size:12px;font-weight:700;border:1px solid rgba(212,168,67,0.3);">${item.customer_name}</span>
+                    <span style="font-size:11px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;">${referrerDisplay}</span>
+                </div>
+                <div class="hh-card-body">
+                    <div class="hh-field">
+                        <span class="hh-label">SĐT</span>
+                        <span class="hh-value">${item.phone || '-'}</span>
+                    </div>
+                    <div class="hh-field">
+                        <span class="hh-label">Doanh Thu</span>
+                        <span class="hh-value">${hhFormatMoney(item.total_revenue)}</span>
+                    </div>
+                    <div class="hh-field">
+                        <span class="hh-label">Tỷ Lệ</span>
+                        <span class="hh-value">${item.rate}%</span>
+                    </div>
+                    <div class="hh-field">
+                        <span class="hh-label">Hoa Hồng</span>
+                        <span class="hh-value" style="color:${item.commission > 0 ? '#10b981' : '#9ca3af'};">${commissionDisplay}</span>
+                    </div>
+                </div>
+                <div class="hh-card-actions">
+                    <span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:11px;background:#3b82f6;color:white;font-weight:600;">📋 Xem Đơn</span>
+                    <span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;background:${consultColor};color:${consultTextColor};font-weight:600;">${consultLabel}</span>
+                </div>
+            </div>`;
+        }).join('');
+        return;
+    }
+
+    // Desktop: original table
+    var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
+    if (thead) thead.classList.remove('hh-mobile-table-hide');
+    document.getElementById('hhTableBody').className = '';
 
     document.getElementById('hhTableBody').innerHTML = items.map((item, i) => {
         const commissionDisplay = item.commission > 0 
