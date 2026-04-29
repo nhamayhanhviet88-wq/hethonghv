@@ -205,11 +205,7 @@ async function renderCRMKocKolPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
-            <div class="crm-stat-card" data-cat="cho_duyet_ctv" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;" onclick="_kockolFilterByCat('cho_duyet_ctv')">
-                <div class="stat-icon">⏳</div>
-                <div class="stat-count" id="crmStatChoDuyetCtv">0</div>
-                <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
-            </div>
+
         </div>
         <div id="crmDateChipsArea"></div>
         <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
@@ -249,7 +245,7 @@ async function renderCRMKocKolPage(container) {
                         <th style="min-width:100px">Lĩnh Vực</th>
                         <th style="min-width:70px;text-align:center">Lần Đặt</th>
                         <th style="min-width:110px;text-align:right">Doanh Số</th>
-                        <th style="min-width:40px;text-align:center" title="Đề Xuất CTV">🔄</th>
+
                     </tr></thead>
                     <tbody id="crmCtvTbody"><tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Đang tải...</td></tr></tbody>
                 </table>
@@ -715,9 +711,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
-        <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
-        </td>
+
     </tr>`;
 }
 
@@ -774,7 +768,7 @@ async function loadCrmKocKolData() {
     _kockolAllStats = stats;
 
     // Count categories
-    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, cho_duyet_ctv: 0 };
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
     customers.forEach(c => { const cat = _kockolGetCategory(c, stats); if (counts[cat] !== undefined) counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
@@ -784,7 +778,7 @@ async function loadCrmKocKolData() {
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
     if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
-    if (el('crmStatChoDuyetCtv')) el('crmStatChoDuyetCtv').textContent = counts.cho_duyet_ctv;
+
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
