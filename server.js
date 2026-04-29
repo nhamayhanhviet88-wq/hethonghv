@@ -3,6 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
+// ========== DOITAC DOMAIN DETECTION ==========
+// Detect if request comes from affiliate portal (dongphuchv.net)
+const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
+function isDoitacDomain(request) {
+    const host = (request.headers.host || request.headers[':authority'] || '').toLowerCase().split(':')[0];
+    return DOITAC_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+}
+
 // ========== CRASH PREVENTION — Keep server alive ==========
 process.on('uncaughtException', (err) => {
     console.error('🔴 [UNCAUGHT EXCEPTION] Server sẽ KHÔNG dừng:', err.message);
@@ -186,6 +194,23 @@ async function start() {
     fastify.register(require('./routes/affiliateAccount'));
     fastify.register(require('./routes/accessBlock'));
 
+    // ========== DOITAC DOMAIN — Serve affiliate portal ==========
+    // Root page: serve affiliate login instead of internal login
+    fastify.get('/', async (request, reply) => {
+        if (isDoitacDomain(request)) {
+            return reply.type('text/html').sendFile('doitac-login.html');
+        }
+        // Internal domain: serve normal login page
+        return reply.type('text/html').sendFile('index.html');
+    });
+
+    fastify.get('/index.html', async (request, reply) => {
+        if (isDoitacDomain(request)) {
+            return reply.type('text/html').sendFile('doitac-login.html');
+        }
+        return reply.type('text/html').sendFile('index.html');
+    });
+
     // Serve standalone pages
     fastify.get('/quanlyaffiliate', async (request, reply) => {
         return reply.sendFile('quanlyaffiliate.html');
@@ -269,6 +294,9 @@ async function start() {
             reply.code(404).send({ error: 'Route không tồn tại' });
         } else if (request.url.startsWith('/uploads/') || request.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
             reply.code(404).send('Not found');
+        } else if (isDoitacDomain(request)) {
+            // Affiliate portal: serve lightweight doitac dashboard
+            return reply.type('text/html').sendFile('doitac-dashboard.html');
         } else {
             // Serve auto-injected dashboard HTML
             reply.type('text/html').send(_cachedDashboardHtml || buildDashboardHtml());

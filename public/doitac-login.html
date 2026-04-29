@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Đối Tác — Đồng Phục HV</title>
+    <meta name="description" content="Đăng nhập Cổng Đối Tác Đồng Phục HV - Hệ thống quản lý hoa hồng affiliate">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0e1a;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== ANIMATED BACKGROUND ===== */
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(16, 32, 68, 0.8) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(30, 58, 95, 0.6) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(18, 37, 70, 0.7) 0%, transparent 50%),
+                linear-gradient(135deg, #080d1a 0%, #0c1528 30%, #122546 60%, #0a0e1a 100%);
+            z-index: 0;
+        }
+
+        /* Sparkle particles */
+        .sparkles {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .sparkle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #fad24c;
+            animation: sparkleFloat linear infinite;
+            opacity: 0;
+        }
+        @keyframes sparkleFloat {
+            0% { opacity: 0; transform: translateY(100vh) scale(0); }
+            10% { opacity: 1; }
+            90% { opacity: 0.8; }
+            100% { opacity: 0; transform: translateY(-10vh) scale(1); }
+        }
+
+        /* Glowing orbs */
+        .glow-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 1;
+            animation: orbFloat 8s ease-in-out infinite alternate;
+        }
+        .glow-orb-1 {
+            width: 300px; height: 300px;
+            background: rgba(250, 210, 76, 0.08);
+            top: -100px; left: -50px;
+            animation-delay: 0s;
+        }
+        .glow-orb-2 {
+            width: 400px; height: 400px;
+            background: rgba(59, 130, 246, 0.06);
+            bottom: -150px; right: -100px;
+            animation-delay: -4s;
+        }
+        .glow-orb-3 {
+            width: 200px; height: 200px;
+            background: rgba(250, 210, 76, 0.05);
+            top: 50%; right: 20%;
+            animation-delay: -2s;
+        }
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -20px) scale(1.1); }
+        }
+
+        /* ===== LOGIN CARD ===== */
+        .login-card {
+            position: relative;
+            z-index: 10;
+            width: 460px;
+            max-width: 92vw;
+            background: rgba(18, 37, 70, 0.4);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(250, 210, 76, 0.15);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 
+                0 25px 60px rgba(0, 0, 0, 0.5),
+                0 0 80px rgba(250, 210, 76, 0.03),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            animation: cardAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes cardAppear {
+            0% { opacity: 0; transform: translateY(30px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Shimmer border effect */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 25px;
+            background: linear-gradient(135deg, 
+                rgba(250, 210, 76, 0.3), 
+                transparent 40%, 
+                transparent 60%, 
+                rgba(250, 210, 76, 0.1));
+            z-index: -1;
+            animation: shimmerBorder 4s ease-in-out infinite;
+        }
+        @keyframes shimmerBorder {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* ===== LOGO SECTION ===== */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .logo-img {
+            width: 72px;
+            height: 72px;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 4px 20px rgba(250, 210, 76, 0.4));
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+        @keyframes logoPulse {
+            0%, 100% { filter: drop-shadow(0 4px 20px rgba(250, 210, 76, 0.3)); transform: scale(1); }
+            50% { filter: drop-shadow(0 8px 30px rgba(250, 210, 76, 0.5)); transform: scale(1.02); }
+        }
+        .brand-name {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, #fad24c, #f5c518, #ffd700, #e6b800);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: textShimmer 3s linear infinite;
+            text-shadow: none;
+        }
+        @keyframes textShimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .brand-divider {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(250, 210, 76, 0.6), transparent);
+            margin: 12px auto;
+            border-radius: 2px;
+        }
+        .brand-subtitle {
+            font-size: 14px;
+            color: rgba(250, 210, 76, 0.7);
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .brand-tagline {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.35);
+            font-weight: 500;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== PARTNER BADGE ===== */
+        .partner-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, rgba(250, 210, 76, 0.15), rgba(250, 210, 76, 0.05));
+            border: 1px solid rgba(250, 210, 76, 0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            margin-top: 14px;
+            animation: badgeGlow 2s ease-in-out infinite alternate;
+        }
+        @keyframes badgeGlow {
+            0% { box-shadow: 0 0 10px rgba(250, 210, 76, 0.1); }
+            100% { box-shadow: 0 0 20px rgba(250, 210, 76, 0.2); }
+        }
+        .partner-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fad24c;
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes dotPulse {
+            0%, 100% { opacity: 0.5; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        .partner-badge-text {
+            font-size: 11px;
+            font-weight: 700;
+            color: #fad24c;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        /* ===== FORM ===== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            color: white;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+        .form-input:focus {
+            border-color: rgba(250, 210, 76, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 20px rgba(250, 210, 76, 0.1), inset 0 0 20px rgba(250, 210, 76, 0.02);
+        }
+
+        /* ===== LOGIN BUTTON ===== */
+        .btn-login {
+            width: 100%;
+            padding: 15px 24px;
+            background: linear-gradient(135deg, #fad24c, #f5c518, #e6b800);
+            background-size: 200% auto;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 800;
+            font-family: 'Inter', sans-serif;
+            color: #122546;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .btn-login:hover {
+            background-position: right center;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 30px rgba(250, 210, 76, 0.35);
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        .btn-login::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(255, 255, 255, 0.2) 50%,
+                transparent 100%
+            );
+            transform: rotate(30deg);
+            animation: btnShine 3s ease-in-out infinite;
+        }
+        @keyframes btnShine {
+            0% { transform: translateX(-100%) rotate(30deg); }
+            35%, 100% { transform: translateX(100%) rotate(30deg); }
+        }
+        .btn-login:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== ERROR ===== */
+        .login-error {
+            display: none;
+            background: rgba(220, 38, 38, 0.15);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            color: #fca5a5;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+            animation: errorShake 0.4s ease;
+        }
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        /* ===== LOADING SPINNER ===== */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(18, 37, 70, 0.3);
+            border-top-color: #122546;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== FOOTER ===== */
+        .login-footer {
+            text-align: center;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .footer-text {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.25);
+            line-height: 1.6;
+        }
+        .footer-link {
+            color: rgba(250, 210, 76, 0.5);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .footer-link:hover {
+            color: rgba(250, 210, 76, 0.8);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 520px) {
+            .login-card { padding: 36px 24px; }
+            .brand-name { font-size: 22px; letter-spacing: 2px; }
+            .logo-img { width: 56px; height: 56px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background effects -->
+    <div class="bg-gradient"></div>
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+    <div class="sparkles" id="sparkles"></div>
+
+    <!-- Login Card -->
+    <div class="login-card">
+        <div class="logo-section">
+            <img src="/images/logo.png" alt="Đồng Phục HV" class="logo-img">
+            <div class="brand-name">ĐỒNG PHỤC HV</div>
+            <div class="brand-divider"></div>
+            <div class="brand-subtitle">Cổng Đối Tác</div>
+            <div class="brand-tagline">Tận tâm dựng xây giá trị</div>
+            <div class="partner-badge">
+                <span class="partner-badge-dot"></span>
+                <span class="partner-badge-text">Affiliate Partner Portal</span>
+            </div>
+        </div>
+
+        <div id="loginError" class="login-error"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="username">Tài khoản</label>
+                <input type="text" id="username" class="form-input" placeholder="Nhập tên đăng nhập" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">Mật khẩu</label>
+                <input type="password" id="password" class="form-input" placeholder="Nhập mật khẩu" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn-login" id="loginBtn">
+                ĐĂNG NHẬP
+            </button>
+        </form>
+
+        <div class="login-footer">
+            <div class="footer-text">
+                Liên hệ nhân viên quản lý nếu quên mật khẩu<br>
+                <a href="https://www.dongphuchv.vn" target="_blank" class="footer-link">www.dongphuchv.vn</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== SPARKLE PARTICLES =====
+        (function() {
+            const container = document.getElementById('sparkles');
+            const count = 40;
+            for (let i = 0; i < count; i++) {
+                const s = document.createElement('div');
+                s.className = 'sparkle';
+                s.style.left = Math.random() * 100 + '%';
+                s.style.animationDuration = (5 + Math.random() * 10) + 's';
+                s.style.animationDelay = Math.random() * 10 + 's';
+                s.style.width = s.style.height = (1 + Math.random() * 3) + 'px';
+                if (Math.random() > 0.6) s.style.background = 'rgba(255,255,255,0.6)';
+                container.appendChild(s);
+            }
+        })();
+
+        // ===== AUTO-LOGIN CHECK =====
+        fetch('/api/auth/me').then(r => r.json()).then(data => {
+            if (data.user && data.user.role === 'tkaffiliate') {
+                window.location.href = '/bao-cao-hoa-hong';
+            } else if (data.user) {
+                // Non-affiliate user logged in on affiliate domain — logout & show error
+                fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+                    const errDiv = document.getElementById('loginError');
+                    errDiv.textContent = 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.';
+                    errDiv.style.display = 'block';
+                });
+            }
+        }).catch(() => {});
+
+        // ===== LOGIN FORM =====
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            const errDiv = document.getElementById('loginError');
+            
+            btn.innerHTML = '<span class="spinner"></span>';
+            btn.disabled = true;
+            errDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.user && data.user.role === 'tkaffiliate') {
+                        window.location.href = '/bao-cao-hoa-hong';
+                    } else {
+                        // Non-affiliate → logout immediately
+                        await fetch('/api/auth/logout', { method: 'POST' });
+                        errDiv.textContent = 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.';
+                        errDiv.style.display = 'block';
+                    }
+                } else {
+                    errDiv.textContent = data.error || 'Đăng nhập thất bại';
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.textContent = 'Lỗi kết nối server';
+                errDiv.style.display = 'block';
+            }
+
+            btn.innerHTML = 'ĐĂNG NHẬP';
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>

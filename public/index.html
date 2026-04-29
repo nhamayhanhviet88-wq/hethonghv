@@ -42,7 +42,14 @@
         // Check if already logged in
         fetch('/api/auth/me').then(r => r.json()).then(data => {
             if (data.user) {
-                window.location.href = data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
+                if (data.user.role === 'tkaffiliate') {
+                    // Affiliate logged in on internal domain → logout & redirect
+                    fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+                        window.location.href = 'https://dongphuchv.net';
+                    });
+                } else {
+                    window.location.href = '/dashboard';
+                }
             }
         }).catch(() => {});
 
@@ -67,7 +74,14 @@
                 const data = await res.json();
                 
                 if (data.success) {
-                    window.location.href = data.user && data.user.role === 'tkaffiliate' ? '/bao-cao-hoa-hong' : '/dashboard';
+                    if (data.user && data.user.role === 'tkaffiliate') {
+                        // Affiliate cố login từ CRM nội bộ → logout & redirect
+                        await fetch('/api/auth/logout', { method: 'POST' });
+                        errDiv.innerHTML = 'Tài khoản đối tác vui lòng đăng nhập tại <a href="https://dongphuchv.net" style="color:#fad24c;font-weight:700;">dongphuchv.net</a>';
+                        errDiv.style.display = 'block';
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
                 } else if (data.locked && (data.penalties || data.penaltyGroups)) {
                     // Show penalty popup
                     _showPenaltyPopup(data.penalties, data.totalFine, data.userId, data.penaltyGroups, data.username, data.fullName, data.penaltyDate);

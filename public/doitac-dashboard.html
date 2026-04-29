@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Đối Tác — Đồng Phục HV</title>
+    <meta name="description" content="Dashboard đối tác Đồng Phục HV - Báo cáo hoa hồng & rút tiền">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css?v=20260405">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+</head>
+<body class="dashboard">
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="/images/logo.png" alt="Logo">
+                <div class="brand">
+                    <h2>ĐỒNG PHỤC HV</h2>
+                    <p>Cổng Đối Tác</p>
+                </div>
+                <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Đóng/Mở menu">◀</button>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Dynamic menu items rendered by JS -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-details">
+                        <div class="name" id="userName">Đối Tác</div>
+                        <span class="role-badge" id="userRole">Affiliate</span>
+                    </div>
+                    <button class="btn-logout" id="logoutBtn" title="Đăng xuất">⏻</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+                    <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-sm btn-secondary" id="changePasswordBtn">🔒 Đổi mật khẩu</button>
+                </div>
+            </div>
+
+            <div class="content-area" id="contentArea">
+                <!-- Dynamic content rendered by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal container -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContainer">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal</h3>
+                <button class="modal-close" id="modalClose">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- Core app JS (shared) -->
+    <script src="/js/app.js?v=20260424a"></script>
+    <script src="/js/sidebar-utils.js?v=20260428a"></script>
+    <!-- Affiliate-only pages -->
+    <script src="/js/pages/baocaohoahong.js"></script>
+    <script src="/js/pages/rut-tien-affiliate.js"></script>
+    <script src="/js/pages/chuyenso.js"></script>
+    <script src="/js/pages/quanly-hethong-aff.js"></script>
+</body>
+</html>

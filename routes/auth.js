@@ -67,6 +67,20 @@ async function authRoutes(fastify, options) {
             return reply.code(401).send({ error: 'Tài khoản hoặc mật khẩu không đúng' });
         }
 
+        // ★ DOMAIN ISOLATION — chặn chéo giữa 2 domain
+        const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
+        const loginHost = (request.headers.host || '').toLowerCase().split(':')[0];
+        const isDoitacLogin = DOITAC_DOMAINS.some(d => loginHost === d || loginHost.endsWith('.' + d));
+
+        if (isDoitacLogin && user.role !== 'tkaffiliate') {
+            // NV nội bộ cố login từ dongphuchv.net → chặn
+            return reply.code(403).send({ error: 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.' });
+        }
+        if (!isDoitacLogin && user.role === 'tkaffiliate') {
+            // Affiliate cố login từ hethonghv.top → chặn, hướng dẫn
+            return reply.code(403).send({ error: 'Tài khoản đối tác vui lòng đăng nhập tại dongphuchv.net' });
+        }
+
         const token = jwt.sign(
             { id: user.id, username: user.username, full_name: user.full_name, role: user.role },
             process.env.JWT_SECRET,
