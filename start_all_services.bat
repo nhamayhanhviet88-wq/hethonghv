@@ -87,6 +87,7 @@ echo ========================================
 echo   TAT CA SERVICES DA KHOI DONG!
 echo   - Server:  http://localhost:11000
 echo   - Website: https://hethonghv.top
+echo   - Doitac:  https://dongphuchv.net
 echo   - PM2:     pm2 list
 echo   - Project: %PROJECT_DIR%
 echo ========================================
