@@ -73,7 +73,7 @@ async function renderChapNhanCTVAffiliatePage(container) {
         <!-- STAT CARDS -->
         <div id="cncaStatCards" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;"></div>
         <div class="cnca-tabs" id="cncaTabs">
-            <div class="cnca-tab active" data-tab="pending" onclick="_cncaSwitchTab('pending')">📋 Chờ Duyệt <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
+            <div class="cnca-tab active" data-tab="pending" onclick="_cncaSwitchTab('pending')">📋 Chờ Duyệt Vào Chăm Sóc CTV <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
             <div class="cnca-tab" data-tab="affaccount" onclick="_cncaSwitchTab('affaccount')">🔑 Tạo TK Affiliate <span class="cnca-badge" id="cncaAffAccBadge" style="background:#8b5cf6;">0</span></div>
             <div class="cnca-tab" data-tab="history" onclick="_cncaSwitchTab('history')">📊 Lịch Sử</div>
         </div>

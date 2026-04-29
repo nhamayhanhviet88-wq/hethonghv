@@ -139,11 +139,39 @@ async function crmConversionRoutes(fastify, options) {
              VALUES (?, ?, ?, ?, ?, (DATE(NOW()) + INTERVAL '2 days'))`,
             [Number(customer_id), customer.crm_type, targetCrm, reason.trim(), user.id]
         );
+        const newId = result?.lastID;
 
         // Get requester name
         const requester = await db.get('SELECT full_name FROM users WHERE id = ?', [user.id]);
 
-        // Send Telegram
+        // ★ AUTO-APPROVE: chỉ CTV mới cần duyệt, các CRM khác chuyển ngay
+        if (targetCrm !== 'ctv') {
+            // Auto approve request
+            await db.run(
+                "UPDATE crm_conversion_requests SET status = 'approved', approved_by = ?, processed_at = NOW() WHERE id = ?",
+                [user.id, newId]
+            );
+            // Update customer crm_type
+            await db.run(
+                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
+                [targetCrm, Number(customer_id)]
+            );
+            // Auto-sync linked tkaffiliate
+            await db.run(
+                "UPDATE users SET source_crm_type = ? WHERE source_customer_id = ? AND role = 'tkaffiliate'",
+                [targetCrm, Number(customer_id)]
+            );
+            // Telegram
+            const tgMsg = `✅ <b>ĐÃ CHUYỂN ${CRM_LABELS[targetCrm]?.toUpperCase()}</b> (tự động)\n` +
+                `Khách: <b>${customer.customer_name}</b> — ${customer.phone || 'N/A'}\n` +
+                `${CRM_LABELS[customer.crm_type]} → <b>${CRM_LABELS[targetCrm]}</b>\n` +
+                `NV thực hiện: ${requester?.full_name || user.username}\n` +
+                `Lý do: ${reason.trim()}`;
+            sendConversionTelegram(tgMsg);
+            return { success: true, message: `Đã chuyển sang ${CRM_LABELS[targetCrm]}!`, autoApproved: true };
+        }
+
+        // CTV → cần duyệt: gửi Telegram chờ duyệt
         const tgMsg = `🔄 <b>ĐỀ XUẤT CHUYỂN ĐỔI ${CRM_LABELS[targetCrm]?.toUpperCase()}</b>\n` +
             `Khách: <b>${customer.customer_name}</b> — ${customer.phone || 'N/A'}\n` +
             `CRM: ${CRM_LABELS[customer.crm_type]} → <b>${CRM_LABELS[targetCrm]}</b>\n` +
@@ -152,7 +180,7 @@ async function crmConversionRoutes(fastify, options) {
             `📋 Vào Chấp Nhận CTV/Affiliate để duyệt`;
         sendConversionTelegram(tgMsg);
 
-        return { success: true, message: 'Đã gửi đề xuất chuyển đổi! Chờ duyệt.', id: result?.lastID };
+        return { success: true, message: 'Đã gửi đề xuất chuyển đổi! Chờ duyệt.', id: newId };
     });
 
     // ========== CHECK PENDING REQUEST FOR A CUSTOMER ==========
@@ -247,8 +275,8 @@ async function crmConversionRoutes(fastify, options) {
 
         const requests = await db.all(query, params);
 
-        // Count pending
-        const pendingCount = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending'");
+        // Count pending (only CTV — others are auto-approved)
+        const pendingCount = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type = 'ctv'");
 
         return { requests, pendingCount: pendingCount?.cnt || 0 };
     });
@@ -438,14 +466,16 @@ async function crmConversionRoutes(fastify, options) {
 
     // ========== PENDING COUNT (for badge/polling) ==========
     fastify.get('/api/crm-conversion/pending-count', { preHandler: [authenticate] }, async (request, reply) => {
-        const count = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending'");
+        // Chỉ đếm pending CTV (các CRM khác auto-approve)
+        const count = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type = 'ctv'");
         return { count: count?.cnt || 0 };
     });
 
     // ========== PENDING CUSTOMER IDS (batch for CRM pages freeze) ==========
+    // Chỉ freeze khách chờ duyệt CTV (các CRM khác auto-approve nên không freeze)
     fastify.get('/api/crm-conversion/pending-customers', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(
-            "SELECT customer_id, expires_at FROM crm_conversion_requests WHERE status = 'pending'"
+            "SELECT customer_id, expires_at FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type = 'ctv'"
         );
         return { customers: rows.map(r => ({ id: r.customer_id, expires_at: r.expires_at })) };
     });
