@@ -1,29 +1,30 @@
-// ========== BÁO CÁO HOA HỒNG ==========
-const CONSULT_TYPES_HH = {
-    lam_quen_tuong_tac: { icon: '👋', label: 'Làm Quen Tương Tác', color: '#14b8a6', textColor: 'white' },
-    goi_dien: { icon: '📞', label: 'Gọi Điện', color: '#3b82f6', textColor: 'white' },
-    nhan_tin: { icon: '💬', label: 'Nhắn Tin', color: '#8b5cf6', textColor: 'white' },
-    tuong_tac_ket_noi: { icon: '🔗', label: 'Tương Tác Kết Nối Lại', color: '#6366f1', textColor: 'white' },
-    gap_truc_tiep: { icon: '🤝', label: 'Gặp Trực Tiếp', color: '#10b981', textColor: 'white' },
-    gui_bao_gia: { icon: '📄', label: 'Gửi Báo Giá', color: '#f59e0b', textColor: 'white' },
-    gui_mau: { icon: '👔', label: 'Gửi Mẫu Vải/Áo', color: '#ec4899', textColor: 'white' },
-    thiet_ke: { icon: '🎨', label: 'Thiết Kế', color: '#6366f1', textColor: 'white' },
-    bao_sua: { icon: '🔧', label: 'Sửa Thiết Kế', color: '#ef4444', textColor: 'white' },
-    gui_stk_coc: { icon: '🏦', label: 'Gửi STK Cọc', color: '#f59e0b', textColor: 'white' },
-    giuc_coc: { icon: '⏰', label: 'Giục Cọc', color: '#ea580c', textColor: 'white' },
-    dat_coc: { icon: '💵', label: 'Đặt Cọc', color: '#f97316', textColor: 'white' },
-    chot_don: { icon: '✅', label: 'Chốt Đơn', color: '#22c55e', textColor: 'white' },
-    dang_san_xuat: { icon: '🏭', label: 'Đang Sản Xuất', color: '#8b5cf6', textColor: 'white' },
-    hoan_thanh: { icon: '🏆', label: 'Hoàn Thành Đơn', color: '#0d9488', textColor: 'white' },
-    sau_ban_hang: { icon: '📦', label: 'Chăm Sóc Sau Bán', color: '#0ea5e9', textColor: 'white' },
-    cap_cuu_sep: { icon: '🚨', label: 'Cấp Cứu Sếp', color: '#ef4444', textColor: 'white' },
-    huy_coc: { icon: '🚫', label: 'Hủy Cọc', color: '#dc2626', textColor: 'white' },
-    hoan_thanh_cap_cuu: { icon: '🏥', label: 'Hoàn Thành Cấp Cứu', color: '#122546', textColor: '#fad24c' },
-    huy: { icon: '❌', label: 'Hủy Khách', color: '#dc2626', textColor: 'white' },
-    giam_gia: { icon: '🎁', label: 'Giảm Giá', color: '#e11d48', textColor: 'white' },
-    tu_van_lai: { icon: '🔄', label: 'Tư Vấn Lại', color: '#0891b2', textColor: 'white' },
-    gui_ct_kh_cu: { icon: '🎟️', label: 'Gửi Chương Trình KH Cũ', color: '#7c3aed', textColor: 'white' }
+// ========== THEO DÕI TƯ VẤN KHÁCH ==========
+// Dynamic consult types — loaded from API, auto-syncs with admin config
+let CONSULT_TYPES_HH = {};
+
+// System-generated types (not in DB but appear in consultation_logs)
+const CONSULT_TYPES_FALLBACK = {
+    khong_xu_ly: { icon: '⚠️', label: 'Không Xử Lý', color: '#f59e0b', textColor: 'white' },
+    chuyen_doi_crm: { icon: '🔀', label: 'Chuyển Đổi CRM', color: '#6366f1', textColor: 'white' }
 };
+
+async function hhLoadConsultTypes() {
+    try {
+        const data = await fetch('/api/consult-types', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        }).then(r => r.json());
+        const map = {};
+        (data.types || []).forEach(t => {
+            map[t.key] = { icon: t.icon || '📝', label: t.label, color: t.color || '#6b7280', textColor: t.text_color || 'white' };
+        });
+        // Merge fallbacks for system types
+        Object.assign(map, CONSULT_TYPES_FALLBACK);
+        CONSULT_TYPES_HH = map;
+    } catch (e) {
+        console.warn('[HH] Failed to load consult types, using fallback');
+        CONSULT_TYPES_HH = { ...CONSULT_TYPES_FALLBACK };
+    }
+}
 
 function hhFormatMoney(n) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -238,6 +239,8 @@ async function renderBaoCaoHoaHongPage(container) {
     `;
 
     try {
+        // Load consult button types from admin config (auto-sync)
+        await hhLoadConsultTypes();
         const data = await apiCall('/api/affiliate/commission');
         if (!data.success) {
             document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
@@ -388,9 +391,23 @@ function hhRenderTable(items) {
 
             const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
 
-            return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
+            // Status badge
+            let statusBadge = '';
+            if (item.cancel_approved === 1) {
+                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#dc2626;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">❌ Đã Hủy</span>';
+            } else if (item.cancel_requested) {
+                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f59e0b;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">⏳ Chờ Hủy</span>';
+            } else if (item.order_status === 'hoan_thanh') {
+                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#10b981;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">✅ Hoàn Thành</span>';
+            } else if (item.order_status === 'chot_don' || item.order_status === 'san_xuat' || item.order_status === 'giao_hang') {
+                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#22c55e;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">💰 Chốt Đơn</span>';
+            } else if (item.order_status === 'dat_coc') {
+                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f97316;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">💎 Đặt Cọc</span>';
+            }
+
+            return `<tr style="background:${item.cancel_approved === 1 ? '#fef2f2' : item.cancel_requested ? '#fffbeb' : item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span>${statusBadge}</td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
