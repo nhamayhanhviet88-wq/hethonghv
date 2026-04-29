@@ -169,9 +169,9 @@ async function renderBaoCaoHoaHongPage(container) {
                     <div style="font-size:11px;color:#78350f;margin-top:4px;">💰 Tổng Hoa Hồng</div>
                     <div style="font-size:9px;color:#92400e;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
                 </div>
-                <div onclick="hhShowCustomerListPopup()" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#3b82f6'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
-                    <div style="font-size:24px;font-weight:800;color:#1e40af;">${data.items.length}</div>
-                    <div style="font-size:11px;color:#1e3a8a;margin-top:4px;">👥 Tổng KH Giới Thiệu</div>
+                <div onclick="hhShowAllOrdersPopup()" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#3b82f6'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
+                    <div style="font-size:24px;font-weight:800;color:#1e40af;">${data.totalOrders || 0}</div>
+                    <div style="font-size:11px;color:#1e3a8a;margin-top:4px;">📦 Tổng Đơn Đặt Hàng</div>
                     <div style="font-size:9px;color:#1e40af;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
                 </div>
                 <div onclick="hhShowCommissionPopup('direct')" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#10b981'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
@@ -396,6 +396,69 @@ function hhShowMobileDetail(index) {
                 <button onclick="document.getElementById('hhMobileDetail').remove();openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="flex:1;padding:12px;border:none;border-radius:10px;background:${consultColor};color:${consultTextColor};font-size:13px;font-weight:700;cursor:pointer;">${consultLabel}</button>
             </div>
         </div>
+    </div>`;
+    document.body.appendChild(overlay);
+}
+
+async function hhShowAllOrdersPopup() {
+    const data = window._hhData;
+    if (!data) return;
+    const existing = document.getElementById('hhAllOrdersPopup');
+    if (existing) existing.remove();
+
+    // Fetch orders for ALL customers
+    let allOrders = [];
+    for (const item of data.items) {
+        try {
+            const res = await fetch(`/api/customers/${item.id}/order-codes`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.orders) {
+                    json.orders.forEach(o => {
+                        allOrders.push({ ...o, customer_name: item.customer_name });
+                    });
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Sort by date descending
+    allOrders.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    const overlay = document.createElement('div');
+    overlay.id = 'hhAllOrdersPopup';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    const statusColors = {
+        'completed': { bg: '#d1fae5', color: '#065f46', label: '✅ Hoàn thành' },
+        'processing': { bg: '#dbeafe', color: '#1e40af', label: '⏳ Đang xử lý' },
+        'pending': { bg: '#fef3c7', color: '#92400e', label: '🕐 Chờ' },
+        'cancelled': { bg: '#fee2e2', color: '#991b1b', label: '❌ Đã hủy' }
+    };
+
+    const rows = allOrders.length > 0 ? allOrders.map(o => {
+        const st = statusColors[o.status] || statusColors['pending'];
+        const rev = o.total ? Number(o.total).toLocaleString('vi-VN') + '₫' : '0₫';
+        const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f1f5f9;">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.customer_name}</div>
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${o.order_code || 'Đơn hàng'} · ${date}</div>
+            </div>
+            <div style="text-align:right;margin-left:10px;">
+                <div style="font-size:12px;font-weight:700;color:#dc2626;">${rev}</div>
+                <div style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;background:${st.bg};color:${st.color};">${st.label}</div>
+            </div>
+        </div>`;
+    }).join('') : '<div style="padding:30px;text-align:center;color:#9ca3af;">Chưa có đơn hàng</div>';
+
+    overlay.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:650px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:white;font-size:16px;font-weight:700;">📦 Tổng Đơn Đặt Hàng (${allOrders.length})</span>
+            <span onclick="document.getElementById('hhAllOrdersPopup').remove()" style="cursor:pointer;color:white;font-size:20px;opacity:0.7;padding:4px;">✕</span>
+        </div>
+        <div style="overflow-y:auto;flex:1;">${rows}</div>
     </div>`;
     document.body.appendChild(overlay);
 }

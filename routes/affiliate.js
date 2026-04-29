@@ -346,7 +346,19 @@ async function affiliateRoutes(fastify) {
         // Build referrer names list for filter dropdown
         const referrerNames = [...new Set(items.map(i => i.referrer_name))];
 
-        return { success: true, items, totalCommission, referrerNames };
+        // Count total orders across all referred customers
+        let totalOrders = 0;
+        if (customerIds.length > 0) {
+            const cphOrd = customerIds.map(() => '?').join(',');
+            const ordRow = await db.get(`
+                SELECT COUNT(*) as cnt FROM order_codes
+                WHERE customer_id IN (${cphOrd})
+                AND (status IS NULL OR status != 'cancelled')
+            `, customerIds);
+            totalOrders = ordRow?.cnt || 0;
+        }
+
+        return { success: true, items, totalCommission, referrerNames, totalOrders };
     });
 
     // Auto-calculated balance for affiliate withdrawal
