@@ -401,66 +401,88 @@ function hhShowMobileDetail(index) {
 }
 
 async function hhShowAllOrdersPopup() {
-    const data = window._hhData;
-    if (!data) return;
     const existing = document.getElementById('hhAllOrdersPopup');
     if (existing) existing.remove();
 
-    // Fetch orders for ALL customers
-    let allOrders = [];
-    for (const item of data.items) {
-        try {
-            const res = await fetch(`/api/customers/${item.id}/order-codes`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.success && json.orders) {
-                    json.orders.forEach(o => {
-                        allOrders.push({ ...o, customer_name: item.customer_name });
-                    });
-                }
-            }
-        } catch (e) {}
-    }
-
-    // Sort by date descending
-    allOrders.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
+    // Show loading
     const overlay = document.createElement('div');
     overlay.id = 'hhAllOrdersPopup';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-    const statusColors = {
-        'completed': { bg: '#d1fae5', color: '#065f46', label: '✅ Hoàn thành' },
-        'processing': { bg: '#dbeafe', color: '#1e40af', label: '⏳ Đang xử lý' },
-        'pending': { bg: '#fef3c7', color: '#92400e', label: '🕐 Chờ' },
-        'cancelled': { bg: '#fee2e2', color: '#991b1b', label: '❌ Đã hủy' }
-    };
-
-    const rows = allOrders.length > 0 ? allOrders.map(o => {
-        const st = statusColors[o.status] || statusColors['pending'];
-        const rev = o.total ? Number(o.total).toLocaleString('vi-VN') + '₫' : '0₫';
-        const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f1f5f9;">
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.customer_name}</div>
-                <div style="font-size:11px;color:#6b7280;margin-top:2px;">${o.order_code || 'Đơn hàng'} · ${date}</div>
-            </div>
-            <div style="text-align:right;margin-left:10px;">
-                <div style="font-size:12px;font-weight:700;color:#dc2626;">${rev}</div>
-                <div style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;background:${st.bg};color:${st.color};">${st.label}</div>
-            </div>
-        </div>`;
-    }).join('') : '<div style="padding:30px;text-align:center;color:#9ca3af;">Chưa có đơn hàng</div>';
-
-    overlay.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:650px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
-        <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
-            <span style="color:white;font-size:16px;font-weight:700;">📦 Tổng Đơn Đặt Hàng (${allOrders.length})</span>
-            <span onclick="document.getElementById('hhAllOrdersPopup').remove()" style="cursor:pointer;color:white;font-size:20px;opacity:0.7;padding:4px;">✕</span>
-        </div>
-        <div style="overflow-y:auto;flex:1;">${rows}</div>
-    </div>`;
+    overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#6b7280;font-size:14px;">⏳ Đang tải đơn hàng...</div>';
     document.body.appendChild(overlay);
+
+    try {
+        const res = await fetch('/api/affiliate/all-orders', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        const json = await res.json();
+        if (!json.success) throw new Error('API error');
+
+        const allOrders = json.orders || [];
+        const statusColors = {
+            'completed': { bg: '#d1fae5', color: '#065f46', label: '✅ Hoàn thành' },
+            'processing': { bg: '#dbeafe', color: '#1e40af', label: '⏳ Đang xử lý' },
+            'pending': { bg: '#fef3c7', color: '#92400e', label: '🕐 Chờ' },
+            'cancelled': { bg: '#fee2e2', color: '#991b1b', label: '❌ Đã hủy' }
+        };
+
+        const totalRevenue = allOrders.reduce((s, o) => s + (o.revenue || 0), 0);
+        const totalCommission = allOrders.reduce((s, o) => s + (o.commission || 0), 0);
+
+        const rows = allOrders.length > 0 ? allOrders.map(o => {
+            const st = statusColors[o.status] || statusColors['pending'];
+            const rev = Number(o.revenue || 0).toLocaleString('vi-VN') + '₫';
+            const comm = Number(o.commission || 0).toLocaleString('vi-VN') + '₫';
+            const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
+            const srcBg = o.is_direct ? 'linear-gradient(135deg,#065f46,#10b981)' : 'linear-gradient(135deg,#92400e,#f59e0b)';
+            const srcLabel = o.is_direct ? '🎯 ' + o.referrer_name : '👥 ' + o.referrer_name;
+
+            return `<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.customer_name}</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:2px;">${o.order_code || 'Đơn hàng'} · ${date}</div>
+                    </div>
+                    <div style="display:inline-block;font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;color:white;background:${srcBg};white-space:nowrap;margin-left:8px;">${srcLabel}</div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <div style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:${st.bg};color:${st.color};">${st.label}</div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <div style="text-align:right;">
+                            <div style="font-size:10px;color:#9ca3af;">Doanh số</div>
+                            <div style="font-size:12px;font-weight:700;color:#dc2626;">${rev}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:10px;color:#9ca3af;">HH ${o.rate}%</div>
+                            <div style="font-size:12px;font-weight:700;color:#059669;">${comm}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('') : '<div style="padding:30px;text-align:center;color:#9ca3af;">Chưa có đơn hàng</div>';
+
+        overlay.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:650px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+            <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:white;font-size:16px;font-weight:700;">📦 Tổng Đơn Đặt Hàng (${allOrders.length})</span>
+                <span onclick="document.getElementById('hhAllOrdersPopup').remove()" style="cursor:pointer;color:white;font-size:20px;opacity:0.7;padding:4px;">✕</span>
+            </div>
+            <div style="overflow-y:auto;flex:1;">${rows}</div>
+            ${allOrders.length > 0 ? `<div style="padding:12px 16px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-radius:0 0 16px 16px;">
+                <span style="font-size:12px;font-weight:700;color:#475569;">Tổng cộng</span>
+                <div style="display:flex;gap:16px;">
+                    <div style="text-align:right;">
+                        <div style="font-size:10px;color:#9ca3af;">Doanh số</div>
+                        <div style="font-size:13px;font-weight:800;color:#dc2626;">${totalRevenue.toLocaleString('vi-VN')}₫</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:10px;color:#9ca3af;">Hoa hồng</div>
+                        <div style="font-size:13px;font-weight:800;color:#059669;">${totalCommission.toLocaleString('vi-VN')}₫</div>
+                    </div>
+                </div>
+            </div>` : ''}
+        </div>`;
+    } catch (e) {
+        overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#ef4444;font-size:14px;">❌ Lỗi tải dữ liệu</div>';
+    }
 }
 
 function hhShowCommissionPopup(filter) {

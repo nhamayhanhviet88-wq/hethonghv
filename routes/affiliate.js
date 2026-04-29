@@ -363,6 +363,88 @@ async function affiliateRoutes(fastify) {
         return { success: true, items, totalCommission, referrerNames, totalOrders };
     });
 
+    // All orders popup — single API for "Tổng Đơn Đặt Hàng" detail
+    fastify.get('/api/affiliate/all-orders', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+
+        // Get commission rates
+        let directRate = 0.10, parentRate = 0.05;
+        const freshUser = await db.get('SELECT commission_tier_id FROM users WHERE id = ?', [user.id]);
+        if (freshUser && freshUser.commission_tier_id) {
+            const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
+            if (tier) {
+                directRate = (tier.percentage || 10) / 100;
+                parentRate = (tier.parent_percentage || 5) / 100;
+            }
+        }
+
+        // Get child affiliates
+        const childAffiliates = await db.all(
+            `SELECT id, full_name FROM users
+             WHERE assigned_to_user_id = ?
+             AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`,
+            [user.id]
+        );
+        const childIds = childAffiliates.map(a => a.id);
+        const allIds = [user.id, ...childIds];
+        const ph = allIds.map(() => '?').join(',');
+
+        // Get customers referred by these affiliates
+        const customers = await db.all(`
+            SELECT c.id, c.customer_name, c.referrer_id
+            FROM customers c
+            WHERE c.referrer_id IN (${ph})
+        `, allIds);
+
+        if (customers.length === 0) {
+            return { success: true, orders: [] };
+        }
+
+        const customerIds = customers.map(c => c.id);
+        const cph = customerIds.map(() => '?').join(',');
+
+        // Get all non-cancelled orders with revenue
+        const orders = await db.all(`
+            SELECT oc.id as order_id, oc.order_code, oc.status, oc.created_at,
+                   oi.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+            FROM order_items oi
+            LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
+            WHERE oi.customer_id IN (${cph})
+            AND (oc.status IS NULL OR oc.status != 'cancelled')
+            GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oi.customer_id
+            ORDER BY oc.created_at DESC
+        `, customerIds);
+
+        // Build customer map and referrer name map
+        const custMap = {};
+        customers.forEach(c => { custMap[c.id] = c; });
+
+        const result = orders.map(o => {
+            const cust = custMap[o.customer_id] || {};
+            const isDirect = cust.referrer_id === user.id;
+            const rate = isDirect ? directRate : parentRate;
+            const revenue = Number(o.revenue) || 0;
+            const commission = o.status === 'completed' ? Math.round(revenue * rate) : 0;
+            const referrerName = isDirect
+                ? 'Trực tiếp'
+                : (childAffiliates.find(a => a.id === cust.referrer_id)?.full_name || 'Gián tiếp');
+
+            return {
+                order_code: o.order_code,
+                status: o.status,
+                created_at: o.created_at,
+                customer_name: cust.customer_name || '',
+                referrer_name: referrerName,
+                is_direct: isDirect,
+                rate: rate * 100,
+                revenue,
+                commission
+            };
+        });
+
+        return { success: true, orders: result };
+    });
+
     // Auto-calculated balance for affiliate withdrawal
     fastify.get('/api/affiliate/balance', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
