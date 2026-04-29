@@ -1083,6 +1083,7 @@ select.form-control {
 }
 
 /* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
         pointer-events: none;
