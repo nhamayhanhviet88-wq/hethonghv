@@ -351,9 +351,11 @@ async function affiliateRoutes(fastify) {
         if (customerIds.length > 0) {
             const cphOrd = customerIds.map(() => '?').join(',');
             const ordRow = await db.get(`
-                SELECT COUNT(*) as cnt FROM order_codes
-                WHERE customer_id IN (${cphOrd})
-                AND (status IS NULL OR status != 'cancelled')
+                SELECT COUNT(DISTINCT oc.id) as cnt
+                FROM order_items oi
+                LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
+                WHERE oi.customer_id IN (${cphOrd})
+                AND (oc.status IS NULL OR oc.status != 'cancelled')
             `, customerIds);
             totalOrders = ordRow?.cnt || 0;
         }
