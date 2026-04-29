@@ -1083,13 +1083,14 @@ select.form-control {
 }
 
 /* ========== RESPONSIVE ========== */
-@media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
+        pointer-events: none;
     }
 
     .sidebar.open {
         transform: translateX(0);
+        pointer-events: auto;
     }
 
     .main-content {
@@ -1097,7 +1098,12 @@ select.form-control {
     }
 
     .menu-toggle {
-        display: block;
+        display: inline-block;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 24px;
+        z-index: 60;
+        position: relative;
     }
 
     .content-area {
