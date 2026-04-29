@@ -110,6 +110,77 @@ async function hhViewOrders(customerId, customerName) {
     }
 }
 
+async function hhShowCustomerPopup(customerId) {
+    const existing = document.getElementById('hhCustomerPopup');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'hhCustomerPopup';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#6b7280;font-size:14px;">⏳ Đang tải...</div>';
+    document.body.appendChild(overlay);
+
+    try {
+        const [custData, logData] = await Promise.all([
+            fetch('/api/customers/' + customerId, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }).then(r => r.json()),
+            fetch('/api/customers/' + customerId + '/consult-logs', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }).then(r => r.json())
+        ]);
+
+        const c = custData.customer || {};
+        const logs = logData.logs || [];
+
+        const logRows = logs.length > 0 ? logs.map(l => {
+            const ct = CONSULT_TYPES_HH[l.log_type] || { icon: '📝', label: l.log_type, color: '#6b7280', textColor: 'white' };
+            const date = l.created_at ? new Date(l.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            const by = l.logged_by_name || '';
+            const content = l.content || '';
+            return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+                <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${ct.color};display:flex;align-items:center;justify-content:center;font-size:14px;">${ct.icon}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-size:12px;font-weight:700;color:${ct.color};">${ct.label}</span>
+                        <span style="font-size:10px;color:#9ca3af;">${date}</span>
+                        ${by ? `<span style="font-size:10px;color:#6b7280;">— ${by}</span>` : ''}
+                    </div>
+                    ${content ? `<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.5;word-break:break-word;">${content}</div>` : ''}
+                    ${l.image_path ? `<img src="${l.image_path}" style="max-width:120px;max-height:80px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('${l.image_path}','_blank')">` : ''}
+                </div>
+            </div>`;
+        }).join('') : '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;">Chưa có lịch sử tư vấn</div>';
+
+        overlay.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+            <div style="background:linear-gradient(135deg,#1e3a5f,#2d5a8e);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="color:#fad24c;font-size:16px;font-weight:700;">${c.customer_name || 'Khách hàng'}</div>
+                    <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:2px;">${c.phone || ''} ${c.address ? '· ' + c.address : ''}</div>
+                </div>
+                <span onclick="document.getElementById('hhCustomerPopup').remove()" style="cursor:pointer;color:white;font-size:20px;opacity:0.7;padding:4px;">✕</span>
+            </div>
+            <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
+                    <div style="font-size:10px;color:#9ca3af;">Doanh số</div>
+                    <div style="font-size:14px;font-weight:800;color:#dc2626;">${hhFormatMoney(c.order_total || 0)}</div>
+                </div>
+                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
+                    <div style="font-size:10px;color:#9ca3af;">Tư vấn</div>
+                    <div style="font-size:14px;font-weight:800;color:#3b82f6;">${logs.length} lần</div>
+                </div>
+                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
+                    <div style="font-size:10px;color:#9ca3af;">Ngày tạo</div>
+                    <div style="font-size:12px;font-weight:700;color:#475569;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—'}</div>
+                </div>
+            </div>
+            <div style="padding:12px 20px;background:#fefce8;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:13px;font-weight:700;color:#92400e;">📜 Lịch Sử Tư Vấn</span>
+            </div>
+            <div style="overflow-y:auto;flex:1;padding:0 20px;">${logRows}</div>
+        </div>`;
+    } catch (e) {
+        overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#ef4444;font-size:14px;">❌ Lỗi tải dữ liệu</div>';
+    }
+}
+
 async function renderBaoCaoHoaHongPage(container) {
     container.innerHTML = `
         <div class="card">
@@ -286,8 +357,8 @@ function hhRenderTable(items) {
             
             const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
             const consultBtn = ct 
-                ? `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
-                : `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
+                ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
+                : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
 
             let contentShort = item.last_log_content || '';
             if (contentShort.length > 30) contentShort = contentShort.substring(0, 30) + '...';
@@ -300,12 +371,12 @@ function hhRenderTable(items) {
 
             return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td><span onclick="openCustomerDetail(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td>${consultBtn}</td>
-                <td style="font-size:12px;color:#e65100;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;" title="${(item.last_log_content || '').replace(/"/g, '&quot;')}" onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))">${contentShort || '<span style="color:var(--gray-400)">—</span>'}</td>
+                <td style="font-size:12px;color:#e65100;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;" title="${(item.last_log_content || '').replace(/"/g, '&quot;')}" onclick="hhShowCustomerPopup(${item.id})">${contentShort || '<span style="color:var(--gray-400)">—</span>'}</td>
                 <td>${hhFormatMoney(item.total_revenue)}</td>
                 <td>${item.rate}%</td>
                 <td>${commissionDisplay}</td>
