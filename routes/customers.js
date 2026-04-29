@@ -432,7 +432,7 @@ async function customersRoutes(fastify, options) {
 
     async function getCrmOrderPrefix(customerId) {
         if (!customerId) return '';
-        const customer = await db.get('SELECT crm_type, referrer_id FROM customers WHERE id = ?', [Number(customerId)]);
+        const customer = await db.get('SELECT crm_type, referrer_id, referrer_customer_id FROM customers WHERE id = ?', [Number(customerId)]);
         if (!customer) return '';
 
         // Priority 1: If customer is directly in a non-nhu_cau CRM module
@@ -440,7 +440,17 @@ async function customersRoutes(fastify, options) {
             return CRM_ORDER_PREFIX[customer.crm_type] || '';
         }
 
-        // Priority 2: If customer is in nhu_cau but has a referrer, check referrer's source
+        // Priority 2: If customer was referred by another CUSTOMER (referrer_customer_id)
+        // e.g. KHÁCH 1 in CTV module refers KHÁCH 11 into Nhu Cầu
+        if (customer.referrer_customer_id) {
+            const refCustomer = await db.get('SELECT crm_type FROM customers WHERE id = ?', [customer.referrer_customer_id]);
+            if (refCustomer && refCustomer.crm_type && refCustomer.crm_type !== 'nhu_cau') {
+                return CRM_ORDER_PREFIX[refCustomer.crm_type] || '';
+            }
+        }
+
+        // Priority 3: If customer was referred by a USER/affiliate account (referrer_id)
+        // e.g. Affiliate user logs in and transfers a customer via "Chuyển Số"
         if (customer.referrer_id) {
             const referrer = await db.get('SELECT source_crm_type, role FROM users WHERE id = ?', [customer.referrer_id]);
             if (referrer && referrer.source_crm_type) {
@@ -454,7 +464,7 @@ async function customersRoutes(fastify, options) {
             }
         }
 
-        // Priority 3: Pure nhu_cau customer (no referrer) → no prefix
+        // Priority 4: Pure nhu_cau customer (no referrer) → no prefix
         return '';
     }
 
