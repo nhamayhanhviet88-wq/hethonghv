@@ -11,6 +11,7 @@ let _aff_selectedMgrId = null;
 let _aff_selectedMgrName = '';
 let _aff_allUsers = [];
 let _aff_allDepts = [];
+let _aff_monthValue = ''; // format: YYYY-MM
 
 function _aff_getDateRange() {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -21,6 +22,7 @@ function _aff_getDateRange() {
         case '7days': { const d = new Date(today); d.setDate(d.getDate()-6); return { from: fmt(d), to: fmt(today) }; }
         case 'this_month': { const m = new Date(_aff_selectedYear, today.getMonth(), 1); return { from: fmt(m), to: fmt(today) }; }
         case 'last_month': { const m1 = new Date(_aff_selectedYear, today.getMonth()-1, 1); const m2 = new Date(_aff_selectedYear, today.getMonth(), 0); return { from: fmt(m1), to: fmt(m2) }; }
+        case 'month': { if (!_aff_monthValue) return { from: '', to: '' }; const [yr,mo]=_aff_monthValue.split('-').map(Number); const m1=new Date(yr,mo-1,1); const m2=new Date(yr,mo,0); const fmt2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; return { from: fmt2(m1), to: fmt2(m2) }; }
         case 'custom': return { from: _aff_dateFrom, to: _aff_dateTo };
         case 'all': return { from: `${_aff_selectedYear}-01-01`, to: `${_aff_selectedYear}-12-31` };
         default: return { from: fmt(today), to: fmt(today) };
@@ -28,6 +30,7 @@ function _aff_getDateRange() {
 }
 function _aff_switchDate(preset) {
     _aff_datePreset = preset;
+    _aff_monthValue = ''; // clear month picker khi chọn preset khác
     if (preset === 'custom') return;
     if (_affSysTab === 'org') _affOrgLoad(); else _affSysLoad();
 }
@@ -35,6 +38,12 @@ function _aff_applyCustom() {
     _aff_dateFrom = document.getElementById('affDateFrom')?.value || '';
     _aff_dateTo = document.getElementById('affDateTo')?.value || '';
     if (_aff_dateFrom && _aff_dateTo) { if (_affSysTab === 'org') _affOrgLoad(); else _affSysLoad(); }
+}
+function _aff_selectMonth(val) {
+    if (!val) return;
+    _aff_monthValue = val;
+    _aff_datePreset = 'month';
+    if (_affSysTab === 'org') _affOrgLoad(); else _affSysLoad();
 }
 function _aff_dateFilterHtml() {
     const dr = _aff_getDateRange();
@@ -52,6 +61,11 @@ function _aff_dateFilterHtml() {
             <span style="font-size:11px;color:#9ca3af;">→</span>
             <input type="date" id="affDateTo" value="${dr.to}" style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:11px;font-weight:600;" onchange="_aff_dateTo=this.value">
             <button onclick="_aff_applyCustom()" style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #059669;background:linear-gradient(135deg,#059669,#10b981);color:white;">✓</button>
+        </div>
+        <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px;"></span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;font-weight:800;color:#334155;">📅 CHỌN THÁNG</span>
+            <input type="month" value="${_aff_monthValue}" onchange="_aff_selectMonth(this.value)" style="padding:4px 8px;border:1.5px solid ${_aff_datePreset==='month'?'#2563eb':'#e2e8f0'};border-radius:8px;font-size:11px;font-weight:600;background:${_aff_datePreset==='month'?'linear-gradient(135deg,#eff6ff,#dbeafe)':'white'};color:#1e40af;cursor:pointer;">
         </div>
     </div>`;
 }
