@@ -275,15 +275,15 @@ function _affRenderOrg() {
 function _affRenderEmpAffiliates(emp, indent) {
     if (!emp.affiliates || emp.affiliates.length === 0) return '';
     let h = `<div style="padding:8px 18px 8px ${indent};background:#fafbff;border-bottom:1px solid #e2e8f0;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f1f5f9;">
-            <th style="padding:6px 8px;text-align:left;font-weight:700;color:#475569;">#</th>
-            <th style="padding:6px 8px;text-align:left;font-weight:700;color:#475569;">Tên Affiliate</th>
-            <th style="padding:6px 8px;text-align:left;font-weight:700;color:#475569;">SĐT</th>
-            <th style="padding:6px 8px;text-align:left;font-weight:700;color:#475569;">Aff Cha</th>
-            <th style="padding:6px 8px;text-align:center;font-weight:700;color:#475569;">KH</th>
-            <th style="padding:6px 8px;text-align:center;font-weight:700;color:#475569;">Chốt</th>
-            <th style="padding:6px 8px;text-align:right;font-weight:700;color:#475569;">Doanh Số</th>
-            <th style="padding:6px 8px;text-align:center;font-weight:700;color:#475569;">TT</th>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+            <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">#</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Tên Affiliate</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">SĐT</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Aff Cha</th>
+            <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">KH</th>
+            <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">Chốt</th>
+            <th style="padding:6px 8px;text-align:right;font-weight:800;color:white;">Doanh Số</th>
+            <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">TT</th>
         </tr></thead><tbody>`;
     emp.affiliates.forEach((a, i) => {
         const st = a.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">🔒</span>';
