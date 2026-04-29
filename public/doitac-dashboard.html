@@ -23,14 +23,21 @@
     </style>
 </head>
 <body class="dashboard">
-    <!-- ★ INLINE toggle — works immediately, no dependency on external JS -->
+    <!-- ★ INLINE toggle — uses inline styles, CANNOT be overridden by any CSS -->
     <script>
+    var _sidebarOpen = false;
     function toggleSidebar() {
         var sidebar = document.getElementById('sidebar');
         var overlay = document.getElementById('sidebarOverlay');
         if (window.innerWidth <= 768) {
-            sidebar.classList.toggle('open');
-            if (overlay) overlay.classList.toggle('show');
+            _sidebarOpen = !_sidebarOpen;
+            if (_sidebarOpen) {
+                sidebar.style.cssText = 'transform:translateX(0) !important;pointer-events:auto !important;z-index:99999 !important;box-shadow:4px 0 30px rgba(0,0,0,0.4) !important;';
+                if (overlay) overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:block !important;';
+            } else {
+                sidebar.style.cssText = '';
+                if (overlay) overlay.style.cssText = '';
+            }
         } else {
             sidebar.classList.toggle('collapsed');
             var btn = document.getElementById('sidebarToggleBtn');
@@ -43,7 +50,7 @@
 
     <div class="app-container">
         <!-- Mobile overlay (must be inside app-container, same stacking context as sidebar) -->
-        <div class="sidebar-overlay" id="sidebarOverlay" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('show');"></div>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="_sidebarOpen=false;document.getElementById('sidebar').style.cssText='';this.style.cssText='';"></div>
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
