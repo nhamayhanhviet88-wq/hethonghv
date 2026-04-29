@@ -20,7 +20,7 @@
 
     <div class="app-container">
         <!-- Mobile overlay (must be inside app-container, same stacking context as sidebar) -->
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="_sidebarOpen=false;document.getElementById('sidebar').style.cssText='';this.style.cssText='';"></div>
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -54,7 +54,7 @@
         <main class="main-content">
             <div class="topbar">
                 <div class="topbar-left">
-                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar('mobile')">☰</button>
                     <h1 class="page-title" id="pageTitle">Dashboard</h1>
                 </div>
                 <div class="topbar-right">
@@ -81,7 +81,7 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=20260429b"></script>
+    <script src="/js/app.js?v=20260429c"></script>
     <script src="/js/sidebar-utils.js?v=20260429b"></script>
     <script src="/js/pages/accounts.js"></script>
     <script src="/js/pages/teams.js"></script>

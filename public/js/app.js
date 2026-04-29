@@ -1522,15 +1522,28 @@ function getCustomerCode(customer) {
 }
 
 // ========== SIDEBAR TOGGLE ==========
-function toggleSidebar() {
+var _sidebarOpen = false;
+function toggleSidebar(forceMode) {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const btn = document.getElementById('sidebarToggleBtn');
+    const menuBtn = document.getElementById('menuToggle');
 
-    // Mobile mode: slide sidebar in/out with overlay
-    if (window.innerWidth <= 768) {
-        sidebar.classList.toggle('open');
-        if (overlay) overlay.classList.toggle('show');
+    // Detect mobile: forceMode='mobile' OR narrow viewport OR menuToggle visible
+    const isMobile = forceMode === 'mobile'
+        || window.innerWidth <= 768
+        || (menuBtn && menuBtn.offsetWidth > 0);
+
+    if (isMobile) {
+        // Mobile: use inline styles (highest CSS specificity, cannot be overridden)
+        _sidebarOpen = !_sidebarOpen;
+        if (_sidebarOpen) {
+            sidebar.style.cssText = 'transform:translateX(0) !important;pointer-events:auto !important;z-index:99999 !important;box-shadow:4px 0 30px rgba(0,0,0,0.4) !important;width:270px !important;position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;';
+            if (overlay) overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:block !important;';
+        } else {
+            sidebar.style.cssText = '';
+            if (overlay) overlay.style.cssText = '';
+        }
         return;
     }
 
