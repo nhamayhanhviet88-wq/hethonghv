@@ -380,7 +380,7 @@ function hhRenderTable(items) {
             // Determine button type: cancel status (terminal) > consultation log > order status > generic
             let ct = null;
             if (item.cancel_approved === 1) ct = { icon: '🚫', label: 'Đã Hủy', color: '#991b1b', textColor: 'white' };
-            else if (item.cancel_requested) ct = { icon: '⏳', label: 'Chờ Duyệt Hủy', color: '#6b7280', textColor: 'white' };
+            else if (item.cancel_requested) ct = { icon: '⏳', label: 'Chờ Duyệt Hủy', color: '#f59e0b', textColor: 'white' };
             else if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
             else if (item.order_status === 'hoan_thanh') ct = { icon: '🏆', label: 'Hoàn Thành Đơn', color: '#0d9488', textColor: 'white' };
             else if (item.order_status === 'chot_don') ct = { icon: '✅', label: 'Chốt Đơn', color: '#22c55e', textColor: 'white' };
@@ -401,23 +401,9 @@ function hhRenderTable(items) {
 
             const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
 
-            // Status badge
-            let statusBadge = '';
-            if (item.cancel_approved === 1) {
-                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#dc2626;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">❌ Đã Hủy</span>';
-            } else if (item.cancel_requested) {
-                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f59e0b;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">⏳ Chờ Hủy</span>';
-            } else if (item.order_status === 'hoan_thanh') {
-                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#10b981;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">✅ Hoàn Thành</span>';
-            } else if (item.order_status === 'chot_don' || item.order_status === 'san_xuat' || item.order_status === 'giao_hang') {
-                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#22c55e;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">💰 Chốt Đơn</span>';
-            } else if (item.order_status === 'dat_coc') {
-                statusBadge = '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f97316;color:white;font-weight:700;margin-left:4px;white-space:nowrap;">💎 Đặt Cọc</span>';
-            }
-
             return `<tr style="background:${item.cancel_approved === 1 ? '#fef2f2' : item.cancel_requested ? '#fffbeb' : item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span>${statusBadge}</td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
