@@ -334,17 +334,28 @@ thead th, tbody td {
 }
 
 /* ========== BÁO CÁO HOA HỒNG — MOBILE ========== */
-/* Stat cards: compact grid */
+/* Container: prevent horizontal overflow */
+#hhSummary,
+#hhSearchFilter {
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Stat cards: compact 2x2 grid */
 #hhSummary > div {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
+    max-width: 100% !important;
 }
 #hhSummary > div > div {
     padding: 10px 8px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
 }
 #hhSummary > div > div > div:first-child {
     font-size: 14px !important;
+    word-break: break-all !important;
 }
 #hhSummary > div > div > div:last-child {
     font-size: 10px !important;
@@ -357,19 +368,34 @@ thead th, tbody td {
 #hhSearchFilter input,
 #hhSearchFilter select {
     width: 100% !important;
-    min-width: 100% !important;
+    min-width: 0 !important;
     min-height: 44px !important;
     font-size: 15px !important;
 }
 
-/* Card layout for mobile — compact list */
+/* Kill the table min-width on mobile when using cards */
 #hhTableBody.hh-mobile-cards {
     display: flex !important;
     flex-direction: column !important;
     gap: 6px !important;
 }
-#hhTableBody.hh-mobile-cards .hh-card {
+/* Force the parent table to not overflow */
+table:has(#hhTableBody.hh-mobile-cards) {
+    min-width: auto !important;
+    width: 100% !important;
     display: block !important;
+    overflow: hidden !important;
+}
+/* Fallback for browsers without :has */
+.card-body:has(#hhTableBody.hh-mobile-cards) {
+    overflow: hidden !important;
+}
+.card-body > div:has(#hhTableBody.hh-mobile-cards) {
+    overflow: hidden !important;
+}
+
+#hhTableBody.hh-mobile-cards .hh-card {
+    display: flex !important;
     border-radius: 10px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
@@ -378,7 +404,7 @@ thead th, tbody td {
     opacity: 0.85;
 }
 
-/* Hide the table on mobile when cards are active */
+/* Hide the table header on mobile when cards are active */
 .hh-mobile-table-hide {
     display: none !important;
 }

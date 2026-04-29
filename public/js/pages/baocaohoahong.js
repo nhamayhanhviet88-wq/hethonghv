@@ -219,9 +219,14 @@ function hhRenderTable(items) {
 
     // Mobile: compact list + tap for detail
     if (_hhIsMobile()) {
-        // Hide table header
-        var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
+        // Hide table header + kill table width overflow
+        var table = document.querySelector('#hhTableBody')?.closest('table');
+        var thead = table?.querySelector('thead');
         if (thead) thead.classList.add('hh-mobile-table-hide');
+        if (table) { table.style.minWidth = 'auto'; table.style.width = '100%'; }
+        // Kill overflow on parent wrapper
+        var wrapper = table?.parentElement;
+        if (wrapper) wrapper.style.overflow = 'hidden';
 
         var tbody = document.getElementById('hhTableBody');
         tbody.className = 'hh-mobile-cards';
