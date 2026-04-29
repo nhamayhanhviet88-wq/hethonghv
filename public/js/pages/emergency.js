@@ -674,10 +674,16 @@ async function cancelLoadList() {
             <td>${countdownHTML}</td>
             <td>${statusBadge}</td>
             <td>
-                ${isPending ? `
+                ${isPending ? (() => {
+                    // ★ QL không được tự duyệt yêu cầu của chính mình
+                    const isSelfRequest = currentUser.role === 'quan_ly' && Number(c.cancel_requested_by) === Number(currentUser.id);
+                    if (isSelfRequest) {
+                        return `<span style="font-size:11px;color:#f59e0b;font-weight:600;">⏳ Chờ GĐ/QLCC duyệt</span>`;
+                    }
+                    return `
                     <button class="btn btn-sm" onclick="approveCancel(${c.id}, true)" style="background:var(--success);color:white;font-size:11px;padding:4px 10px;">✅ Duyệt</button>
-                    <button class="btn btn-sm" onclick="approveCancel(${c.id}, false)" style="background:var(--danger);color:white;font-size:11px;padding:4px 10px;">❌ Từ chối</button>
-                ` : isAutoReverted ? `
+                    <button class="btn btn-sm" onclick="approveCancel(${c.id}, false)" style="background:var(--danger);color:white;font-size:11px;padding:4px 10px;">❌ Từ chối</button>`;
+                })() : isAutoReverted ? `
                     <span style="font-size:11px;color:#f59e0b;font-weight:700;">⏰ Đã trả về NV</span>
                 ` : `<span style="font-size:13px;font-weight:700;color:#1e40af;">${c.cancel_approved_by_name ? 'Bởi: ' + c.cancel_approved_by_name : ''}</span>`}
             </td>

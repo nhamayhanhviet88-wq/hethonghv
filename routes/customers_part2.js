@@ -93,7 +93,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // ★ QL không được tự duyệt yêu cầu hủy của chính mình
         if (request.user.role === 'quan_ly') {
             const cust = await db.get('SELECT cancel_requested_by FROM customers WHERE id = ?', [custId]);
-            if (cust && cust.cancel_requested_by === request.user.id) {
+            if (cust && Number(cust.cancel_requested_by) === Number(request.user.id)) {
                 return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu hủy của chính mình. Vui lòng chờ Giám Đốc/QLCC duyệt.' });
             }
         }
