@@ -239,14 +239,14 @@ function hhRenderTable(items) {
             const bgColor = item.is_direct ? '#fefce8' : '#f5f3ff';
             const hasRevenue = item.total_revenue > 0;
 
-            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;" onclick="hhShowMobileDetail(${i})">
+            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onclick="hhShowMobileDetail(${i})">
                 <div style="flex:1;min-width:0;">
-                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.customer_name}</div>
-                    <div style="font-size:10px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;margin-top:3px;">${refLabel}</div>
+                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${item.customer_name}</div>
+                    <div style="font-size:11px;color:${item.is_direct ? '#059669' : '#7c3aed'};font-weight:600;margin-top:5px;letter-spacing:0.1px;">${refLabel}</div>
                 </div>
-                <div style="text-align:right;margin-left:8px;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fee2e2,#fecaca)' : '#f1f5f9'};padding:6px 10px;border-radius:8px;min-width:90px;">
-                    <div style="font-size:12px;font-weight:800;color:${hasRevenue ? '#dc2626' : '#9ca3af'};">${revenueAmt}</div>
-                    <div style="font-size:10px;font-weight:700;color:${item.commission > 0 ? '#10b981' : '#9ca3af'};margin-top:1px;">HH: ${commAmt}</div>
+                <div style="text-align:right;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fef2f2,#fee2e2)' : '#f8fafc'};padding:8px 12px;border-radius:10px;min-width:105px;border:1px solid ${hasRevenue ? '#fecaca' : '#e2e8f0'};">
+                    <div style="font-size:13px;font-weight:800;color:${hasRevenue ? '#dc2626' : '#94a3b8'};letter-spacing:-0.3px;">${revenueAmt}</div>
+                    <div style="font-size:11px;font-weight:700;color:${item.commission > 0 ? '#059669' : '#94a3b8'};margin-top:2px;">HH: ${commAmt}</div>
                 </div>
             </div>`;
         }).join('');

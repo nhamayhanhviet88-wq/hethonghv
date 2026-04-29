@@ -341,7 +341,7 @@ thead th, tbody td {
     overflow: hidden !important;
 }
 
-/* Stat cards: compact 2x2 grid */
+/* Stat cards: compact 2x2 grid, polished */
 #hhSummary > div {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
@@ -349,44 +349,54 @@ thead th, tbody td {
     max-width: 100% !important;
 }
 #hhSummary > div > div {
-    padding: 10px 8px !important;
+    padding: 12px 10px !important;
     min-width: 0 !important;
     overflow: hidden !important;
+    border-radius: 10px !important;
 }
 #hhSummary > div > div > div:first-child {
-    font-size: 14px !important;
-    word-break: break-all !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
 }
 #hhSummary > div > div > div:last-child {
     font-size: 10px !important;
+    font-weight: 600 !important;
+    margin-top: 4px !important;
+    line-height: 1.3;
 }
 
-/* Search/filter bar: stack vertically */
+/* Search/filter bar: stack vertically, clean */
 #hhSearchFilter > div {
     flex-direction: column !important;
+    gap: 8px !important;
 }
 #hhSearchFilter input,
 #hhSearchFilter select {
     width: 100% !important;
     min-width: 0 !important;
     min-height: 44px !important;
-    font-size: 15px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    border-radius: 10px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    padding: 10px 14px !important;
 }
 
 /* Kill the table min-width on mobile when using cards */
 #hhTableBody.hh-mobile-cards {
     display: flex !important;
     flex-direction: column !important;
-    gap: 6px !important;
+    gap: 8px !important;
 }
-/* Force the parent table to not overflow */
+/* Force parent table to not overflow */
 table:has(#hhTableBody.hh-mobile-cards) {
     min-width: auto !important;
     width: 100% !important;
     display: block !important;
     overflow: hidden !important;
 }
-/* Fallback for browsers without :has */
 .card-body:has(#hhTableBody.hh-mobile-cards) {
     overflow: hidden !important;
 }
@@ -394,17 +404,20 @@ table:has(#hhTableBody.hh-mobile-cards) {
     overflow: hidden !important;
 }
 
+/* Customer cards — polished */
 #hhTableBody.hh-mobile-cards .hh-card {
     display: flex !important;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    align-items: center !important;
+    border-radius: 12px !important;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    transition: transform 0.1s ease;
 }
 #hhTableBody.hh-mobile-cards .hh-card:active {
-    opacity: 0.85;
+    transform: scale(0.98);
 }
 
-/* Hide the table header on mobile when cards are active */
+/* Hide the table header on mobile */
 .hh-mobile-table-hide {
     display: none !important;
 }
