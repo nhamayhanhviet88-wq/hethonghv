@@ -87,6 +87,11 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: `Khách hàng đã thuộc ${CRM_LABELS[targetCrm]}` });
         }
 
+        // Block: CTV là điểm cuối — không cho chuyển ra ngoài
+        if (customer.crm_type === 'ctv') {
+            return reply.code(400).send({ error: 'Khách đang ở Chăm Sóc CTV không thể chuyển sang CRM khác' });
+        }
+
         // Block: customer cancelled
         if (customer.cancel_approved === 1) {
             return reply.code(400).send({ error: 'Không thể đề xuất khách đã bị hủy' });

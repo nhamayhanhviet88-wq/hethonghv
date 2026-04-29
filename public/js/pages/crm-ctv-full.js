@@ -218,20 +218,13 @@ async function renderCRMCtvPage(container) {
                 <option value="">Tất cả trạng thái</option>
             </select>
             <input type="text" id="crmSearch" class="form-control" placeholder="🔍 Tìm tên hoặc SĐT..." style="width:auto;min-width:200px;">
-            <select id="crmFilterAffStatus" class="form-control" style="width:auto;min-width:180px;" onchange="_ctvRenderFilteredTable()">
-                <option value="">🔑 Tất cả TK</option>
-                <option value="approved">🔑✅ Đã Có TK</option>
-                <option value="locked">🔑🔒 Đã Khóa</option>
-                <option value="pending">🔑⏳ Chờ Duyệt</option>
-                <option value="none">🔑 Chưa Có TK</option>
-            </select>
+
         </div>
         <div class="card">
             <div class="card-body" style="overflow-x:auto; padding:8px;">
                 <table class="table crm-ctv-table" id="crmCtvTable">
                     <thead><tr>
                         <th style="min-width:30px;text-align:center;padding:4px 2px" title="Pin khách">📌</th>
-                        <th style="min-width:30px;text-align:center;padding:4px 2px" title="TK Affiliate">🔑</th>
                         <th style="min-width:45px;text-align:center">STT</th>
                         <th style="min-width:100px">NV Phụ Trách</th>
                         <th style="min-width:80px">Mã Đơn</th>
@@ -621,9 +614,6 @@ function _ctvRenderCustomerRow(c, stats, stt) {
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_ctv', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_ctvTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
-        <td style="text-align:center;padding:4px 2px;">
-            ${_ctvAffApprovedIds.includes(c.id) ? (_ctvAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateDetail(${_ctvAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();openAffiliateDetail(${_ctvAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _ctvAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_ctv', 'edit') && c.cancel_approved !== 1 && !_ctvPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
-        </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_ctvOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
@@ -714,9 +704,7 @@ function _ctvRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;font-weight:600;color:#122546;">${c.job || '<span style="color:var(--gray-600)">—</span>'}</td>
         <td style="text-align:center;font-weight:700;color:#122546;font-size:14px;">${s.chotDonCount}</td>
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
-        <td style="text-align:center;padding:4px 2px;">
-            ${!c.readonly && canDo('crm_ctv', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openCrmTransferPopup(${c.id})" title="Đề Xuất Chuyển CRM" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔄</span>` : ''}
-        </td>
+
     </tr>`;
 }
 
@@ -2307,11 +2295,8 @@ async function _ctvOpenCustomerDetail(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved && !_ctvPendingCtvIds.includes(customerId) ? `
-            <button onclick="closeModal();openCrmTransferPopup(${customerId});" style="padding:8px 20px;border:2px solid rgba(250,210,76,.4);background:rgba(250,210,76,.12);color:#fad24c;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(250,210,76,.25)'" onmouseout="this.style.background='rgba(250,210,76,.12)'">🔄 Chuyển CRM</button>
+        ${!c.cancel_requested && !c.cancel_approved ? `
             <button class="btn btn-primary" onclick="closeModal();_ctvOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
-        ` : _ctvPendingCtvIds.includes(customerId) ? `
-            <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
         ` : ''}
     `;
 
