@@ -217,7 +217,7 @@ function hhRenderTable(items) {
         return;
     }
 
-    // Mobile: card layout
+    // Mobile: compact list + tap for detail
     if (_hhIsMobile()) {
         // Hide table header
         var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
@@ -227,39 +227,20 @@ function hhRenderTable(items) {
         tbody.className = 'hh-mobile-cards';
 
         tbody.innerHTML = items.map((item, i) => {
-            const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
-            const consultLabel = ct ? `${ct.icon} ${ct.label}` : '📋 Tư Vấn';
-            const consultColor = ct ? ct.color : '#6b7280';
-            const consultTextColor = ct ? ct.textColor : 'white';
-            const commissionDisplay = item.commission > 0 ? hhFormatMoney(item.commission) : '—';
-            const referrerDisplay = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
+            const commAmt = item.commission > 0 ? hhFormatMoney(item.commission) : '—';
+            const revenueAmt = hhFormatMoney(item.total_revenue);
+            const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
+            const borderColor = item.is_direct ? '#10b981' : '#8b5cf6';
+            const bgColor = item.is_direct ? '#fefce8' : '#f5f3ff';
 
-            return `<div class="hh-card" style="border-left:4px solid ${item.is_direct ? '#10b981' : '#8b5cf6'};">
-                <div class="hh-card-header">
-                    <span onclick="openCustomerDetail(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:5px 14px;border-radius:16px;font-size:12px;font-weight:700;border:1px solid rgba(212,168,67,0.3);">${item.customer_name}</span>
-                    <span style="font-size:11px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;">${referrerDisplay}</span>
+            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:10px 12px;cursor:pointer;" onclick="hhShowMobileDetail(${i})">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.customer_name}</span>
+                    <span style="font-size:12px;font-weight:700;color:#1e3a5f;">${revenueAmt}</span>
                 </div>
-                <div class="hh-card-body">
-                    <div class="hh-field">
-                        <span class="hh-label">SĐT</span>
-                        <span class="hh-value">${item.phone || '-'}</span>
-                    </div>
-                    <div class="hh-field">
-                        <span class="hh-label">Doanh Thu</span>
-                        <span class="hh-value">${hhFormatMoney(item.total_revenue)}</span>
-                    </div>
-                    <div class="hh-field">
-                        <span class="hh-label">Tỷ Lệ</span>
-                        <span class="hh-value">${item.rate}%</span>
-                    </div>
-                    <div class="hh-field">
-                        <span class="hh-label">Hoa Hồng</span>
-                        <span class="hh-value" style="color:${item.commission > 0 ? '#10b981' : '#9ca3af'};">${commissionDisplay}</span>
-                    </div>
-                </div>
-                <div class="hh-card-actions">
-                    <span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:11px;background:#3b82f6;color:white;font-weight:600;">📋 Xem Đơn</span>
-                    <span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;background:${consultColor};color:${consultTextColor};font-weight:600;">${consultLabel}</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                    <span style="font-size:10px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;">${refLabel}</span>
+                    <span style="font-size:11px;font-weight:700;color:${item.commission > 0 ? '#10b981' : '#9ca3af'};">HH: ${commAmt}</span>
                 </div>
             </div>`;
         }).join('');
@@ -321,6 +302,92 @@ function hhFilterTable() {
         return true;
     });
     hhRenderTable(items);
+}
+
+function hhShowMobileDetail(index) {
+    const data = window._hhData;
+    if (!data) return;
+    // Get filtered items (same logic as hhFilterTable)
+    const search = (document.getElementById('hhSearch')?.value || '').toLowerCase().trim();
+    const filterGT = document.getElementById('hhFilterGT')?.value || '';
+    let items = data.items;
+    if (search || filterGT) {
+        items = items.filter(item => {
+            if (filterGT && item.referrer_name !== filterGT) return false;
+            if (search) {
+                const n = (item.customer_name || '').toLowerCase();
+                const p = (item.phone || '').toLowerCase();
+                const g = (item.referrer_name || '').toLowerCase();
+                if (!n.includes(search) && !p.includes(search) && !g.includes(search)) return false;
+            }
+            return true;
+        });
+    }
+    const item = items[index];
+    if (!item) return;
+
+    const existing = document.getElementById('hhMobileDetail');
+    if (existing) existing.remove();
+
+    const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
+    const consultLabel = ct ? `${ct.icon} ${ct.label}` : '📋 Tư Vấn';
+    const consultColor = ct ? ct.color : '#6b7280';
+    const consultTextColor = ct ? ct.textColor : 'white';
+    const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
+    const refColor = item.is_direct ? '#10b981' : '#8b5cf6';
+    const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '—';
+    const appointDate = item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('vi-VN') : '—';
+    let contentShort = item.last_log_content || '—';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'hhMobileDetail';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `<div style="background:white;border-radius:20px 20px 0 0;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,0.2);animation:hhSlideUp 0.25s ease-out;">
+        <style>@keyframes hhSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}</style>
+        <div style="padding:14px 20px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:5px 14px;border-radius:14px;font-size:13px;font-weight:700;">${item.customer_name}</span>
+            <span onclick="document.getElementById('hhMobileDetail').remove()" style="cursor:pointer;font-size:22px;color:#9ca3af;line-height:1;padding:4px;">✕</span>
+        </div>
+        <div style="padding:12px 20px 20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div style="background:#f8fafc;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">SĐT</div>
+                    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:2px;">${item.phone || '—'}</div>
+                </div>
+                <div style="background:#f8fafc;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Người GT</div>
+                    <div style="font-size:12px;font-weight:700;color:${refColor};margin-top:2px;">${refLabel}</div>
+                </div>
+                <div style="background:#fefce8;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Doanh Thu</div>
+                    <div style="font-size:14px;font-weight:800;color:#1e3a5f;margin-top:2px;">${hhFormatMoney(item.total_revenue)}</div>
+                </div>
+                <div style="background:#f0fdf4;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hoa Hồng (${item.rate}%)</div>
+                    <div style="font-size:14px;font-weight:800;color:${item.commission > 0 ? '#10b981' : '#9ca3af'};margin-top:2px;">${item.commission > 0 ? hhFormatMoney(item.commission) : '—'}</div>
+                </div>
+                <div style="background:#f8fafc;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Ngày Hẹn</div>
+                    <div style="font-size:12px;font-weight:600;color:#1e293b;margin-top:2px;">${appointDate}</div>
+                </div>
+                <div style="background:#f8fafc;padding:10px;border-radius:10px;">
+                    <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Liên Hệ Gần Nhất</div>
+                    <div style="font-size:12px;font-weight:600;color:#1e293b;margin-top:2px;">${contactDate}</div>
+                </div>
+            </div>
+            ${contentShort !== '—' ? `<div style="background:#fff7ed;padding:10px;border-radius:10px;margin-bottom:14px;">
+                <div style="font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Nội Dung TV</div>
+                <div style="font-size:12px;font-weight:600;color:#e65100;margin-top:2px;">${contentShort}</div>
+            </div>` : ''}
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('hhMobileDetail').remove();hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="flex:1;padding:12px;border:none;border-radius:10px;background:#3b82f6;color:white;font-size:13px;font-weight:700;cursor:pointer;">📋 Xem Đơn</button>
+                <button onclick="document.getElementById('hhMobileDetail').remove();openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="flex:1;padding:12px;border:none;border-radius:10px;background:${consultColor};color:${consultTextColor};font-size:13px;font-weight:700;cursor:pointer;">${consultLabel}</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
 }
 
 function hhShowCommissionPopup(filter) {
