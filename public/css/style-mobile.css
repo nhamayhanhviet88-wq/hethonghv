@@ -8,11 +8,14 @@
 .sidebar {
     transform: translateX(-100%);
     pointer-events: none;
+    width: 270px;
 }
 
 .sidebar.open {
     transform: translateX(0);
     pointer-events: auto;
+    z-index: 200 !important;
+    box-shadow: 4px 0 25px rgba(0,0,0,0.3);
 }
 
 .main-content {
