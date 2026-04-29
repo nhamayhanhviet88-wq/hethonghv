@@ -445,7 +445,7 @@
         // ===== AUTO-LOGIN CHECK =====
         fetch('/api/auth/me').then(r => r.json()).then(data => {
             if (data.user && data.user.role === 'tkaffiliate') {
-                window.location.href = '/bao-cao-hoa-hong';
+                window.location.href = '/tu-van-khach-aff';
             } else if (data.user) {
                 // Non-affiliate user logged in on affiliate domain — logout & show error
                 fetch('/api/auth/logout', { method: 'POST' }).then(() => {
@@ -479,7 +479,7 @@
                 
                 if (data.success) {
                     if (data.user && data.user.role === 'tkaffiliate') {
-                        window.location.href = '/bao-cao-hoa-hong';
+                        window.location.href = '/tu-van-khach-aff';
                     } else {
                         // Non-affiliate → logout immediately
                         await fetch('/api/auth/logout', { method: 'POST' });

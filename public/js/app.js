@@ -91,7 +91,7 @@ const MENU_CONFIG = [
     { id: 'settings', label: 'Cài Đặt Phân Tầng', icon: '⚙️', roles: ['giam_doc'], section: 'HỆ THỐNG', permKey: 'cai_dat' },
     { id: 'my-customers', label: 'Khách Hàng Của Tôi', icon: '👤', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
-    { id: 'bao-cao-hoa-hong', label: 'Báo Cáo Hoa Hồng', icon: '💰', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+    { id: 'tu-van-khach-aff', label: 'Theo Dõi Tư Vấn Khách', icon: '📋', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
@@ -592,7 +592,7 @@ function renderSidebar() {
     // Group items by section
     // ★ DOITAC PORTAL — chỉ hiển thị menu affiliate trên dongphuchv.net
     var _isDoitacPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
-    var DOITAC_ALLOWED_IDS = ['bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
+    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
 
     MENU_CONFIG.forEach(function(item) {
         // Trên dongphuchv.net: chỉ hiển thị menu affiliate
@@ -927,9 +927,9 @@ async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
-    // Block tkaffiliate from dashboard — redirect to bao-cao-hoa-hong
+    // Block tkaffiliate from dashboard — redirect to tu-van-khach-aff
     if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
-        window.location.href = '/bao-cao-hoa-hong';
+        window.location.href = '/tu-van-khach-aff';
         return;
     }
 
@@ -1022,7 +1022,7 @@ async function handleRoute() {
             case 'settings': renderSettingsPage(content); break;
             case 'dashboard': renderDashboardPage(content); break;
             case 'chuyen-so': renderChuyenSoPage(content); break;
-            case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
+            case 'tu-van-khach-aff': case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
             case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
             case 'crm-ctv': renderCRMCtvPage(content); break;
             case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;

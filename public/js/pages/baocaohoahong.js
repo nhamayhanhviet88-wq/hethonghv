@@ -114,7 +114,7 @@ async function renderBaoCaoHoaHongPage(container) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
-                <h3>💰 Báo Cáo Hoa Hồng</h3>
+                <h3>📋 Theo Dõi Tư Vấn Khách</h3>
             </div>
             <div class="card-body" style="overflow-x:auto;">
                 <div id="hhSummary" style="margin-bottom:20px;"></div>
