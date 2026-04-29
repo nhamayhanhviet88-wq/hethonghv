@@ -39,7 +39,7 @@ const STATUS_LABELS = {
 
 const CRM_LABELS = {
     nhu_cau: 'Chăm Sóc KH Nhu Cầu',
-    ctv_hoa_hong: 'Chăm Sóc CTV',
+    ctv_hoa_hong: 'Chăm Sóc Affiliate',
     ctv: 'Chăm Sóc CTV',
     koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok'
 };
