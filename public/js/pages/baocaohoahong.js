@@ -116,65 +116,84 @@ async function hhShowCustomerPopup(customerId) {
 
     const overlay = document.createElement('div');
     overlay.id = 'hhCustomerPopup';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#6b7280;font-size:14px;">⏳ Đang tải...</div>';
     document.body.appendChild(overlay);
 
     try {
-        const [custData, logData] = await Promise.all([
-            fetch('/api/customers/' + customerId, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }).then(r => r.json()),
-            fetch('/api/customers/' + customerId + '/consult-logs', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }).then(r => r.json())
-        ]);
+        // Get revenue from already-loaded data
+        const hhItem = (window._hhData?.items || []).find(x => x.id === customerId);
+        const totalRevenue = hhItem ? (hhItem.total_revenue || 0) : 0;
+        const commission = hhItem ? (hhItem.commission || 0) : 0;
+        const rate = hhItem ? (hhItem.rate || 0) : 0;
+        const orderCount = hhItem ? (hhItem.order_count || 0) : 0;
 
-        const c = custData.customer || {};
+        const logData = await fetch('/api/customers/' + customerId + '/consult-logs', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        }).then(r => r.json());
         const logs = logData.logs || [];
 
-        const logRows = logs.length > 0 ? logs.map(l => {
+        // Filter out khong_xu_ly for cleaner display
+        const visibleLogs = logs.filter(l => l.log_type !== 'khong_xu_ly');
+
+        const logRows = visibleLogs.length > 0 ? visibleLogs.map((l, idx) => {
             const ct = CONSULT_TYPES_HH[l.log_type] || { icon: '📝', label: l.log_type, color: '#6b7280', textColor: 'white' };
             const date = l.created_at ? new Date(l.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
             const by = l.logged_by_name || '';
             const content = l.content || '';
-            return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
-                <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${ct.color};display:flex;align-items:center;justify-content:center;font-size:14px;">${ct.icon}</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                        <span style="font-size:12px;font-weight:700;color:${ct.color};">${ct.label}</span>
-                        <span style="font-size:10px;color:#9ca3af;">${date}</span>
-                        ${by ? `<span style="font-size:10px;color:#6b7280;">— ${by}</span>` : ''}
+            const isLast = idx === visibleLogs.length - 1;
+            return `<div style="display:flex;gap:12px;position:relative;">
+                <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+                    <div style="width:36px;height:36px;border-radius:50%;background:${ct.color};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px ${ct.color}40;border:2px solid white;">${ct.icon}</div>
+                    ${!isLast ? '<div style="width:2px;flex:1;background:linear-gradient(to bottom,#e2e8f0,#f1f5f9);margin:4px 0;"></div>' : ''}
+                </div>
+                <div style="flex:1;min-width:0;padding-bottom:${isLast ? '8' : '16'}px;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                        <span style="font-size:12px;font-weight:700;color:${ct.color};letter-spacing:0.2px;">${ct.label}</span>
                     </div>
-                    ${content ? `<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.5;word-break:break-word;">${content}</div>` : ''}
-                    ${l.image_path ? `<img src="${l.image_path}" style="max-width:120px;max-height:80px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('${l.image_path}','_blank')">` : ''}
+                    <div style="font-size:10px;color:#9ca3af;margin-bottom:4px;">${date}${by ? ' — ' + by : ''}</div>
+                    ${content ? `<div style="font-size:12px;color:#374151;line-height:1.6;word-break:break-word;background:#f8fafc;padding:8px 12px;border-radius:8px;border-left:3px solid ${ct.color};">${content}</div>` : ''}
+                    ${l.image_path ? `<img src="${l.image_path}" style="max-width:140px;max-height:100px;border-radius:8px;margin-top:6px;cursor:pointer;border:1px solid #e2e8f0;" onclick="window.open('${l.image_path}','_blank')">` : ''}
                 </div>
             </div>`;
-        }).join('') : '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;">Chưa có lịch sử tư vấn</div>';
+        }).join('') : '<div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px;">Chưa có lịch sử tư vấn</div>';
 
-        overlay.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
-            <div style="background:linear-gradient(135deg,#1e3a5f,#2d5a8e);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                    <div style="color:#fad24c;font-size:16px;font-weight:700;">${c.customer_name || 'Khách hàng'}</div>
-                    <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:2px;">${c.phone || ''} ${c.address ? '· ' + c.address : ''}</div>
+        const custName = hhItem?.customer_name || 'Khách hàng';
+        const phone = hhItem?.phone || '';
+        const refLabel = hhItem?.is_direct ? '🎯 Trực tiếp' : '👥 ' + (hhItem?.referrer_name || '');
+        const createdAt = hhItem?.last_contact_date ? new Date(hhItem.last_contact_date).toLocaleDateString('vi-VN') : '—';
+
+        overlay.innerHTML = `<div style="background:white;border-radius:20px;width:100%;max-width:580px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.3);overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f,#2d5a8e);padding:20px 24px;position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <div style="color:#fad24c;font-size:18px;font-weight:800;letter-spacing:0.3px;">${custName}</div>
+                        <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:4px;">${phone} ${refLabel ? '· ' + refLabel : ''}</div>
+                    </div>
+                    <span onclick="document.getElementById('hhCustomerPopup').remove()" style="cursor:pointer;color:rgba(255,255,255,0.5);font-size:22px;padding:0 4px;transition:color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">✕</span>
                 </div>
-                <span onclick="document.getElementById('hhCustomerPopup').remove()" style="cursor:pointer;color:white;font-size:20px;opacity:0.7;padding:4px;">✕</span>
+                <div style="display:flex;gap:10px;margin-top:16px;">
+                    <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">Doanh số</div>
+                        <div style="font-size:16px;font-weight:800;color:#f87171;margin-top:2px;">${hhFormatMoney(totalRevenue)}</div>
+                    </div>
+                    <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">Hoa hồng ${rate}%</div>
+                        <div style="font-size:16px;font-weight:800;color:#34d399;margin-top:2px;">${hhFormatMoney(commission)}</div>
+                    </div>
+                    <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;text-align:center;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;">Đơn hàng</div>
+                        <div style="font-size:16px;font-weight:800;color:#60a5fa;margin-top:2px;">${orderCount}</div>
+                    </div>
+                </div>
             </div>
-            <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
-                    <div style="font-size:10px;color:#9ca3af;">Doanh số</div>
-                    <div style="font-size:14px;font-weight:800;color:#dc2626;">${hhFormatMoney(c.order_total || 0)}</div>
-                </div>
-                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
-                    <div style="font-size:10px;color:#9ca3af;">Tư vấn</div>
-                    <div style="font-size:14px;font-weight:800;color:#3b82f6;">${logs.length} lần</div>
-                </div>
-                <div style="flex:1;min-width:100px;background:#f8fafc;border-radius:8px;padding:8px 12px;text-align:center;">
-                    <div style="font-size:10px;color:#9ca3af;">Ngày tạo</div>
-                    <div style="font-size:12px;font-weight:700;color:#475569;">${c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—'}</div>
-                </div>
+            <div style="padding:12px 24px;background:linear-gradient(90deg,#fefce8,#fffbeb);border-bottom:1px solid #fde68a;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:14px;">📜</span>
+                <span style="font-size:13px;font-weight:700;color:#92400e;">Lịch Sử Tư Vấn</span>
+                <span style="font-size:11px;color:#b45309;font-weight:600;background:#fde68a;padding:2px 8px;border-radius:10px;">${visibleLogs.length}</span>
             </div>
-            <div style="padding:12px 20px;background:#fefce8;border-bottom:1px solid #e2e8f0;">
-                <span style="font-size:13px;font-weight:700;color:#92400e;">📜 Lịch Sử Tư Vấn</span>
-            </div>
-            <div style="overflow-y:auto;flex:1;padding:0 20px;">${logRows}</div>
+            <div style="overflow-y:auto;flex:1;padding:16px 24px;">${logRows}</div>
         </div>`;
     } catch (e) {
         overlay.innerHTML = '<div style="background:white;border-radius:16px;padding:40px;text-align:center;color:#ef4444;font-size:14px;">❌ Lỗi tải dữ liệu</div>';
