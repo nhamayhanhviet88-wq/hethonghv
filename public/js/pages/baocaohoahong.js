@@ -227,20 +227,21 @@ function hhRenderTable(items) {
         tbody.className = 'hh-mobile-cards';
 
         tbody.innerHTML = items.map((item, i) => {
-            const commAmt = item.commission > 0 ? hhFormatMoney(item.commission) : '—';
+            const commAmt = item.commission > 0 ? hhFormatMoney(item.commission) : '0₫';
             const revenueAmt = hhFormatMoney(item.total_revenue);
             const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
             const borderColor = item.is_direct ? '#10b981' : '#8b5cf6';
             const bgColor = item.is_direct ? '#fefce8' : '#f5f3ff';
+            const hasRevenue = item.total_revenue > 0;
 
-            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:10px 12px;cursor:pointer;" onclick="hhShowMobileDetail(${i})">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.customer_name}</span>
-                    <span style="font-size:12px;font-weight:700;color:#1e3a5f;">${revenueAmt}</span>
+            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;" onclick="hhShowMobileDetail(${i})">
+                <div style="flex:1;min-width:0;">
+                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.customer_name}</div>
+                    <div style="font-size:10px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;margin-top:3px;">${refLabel}</div>
                 </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-                    <span style="font-size:10px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};font-weight:600;">${refLabel}</span>
-                    <span style="font-size:11px;font-weight:700;color:${item.commission > 0 ? '#10b981' : '#9ca3af'};">HH: ${commAmt}</span>
+                <div style="text-align:right;margin-left:8px;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fee2e2,#fecaca)' : '#f1f5f9'};padding:6px 10px;border-radius:8px;min-width:90px;">
+                    <div style="font-size:12px;font-weight:800;color:${hasRevenue ? '#dc2626' : '#9ca3af'};">${revenueAmt}</div>
+                    <div style="font-size:10px;font-weight:700;color:${item.commission > 0 ? '#10b981' : '#9ca3af'};margin-top:1px;">HH: ${commAmt}</div>
                 </div>
             </div>`;
         }).join('');

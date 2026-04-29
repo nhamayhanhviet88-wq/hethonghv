@@ -336,6 +336,7 @@ thead th, tbody td {
 /* ========== BÁO CÁO HOA HỒNG — MOBILE ========== */
 /* Stat cards: compact grid */
 #hhSummary > div {
+    display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
 }
