@@ -271,6 +271,10 @@ async function crmConversionRoutes(fastify, options) {
         if (status && status !== 'all') {
             conditions.push('r.status = ?');
             params.push(status);
+            // Pending tab: chỉ hiện CTV (Affiliate/KOL/KOC đã auto-approve)
+            if (status === 'pending') {
+                conditions.push("r.to_crm_type = 'ctv'");
+            }
         }
         if (year) {
             conditions.push('r.created_at >= ? AND r.created_at < ?');
