@@ -143,8 +143,8 @@ async function hhShowCustomerPopup(customerId) {
         }).then(r => r.json());
         const logs = logData.logs || [];
 
-        // Filter out khong_xu_ly for cleaner display
-        const visibleLogs = logs.filter(l => l.log_type !== 'khong_xu_ly');
+        // Show all logs (including khong_xu_ly)
+        const visibleLogs = logs;
 
         const logRows = visibleLogs.length > 0 ? visibleLogs.map((l, idx) => {
             const ct = CONSULT_TYPES_HH[l.log_type] || { icon: '📝', label: l.log_type, color: '#6b7280', textColor: 'white' };
@@ -385,12 +385,10 @@ function hhRenderTable(items) {
                 ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
                 : `<span style="color:#9ca3af;">—</span>`;
             
-            // Determine button type: cancel (terminal) > order_status (CRM state) > last log > generic
-            // This ensures the button ALWAYS matches what CRM modules show
+            // Determine button type: order_status (CRM current state) > last log > generic
+            // Uses ONLY order_status — same logic as all CRM modules (nhu_cau, ctv, affiliate, koc_kol)
             let ct = null;
-            if (item.cancel_approved === 1) ct = { icon: '🚫', label: 'Đã Hủy', color: '#991b1b', textColor: 'white' };
-            else if (item.cancel_requested) ct = { icon: '⏳', label: 'Chờ Duyệt Hủy', color: '#f59e0b', textColor: 'white' };
-            else if (item.order_status && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
+            if (item.order_status && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
             else if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
             const consultBtn = ct 
                 ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
@@ -405,7 +403,7 @@ function hhRenderTable(items) {
 
             const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
 
-            return `<tr style="background:${item.cancel_approved === 1 ? '#fef2f2' : item.cancel_requested ? '#fffbeb' : item.is_direct ? '#fefce8' : '#f5f3ff'};">
+            return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
                 <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
