@@ -1301,9 +1301,31 @@ async function affiliateRoutes(fastify) {
         `, [userId]);
 
         if (children.length === 0) {
+            // Vẫn tính stats bản thân dù không có con
+            const selfCust = await db.all(`
+                SELECT COUNT(*) as total_customers,
+                       COUNT(CASE WHEN order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh') THEN 1 END) as closed_count
+                FROM customers WHERE referrer_id = ?
+            `, [userId]);
+            const sc = selfCust[0] || { total_customers: 0, closed_count: 0 };
+
+            // Self revenue
+            const selfCustIds = await db.all('SELECT id FROM customers WHERE referrer_id = ?', [userId]);
+            let selfRevenue = 0;
+            if (selfCustIds.length > 0) {
+                const scph = selfCustIds.map(() => '?').join(',');
+                const revRow = await db.get(`
+                    SELECT COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${scph}) AND oc.status = 'completed'
+                `, selfCustIds.map(c => c.id));
+                selfRevenue = Number(revRow?.revenue) || 0;
+            }
+
             return {
                 success: true, children: [],
-                stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 }
+                selfStats: { total_customers: Number(sc.total_customers), closed_count: Number(sc.closed_count), total_revenue: selfRevenue },
+                stats: { totalChildren: 0, totalCustomers: Number(sc.total_customers), totalRevenue: selfRevenue, closedCount: Number(sc.closed_count) }
             };
         }
 

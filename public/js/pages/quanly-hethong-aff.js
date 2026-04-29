@@ -129,7 +129,8 @@ async function _affSysLoad() {
 
         area.innerHTML = html;
     } catch (err) {
-        area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>Lỗi kết nối</h3></div>`;
+        console.error('affSys error:', err);
+        area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>${err.message || 'Lỗi kết nối'}</h3></div>`;
     }
 }
 
