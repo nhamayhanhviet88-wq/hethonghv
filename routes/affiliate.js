@@ -1285,6 +1285,105 @@ async function affiliateRoutes(fastify) {
         );
         return { success: true };
     });
+    // ========== QUẢN LÝ HỆ THỐNG AFFILIATE (cho tkaffiliate xem con) ==========
+    fastify.get('/api/affiliate/my-system', { preHandler: [authenticate, requireRole('tkaffiliate')] }, async (request, reply) => {
+        const userId = request.user.id;
+
+        // Lấy tất cả con affiliate (managed_by_user_id = userId)
+        const children = await db.all(`
+            SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
+                   ct.name as tier_name, ct.percentage as tier_percentage
+            FROM users u
+            LEFT JOIN commission_tiers ct ON ct.id = u.commission_tier_id
+            WHERE u.managed_by_user_id = ?
+            AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+            ORDER BY u.created_at DESC
+        `, [userId]);
+
+        if (children.length === 0) {
+            return {
+                success: true, children: [],
+                stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 }
+            };
+        }
+
+        const childIds = children.map(c => c.id);
+        const allIds = [userId, ...childIds]; // bao gồm cả bản thân
+        const ph = allIds.map(() => '?').join(',');
+
+        // Đếm KH giới thiệu theo từng referrer
+        const custRows = await db.all(`
+            SELECT c.referrer_id,
+                   COUNT(*) as total_customers,
+                   COUNT(CASE WHEN c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh') THEN 1 END) as closed_count
+            FROM customers c
+            WHERE c.referrer_id IN (${ph})
+            GROUP BY c.referrer_id
+        `, allIds);
+
+        const custMap = {};
+        custRows.forEach(r => {
+            custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) };
+        });
+
+        // Lấy doanh số (completed orders) theo từng referrer
+        const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, allIds);
+        const allCustIds = customersByRef.map(c => c.id);
+
+        let revenueMap = {};
+        if (allCustIds.length > 0) {
+            const cph = allCustIds.map(() => '?').join(',');
+            const revRows = await db.all(`
+                SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                FROM order_codes oc
+                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
+                GROUP BY oc.customer_id
+            `, allCustIds);
+            revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
+        }
+
+        // Tính doanh số theo referrer
+        const refRevenueMap = {};
+        customersByRef.forEach(c => {
+            const rev = revenueMap[c.id] || 0;
+            if (rev > 0) {
+                refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev;
+            }
+        });
+
+        // Gắn stats vào children
+        let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
+        children.forEach(child => {
+            const cs = custMap[child.id] || { total_customers: 0, closed_count: 0 };
+            child.total_customers = cs.total_customers;
+            child.closed_count = cs.closed_count;
+            child.total_revenue = refRevenueMap[child.id] || 0;
+            totalCustomers += cs.total_customers;
+            totalRevenue += child.total_revenue;
+            closedCount += cs.closed_count;
+        });
+
+        // Stats bản thân (self)
+        const selfStats = custMap[userId] || { total_customers: 0, closed_count: 0 };
+        const selfRevenue = refRevenueMap[userId] || 0;
+
+        return {
+            success: true,
+            children,
+            selfStats: {
+                total_customers: selfStats.total_customers,
+                closed_count: selfStats.closed_count,
+                total_revenue: selfRevenue
+            },
+            stats: {
+                totalChildren: children.length,
+                totalCustomers: totalCustomers + selfStats.total_customers,
+                totalRevenue: totalRevenue + selfRevenue,
+                closedCount: closedCount + selfStats.closed_count
+            }
+        };
+    });
 }
 
 module.exports = affiliateRoutes;
