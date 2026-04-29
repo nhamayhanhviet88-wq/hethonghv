@@ -82,6 +82,13 @@ async function affiliateAccountRoutes(fastify, options) {
         const existingAff = await db.get("SELECT id, full_name FROM users WHERE source_customer_id = ? AND role = 'tkaffiliate'", [Number(customer_id)]);
         if (existingAff) return reply.code(400).send({ error: `KH đã có TK Affiliate: ${existingAff.full_name}` });
 
+        // Block: chỉ cho tạo TK Affiliate ở Chăm Sóc Affiliate / KOL/KOC
+        const ALLOWED_CRM_FOR_AFF = ['ctv_hoa_hong', 'koc_tiktok'];
+        if (!ALLOWED_CRM_FOR_AFF.includes(customer.crm_type)) {
+            const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
+            return reply.code(400).send({ error: `KH đang ở ${CRM_LABELS[customer.crm_type] || customer.crm_type} — chỉ tạo TK Affiliate khi ở Chăm Sóc Affiliate hoặc KOL/KOC` });
+        }
+
         // Block: customer cancelled
         if (customer.cancel_approved === 1) return reply.code(400).send({ error: 'Không thể xin TK cho khách đã bị hủy' });
 
