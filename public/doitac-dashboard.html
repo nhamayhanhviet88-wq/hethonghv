@@ -23,16 +23,24 @@
     </style>
 </head>
 <body class="dashboard">
-    <!-- ★ INLINE toggle — uses inline styles, CANNOT be overridden by any CSS -->
+    <!-- ★ INLINE toggle — uses inline styles + smart mobile detection -->
     <script>
     var _sidebarOpen = false;
-    function toggleSidebar() {
+    function toggleSidebar(forceMode) {
         var sidebar = document.getElementById('sidebar');
         var overlay = document.getElementById('sidebarOverlay');
-        if (window.innerWidth <= 768) {
+        var menuBtn = document.getElementById('menuToggle');
+
+        // Smart mobile detection: button visible = mobile
+        // (menuToggle is display:none on desktop, inline-block on mobile via CSS)
+        var isMobile = forceMode === 'mobile' 
+            || window.innerWidth <= 768
+            || (menuBtn && menuBtn.offsetWidth > 0);
+
+        if (isMobile) {
             _sidebarOpen = !_sidebarOpen;
             if (_sidebarOpen) {
-                sidebar.style.cssText = 'transform:translateX(0) !important;pointer-events:auto !important;z-index:99999 !important;box-shadow:4px 0 30px rgba(0,0,0,0.4) !important;';
+                sidebar.style.cssText = 'transform:translateX(0) !important;pointer-events:auto !important;z-index:99999 !important;box-shadow:4px 0 30px rgba(0,0,0,0.4) !important;width:270px !important;position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;';
                 if (overlay) overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998;display:block !important;';
             } else {
                 sidebar.style.cssText = '';
@@ -82,7 +90,7 @@
         <main class="main-content">
             <div class="topbar">
                 <div class="topbar-left">
-                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar('mobile')">☰</button>
                     <h1 class="page-title" id="pageTitle">Dashboard</h1>
                 </div>
                 <div class="topbar-right">
