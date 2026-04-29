@@ -346,19 +346,28 @@ async function affiliateRoutes(fastify) {
         // Build referrer names list for filter dropdown
         const referrerNames = [...new Set(items.map(i => i.referrer_name))];
 
-        // Count total orders across all referred customers
+        // Count orders per customer + total
+        let orderCountMap = {};
         let totalOrders = 0;
         if (customerIds.length > 0) {
             const cphOrd = customerIds.map(() => '?').join(',');
-            const ordRow = await db.get(`
-                SELECT COUNT(DISTINCT oc.id) as cnt
+            const ordRows = await db.all(`
+                SELECT oi.customer_id, COUNT(DISTINCT oc.id) as cnt
                 FROM order_items oi
                 LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
                 WHERE oi.customer_id IN (${cphOrd})
                 AND (oc.status IS NULL OR oc.status != 'cancelled')
+                GROUP BY oi.customer_id
             `, customerIds);
-            totalOrders = parseInt(ordRow?.cnt || 0, 10);
+            ordRows.forEach(r => {
+                const c = parseInt(r.cnt || 0, 10);
+                orderCountMap[r.customer_id] = c;
+                totalOrders += c;
+            });
         }
+
+        // Inject order_count into items
+        items.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
 
         return { success: true, items, totalCommission, referrerNames, totalOrders };
     });
