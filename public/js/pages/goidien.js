@@ -336,9 +336,11 @@ function _gd_renderSidebar() {
     // ★ Only include users from PHÒNG KINH DOANH tree (dept_id=1 or parent_id=1)
     const _gdKDDeptIds = new Set([1, ..._gd_allDepts.filter(d => d.parent_id === 1).map(d => d.id)]);
     const _gdMgrRoles = ['quan_ly_cap_cao', 'quan_ly'];
+    // ★ Only show parent dept managers (QL/QLCC) when current user is GĐ/QLCC — TP should NOT see their superiors
+    const _canSeeManagers = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
     let filtered = _gd_allUsers.filter(u => {
         if (!_gdKDDeptIds.has(u.department_id)) return false; // Only KD tree
-        const isParentDeptManager = _gdMgrRoles.includes(u.role) && u.department_id === 1;
+        const isParentDeptManager = _canSeeManagers && _gdMgrRoles.includes(u.role) && u.department_id === 1;
         if (!_gd_memberIds.has(u.id) && !isParentDeptManager) return false;
         if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager) return false;
         return true;
