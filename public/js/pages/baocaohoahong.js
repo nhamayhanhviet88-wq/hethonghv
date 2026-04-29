@@ -10,14 +10,22 @@ const CONSULT_TYPES_FALLBACK = {
 
 async function hhLoadConsultTypes() {
     try {
-        const data = await fetch('/api/consult-types', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-        }).then(r => r.json());
+        // Load ALL CRM modules in parallel so buttons match any source
+        const modules = ['nhu_cau', 'ctv', 'affiliate', 'koc_kol'];
+        const headers = { 'Authorization': 'Bearer ' + localStorage.getItem('token') };
+        const results = await Promise.all(
+            modules.map(m => fetch('/api/consult-types?crm_menu=' + m, { headers }).then(r => r.json()))
+        );
         const map = {};
-        (data.types || []).forEach(t => {
-            map[t.key] = { icon: t.icon || '📝', label: t.label, color: t.color || '#6b7280', textColor: t.text_color || 'white' };
+        results.forEach(data => {
+            (data.types || []).forEach(t => {
+                // First module wins for duplicates — nhu_cau has priority
+                if (!map[t.key]) {
+                    map[t.key] = { icon: t.icon || '📝', label: t.label, color: t.color || '#6b7280', textColor: t.text_color || 'white' };
+                }
+            });
         });
-        // Merge fallbacks for system types
+        // Merge fallbacks for system-generated types
         Object.assign(map, CONSULT_TYPES_FALLBACK);
         CONSULT_TYPES_HH = map;
     } catch (e) {
@@ -377,17 +385,13 @@ function hhRenderTable(items) {
                 ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
                 : `<span style="color:#9ca3af;">—</span>`;
             
-            // Determine button type: cancel status (terminal) > consultation log > order status > generic
+            // Determine button type: cancel (terminal) > order_status (CRM state) > last log > generic
+            // This ensures the button ALWAYS matches what CRM modules show
             let ct = null;
             if (item.cancel_approved === 1) ct = { icon: '🚫', label: 'Đã Hủy', color: '#991b1b', textColor: 'white' };
             else if (item.cancel_requested) ct = { icon: '⏳', label: 'Chờ Duyệt Hủy', color: '#f59e0b', textColor: 'white' };
+            else if (item.order_status && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
             else if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
-            else if (item.order_status === 'hoan_thanh') ct = { icon: '🏆', label: 'Hoàn Thành Đơn', color: '#0d9488', textColor: 'white' };
-            else if (item.order_status === 'chot_don') ct = { icon: '✅', label: 'Chốt Đơn', color: '#22c55e', textColor: 'white' };
-            else if (item.order_status === 'san_xuat') ct = { icon: '🏭', label: 'Đang Sản Xuất', color: '#8b5cf6', textColor: 'white' };
-            else if (item.order_status === 'giao_hang') ct = { icon: '🚚', label: 'Giao Hàng', color: '#0ea5e9', textColor: 'white' };
-            else if (item.order_status === 'dat_coc') ct = { icon: '💵', label: 'Đặt Cọc', color: '#f97316', textColor: 'white' };
-            else if (item.order_status === 'bao_gia') ct = { icon: '📄', label: 'Báo Giá', color: '#f59e0b', textColor: 'white' };
             const consultBtn = ct 
                 ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
                 : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
