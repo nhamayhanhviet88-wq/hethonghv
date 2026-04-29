@@ -357,7 +357,7 @@ async function affiliateRoutes(fastify) {
                 WHERE oi.customer_id IN (${cphOrd})
                 AND (oc.status IS NULL OR oc.status != 'cancelled')
             `, customerIds);
-            totalOrders = ordRow?.cnt || 0;
+            totalOrders = parseInt(ordRow?.cnt || 0, 10);
         }
 
         return { success: true, items, totalCommission, referrerNames, totalOrders };
