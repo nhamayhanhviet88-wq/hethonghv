@@ -142,6 +142,7 @@ async function renderBaoCaoHoaHongPage(container) {
                         </tbody>
                     </table>
                 </div>
+                <div id="hhPagination" style="margin-top:12px;"></div>
             </div>
         </div>
     `;
@@ -214,12 +215,28 @@ function _hhIsMobile() {
     return window.matchMedia('(max-width: 768px)').matches;
 }
 
+const HH_PAGE_SIZE = 50;
+let _hhPage = 1;
+
 function hhRenderTable(items) {
+    // Store filtered items for pagination
+    window._hhFilteredItems = items;
+
+    const paginationEl = document.getElementById('hhPagination');
+
     if (items.length === 0) {
         document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
         document.getElementById('hhTableBody').className = '';
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
     }
+
+    // Pagination calc
+    const totalPages = Math.ceil(items.length / HH_PAGE_SIZE);
+    if (_hhPage > totalPages) _hhPage = totalPages;
+    if (_hhPage < 1) _hhPage = 1;
+    const startIdx = (_hhPage - 1) * HH_PAGE_SIZE;
+    const pageItems = items.slice(startIdx, startIdx + HH_PAGE_SIZE);
 
     // Mobile: compact list + tap for detail
     if (_hhIsMobile()) {
@@ -235,7 +252,8 @@ function hhRenderTable(items) {
         var tbody = document.getElementById('hhTableBody');
         tbody.className = 'hh-mobile-cards';
 
-        tbody.innerHTML = items.map((item, i) => {
+        tbody.innerHTML = pageItems.map((item, i) => {
+            const globalIdx = startIdx + i;
             const commAmt = item.commission > 0 ? hhFormatMoney(item.commission) : '0₫';
             const revenueAmt = hhFormatMoney(item.total_revenue);
             const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
@@ -243,7 +261,7 @@ function hhRenderTable(items) {
             const bgColor = item.is_direct ? '#fefce8' : '#f5f3ff';
             const hasRevenue = item.total_revenue > 0;
 
-            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onclick="hhShowMobileDetail(${i})">
+            return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onclick="hhShowMobileDetail(${globalIdx})">
                 <div style="flex:1;min-width:0;">
                     <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${item.customer_name}</div>
                     <div style="font-size:11px;color:${item.is_direct ? '#059669' : '#7c3aed'};font-weight:600;margin-top:5px;letter-spacing:0.1px;">${refLabel}</div>
@@ -254,48 +272,71 @@ function hhRenderTable(items) {
                 </div>
             </div>`;
         }).join('');
-        return;
+    } else {
+        // Desktop: original table
+        var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
+        if (thead) thead.classList.remove('hh-mobile-table-hide');
+        document.getElementById('hhTableBody').className = '';
+
+        document.getElementById('hhTableBody').innerHTML = pageItems.map((item, i) => {
+            const globalIdx = startIdx + i;
+            const commissionDisplay = item.commission > 0 
+                ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
+                : `<span style="color:#9ca3af;">—</span>`;
+            
+            const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
+            const consultBtn = ct 
+                ? `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
+                : `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
+
+            let contentShort = item.last_log_content || '';
+            if (contentShort.length > 30) contentShort = contentShort.substring(0, 30) + '...';
+            
+            const referrerDisplay = item.is_direct 
+                ? `<span style="font-size:11px;color:#10b981;font-weight:600;">🎯 Trực tiếp</span>` 
+                : `<span style="font-size:11px;color:#8b5cf6;font-weight:600;">👥 ${item.referrer_name}</span>`;
+
+            const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
+
+            return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
+                <td>${globalIdx + 1}</td>
+                <td><span onclick="openCustomerDetail(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
+                <td>${referrerDisplay}</td>
+                <td>${item.phone || '-'}</td>
+                <td style="text-align:center;"><span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span></td>
+                <td>${consultBtn}</td>
+                <td style="font-size:12px;color:#e65100;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;" title="${(item.last_log_content || '').replace(/"/g, '&quot;')}" onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))">${contentShort || '<span style="color:var(--gray-400)">—</span>'}</td>
+                <td>${hhFormatMoney(item.total_revenue)}</td>
+                <td>${item.rate}%</td>
+                <td>${commissionDisplay}</td>
+                <td>${item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('vi-VN') : '<span style="color:#9ca3af">—</span>'}</td>
+                <td>${contactDate}</td>
+            </tr>`;
+        }).join('');
     }
 
-    // Desktop: original table
-    var thead = document.querySelector('#hhTableBody')?.closest('table')?.querySelector('thead');
-    if (thead) thead.classList.remove('hh-mobile-table-hide');
-    document.getElementById('hhTableBody').className = '';
+    // Render pagination
+    if (paginationEl) {
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = `<div style="text-align:center;font-size:12px;color:#9ca3af;padding:8px;">Hiển thị ${items.length} khách hàng</div>`;
+        } else {
+            const prevDisabled = _hhPage <= 1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+            const nextDisabled = _hhPage >= totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+            paginationEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 0;">
+                <span onclick="hhGoPage(_hhPage - 1)" style="padding:6px 14px;border-radius:8px;background:#3b82f6;color:white;font-size:13px;font-weight:600;${prevDisabled}transition:opacity 0.2s;">◀ Trước</span>
+                <span style="font-size:13px;font-weight:700;color:#1e293b;">Trang ${_hhPage} / ${totalPages}</span>
+                <span onclick="hhGoPage(_hhPage + 1)" style="padding:6px 14px;border-radius:8px;background:#3b82f6;color:white;font-size:13px;font-weight:600;${nextDisabled}transition:opacity 0.2s;">Sau ▶</span>
+                <span style="font-size:11px;color:#9ca3af;">(${items.length} KH)</span>
+            </div>`;
+        }
+    }
+}
 
-    document.getElementById('hhTableBody').innerHTML = items.map((item, i) => {
-        const commissionDisplay = item.commission > 0 
-            ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
-            : `<span style="color:#9ca3af;">—</span>`;
-        
-        const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
-        const consultBtn = ct 
-            ? `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
-            : `<span onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
-
-        let contentShort = item.last_log_content || '';
-        if (contentShort.length > 30) contentShort = contentShort.substring(0, 30) + '...';
-        
-        const referrerDisplay = item.is_direct 
-            ? `<span style="font-size:11px;color:#10b981;font-weight:600;">🎯 Trực tiếp</span>` 
-            : `<span style="font-size:11px;color:#8b5cf6;font-weight:600;">👥 ${item.referrer_name}</span>`;
-
-        const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
-
-        return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
-            <td>${i + 1}</td>
-            <td><span onclick="openCustomerDetail(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
-            <td>${referrerDisplay}</td>
-            <td>${item.phone || '-'}</td>
-            <td style="text-align:center;"><span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span></td>
-            <td>${consultBtn}</td>
-            <td style="font-size:12px;color:#e65100;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline;" title="${(item.last_log_content || '').replace(/"/g, '&quot;')}" onclick="openCustomerDetail(${item.id}).then(()=>setTimeout(()=>switchCDTab('history'),100))">${contentShort || '<span style="color:var(--gray-400)">—</span>'}</td>
-            <td>${hhFormatMoney(item.total_revenue)}</td>
-            <td>${item.rate}%</td>
-            <td>${commissionDisplay}</td>
-            <td>${item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('vi-VN') : '<span style="color:#9ca3af">—</span>'}</td>
-            <td>${contactDate}</td>
-        </tr>`;
-    }).join('');
+function hhGoPage(page) {
+    _hhPage = page;
+    hhRenderTable(window._hhFilteredItems || []);
+    // Scroll to top of table
+    document.getElementById('hhTableBody')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function hhFilterTable() {
@@ -311,6 +352,7 @@ function hhFilterTable() {
         }
         return true;
     });
+    _hhPage = 1; // Reset to page 1 on search/filter
     hhRenderTable(items);
 }
 
