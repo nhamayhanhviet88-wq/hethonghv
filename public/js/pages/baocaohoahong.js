@@ -377,7 +377,18 @@ function hhRenderTable(items) {
                 ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
                 : `<span style="color:#9ca3af;">—</span>`;
             
-            const ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
+            // Determine button type: consultation log > cancel status > order status > generic
+            let ct = item.last_log_type ? CONSULT_TYPES_HH[item.last_log_type] : null;
+            if (!ct) {
+                if (item.cancel_approved === 1) ct = { icon: '🚫', label: 'Đã Hủy', color: '#991b1b', textColor: 'white' };
+                else if (item.cancel_requested) ct = { icon: '⏳', label: 'Chờ Duyệt Hủy', color: '#6b7280', textColor: 'white' };
+                else if (item.order_status === 'hoan_thanh') ct = { icon: '🏆', label: 'Hoàn Thành Đơn', color: '#0d9488', textColor: 'white' };
+                else if (item.order_status === 'chot_don') ct = { icon: '✅', label: 'Chốt Đơn', color: '#22c55e', textColor: 'white' };
+                else if (item.order_status === 'san_xuat') ct = { icon: '🏭', label: 'Đang Sản Xuất', color: '#8b5cf6', textColor: 'white' };
+                else if (item.order_status === 'giao_hang') ct = { icon: '🚚', label: 'Giao Hàng', color: '#0ea5e9', textColor: 'white' };
+                else if (item.order_status === 'dat_coc') ct = { icon: '💵', label: 'Đặt Cọc', color: '#f97316', textColor: 'white' };
+                else if (item.order_status === 'bao_gia') ct = { icon: '📄', label: 'Báo Giá', color: '#f59e0b', textColor: 'white' };
+            }
             const consultBtn = ct 
                 ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
                 : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
