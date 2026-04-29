@@ -87,9 +87,10 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: `Khách hàng đã thuộc ${CRM_LABELS[targetCrm]}` });
         }
 
-        // Block: CTV là điểm cuối — không cho chuyển ra ngoài
-        if (customer.crm_type === 'ctv') {
-            return reply.code(400).send({ error: 'Khách đang ở Chăm Sóc CTV không thể chuyển sang CRM khác' });
+        // Block: CTV, Affiliate, KOL/KOC là điểm cuối — không cho chuyển ra ngoài
+        const TERMINAL_CRM_TYPES = ['ctv', 'ctv_hoa_hong', 'koc_tiktok'];
+        if (TERMINAL_CRM_TYPES.includes(customer.crm_type)) {
+            return reply.code(400).send({ error: `Khách đang ở ${CRM_LABELS[customer.crm_type]} không thể chuyển sang CRM khác` });
         }
 
         // Block: customer cancelled
