@@ -487,7 +487,8 @@ async function checkAuth() {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
         if (!data.user) {
-            window.location.href = '/index.html';
+            // Trên dongphuchv.net redirect về trang login affiliate
+            window.location.href = window.location.hostname.indexOf('dongphuchv.net') !== -1 ? '/' : '/index.html';
             return;
         }
         currentUser = data.user;
@@ -581,7 +582,14 @@ function renderSidebar() {
     var sectionOrder = [];
 
     // Group items by section
+    // ★ DOITAC PORTAL — chỉ hiển thị menu affiliate trên dongphuchv.net
+    var _isDoitacPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
+    var DOITAC_ALLOWED_IDS = ['bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
+
     MENU_CONFIG.forEach(function(item) {
+        // Trên dongphuchv.net: chỉ hiển thị menu affiliate
+        if (_isDoitacPortal && DOITAC_ALLOWED_IDS.indexOf(item.id) === -1) return;
+
         if (item.strictRoles && !item.roles.includes(currentUser.role)) return;
         if (currentUser.role !== 'giam_doc') {
             var permKey = item.permKey;
