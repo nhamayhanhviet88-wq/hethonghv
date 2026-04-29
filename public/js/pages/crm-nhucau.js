@@ -49,12 +49,16 @@ function _crmRenderSidebar() {
     const list = document.getElementById('crmSidebarList');
     if (!list) return;
     const isAllActive = _crmSidebarSelectedUserId === null;
+    const _isTP = currentUser.role === 'truong_phong';
 
-    // "Tổng Phòng KD" button
-    let topBtn = `<div onclick="_crmSelectSidebarUser(null,'Tất cả')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:10px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
-        <span style="font-size:20px;">📊</span>
-        <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
-    </div>`;
+    // "Tổng Phòng KD" button — ẩn cho Trưởng Phòng (chỉ xem team mình)
+    let topBtn = '';
+    if (!_isTP) {
+        topBtn = `<div onclick="_crmSelectSidebarUser(null,'Tất cả')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:10px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+            <span style="font-size:20px;">📊</span>
+            <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
+        </div>`;
+    }
 
     // Build dept lookup
     const deptMap = {}; _crmSidebarDepts.forEach(d => { deptMap[d.id] = d; });
@@ -69,18 +73,28 @@ function _crmRenderSidebar() {
 
     // Filter users: only staff in KD dept tree, exclude non-staff roles
     const excludeRoles = ['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'];
-    const kdUsers = _crmSidebarUsers.filter(u => kdDeptIds.has(u.department_id) && !excludeRoles.includes(u.role));
+    let kdUsers = _crmSidebarUsers.filter(u => kdDeptIds.has(u.department_id) && !excludeRoles.includes(u.role));
+
+    // ★ Trưởng Phòng: chỉ thấy nhân viên trong team mình
+    if (_isTP && currentUser.department_id) {
+        kdUsers = kdUsers.filter(u => u.department_id === currentUser.department_id);
+    }
 
     if (kdUsers.length === 0) { list.innerHTML = topBtn + '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">Không có NV trong Phòng KD</div>'; return; }
 
     // Separate: users directly in PHÒNG KINH DOANH vs users in child teams
     const directUsers = _sidebarSortMembers(kdUsers.filter(u => u.department_id === kdDept.id));
-    const childTeams = _crmSidebarDepts.filter(d => d.parent_id === kdDept.id).sort((a,b) => (a.display_order||0) - (b.display_order||0) || a.name.localeCompare(b.name));
+    let childTeams = _crmSidebarDepts.filter(d => d.parent_id === kdDept.id).sort((a,b) => (a.display_order||0) - (b.display_order||0) || a.name.localeCompare(b.name));
+
+    // ★ Trưởng Phòng: chỉ hiện team mình
+    if (_isTP && currentUser.department_id) {
+        childTeams = childTeams.filter(t => t.id === currentUser.department_id);
+    }
 
     let html = '';
 
-    // PHÒNG KINH DOANH header + direct members (quản lý etc.)
-    if (directUsers.length > 0) {
+    // PHÒNG KINH DOANH header + direct members (quản lý etc.) — ẩn cho TP
+    if (directUsers.length > 0 && !_isTP) {
         html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;"><span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${kdDept.name}</span></div>`;
         directUsers.forEach(u => { html += _crmRenderSidebarUser(u, 8); });
     }

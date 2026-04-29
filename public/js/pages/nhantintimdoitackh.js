@@ -211,6 +211,7 @@ function _poRenderSidebar(depts) {
     if (!sb) return;
     const role = currentUser.role;
     if (role === 'nhan_vien' || role === 'part_time') { sb.style.display = 'none'; return; }
+    const _isTP = role === 'truong_phong';
 
     // Inject sparkle CSS once (shared with dailylinks)
     if (!document.getElementById('_dlSparkleCSS')) {
@@ -270,22 +271,31 @@ function _poRenderSidebar(depts) {
 
     const grad = 'linear-gradient(135deg,#2563eb,#1d4ed8)';
     const isAll = !_po.selectedUser && !_po.selectedDept;
-    let h = `
-    <div style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <div style="width:32px;height:32px;border-radius:10px;background:${grad};display:flex;align-items:center;justify-content:center;font-size:16px;">💬</div>
-            <div style="font-size:15px;font-weight:800;color:#122546;">Phòng Kinh Doanh</div>
+
+    // ★ Trưởng Phòng: ẩn header + "Tất cả nhân viên"
+    let h = '';
+    if (!_isTP) {
+        h = `
+        <div style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                <div style="width:32px;height:32px;border-radius:10px;background:${grad};display:flex;align-items:center;justify-content:center;font-size:16px;">💬</div>
+                <div style="font-size:15px;font-weight:800;color:#122546;">Phòng Kinh Doanh</div>
+            </div>
+            <div onclick="_poSelectAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;
+                background:${isAll ? grad : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};
+                color:${isAll ? 'white' : '#475569'};
+                box-shadow:${isAll ? '0 3px 12px rgba(0,0,0,0.2)' : 'none'};
+                transition:all 0.2s ease;">
+                📊 Tất cả nhân viên
+            </div>
         </div>
-        <div onclick="_poSelectAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;
-            background:${isAll ? grad : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};
-            color:${isAll ? 'white' : '#475569'};
-            box-shadow:${isAll ? '0 3px 12px rgba(0,0,0,0.2)' : 'none'};
-            transition:all 0.2s ease;">
-            📊 Tất cả nhân viên
-        </div>
-    </div>
-    <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
-    (depts||[]).forEach((d, di) => {
+        <div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
+    }
+
+    // ★ Filter out empty departments (backend already filtered members for TP)
+    const filteredDepts = (depts||[]).filter(d => d.members && d.members.length > 0);
+
+    filteredDepts.forEach((d, di) => {
         const isDeptSel = _po.selectedDept==d.id && !_po.selectedUser;
         const hasSelMember = d.members.some(m => _po.selectedUser == m.id);
         const isOpen = !_poCollapsedDepts.has(d.id); // Always open unless manually collapsed

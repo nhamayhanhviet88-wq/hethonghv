@@ -321,16 +321,20 @@ function _gd_renderSidebar() {
     if (!list) return;
 
     const isMgr = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role);
+    const _isTP = currentUser.role === 'truong_phong';
 
-    // "Tổng Phòng KD" button at top
+    // "Tổng Phòng KD" button at top — ẩn cho Trưởng Phòng
     const isAllActive = _gd_selectedUserId === 'all';
-    let topBtn = `<div onclick="_gd_selectUser('all','Tổng Phòng Kinh Doanh')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
-        <span style="font-size:20px;">📊</span>
-        <div style="flex:1;">
-            <div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div>
-            <div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div>
-        </div>
-    </div>`;
+    let topBtn = '';
+    if (!_isTP) {
+        topBtn = `<div onclick="_gd_selectUser('all','Tổng Phòng Kinh Doanh')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAllActive ? 'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);' : 'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+            <span style="font-size:20px;">📊</span>
+            <div style="flex:1;">
+                <div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div>
+                <div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div>
+            </div>
+        </div>`;
+    }
 
     // Filter members by active status and dept filter
     // ★ Only include users from PHÒNG KINH DOANH tree (dept_id=1 or parent_id=1)
@@ -345,6 +349,11 @@ function _gd_renderSidebar() {
         if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager) return false;
         return true;
     });
+
+    // ★ Trưởng Phòng: chỉ thấy nhân viên trong team mình
+    if (_isTP && currentUser.department_id) {
+        filtered = filtered.filter(u => u.department_id === currentUser.department_id);
+    }
 
     if (filtered.length === 0) {
         list.innerHTML = `<div class="ts-empty" style="padding:20px;"><span class="ts-empty-icon" style="font-size:28px;">📭</span><div class="ts-empty-title" style="font-size:12px;">Không có NV nào</div></div>`;
@@ -365,10 +374,14 @@ function _gd_renderSidebar() {
             // Add direct members slot
             groups[1].children['_direct_1'] = { name: '', users: [], order: -1 };
             // Pre-seed all child teams sorted by display_order
-            _gd_allDepts
+            let _gdChildDepts = _gd_allDepts
                 .filter(d => d.parent_id === 1 && d.status !== 'inactive')
-                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0) || a.id - b.id)
-                .forEach(d => {
+                .sort((a, b) => (a.display_order || 0) - (b.display_order || 0) || a.id - b.id);
+            // ★ Trưởng Phòng: chỉ seed team mình
+            if (_isTP && currentUser.department_id) {
+                _gdChildDepts = _gdChildDepts.filter(d => d.id === currentUser.department_id);
+            }
+            _gdChildDepts.forEach(d => {
                     groups[1].children[d.id] = { name: d.name, users: [], order: d.display_order || 0 };
                 });
         }
@@ -401,12 +414,20 @@ function _gd_renderSidebar() {
         let html = '';
         // ★ Only show PHÒNG KINH DOANH tree (id=1), skip other depts
         Object.entries(groups).filter(([pId]) => String(pId) === '1').forEach(([pId, pData]) => {
-            html += `<div style="margin-bottom:8px;">
-                <div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
-                    <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span>
-                </div>`;
+            // ★ TP: ẩn header PHÒNG KINH DOANH (vì chỉ có 1 team)
+            if (!_isTP) {
+                html += `<div style="margin-bottom:8px;">
+                    <div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
+                        <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 ${pData.name}</span>
+                    </div>`;
+            } else {
+                html += `<div style="margin-bottom:8px;">`;
+            }
             // Sort children: direct members (order=-1) first, then teams by display_order
             Object.entries(pData.children).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0)).forEach(([cId, cData]) => {
+                // ★ TP: ẩn direct members (QL/QLCC thuộc PHÒNG KINH DOANH trực tiếp)
+                if (_isTP && !cData.name && cData.users.length === 0) return;
+                if (_isTP && cId.startsWith('_direct_')) return;
                 if (cData.name) {
                     html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;">
                         <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${cData.name}${cData.users.length === 0 ? ' <span style="color:#9ca3af;font-size:9px;">(trống)</span>' : ''}</span>

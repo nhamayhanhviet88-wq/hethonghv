@@ -1285,9 +1285,268 @@ async function affiliateRoutes(fastify) {
         );
         return { success: true };
     });
+
+    // ========== THỐNG KÊ AFFILIATE THEO TỔ CHỨC (cho GĐ) ==========
+    fastify.get('/api/affiliate/org-stats', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { from, to } = request.query;
+
+        // 1. Lấy tất cả affiliate + NV quản lý + phòng ban
+        const affiliates = await db.all(`
+            SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
+                   u.managed_by_user_id,
+                   mgr.full_name as manager_name, mgr.role as manager_role, mgr.department_id as manager_dept_id,
+                   p.full_name as parent_affiliate_name
+            FROM users u
+            LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
+            LEFT JOIN users p ON p.id = u.assigned_to_user_id
+            WHERE u.role = 'tkaffiliate'
+            ORDER BY u.created_at DESC
+        `);
+
+        // 2. Lấy stats KH + doanh số cho mỗi affiliate
+        const affIds = affiliates.map(a => a.id);
+        let custMap = {}, refRevenueMap = {};
+        if (affIds.length > 0) {
+            const ph = affIds.map(() => '?').join(',');
+            let custDateFilter = '';
+            const custParams = [...affIds];
+            if (from) { custDateFilter += ' AND c.created_at >= ?'; custParams.push(from + ' 00:00:00'); }
+            if (to) { custDateFilter += ' AND c.created_at <= ?'; custParams.push(to + ' 23:59:59'); }
+            const custRows = await db.all(`
+                SELECT c.referrer_id,
+                       COUNT(*) as total_customers,
+                       COUNT(CASE WHEN c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh') THEN 1 END) as closed_count
+                FROM customers c WHERE c.referrer_id IN (${ph})${custDateFilter} GROUP BY c.referrer_id
+            `, custParams);
+            custRows.forEach(r => { custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) }; });
+
+            const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, affIds);
+            const allCustIds = customersByRef.map(c => c.id);
+            if (allCustIds.length > 0) {
+                const cph = allCustIds.map(() => '?').join(',');
+                let revDateFilter = '';
+                const revParams = [...allCustIds];
+                if (from) { revDateFilter += ' AND oc.created_at >= ?'; revParams.push(from + ' 00:00:00'); }
+                if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
+                const revRows = await db.all(`
+                    SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'${revDateFilter}
+                    GROUP BY oc.customer_id
+                `, revParams);
+                const revenueMap = {};
+                revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
+                customersByRef.forEach(c => {
+                    const rev = revenueMap[c.id] || 0;
+                    if (rev > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev;
+                });
+            }
+        }
+
+        // Gắn stats vào mỗi affiliate
+        affiliates.forEach(a => {
+            const cs = custMap[a.id] || { total_customers: 0, closed_count: 0 };
+            a.total_customers = cs.total_customers;
+            a.closed_count = cs.closed_count;
+            a.total_revenue = refRevenueMap[a.id] || 0;
+        });
+
+        // 3. Lấy cấu trúc phòng ban
+        const depts = await db.all(`SELECT id, name, parent_id, display_order FROM departments WHERE status = 'active' ORDER BY display_order, name`);
+        const deptMap = {};
+        depts.forEach(d => { deptMap[d.id] = d; });
+
+        // 4. Group affiliates theo employee
+        const empMap = {};
+        affiliates.forEach(a => {
+            const empId = a.managed_by_user_id || 0;
+            if (!empMap[empId]) {
+                empMap[empId] = {
+                    id: empId,
+                    name: a.manager_name || 'Chưa gán NV',
+                    role: a.manager_role || '',
+                    dept_id: a.manager_dept_id || null,
+                    affiliates: []
+                };
+            }
+            empMap[empId].affiliates.push(a);
+        });
+
+        // 5. Thêm NV ở PHÒNG KD trực tiếp (không manage affiliate) nhưng có role quản lý
+        const mgrRoles = ['quan_ly', 'quan_ly_cap_cao'];
+        // Lấy tất cả NV trong PHÒNG KINH DOANH tree
+        const kdDept = depts.find(d => d.name && d.name.includes('KINH DOANH'));
+        if (kdDept) {
+            const kdChildIds = depts.filter(d => d.parent_id === kdDept.id).map(d => d.id);
+            const allKdDeptIds = [kdDept.id, ...kdChildIds];
+            const phStr = allKdDeptIds.map(() => '?').join(',');
+            const allStaff = await db.all(`SELECT id, full_name, role, department_id FROM users WHERE department_id IN (${phStr}) AND status = 'active' AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, allKdDeptIds);
+            // Add staff not yet in empMap
+            allStaff.forEach(s => {
+                if (!empMap[s.id]) {
+                    empMap[s.id] = { id: s.id, name: s.full_name, role: s.role, dept_id: s.department_id, affiliates: [] };
+                }
+            });
+        }
+
+        // 5b. Group employees theo team/phòng ban
+        const orgTree = {};
+        Object.values(empMap).forEach(emp => {
+            let teamId = emp.dept_id;
+            let teamName = 'Chưa xác định';
+            let parentId = null;
+
+            if (teamId && deptMap[teamId]) {
+                const team = deptMap[teamId];
+                teamName = team.name;
+                parentId = team.parent_id;
+            }
+
+            // Structure: HE THONG(10) > PHONG KD(1) > TEAM(*)
+            let phongId, phongName, isPhongLevel = false;
+
+            if (kdDept && teamId === kdDept.id) {
+                // NV ở trực tiếp PHÒNG KD (quanly1)
+                phongId = kdDept.id;
+                phongName = kdDept.name;
+                isPhongLevel = true;
+            } else if (kdDept && parentId === kdDept.id) {
+                // NV ở sub-team của PHÒNG KD
+                phongId = kdDept.id;
+                phongName = kdDept.name;
+            } else if (parentId && deptMap[parentId]) {
+                phongId = parentId;
+                phongName = deptMap[parentId].name;
+            } else {
+                phongId = teamId || 0;
+                phongName = teamName;
+                isPhongLevel = true;
+            }
+
+            if (!orgTree[phongId]) {
+                orgTree[phongId] = { id: phongId, name: phongName, teams: {}, phongEmployees: [] };
+            }
+
+            if (isPhongLevel) {
+                // NV cấp phòng (quanly1) → phongEmployees
+                orgTree[phongId].phongEmployees.push(emp);
+            } else {
+                // NV trong sub-team
+                if (!orgTree[phongId].teams[teamId]) {
+                    orgTree[phongId].teams[teamId] = { id: teamId, name: teamName, employees: [] };
+                }
+                orgTree[phongId].teams[teamId].employees.push(emp);
+            }
+        });
+
+        // 6. Build response with computed stats at each level
+        const departments = Object.values(orgTree).map(phong => {
+            // Phong-level employees (quanly at phong level)
+            const phongEmployees = (phong.phongEmployees || []).map(emp => {
+                const s = { affiliates: emp.affiliates.length, customers: 0, revenue: 0, closed: 0 };
+                emp.affiliates.forEach(a => { s.customers += a.total_customers; s.revenue += a.total_revenue; s.closed += a.closed_count; });
+                return { id: emp.id, name: emp.name, role: emp.role, stats: s, affiliates: emp.affiliates };
+            });
+            phongEmployees.sort((a, b) => b.stats.revenue - a.stats.revenue);
+
+            const teams = Object.values(phong.teams).map(team => {
+                const employees = team.employees.map(emp => {
+                    const s = { affiliates: emp.affiliates.length, customers: 0, revenue: 0, closed: 0 };
+                    emp.affiliates.forEach(a => { s.customers += a.total_customers; s.revenue += a.total_revenue; s.closed += a.closed_count; });
+                    return { id: emp.id, name: emp.name, role: emp.role, stats: s, affiliates: emp.affiliates };
+                });
+                employees.sort((a, b) => b.stats.revenue - a.stats.revenue);
+                const ts = { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
+                employees.forEach(e => { ts.affiliates += e.stats.affiliates; ts.customers += e.stats.customers; ts.revenue += e.stats.revenue; ts.closed += e.stats.closed; });
+                return { id: team.id, name: team.name, stats: ts, employees };
+            });
+            teams.sort((a, b) => b.stats.revenue - a.stats.revenue);
+            const ps = { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
+            teams.forEach(t => { ps.affiliates += t.stats.affiliates; ps.customers += t.stats.customers; ps.revenue += t.stats.revenue; ps.closed += t.stats.closed; });
+            phongEmployees.forEach(e => { ps.affiliates += e.stats.affiliates; ps.customers += e.stats.customers; ps.revenue += e.stats.revenue; ps.closed += e.stats.closed; });
+            return { id: phong.id, name: phong.name, stats: ps, teams, phongEmployees };
+        });
+        departments.sort((a, b) => b.stats.revenue - a.stats.revenue);
+
+        return { success: true, departments };
+    });
+
     // ========== QUẢN LÝ HỆ THỐNG AFFILIATE (cho tkaffiliate xem con) ==========
-    fastify.get('/api/affiliate/my-system', { preHandler: [authenticate, requireRole('tkaffiliate')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/my-system', { preHandler: [authenticate, requireRole('tkaffiliate', 'giam_doc')] }, async (request, reply) => {
         const userId = request.user.id;
+
+
+        // ★ GOD VIEW: Giám Đốc xem toàn bộ hệ thống affiliate
+        if (request.user.role === 'giam_doc') {
+            const { managerId, from, to } = request.query;
+
+            // Build dynamic WHERE clause
+            let whereClauses = ["u.role = 'tkaffiliate'"];
+            let whereParams = [];
+            if (managerId) { whereClauses.push("u.managed_by_user_id = ?"); whereParams.push(Number(managerId)); }
+            if (from) { whereClauses.push("u.created_at >= ?"); whereParams.push(from + ' 00:00:00'); }
+            if (to) { whereClauses.push("u.created_at <= ?"); whereParams.push(to + ' 23:59:59'); }
+
+            const children = await db.all(`
+                SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
+                       ct.name as tier_name, ct.percentage as tier_percentage,
+                       p.full_name as parent_affiliate_name,
+                       mgr.full_name as manager_name
+                FROM users u
+                LEFT JOIN commission_tiers ct ON ct.id = u.commission_tier_id
+                LEFT JOIN users p ON p.id = u.assigned_to_user_id
+                LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
+                WHERE ${whereClauses.join(' AND ')}
+                ORDER BY u.created_at DESC
+            `, whereParams);
+
+            const allIds = children.map(c => c.id);
+            let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
+
+            if (allIds.length > 0) {
+                const ph = allIds.map(() => '?').join(',');
+                const custRows = await db.all(`
+                    SELECT c.referrer_id,
+                           COUNT(*) as total_customers,
+                           COUNT(CASE WHEN c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh') THEN 1 END) as closed_count
+                    FROM customers c WHERE c.referrer_id IN (${ph})${from ? ' AND c.created_at >= \'' + from + ' 00:00:00\'' : ''}${to ? ' AND c.created_at <= \'' + to + ' 23:59:59\'' : ''} GROUP BY c.referrer_id
+                `, allIds);
+                const custMap = {};
+                custRows.forEach(r => { custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) }; });
+
+                const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, allIds);
+                const allCustIds = customersByRef.map(c => c.id);
+                let revenueMap = {};
+                if (allCustIds.length > 0) {
+                    const cph = allCustIds.map(() => '?').join(',');
+                    const revRows = await db.all(`
+                        SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                        FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                        WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
+                        GROUP BY oc.customer_id
+                    `, allCustIds);
+                    revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
+                }
+                const refRevenueMap = {};
+                customersByRef.forEach(c => { const rev = revenueMap[c.id] || 0; if (rev > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev; });
+
+                children.forEach(child => {
+                    const cs = custMap[child.id] || { total_customers: 0, closed_count: 0 };
+                    child.total_customers = cs.total_customers;
+                    child.closed_count = cs.closed_count;
+                    child.total_revenue = refRevenueMap[child.id] || 0;
+                    totalCustomers += cs.total_customers;
+                    totalRevenue += child.total_revenue;
+                    closedCount += cs.closed_count;
+                });
+            }
+
+            return {
+                success: true, children,
+                selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 },
+                stats: { totalChildren: children.length, totalCustomers, totalRevenue, closedCount }
+            };
+        }
 
         // Lấy tất cả con affiliate (managed_by_user_id = userId)
         const children = await db.all(`
@@ -1295,7 +1554,7 @@ async function affiliateRoutes(fastify) {
                    ct.name as tier_name, ct.percentage as tier_percentage
             FROM users u
             LEFT JOIN commission_tiers ct ON ct.id = u.commission_tier_id
-            WHERE u.managed_by_user_id = ?
+            WHERE u.assigned_to_user_id = ?
             AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
             ORDER BY u.created_at DESC
         `, [userId]);

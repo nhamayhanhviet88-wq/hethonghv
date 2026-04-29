@@ -163,8 +163,15 @@ function _acRenderSidebar(depts) {
     const TEAM_STYLES = [{badge:'#3b82f6',icon:'🏢',iconBg:'linear-gradient(135deg,#3b82f6,#6366f1)'},{badge:'#10b981',icon:'🚀',iconBg:'linear-gradient(135deg,#10b981,#34d399)'},{badge:'#f59e0b',icon:'🌟',iconBg:'linear-gradient(135deg,#f59e0b,#fbbf24)'},{badge:'#a855f7',icon:'💎',iconBg:'linear-gradient(135deg,#a855f7,#c084fc)'}];
     const grad = 'linear-gradient(135deg,#16a34a,#15803d)';
     const isAll = !_ac.selectedUser && !_ac.selectedDept;
-    let h = `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><div style="width:32px;height:32px;border-radius:10px;background:${grad};display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div><div style="font-size:15px;font-weight:800;color:#122546;">Phòng Kinh Doanh</div></div><div onclick="_acSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;background:${isAll?grad:'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};color:${isAll?'white':'#475569'};box-shadow:${isAll?'0 3px 12px rgba(0,0,0,0.2)':'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div></div><div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
-    (depts||[]).forEach((d,di)=>{
+    const _isTP = role === 'truong_phong';
+    // ★ Trưởng Phòng: ẩn header + "Tất cả nhân viên"
+    let h = '';
+    if (!_isTP) {
+        h = `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><div style="width:32px;height:32px;border-radius:10px;background:${grad};display:flex;align-items:center;justify-content:center;font-size:16px;">👥</div><div style="font-size:15px;font-weight:800;color:#122546;">Phòng Kinh Doanh</div></div><div onclick="_acSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:6px;background:${isAll?grad:'linear-gradient(135deg,#f1f5f9,#e2e8f0)'};color:${isAll?'white':'#475569'};box-shadow:${isAll?'0 3px 12px rgba(0,0,0,0.2)':'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div></div><div style="height:1px;background:linear-gradient(to right,transparent,#cbd5e1,transparent);margin:12px 0;"></div>`;
+    }
+    // ★ Filter out empty departments (backend already filtered members for TP)
+    const _acFilteredDepts = (depts||[]).filter(d => d.members && d.members.length > 0);
+    _acFilteredDepts.forEach((d,di)=>{
         const isDeptSel = _ac.selectedDept==d.id && !_ac.selectedUser;
         const isOpen = !_acCollapsedDepts.has(d.id);
         const ts = TEAM_STYLES[di%4];

@@ -748,6 +748,13 @@ async function renderLichKhoaBieuPage(container) {
             systemDepts.forEach(sys => {
                 // Get active child depts under this system
                 let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeDeptIds.has(d.id));
+                // ? Also include parent depts whose sub-teams are active (fix for TP hierarchy)
+                nonSystemDepts.forEach(pd => {
+                    if (pd.parent_id === sys.id && !activeDeptIds.has(pd.id)) {
+                        const hasActiveSub = nonSystemDepts.some(sub => sub.parent_id === pd.id && activeDeptIds.has(sub.id));
+                        if (hasActiveSub && !childDepts.some(cd => cd.id === pd.id)) childDepts.push(pd);
+                    }
+                });
                 // For non-giam_doc: filter depts that have members
                 if (['quan_ly','truong_phong','quan_ly_cap_cao'].includes(currentUser.role)) {
                     childDepts = childDepts.filter(d => memberDeptNames.has(d.name) || nonSystemDepts.some(sub => sub.parent_id === d.id && memberDeptNames.has(sub.name)));

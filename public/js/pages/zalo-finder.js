@@ -73,13 +73,20 @@ function _zlRenderSidebar() {
     const sb = document.getElementById('zlSidebar');
     if (!sb) return;
     const isAll = !_zlViewUserId && !_zlViewDeptId;
-    let h = `<div style="margin-bottom:12px;">
-        <div onclick="_zlSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
-            background:${isAll ? _ZL_GRAD : '#e0f2fe'};color:${isAll ? 'white' : '#0369a1'};
-            box-shadow:${isAll ? '0 3px 12px rgba(2,132,199,0.3)' : 'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div>
-    </div>
-    <div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
-    (_zlCachedDepts||[]).forEach(d => {
+    const _isTP = currentUser.role === 'truong_phong';
+    // ★ Trưởng Phòng: ẩn "Tất cả nhân viên"
+    let h = '';
+    if (!_isTP) {
+        h = `<div style="margin-bottom:12px;">
+            <div onclick="_zlSelAll()" style="padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
+                background:${isAll ? _ZL_GRAD : '#e0f2fe'};color:${isAll ? 'white' : '#0369a1'};
+                box-shadow:${isAll ? '0 3px 12px rgba(2,132,199,0.3)' : 'none'};transition:all 0.2s;">📊 Tất cả nhân viên</div>
+        </div>
+        <div style="height:1px;background:linear-gradient(to right,transparent,#e2e8f0,transparent);margin:10px 0;"></div>`;
+    }
+    // ★ Filter out empty departments (backend already filtered members for TP)
+    const _zlFilteredDepts = (_zlCachedDepts||[]).filter(d => d.members && d.members.length > 0);
+    _zlFilteredDepts.forEach(d => {
         const isDeptSel = _zlViewDeptId==d.id && !_zlViewUserId;
         const memberCount = d.members?.length || 0;
         h += `<div style="margin-bottom:6px;">

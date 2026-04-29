@@ -128,6 +128,9 @@ async function renderLichSuBaoCaoPage(container) {
             await _rhViewDept(_rhViewDeptId, _rhViewDeptName, _rhViewIncludeChildren);
         } else if (_rhSelectedUser) {
             await _rhLoadHistory();
+        } else {
+            // ? Auto-select own name when first entering
+            await _rhSelectUser(currentUser.id, currentUser.full_name);
         }
     } else {
         _rhSelectedUser = { id: currentUser.id, name: currentUser.full_name };
@@ -142,6 +145,13 @@ function _renderRhManagerLayout(container, systemDepts, nonSystemDepts, activeSe
 
     systemDepts.forEach(sys => {
         let childDepts = nonSystemDepts.filter(d => d.parent_id === sys.id && activeSet.has(d.id));
+        // ? Also include parent depts whose sub-teams are active (fix for TP hierarchy)
+        nonSystemDepts.forEach(pd => {
+            if (pd.parent_id === sys.id && !activeSet.has(pd.id)) {
+                const hasActiveSub = nonSystemDepts.some(sub => sub.parent_id === pd.id && activeSet.has(sub.id));
+                if (hasActiveSub && !childDepts.some(cd => cd.id === pd.id)) childDepts.push(pd);
+            }
+        });
         childDepts.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         const hasSysApprovers = _rhApprovers.some(a => a.department_id === sys.id);
         if (childDepts.length === 0 && !hasSysApprovers) return;
