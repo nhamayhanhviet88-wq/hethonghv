@@ -20,7 +20,24 @@ function _cncaFormatCountdown(expiresAt) {
 async function renderChapNhanCTVAffiliatePage(container) {
     const curYear = new Date().getFullYear();
     _cncaStatsYear = curYear;
-    container.innerHTML = `
+    // Reset date filter to "all"
+    _crmDatePreset = 'all';
+    _crmSelectedYear = curYear;
+    _cncaActiveStatCard = '';
+    _cncaCurrentTab = 'all';
+
+    // Load sidebar data (same as CRM modules)
+    _crmIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
+    if (_crmIsManager) {
+        const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
+        _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        _crmSidebarDepts = deptsRes.departments || deptsRes || [];
+        _crmSidebarSelectedUserId = null; // Default: Tổng Phòng KD
+    }
+
+    const sidebarHTML = _crmIsManager ? `<div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;"><div style="padding:14px;border-bottom:1.5px solid #e2e8f0;"><h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">✅ Chấp Nhận CTV / Affiliate</h4></div><div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div></div>` : '';
+
+    container.innerHTML = `<div style="display:flex;height:calc(100vh - 120px);gap:0;">${sidebarHTML}<div id="cncaMainContent" style="flex:1;overflow:auto;padding:16px 20px;">
         <style>
             .cnca-tabs { display:flex; gap:4px; margin-bottom:0; }
             .cnca-tab { padding:10px 22px; border-radius:10px 10px 0 0; cursor:pointer; font-weight:700; font-size:13px;
@@ -52,15 +69,12 @@ async function renderChapNhanCTVAffiliatePage(container) {
             .cnca-cd-yellow { color:#d97706; }
             .cnca-cd-red { color:#dc2626; animation:cncaPulse 1.5s infinite; }
             @keyframes cncaPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-            .cnca-stat-card { flex:1; min-width:140px; padding:16px 14px; border-radius:14px; cursor:pointer; transition:all .25s; position:relative; overflow:hidden; border:2px solid transparent; }
+            .cnca-stat-card { flex:1; min-width:180px; padding:18px 16px; border-radius:14px; cursor:pointer; transition:all .25s; position:relative; overflow:hidden; border:2px solid transparent; }
             .cnca-stat-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.15); }
             .cnca-stat-card.active { border-color:#fff; box-shadow:0 0 0 3px rgba(59,130,246,.5), 0 8px 24px rgba(0,0,0,.2); transform:translateY(-3px); }
-            .cnca-stat-num { font-size:28px; font-weight:900; color:white; line-height:1; }
-            .cnca-stat-label { font-size:11px; font-weight:600; color:rgba(255,255,255,.85); margin-top:4px; }
-            .cnca-date-bar { display:flex; gap:6px; align-items:center; padding:10px 14px; flex-wrap:wrap; }
-            .cnca-date-btn { padding:6px 14px; border:1px solid #334155; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; background:#1e293b; color:#94a3b8; transition:all .2s; }
-            .cnca-date-btn.active { background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border-color:#3b82f6; }
-            .cnca-date-btn:hover:not(.active) { background:#334155; color:white; }
+            .cnca-stat-card::after { content:''; position:absolute; right:-10px; bottom:-10px; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.15); }
+            .cnca-stat-num { font-size:32px; font-weight:900; color:white; line-height:1; }
+            .cnca-stat-label { font-size:12px; font-weight:600; color:rgba(255,255,255,.85); margin-top:6px; }
             .cnca-name-link { cursor:pointer; color:var(--navy); font-weight:700; transition:opacity .2s; }
             .cnca-name-link:hover { opacity:.7; text-decoration:underline; }
             .cnca-user-link { cursor:pointer; color:#8b5cf6; font-weight:700; font-family:'Courier New',monospace; transition:opacity .2s; }
@@ -70,23 +84,35 @@ async function renderChapNhanCTVAffiliatePage(container) {
             <h2 style="margin:0;color:var(--text-primary);">✅ Chấp Nhận CTV / Affiliate</h2>
             ${currentUser.role === 'giam_doc' ? '<button class="cnca-btn" style="background:#374151;color:white;padding:8px 18px;" onclick="_cncaShowSettings()">⚙️ Cài Đặt</button>' : ''}
         </div>
-        <!-- STAT CARDS -->
+        <!-- STAT CARDS: 2 tiles -->
         <div id="cncaStatCards" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;"></div>
+        <!-- DATE FILTER BAR (always visible) -->
+        <div id="cncaDateChipsArea"></div>
+        <!-- TABS -->
         <div class="cnca-tabs" id="cncaTabs">
-            <div class="cnca-tab active" data-tab="pending" onclick="_cncaSwitchTab('pending')">📋 Chờ Duyệt Vào Chăm Sóc CTV <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
+            <div class="cnca-tab active" data-tab="all" onclick="_cncaSwitchTab('all')">📋 Tất Cả</div>
+            <div class="cnca-tab" data-tab="pending" onclick="_cncaSwitchTab('pending')">⏳ Chờ Duyệt CTV <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
             <div class="cnca-tab" data-tab="affaccount" onclick="_cncaSwitchTab('affaccount')">🔑 Tạo TK Affiliate <span class="cnca-badge" id="cncaAffAccBadge" style="background:#8b5cf6;">0</span></div>
             <div class="cnca-tab" data-tab="history" onclick="_cncaSwitchTab('history')">📊 Lịch Sử</div>
         </div>
-        <!-- DATE FILTER (history only) -->
-        <div id="cncaDateFilterBar" style="display:none;background:#0f172a;border:1px solid var(--border);border-bottom:none;border-radius:0;padding:0;"></div>
         <div class="cnca-card">
             <div style="overflow-x:auto;padding:4px;">
                 <table class="cnca-table"><thead id="cncaThead"></thead><tbody id="cncaTbody"></tbody></table>
             </div>
         </div>
-    `;
-    _cncaCurrentTab = 'pending';
-    _cncaActiveStatCard = '';
+    </div></div>`;
+
+    // Wire sidebar reload to this page
+    window._crmReloadCurrentPage = () => { _cncaLoadStats(); _cncaLoadData(); };
+    window._crmRenderCurrentTable = () => _cncaLoadData();
+
+    // Render sidebar
+    if (_crmIsManager) _crmRenderSidebar();
+
+    // Render date filter
+    const dcArea = document.getElementById('cncaDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
+
     _cncaLoadStats();
     await _cncaLoadData();
     if (window._cncaCountdownInterval) clearInterval(window._cncaCountdownInterval);
@@ -98,7 +124,7 @@ async function renderChapNhanCTVAffiliatePage(container) {
     }, 60000);
 }
 
-var _cncaCurrentTab = 'pending';
+var _cncaCurrentTab = 'all';
 
 function _cncaSwitchTab(tab, keepStatFilter) {
     _cncaCurrentTab = tab;
@@ -107,20 +133,14 @@ function _cncaSwitchTab(tab, keepStatFilter) {
         document.querySelectorAll('.cnca-stat-card').forEach(c => c.classList.remove('active'));
     }
     document.querySelectorAll('.cnca-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    // Show date filter only for history tab
-    const dateBar = document.getElementById('cncaDateFilterBar');
-    if (dateBar) {
-        if (tab === 'history') {
-            dateBar.style.display = '';
-            _cncaBuildDateFilterBar();
-        } else {
-            dateBar.style.display = 'none';
-        }
-    }
     _cncaLoadData();
 }
 
 async function _cncaLoadData() {
+    // Re-render date filter
+    const dcArea = document.getElementById('cncaDateChipsArea');
+    if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
+
     try {
         const affData = await apiCall('/api/affiliate-account/pending-count');
         const affBadge = document.getElementById('cncaAffAccBadge');
@@ -129,24 +149,32 @@ async function _cncaLoadData() {
 
     if (_cncaCurrentTab === 'affaccount') { return _cncaLoadAffAccountData(); }
 
+    // Build query params with employee filter
+    let employeeParam = '';
+    if (_crmSidebarSelectedUserId) employeeParam = `&requested_by=${_crmSidebarSelectedUserId}`;
+
     const status = _cncaCurrentTab === 'pending' ? 'pending' : 'all';
-    const yearParam = _cncaCurrentTab === 'history' ? `&year=${_cncaStatsYear}` : '';
-    const data = await apiCall(`/api/crm-conversion/list?status=${status}${yearParam}`);
+    const yearParam = `&year=${_crmSelectedYear}`;
+    const data = await apiCall(`/api/crm-conversion/list?status=${status}${yearParam}${employeeParam}`);
     let requests = data.requests || [];
     const badge = document.getElementById('cncaPendingBadge');
     if (badge) badge.textContent = data.pendingCount || 0;
 
-    // Apply stat card filter for history tab
-    if (_cncaCurrentTab === 'history' && _cncaActiveStatCard) {
+    // Apply stat card filter
+    if (_cncaActiveStatCard) {
         const f = _cncaActiveStatCard;
-        if (f === 'conv_affiliate') requests = requests.filter(r => r.to_crm_type === 'ctv_hoa_hong' && r.status === 'approved');
-        else if (f === 'conv_ctv') requests = requests.filter(r => r.to_crm_type === 'ctv' && r.status === 'approved');
-        else if (f === 'conv_nhucau') requests = requests.filter(r => r.to_crm_type === 'nhu_cau' && r.status === 'approved');
-        else if (f === 'conv_koctiktok') requests = requests.filter(r => r.to_crm_type === 'koc_tiktok' && r.status === 'approved');
+        if (f === 'conv_ctv') requests = requests.filter(r => r.status === 'approved');
     }
-    // Apply date filter for history
-    if (_cncaCurrentTab === 'history') {
-        requests = _cncaApplyDateFilter(requests);
+
+    // Apply date filter from shared date chips
+    const dr = _crmGetDateRange();
+    if (dr.from && dr.to) {
+        requests = requests.filter(r => {
+            const dateField = r.processed_at || r.created_at;
+            if (!dateField) return true;
+            const dStr = new Date(dateField).toISOString().split('T')[0];
+            return dStr >= dr.from && dStr <= dr.to;
+        });
     }
 
     const thead = document.getElementById('cncaThead');
@@ -185,7 +213,94 @@ async function _cncaLoadData() {
                 }
             </td>
         </tr>`).join('');
+    } else if (_cncaCurrentTab === 'all') {
+        // Combined view: CTV conversions + TK Affiliate requests
+        // Also load affiliate account data
+        let affRequests = [];
+        try {
+            const affData = await apiCall(`/api/affiliate-account/list?status=all&year=${_crmSelectedYear}${employeeParam}`);
+            affRequests = affData.requests || [];
+            // Apply date filter
+            if (dr.from && dr.to) {
+                affRequests = affRequests.filter(r => {
+                    const dateField = r.processed_at || r.created_at;
+                    if (!dateField) return true;
+                    const dStr = new Date(dateField).toISOString().split('T')[0];
+                    return dStr >= dr.from && dStr <= dr.to;
+                });
+            }
+        } catch(e) {}
+
+        // Build unified rows
+        const allRows = [];
+        requests.forEach(r => {
+            allRows.push({ ...r, _type: 'ctv', _sortDate: r.created_at });
+        });
+        affRequests.forEach(r => {
+            allRows.push({ ...r, _type: 'aff', _sortDate: r.created_at });
+        });
+        // Sort by date desc
+        allRows.sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0));
+
+        thead.innerHTML = `<tr>
+            <th>STT</th><th>Loại</th><th>Tên KH</th><th>SĐT</th>
+            <th>Chi Tiết</th><th>Lý Do</th><th>NV Đề Xuất</th>
+            <th>Trạng Thái</th><th>Ngày Tạo</th><th style="text-align:center">Hành Động</th>
+        </tr>`;
+        if (allRows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10"><div class="cnca-empty"><div class="icon">📭</div><h3>Chưa có dữ liệu</h3></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = allRows.map((r, i) => {
+            if (r._type === 'ctv') {
+                const statusHtml = r.status === 'pending' ? '<span class="cnca-status cnca-status-pending">⏳ Chờ duyệt</span>'
+                    : r.status === 'approved' ? '<span class="cnca-status cnca-status-approved">✅ Đã duyệt</span>'
+                    : r.status === 'expired' ? '<span class="cnca-status cnca-status-expired">⏰ Hết hạn</span>'
+                    : '<span class="cnca-status cnca-status-rejected">❌ Từ chối</span>';
+                const actionHtml = r.status === 'pending'
+                    ? ((r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc')
+                        ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Của bạn</span>'
+                        : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApprove(${r.id})">✅</button> <button class="cnca-btn cnca-btn-reject" onclick="_cncaReject(${r.id})">❌</button>`)
+                    : '—';
+                return `<tr>
+                    <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
+                    <td><span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#22c55e,#16a34a);color:white;">🔄 Chuyển CTV</span></td>
+                    <td><span class="cnca-name-link" onclick="_cncaEditCustomer(${r.customer_id})">${r.customer_name || '—'}</span></td>
+                    <td>${r.phone ? '<a href="tel:'+r.phone+'" style="color:var(--info)">'+r.phone+'</a>' : '—'}</td>
+                    <td style="font-size:12px;">${CNCA_CRM_LABELS[r.from_crm_type] || r.from_crm_type} → <strong style="color:#059669;">${CNCA_CRM_LABELS[r.to_crm_type] || r.to_crm_type}</strong></td>
+                    <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
+                    <td style="font-size:12px;">${r.requested_by_name || '—'}</td>
+                    <td>${statusHtml}</td>
+                    <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
+                    <td style="text-align:center;white-space:nowrap;">${actionHtml}</td>
+                </tr>`;
+            } else {
+                // Affiliate account request
+                const isPending = r.status === 'pending';
+                const statusHtml = isPending ? '<span class="cnca-status cnca-status-pending">⏳ Chờ duyệt</span>'
+                    : r.status === 'approved' ? '<span class="cnca-status cnca-status-approved">✅ Đã tạo TK</span>'
+                    : '<span class="cnca-status cnca-status-rejected">❌ Từ chối</span>';
+                const isSelfRequest = r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc';
+                const actionHtml = isPending
+                    ? (isSelfRequest ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Của bạn</span>'
+                        : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅</button> <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})">❌</button>`)
+                    : r.status === 'approved' ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>` : '—';
+                return `<tr>
+                    <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
+                    <td><span style="padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;">🔑 Tạo TK Aff</span></td>
+                    <td><span class="cnca-name-link" onclick="_cncaEditCustomer(${r.customer_id})">${r.customer_name || '—'}</span></td>
+                    <td>${r.phone ? '<a href="tel:'+r.phone+'" style="color:var(--info)">'+r.phone+'</a>' : '—'}</td>
+                    <td style="font-size:12px;"><span style="color:#8b5cf6;font-weight:700;font-family:'Courier New',monospace;">🔑 ${r.proposed_username || '—'}</span></td>
+                    <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
+                    <td style="font-size:12px;">${r.requested_by_name || '—'}</td>
+                    <td>${statusHtml}</td>
+                    <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
+                    <td style="text-align:center;white-space:nowrap;">${actionHtml}</td>
+                </tr>`;
+            }
+        }).join('');
     } else {
+        // History tab
         thead.innerHTML = `<tr>
             <th>STT</th><th>Tên KH</th><th>SĐT</th><th>CRM Cũ</th><th>→ CRM Mới</th>
             <th>Lý Do</th><th>NV Đề Xuất</th><th>Trạng Thái</th><th>Người Duyệt</th><th>Lý Do Từ Chối</th><th>Ngày XL</th>
@@ -491,8 +606,10 @@ function openAffiliateProposalPopup(customerId) { openCrmTransferPopup(customerI
 
 // ========== TAB: Tạo TK Affiliate ==========
 async function _cncaLoadAffAccountData() {
-    const yearParam = `&year=${_cncaStatsYear}`;
-    const data = await apiCall(`/api/affiliate-account/list?status=all${yearParam}`);
+    let employeeParam = '';
+    if (_crmSidebarSelectedUserId) employeeParam = `&requested_by=${_crmSidebarSelectedUserId}`;
+    const yearParam = `&year=${_crmSelectedYear}`;
+    const data = await apiCall(`/api/affiliate-account/list?status=all${yearParam}${employeeParam}`);
     const requests = data.requests || [];
     const badge = document.getElementById('cncaAffAccBadge');
     if (badge) badge.textContent = data.pendingCount || 0;
@@ -814,23 +931,31 @@ async function _affAccSubmit(customerId) {
     } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
-// ========== STAT CARDS ==========
+// ========== STAT CARDS: 2 TILES ==========
 async function _cncaLoadStats() {
     try {
-        const stats = await apiCall(`/api/crm-conversion/stats?year=${_cncaStatsYear}`);
+        let employeeParam = '';
+        if (_crmSidebarSelectedUserId) employeeParam = `&requested_by=${_crmSidebarSelectedUserId}`;
+        const stats = await apiCall(`/api/crm-conversion/stats?year=${_crmSelectedYear}${employeeParam}`);
+
+        // Also get affiliate account stats
+        let affStats = { approved: 0, total: 0 };
+        try {
+            const affData = await apiCall(`/api/affiliate-account/list?status=all&year=${_crmSelectedYear}${employeeParam}`);
+            const affReqs = affData.requests || [];
+            affStats.approved = affReqs.filter(r => r.status === 'approved').length;
+            affStats.total = affReqs.length;
+        } catch(e) {}
+
         const cards = [
-            { key:'conv_affiliate', icon:'🔄', label:'→ Affiliate', num: stats.conv_to_affiliate, bg:'linear-gradient(135deg,#ef4444,#dc2626)' },
-            { key:'conv_ctv', icon:'🤝', label:'→ CTV', num: stats.conv_to_ctv, bg:'linear-gradient(135deg,#22c55e,#16a34a)' },
-            { key:'conv_nhucau', icon:'❤️', label:'→ Nhu Cầu', num: stats.conv_to_nhucau, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
-            { key:'conv_koctiktok', icon:'🎬', label:'→ KOL/KOC', num: stats.conv_to_koctiktok, bg:'linear-gradient(135deg,#f97316,#ea580c)' },
-            { key:'aff_approved', icon:'🔑', label:'Đã Tạo TK Aff', num: stats.aff_account_approved, bg:'linear-gradient(135deg,#475569,#334155)' },
-            { key:'aff_rejected', icon:'❌', label:'Không Duyệt TK', num: stats.aff_account_rejected, bg:'linear-gradient(135deg,#3b82f6,#2563eb)' }
+            { key:'conv_ctv', icon:'🔄', label:'Chuyển Vào CTV', num: stats.total_approved || 0, bg:'linear-gradient(135deg,#22c55e,#16a34a)' },
+            { key:'aff_account', icon:'🔑', label:'Tạo TK Affiliate', num: affStats.approved, bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
         ];
         const el = document.getElementById('cncaStatCards');
         if (!el) return;
         el.innerHTML = cards.map(c => `
             <div class="cnca-stat-card ${_cncaActiveStatCard === c.key ? 'active' : ''}" data-card="${c.key}" onclick="_cncaClickStat('${c.key}')" style="background:${c.bg};">
-                <div style="font-size:20px;margin-bottom:4px;">${c.icon}</div>
+                <div style="font-size:24px;margin-bottom:6px;">${c.icon}</div>
                 <div class="cnca-stat-num">${c.num}</div>
                 <div class="cnca-stat-label">${c.label}</div>
             </div>
@@ -846,70 +971,15 @@ function _cncaClickStat(key) {
     }
     // Highlight active card
     document.querySelectorAll('.cnca-stat-card').forEach(c => c.classList.toggle('active', c.dataset.card === _cncaActiveStatCard));
-    // Switch to appropriate tab (keepStatFilter = true to prevent reset)
-    if (['aff_approved','aff_rejected'].includes(key)) {
+    // Switch to appropriate tab
+    if (key === 'aff_account') {
         if (_cncaCurrentTab !== 'affaccount') _cncaSwitchTab('affaccount', true);
         else _cncaLoadData();
     } else {
-        if (_cncaCurrentTab !== 'history') _cncaSwitchTab('history', true);
+        // conv_ctv → show "all" tab filtered to CTV conversions
+        if (_cncaCurrentTab !== 'all') _cncaSwitchTab('all', true);
         else _cncaLoadData();
     }
-}
-
-// ========== DATE FILTER BAR ==========
-var _cncaDateFilter = 'all';
-var _cncaDateCustomFrom = '';
-var _cncaDateCustomTo = '';
-
-function _cncaBuildDateFilterBar() {
-    const bar = document.getElementById('cncaDateFilterBar');
-    if (!bar) return;
-    const yearOpts = [2025,2026].map(y => `<option value="${y}" ${y === _cncaStatsYear ? 'selected' : ''}>${y}</option>`).join('');
-    bar.innerHTML = `<div class="cnca-date-bar">
-        <button class="cnca-date-btn ${_cncaDateFilter==='today'?'active':''}" onclick="_cncaSetDateFilter('today')">Hôm nay</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='yesterday'?'active':''}" onclick="_cncaSetDateFilter('yesterday')">Hôm qua</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='7days'?'active':''}" onclick="_cncaSetDateFilter('7days')">7 ngày</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='thismonth'?'active':''}" onclick="_cncaSetDateFilter('thismonth')">Tháng này</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='lastmonth'?'active':''}" onclick="_cncaSetDateFilter('lastmonth')">Tháng trước</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='all'?'active':''}" onclick="_cncaSetDateFilter('all')">Tất cả</button>
-        <button class="cnca-date-btn ${_cncaDateFilter==='custom'?'active':''}" onclick="_cncaSetDateFilter('custom')">Tùy chọn</button>
-        <select class="cnca-date-btn" style="padding:5px 10px;" onchange="_cncaChangeYear(this.value)">${yearOpts}</select>
-        ${_cncaDateFilter === 'custom' ? `<input type="date" id="cncaDateFrom" class="form-control" value="${_cncaDateCustomFrom}" onchange="_cncaDateCustomFrom=this.value;_cncaLoadData()" style="width:140px;font-size:12px;padding:4px 8px;">
-        <span style="color:#94a3b8;">→</span>
-        <input type="date" id="cncaDateTo" class="form-control" value="${_cncaDateCustomTo}" onchange="_cncaDateCustomTo=this.value;_cncaLoadData()" style="width:140px;font-size:12px;padding:4px 8px;">` : ''}
-    </div>`;
-}
-
-function _cncaSetDateFilter(f) {
-    _cncaDateFilter = f;
-    _cncaBuildDateFilterBar();
-    _cncaLoadData();
-}
-
-function _cncaChangeYear(y) {
-    _cncaStatsYear = Number(y);
-    _cncaLoadStats();
-    _cncaLoadData();
-}
-
-function _cncaApplyDateFilter(requests) {
-    if (_cncaDateFilter === 'all') return requests;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let from, to;
-    if (_cncaDateFilter === 'today') { from = today; to = new Date(today.getTime() + 86400000); }
-    else if (_cncaDateFilter === 'yesterday') { from = new Date(today.getTime() - 86400000); to = today; }
-    else if (_cncaDateFilter === '7days') { from = new Date(today.getTime() - 7*86400000); to = new Date(today.getTime() + 86400000); }
-    else if (_cncaDateFilter === 'thismonth') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth()+1, 1); }
-    else if (_cncaDateFilter === 'lastmonth') { from = new Date(now.getFullYear(), now.getMonth()-1, 1); to = new Date(now.getFullYear(), now.getMonth(), 1); }
-    else if (_cncaDateFilter === 'custom') {
-        from = _cncaDateCustomFrom ? new Date(_cncaDateCustomFrom) : new Date('2020-01-01');
-        to = _cncaDateCustomTo ? new Date(new Date(_cncaDateCustomTo).getTime() + 86400000) : new Date('2030-01-01');
-    } else return requests;
-    return requests.filter(r => {
-        const d = new Date(r.created_at || r.processed_at);
-        return d >= from && d < to;
-    });
 }
 
 // ========== EDIT CUSTOMER MODAL ==========

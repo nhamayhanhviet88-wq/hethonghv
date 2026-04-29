@@ -206,33 +206,36 @@ async function crmConversionRoutes(fastify, options) {
         if (!allowed) return reply.code(403).send({ error: 'Không có quyền' });
 
         const year = Number(request.query.year) || new Date().getFullYear();
+        const requestedBy = request.query.requested_by ? Number(request.query.requested_by) : null;
         const yearStart = `${year}-01-01`;
         const yearEnd = `${year + 1}-01-01`;
 
         // CRM conversion counts by to_crm_type (approved only)
-        const convRows = await db.all(
-            `SELECT to_crm_type, COUNT(*) as cnt FROM crm_conversion_requests
-             WHERE status = 'approved' AND created_at >= ? AND created_at < ?
-             GROUP BY to_crm_type`,
-            [yearStart, yearEnd]
-        );
+        let convQuery = `SELECT to_crm_type, COUNT(*) as cnt FROM crm_conversion_requests
+             WHERE status = 'approved' AND created_at >= ? AND created_at < ?`;
+        const convParams = [yearStart, yearEnd];
+        if (requestedBy) { convQuery += ' AND requested_by = ?'; convParams.push(requestedBy); }
+        convQuery += ' GROUP BY to_crm_type';
+        const convRows = await db.all(convQuery, convParams);
         const convMap = {};
         convRows.forEach(r => { convMap[r.to_crm_type] = r.cnt; });
+        // Total approved across all types
+        const totalApproved = Object.values(convMap).reduce((sum, v) => sum + v, 0);
 
         // Affiliate account request counts
         let affApproved = 0, affRejected = 0;
         try {
-            const affApp = await db.get(
-                `SELECT COUNT(*) as cnt FROM affiliate_account_requests
-                 WHERE status = 'approved' AND created_at >= ? AND created_at < ?`,
-                [yearStart, yearEnd]
-            );
+            let affAppQuery = `SELECT COUNT(*) as cnt FROM affiliate_account_requests
+                 WHERE status = 'approved' AND created_at >= ? AND created_at < ?`;
+            const affAppParams = [yearStart, yearEnd];
+            if (requestedBy) { affAppQuery += ' AND requested_by = ?'; affAppParams.push(requestedBy); }
+            const affApp = await db.get(affAppQuery, affAppParams);
             affApproved = affApp?.cnt || 0;
-            const affRej = await db.get(
-                `SELECT COUNT(*) as cnt FROM affiliate_account_requests
-                 WHERE status = 'rejected' AND created_at >= ? AND created_at < ?`,
-                [yearStart, yearEnd]
-            );
+            let affRejQuery = `SELECT COUNT(*) as cnt FROM affiliate_account_requests
+                 WHERE status = 'rejected' AND created_at >= ? AND created_at < ?`;
+            const affRejParams = [yearStart, yearEnd];
+            if (requestedBy) { affRejQuery += ' AND requested_by = ?'; affRejParams.push(requestedBy); }
+            const affRej = await db.get(affRejQuery, affRejParams);
             affRejected = affRej?.cnt || 0;
         } catch(e) {}
 
@@ -241,6 +244,7 @@ async function crmConversionRoutes(fastify, options) {
             conv_to_ctv: convMap['ctv'] || 0,
             conv_to_nhucau: convMap['nhu_cau'] || 0,
             conv_to_koctiktok: convMap['koc_tiktok'] || 0,
+            total_approved: totalApproved,
             aff_account_approved: affApproved,
             aff_account_rejected: affRejected,
             year
@@ -253,7 +257,7 @@ async function crmConversionRoutes(fastify, options) {
         const allowed = await canApprove(user.id, user.role);
         if (!allowed) return reply.code(403).send({ error: 'Bạn không có quyền xem trang này' });
 
-        const { status, year } = request.query;
+        const { status, year, requested_by } = request.query;
         let query = `SELECT r.*,
             c.customer_name, c.phone, c.facebook_link, c.address,
             c.assigned_to_id, c.crm_type as current_crm_type,
@@ -279,6 +283,10 @@ async function crmConversionRoutes(fastify, options) {
         if (year) {
             conditions.push('r.created_at >= ? AND r.created_at < ?');
             params.push(`${year}-01-01`, `${Number(year) + 1}-01-01`);
+        }
+        if (requested_by) {
+            conditions.push('r.requested_by = ?');
+            params.push(Number(requested_by));
         }
         if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
         query += ' ORDER BY CASE r.status WHEN \'pending\' THEN 0 ELSE 1 END, r.created_at DESC';
