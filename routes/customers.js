@@ -144,7 +144,7 @@ async function customersRoutes(fastify, options) {
         let query = `SELECT c.*,
             s.name as source_name, p.name as promotion_name, i.name as industry_name,
             r.full_name as receiver_name, a.full_name as assigned_to_name,
-            cb.full_name as created_by_name, ref.full_name as referrer_name, ref.source_crm_type as referrer_user_crm_type,
+            cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), ref.source_crm_type) as referrer_user_crm_type,
             crb.full_name as cancel_requested_by_name, cab.full_name as cancel_approved_by_name,
             rc.customer_name as referrer_customer_name, rc.crm_type as referrer_crm_type, rc.phone as referrer_customer_phone
             FROM customers c
@@ -252,7 +252,7 @@ async function customersRoutes(fastify, options) {
             `SELECT c.*,
              s.name as source_name, p.name as promotion_name, i.name as industry_name,
              r.full_name as receiver_name, a.full_name as assigned_to_name,
-             cb.full_name as created_by_name, ref.full_name as referrer_name, ref.source_crm_type as referrer_user_crm_type,
+             cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), ref.source_crm_type) as referrer_user_crm_type,
              rc.customer_name as referrer_customer_name, rc.crm_type as referrer_crm_type
              FROM customers c
              LEFT JOIN settings_sources s ON c.source_id = s.id
@@ -452,12 +452,20 @@ async function customersRoutes(fastify, options) {
         // Priority 3: If customer was referred by a USER/affiliate account (referrer_id)
         // e.g. Affiliate user logs in and transfers a customer via "Chuyển Số"
         if (customer.referrer_id) {
-            const referrer = await db.get('SELECT source_crm_type, role FROM users WHERE id = ?', [customer.referrer_id]);
-            if (referrer && referrer.source_crm_type) {
-                return CRM_ORDER_PREFIX[referrer.source_crm_type] || '';
-            }
-            // Fallback: check referrer's role if source_crm_type not set
+            const referrer = await db.get('SELECT source_crm_type, source_customer_id, role FROM users WHERE id = ?', [customer.referrer_id]);
             if (referrer) {
+                // Best: trace back to source customer for accurate crm_type
+                if (referrer.source_customer_id) {
+                    const srcCust = await db.get('SELECT crm_type FROM customers WHERE id = ?', [referrer.source_customer_id]);
+                    if (srcCust && srcCust.crm_type && srcCust.crm_type !== 'nhu_cau') {
+                        return CRM_ORDER_PREFIX[srcCust.crm_type] || '';
+                    }
+                }
+                // Fallback: user's source_crm_type
+                if (referrer.source_crm_type) {
+                    return CRM_ORDER_PREFIX[referrer.source_crm_type] || '';
+                }
+                // Last fallback: role mapping
                 const ROLE_TO_CRM = { hoa_hong: 'ctv_hoa_hong', ctv: 'ctv', tkaffiliate: 'ctv_hoa_hong' };
                 const mappedCrm = ROLE_TO_CRM[referrer.role];
                 if (mappedCrm) return CRM_ORDER_PREFIX[mappedCrm] || '';
