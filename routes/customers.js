@@ -422,17 +422,62 @@ async function customersRoutes(fastify, options) {
         return { items, active_order_id: activeOrder?.id || null };
     });
 
-    fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
-        const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [request.user.id]);
-        const prefix = userRow?.order_code_prefix;
-        if (!prefix) return { order_code: null, error: 'Chưa cài đặt mã đơn cho nhân viên này' };
-        const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [request.user.id]);
+    // ========== CRM ORDER PREFIX MAPPING ==========
+    // Determines order code prefix based on customer's origin source
+    const CRM_ORDER_PREFIX = {
+        ctv: 'CTV-',
+        ctv_hoa_hong: 'AFF-',
+        koc_tiktok: 'KOC-'
+    };
+
+    async function getCrmOrderPrefix(customerId) {
+        if (!customerId) return '';
+        const customer = await db.get('SELECT crm_type, referrer_id FROM customers WHERE id = ?', [Number(customerId)]);
+        if (!customer) return '';
+
+        // Priority 1: If customer is directly in a non-nhu_cau CRM module
+        if (customer.crm_type && customer.crm_type !== 'nhu_cau') {
+            return CRM_ORDER_PREFIX[customer.crm_type] || '';
+        }
+
+        // Priority 2: If customer is in nhu_cau but has a referrer, check referrer's source
+        if (customer.referrer_id) {
+            const referrer = await db.get('SELECT source_crm_type, role FROM users WHERE id = ?', [customer.referrer_id]);
+            if (referrer && referrer.source_crm_type) {
+                return CRM_ORDER_PREFIX[referrer.source_crm_type] || '';
+            }
+            // Fallback: check referrer's role if source_crm_type not set
+            if (referrer) {
+                const ROLE_TO_CRM = { hoa_hong: 'ctv_hoa_hong', ctv: 'ctv', tkaffiliate: 'ctv_hoa_hong' };
+                const mappedCrm = ROLE_TO_CRM[referrer.role];
+                if (mappedCrm) return CRM_ORDER_PREFIX[mappedCrm] || '';
+            }
+        }
+
+        // Priority 3: Pure nhu_cau customer (no referrer) → no prefix
+        return '';
+    }
+
+    async function getNextOrderNumber(userId) {
+        const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
         let nextNum = 1;
         if (lastCode) {
             const match = lastCode.order_code.match(/(\d+)$/);
             if (match) nextNum = parseInt(match[1]) + 1;
         }
-        return { order_code: prefix + String(nextNum).padStart(4, '0'), prefix, existing: false };
+        return nextNum;
+    }
+
+    fastify.get('/api/order-codes/next', { preHandler: [authenticate] }, async (request, reply) => {
+        const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [request.user.id]);
+        const prefix = userRow?.order_code_prefix;
+        if (!prefix) return { order_code: null, error: 'Chưa cài đặt mã đơn cho nhân viên này' };
+
+        const nextNum = await getNextOrderNumber(request.user.id);
+        const { customer_id } = request.query;
+        const crmPrefix = await getCrmOrderPrefix(customer_id);
+
+        return { order_code: crmPrefix + prefix + String(nextNum).padStart(4, '0'), prefix, crmPrefix, existing: false };
     });
 
     fastify.post('/api/order-codes', { preHandler: [authenticate] }, async (request, reply) => {
@@ -441,13 +486,11 @@ async function customersRoutes(fastify, options) {
         const userRow = await db.get('SELECT order_code_prefix FROM users WHERE id = ?', [userId]);
         const prefix = userRow?.order_code_prefix;
         if (!prefix) return reply.code(400).send({ error: 'Chưa cài đặt mã đơn cho nhân viên này' });
-        const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
-        let nextNum = 1;
-        if (lastCode) {
-            const match = lastCode.order_code.match(/(\d+)$/);
-            if (match) nextNum = parseInt(match[1]) + 1;
-        }
-        const orderCode = prefix + String(nextNum).padStart(4, '0');
+
+        const nextNum = await getNextOrderNumber(userId);
+        const crmPrefix = await getCrmOrderPrefix(customer_id);
+        const orderCode = crmPrefix + prefix + String(nextNum).padStart(4, '0');
+
         const result = await db.run('INSERT INTO order_codes (customer_id, user_id, order_code, status) VALUES (?, ?, ?, \'active\')', [Number(customer_id), userId, orderCode]);
         return { success: true, order_code: orderCode, order_id: result?.lastID };
     });
