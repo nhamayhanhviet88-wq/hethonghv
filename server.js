@@ -129,9 +129,9 @@ async function start() {
         maxAge: 0 // No caching for static files
     });
 
-    // Prevent browser caching of JS files
+    // Prevent browser/CDN caching of JS, CSS, HTML files
     fastify.addHook('onSend', (request, reply, payload, done) => {
-        if (request.url.match(/\.js(\?|$)/)) {
+        if (request.url.match(/\.(js|css|html)(\?|$)/) || request.url === '/' || !request.url.startsWith('/api/')) {
             reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
             reply.header('Pragma', 'no-cache');
             reply.header('Expires', '0');
