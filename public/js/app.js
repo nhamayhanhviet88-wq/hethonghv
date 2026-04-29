@@ -1395,6 +1395,15 @@ function setupEventListeners() {
     document.getElementById('modalClose').addEventListener('click', closeModal);
 
     window.addEventListener('hashchange', handleRoute);
+
+    // Mobile: close sidebar when tapping overlay
+    var sidebarOverlay = document.getElementById('sidebarOverlay');
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.remove('open');
+            sidebarOverlay.classList.remove('show');
+        });
+    }
 }
 
 // ========== MODAL ==========
@@ -1515,10 +1524,20 @@ function getCustomerCode(customer) {
 // ========== SIDEBAR TOGGLE ==========
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
     const btn = document.getElementById('sidebarToggleBtn');
+
+    // Mobile mode: slide sidebar in/out with overlay
+    if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('show');
+        return;
+    }
+
+    // Desktop mode: collapse/expand sidebar
     sidebar.classList.toggle('collapsed');
     const isCollapsed = sidebar.classList.contains('collapsed');
-    btn.textContent = isCollapsed ? '▶' : '◀';
+    if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
     localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
 }
 
