@@ -272,16 +272,6 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
             window._hhAffApprovedMap = affStatus.approvedMap || {};
         } catch(e) { window._hhAffApprovedIds = []; window._hhAffLockedIds = []; window._hhAffPendingIds = []; window._hhAffApprovedMap = {}; }
 
-        // DEBUG: Show filter diagnostic
-        console.log(`[HH] API URL: ${apiUrl}`);
-        console.log(`[HH] crm_filter_applied: ${data.crm_filter_applied}, crm_types_found: ${JSON.stringify(data.crm_types_found)}, items: ${data.items.length}`);
-        const diagEl = document.getElementById('hhSummary');
-        if (diagEl && data.crm_filter_applied !== undefined) {
-            const diagColor = data.crm_filter_applied ? '#10b981' : '#ef4444';
-            diagEl.insertAdjacentHTML('beforebegin', `<div style="padding:8px 14px;background:${diagColor}15;border:1px solid ${diagColor}40;border-radius:8px;margin-bottom:10px;font-size:12px;color:${diagColor};">
-                🔍 DEBUG: Filter gửi = <b>${crmFilter || 'NONE'}</b> | Backend nhận = <b>${data.crm_filter_applied || 'KHÔNG CÓ (code cũ)'}</b> | CRM types trong data = <b>${JSON.stringify(data.crm_types_found || 'N/A')}</b> | Tổng KH = <b>${data.items.length}</b>
-            </div>`);
-        }
 
         // Summary cards (clickable)
         const directCommission = data.items.filter(i => i.is_direct).reduce((s, i) => s + (i.commission || 0), 0);
@@ -293,7 +283,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div onclick="hhShowCommissionPopup()" style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#f59e0b'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
                     <div style="font-size:18px;font-weight:800;color:#92400e;word-break:break-all;">${hhFormatMoney(data.totalCommission)}</div>
-                    <div style="font-size:11px;color:#78350f;margin-top:4px;">💰 Tổng Hoa Hồng</div>
+                    <div style="font-size:11px;color:#78350f;margin-top:4px;">💰 Tổng Hoa Hồng (Trực Tiếp ${directRate}%, Gián Tiếp ${childRate}%)</div>
                     <div style="font-size:9px;color:#92400e;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
                 </div>
                 <div onclick="hhShowAllOrdersPopup()" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#3b82f6'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
@@ -301,15 +291,13 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
                     <div style="font-size:11px;color:#1e3a8a;margin-top:4px;">📦 Tổng Đơn Đặt Hàng</div>
                     <div style="font-size:9px;color:#1e40af;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
                 </div>
-                <div onclick="hhShowCommissionPopup('direct')" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#10b981'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
-                    <div style="font-size:18px;font-weight:800;color:#065f46;word-break:break-all;">${hhFormatMoney(directCommission)}</div>
-                    <div style="font-size:11px;color:#064e3b;margin-top:4px;">🎯 Trực Tiếp (${directRate}%)</div>
-                    <div style="font-size:9px;color:#065f46;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
+                <div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);padding:14px 10px;border-radius:12px;text-align:center;border:2px solid transparent;">
+                    <div style="font-size:24px;font-weight:800;color:#065f46;">${data.items.length}</div>
+                    <div style="font-size:11px;color:#064e3b;margin-top:4px;">👥 Tổng Số Lượng Affiliate</div>
                 </div>
-                <div onclick="hhShowCommissionPopup('indirect')" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#8b5cf6'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
-                    <div style="font-size:18px;font-weight:800;color:#5b21b6;word-break:break-all;">${hhFormatMoney(childCommission)}</div>
-                    <div style="font-size:11px;color:#4c1d95;margin-top:4px;">🏅 HH Gián Tiếp (${childRate}%)</div>
-                    <div style="font-size:9px;color:#5b21b6;opacity:0.6;margin-top:2px;">▶ Xem chi tiết</div>
+                <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);padding:14px 10px;border-radius:12px;text-align:center;border:2px solid transparent;">
+                    <div style="font-size:24px;font-weight:800;color:#5b21b6;">${(window._hhAffApprovedIds||[]).length}</div>
+                    <div style="font-size:11px;color:#4c1d95;margin-top:4px;">🔑 Tổng Số Affiliate Có TK</div>
                 </div>
             </div>
         `;
