@@ -552,17 +552,4 @@ async function renderBaoCaoHoaHongHVPage(container) {
     }
 }
 
-// ===== HƯỚNG DẪN SỬ DỤNG (placeholder) =====
-function renderHuongDanSuDungPage(container) {
-    container.innerHTML = `
-        <div class="card">
-            <div class="card-header"><h3>📖 Hướng Dẫn Sử Dụng</h3></div>
-            <div class="card-body">
-                <div style="text-align:center;padding:60px 20px;">
-                    <div style="font-size:60px;margin-bottom:16px;">📖</div>
-                    <h2 style="color:#1e3a5f;margin-bottom:8px;">Hướng Dẫn Sử Dụng</h2>
-                    <p style="color:#64748b;font-size:14px;">Nội dung hướng dẫn sẽ được cập nhật sớm.</p>
-                </div>
-            </div>
-        </div>`;
-}
+// renderHuongDanSuDungPage → moved to public/js/pages/huongdansudung.js
