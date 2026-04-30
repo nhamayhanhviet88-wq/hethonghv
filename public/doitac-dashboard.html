@@ -58,12 +58,14 @@
             }
             /* ★ (1) Stats grid 2x2 */
             .hdsd-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
-            /* ★ Ẩn welcome text */
-            .hdsd-welcome-text { display: none !important; }
             /* ★ Ẩn caption ảnh (ảnh đã ẩn, caption còn hiện) */
             .hdsd-step-content p[style*="font-style:italic"] { display: none !important; }
             /* ★ Ẩn subcards step 3 */
             .hdsd-step-card .hdsd-subcards[style*="repeat(3,1fr)"] { display: none !important; }
+            /* ★ Ẩn FAQ subcards step 4 (Rút tối thiểu, Nhận tiền) */
+            .hdsd-step-card .hdsd-subcards[style*="repeat(2,1fr)"] { display: none !important; }
+            /* ★ Ẩn mô tả step 5 (trạng thái đơn hàng) */
+            .hdsd-step-card > .hdsd-step-content > p[style*="font-size:14px"][style*="color:var(--hdsd-slate-600)"] { display: none !important; }
         }
     </style>
 </head>
