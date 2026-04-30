@@ -938,8 +938,8 @@ async function handleRoute() {
 
     // Block tkaffiliate from dashboard — redirect to bao-cao-hoa-hong-hv
     if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
-        window.location.href = '/bao-cao-hoa-hong-hv';
-        return;
+        currentPage = 'bao-cao-hoa-hong-hv';
+        history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
     }
 
     currentPage = pathname;
