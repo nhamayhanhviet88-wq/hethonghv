@@ -47,9 +47,9 @@ function _hdsdHeroHTML() {
         '<div class="hdsd-hero-glow"></div>' +
         '<div class="hdsd-hero-content">' +
             '<div class="hdsd-hero-badge">🌟 CỔNG ĐỐI TÁC CHIẾT KHẤU</div>' +
-            '<h1 class="hdsd-hero-title">Lời Chào Mừng & Hướng Dẫn</h1>' +
+            '<h1 class="hdsd-hero-title">Lời Chào Mừng &<br>Hướng Dẫn Dùng Hệ Thống</h1>' +
             '<p class="hdsd-hero-subtitle">Kiếm Thu Nhập Bền Vững – Minh Bạch – Không Cần Vốn</p>' +
-            '<p class="hdsd-hero-desc">Tài liệu hướng dẫn chi tiết giúp Quý đối tác sử dụng hệ thống Đồng Phục HV một cách hiệu quả nhất, từ giới thiệu khách hàng đến nhận hoa hồng.</p>' +
+            '<p class="hdsd-hero-desc" style="text-align:center;margin-left:auto;margin-right:auto">Tài liệu hướng dẫn chi tiết giúp Quý đối tác sử dụng hệ thống Đồng Phục HV một cách hiệu quả nhất, từ giới thiệu khách hàng đến nhận hoa hồng.</p>' +
             '<div style="display:flex;gap:24px;justify-content:center;margin-top:20px;flex-wrap:wrap;animation:hdsdFadeUp .8s ease .8s both">' +
                 '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#10b981;font-size:16px">✅</span> Miễn phí 100%</div>' +
                 '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#fad24c;font-size:16px">⭐</span> Hoa hồng 10%</div>' +
