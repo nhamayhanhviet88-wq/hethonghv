@@ -505,6 +505,41 @@
 .hdsd-support-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.85); }
 .hdsd-support-val { font-size: 12px; color: #fad24c; margin-top: 4px; font-weight: 500; }
 
+/* ========== SPARKLE CTA BUTTON ========== */
+.hdsd-btn-sparkle {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 32px; border-radius: 50px; font-size: 14px; font-weight: 700;
+    text-decoration: none; cursor: pointer; border: none;
+    color: #1a1a2e;
+    background: linear-gradient(135deg, #fad24c 0%, #f5a623 30%, #fad24c 50%, #f5a623 70%, #fad24c 100%);
+    background-size: 300% 300%;
+    animation: hdsdSparkleShift 3s ease infinite;
+    box-shadow: 0 4px 20px rgba(245,166,35,.35), 0 0 40px rgba(250,210,76,.15);
+    position: relative; overflow: hidden;
+    transition: transform .25s ease, box-shadow .25s ease;
+    letter-spacing: 0.5px;
+}
+.hdsd-btn-sparkle::before {
+    content: ''; position: absolute; top: -50%; left: -60%; width: 40%; height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+    transform: skewX(-20deg);
+    animation: hdsdSparkleGlide 2.5s ease-in-out infinite;
+}
+.hdsd-btn-sparkle:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 8px 35px rgba(245,166,35,.5), 0 0 60px rgba(250,210,76,.25);
+}
+.hdsd-btn-sparkle:active { transform: translateY(0) scale(.98); }
+@keyframes hdsdSparkleShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes hdsdSparkleGlide {
+    0% { left: -60%; }
+    50% { left: 120%; }
+    100% { left: 120%; }
+}
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1023px) {
     .hdsd-toc { display: none; }
