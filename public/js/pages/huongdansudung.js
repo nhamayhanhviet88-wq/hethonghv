@@ -246,6 +246,10 @@ function _hdsdStepsHTML() {
                         '</div>' +
                         '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khi Affiliate trong hệ thống giới thiệu khách chốt đơn → họ được 10%, anh/chị tự động hưởng thêm 5%. Toàn bộ tiến độ hiển thị real-time trên hệ thống.</div>' +
                         '<p style="margin-top:16px"><strong>🤝 3.2. Theo Dõi Tư Vấn Affiliate</strong> — Xem ngay: Affiliate đã có tài khoản chưa? Đang tư vấn giai đoạn nào? Có doanh số chưa?</p>' +
+                        '<div style="margin-top:14px;text-align:center">' +
+                            '<img src="/images/huongdan-theodoituvan.png" alt="Minh họa trang Theo Dõi Tư Vấn Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Theo Dõi Tư Vấn Affiliate" trên hệ thống</p>' +
+                        '</div>' +
                         '<p style="margin-top:12px"><strong>📊 3.3. Quản Lý Hệ Thống Affiliate</strong> — Theo dõi toàn bộ: số Affiliate trong hệ thống, KH giới thiệu, doanh số, đơn chốt.</p>' +
                         '<div class="hdsd-subcards" style="grid-template-columns:repeat(3,1fr);margin-top:16px">' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🔔</div><div class="hdsd-subcard-title">Thông báo tự động</div>Hệ thống gửi thông báo khi có đơn mới, khách mới, hoặc hoa hồng được ghi nhận.</div>' +
