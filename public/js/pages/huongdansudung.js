@@ -358,8 +358,8 @@ function _hdsdCtaHTML() {
             '<blockquote class="hdsd-quote-final hdsd-animate">"Điều quý giá nhất tại HV không phải 10% hay 5% hoa hồng — mà là quyền lợi <strong>NHẬN HOA HỒNG TRỌN ĐỜI</strong> từ mọi lần khách quay lại. Đây chính là tài sản dài hạn mà anh/chị xây dựng cho chính mình."</blockquote>' +
             '<p class="hdsd-cta-closing hdsd-animate">Hãy bắt đầu ngay hôm nay — Đồng Phục HV luôn đồng hành! 🚀</p>' +
             '<div class="hdsd-cta-actions hdsd-animate">' +
-                '<a class="hdsd-btn-gold" href="#" onclick="event.preventDefault();if(typeof handleRoute===\'function\'){window.location.hash=\'chuyen-so\';handleRoute();}">🚀 Chuyển Số Ngay</a>' +
-                '<a class="hdsd-btn-outline" href="#" onclick="event.preventDefault();if(typeof handleRoute===\'function\'){window.location.hash=\'bao-cao-hoa-hong-hv\';handleRoute();}">📊 Xem Báo Cáo</a>' +
+                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
+                '<a class="hdsd-btn-outline" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';">📊 Xem Báo Cáo</a>' +
             '</div>' +
             '<div class="hdsd-support-grid hdsd-animate" style="margin-top:40px">' +
                 '<div class="hdsd-support-item"><div class="hdsd-support-icon">📞</div><div class="hdsd-support-name">Hotline hỗ trợ</div><div class="hdsd-support-val">Liên hệ nhân viên phụ trách</div></div>' +
