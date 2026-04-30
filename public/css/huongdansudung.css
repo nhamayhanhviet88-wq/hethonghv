@@ -228,7 +228,7 @@
 .hdsd-hero-title {
     font-family: var(--hdsd-serif); font-weight: 700;
     font-size: clamp(30px, 5vw, 52px); color: #fff;
-    margin-top: 24px; line-height: 1.4;
+    margin-top: 24px; line-height: 2;
     animation: hdsdFadeUp .8s ease .3s both;
 }
 .hdsd-hero-subtitle {
