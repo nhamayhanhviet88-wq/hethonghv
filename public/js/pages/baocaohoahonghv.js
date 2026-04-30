@@ -94,30 +94,30 @@ function _hvRenderCards() {
 
         <!-- ROW 1: 4 Stat Cards -->
         <div class="hv-stats-row">
-            <div class="hv-stat hv-stat-primary ${isA('commission')?'hv-stat-selected':''}" onclick="_hvCardClick('commission')">
+            <div class="hv-stat hv-stat-purple ${isA('commission')?'hv-gold':''}" onclick="_hvCardClick('commission')">
                 <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap hv-stat-icon-gold"><span>💰</span></div>
-                <div class="hv-stat-value-primary">${_hvMoney(totalComm)}</div>
-                <div class="hv-stat-label-primary">Tổng Hoa Hồng</div>
-                <div class="hv-stat-sub-primary">TT ${directRate}% · GT ${childRate}%</div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>💰</span></div>
+                <div class="hv-stat-val-lg">${_hvMoney(totalComm)}</div>
+                <div class="hv-stat-lbl-lg">Tổng Hoa Hồng</div>
+                <div class="hv-stat-sub">TT ${directRate}% · GT ${childRate}%</div>
             </div>
-            <div class="hv-stat ${isA('orders')?'hv-stat-selected':''}" onclick="_hvCardClick('orders')">
+            <div class="hv-stat hv-stat-blue ${isA('orders')?'hv-gold':''}" onclick="_hvCardClick('orders')">
                 <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);"><span>📦</span></div>
-                <div class="hv-stat-value ${isA('orders')?'hv-val-active':''}">${totalOrders}</div>
-                <div class="hv-stat-label ${isA('orders')?'hv-lbl-active':''}">${isA('orders')?'▶ ':''}Tổng Đơn Hàng</div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>📦</span></div>
+                <div class="hv-stat-val-lg">${totalOrders}</div>
+                <div class="hv-stat-lbl-lg">Tổng Đơn Hàng</div>
             </div>
-            <div class="hv-stat ${isA('customers')?'hv-stat-selected':''}" onclick="_hvCardClick('customers')">
+            <div class="hv-stat hv-stat-emerald ${isA('customers')?'hv-gold':''}" onclick="_hvCardClick('customers')">
                 <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);"><span>👥</span></div>
-                <div class="hv-stat-value ${isA('customers')?'hv-val-active':''}">${totalCust}</div>
-                <div class="hv-stat-label ${isA('customers')?'hv-lbl-active':''}">${isA('customers')?'▶ ':''}Tổng Khách Hàng</div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>👥</span></div>
+                <div class="hv-stat-val-lg">${totalCust}</div>
+                <div class="hv-stat-lbl-lg">Tổng Khách Hàng</div>
             </div>
-            <div class="hv-stat ${isA('affiliates')?'hv-stat-selected':''}" onclick="_hvCardClick('affiliates')">
+            <div class="hv-stat hv-stat-violet ${isA('affiliates')?'hv-gold':''}" onclick="_hvCardClick('affiliates')">
                 <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);"><span>🤝</span></div>
-                <div class="hv-stat-value ${isA('affiliates')?'hv-val-active':''}">${totalAff}</div>
-                <div class="hv-stat-label ${isA('affiliates')?'hv-lbl-active':''}">${isA('affiliates')?'▶ ':''}Tổng Affiliate</div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>🤝</span></div>
+                <div class="hv-stat-val-lg">${totalAff}</div>
+                <div class="hv-stat-lbl-lg">Tổng Affiliate</div>
             </div>
         </div>
 
@@ -333,56 +333,50 @@ async function renderBaoCaoHoaHongHVPage(container) {
             /* ===== SHIMMER ANIMATION ===== */
             .hv-shimmer {
                 position:absolute; top:0; left:-100%; width:100%; height:100%;
-                background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+                background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
                 animation:hvShimmer 3s ease-in-out infinite;
                 pointer-events:none; z-index:1;
             }
-            .hv-stat-primary .hv-shimmer {
-                background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
-            }
             @keyframes hvShimmer { 0%{left:-100%} 50%{left:100%} 100%{left:100%} }
+
+            /* Gold shimmer for active cards */
+            .hv-gold .hv-shimmer {
+                background:linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.35) 40%, rgba(255,255,255,0.5) 50%, rgba(255,215,0,0.35) 60%, transparent 100%) !important;
+                animation:hvGoldShimmer 2s ease-in-out infinite !important;
+            }
+            @keyframes hvGoldShimmer { 0%{left:-100%} 100%{left:100%} }
 
             /* ===== STAT CARDS ROW ===== */
             .hv-stats-row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
             .hv-stat {
-                background:white; border-radius:16px; padding:20px 16px; cursor:pointer;
-                border:2px solid #f1f5f9; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
-                box-shadow:0 2px 8px rgba(0,0,0,0.04); position:relative; overflow:hidden;
+                border-radius:16px; padding:20px 16px; cursor:pointer;
+                border:2px solid transparent; transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
+                box-shadow:0 2px 10px rgba(0,0,0,0.08); position:relative; overflow:hidden;
             }
-            .hv-stat:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.1); }
+            .hv-stat:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,0.12); }
 
-            /* White card selected → purple gradient */
-            .hv-stat-selected:not(.hv-stat-primary) {
-                background:linear-gradient(135deg,#ede9fe 0%,#e0d4ff 100%) !important;
-                border-color:#6c5ce7 !important;
-                box-shadow:0 4px 20px rgba(108,92,231,0.25) !important;
-            }
-            .hv-val-active { color:#6c5ce7 !important; }
-            .hv-lbl-active { color:#6c5ce7 !important; font-weight:700 !important; }
+            /* Each card unique color */
+            .hv-stat-purple { background:linear-gradient(135deg,#6c5ce7 0%,#a855f7 100%); }
+            .hv-stat-blue { background:linear-gradient(135deg,#3b82f6 0%,#06b6d4 100%); }
+            .hv-stat-emerald { background:linear-gradient(135deg,#10b981 0%,#34d399 100%); }
+            .hv-stat-violet { background:linear-gradient(135deg,#8b5cf6 0%,#ec4899 100%); }
 
-            /* Primary card (purple) */
-            .hv-stat-primary {
-                background:linear-gradient(135deg,#6c5ce7 0%,#a855f7 100%) !important;
-                border-color:transparent !important;
-                box-shadow:0 4px 20px rgba(108,92,231,0.3);
+            /* ★ GOLD ACTIVE STATE ★ */
+            .hv-gold {
+                background:linear-gradient(135deg,#b8860b 0%,#daa520 25%,#ffd700 50%,#daa520 75%,#b8860b 100%) !important;
+                border-color:#fff3 !important;
+                box-shadow:0 0 0 2px rgba(255,215,0,0.4), 0 4px 24px rgba(218,165,32,0.4) !important;
             }
-            .hv-stat-primary:hover { box-shadow:0 8px 30px rgba(108,92,231,0.4); }
-            .hv-stat-primary.hv-stat-selected {
-                border-color:#fbbf24 !important;
-                box-shadow:0 0 0 2px #fbbf24, 0 4px 24px rgba(250,204,21,0.35) !important;
-            }
+            .hv-gold:hover { box-shadow:0 0 0 2px rgba(255,215,0,0.5), 0 8px 32px rgba(218,165,32,0.5) !important; }
 
             .hv-stat-icon-wrap {
                 width:48px; height:48px; border-radius:14px; display:flex;
                 align-items:center; justify-content:center; font-size:22px; margin-bottom:14px;
                 position:relative; z-index:2;
             }
-            .hv-stat-icon-gold { background:rgba(255,255,255,0.2); }
-            .hv-stat-value { font-size:28px; font-weight:900; color:#2d3436; line-height:1; margin-bottom:6px; position:relative; z-index:2; transition:color 0.3s; }
-            .hv-stat-label { font-size:12px; color:#636e72; font-weight:500; position:relative; z-index:2; transition:all 0.3s; }
-            .hv-stat-value-primary { font-size:22px; font-weight:900; color:white; line-height:1.1; margin-bottom:6px; word-break:break-all; position:relative; z-index:2; }
-            .hv-stat-label-primary { font-size:12px; color:rgba(255,255,255,0.8); font-weight:500; position:relative; z-index:2; }
-            .hv-stat-sub-primary { font-size:10px; color:rgba(255,255,255,0.5); margin-top:4px; font-weight:600; position:relative; z-index:2; }
+            .hv-stat-val-lg { font-size:24px; font-weight:900; color:white; line-height:1.1; margin-bottom:6px; word-break:break-all; position:relative; z-index:2; text-shadow:0 1px 4px rgba(0,0,0,0.15); }
+            .hv-stat-lbl-lg { font-size:12px; color:rgba(255,255,255,0.85); font-weight:600; position:relative; z-index:2; }
+            .hv-stat-sub { font-size:10px; color:rgba(255,255,255,0.55); margin-top:4px; font-weight:600; position:relative; z-index:2; }
 
             /* ===== KPI ROW ===== */
             .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
@@ -401,8 +395,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 padding:6px 10px; border-radius:8px; cursor:pointer; transition:all 0.2s;
             }
             .hv-kpi-item:hover { background:#f8f9fa; }
-            .hv-kpi-item-active { background:#6c5ce7; color:white !important; font-weight:700; }
-            .hv-kpi-item-active .hv-kpi-dot { box-shadow:0 0 6px currentColor; }
+            .hv-kpi-item-active { background:linear-gradient(135deg,#b8860b,#daa520); color:white !important; font-weight:700; }
+            .hv-kpi-item-active .hv-kpi-dot { box-shadow:0 0 6px rgba(255,215,0,0.8); }
             .hv-kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 
             /* ===== RESPONSIVE ===== */
@@ -411,7 +405,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 .hv-kpi-row { grid-template-columns:1fr; }
                 .hv-welcome { flex-direction:column; align-items:flex-start; gap:4px; }
                 .hv-welcome-text { font-size:16px; }
-                .hv-stat-value-primary { font-size:18px; }
+                .hv-stat-val-lg { font-size:18px; }
             }
             @media (max-width:480px) {
                 .hv-stats-row { grid-template-columns:1fr; }
