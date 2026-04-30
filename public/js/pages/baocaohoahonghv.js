@@ -122,21 +122,21 @@ function _hvRenderCards() {
             </div>
         </div>
 
-        <!-- ROW 2: 3 KPI Panels -->
+        <!-- ROW 2: 2 Action Cards + 1 Finance Panel -->
         <div class="hv-kpi-row">
-            <div class="hv-kpi hv-kpi-click ${isA('afftk')?'hv-kpi-active':''}" onclick="_hvCardClick('afftk')">
-                <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">🔑 Có Tài Khoản Affiliate</span>
-                </div>
-                <div class="hv-kpi-val" style="color:#f59e0b;">${affWithTK}</div>
+            <div class="hv-stat hv-stat-amber ${isA('afftk')?'hv-gold':''}" onclick="_hvCardClick('afftk')">
+                <div class="hv-shimmer"></div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>🔑</span></div>
+                <div class="hv-stat-val-lg">${affWithTK}</div>
+                <div class="hv-stat-lbl-lg">Có Tài Khoản Affiliate</div>
             </div>
-            <div class="hv-kpi hv-kpi-click ${isA('cancelled')?'hv-kpi-active':''}" onclick="_hvCardClick('cancelled')">
-                <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">❌ Hủy Khách</span>
-                </div>
-                <div class="hv-kpi-val" style="color:#ef4444;">${cancelledCust}</div>
+            <div class="hv-stat hv-stat-red ${isA('cancelled')?'hv-gold':''}" onclick="_hvCardClick('cancelled')">
+                <div class="hv-shimmer"></div>
+                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>❌</span></div>
+                <div class="hv-stat-val-lg">${cancelledCust}</div>
+                <div class="hv-stat-lbl-lg">Hủy Khách</div>
             </div>
-            <div class="hv-kpi">
+            <div class="hv-kpi hv-kpi-finance">
                 <div class="hv-kpi-top">
                     <span class="hv-kpi-title">💰 Số Tiền Nhận</span>
                 </div>
@@ -370,6 +370,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
             .hv-stat-blue { background:linear-gradient(135deg,#3b82f6 0%,#06b6d4 100%); }
             .hv-stat-emerald { background:linear-gradient(135deg,#10b981 0%,#34d399 100%); }
             .hv-stat-violet { background:linear-gradient(135deg,#8b5cf6 0%,#ec4899 100%); }
+            .hv-stat-amber { background:linear-gradient(135deg,#f59e0b 0%,#f97316 100%); }
+            .hv-stat-red { background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%); }
 
             /* ★ GOLD ACTIVE STATE ★ */
             .hv-gold {
@@ -388,33 +390,20 @@ async function renderBaoCaoHoaHongHVPage(container) {
             .hv-stat-lbl-lg { font-size:12px; color:rgba(255,255,255,0.85); font-weight:600; position:relative; z-index:2; }
             .hv-stat-sub { font-size:10px; color:rgba(255,255,255,0.55); margin-top:4px; font-weight:600; position:relative; z-index:2; }
 
-            /* ===== KPI ROW ===== */
-            .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
+            /* ===== KPI FINANCE PANEL ===== */
+            .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; margin-bottom:16px; }
             .hv-kpi {
-                background:white; border-radius:14px; padding:18px; position:relative; overflow:hidden;
-                border:1.5px solid #f1f5f9; transition:all 0.25s ease;
-                box-shadow:0 1px 4px rgba(0,0,0,0.03);
+                background:white; border-radius:16px; padding:20px; position:relative; overflow:hidden;
+                border:2px solid #e2e8f0; transition:all 0.25s ease;
+                box-shadow:0 2px 8px rgba(0,0,0,0.04);
             }
             .hv-kpi:hover { box-shadow:0 4px 16px rgba(0,0,0,0.06); }
-            .hv-kpi-top { margin-bottom:8px; }
-            .hv-kpi-title { font-size:12px; color:#636e72; font-weight:600; }
-            .hv-kpi-val { font-size:20px; font-weight:900; line-height:1.2; }
-            .hv-kpi-detail { display:flex; flex-direction:column; gap:6px; }
-            .hv-kpi-item {
-                display:flex; align-items:center; gap:6px; font-size:13px; color:#2d3436;
-                padding:6px 10px; border-radius:8px; cursor:pointer; transition:all 0.2s;
-            }
-            .hv-kpi-item:hover { background:#f8f9fa; }
-            .hv-kpi-item-active { background:linear-gradient(135deg,#b8860b,#daa520); color:white !important; font-weight:700; }
-            .hv-kpi-item-active .hv-kpi-dot { box-shadow:0 0 6px rgba(255,215,0,0.8); }
+            .hv-kpi-top { margin-bottom:10px; }
+            .hv-kpi-title { font-size:13px; color:#636e72; font-weight:700; }
+            .hv-kpi-detail { display:flex; flex-direction:column; gap:8px; }
             .hv-kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-            .hv-kpi-click { cursor:pointer; }
-            .hv-kpi-click:hover { border-color:#c4b5fd; box-shadow:0 4px 16px rgba(108,92,231,0.12); }
-            .hv-kpi-active { background:linear-gradient(135deg,#b8860b,#daa520) !important; border-color:#ffd700 !important; box-shadow:0 4px 16px rgba(218,165,32,0.3) !important; }
-            .hv-kpi-active .hv-kpi-title { color:rgba(255,255,255,0.85) !important; }
-            .hv-kpi-active .hv-kpi-val { color:white !important; text-shadow:0 1px 4px rgba(0,0,0,0.15); }
             .hv-kpi-money-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; }
-            .hv-kpi-money-label { color:#636e72; font-weight:500; min-width:100px; }
+            .hv-kpi-money-label { color:#636e72; font-weight:500; min-width:110px; }
             .hv-kpi-money-val { font-weight:800; font-size:14px; }
 
             /* ===== RESPONSIVE ===== */
