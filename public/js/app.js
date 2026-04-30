@@ -930,9 +930,9 @@ async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
-    // Block tkaffiliate from dashboard — redirect to tu-van-khach-aff
+    // Block tkaffiliate from dashboard — redirect to bao-cao-hoa-hong-hv
     if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
-        window.location.href = '/tu-van-khach-aff';
+        window.location.href = '/bao-cao-hoa-hong-hv';
         return;
     }
 

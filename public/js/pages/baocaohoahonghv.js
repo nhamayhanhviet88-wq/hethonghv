@@ -1,5 +1,5 @@
 // ========== BÁO CÁO HOA HỒNG HV — Combined Dashboard ==========
-let _hvData = null, _hvActiveCard = 'all', _hvPage = 1;
+let _hvData = null, _hvActiveCard = 'commission', _hvPage = 1;
 const _hvPageSize = 50;
 
 function _hvMoney(n) { return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0); }
