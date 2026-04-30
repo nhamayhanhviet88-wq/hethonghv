@@ -49,6 +49,12 @@ function _hdsdHeroHTML() {
             '<h1 class="hdsd-hero-title">Hướng Dẫn Sử Dụng Hệ Thống</h1>' +
             '<p class="hdsd-hero-subtitle">Kiếm Thu Nhập Bền Vững – Minh Bạch – Không Cần Vốn</p>' +
             '<p class="hdsd-hero-desc">Tài liệu hướng dẫn chi tiết giúp Quý đối tác sử dụng hệ thống Đồng Phục HV một cách hiệu quả nhất, từ giới thiệu khách hàng đến nhận hoa hồng.</p>' +
+            '<div style="display:flex;gap:24px;justify-content:center;margin-top:20px;flex-wrap:wrap;animation:hdsdFadeUp .8s ease .8s both">' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#10b981;font-size:16px">✅</span> Miễn phí 100%</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#fad24c;font-size:16px">⭐</span> Hoa hồng 10%</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#3b82f6;font-size:16px">🔒</span> Minh bạch tuyệt đối</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#f59e0b;font-size:16px">♻️</span> Thu nhập trọn đời</div>' +
+            '</div>' +
             '<div class="hdsd-hero-actions">' +
                 '<a class="hdsd-btn-gold" href="#hdsd-steps" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\')">🚀 Bắt Đầu Ngay</a>' +
                 '<a class="hdsd-btn-outline" href="#hdsd-welcome" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-welcome\')">📖 Xem Hướng Dẫn</a>' +
@@ -70,6 +76,15 @@ function _hdsdWelcomeHTML() {
                 '<div class="hdsd-role-card hdsd-animate hdsd-animate-delay-2"><div class="hdsd-role-icon">🌟</div><div class="hdsd-role-title">Đại sứ thương hiệu</div><div class="hdsd-role-desc">Đại diện cho uy tín và chất lượng HV</div></div>' +
                 '<div class="hdsd-role-card hdsd-animate hdsd-animate-delay-3"><div class="hdsd-role-icon">💼</div><div class="hdsd-role-title">Đối tác kinh doanh đẳng cấp</div><div class="hdsd-role-desc">Chia sẻ lợi nhuận công bằng, bền vững</div></div>' +
             '</div>' +
+            '<div class="hdsd-stats-grid hdsd-animate">' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">8+</div><div class="hdsd-stat-label">Năm kinh nghiệm</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">500+</div><div class="hdsd-stat-label">Đối tác tin cậy</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">5000+</div><div class="hdsd-stat-label">Đơn hàng hoàn thành</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">100%</div><div class="hdsd-stat-label">Minh bạch hoa hồng</div></div>' +
+            '</div>' +
+            '<p class="hdsd-welcome-text hdsd-animate">Chúng tôi tin rằng thành công bền vững đến từ sự <strong>hợp tác chân thành</strong>. Mỗi đối tác khi đồng hành cùng HV không chỉ nhận được hoa hồng — mà còn được <strong>hỗ trợ toàn diện</strong> về tư liệu marketing, hình ảnh sản phẩm chuyên nghiệp, và đội ngũ tư vấn sẵn sàng chăm sóc khách hàng thay anh/chị.</p>' +
+            '<p class="hdsd-welcome-text hdsd-animate">Hệ thống của HV được xây dựng trên nền tảng <strong>công nghệ hiện đại</strong>, cho phép anh/chị theo dõi mọi diễn biến đơn hàng theo thời gian thực — từ lúc giới thiệu khách, qua quá trình tư vấn, đến khi chốt đơn và nhận hoa hồng. <strong>Không che giấu, không trung gian.</strong></p>' +
+            '<div class="hdsd-tip hdsd-animate">💡 <strong>Bạn biết không?</strong> Một đối tác trung bình của HV kiếm được <strong>3-5 triệu/tháng</strong> chỉ từ việc giới thiệu 2-3 khách hàng. Những đối tác tích cực có thể đạt <strong>10-20 triệu/tháng</strong> nhờ xây dựng hệ thống Affiliate con.</div>' +
             '<div class="hdsd-highlight-navy hdsd-animate">' +
                 '<div class="hdsd-commitment-title">🙏 Cam kết từ Đồng Phục HV</div>' +
                 '<div class="hdsd-commitment-list">' +
@@ -104,6 +119,15 @@ function _hdsdCommissionHTML() {
                 '<div class="hdsd-comm-rate" data-countup="5">5<span style="font-size:.5em">%</span></div>' +
                 '<div class="hdsd-comm-desc">Hưởng từ mọi đơn của Affiliate</div>' +
             '</div>' +
+        '</div>' +
+        '<div class="hdsd-example-box hdsd-animate">' +
+            '<div class="hdsd-example-title">📊 Ví Dụ Tính Hoa Hồng Cụ Thể</div>' +
+            '<p style="font-size:13px;color:#92400e;margin-bottom:16px">Giả sử anh/chị giới thiệu 1 công ty đặt đồng phục <strong>50.000.000đ</strong>, đồng thời giới thiệu 1 Affiliate con — người này cũng mang về 1 đơn <strong>30.000.000đ</strong>:</p>' +
+            '<div class="hdsd-example-row"><span class="hdsd-example-label">🎯 Đơn trực tiếp: 50.000.000đ × 10%</span><span class="hdsd-example-val">= 5.000.000đ</span></div>' +
+            '<div class="hdsd-example-row"><span class="hdsd-example-label">🤝 Đơn gián tiếp (Affiliate con): 30.000.000đ × 5%</span><span class="hdsd-example-val">= 1.500.000đ</span></div>' +
+            '<div class="hdsd-example-row"><span class="hdsd-example-label">🔄 Khách cũ quay lại mua tiếp: 20.000.000đ × 10%</span><span class="hdsd-example-val">= 2.000.000đ</span></div>' +
+            '<div class="hdsd-example-total">💰 Tổng thu nhập: 8.500.000đ</div>' +
+            '<p style="font-size:12px;color:#b8901c;margin-top:12px;text-align:center;font-style:italic">Chỉ từ 2 mối quan hệ — không cần vốn, không giới hạn số lần khách quay lại!</p>' +
         '</div>' +
         '<div class="hdsd-comm-banner hdsd-animate">' +
             '💎 <strong>ĐẶC QUYỀN VƯỢT TRỘI:</strong> Khách hàng quay lại mua tiếp — anh/chị <strong>VẪN nhận hoa hồng</strong> như lần đầu. Không giới hạn số lần!' +
@@ -147,6 +171,13 @@ function _hdsdStepsHTML() {
                         '</div>' +
                         '<div class="hdsd-tip">💡 <strong>Mẹo:</strong> Mỗi công ty 50 nhân viên có thể mang về vài triệu — vài chục triệu đồng hoa hồng.</div>' +
                         '<div class="hdsd-highlight-fire">🔥 <strong>Sức mạnh của video:</strong> Viral hàng triệu view chỉ sau 1 đêm — khách tự tìm đến anh/chị!</div>' +
+                        '<p style="margin-top:16px;font-weight:700;color:var(--hdsd-navy-800)">📝 Gợi ý nội dung đăng bài:</p>' +
+                        '<div class="hdsd-content-ideas">' +
+                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">📸</div><strong>Ảnh thực tế:</strong> Chụp sản phẩm đồng phục đã giao cho khách — tạo niềm tin bằng hình ảnh thật.</div>' +
+                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">🎬</div><strong>Video review:</strong> Quay clip ngắn 15-30s unbox đồng phục, chia sẻ cảm nhận — dễ viral trên TikTok/Reels.</div>' +
+                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">💬</div><strong>Chia sẻ câu chuyện:</strong> Viết bài về hành trình hợp tác cùng HV — thu hút cộng đồng kinh doanh.</div>' +
+                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">📊</div><strong>Báo kết quả:</strong> Chia sẻ thu nhập thực tế từ hoa hồng — minh chứng thuyết phục nhất.</div>' +
+                        '</div>' +
                         '<div class="hdsd-step-banner">📌 Sau khi có khách: Chỉ cần <strong>xin SĐT</strong> gửi về HV. Đội ngũ HV lo <strong>TẤT CẢ</strong> — anh/chị chỉ cần GIỚI THIỆU! ⚡</div>' +
                     '</div>' +
                 '</div>' +
@@ -182,6 +213,11 @@ function _hdsdStepsHTML() {
                         '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khách hàng từ Affiliate của anh/chị cũng hiển thị đầy đủ tiến độ — tự động hưởng 5% khi đơn hoàn thành.</div>' +
                         '<p style="margin-top:16px"><strong>🤝 3.2. Theo Dõi Tư Vấn Affiliate</strong> — Xem ngay: Affiliate đã có tài khoản chưa? Đang tư vấn giai đoạn nào? Có doanh số chưa?</p>' +
                         '<p style="margin-top:12px"><strong>📊 3.3. Quản Lý Hệ Thống Affiliate</strong> — Theo dõi toàn bộ: số Affiliate con, KH giới thiệu, doanh số, đơn chốt.</p>' +
+                        '<div class="hdsd-subcards" style="grid-template-columns:repeat(3,1fr);margin-top:16px">' +
+                            '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🔔</div><div class="hdsd-subcard-title">Thông báo tự động</div>Hệ thống gửi thông báo khi có đơn mới, khách mới, hoặc hoa hồng được ghi nhận.</div>' +
+                            '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📱</div><div class="hdsd-subcard-title">Truy cập mọi nơi</div>Giao diện tối ưu cho điện thoại — quản lý mọi lúc mọi nơi.</div>' +
+                            '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📈</div><div class="hdsd-subcard-title">Biểu đồ trực quan</div>Nhìn nhanh doanh số, hoa hồng, đơn hàng theo thời gian.</div>' +
+                        '</div>' +
                         '<div class="hdsd-highlight-gold">💡 <strong>TƯ DUY LÀM GIÀU:</strong> Xây dựng HỆ THỐNG AFFILIATE CON — mỗi đối tác tự kiếm tiền cho anh/chị. Thu nhập thụ động đúng nghĩa!</div>' +
                     '</div>' +
                 '</div>' +
@@ -200,6 +236,10 @@ function _hdsdStepsHTML() {
                             '<li style="margin-bottom:6px">✅ Bấm <strong>"Gửi Yêu Cầu"</strong></li>' +
                         '</ul>' +
                         '<div class="hdsd-step-banner">⚡ Chủ động rút <strong>bất cứ lúc nào</strong> — không cần chờ cuối tháng. HV chuyển khoản và gửi bill xác nhận ngay.</div>' +
+                        '<div class="hdsd-subcards" style="grid-template-columns:repeat(2,1fr);margin-top:16px">' +
+                            '<div class="hdsd-subcard"><div class="hdsd-subcard-title">❓ Rút tối thiểu bao nhiêu?</div>Tối thiểu <strong>100.000đ</strong> mỗi lần rút. Không giới hạn số lần.</div>' +
+                            '<div class="hdsd-subcard"><div class="hdsd-subcard-title">❓ Nhận tiền trong bao lâu?</div>HV xử lý trong <strong>24-48h</strong> làm việc. Bill chuyển khoản được gửi ngay.</div>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -216,6 +256,8 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">👥</div><div class="hdsd-subcard-title">KH & Affiliate</div>Phân loại chi tiết</div>' +
                         '</div>' +
                         '<div class="hdsd-tip">🔍 Lọc theo: Hôm nay / Hôm qua / 7 ngày / Tháng / Tùy chọn ngày</div>' +
+                        '<p style="margin-top:16px;font-size:14px;color:var(--hdsd-slate-600);line-height:1.7">Ngoài ra, hệ thống còn hiển thị <strong>trạng thái từng đơn hàng</strong> (đang tư vấn, báo giá, chốt đơn, sản xuất, giao hàng, hoàn thành), giúp anh/chị nắm rõ tiến độ và ước tính thu nhập. Mọi thông tin đều cập nhật <strong>real-time</strong> — chỉ cần mở trang là thấy ngay.</p>' +
+                        '<div class="hdsd-highlight-gold">🎯 <strong>Lưu ý quan trọng:</strong> Hệ thống tự động tính hoa hồng khi đơn hàng được ghi nhận doanh thu. Anh/chị không cần liên hệ xác nhận — mọi thứ đều minh bạch và tự động!</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -241,9 +283,12 @@ function _hdsdFeaturesHTML() {
                     '<tr><td><strong>✅ Thu nhập trọn đời</strong></td><td>Khách quay lại — hoa hồng nhận tiếp, không giới hạn</td></tr>' +
                     '<tr><td><strong>✅ Xây hệ thống riêng</strong></td><td>Affiliate con tự sinh lợi — thu nhập thụ động</td></tr>' +
                     '<tr><td><strong>✅ Rút tiền linh hoạt</strong></td><td>Có bill xác nhận, tối thiểu 100.000đ, bất cứ lúc nào</td></tr>' +
+                    '<tr><td><strong>✅ Hỗ trợ tận tâm</strong></td><td>Đội ngũ chăm sóc đối tác 24/7 — giải đáp mọi thắc mắc</td></tr>' +
+                    '<tr><td><strong>✅ Tư liệu marketing</strong></td><td>Cung cấp hình ảnh, video, nội dung sẵn sàng đăng bài</td></tr>' +
                 '</tbody>' +
             '</table>' +
         '</div>' +
+        '<div class="hdsd-highlight-gold hdsd-animate" style="max-width:800px;margin:24px auto 0">🏆 <strong>Đồng Phục HV — Đối tác được tin tưởng bởi hàng trăm doanh nghiệp, trường học và tổ chức trên toàn quốc.</strong> Khi anh/chị giới thiệu HV, anh/chị đang giới thiệu một thương hiệu có <strong>uy tín đã được chứng minh</strong>.</div>' +
     '</section>';
 }
 
@@ -261,6 +306,12 @@ function _hdsdCtaHTML() {
                 '<a class="hdsd-btn-gold" href="#" onclick="event.preventDefault();if(typeof handleRoute===\'function\'){window.location.hash=\'chuyen-so\';handleRoute();}">🚀 Chuyển Số Ngay</a>' +
                 '<a class="hdsd-btn-outline" href="#" onclick="event.preventDefault();if(typeof handleRoute===\'function\'){window.location.hash=\'bao-cao-hoa-hong-hv\';handleRoute();}">📊 Xem Báo Cáo</a>' +
             '</div>' +
+            '<div class="hdsd-support-grid hdsd-animate" style="margin-top:40px">' +
+                '<div class="hdsd-support-item"><div class="hdsd-support-icon">📞</div><div class="hdsd-support-name">Hotline hỗ trợ</div><div class="hdsd-support-val">Liên hệ nhân viên phụ trách</div></div>' +
+                '<div class="hdsd-support-item"><div class="hdsd-support-icon">💬</div><div class="hdsd-support-name">Zalo / Messenger</div><div class="hdsd-support-val">Chat trực tiếp 24/7</div></div>' +
+                '<div class="hdsd-support-item"><div class="hdsd-support-icon">🌐</div><div class="hdsd-support-name">Website</div><div class="hdsd-support-val">dongphuchv.com</div></div>' +
+            '</div>' +
+            '<p class="hdsd-animate" style="font-size:12px;color:rgba(255,255,255,.45);margin-top:24px;text-align:center">© 2026 Đồng Phục HV — Cổng Đối Tác Chiết Khấu. Mọi quyền được bảo lưu.</p>' +
         '</div>' +
     '</section>';
 }
