@@ -640,7 +640,10 @@ function renderSidebar() {
 
         html += '<div class="nav-parent-wrap">';
         html += '<div class="nav-parent-header" data-pidx="' + pidx + '">';
-        html += '<span class="nav-parent-text">' + parent.name + '</span>';
+        // ★ DOITAC PORTAL — đổi tên parent cho affiliate portal
+        var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
+        var displayParentName = (_isDoitacPortal && _doitacParentNames[parent.name]) ? _doitacParentNames[parent.name] : parent.name;
+        html += '<span class="nav-parent-text">' + displayParentName + '</span>';
         html += '<span class="nav-parent-chevron">' + parentChevron + '</span>';
         html += '</div>';
         html += '<div class="nav-parent-content" style="' + (parentCollapsed ? 'display:none;' : '') + '">';
