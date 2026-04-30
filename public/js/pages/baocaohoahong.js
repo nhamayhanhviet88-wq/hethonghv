@@ -430,13 +430,7 @@ function hhRenderTable(items) {
 
             return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td>${(() => {
-                    let _hhBadge = '';
-                    if ((window._hhAffLockedIds||[]).includes(item.id)) _hhBadge = '<span title="TK Affiliate bị khóa" style="cursor:pointer;" onclick="event.stopPropagation();_affOpenAffiliateDetail && _affOpenAffiliateDetail(' + (window._hhAffApprovedMap||{})[item.id] + ')">🔒</span> ';
-                    else if ((window._hhAffApprovedIds||[]).includes(item.id)) _hhBadge = '<span title="Có TK Affiliate — Click xem" style="cursor:pointer;" onclick="event.stopPropagation();_affOpenAffiliateDetail && _affOpenAffiliateDetail(' + (window._hhAffApprovedMap||{})[item.id] + ')">🔑</span> ';
-                    else if ((window._hhAffPendingIds||[]).includes(item.id)) _hhBadge = '<span title="TK Affiliate đang chờ duyệt" style="cursor:help;">⏳</span> ';
-                    return _hhBadge;
-                })()}<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒'; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑'; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳'; return ''; })()}${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
