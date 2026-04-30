@@ -296,7 +296,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
                     <div style="font-size:11px;color:#064e3b;margin-top:4px;">👥 Tổng Số Lượng Affiliate</div>
                 </div>
                 <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);padding:14px 10px;border-radius:12px;text-align:center;border:2px solid transparent;">
-                    <div style="font-size:24px;font-weight:800;color:#5b21b6;">${(window._hhAffApprovedIds||[]).length}</div>
+                    <div style="font-size:24px;font-weight:800;color:#5b21b6;">${(() => { const _ids = data.items.map(i => i.id); return (window._hhAffApprovedIds||[]).filter(id => _ids.includes(id)).length; })()}</div>
                     <div style="font-size:11px;color:#4c1d95;margin-top:4px;">🔑 Tổng Số Affiliate Có TK</div>
                 </div>
             </div>
