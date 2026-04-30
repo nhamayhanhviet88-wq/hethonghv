@@ -93,9 +93,9 @@ const MENU_CONFIG = [
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'tu-van-khach-aff', label: 'Theo Dõi Tư Vấn Khách', icon: '📋', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'theo-doi-tu-van-aff', label: 'Theo Dõi Tư Vấn Affiliate', icon: '🤝', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+    { id: 'huong-dan-su-dung', label: 'Lời Chào Mừng & Hướng Dẫn', icon: '📖', roles: ['tkaffiliate'], section: 'BÁO CÁO', href: '/huong-dan-su-dung', strictRoles: true },
     { id: 'bao-cao-hoa-hong-hv', label: 'Báo Cáo Hoa Hồng HV', icon: '📊', roles: ['tkaffiliate'], section: 'BÁO CÁO', href: '/bao-cao-hoa-hong-hv', strictRoles: true },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
-    { id: 'huong-dan-su-dung', label: 'Hướng Dẫn Sử Dụng', icon: '📖', roles: ['tkaffiliate'], section: 'BÁO CÁO', href: '/huong-dan-su-dung', strictRoles: true },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
@@ -632,7 +632,7 @@ function renderSidebar() {
     // ★ DOITAC PORTAL — đổi tên parent + section cho affiliate portal
     var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
     var _doitacSectionNames = { 'HỖ TRỢ NHÂN VIÊN HV': 'CHUYỂN SỐ & QUẢN LÝ KHÁCH', 'AFFILIATE': 'THEO DÕI KHÁCH & RÚT TIỀN' };
-    var _doitacItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate' };
+    var _doitacItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate', 'huong-dan-su-dung': 'Lời Chào Mừng & Hướng Dẫn' };
 
     // Render parent groups
     PARENT_SECTIONS.forEach(function(parent, pidx) {
@@ -938,10 +938,18 @@ async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
-    // Block tkaffiliate from dashboard — redirect to bao-cao-hoa-hong-hv
+    // Block tkaffiliate from dashboard — smart redirect: first 3 logins → guide, 4th+ → report
     if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
-        currentPage = 'bao-cao-hoa-hong-hv';
-        history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
+        var _hdsdCountKey = 'hdsd_login_count_' + currentUser.id;
+        var _hdsdCount = parseInt(localStorage.getItem(_hdsdCountKey) || '0');
+        if (_hdsdCount < 3) {
+            localStorage.setItem(_hdsdCountKey, (_hdsdCount + 1).toString());
+            currentPage = 'huong-dan-su-dung';
+            history.replaceState({ page: currentPage }, '', '/huong-dan-su-dung');
+        } else {
+            currentPage = 'bao-cao-hoa-hong-hv';
+            history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
+        }
     } else {
         currentPage = pathname;
     }
@@ -960,7 +968,7 @@ async function handleRoute() {
 
     // Update page title
     const menuItem = MENU_CONFIG.find(m => m.id === currentPage);
-    var _dtItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate' };
+    var _dtItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate', 'huong-dan-su-dung': 'Lời Chào Mừng & Hướng Dẫn' };
     var _dtPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
     document.getElementById('pageTitle').textContent = menuItem ? ((_dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
 
