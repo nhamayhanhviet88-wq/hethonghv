@@ -309,7 +309,7 @@ function _hdsdCtaHTML() {
             '<div class="hdsd-support-grid hdsd-animate" style="margin-top:40px">' +
                 '<div class="hdsd-support-item"><div class="hdsd-support-icon">📞</div><div class="hdsd-support-name">Hotline hỗ trợ</div><div class="hdsd-support-val">Liên hệ nhân viên phụ trách</div></div>' +
                 '<div class="hdsd-support-item"><div class="hdsd-support-icon">💬</div><div class="hdsd-support-name">Zalo / Messenger</div><div class="hdsd-support-val">Chat trực tiếp 24/7</div></div>' +
-                '<div class="hdsd-support-item"><div class="hdsd-support-icon">🌐</div><div class="hdsd-support-name">Website</div><div class="hdsd-support-val">dongphuchv.com</div></div>' +
+                '<div class="hdsd-support-item"><div class="hdsd-support-icon">🌐</div><div class="hdsd-support-name">Website</div><div class="hdsd-support-val">dongphuchv.vn</div></div>' +
             '</div>' +
             '<p class="hdsd-animate" style="font-size:12px;color:rgba(255,255,255,.45);margin-top:24px;text-align:center">© 2026 Đồng Phục HV — Cổng Đối Tác Chiết Khấu. Mọi quyền được bảo lưu.</p>' +
         '</div>' +

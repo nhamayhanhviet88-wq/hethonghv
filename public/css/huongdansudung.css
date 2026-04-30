@@ -5,7 +5,7 @@
 
 /* ========== CSS VARIABLES ========== */
 .hdsd-page {
-    --hdsd-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    --hdsd-serif: 'Montserrat', 'Be Vietnam Pro', system-ui, sans-serif;
     --hdsd-sans: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --hdsd-navy-50: #f0f4fa;
     --hdsd-navy-100: #e1e9f5;
