@@ -262,6 +262,15 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
         // Store data globally for filtering
         window._hhData = data;
 
+        // Fetch affiliate account statuses for badge display
+        try {
+            const affStatus = await apiCall('/api/affiliate-account/batch-status');
+            window._hhAffApprovedIds = affStatus.approvedCustomerIds || [];
+            window._hhAffLockedIds = affStatus.lockedCustomerIds || [];
+            window._hhAffPendingIds = affStatus.pendingCustomerIds || [];
+            window._hhAffApprovedMap = affStatus.approvedMap || {};
+        } catch(e) { window._hhAffApprovedIds = []; window._hhAffLockedIds = []; window._hhAffPendingIds = []; window._hhAffApprovedMap = {}; }
+
         // DEBUG: Show filter diagnostic
         console.log(`[HH] API URL: ${apiUrl}`);
         console.log(`[HH] crm_filter_applied: ${data.crm_filter_applied}, crm_types_found: ${JSON.stringify(data.crm_types_found)}, items: ${data.items.length}`);
@@ -379,7 +388,7 @@ function hhRenderTable(items) {
 
             return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onclick="hhShowMobileDetail(${globalIdx})">
                 <div style="flex:1;min-width:0;">
-                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${item.customer_name}</div>
+                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒 '; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑 '; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳ '; return ''; })()}${item.customer_name}</div>
                     <div style="font-size:11px;color:${item.is_direct ? '#059669' : '#7c3aed'};font-weight:600;margin-top:5px;letter-spacing:0.1px;">${refLabel}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fef2f2,#fee2e2)' : '#f8fafc'};padding:8px 12px;border-radius:10px;min-width:105px;border:1px solid ${hasRevenue ? '#fecaca' : '#e2e8f0'};">
@@ -421,7 +430,13 @@ function hhRenderTable(items) {
 
             return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
+                <td>${(() => {
+                    let _hhBadge = '';
+                    if ((window._hhAffLockedIds||[]).includes(item.id)) _hhBadge = '<span title="TK Affiliate bị khóa" style="cursor:pointer;" onclick="event.stopPropagation();_affOpenAffiliateDetail && _affOpenAffiliateDetail(' + (window._hhAffApprovedMap||{})[item.id] + ')">🔒</span> ';
+                    else if ((window._hhAffApprovedIds||[]).includes(item.id)) _hhBadge = '<span title="Có TK Affiliate — Click xem" style="cursor:pointer;" onclick="event.stopPropagation();_affOpenAffiliateDetail && _affOpenAffiliateDetail(' + (window._hhAffApprovedMap||{})[item.id] + ')">🔑</span> ';
+                    else if ((window._hhAffPendingIds||[]).includes(item.id)) _hhBadge = '<span title="TK Affiliate đang chờ duyệt" style="cursor:help;">⏳</span> ';
+                    return _hhBadge;
+                })()}<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
