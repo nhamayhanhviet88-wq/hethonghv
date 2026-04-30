@@ -256,8 +256,8 @@ function _hdsdStepsHTML() {
                         '</div>' +
                         '<p style="margin-top:12px"><strong>📊 3.3. Quản Lý Hệ Thống Affiliate</strong> — Theo dõi toàn bộ: số Affiliate trong hệ thống, KH giới thiệu, doanh số, đơn chốt.</p>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
-                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Báo Cáo Hoa Hồng HV" — quản lý toàn bộ hệ thống</p>' +
+                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Quản Lý Hệ Thống Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Quản Lý Hệ Thống Affiliate" trên hệ thống</p>' +
                         '</div>' +
                         '<div class="hdsd-subcards" style="grid-template-columns:repeat(3,1fr);margin-top:16px">' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🔔</div><div class="hdsd-subcard-title">Thông báo tự động</div>Hệ thống gửi thông báo khi có đơn mới, khách mới, hoặc hoa hồng được ghi nhận.</div>' +
@@ -306,7 +306,7 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">👥</div><div class="hdsd-subcard-title">KH & Affiliate</div>Phân loại chi tiết</div>' +
                         '</div>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-baocaohoahong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Báo Cáo Hoa Hồng HV" trên hệ thống</p>' +
                         '</div>' +
                         '<div class="hdsd-tip">🔍 Lọc theo: Hôm nay / Hôm qua / 7 ngày / Tháng / Tùy chọn ngày</div>' +
