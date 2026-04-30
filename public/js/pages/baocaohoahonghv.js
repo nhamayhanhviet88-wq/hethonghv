@@ -83,7 +83,7 @@ function _hvRenderCards() {
     const totalPending = window._hvBalanceData?.totalPending || 0;
     const balance = window._hvBalanceData?.balance || 0;
     const isA = (id) => _hvActiveCard === id;
-    const userName = (window.currentUser?.name || 'Đối Tác');
+    const userName = (window.currentUser?.full_name || window.currentUser?.name || 'Đối Tác');
 
     document.getElementById('hvCards').innerHTML = `
         <!-- Welcome -->
