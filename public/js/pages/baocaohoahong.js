@@ -295,9 +295,10 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
                     <div style="font-size:24px;font-weight:800;color:#065f46;">${data.items.length}</div>
                     <div style="font-size:11px;color:#064e3b;margin-top:4px;">👥 Tổng Số Lượng Affiliate</div>
                 </div>
-                <div style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);padding:14px 10px;border-radius:12px;text-align:center;border:2px solid transparent;">
+                <div onclick="hhShowAffAccountList()" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:transform 0.15s;border:2px solid transparent;" onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#8b5cf6'" onmouseout="this.style.transform='';this.style.borderColor='transparent'">
                     <div style="font-size:24px;font-weight:800;color:#5b21b6;">${(() => { const _ids = data.items.map(i => i.id); return (window._hhAffApprovedIds||[]).filter(id => _ids.includes(id)).length; })()}</div>
                     <div style="font-size:11px;color:#4c1d95;margin-top:4px;">🔑 Tổng Số Affiliate Có TK</div>
+                    <div style="font-size:9px;color:#5b21b6;opacity:0.6;margin-top:2px;">▶ Xem danh sách</div>
                 </div>
             </div>
         `;
@@ -755,3 +756,70 @@ function hhShowCustomerListPopup() {
     </div>`;
     document.body.appendChild(overlay);
 }
+
+// ========== AFFILIATE ACCOUNT LIST POPUP ==========
+let _hhAffListPage = 1;
+const _hhAffListSize = 25;
+
+function hhShowAffAccountList(page) {
+    if (page) _hhAffListPage = page;
+    else _hhAffListPage = 1;
+
+    const data = window._hhData;
+    if (!data) return;
+
+    const itemIds = data.items.map(i => i.id);
+    const approvedIds = (window._hhAffApprovedIds || []).filter(id => itemIds.includes(id));
+    const lockedIds = window._hhAffLockedIds || [];
+    const affItems = data.items.filter(i => approvedIds.includes(i.id));
+
+    const totalPages = Math.ceil(affItems.length / _hhAffListSize) || 1;
+    if (_hhAffListPage > totalPages) _hhAffListPage = totalPages;
+    const startIdx = (_hhAffListPage - 1) * _hhAffListSize;
+    const pageItems = affItems.slice(startIdx, startIdx + _hhAffListSize);
+
+    const rows = pageItems.map((item, i) => {
+        const idx = startIdx + i + 1;
+        const isLocked = lockedIds.includes(item.id);
+        const statusBadge = isLocked
+            ? '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#fef2f2;color:#dc2626;font-weight:600;border:1px solid #fecaca;">🔒 Đã Khóa</span>'
+            : '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#f0fdf4;color:#16a34a;font-weight:600;border:1px solid #bbf7d0;">✅ Hoạt Động</span>';
+        return `<tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:8px 10px;text-align:center;font-weight:600;color:#64748b;font-size:12px;">${idx}</td>
+            <td style="padding:8px 10px;"><span onclick="closeModal();hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-weight:700;color:#1e3a5f;text-decoration:underline;font-size:13px;">${item.customer_name}</span></td>
+            <td style="padding:8px 10px;font-size:12px;color:#475569;">${item.phone || '—'}</td>
+            <td style="padding:8px 10px;font-size:12px;">${item.referrer_name ? '<span style="color:#8b5cf6;font-weight:600;">👥 ' + item.referrer_name + '</span>' : '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>'}</td>
+            <td style="padding:8px 10px;text-align:center;">${statusBadge}</td>
+        </tr>`;
+    }).join('');
+
+    let pagination = '';
+    if (totalPages > 1) {
+        const prevDis = _hhAffListPage <= 1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        const nextDis = _hhAffListPage >= totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        pagination = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;border-top:1px solid #e2e8f0;margin-top:8px;">
+            <span onclick="hhShowAffAccountList(${_hhAffListPage - 1})" style="padding:5px 12px;border-radius:8px;background:#8b5cf6;color:white;font-size:12px;font-weight:600;${prevDis}">◀ Trước</span>
+            <span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ${_hhAffListPage} / ${totalPages}</span>
+            <span onclick="hhShowAffAccountList(${_hhAffListPage + 1})" style="padding:5px 12px;border-radius:8px;background:#8b5cf6;color:white;font-size:12px;font-weight:600;${nextDis}">Sau ▶</span>
+        </div>`;
+    }
+
+    const bodyHTML = `
+        <div style="margin-bottom:10px;font-size:13px;color:#475569;">Tổng: <strong style="color:#5b21b6;">${affItems.length}</strong> khách hàng có TK Affiliate</div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;width:40px;">#</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">Tên KH</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">SĐT</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">Người GT</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;">Trạng Thái</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+        ${pagination}`;
+
+    openModal('🔑 Danh Sách Affiliate Có TK', bodyHTML, '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>');
+}
+
