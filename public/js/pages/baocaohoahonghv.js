@@ -202,7 +202,7 @@ function _hvRenderTable(items) {
     if (!tbody) return;
     
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu</td></tr>';
         if (pgEl) pgEl.innerHTML = '';
         return;
     }
@@ -228,7 +228,6 @@ function _hvRenderTable(items) {
             <td style="padding:8px 6px;"><span style="font-weight:700;color:#1e3a5f;font-size:13px;">${item.customer_name}</span> ${srcBadge}</td>
             <td style="padding:8px 6px;font-size:12px;">${refLabel}</td>
             <td style="padding:8px 6px;font-size:12px;color:#475569;">${item.phone||'—'}</td>
-            <td style="padding:8px 6px;text-align:center;">${statusBadge}</td>
             <td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">${_hvMoney(item.total_revenue)}</td>
             <td style="padding:8px 6px;font-size:12px;">${item.rate||0}%</td>
             <td style="padding:8px 6px;font-size:12px;font-weight:700;color:${item.commission>0?'#059669':'#94a3b8'};">${_hvMoney(item.commission)}</td>
@@ -311,7 +310,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Tên KH</th>
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Người GT</th>
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">SĐT</th>
-                            <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Trạng Thái</th>
+
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Doanh Thu</th>
                             <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Tỷ Lệ HH</th>
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Hoa Hồng</th>
@@ -319,7 +318,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                             <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Ngày Liên Hệ</th>
                         </tr></thead>
                         <tbody id="hvTableBody">
-                            <tr><td colspan="11" style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</td></tr>
+                            <tr><td colspan="10" style="text-align:center;padding:40px;color:#9ca3af;">Đang tải...</td></tr>
                         </tbody>
                     </table>
                 </div>
