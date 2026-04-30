@@ -377,7 +377,9 @@ async function affiliateRoutes(fastify) {
         // Inject order_count into items
         items.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
 
-        return { success: true, items, totalCommission, referrerNames, totalOrders };
+        // Include filter diagnostic in response
+        const crmTypesFound = [...new Set(customers.map(c => c.crm_type))];
+        return { success: true, items, totalCommission, referrerNames, totalOrders, crm_filter_applied: crm_filter || null, crm_types_found: crmTypesFound };
     });
 
     // All orders popup — single API for "Tổng Đơn Đặt Hàng" detail

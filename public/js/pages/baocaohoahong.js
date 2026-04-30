@@ -262,6 +262,17 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
         // Store data globally for filtering
         window._hhData = data;
 
+        // DEBUG: Show filter diagnostic
+        console.log(`[HH] API URL: ${apiUrl}`);
+        console.log(`[HH] crm_filter_applied: ${data.crm_filter_applied}, crm_types_found: ${JSON.stringify(data.crm_types_found)}, items: ${data.items.length}`);
+        const diagEl = document.getElementById('hhSummary');
+        if (diagEl && data.crm_filter_applied !== undefined) {
+            const diagColor = data.crm_filter_applied ? '#10b981' : '#ef4444';
+            diagEl.insertAdjacentHTML('beforebegin', `<div style="padding:8px 14px;background:${diagColor}15;border:1px solid ${diagColor}40;border-radius:8px;margin-bottom:10px;font-size:12px;color:${diagColor};">
+                🔍 DEBUG: Filter gửi = <b>${crmFilter || 'NONE'}</b> | Backend nhận = <b>${data.crm_filter_applied || 'KHÔNG CÓ (code cũ)'}</b> | CRM types trong data = <b>${JSON.stringify(data.crm_types_found || 'N/A')}</b> | Tổng KH = <b>${data.items.length}</b>
+            </div>`);
+        }
+
         // Summary cards (clickable)
         const directCommission = data.items.filter(i => i.is_direct).reduce((s, i) => s + (i.commission || 0), 0);
         const childCommission = data.items.filter(i => !i.is_direct).reduce((s, i) => s + (i.commission || 0), 0);
