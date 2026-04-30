@@ -553,3 +553,31 @@
     .hdsd-section { padding: 32px 0; page-break-inside: avoid; }
     .hdsd-hero { background: #122546 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ═══════ LIGHTBOX ═══════ */
+.hdsd-step-content img { cursor: zoom-in; transition: transform .2s, box-shadow .2s; }
+.hdsd-step-content img:hover { transform: scale(1.02); box-shadow: 0 12px 40px rgba(18,37,70,.22) !important; }
+
+.hdsd-lightbox {
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,.82); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s;
+    cursor: zoom-out; padding: 24px;
+}
+.hdsd-lightbox.active { opacity: 1; visibility: visible; }
+.hdsd-lightbox img {
+    max-width: 95vw; max-height: 92vh;
+    border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    transform: scale(.92); transition: transform .35s cubic-bezier(.22,1,.36,1);
+    object-fit: contain;
+}
+.hdsd-lightbox.active img { transform: scale(1); }
+.hdsd-lightbox-close {
+    position: absolute; top: 16px; right: 20px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.15); border: none; color: #fff;
+    font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+}
+.hdsd-lightbox-close:hover { background: rgba(255,255,255,.3); }

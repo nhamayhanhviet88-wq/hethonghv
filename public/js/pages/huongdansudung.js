@@ -37,6 +37,7 @@ function renderHuongDanSuDungPage(container) {
     _hdsdInitScrollTop();
     _hdsdInitToc();
     _hdsdInitCountUp();
+    _hdsdInitLightbox();
 }
 
 // ========== HERO ==========
@@ -523,4 +524,46 @@ function _hdsdInitCountUp() {
     }, { threshold: 0.5 });
 
     els.forEach(function(el) { observer.observe(el); });
+}
+
+// ========== LIGHTBOX ==========
+function _hdsdInitLightbox() {
+    // Create lightbox DOM
+    var lb = document.createElement('div');
+    lb.className = 'hdsd-lightbox';
+    lb.innerHTML = '<button class="hdsd-lightbox-close" aria-label="Đóng">✕</button><img src="" alt="">';
+    document.body.appendChild(lb);
+
+    var lbImg = lb.querySelector('img');
+    var lbClose = lb.querySelector('.hdsd-lightbox-close');
+
+    function closeLightbox() {
+        lb.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // Click on any guide image
+    var container = document.getElementById('hdsd-page');
+    if (!container) return;
+
+    container.addEventListener('click', function(e) {
+        var img = e.target.closest('.hdsd-step-content img');
+        if (!img) return;
+        e.preventDefault();
+        lbImg.src = img.src;
+        lbImg.alt = img.alt;
+        lb.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    });
+
+    // Close on backdrop click (not on the image itself)
+    lb.addEventListener('click', function(e) {
+        if (e.target === lb || e.target === lbClose) closeLightbox();
+    });
+    lbClose.addEventListener('click', closeLightbox);
+
+    // Close on ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && lb.classList.contains('active')) closeLightbox();
+    });
 }
