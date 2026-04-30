@@ -1290,8 +1290,9 @@ async function openConsultModal(customerId) {
             </select>
         </div>
         <div class="form-group" id="consultAppointmentGroup">
-            <label>Ngày Hẹn Làm Việc <span style="color:var(--danger)">*</span></label>
-            <input type="date" id="consultAppointment" class="form-control" min="${(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()}">
+            <label>Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span></label>
+            <input type="hidden" id="consultAppointment">
+            <div id="consultCalendarContainer"></div>
         </div>
         <div class="form-group" id="consultCancelGroup" style="display:none">
             <label>Lý Do Hủy <span style="color:var(--danger)">*</span></label>
@@ -1391,6 +1392,14 @@ async function openConsultModal(customerId) {
             area.addEventListener('click', () => area.focus());
         }
         document.querySelectorAll('#consultOrderTable .oi-qty, #consultOrderTable .oi-price').forEach(el => el.addEventListener('input', calcConsultOrderTotal));
+        // Init holiday-aware calendar
+        const _today = new Date();
+        const _todayStr = _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0');
+        initHolidayCalendar({
+            containerId: 'consultCalendarContainer',
+            hiddenInputId: 'consultAppointment',
+            minDate: _todayStr
+        });
         onConsultTypeChange(); // trigger to show/hide correct fields
     }, 100);
 }
@@ -1455,29 +1464,25 @@ function onConsultTypeChange() {
     if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span>';
 
     // ★ Apply max_appointment_days from SECTION config (customer's current status, not selected button)
-    const apptInput = document.getElementById('consultAppointment');
-    if (apptInput) {
-        const today = new Date();
-        const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-        apptInput.min = todayStr;
-        // Use SECTION's maxAppointmentDays (from flow rules API, inherits group leader)
-        const maxDays = window._currentConsultMaxDays || 0;
-        if (maxDays > 0) {
-            const maxDate = new Date();
-            maxDate.setDate(maxDate.getDate() + maxDays);
-            apptInput.max = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
-            // Update label to show max days
-            const apptLabelEl = appointmentGroup?.querySelector('label');
-            if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
-        } else {
-            apptInput.removeAttribute('max');
-        }
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const maxDays = window._currentConsultMaxDays || 0;
+    if (maxDays > 0) {
+        const maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + maxDays);
+        const maxDateStr = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
+        updateHolidayCalendarMinMax('consultCalendarContainer', todayStr, maxDateStr);
+        // Update label to show max days
+        const apptLabelEl = appointmentGroup?.querySelector('label');
+        if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
+    } else {
+        updateHolidayCalendarMinMax('consultCalendarContainer', todayStr, null);
     }
 
     // Pinned customers: override label + disable datepicker (AFTER all resets)
     if (window._currentConsultCustomerPinned) {
-        const _apptInput2 = document.getElementById('consultAppointment');
-        if (_apptInput2) { _apptInput2.disabled = true; _apptInput2.style.opacity = '0.5'; }
+        const _calContainer = document.getElementById('consultCalendarContainer');
+        if (_calContainer) { _calContainer.style.opacity = '0.5'; _calContainer.style.pointerEvents = 'none'; }
         const _apptLbl2 = appointmentGroup?.querySelector('label');
         if (_apptLbl2) _apptLbl2.innerHTML = '📌 Ngày Hẹn Tiếp Theo <span style="color:#f59e0b;font-size:11px;">(Pin khách — tự động ngày làm việc tiếp theo)</span>';
     }
