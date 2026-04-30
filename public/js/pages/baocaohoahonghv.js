@@ -135,8 +135,10 @@ function _hvRenderCards() {
                 <div class="hv-kpi-name">Hủy Khách</div>
             </div>
             <div class="hv-kpi">
-                <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#6c5ce7;">💰</div>
-                <div class="hv-kpi-name" style="margin-bottom:10px;">Số Tiền Nhận</div>
+                <div class="hv-kpi-header">
+                    <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#6c5ce7;">💰</div>
+                    <span class="hv-kpi-name">Số Tiền Nhận</span>
+                </div>
                 <div class="hv-kpi-detail">
                     <div class="hv-kpi-money-row">
                         <span class="hv-kpi-dot" style="background:#10b981;"></span>
@@ -359,6 +361,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 border-radius:16px; padding:20px 16px; cursor:pointer;
                 border:2px solid transparent; transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
                 box-shadow:0 2px 10px rgba(0,0,0,0.08); position:relative; overflow:hidden;
+                min-height:120px;
             }
             .hv-stat:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,0.12); }
 
@@ -393,9 +396,12 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 background:white; border-radius:16px; padding:20px; position:relative; overflow:hidden;
                 border:2px solid #e2e8f0; transition:all 0.3s ease;
                 box-shadow:0 4px 16px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
-                min-height:140px;
+                min-height:120px;
             }
             .hv-kpi:hover { box-shadow:0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); }
+            .hv-kpi-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+            .hv-kpi-header .hv-kpi-icon { margin-bottom:0; }
+            .hv-kpi-header .hv-kpi-name { font-size:14px; font-weight:700; color:#2d3436; }
             .hv-kpi-icon {
                 width:48px; height:48px; border-radius:14px; display:flex;
                 align-items:center; justify-content:center; font-size:22px; margin-bottom:12px;
