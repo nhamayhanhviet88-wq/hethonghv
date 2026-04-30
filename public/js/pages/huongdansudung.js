@@ -163,21 +163,51 @@ function _hdsdStepsHTML() {
                 '<div class="hdsd-step-card">' +
                     '<h3 class="hdsd-step-title">🔹 Tìm Kiếm Khách Hàng</h3>' +
                     '<div class="hdsd-step-content">' +
-                        '<p><strong>3 cách hiệu quả:</strong></p>' +
-                        '<div class="hdsd-subcards">' +
-                            '<div class="hdsd-subcard"><div class="hdsd-subcard-title">✅ Cách 1 — Mối quan hệ</div>Giới thiệu doanh nghiệp, công ty, bạn bè, đồng nghiệp có nhu cầu đồng phục.</div>' +
-                            '<div class="hdsd-subcard"><div class="hdsd-subcard-title">✅ Cách 2 — Mạng xã hội</div>Đăng bài HV lên Facebook, Zalo, TikTok, Instagram, LinkedIn, các Group chuyên ngành.</div>' +
-                            '<div class="hdsd-subcard"><div class="hdsd-subcard-title">✅ Cách 3 — Video 🔥</div>Quay video sản phẩm, clip TikTok/Reels review, livestream tư vấn trực tiếp.</div>' +
+                        '<p style="margin-bottom:16px"><strong>3 cách hiệu quả để tìm kiếm khách hàng:</strong></p>' +
+
+                        // Cách 1
+                        '<div class="hdsd-subcard" style="margin-bottom:16px;padding:20px">' +
+                            '<div class="hdsd-subcard-title" style="font-size:16px;margin-bottom:10px">✅ Cách 1 – Tận dụng mối quan hệ sẵn có</div>' +
+                            '<p style="line-height:1.8;color:var(--hdsd-slate-600)">Nếu anh/chị đang làm việc tại các doanh nghiệp, công ty, xí nghiệp, tập đoàn lớn, hoặc có bạn bè – người thân – đồng nghiệp – đối tác đang làm tại những nơi đó – đây chính là <strong>"mỏ vàng"</strong> khách hàng tiềm năng ngay trong tầm tay anh/chị.</p>' +
+                            '<div class="hdsd-tip" style="margin-top:12px">💡 <strong>Mẹo nhỏ:</strong> Mỗi công ty trung bình cần đặt đồng phục 1–2 lần/năm cho nhân viên (áo polo, áo gió, áo bảo hộ, đồng phục sự kiện…). Chỉ cần giới thiệu thành công 1 công ty 50 nhân viên, anh/chị đã có thể nhận hoa hồng từ <strong>vài triệu đến vài chục triệu đồng</strong>.</div>' +
                         '</div>' +
-                        '<div class="hdsd-tip">💡 <strong>Mẹo:</strong> Mỗi công ty 50 nhân viên có thể mang về vài triệu — vài chục triệu đồng hoa hồng.</div>' +
-                        '<div class="hdsd-highlight-fire">🔥 <strong>Sức mạnh của video:</strong> Viral hàng triệu view chỉ sau 1 đêm — khách tự tìm đến anh/chị!</div>' +
-                        '<p style="margin-top:16px;font-weight:700;color:var(--hdsd-navy-800)">📝 Gợi ý nội dung đăng bài:</p>' +
-                        '<div class="hdsd-content-ideas">' +
-                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">📸</div><strong>Ảnh thực tế:</strong> Chụp sản phẩm đồng phục đã giao cho khách — tạo niềm tin bằng hình ảnh thật.</div>' +
-                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">🎬</div><strong>Video review:</strong> Quay clip ngắn 15-30s unbox đồng phục, chia sẻ cảm nhận — dễ viral trên TikTok/Reels.</div>' +
-                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">💬</div><strong>Chia sẻ câu chuyện:</strong> Viết bài về hành trình hợp tác cùng HV — thu hút cộng đồng kinh doanh.</div>' +
-                            '<div class="hdsd-idea-card"><div class="hdsd-idea-icon">📊</div><strong>Báo kết quả:</strong> Chia sẻ thu nhập thực tế từ hoa hồng — minh chứng thuyết phục nhất.</div>' +
+
+                        // Cách 2
+                        '<div class="hdsd-subcard" style="margin-bottom:16px;padding:20px">' +
+                            '<div class="hdsd-subcard-title" style="font-size:16px;margin-bottom:10px">✅ Cách 2 – Lan tỏa qua mạng xã hội & các kênh online</div>' +
+                            '<p style="line-height:1.8;color:var(--hdsd-slate-600);margin-bottom:12px">Anh/chị có thể lấy các bài viết, hình ảnh, video do Đồng Phục HV cung cấp sẵn và đăng tải lên:</p>' +
+                            '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">📘 Trang cá nhân Facebook</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">📱 Zalo cá nhân – story, nhật ký</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">🎵 TikTok – viral hàng triệu người</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">📸 Instagram – feed và story</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">💼 LinkedIn – HR, sếp công ty</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hdsd-slate-50);border-radius:8px;font-size:13px">🧵 Threads, X, Pinterest…</div>' +
+                            '</div>' +
+                            '<p style="font-weight:600;color:var(--hdsd-navy-800);margin-bottom:8px">👥 Các HỘI NHÓM (GROUP) FACEBOOK chuyên ngành:</p>' +
+                            '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Chợ cư dân – chung cư</span>' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Hội Đồng phục Việt Nam</span>' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Cộng đồng khu đô thị</span>' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Group HR – Tuyển dụng</span>' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Chủ doanh nghiệp – Startup</span>' +
+                                '<span style="padding:5px 12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:20px;font-size:12px;color:#1e40af;font-weight:500">Trường học – cựu sinh viên</span>' +
+                            '</div>' +
                         '</div>' +
+
+                        // Cách 3
+                        '<div class="hdsd-subcard" style="margin-bottom:16px;padding:20px">' +
+                            '<div class="hdsd-subcard-title" style="font-size:16px;margin-bottom:10px">✅ Cách 3 – Tự sáng tạo nội dung video <span style="color:#ef4444;font-weight:800">(LỢI THẾ CỰC LỚN!)</span></div>' +
+                            '<p style="line-height:1.8;color:var(--hdsd-slate-600);margin-bottom:12px">Đây là <strong>"vũ khí bí mật"</strong> giúp anh/chị bùng nổ doanh số trong thời đại video ngắn lên ngôi:</p>' +
+                            '<div style="display:grid;grid-template-columns:1fr;gap:8px">' +
+                                '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#fef3c7,#fffbeb);border-radius:10px;font-size:13px;line-height:1.6"><span style="font-size:18px;flex-shrink:0">🎥</span><span>Tự quay video về sản phẩm đồng phục – giới thiệu chất liệu, mẫu mã, thiết kế đẹp</span></div>' +
+                                '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#fef3c7,#fffbeb);border-radius:10px;font-size:13px;line-height:1.6"><span style="font-size:18px;flex-shrink:0">🎬</span><span>Quay clip TikTok/Reels/Shorts – review áo, unbox đơn hàng, kể câu chuyện đồng phục</span></div>' +
+                                '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#fef3c7,#fffbeb);border-radius:10px;font-size:13px;line-height:1.6"><span style="font-size:18px;flex-shrink:0">📺</span><span>Livestream Facebook/TikTok – tư vấn trực tiếp, giải đáp thắc mắc khách hàng</span></div>' +
+                                '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#fef3c7,#fffbeb);border-radius:10px;font-size:13px;line-height:1.6"><span style="font-size:18px;flex-shrink:0">🎨</span><span>Tạo nội dung sáng tạo – góc nhìn cá nhân, trải nghiệm thực tế, before-after</span></div>' +
+                            '</div>' +
+                            '<div class="hdsd-highlight-fire" style="margin-top:12px">🔥 <strong>Sức mạnh của video:</strong> Viral hàng triệu view chỉ sau 1 đêm — khách tự tìm đến anh/chị!</div>' +
+                        '</div>' +
+
                         '<div class="hdsd-step-banner">📌 Sau khi có khách: Chỉ cần <strong>xin SĐT</strong> gửi về HV. Đội ngũ HV lo <strong>TẤT CẢ</strong> — anh/chị chỉ cần GIỚI THIỆU! ⚡</div>' +
                     '</div>' +
                 '</div>' +
