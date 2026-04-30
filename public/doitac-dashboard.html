@@ -40,10 +40,12 @@
             .hdsd-example-row { flex-direction: column !important; gap: 4px !important; padding: 10px !important; }
             .hdsd-example-val { font-size: 16px !important; text-align: left !important; }
             .hdsd-example-total { font-size: 18px !important; }
-            /* ★ Table vừa màn hình, không cuộn ngang */
-            .hdsd-table { min-width: auto !important; width: 100% !important; font-size: 11px !important; }
-            .hdsd-table thead th { padding: 8px 6px !important; font-size: 10px !important; white-space: nowrap !important; }
-            .hdsd-table tbody td { padding: 8px 6px !important; white-space: normal !important; word-break: break-word !important; }
+            /* ★ Table 1 dòng, cắt gọn + "..." */
+            .hdsd-table { min-width: auto !important; width: 100% !important; font-size: 11px !important; table-layout: fixed !important; }
+            .hdsd-table thead th { padding: 8px 6px !important; font-size: 10px !important; }
+            .hdsd-table thead th:first-child { width: 35% !important; }
+            .hdsd-table thead th:last-child { width: 65% !important; }
+            .hdsd-table tbody td { padding: 8px 6px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
             /* ★ Ẩn ảnh screenshots trong 5 bước — giảm 50% chiều dài */
             .hdsd-step-content img { display: none !important; }
             /* ★ Ẩn role cards — giữ lời chào + cam kết */
