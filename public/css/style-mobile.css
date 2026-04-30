@@ -422,3 +422,51 @@ table:has(#hhTableBody.hh-mobile-cards) {
     display: none !important;
 }
 
+/* ========== HƯỚNG DẪN SỬ DỤNG — MOBILE FIX ========== */
+.hdsd-page {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.hdsd-page * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+.hdsd-page .hdsd-hero {
+    width: 100% !important;
+    overflow: hidden !important;
+}
+.hdsd-page .hdsd-hero-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+/* Feature badges row */
+.hdsd-page .hdsd-hero-content > div[style*="display:flex"][style*="gap:24px"] {
+    gap: 10px 16px !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+}
+/* CTA actions */
+.hdsd-page .hdsd-cta-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+}
+/* Pipeline */
+.hdsd-page .hdsd-pipeline {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+}
+/* Images */
+.hdsd-page img {
+    max-width: 100% !important;
+    height: auto !important;
+}
+/* Text containers */
+.hdsd-page .hdsd-welcome-card,
+.hdsd-page .hdsd-section,
+.hdsd-page .hdsd-step-card {
+    overflow-x: hidden !important;
+    word-break: break-word;
+}
