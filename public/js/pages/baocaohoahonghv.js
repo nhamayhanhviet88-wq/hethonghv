@@ -393,7 +393,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 background:white; border-radius:16px; padding:20px; position:relative; overflow:hidden;
                 border:2px solid #e2e8f0; transition:all 0.3s ease;
                 box-shadow:0 4px 16px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
-                min-height:140px; display:flex; flex-direction:column; justify-content:center;
+                min-height:140px;
             }
             .hv-kpi:hover { box-shadow:0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); }
             .hv-kpi-icon {
