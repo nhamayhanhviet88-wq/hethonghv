@@ -161,19 +161,108 @@ function _hvRenderCards() {
         </div>`;
 }
 
-function _hvCardClick(type) {
+
+async function _hvCardClick(type) {
     _hvActiveCard = (_hvActiveCard === type) ? 'all' : type;
     _hvPage = 1;
     _hvRenderCards();
-    _hvApplyCardFilter();
+    if (_hvActiveCard === 'commission' || _hvActiveCard === 'orders') {
+        await _hvLoadOrderData();
+    } else {
+        _hvApplyCardFilter();
+    }
+}
+
+async function _hvLoadOrderData() {
+    const tbody = document.getElementById('hvTableBody');
+    const thead = document.querySelector('#hvCards')?.closest('.card-body')?.querySelector('thead tr');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#9ca3af;">⏳ Đang tải đơn hàng...</td></tr>';
+    try {
+        const data = await apiCall('/api/affiliate/all-orders');
+        let orders = data.orders || [];
+        const from = document.getElementById('hvDateFrom')?.value || '';
+        const to = document.getElementById('hvDateTo')?.value || '';
+        if (from) orders = orders.filter(o => (o.created_at||'').slice(0,10) >= from);
+        if (to) orders = orders.filter(o => (o.created_at||'').slice(0,10) <= to);
+        if (_hvActiveCard === 'commission') orders = orders.filter(o => o.commission > 0);
+        const q = (document.getElementById('hvSearch')?.value || '').toLowerCase().trim();
+        if (q) orders = orders.filter(o => (o.customer_name||'').toLowerCase().includes(q) || (o.order_code||'').toLowerCase().includes(q) || (o.referrer_name||'').toLowerCase().includes(q));
+        const gtFilter = document.getElementById('hvFilterGT')?.value || '';
+        if (gtFilter) orders = orders.filter(o => o.referrer_name === gtFilter);
+        if (thead) thead.innerHTML = `
+            <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:40px;">#</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Mã Đơn</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Tên KH</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Người GT</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Doanh Thu</th>
+            <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Tỷ Lệ HH</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Hoa Hồng</th>
+            <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Ngày Đơn</th>`;
+        _hvRenderOrderTable(orders);
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#ef4444;">Lỗi: ${e.message}</td></tr>`;
+    }
+}
+
+function _hvRenderOrderTable(orders) {
+    const tbody = document.getElementById('hvTableBody');
+    const pgEl = document.getElementById('hvPagination');
+    if (!tbody) return;
+    if (orders.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Không có đơn hàng</td></tr>'; if(pgEl) pgEl.innerHTML=''; return; }
+    const totalPages = Math.ceil(orders.length / _hvPageSize);
+    if (_hvPage > totalPages) _hvPage = totalPages;
+    const start = (_hvPage-1)*_hvPageSize;
+    const page = orders.slice(start, start+_hvPageSize);
+    tbody.innerHTML = page.map((o, i) => {
+        const idx = start+i+1;
+        const refLabel = o.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : `<span style="color:#8b5cf6;font-weight:600;">👥 ${o.referrer_name||'-'}</span>`;
+        const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
+        return `<tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">${idx}</td>
+            <td style="padding:8px 6px;"><span style="font-weight:700;color:#6c5ce7;font-size:12px;background:#ede9fe;padding:2px 8px;border-radius:6px;">${o.order_code||'—'}</span></td>
+            <td style="padding:8px 6px;font-weight:600;color:#1e3a5f;font-size:13px;">${o.customer_name}</td>
+            <td style="padding:8px 6px;font-size:12px;">${refLabel}</td>
+            <td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">${_hvMoney(o.revenue)}</td>
+            <td style="padding:8px 6px;font-size:12px;text-align:center;">${o.rate||0}%</td>
+            <td style="padding:8px 6px;font-size:12px;font-weight:700;color:${o.commission>0?'#059669':'#94a3b8'};">${_hvMoney(o.commission)}</td>
+            <td style="padding:8px 6px;font-size:11px;color:#64748b;">${date}</td>
+        </tr>`;
+    }).join('');
+    if (pgEl && totalPages > 1) {
+        const prevDis = _hvPage<=1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        const nextDis = _hvPage>=totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        pgEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
+            <span onclick="_hvPage--;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${prevDis}">◀ Trước</span>
+            <span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ${_hvPage} / ${totalPages} · ${orders.length} đơn</span>
+            <span onclick="_hvPage++;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${nextDis}">Sau ▶</span>
+        </div>`;
+    } else if (pgEl) {
+        pgEl.innerHTML = orders.length > 0 ? `<div style="text-align:center;font-size:12px;color:#64748b;padding:8px;">Tất cả ${orders.length} đơn hàng</div>` : '';
+    }
+}
+
+function _hvRestoreTableHeader() {
+    const thead = document.querySelector('#hvCards')?.closest('.card-body')?.querySelector('thead tr');
+    if (thead) thead.innerHTML = `
+        <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:40px;">#</th>
+        <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:30px;">🔑</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Tên KH</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Người GT</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">SĐT</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Doanh Thu</th>
+        <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Tỷ Lệ HH</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Hoa Hồng</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Ngày Hẹn</th>
+        <th style="padding:10px 6px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Ngày Liên Hệ</th>`;
 }
 
 function _hvApplyCardFilter() {
+    _hvRestoreTableHeader();
     const items = _hvData.filtered || [];
     let display = items;
     
-    if (_hvActiveCard === 'commission') display = items.filter(i => i.commission > 0);
-    else if (_hvActiveCard === 'orders') display = items.filter(i => i.order_count > 0);
+    if (_hvActiveCard === 'commission' || _hvActiveCard === 'orders') { _hvLoadOrderData(); return; }
     else if (_hvActiveCard === 'customers') display = items.filter(i => i._src === 'customer');
     else if (_hvActiveCard === 'cancelled') display = items.filter(i => i._src === 'customer' && i.cancel_approved === 1);
     else if (_hvActiveCard === 'affiliates') display = items.filter(i => i._src === 'affiliate');
