@@ -629,6 +629,10 @@ function renderSidebar() {
     // Track which sections are rendered (to handle orphans)
     var renderedSections = {};
 
+    // ★ DOITAC PORTAL — đổi tên parent + section cho affiliate portal
+    var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
+    var _doitacSectionNames = { 'HỖ TRỢ NHÂN VIÊN HV': 'CHUYỂN SỐ & QUẢN LÝ KHÁCH', 'AFFILIATE': 'THEO DÕI KHÁCH & RÚT TIỀN' };
+
     // Render parent groups
     PARENT_SECTIONS.forEach(function(parent, pidx) {
         var parentCollapsed = _sidebarParentCollapsed[parent.name] || false;
@@ -640,9 +644,6 @@ function renderSidebar() {
 
         html += '<div class="nav-parent-wrap">';
         html += '<div class="nav-parent-header" data-pidx="' + pidx + '">';
-        // ★ DOITAC PORTAL — đổi tên parent cho affiliate portal
-        var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
-        var _doitacSectionNames = { 'HỖ TRỢ NHÂN VIÊN HV': 'CHUYỂN SỐ & QUẢN LÝ KHÁCH', 'AFFILIATE': 'THEO DÕI KHÁCH & RÚT TIỀN' };
         var displayParentName = (_isDoitacPortal && _doitacParentNames[parent.name]) ? _doitacParentNames[parent.name] : parent.name;
         html += '<span class="nav-parent-text">' + displayParentName + '</span>';
         html += '<span class="nav-parent-chevron">' + parentChevron + '</span>';
@@ -940,9 +941,9 @@ async function handleRoute() {
     if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
         currentPage = 'bao-cao-hoa-hong-hv';
         history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
+    } else {
+        currentPage = pathname;
     }
-
-    currentPage = pathname;
 
     // If pathname doesn't match any menu ID, look up by href
     var foundById = MENU_CONFIG.find(function(m) { return m.id === currentPage; });
