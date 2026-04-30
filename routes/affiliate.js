@@ -229,6 +229,7 @@ async function affiliateRoutes(fastify) {
     // Commission report for affiliate users
     fastify.get('/api/affiliate/commission', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
+        const { crm_filter } = request.query;
         
         // Get user's commission tier rates from DB (NOT from JWT which doesn't have commission_tier_id)
         let directRate = 0.10, parentRate = 0.05;
@@ -252,14 +253,19 @@ async function affiliateRoutes(fastify) {
         const allIds = [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
 
-        // Get customers referred by these affiliates
-        const customers = await db.all(`
+        // Get customers referred by these affiliates (optionally filtered by crm_type)
+        let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
                    c.cancel_requested, c.cancel_approved
             FROM customers c
-            WHERE c.referrer_id IN (${ph})
-            ORDER BY c.created_at DESC
-        `, allIds);
+            WHERE c.referrer_id IN (${ph})`;
+        const custParams = [...allIds];
+        if (crm_filter) {
+            custQuery += ` AND c.crm_type = ?`;
+            custParams.push(crm_filter);
+        }
+        custQuery += ` ORDER BY c.created_at DESC`;
+        const customers = await db.all(custQuery, custParams);
 
         // Get completed order revenue per customer
         const customerIds = customers.map(c => c.id);
@@ -375,6 +381,7 @@ async function affiliateRoutes(fastify) {
     // All orders popup — single API for "Tổng Đơn Đặt Hàng" detail
     fastify.get('/api/affiliate/all-orders', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
+        const { crm_filter } = request.query;
 
         // Get commission rates
         let directRate = 0.10, parentRate = 0.05;
@@ -398,12 +405,17 @@ async function affiliateRoutes(fastify) {
         const allIds = [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
 
-        // Get customers referred by these affiliates
-        const customers = await db.all(`
+        // Get customers referred by these affiliates (optionally filtered by crm_type)
+        let allCustQuery = `
             SELECT c.id, c.customer_name, c.referrer_id
             FROM customers c
-            WHERE c.referrer_id IN (${ph})
-        `, allIds);
+            WHERE c.referrer_id IN (${ph})`;
+        const allCustParams = [...allIds];
+        if (crm_filter) {
+            allCustQuery += ` AND c.crm_type = ?`;
+            allCustParams.push(crm_filter);
+        }
+        const customers = await db.all(allCustQuery, allCustParams);
 
         if (customers.length === 0) {
             return { success: true, orders: [] };

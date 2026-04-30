@@ -92,6 +92,7 @@ const MENU_CONFIG = [
     { id: 'my-customers', label: 'Khách Hàng Của Tôi', icon: '👤', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'tu-van-khach-aff', label: 'Theo Dõi Tư Vấn Khách', icon: '📋', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+    { id: 'theo-doi-tu-van-aff', label: 'Theo Dõi Tư Vấn Affiliate', icon: '🤝', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
@@ -592,7 +593,7 @@ function renderSidebar() {
     // Group items by section
     // ★ DOITAC PORTAL — chỉ hiển thị menu affiliate trên dongphuchv.net
     var _isDoitacPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
-    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
+    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
 
     MENU_CONFIG.forEach(function(item) {
         // Trên dongphuchv.net: chỉ hiển thị menu affiliate
@@ -1022,7 +1023,9 @@ async function handleRoute() {
             case 'settings': renderSettingsPage(content); break;
             case 'dashboard': renderDashboardPage(content); break;
             case 'chuyen-so': renderChuyenSoPage(content); break;
-            case 'tu-van-khach-aff': case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
+            case 'tu-van-khach-aff': renderBaoCaoHoaHongPage(content, 'nhu_cau'); break;
+            case 'theo-doi-tu-van-aff': renderBaoCaoHoaHongPage(content, 'ctv_hoa_hong'); break;
+            case 'bao-cao-hoa-hong': case 'baocaohoahong': renderBaoCaoHoaHongPage(content); break;
             case 'crm-nhu-cau': renderCRMNhuCauPage(content); break;
             case 'crm-ctv': renderCRMCtvPage(content); break;
             case 'cham-soc-affiliate': case 'chamsocaffiliate': renderCRMAffPage(content); break;

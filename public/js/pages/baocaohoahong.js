@@ -209,11 +209,14 @@ async function hhShowCustomerPopup(customerId) {
     }
 }
 
-async function renderBaoCaoHoaHongPage(container) {
+async function renderBaoCaoHoaHongPage(container, crmFilter) {
+    // Store filter for use in popups
+    window._hhCrmFilter = crmFilter || '';
+    const pageTitle = crmFilter === 'ctv_hoa_hong' ? '🤝 Theo Dõi Tư Vấn Affiliate' : '📋 Theo Dõi Tư Vấn Khách';
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
-                <h3>📋 Theo Dõi Tư Vấn Khách</h3>
+                <h3>${pageTitle}</h3>
             </div>
             <div class="card-body" style="overflow-x:auto;">
                 <div id="hhSummary" style="margin-bottom:20px;"></div>
@@ -249,7 +252,8 @@ async function renderBaoCaoHoaHongPage(container) {
     try {
         // Load consult button types from admin config (auto-sync)
         await hhLoadConsultTypes();
-        const data = await apiCall('/api/affiliate/commission');
+        const apiUrl = '/api/affiliate/commission' + (crmFilter ? '?crm_filter=' + crmFilter : '');
+        const data = await apiCall(apiUrl);
         if (!data.success) {
             document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
             return;
@@ -560,7 +564,8 @@ async function hhShowAllOrdersPopup() {
     document.body.appendChild(overlay);
 
     try {
-        const res = await fetch('/api/affiliate/all-orders', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        const crmFilterParam = window._hhCrmFilter ? '?crm_filter=' + window._hhCrmFilter : '';
+        const res = await fetch('/api/affiliate/all-orders' + crmFilterParam, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
         const json = await res.json();
         if (!json.success) throw new Error('API error');
 
