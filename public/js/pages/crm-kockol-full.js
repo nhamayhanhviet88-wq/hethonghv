@@ -1288,9 +1288,9 @@ function _kockolOnConsultTypeChange() {
     const nextTypeGroup = document.getElementById('consultNextTypeGroup');
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
-    // Image required: hide * for goi_dien, dat_coc, cap_cuu_sep, sau_ban_hang
-    const imageOptionalTypes = ['goi_dien', 'dat_coc', 'cap_cuu_sep', 'sau_ban_hang'];
-    if (imageReq) imageReq.style.display = imageOptionalTypes.includes(type) ? 'none' : 'inline';
+    // Image required: hide * for specific types
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu'];
+    if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
     if (type === 'huy') {
@@ -1807,8 +1807,8 @@ async function _kockolSubmitConsultLog(customerId) {
 
     // ========== Normal consultation flow ==========
     if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _kockolEnableSubmitBtn(); return; }
-    const imageRequiredTypes = ['nhan_tin','gap_truc_tiep','gui_bao_gia','gui_mau','thiet_ke','bao_sua'];
-    if (imageRequiredTypes.includes(log_type) && !window._consultImageBlob) {
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu'];
+    if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _kockolEnableSubmitBtn(); return;
     }
     if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _kockolEnableSubmitBtn(); return; }
