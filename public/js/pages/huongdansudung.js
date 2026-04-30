@@ -115,19 +115,19 @@ function _hdsdCommissionHTML() {
             '</div>' +
             '<div class="hdsd-comm-card hdsd-comm-navy hdsd-animate hdsd-animate-delay-2">' +
                 '<div class="hdsd-comm-icon">🤝</div>' +
-                '<div class="hdsd-comm-label">Giới thiệu Affiliate đối tác</div>' +
+                '<div class="hdsd-comm-label">Từ khách hàng của Affiliate con</div>' +
                 '<div class="hdsd-comm-rate" data-countup="5">5<span style="font-size:.5em">%</span></div>' +
-                '<div class="hdsd-comm-desc">Hưởng từ mọi đơn của Affiliate</div>' +
+                '<div class="hdsd-comm-desc">Affiliate con được 10%, anh/chị hưởng thêm 5%</div>' +
             '</div>' +
         '</div>' +
         '<div class="hdsd-example-box hdsd-animate">' +
             '<div class="hdsd-example-title">📊 Ví Dụ Tính Hoa Hồng Cụ Thể</div>' +
-            '<p style="font-size:13px;color:#92400e;margin-bottom:16px">Giả sử anh/chị giới thiệu 1 công ty đặt đồng phục <strong>50.000.000đ</strong>, đồng thời giới thiệu 1 Affiliate con — người này cũng mang về 1 đơn <strong>30.000.000đ</strong>:</p>' +
-            '<div class="hdsd-example-row"><span class="hdsd-example-label">🎯 Đơn trực tiếp: 50.000.000đ × 10%</span><span class="hdsd-example-val">= 5.000.000đ</span></div>' +
-            '<div class="hdsd-example-row"><span class="hdsd-example-label">🤝 Đơn gián tiếp (Affiliate con): 30.000.000đ × 5%</span><span class="hdsd-example-val">= 1.500.000đ</span></div>' +
+            '<p style="font-size:13px;color:#92400e;margin-bottom:16px">Giả sử anh/chị giới thiệu 1 công ty đặt đồng phục <strong>50.000.000đ</strong>. Đồng thời, Affiliate con của anh/chị cũng giới thiệu 1 khách hàng chốt đơn <strong>30.000.000đ</strong> với HV:</p>' +
+            '<div class="hdsd-example-row"><span class="hdsd-example-label">🎯 Đơn anh/chị trực tiếp giới thiệu: 50.000.000đ × 10%</span><span class="hdsd-example-val">= 5.000.000đ</span></div>' +
+            '<div class="hdsd-example-row"><span class="hdsd-example-label">🤝 Affiliate con chốt đơn 30.000.000đ → Con được 10%, anh/chị hưởng thêm 5%</span><span class="hdsd-example-val">= 1.500.000đ</span></div>' +
             '<div class="hdsd-example-row"><span class="hdsd-example-label">🔄 Khách cũ quay lại mua tiếp: 20.000.000đ × 10%</span><span class="hdsd-example-val">= 2.000.000đ</span></div>' +
-            '<div class="hdsd-example-total">💰 Tổng thu nhập: 8.500.000đ</div>' +
-            '<p style="font-size:12px;color:#b8901c;margin-top:12px;text-align:center;font-style:italic">Chỉ từ 2 mối quan hệ — không cần vốn, không giới hạn số lần khách quay lại!</p>' +
+            '<div class="hdsd-example-total">💰 Tổng thu nhập của anh/chị: 8.500.000đ</div>' +
+            '<p style="font-size:12px;color:#b8901c;margin-top:12px;text-align:center;font-style:italic">Càng nhiều Affiliate con = càng nhiều nguồn thu 5% thụ động — nhân rộng lợi nhuận không giới hạn!</p>' +
         '</div>' +
         '<div class="hdsd-comm-banner hdsd-animate">' +
             '💎 <strong>ĐẶC QUYỀN VƯỢT TRỘI:</strong> Khách hàng quay lại mua tiếp — anh/chị <strong>VẪN nhận hoa hồng</strong> như lần đầu. Không giới hạn số lần!' +
@@ -240,7 +240,7 @@ function _hdsdStepsHTML() {
                             '<span class="hdsd-pipeline-step">✅ Chốt đơn</span><span class="hdsd-pipeline-arrow">→</span>' +
                             '<span class="hdsd-pipeline-step">🔄 Tư vấn lại</span>' +
                         '</div>' +
-                        '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khách hàng từ Affiliate của anh/chị cũng hiển thị đầy đủ tiến độ — tự động hưởng 5% khi đơn hoàn thành.</div>' +
+                        '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khi Affiliate con giới thiệu khách chốt đơn → con được 10%, anh/chị tự động hưởng thêm 5%. Toàn bộ tiến độ hiển thị real-time trên hệ thống.</div>' +
                         '<p style="margin-top:16px"><strong>🤝 3.2. Theo Dõi Tư Vấn Affiliate</strong> — Xem ngay: Affiliate đã có tài khoản chưa? Đang tư vấn giai đoạn nào? Có doanh số chưa?</p>' +
                         '<p style="margin-top:12px"><strong>📊 3.3. Quản Lý Hệ Thống Affiliate</strong> — Theo dõi toàn bộ: số Affiliate con, KH giới thiệu, doanh số, đơn chốt.</p>' +
                         '<div class="hdsd-subcards" style="grid-template-columns:repeat(3,1fr);margin-top:16px">' +
@@ -248,7 +248,7 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📱</div><div class="hdsd-subcard-title">Truy cập mọi nơi</div>Giao diện tối ưu cho điện thoại — quản lý mọi lúc mọi nơi.</div>' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📈</div><div class="hdsd-subcard-title">Biểu đồ trực quan</div>Nhìn nhanh doanh số, hoa hồng, đơn hàng theo thời gian.</div>' +
                         '</div>' +
-                        '<div class="hdsd-highlight-gold">💡 <strong>TƯ DUY LÀM GIÀU:</strong> Xây dựng HỆ THỐNG AFFILIATE CON — mỗi đối tác tự kiếm tiền cho anh/chị. Thu nhập thụ động đúng nghĩa!</div>' +
+                        '<div class="hdsd-highlight-gold">💡 <strong>TƯ DUY LÀM GIÀU:</strong> Mỗi Affiliate con giới thiệu khách chốt đơn → con được 10%, anh/chị hưởng thêm 5%. Càng nhiều Affiliate con = càng nhiều nguồn thu nhập thụ động — nhân rộng lợi nhuận không giới hạn!</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -281,7 +281,7 @@ function _hdsdStepsHTML() {
                     '<div class="hdsd-step-content">' +
                         '<p>Trang <strong>"Báo Cáo Hoa Hồng HV"</strong> hiển thị toàn cảnh:</p>' +
                         '<div class="hdsd-subcards" style="grid-template-columns:repeat(3,1fr)">' +
-                            '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">💵</div><div class="hdsd-subcard-title">Tổng Hoa Hồng</div>10% trực tiếp + 5% gián tiếp</div>' +
+                            '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">💵</div><div class="hdsd-subcard-title">Tổng Hoa Hồng</div>10% từ KH trực tiếp + 5% từ KH của Affiliate con</div>' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📦</div><div class="hdsd-subcard-title">Tổng Đơn Hàng</div>Đã chốt thành công</div>' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">👥</div><div class="hdsd-subcard-title">KH & Affiliate</div>Phân loại chi tiết</div>' +
                         '</div>' +
@@ -309,9 +309,9 @@ function _hdsdFeaturesHTML() {
                     '<tr><td><strong>✅ Không cần vốn</strong></td><td>Không nhập hàng, không tồn kho — hoàn toàn miễn phí</td></tr>' +
                     '<tr><td><strong>✅ Không cần nghiệp vụ</strong></td><td>HV lo từ A–Z: tư vấn, thiết kế, sản xuất, giao hàng</td></tr>' +
                     '<tr><td><strong>✅ Minh bạch 100%</strong></td><td>Real-time mọi đơn hàng — theo dõi trực tiếp trên hệ thống</td></tr>' +
-                    '<tr><td><strong>✅ Hoa hồng cao</strong></td><td>10% trực tiếp + 5% gián tiếp — cao hơn thị trường</td></tr>' +
+                    '<tr><td><strong>✅ Hoa hồng cao</strong></td><td>10% từ KH trực tiếp + 5% từ KH của Affiliate con — cao hơn thị trường</td></tr>' +
                     '<tr><td><strong>✅ Thu nhập trọn đời</strong></td><td>Khách quay lại — hoa hồng nhận tiếp, không giới hạn</td></tr>' +
-                    '<tr><td><strong>✅ Xây hệ thống riêng</strong></td><td>Affiliate con tự sinh lợi — thu nhập thụ động</td></tr>' +
+                    '<tr><td><strong>✅ Xây hệ thống riêng</strong></td><td>Affiliate con chốt đơn → con được 10%, anh/chị hưởng thêm 5% — nhân rộng lợi nhuận</td></tr>' +
                     '<tr><td><strong>✅ Rút tiền linh hoạt</strong></td><td>Có bill xác nhận, tối thiểu 100.000đ, bất cứ lúc nào</td></tr>' +
                     '<tr><td><strong>✅ Hỗ trợ tận tâm</strong></td><td>Đội ngũ chăm sóc đối tác 24/7 — giải đáp mọi thắc mắc</td></tr>' +
                     '<tr><td><strong>✅ Tư liệu marketing</strong></td><td>Cung cấp hình ảnh, video, nội dung sẵn sàng đăng bài</td></tr>' +
