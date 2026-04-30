@@ -939,7 +939,9 @@ async function handleRoute() {
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
     // Block tkaffiliate from dashboard — smart redirect: first 3 logins → guide, 4th+ → report
-    if (pathname === 'dashboard' && currentUser && currentUser.role === 'tkaffiliate') {
+    if ((pathname === 'dashboard' || pathname === 'bao-cao-hoa-hong-hv') && currentUser && currentUser.role === 'tkaffiliate'
+        && !sessionStorage.getItem('hdsd_redirected_' + currentUser.id)) {
+        sessionStorage.setItem('hdsd_redirected_' + currentUser.id, '1');
         var _hdsdCountKey = 'hdsd_login_count_' + currentUser.id;
         var _hdsdCount = parseInt(localStorage.getItem(_hdsdCountKey) || '0');
         if (_hdsdCount < 3) {
