@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cổng Đối Tác Chiết Khấu - Đồng Phục HV</title>
+    <meta name="description" content="Kiếm tiền cùng Cổng Đối Tác Chiết Khấu Đồng Phục HV – quản lý đơn hàng, hoa hồng rõ ràng, tăng trưởng thu nhập bền vững.">
+    <!-- Open Graph -->
+    <meta property="og:title" content="Cổng Đối Tác Chiết Khấu - Đồng Phục HV">
+    <meta property="og:description" content="Kiếm tiền cùng Cổng Đối Tác Chiết Khấu Đồng Phục HV – quản lý đơn hàng, hoa hồng rõ ràng, tăng trưởng thu nhập bền vững.">
+    <meta property="og:image" content="https://dongphuchv.net/images/og-doitac.png">
+    <meta property="og:url" content="https://dongphuchv.net/doitac">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Đồng Phục HV">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/huongdansudung.css?v=20260501c">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        /* ★ Standalone page — no sidebar, full width */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        .doitac-standalone {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .doitac-standalone .hdsd-page {
+            max-width: 100%;
+        }
+        /* ★ Mobile responsive */
+        @media (max-width: 768px) {
+            body { padding: 0; }
+            .hdsd-page, .hdsd-page * { max-width: 100% !important; box-sizing: border-box !important; }
+            .hdsd-page { overflow-x: hidden !important; }
+            .hdsd-hero-content { max-width: 100% !important; width: 100% !important; padding: 0 !important; }
+            /* ★ Ẩn mô tả hero trên mobile */
+            .hdsd-hero-desc { display: none !important; }
+            /* ★ Badge dịch lên, title + subtitle dịch xuống */
+            .hdsd-hero-badge { margin-top: 0 !important; }
+            .hdsd-hero-title { margin-top: 20px !important; }
+            .hdsd-hero-subtitle { margin-top: 24px !important; }
+            /* ★ Thu gọn ví dụ hoa hồng */
+            .hdsd-comm-example { padding: 16px !important; }
+            .hdsd-comm-example h3 { font-size: 16px !important; }
+            .hdsd-example-row { flex-direction: column !important; gap: 4px !important; padding: 10px !important; }
+            .hdsd-example-val { font-size: 16px !important; text-align: left !important; }
+            .hdsd-example-total { font-size: 18px !important; }
+            .hdsd-table { display: table !important; overflow: hidden !important; min-width: auto !important; width: 100% !important; }
+            .hdsd-table thead { display: none !important; }
+            .hdsd-table tbody, .hdsd-table tr { display: table-row !important; width: auto !important; white-space: normal !important; }
+            .hdsd-table td:last-child { display: none !important; }
+            /* ★ Ẩn role cards */
+            .hdsd-role-grid { display: none !important; }
+            /* ★ Feature badges 2x2 */
+            .hdsd-hero-content > div[style*="display:flex"][style*="flex-wrap:wrap"] {
+                display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px 12px !important;
+            }
+            /* ★ Stats grid 2x2 */
+            .hdsd-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+            /* ★ Ẩn subcards step 3 */
+            .hdsd-step-card .hdsd-subcards[style*="repeat(3,1fr)"] { display: none !important; }
+            /* ★ Ẩn FAQ subcards step 4 */
+            .hdsd-step-card .hdsd-subcards[style*="repeat(2,1fr)"] { display: none !important; }
+            /* ★ Ẩn mô tả step 5 */
+            .hdsd-step-card > .hdsd-step-content > p[style*="font-size:14px"][style*="color:var(--hdsd-slate-600)"] { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="doitac-standalone" id="doitac-content"></div>
+
+    <script src="/js/pages/huongdansudung.js"></script>
+    <script>
+    (function() {
+        // Render the HDSD page content into standalone container
+        if (typeof renderHuongDanSuDungPage === 'function') {
+            var container = document.getElementById('doitac-content');
+            renderHuongDanSuDungPage(container);
+        }
+    })();
+    </script>
+</body>
+</html>

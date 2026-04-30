@@ -231,6 +231,11 @@ async function start() {
         return reply.sendFile('mobile-accounts.html');
     });
 
+    // Đối Tác — public standalone page (no auth required)
+    fastify.get('/doitac', async (request, reply) => {
+        return reply.type('text/html').sendFile('doitac.html');
+    });
+
     // ========== AUTO-INJECT PAGE SCRIPTS ==========
     // Build dashboard HTML with all page scripts auto-injected
     let _cachedDashboardHtml = null;
