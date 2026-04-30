@@ -632,6 +632,7 @@ function renderSidebar() {
     // ★ DOITAC PORTAL — đổi tên parent + section cho affiliate portal
     var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
     var _doitacSectionNames = { 'HỖ TRỢ NHÂN VIÊN HV': 'CHUYỂN SỐ & QUẢN LÝ KHÁCH', 'AFFILIATE': 'THEO DÕI KHÁCH & RÚT TIỀN' };
+    var _doitacItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate' };
 
     // Render parent groups
     PARENT_SECTIONS.forEach(function(parent, pidx) {
@@ -672,7 +673,7 @@ function renderSidebar() {
                 var isActive = currentPage === item.id ? 'active' : '';
                 var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
                 html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
-                html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
+                html += '<span class="nav-icon">' + item.icon + '</span> ' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label);
                 if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
                 html += '</a>';
             });
@@ -703,7 +704,7 @@ function renderSidebar() {
             var isActive = currentPage === item.id ? 'active' : '';
             var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
             html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
-            html += '<span class="nav-icon">' + item.icon + '</span> ' + item.label;
+            html += '<span class="nav-icon">' + item.icon + '</span> ' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label);
             if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
             html += '</a>';
         });
