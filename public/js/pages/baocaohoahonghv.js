@@ -65,7 +65,7 @@ function _hvSetMonth(val) {
     _hvApplyDateFilter();
 }
 
-// ===== RENDER SUMMARY CARDS =====
+// ===== RENDER SUMMARY CARDS — Premium 3-Tier Dashboard =====
 function _hvRenderCards() {
     const items = _hvData.filtered || [];
     const custItems = items.filter(i => i._src === 'customer');
@@ -77,31 +77,66 @@ function _hvRenderCards() {
     const cancelledCust = custItems.filter(i => i.cancel_approved===1).length;
     const totalAff = affItems.length;
     const affWithTK = affItems.filter(i => (window._hvAffApprovedIds||[]).includes(i.id)).length;
-    
     const directRate = items.find(i=>i.is_direct)?.rate || 10;
     const childRate = items.find(i=>!i.is_direct)?.rate || 5;
-
-    // Balance data (fetched once, stored globally)
     const totalWithdrawn = window._hvBalanceData?.totalWithdrawn || 0;
     const balance = window._hvBalanceData?.balance || 0;
-
-    const card = (bg, border, onclick, value, label, sub, active) => 
-        `<div onclick="${onclick}" data-card="${active}" class="hv-card ${_hvActiveCard===active?'hv-card-active':''}" style="background:linear-gradient(135deg,${bg});padding:14px 10px;border-radius:12px;text-align:center;cursor:${onclick?'pointer':'default'};transition:all 0.2s;border:2px solid ${_hvActiveCard===active?border:'transparent'};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform=''">
-            <div style="font-size:22px;font-weight:800;color:${border};word-break:break-all;">${value}</div>
-            <div style="font-size:11px;color:${border};margin-top:4px;opacity:0.85;">${label}</div>
-            ${sub?`<div style="font-size:9px;color:${border};opacity:0.5;margin-top:2px;">▶ Xem chi tiết</div>`:''}
-        </div>`;
+    const isA = (id) => _hvActiveCard === id;
 
     document.getElementById('hvCards').innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            ${card('#fef3c7,#fde68a','#92400e',`_hvCardClick('commission')`,_hvMoney(totalComm),`💰 Tổng Hoa Hồng (TT ${directRate}%, GT ${childRate}%)`,true,'commission')}
-            ${card('#dbeafe,#bfdbfe','#1e40af',`_hvCardClick('orders')`,totalOrders,`📦 Tổng Đơn Đặt Hàng`,true,'orders')}
-            ${card('#d1fae5,#a7f3d0','#065f46',`_hvCardClick('customers')`,totalCust,`👥 Tổng Số Lượng Khách Hàng`,true,'customers')}
-            ${card('#fee2e2,#fecaca','#dc2626',`_hvCardClick('cancelled')`,cancelledCust,`❌ Tổng Số Hủy Khách Hàng`,true,'cancelled')}
-            ${card('#d1fae5,#a7f3d0','#065f46',`_hvCardClick('affiliates')`,totalAff,`👥 Tổng Số Lượng Affiliate`,true,'affiliates')}
-            ${card('#ede9fe,#ddd6fe','#5b21b6',`_hvCardClick('afftk')`,affWithTK,`🔑 Tổng Số Affiliate Có TK`,true,'afftk')}
-            ${card('#fce7f3,#fbcfe8','#be185d','',_hvMoney(totalWithdrawn),`💸 Tổng Số Tiền Đã Rút`,false,'withdrawn')}
-            ${card('#ecfdf5,#d1fae5','#047857','',_hvMoney(balance),`💎 Tổng Số Tiền Còn Lại`,false,'balance')}
+        <!-- TIER 1: Hero Financial Card -->
+        <div class="hv-hero ${isA('commission')?'hv-hero-active':''}" onclick="_hvCardClick('commission')">
+            <div class="hv-hero-glow"></div>
+            <div class="hv-hero-content">
+                <div class="hv-hero-icon">💰</div>
+                <div class="hv-hero-main">
+                    <div class="hv-hero-value">${_hvMoney(totalComm)}</div>
+                    <div class="hv-hero-label">Tổng Hoa Hồng (Trực Tiếp ${directRate}% · Gián Tiếp ${childRate}%)</div>
+                    <div class="hv-hero-sub">▶ Xem chi tiết</div>
+                </div>
+            </div>
+            <div class="hv-hero-stats">
+                <div class="hv-hero-stat">
+                    <div class="hv-hero-stat-icon" style="background:linear-gradient(135deg,#f472b6,#ec4899);">💸</div>
+                    <div><div class="hv-hero-stat-val" style="color:#fda4af;">${_hvMoney(totalWithdrawn)}</div><div class="hv-hero-stat-lbl">Đã Rút</div></div>
+                </div>
+                <div class="hv-hero-stat-divider"></div>
+                <div class="hv-hero-stat">
+                    <div class="hv-hero-stat-icon" style="background:linear-gradient(135deg,#34d399,#10b981);">💎</div>
+                    <div><div class="hv-hero-stat-val" style="color:#6ee7b7;">${_hvMoney(balance)}</div><div class="hv-hero-stat-lbl">Còn Lại</div></div>
+                </div>
+            </div>
+        </div>
+        <!-- TIER 2: Business Metrics -->
+        <div class="hv-tier2">
+            <div class="hv-metric ${isA('orders')?'hv-metric-active':''}" onclick="_hvCardClick('orders')">
+                <div class="hv-metric-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">📦</div>
+                <div class="hv-metric-body"><div class="hv-metric-val">${totalOrders}</div><div class="hv-metric-lbl">Tổng Đơn Hàng</div></div>
+                <div class="hv-metric-arrow">›</div>
+            </div>
+            <div class="hv-metric ${isA('customers')?'hv-metric-active':''}" onclick="_hvCardClick('customers')">
+                <div class="hv-metric-icon" style="background:linear-gradient(135deg,#10b981,#059669);">👥</div>
+                <div class="hv-metric-body"><div class="hv-metric-val">${totalCust}</div><div class="hv-metric-lbl">Tổng Khách Hàng</div></div>
+                <div class="hv-metric-arrow">›</div>
+            </div>
+            <div class="hv-metric ${isA('cancelled')?'hv-metric-active':''}" onclick="_hvCardClick('cancelled')">
+                <div class="hv-metric-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);">❌</div>
+                <div class="hv-metric-body"><div class="hv-metric-val">${cancelledCust}</div><div class="hv-metric-lbl">Hủy Khách Hàng</div></div>
+                <div class="hv-metric-arrow">›</div>
+            </div>
+        </div>
+        <!-- TIER 3: Affiliate Metrics -->
+        <div class="hv-tier3">
+            <div class="hv-metric ${isA('affiliates')?'hv-metric-active':''}" onclick="_hvCardClick('affiliates')">
+                <div class="hv-metric-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);">🤝</div>
+                <div class="hv-metric-body"><div class="hv-metric-val">${totalAff}</div><div class="hv-metric-lbl">Tổng Affiliate</div></div>
+                <div class="hv-metric-arrow">›</div>
+            </div>
+            <div class="hv-metric ${isA('afftk')?'hv-metric-active':''}" onclick="_hvCardClick('afftk')">
+                <div class="hv-metric-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">🔑</div>
+                <div class="hv-metric-body"><div class="hv-metric-val">${affWithTK}</div><div class="hv-metric-lbl">Affiliate Có TK</div></div>
+                <div class="hv-metric-arrow">›</div>
+            </div>
         </div>`;
 }
 
@@ -277,7 +312,76 @@ async function renderBaoCaoHoaHongHVPage(container) {
         <style>
             .hv-filter-btn:hover { background:#eff6ff !important; border-color:#93c5fd !important; }
             .hv-filter-btn.active { background:#3b82f6 !important; color:white !important; border-color:#3b82f6 !important; }
-            .hv-card-active { box-shadow:0 4px 15px rgba(0,0,0,0.12); }
+
+            /* ===== HERO CARD (Tier 1) ===== */
+            .hv-hero {
+                position:relative; overflow:hidden; cursor:pointer;
+                background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0d4f6e 100%);
+                border-radius:16px; padding:24px; margin-bottom:14px;
+                border:2px solid rgba(255,255,255,0.08);
+                transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+                box-shadow:0 4px 24px rgba(0,0,0,0.15);
+            }
+            .hv-hero:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(15,23,42,0.35); }
+            .hv-hero-active { border-color:rgba(250,204,21,0.5) !important; box-shadow:0 4px 24px rgba(250,204,21,0.15) !important; }
+            .hv-hero-glow {
+                position:absolute; top:-40%; right:-20%; width:300px; height:300px;
+                background:radial-gradient(circle,rgba(59,130,246,0.12) 0%,transparent 70%);
+                pointer-events:none;
+            }
+            .hv-hero-content { display:flex; align-items:center; gap:16px; position:relative; z-index:1; }
+            .hv-hero-icon { font-size:42px; filter:drop-shadow(0 2px 8px rgba(250,204,21,0.3)); }
+            .hv-hero-main { flex:1; }
+            .hv-hero-value { font-size:28px; font-weight:900; color:#fbbf24; letter-spacing:-0.5px; text-shadow:0 2px 12px rgba(250,204,21,0.2); }
+            .hv-hero-label { font-size:12px; color:rgba(255,255,255,0.6); margin-top:4px; font-weight:500; }
+            .hv-hero-sub { font-size:10px; color:rgba(250,204,21,0.5); margin-top:4px; font-weight:600; }
+            .hv-hero-stats {
+                display:flex; align-items:center; justify-content:center; gap:0;
+                margin-top:16px; padding-top:16px;
+                border-top:1px solid rgba(255,255,255,0.08);
+                position:relative; z-index:1;
+            }
+            .hv-hero-stat { display:flex; align-items:center; gap:10px; flex:1; justify-content:center; }
+            .hv-hero-stat-icon {
+                width:32px; height:32px; border-radius:10px; display:flex;
+                align-items:center; justify-content:center; font-size:15px;
+                box-shadow:0 2px 8px rgba(0,0,0,0.2);
+            }
+            .hv-hero-stat-val { font-size:15px; font-weight:800; }
+            .hv-hero-stat-lbl { font-size:10px; color:rgba(255,255,255,0.4); font-weight:500; margin-top:1px; }
+            .hv-hero-stat-divider { width:1px; height:36px; background:rgba(255,255,255,0.1); margin:0 8px; }
+
+            /* ===== METRIC CARDS (Tier 2 & 3) ===== */
+            .hv-tier2 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px; }
+            .hv-tier3 { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:14px; }
+            .hv-metric {
+                display:flex; align-items:center; gap:12px; padding:16px;
+                background:white; border-radius:14px; cursor:pointer;
+                border:1.5px solid #f1f5f9;
+                transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+                box-shadow:0 1px 3px rgba(0,0,0,0.04);
+            }
+            .hv-metric:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); border-color:#e2e8f0; }
+            .hv-metric-active { border-color:#3b82f6 !important; box-shadow:0 4px 16px rgba(59,130,246,0.15) !important; background:#f8faff !important; }
+            .hv-metric-icon {
+                width:44px; height:44px; border-radius:12px; display:flex;
+                align-items:center; justify-content:center; font-size:20px;
+                flex-shrink:0; box-shadow:0 3px 10px rgba(0,0,0,0.12);
+            }
+            .hv-metric-body { flex:1; min-width:0; }
+            .hv-metric-val { font-size:24px; font-weight:900; color:#0f172a; line-height:1.1; }
+            .hv-metric-lbl { font-size:11px; color:#64748b; font-weight:500; margin-top:3px; }
+            .hv-metric-arrow { font-size:22px; color:#cbd5e1; font-weight:300; transition:all 0.2s; }
+            .hv-metric:hover .hv-metric-arrow { color:#3b82f6; transform:translateX(2px); }
+
+            /* ===== RESPONSIVE ===== */
+            @media (max-width:768px) {
+                .hv-tier2 { grid-template-columns:1fr; }
+                .hv-tier3 { grid-template-columns:1fr; }
+                .hv-hero-value { font-size:22px; }
+                .hv-hero-stats { flex-direction:column; gap:10px; }
+                .hv-hero-stat-divider { width:80%; height:1px; margin:0; }
+            }
         </style>`;
 
     try {
