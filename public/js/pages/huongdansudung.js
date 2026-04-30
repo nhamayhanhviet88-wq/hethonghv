@@ -223,6 +223,10 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-form-card hdsd-form-card-green"><strong>🟢 Khách hàng</strong><br>→ Điền "CRM Chăm Sóc KH Nhu Cầu"<br><br><em>Họ tên — SĐT — Link FB/Zalo (nếu có)</em></div>' +
                             '<div class="hdsd-form-card hdsd-form-card-blue"><strong>🔵 Affiliate đối tác</strong><br>→ Điền "CRM Chăm Sóc Affiliate"<br><br><em>Họ tên — SĐT — Link FB/Zalo (nếu có)</em></div>' +
                         '</div>' +
+                        '<div style="margin-top:20px;text-align:center">' +
+                            '<img src="/images/huongdan-chuyenso.png" alt="Minh họa biểu mẫu Chuyển Số Khách Hàng" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện biểu mẫu "Chuyển Số Khách Hàng" trên hệ thống</p>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
