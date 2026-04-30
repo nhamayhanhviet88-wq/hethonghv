@@ -40,12 +40,11 @@
             .hdsd-example-row { flex-direction: column !important; gap: 4px !important; padding: 10px !important; }
             .hdsd-example-val { font-size: 16px !important; text-align: left !important; }
             .hdsd-example-total { font-size: 18px !important; }
-            /* ★ Table 1 dòng, cắt gọn + "..." */
-            .hdsd-table { min-width: auto !important; width: 100% !important; font-size: 11px !important; table-layout: fixed !important; }
-            .hdsd-table thead th { padding: 8px 6px !important; font-size: 10px !important; }
-            .hdsd-table thead th:first-child { width: 35% !important; }
-            .hdsd-table thead th:last-child { width: 65% !important; }
-            .hdsd-table tbody td { padding: 8px 6px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            /* ★ Table 1 dòng, cắt gọn — override global mobile table rules */
+            .content-area .hdsd-table { display: table !important; overflow-x: hidden !important; white-space: normal !important; min-width: auto !important; width: 100% !important; font-size: 11px !important; table-layout: fixed !important; }
+            .content-area .hdsd-table thead, .content-area .hdsd-table tbody, .content-area .hdsd-table tr { white-space: normal !important; }
+            .content-area .hdsd-table th, .content-area .hdsd-table td { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; font-size: 11px !important; padding: 8px 6px !important; }
+            .content-area .hdsd-table th:first-child, .content-area .hdsd-table td:first-child { width: 35% !important; }
             /* ★ Ẩn ảnh screenshots trong 5 bước — giảm 50% chiều dài */
             .hdsd-step-content img { display: none !important; }
             /* ★ Ẩn role cards — giữ lời chào + cam kết */
