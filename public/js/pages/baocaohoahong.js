@@ -816,12 +816,12 @@ function hhShowAffAccountList(page) {
         <div style="margin-bottom:10px;font-size:13px;color:#475569;">Tổng: <strong style="color:#5b21b6;">${affItems.length}</strong> khách hàng có TK Affiliate</div>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
-                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;width:40px;">#</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">Tên KH</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">SĐT</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;">Người GT</th>
-                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#64748b;">Trạng Thái</th>
+                <thead><tr style="background:#1e293b;border-bottom:2px solid #334155;">
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:40px;">#</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Tên KH</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">SĐT</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Người GT</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Trạng Thái</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
@@ -875,12 +875,12 @@ function hhShowCancelledList(page) {
         <div style="margin-bottom:10px;font-size:13px;color:#475569;">Tổng: <strong style="color:#dc2626;">${cancelledItems.length}</strong> khách hàng đã bị hủy</div>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#fef2f2;border-bottom:2px solid #fecaca;">
-                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#991b1b;width:40px;">#</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#991b1b;">Tên KH</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#991b1b;">SĐT</th>
-                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#991b1b;">Người GT</th>
-                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#991b1b;">Trạng Thái</th>
+                <thead><tr style="background:#1e293b;border-bottom:2px solid #334155;">
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:40px;">#</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Tên KH</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">SĐT</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:11px;color:#fff;font-weight:700;">Người GT</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:11px;color:#fff;font-weight:700;">Trạng Thái</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
