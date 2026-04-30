@@ -93,7 +93,9 @@ const MENU_CONFIG = [
     { id: 'withdraw', label: 'Rút Tiền', icon: '💰', roles: ['hoa_hong'], section: 'HOA HỒNG' },
     { id: 'tu-van-khach-aff', label: 'Theo Dõi Tư Vấn Khách', icon: '📋', roles: ['tkaffiliate'], section: 'AFFILIATE' },
     { id: 'theo-doi-tu-van-aff', label: 'Theo Dõi Tư Vấn Affiliate', icon: '🤝', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+    { id: 'bao-cao-hoa-hong-hv', label: 'Báo Cáo Hoa Hồng HV', icon: '📊', roles: ['tkaffiliate'], section: 'AFFILIATE', href: '/bao-cao-hoa-hong-hv', strictRoles: true },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
+    { id: 'huong-dan-su-dung', label: 'Hướng Dẫn Sử Dụng', icon: '📖', roles: ['tkaffiliate'], section: 'AFFILIATE', href: '/huong-dan-su-dung', strictRoles: true },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
@@ -1038,6 +1040,8 @@ async function handleRoute() {
             case 'withdraw': renderWithdrawPage(content); break;
             case 'withdraw-manage': renderWithdrawManagePage(content); break;
             case 'rut-tien-affiliate': renderWithdrawAffiliatePage(content); break;
+            case 'bao-cao-hoa-hong-hv': case 'baocaohoahonghv': renderBaoCaoHoaHongHVPage(content); break;
+            case 'huong-dan-su-dung': case 'huongdansudung': renderHuongDanSuDungPage(content); break;
             case 'quanlytkhethongaff': renderQuanLyHTAffPage(content); break;
             case 'bang-xep-hang-affiliate': case 'bangxephangaffiliate': renderBangXepHangAffiliatePage(content); break;
             case 'bang-xep-hang-kinh-doanh': case 'bangxephangkinhdoanh': renderBangXepHangKinhDoanhPage(content); break;
