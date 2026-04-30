@@ -536,7 +536,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
             ...i,
             _src: (i.crm_type === 'ctv_hoa_hong') ? 'affiliate' : 'customer'
         }));
-        allItems.sort((a,b) => new Date(b.last_contact_date||b.created_at) - new Date(a.last_contact_date||a.created_at));
+        allItems.sort((a,b) => (b.commission||0) - (a.commission||0));
         
         _hvData = { allItems, filtered: [...allItems] };
         
