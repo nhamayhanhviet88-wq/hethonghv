@@ -87,7 +87,7 @@ function _hvRenderCards() {
 
     const card = (bg, border, onclick, value, label, sub, active) => 
         `<div onclick="${onclick}" data-card="${active}" class="hv-card ${_hvActiveCard===active?'hv-card-active':''}" style="background:linear-gradient(135deg,${bg});padding:14px 10px;border-radius:12px;text-align:center;cursor:${onclick?'pointer':'default'};transition:all 0.2s;border:2px solid ${_hvActiveCard===active?border:'transparent'};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform=''">
-            <div style="font-size:${typeof value==='string'&&value.includes('₫')?'18':'24'}px;font-weight:800;color:${border};word-break:break-all;">${value}</div>
+            <div style="font-size:22px;font-weight:800;color:${border};word-break:break-all;">${value}</div>
             <div style="font-size:11px;color:${border};margin-top:4px;opacity:0.85;">${label}</div>
             ${sub?`<div style="font-size:9px;color:${border};opacity:0.5;margin-top:2px;">▶ Xem chi tiết</div>`:''}
         </div>`;
