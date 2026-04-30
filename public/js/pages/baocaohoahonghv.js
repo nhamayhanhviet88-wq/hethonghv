@@ -122,24 +122,21 @@ function _hvRenderCards() {
             </div>
         </div>
 
-        <!-- ROW 2: 2 Action Cards + 1 Finance Panel -->
+        <!-- ROW 2: 3 White Panels -->
         <div class="hv-kpi-row">
-            <div class="hv-stat hv-stat-amber ${isA('afftk')?'hv-gold':''}" onclick="_hvCardClick('afftk')">
-                <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>🔑</span></div>
-                <div class="hv-stat-val-lg">${affWithTK}</div>
-                <div class="hv-stat-lbl-lg">Có Tài Khoản Affiliate</div>
+            <div class="hv-kpi hv-kpi-click ${isA('afftk')?'hv-kpi-gold':''}" onclick="_hvCardClick('afftk')">
+                <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#f59e0b;">🔑</div>
+                <div class="hv-kpi-num" style="color:${isA('afftk')?'white':'#f59e0b'};">${affWithTK}</div>
+                <div class="hv-kpi-name">Có Tài Khoản Affiliate</div>
             </div>
-            <div class="hv-stat hv-stat-red ${isA('cancelled')?'hv-gold':''}" onclick="_hvCardClick('cancelled')">
-                <div class="hv-shimmer"></div>
-                <div class="hv-stat-icon-wrap" style="background:rgba(255,255,255,0.2);"><span>❌</span></div>
-                <div class="hv-stat-val-lg">${cancelledCust}</div>
-                <div class="hv-stat-lbl-lg">Hủy Khách</div>
+            <div class="hv-kpi hv-kpi-click ${isA('cancelled')?'hv-kpi-gold':''}" onclick="_hvCardClick('cancelled')">
+                <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:#ef4444;">❌</div>
+                <div class="hv-kpi-num" style="color:${isA('cancelled')?'white':'#ef4444'};">${cancelledCust}</div>
+                <div class="hv-kpi-name">Hủy Khách</div>
             </div>
-            <div class="hv-kpi hv-kpi-finance">
-                <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">💰 Số Tiền Nhận</span>
-                </div>
+            <div class="hv-kpi">
+                <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#6c5ce7;">💰</div>
+                <div class="hv-kpi-name" style="margin-bottom:10px;">Số Tiền Nhận</div>
                 <div class="hv-kpi-detail">
                     <div class="hv-kpi-money-row">
                         <span class="hv-kpi-dot" style="background:#10b981;"></span>
@@ -390,16 +387,32 @@ async function renderBaoCaoHoaHongHVPage(container) {
             .hv-stat-lbl-lg { font-size:12px; color:rgba(255,255,255,0.85); font-weight:600; position:relative; z-index:2; }
             .hv-stat-sub { font-size:10px; color:rgba(255,255,255,0.55); margin-top:4px; font-weight:600; position:relative; z-index:2; }
 
-            /* ===== KPI FINANCE PANEL ===== */
+            /* ===== KPI PANELS (all white) ===== */
             .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; margin-bottom:16px; }
             .hv-kpi {
                 background:white; border-radius:16px; padding:20px; position:relative; overflow:hidden;
-                border:2px solid #e2e8f0; transition:all 0.25s ease;
-                box-shadow:0 2px 8px rgba(0,0,0,0.04);
+                border:2px solid #e2e8f0; transition:all 0.3s ease;
+                box-shadow:0 4px 16px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
             }
-            .hv-kpi:hover { box-shadow:0 4px 16px rgba(0,0,0,0.06); }
-            .hv-kpi-top { margin-bottom:10px; }
-            .hv-kpi-title { font-size:13px; color:#636e72; font-weight:700; }
+            .hv-kpi:hover { box-shadow:0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06); }
+            .hv-kpi-icon {
+                width:48px; height:48px; border-radius:14px; display:flex;
+                align-items:center; justify-content:center; font-size:22px; margin-bottom:12px;
+            }
+            .hv-kpi-num { font-size:28px; font-weight:900; line-height:1; margin-bottom:6px; }
+            .hv-kpi-name { font-size:12px; color:#636e72; font-weight:600; }
+            .hv-kpi-click { cursor:pointer; }
+            .hv-kpi-click:hover { transform:translateY(-2px); border-color:#c4b5fd; }
+            /* Gold active for KPI */
+            .hv-kpi-gold {
+                background:linear-gradient(135deg,#b8860b 0%,#daa520 25%,#ffd700 50%,#daa520 75%,#b8860b 100%) !important;
+                border-color:#ffd70066 !important;
+                box-shadow:0 0 0 2px rgba(255,215,0,0.3), 0 4px 20px rgba(218,165,32,0.35) !important;
+            }
+            .hv-kpi-gold:hover { box-shadow:0 0 0 2px rgba(255,215,0,0.5), 0 8px 28px rgba(218,165,32,0.4) !important; }
+            .hv-kpi-gold .hv-kpi-icon { background:rgba(255,255,255,0.2) !important; }
+            .hv-kpi-gold .hv-kpi-num { color:white !important; text-shadow:0 1px 4px rgba(0,0,0,0.15); }
+            .hv-kpi-gold .hv-kpi-name { color:rgba(255,255,255,0.85) !important; }
             .hv-kpi-detail { display:flex; flex-direction:column; gap:8px; }
             .hv-kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
             .hv-kpi-money-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; }
