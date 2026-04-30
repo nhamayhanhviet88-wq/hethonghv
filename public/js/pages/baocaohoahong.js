@@ -226,6 +226,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
                         <thead>
                             <tr>
                                 <th>#</th>
+                                <th style="width:30px;text-align:center;padding:4px 2px;" title="Tài Khoản Affiliate">🔑</th>
                                 <th>Tên KH</th>
                                 <th>Người GT</th>
                                 <th>SĐT</th>
@@ -240,7 +241,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
                             </tr>
                         </thead>
                         <tbody id="hhTableBody">
-                            <tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
+                            <tr><td colspan="13" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -255,7 +256,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
         const apiUrl = '/api/affiliate/commission' + (crmFilter ? '?crm_filter=' + crmFilter : '');
         const data = await apiCall(apiUrl);
         if (!data.success) {
-            document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
+            document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="13" class="text-center text-muted">Lỗi tải dữ liệu</td></tr>`;
             return;
         }
 
@@ -332,7 +333,7 @@ async function renderBaoCaoHoaHongPage(container, crmFilter) {
         // Render table
         hhRenderTable(data.items);
     } catch (e) {
-        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted">Lỗi: ${e.message}</td></tr>`;
+        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="13" class="text-center text-muted">Lỗi: ${e.message}</td></tr>`;
     }
 }
 
@@ -350,7 +351,7 @@ function hhRenderTable(items) {
     const paginationEl = document.getElementById('hhPagination');
 
     if (items.length === 0) {
-        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
+        document.getElementById('hhTableBody').innerHTML = `<tr><td colspan="13" class="text-center text-muted" style="padding:40px;">Không có khách hàng phù hợp</td></tr>`;
         document.getElementById('hhTableBody').className = '';
         if (paginationEl) paginationEl.innerHTML = '';
         return;
@@ -430,7 +431,8 @@ function hhRenderTable(items) {
 
             return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
                 <td>${globalIdx + 1}</td>
-                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒'; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑'; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳'; return ''; })()}${item.customer_name}</span></td>
+                <td style="text-align:center;padding:4px 2px;font-size:14px;">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '<span title="TK Affiliate bị khóa" style="cursor:help;">🔒</span>'; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '<span title="Có TK Affiliate" style="cursor:help;">🔑</span>'; if ((window._hhAffPendingIds||[]).includes(item.id)) return '<span title="Đang chờ duyệt TK" style="cursor:help;">⏳</span>'; return ''; })()}</td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span></td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
