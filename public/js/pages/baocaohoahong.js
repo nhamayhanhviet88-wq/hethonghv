@@ -400,11 +400,12 @@ function hhRenderTable(items) {
                 ? `<span style="color:#10b981;font-weight:700;">${hhFormatMoney(item.commission)}</span>` 
                 : `<span style="color:#9ca3af;">—</span>`;
             
-            // Determine button type: order_status (CRM current state) > last log > generic
-            // Uses ONLY order_status — same logic as all CRM modules (nhu_cau, ctv, affiliate, koc_kol)
+            // Determine button type: sync with CRM modules — prioritize last_log_type (consultation_logs)
+            // Only override with order_status for special statuses (tu_van_lai, cho_duyet_huy, duyet_huy)
+            const OVERRIDE_STATUSES_HH = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
             let ct = null;
-            if (item.order_status && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
-            else if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
+            if (item.last_log_type && CONSULT_TYPES_HH[item.last_log_type]) ct = CONSULT_TYPES_HH[item.last_log_type];
+            if (OVERRIDE_STATUSES_HH.includes(item.order_status) && CONSULT_TYPES_HH[item.order_status]) ct = CONSULT_TYPES_HH[item.order_status];
             const consultBtn = ct 
                 ? `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${ct.color};color:${ct.textColor};font-weight:600;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">${ct.icon} ${ct.label}</span>`
                 : `<span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-600);color:white;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">📋 Tư Vấn</span>`;
