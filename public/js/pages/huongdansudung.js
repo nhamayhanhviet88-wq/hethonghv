@@ -543,12 +543,12 @@ function _hdsdInitLightbox() {
     }
 
     // Click on any guide image
-    var container = document.getElementById('hdsd-page');
+    var container = document.querySelector('.hdsd-page');
     if (!container) return;
 
     container.addEventListener('click', function(e) {
-        var img = e.target.closest('.hdsd-step-content img');
-        if (!img) return;
+        var img = e.target;
+        if (img.tagName !== 'IMG' || !img.closest('.hdsd-step-content')) return;
         e.preventDefault();
         lbImg.src = img.src;
         lbImg.alt = img.alt;
