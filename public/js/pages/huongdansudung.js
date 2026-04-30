@@ -305,6 +305,10 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📦</div><div class="hdsd-subcard-title">Tổng Đơn Hàng</div>Đã chốt thành công</div>' +
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">👥</div><div class="hdsd-subcard-title">KH & Affiliate</div>Phân loại chi tiết</div>' +
                         '</div>' +
+                        '<div style="margin-top:14px;text-align:center">' +
+                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Báo Cáo Hoa Hồng HV" trên hệ thống</p>' +
+                        '</div>' +
                         '<div class="hdsd-tip">🔍 Lọc theo: Hôm nay / Hôm qua / 7 ngày / Tháng / Tùy chọn ngày</div>' +
                         '<p style="margin-top:16px;font-size:14px;color:var(--hdsd-slate-600);line-height:1.7">Ngoài ra, hệ thống còn hiển thị <strong>trạng thái từng đơn hàng</strong> (đang tư vấn, báo giá, chốt đơn, sản xuất, giao hàng, hoàn thành), giúp anh/chị nắm rõ tiến độ và ước tính thu nhập. Mọi thông tin đều cập nhật <strong>real-time</strong> — chỉ cần mở trang là thấy ngay.</p>' +
                         '<div class="hdsd-highlight-gold">🎯 <strong>Lưu ý quan trọng:</strong> Hệ thống tự động tính hoa hồng khi đơn hàng được ghi nhận doanh thu. Anh/chị không cần liên hệ xác nhận — mọi thứ đều minh bạch và tự động!</div>' +
