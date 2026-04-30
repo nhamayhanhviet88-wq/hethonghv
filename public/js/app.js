@@ -595,7 +595,7 @@ function renderSidebar() {
     // Group items by section
     // ★ DOITAC PORTAL — chỉ hiển thị menu affiliate trên dongphuchv.net
     var _isDoitacPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
-    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff'];
+    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff', 'bao-cao-hoa-hong-hv', 'huong-dan-su-dung'];
 
     MENU_CONFIG.forEach(function(item) {
         // Trên dongphuchv.net: chỉ hiển thị menu affiliate
