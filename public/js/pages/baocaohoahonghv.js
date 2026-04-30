@@ -355,9 +355,9 @@ async function renderBaoCaoHoaHongHVPage(container) {
             @keyframes hvGoldShimmer { 0%{left:-100%} 100%{left:100%} }
 
             /* ===== STAT CARDS ROW ===== */
-            .hv-stats-row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
+            .hv-stats-row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
             .hv-stat {
-                border-radius:16px; padding:20px 16px; cursor:pointer;
+                border-radius:20px; padding:20px 16px; cursor:pointer;
                 border:2px solid transparent; transition:all 0.35s cubic-bezier(0.4,0,0.2,1);
                 box-shadow:0 2px 10px rgba(0,0,0,0.08); position:relative; overflow:hidden;
                 min-height:120px;
@@ -390,9 +390,9 @@ async function renderBaoCaoHoaHongHVPage(container) {
             .hv-stat-sub { font-size:10px; color:rgba(255,255,255,0.55); margin-top:4px; font-weight:600; position:relative; z-index:2; }
 
             /* ===== KPI PANELS (all white) ===== */
-            .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:14px; margin-bottom:16px; }
+            .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:20px; margin-bottom:20px; }
             .hv-kpi {
-                background:white; border-radius:16px; padding:20px; position:relative; overflow:hidden;
+                background:white; border-radius:20px; padding:20px; position:relative; overflow:hidden;
                 border:2px solid #e2e8f0; transition:all 0.3s ease;
                 box-shadow:0 4px 16px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
                 min-height:120px;
