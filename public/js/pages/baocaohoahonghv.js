@@ -71,7 +71,7 @@ function _hvRenderCards() {
     const custItems = items.filter(i => i._src === 'customer');
     const affItems = items.filter(i => i._src === 'affiliate');
     
-    const totalComm = items.reduce((s,i) => s+(i.commission||0), 0);
+    const totalComm = window._hvBalanceData?.totalCommission || items.reduce((s,i) => s+(i.commission||0), 0);
     const totalOrders = items.reduce((s,i) => s+(i.order_count||0), 0);
     const totalCust = custItems.length;
     const cancelledCust = custItems.filter(i => i.cancel_approved===1).length;
@@ -291,7 +291,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
         
         window._hvAffApprovedIds = affStatus.approvedCustomerIds || [];
         window._hvAffLockedIds = affStatus.lockedCustomerIds || [];
-        window._hvBalanceData = { totalWithdrawn: balanceData.totalWithdrawn||0, balance: balanceData.balance||0 };
+        window._hvBalanceData = { totalCommission: balanceData.totalCommission||0, totalWithdrawn: balanceData.totalWithdrawn||0, balance: balanceData.balance||0 };
         
         // Tag and merge
         const custItems = (custData.items||[]).map(i => ({...i, _src:'customer'}));
