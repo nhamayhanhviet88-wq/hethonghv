@@ -57,8 +57,8 @@ function _hdsdHeroHTML() {
                 '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#f59e0b;font-size:16px">♻️</span> Thu nhập trọn đời</div>' +
             '</div>' +
             '<div class="hdsd-hero-actions">' +
-                '<a class="hdsd-btn-gold" href="#hdsd-steps" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\')">🚀 Bắt Đầu Ngay</a>' +
-                '<a class="hdsd-btn-outline" href="#hdsd-welcome" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-welcome\')">📖 Xem Hướng Dẫn</a>' +
+                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
+                '<a class="hdsd-btn-outline" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';">📊 Xem Báo Cáo</a>' +
             '</div>' +
         '</div>' +
     '</section>';
