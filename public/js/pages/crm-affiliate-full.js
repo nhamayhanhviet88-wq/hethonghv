@@ -697,7 +697,8 @@ function _affRenderCustomerRow(c, stats, stt) {
                 const _ci = (c.id || 0) % _colors.length;
                 const _cc = _colors[_ci];
                 const _bdayIcon = _affIsBirthdayToday(c.birthday) ? '🎂🎉 ' : '';
-                return `<span onclick="_affOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_bdayIcon}${c.customer_name}</span>`;
+                const _affBadge = _affAffLockedIds.includes(c.id) ? '<span title="TK Affiliate bị khóa" style="cursor:help;">🔒</span> ' : _affAffApprovedIds.includes(c.id) ? '<span title="Có TK Affiliate" style="cursor:help;">🔑</span> ' : _affAffPendingIds.includes(c.id) ? '<span title="TK Affiliate đang chờ duyệt" style="cursor:help;">⏳</span> ' : '';
+                return `<span onclick="_affOpenCustomerDetail(${c.id})" style="cursor:pointer;display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${_cc.bg};color:${_cc.text};border:1px solid ${_cc.border};transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.boxShadow='0 2px 8px ${_cc.border}'" onmouseout="this.style.boxShadow='none'">${_affBadge}${_bdayIcon}${c.customer_name}</span>`;
             })()}
         </td>
         <td>${c.readonly ? '<span style="color:var(--gray-400)">' + c.phone + '</span>' : '<a href="tel:' + c.phone + '" style="color:var(--info)">' + c.phone + '</a>'}</td>
