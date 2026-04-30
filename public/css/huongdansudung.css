@@ -51,7 +51,7 @@
 
 /* ========== BASE RESET ========== */
 .hdsd-page *, .hdsd-page *::before, .hdsd-page *::after { box-sizing: border-box; }
-.hdsd-page { margin: 0; padding: 0; }
+.hdsd-page { margin: 0; padding: 0; overflow-x: hidden; }
 .hdsd-page img { max-width: 100%; height: auto; }
 .hdsd-page h1,.hdsd-page h2,.hdsd-page h3,.hdsd-page h4 { margin: 0; line-height: 1.3; }
 .hdsd-page p { margin: 0 0 16px; }
@@ -511,32 +511,90 @@
     .hdsd-layout { display: block; }
 }
 @media (max-width: 767px) {
-    .hdsd-hero { padding: 52px 20px; min-height: 380px; border-radius: var(--hdsd-radius-md); }
-    .hdsd-hero-actions { flex-direction: column; align-items: center; }
-    .hdsd-section { padding: 48px 16px; }
-    .hdsd-welcome-card { padding: 28px 20px; }
-    .hdsd-role-grid { grid-template-columns: 1fr; }
-    .hdsd-comm-grid { grid-template-columns: 1fr; }
-    .hdsd-timeline { padding-left: 52px; }
-    .hdsd-timeline::before { left: 17px; }
-    .hdsd-step-num { left: -52px; width: 38px; height: 38px; font-size: 16px; }
-    .hdsd-subcards { grid-template-columns: 1fr; }
-    .hdsd-form-cards { grid-template-columns: 1fr; }
-    .hdsd-cta-section { padding: 48px 20px; border-radius: var(--hdsd-radius-md); }
-    .hdsd-quote-final { padding-left: 16px; }
-    .hdsd-scroll-top { bottom: 16px; right: 16px; width: 42px; height: 42px; font-size: 16px; }
+    /* — Hero — */
+    .hdsd-hero { padding: 40px 16px; min-height: auto; border-radius: var(--hdsd-radius-md); }
+    .hdsd-hero-content { max-width: 100%; padding: 0; }
+    .hdsd-hero-title { font-size: 26px; margin-top: 16px; }
+    .hdsd-hero-subtitle { font-size: 14px; margin-top: 10px; }
+    .hdsd-hero-desc { font-size: 13px; max-width: 100%; }
+    .hdsd-hero-badge { font-size: 10px; padding: 6px 14px; letter-spacing: 1px; }
+    .hdsd-hero-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+    .hdsd-hero-glow { display: none; }
+
+    /* — Buttons — */
+    .hdsd-btn-gold, .hdsd-btn-outline { padding: 12px 20px; font-size: 14px; width: 100%; justify-content: center; }
+    .hdsd-cta-actions { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+
+    /* — Sections — */
+    .hdsd-section { padding: 40px 14px; }
+    .hdsd-section-title { font-size: 22px; }
+    .hdsd-section-tag { font-size: 10px; padding: 6px 14px; letter-spacing: 1px; }
+
+    /* — Welcome — */
+    .hdsd-welcome-card { padding: 24px 16px; }
+    .hdsd-quote-hero { font-size: 16px; padding-left: 16px; }
+    .hdsd-role-grid { grid-template-columns: 1fr; gap: 10px; }
+    .hdsd-role-card { padding: 16px 14px; }
     .hdsd-commitment-list { flex-direction: column; gap: 4px; }
-    .hdsd-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .hdsd-highlight-navy { padding: 20px 16px; }
+    .hdsd-highlight-gold { padding: 16px; font-size: 13px; }
+    .hdsd-highlight-fire { padding: 12px 14px; font-size: 13px; }
+
+    /* — Commission — */
+    .hdsd-comm-grid { grid-template-columns: 1fr; }
+    .hdsd-comm-banner { padding: 16px; }
+    .hdsd-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .hdsd-example-total { font-size: 18px; }
+
+    /* — Steps Timeline — */
+    .hdsd-timeline { padding-left: 46px; }
+    .hdsd-timeline::before { left: 14px; }
+    .hdsd-step-num { left: -46px; width: 32px; height: 32px; font-size: 14px; }
+    .hdsd-step-card { padding: 20px 14px; }
+    .hdsd-step-title { font-size: 16px; }
+    .hdsd-subcards { grid-template-columns: 1fr !important; }
+    .hdsd-form-cards { grid-template-columns: 1fr; }
+    .hdsd-pipeline { flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .hdsd-pipeline-step { font-size: 12px; padding: 6px 10px; }
+    .hdsd-pipeline-arrow { font-size: 14px; }
+    .hdsd-step-banner { font-size: 13px; padding: 12px 14px; }
+
+    /* — Images — */
+    .hdsd-step-content img { border-radius: 10px !important; }
+
+    /* — Table — */
+    .hdsd-feature-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 16px -14px; padding: 0 14px; }
+    .hdsd-table { font-size: 12px; min-width: 480px; }
+    .hdsd-table thead th { padding: 10px 12px; font-size: 11px; }
+    .hdsd-table tbody td { padding: 10px 12px; }
+
+    /* — CTA — */
+    .hdsd-cta-section { padding: 40px 16px; border-radius: var(--hdsd-radius-md); }
+    .hdsd-quote-final { padding-left: 14px; font-size: 14px; }
+    .hdsd-cta-text { font-size: 14px; }
+    .hdsd-cta-closing { font-size: 14px; }
+    .hdsd-support-grid { grid-template-columns: 1fr !important; gap: 10px; }
+    .hdsd-support-item { padding: 12px; }
+
+    /* — Content Ideas — */
     .hdsd-content-ideas { grid-template-columns: 1fr; }
-    .hdsd-support-grid { grid-template-columns: 1fr; }
-    .hdsd-btn-gold, .hdsd-btn-outline { padding: 12px 24px; font-size: 14px; width: 100%; }
-    .hdsd-comm-banner { padding: 20px; }
+
+    /* — Scroll Top — */
+    .hdsd-scroll-top { bottom: 16px; right: 16px; width: 40px; height: 40px; font-size: 16px; }
+
+    /* — Lightbox — */
+    .hdsd-lightbox { padding: 10px; }
+    .hdsd-lightbox img { border-radius: 8px; }
 }
 @media (max-width: 479px) {
-    .hdsd-hero { padding: 40px 16px; min-height: 340px; }
-    .hdsd-welcome-card { padding: 24px 16px; }
-    .hdsd-step-card { padding: 20px 16px; }
-    .hdsd-cta-section { padding: 40px 16px; }
+    .hdsd-hero { padding: 32px 12px; }
+    .hdsd-hero-title { font-size: 22px; }
+    .hdsd-hero-subtitle { font-size: 13px; }
+    .hdsd-section { padding: 32px 10px; }
+    .hdsd-welcome-card { padding: 20px 12px; }
+    .hdsd-step-card { padding: 16px 12px; }
+    .hdsd-cta-section { padding: 32px 12px; }
+    .hdsd-stats-grid { grid-template-columns: 1fr; }
 }
 
 /* ========== REDUCED MOTION ========== */
