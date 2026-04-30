@@ -281,22 +281,22 @@ async function renderBaoCaoHoaHongHVPage(container) {
         </style>`;
 
     try {
-        // Fetch BOTH datasets in parallel
-        const [custData, affData, affStatus, balanceData] = await Promise.all([
-            apiCall('/api/affiliate/commission?crm_filter=nhu_cau'),
-            apiCall('/api/affiliate/commission?crm_filter=ctv_hoa_hong'),
+        // Fetch ALL data in parallel (no crm_filter → gets ALL crm_types)
+        const [allData, affStatus, balanceData] = await Promise.all([
+            apiCall('/api/affiliate/commission'),
             apiCall('/api/affiliate-account/batch-status').catch(() => ({approvedCustomerIds:[],lockedCustomerIds:[],pendingCustomerIds:[]})),
-            apiCall('/api/affiliate/balance').catch(() => ({totalWithdrawn:0,balance:0}))
+            apiCall('/api/affiliate/balance').catch(() => ({totalCommission:0,totalWithdrawn:0,balance:0}))
         ]);
         
         window._hvAffApprovedIds = affStatus.approvedCustomerIds || [];
         window._hvAffLockedIds = affStatus.lockedCustomerIds || [];
         window._hvBalanceData = { totalCommission: balanceData.totalCommission||0, totalWithdrawn: balanceData.totalWithdrawn||0, balance: balanceData.balance||0 };
         
-        // Tag and merge
-        const custItems = (custData.items||[]).map(i => ({...i, _src:'customer'}));
-        const affItems = (affData.items||[]).map(i => ({...i, _src:'affiliate'}));
-        const allItems = [...custItems, ...affItems];
+        // Tag items by crm_type: nhu_cau → customer, ctv_hoa_hong → affiliate, others → based on type
+        const allItems = (allData.items||[]).map(i => ({
+            ...i,
+            _src: (i.crm_type === 'ctv_hoa_hong') ? 'affiliate' : 'customer'
+        }));
         allItems.sort((a,b) => new Date(b.last_contact_date||b.created_at) - new Date(a.last_contact_date||a.created_at));
         
         _hvData = { allItems, filtered: [...allItems] };
