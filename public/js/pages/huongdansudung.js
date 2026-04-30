@@ -244,6 +244,10 @@ function _hdsdStepsHTML() {
                             '<span class="hdsd-pipeline-step">✅ Chốt đơn</span><span class="hdsd-pipeline-arrow">→</span>' +
                             '<span class="hdsd-pipeline-step">🔄 Tư vấn lại</span>' +
                         '</div>' +
+                        '<div style="margin-top:14px;text-align:center">' +
+                            '<img src="/images/huongdan-theodoisuvankhach.png" alt="Minh họa trang Theo Dõi Tư Vấn Khách" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Theo Dõi Tư Vấn Khách" trên hệ thống</p>' +
+                        '</div>' +
                         '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khi Affiliate trong hệ thống giới thiệu khách chốt đơn → họ được 10%, anh/chị tự động hưởng thêm 5%. Toàn bộ tiến độ hiển thị real-time trên hệ thống.</div>' +
                         '<p style="margin-top:16px"><strong>🤝 3.2. Theo Dõi Tư Vấn Affiliate</strong> — Xem ngay: Affiliate đã có tài khoản chưa? Đang tư vấn giai đoạn nào? Có doanh số chưa?</p>' +
                         '<div style="margin-top:14px;text-align:center">' +
