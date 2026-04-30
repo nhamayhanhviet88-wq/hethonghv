@@ -281,6 +281,10 @@ function _hdsdStepsHTML() {
                             '<li style="margin-bottom:6px">🏦 Điền thông tin ngân hàng</li>' +
                             '<li style="margin-bottom:6px">✅ Bấm <strong>"Gửi Yêu Cầu"</strong></li>' +
                         '</ul>' +
+                        '<div style="margin-top:14px;margin-bottom:14px;text-align:center">' +
+                            '<img src="/images/huongdan-ruttien.png" alt="Minh họa trang Rút Tiền" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Rút Tiền" trên hệ thống</p>' +
+                        '</div>' +
                         '<div class="hdsd-step-banner">⚡ Chủ động rút <strong>bất cứ lúc nào</strong> — không cần chờ cuối tháng. HV chuyển khoản và gửi bill xác nhận ngay.</div>' +
                         '<div class="hdsd-subcards" style="grid-template-columns:repeat(2,1fr);margin-top:16px">' +
                             '<div class="hdsd-subcard"><div class="hdsd-subcard-title">❓ Rút tối thiểu bao nhiêu?</div>Tối thiểu <strong>100.000đ</strong> mỗi lần rút. Không giới hạn số lần.</div>' +
