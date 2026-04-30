@@ -81,8 +81,12 @@ function _hvRenderCards() {
     const directRate = items.find(i=>i.is_direct)?.rate || 10;
     const childRate = items.find(i=>!i.is_direct)?.rate || 5;
 
+    // Balance data (fetched once, stored globally)
+    const totalWithdrawn = window._hvBalanceData?.totalWithdrawn || 0;
+    const balance = window._hvBalanceData?.balance || 0;
+
     const card = (bg, border, onclick, value, label, sub, active) => 
-        `<div onclick="${onclick}" data-card="${active}" class="hv-card ${_hvActiveCard===active?'hv-card-active':''}" style="background:linear-gradient(135deg,${bg});padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;transition:all 0.2s;border:2px solid ${_hvActiveCard===active?border:'transparent'};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform=''">
+        `<div onclick="${onclick}" data-card="${active}" class="hv-card ${_hvActiveCard===active?'hv-card-active':''}" style="background:linear-gradient(135deg,${bg});padding:14px 10px;border-radius:12px;text-align:center;cursor:${onclick?'pointer':'default'};transition:all 0.2s;border:2px solid ${_hvActiveCard===active?border:'transparent'};" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform=''">
             <div style="font-size:${typeof value==='string'&&value.includes('₫')?'18':'24'}px;font-weight:800;color:${border};word-break:break-all;">${value}</div>
             <div style="font-size:11px;color:${border};margin-top:4px;opacity:0.85;">${label}</div>
             ${sub?`<div style="font-size:9px;color:${border};opacity:0.5;margin-top:2px;">▶ Xem chi tiết</div>`:''}
@@ -96,6 +100,8 @@ function _hvRenderCards() {
             ${card('#fee2e2,#fecaca','#dc2626',`_hvCardClick('cancelled')`,cancelledCust,`❌ Tổng Số Hủy Khách Hàng`,true,'cancelled')}
             ${card('#d1fae5,#a7f3d0','#065f46',`_hvCardClick('affiliates')`,totalAff,`👥 Tổng Số Lượng Affiliate`,true,'affiliates')}
             ${card('#ede9fe,#ddd6fe','#5b21b6',`_hvCardClick('afftk')`,affWithTK,`🔑 Tổng Số Affiliate Có TK`,true,'afftk')}
+            ${card('#fce7f3,#fbcfe8','#be185d','',_hvMoney(totalWithdrawn),`💸 Tổng Số Tiền Đã Rút`,false,'withdrawn')}
+            ${card('#ecfdf5,#d1fae5','#047857','',_hvMoney(balance),`💎 Tổng Số Tiền Còn Lại`,false,'balance')}
         </div>`;
 }
 
@@ -276,14 +282,16 @@ async function renderBaoCaoHoaHongHVPage(container) {
 
     try {
         // Fetch BOTH datasets in parallel
-        const [custData, affData, affStatus] = await Promise.all([
+        const [custData, affData, affStatus, balanceData] = await Promise.all([
             apiCall('/api/affiliate/commission?crm_filter=nhu_cau'),
             apiCall('/api/affiliate/commission?crm_filter=ctv_hoa_hong'),
-            apiCall('/api/affiliate-account/batch-status').catch(() => ({approvedCustomerIds:[],lockedCustomerIds:[],pendingCustomerIds:[]}))
+            apiCall('/api/affiliate-account/batch-status').catch(() => ({approvedCustomerIds:[],lockedCustomerIds:[],pendingCustomerIds:[]})),
+            apiCall('/api/affiliate/balance').catch(() => ({totalWithdrawn:0,balance:0}))
         ]);
         
         window._hvAffApprovedIds = affStatus.approvedCustomerIds || [];
         window._hvAffLockedIds = affStatus.lockedCustomerIds || [];
+        window._hvBalanceData = { totalWithdrawn: balanceData.totalWithdrawn||0, balance: balanceData.balance||0 };
         
         // Tag and merge
         const custItems = (custData.items||[]).map(i => ({...i, _src:'customer'}));
