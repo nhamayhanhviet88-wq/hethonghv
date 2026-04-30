@@ -256,7 +256,7 @@ async function affiliateRoutes(fastify) {
         // Get customers referred by these affiliates (optionally filtered by crm_type)
         let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
-                   c.cancel_requested, c.cancel_approved
+                   c.cancel_requested, c.cancel_approved, c.crm_type
             FROM customers c
             WHERE c.referrer_id IN (${ph})`;
         const custParams = [...allIds];
@@ -265,7 +265,9 @@ async function affiliateRoutes(fastify) {
             custParams.push(crm_filter);
         }
         custQuery += ` ORDER BY c.created_at DESC`;
+        console.log(`[Commission API] crm_filter=${crm_filter || 'NONE'}, userId=${user.id}, totalAffIds=${allIds.length}`);
         const customers = await db.all(custQuery, custParams);
+        console.log(`[Commission API] Found ${customers.length} customers. CRM types: ${[...new Set(customers.map(c => c.crm_type))].join(', ')}`);
 
         // Get completed order revenue per customer
         const customerIds = customers.map(c => c.id);
