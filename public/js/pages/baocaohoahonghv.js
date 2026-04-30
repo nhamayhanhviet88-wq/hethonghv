@@ -79,6 +79,7 @@ function _hvRenderCards() {
     const directRate = items.find(i=>i.is_direct)?.rate || 10;
     const childRate = items.find(i=>!i.is_direct)?.rate || 5;
     const totalWithdrawn = window._hvBalanceData?.totalWithdrawn || 0;
+    const totalPending = window._hvBalanceData?.totalPending || 0;
     const balance = window._hvBalanceData?.balance || 0;
     const isA = (id) => _hvActiveCard === id;
     const userName = (window.currentUser?.name || 'Đối Tác');
@@ -123,28 +124,37 @@ function _hvRenderCards() {
 
         <!-- ROW 2: 3 KPI Panels -->
         <div class="hv-kpi-row">
-            <div class="hv-kpi" onclick="_hvCardClick('cancelled')">
+            <div class="hv-kpi hv-kpi-click ${isA('afftk')?'hv-kpi-active':''}" onclick="_hvCardClick('afftk')">
                 <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">💸 Đã Rút</span>
+                    <span class="hv-kpi-title">🔑 Có Tài Khoản Affiliate</span>
                 </div>
-                <div class="hv-kpi-val" style="color:#be185d;">${_hvMoney(totalWithdrawn)}</div>
+                <div class="hv-kpi-val" style="color:#f59e0b;">${affWithTK}</div>
+            </div>
+            <div class="hv-kpi hv-kpi-click ${isA('cancelled')?'hv-kpi-active':''}" onclick="_hvCardClick('cancelled')">
+                <div class="hv-kpi-top">
+                    <span class="hv-kpi-title">❌ Hủy Khách</span>
+                </div>
+                <div class="hv-kpi-val" style="color:#ef4444;">${cancelledCust}</div>
             </div>
             <div class="hv-kpi">
                 <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">💎 Còn Lại</span>
-                </div>
-                <div class="hv-kpi-val" style="color:#047857;">${_hvMoney(balance)}</div>
-            </div>
-            <div class="hv-kpi">
-                <div class="hv-kpi-top">
-                    <span class="hv-kpi-title">📋 Chi Tiết</span>
+                    <span class="hv-kpi-title">💰 Số Tiền Nhận</span>
                 </div>
                 <div class="hv-kpi-detail">
-                    <div class="hv-kpi-item ${isA('cancelled')?'hv-kpi-item-active':''}" onclick="event.stopPropagation();_hvCardClick('cancelled')">
-                        <span class="hv-kpi-dot" style="background:#ef4444;"></span>Hủy KH: <strong>${cancelledCust}</strong>
+                    <div class="hv-kpi-money-row">
+                        <span class="hv-kpi-dot" style="background:#10b981;"></span>
+                        <span class="hv-kpi-money-label">💸 Đã Rút:</span>
+                        <span class="hv-kpi-money-val" style="color:#059669;">${_hvMoney(totalWithdrawn)}</span>
                     </div>
-                    <div class="hv-kpi-item ${isA('afftk')?'hv-kpi-item-active':''}" onclick="event.stopPropagation();_hvCardClick('afftk')">
-                        <span class="hv-kpi-dot" style="background:#f59e0b;"></span>Có TK: <strong>${affWithTK}</strong>
+                    <div class="hv-kpi-money-row">
+                        <span class="hv-kpi-dot" style="background:#f59e0b;"></span>
+                        <span class="hv-kpi-money-label">⏳ Đang chờ Rút:</span>
+                        <span class="hv-kpi-money-val" style="color:#d97706;">${_hvMoney(totalPending)}</span>
+                    </div>
+                    <div class="hv-kpi-money-row">
+                        <span class="hv-kpi-dot" style="background:#6c5ce7;"></span>
+                        <span class="hv-kpi-money-label">💎 Còn Lại:</span>
+                        <span class="hv-kpi-money-val" style="color:#6c5ce7; font-weight:900;">${_hvMoney(balance)}</span>
                     </div>
                 </div>
             </div>
@@ -398,6 +408,14 @@ async function renderBaoCaoHoaHongHVPage(container) {
             .hv-kpi-item-active { background:linear-gradient(135deg,#b8860b,#daa520); color:white !important; font-weight:700; }
             .hv-kpi-item-active .hv-kpi-dot { box-shadow:0 0 6px rgba(255,215,0,0.8); }
             .hv-kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+            .hv-kpi-click { cursor:pointer; }
+            .hv-kpi-click:hover { border-color:#c4b5fd; box-shadow:0 4px 16px rgba(108,92,231,0.12); }
+            .hv-kpi-active { background:linear-gradient(135deg,#b8860b,#daa520) !important; border-color:#ffd700 !important; box-shadow:0 4px 16px rgba(218,165,32,0.3) !important; }
+            .hv-kpi-active .hv-kpi-title { color:rgba(255,255,255,0.85) !important; }
+            .hv-kpi-active .hv-kpi-val { color:white !important; text-shadow:0 1px 4px rgba(0,0,0,0.15); }
+            .hv-kpi-money-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; }
+            .hv-kpi-money-label { color:#636e72; font-weight:500; min-width:100px; }
+            .hv-kpi-money-val { font-weight:800; font-size:14px; }
 
             /* ===== RESPONSIVE ===== */
             @media (max-width:768px) {
@@ -422,7 +440,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
         
         window._hvAffApprovedIds = affStatus.approvedCustomerIds || [];
         window._hvAffLockedIds = affStatus.lockedCustomerIds || [];
-        window._hvBalanceData = { totalCommission: balanceData.totalCommission||0, totalWithdrawn: balanceData.totalWithdrawn||0, balance: balanceData.balance||0 };
+        window._hvBalanceData = { totalCommission: balanceData.totalCommission||0, totalWithdrawn: balanceData.totalWithdrawn||0, totalPending: balanceData.totalPending||0, balance: balanceData.balance||0 };
         
         // Tag items by crm_type: nhu_cau → customer, ctv_hoa_hong → affiliate, others → based on type
         const allItems = (allData.items||[]).map(i => ({
