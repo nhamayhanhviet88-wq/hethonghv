@@ -642,6 +642,7 @@ function renderSidebar() {
         html += '<div class="nav-parent-header" data-pidx="' + pidx + '">';
         // ★ DOITAC PORTAL — đổi tên parent cho affiliate portal
         var _doitacParentNames = { 'KẾT QUẢ & VINH DANH': 'BÁO CÁO & HƯỚNG DẪN', 'NHÂN SỰ & VẬN HÀNH': 'HỆ THỐNG QUẢN TRỊ' };
+        var _doitacSectionNames = { 'HỖ TRỢ NHÂN VIÊN HV': 'CHUYỂN SỐ & QUẢN LÝ KHÁCH', 'AFFILIATE': 'THEO DÕI KHÁCH & RÚT TIỀN' };
         var displayParentName = (_isDoitacPortal && _doitacParentNames[parent.name]) ? _doitacParentNames[parent.name] : parent.name;
         html += '<span class="nav-parent-text">' + displayParentName + '</span>';
         html += '<span class="nav-parent-chevron">' + parentChevron + '</span>';
@@ -659,7 +660,8 @@ function renderSidebar() {
 
             html += '<div class="nav-section-wrap">';
             html += '<div class="nav-section-header" data-sidx="' + sidx + '">';
-            html += '<span class="nav-section-text">' + sectionName + '</span>';
+            var displaySectionName = (_isDoitacPortal && _doitacSectionNames[sectionName]) ? _doitacSectionNames[sectionName] : sectionName;
+            html += '<span class="nav-section-text">' + displaySectionName + '</span>';
             html += '<span class="nav-section-chevron">' + chevron + '</span>';
             html += '</div>';
             html += '<div class="nav-section-items" style="' + (isCollapsed ? 'display:none;' : '') + '">';
@@ -689,7 +691,8 @@ function renderSidebar() {
 
         html += '<div class="nav-section-wrap">';
         html += '<div class="nav-section-header" data-sidx="' + sidx + '">';
-        html += '<span class="nav-section-text">' + sectionName + '</span>';
+        var displaySectionName = (_isDoitacPortal && _doitacSectionNames[sectionName]) ? _doitacSectionNames[sectionName] : sectionName;
+        html += '<span class="nav-section-text">' + displaySectionName + '</span>';
         html += '<span class="nav-section-chevron">' + chevron + '</span>';
         html += '</div>';
         html += '<div class="nav-section-items" style="' + (isCollapsed ? 'display:none;' : '') + '">';
