@@ -70,7 +70,8 @@ function _hvRenderCards() {
     const items = _hvData.filtered || [];
     const custItems = items.filter(i => i._src === 'customer');
     const affItems = items.filter(i => i._src === 'affiliate');
-    const totalComm = window._hvBalanceData?.totalCommission || items.reduce((s,i) => s+(i.commission||0), 0);
+    const isFiltered = !!(document.getElementById('hvDateFrom')?.value || document.getElementById('hvDateTo')?.value);
+    const totalComm = isFiltered ? items.reduce((s,i) => s+(i.commission||0), 0) : (window._hvBalanceData?.totalCommission || items.reduce((s,i) => s+(i.commission||0), 0));
     const totalOrders = items.reduce((s,i) => s+(i.order_count||0), 0);
     const totalCust = custItems.length;
     const cancelledCust = custItems.filter(i => i.cancel_approved===1).length;
@@ -260,21 +261,18 @@ function _hvGetStatusBadge(item) {
 
 // ===== MAIN RENDER =====
 async function renderBaoCaoHoaHongHVPage(container) {
-    const btnStyle = 'padding:7px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e2e8f0;background:white;color:#636e72;transition:all 0.2s;';
-    const activeBtnStyle = 'padding:7px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #6c5ce7;background:#6c5ce7;color:white;box-shadow:0 2px 8px rgba(108,92,231,0.3);';
-    
     container.innerHTML = `
         <div class="card">
             <div class="card-header"><h3>📊 Báo Cáo Hoa Hồng HV</h3></div>
             <div class="card-body">
                 <!-- Date Filter Bar -->
                 <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:16px;padding:12px 16px;background:linear-gradient(135deg,#f8f7ff,#f1f0ff);border-radius:14px;border:1.5px solid #ede9fe;">
-                    <button class="hv-filter-btn" data-f="today" onclick="_hvSetFilter('today')" style="${btnStyle}">Hôm nay</button>
-                    <button class="hv-filter-btn" data-f="yesterday" onclick="_hvSetFilter('yesterday')" style="${btnStyle}">Hôm qua</button>
-                    <button class="hv-filter-btn" data-f="7days" onclick="_hvSetFilter('7days')" style="${btnStyle}">7 ngày</button>
-                    <button class="hv-filter-btn" data-f="thismonth" onclick="_hvSetFilter('thismonth')" style="${btnStyle}">Tháng này</button>
-                    <button class="hv-filter-btn" data-f="lastmonth" onclick="_hvSetFilter('lastmonth')" style="${btnStyle}">Tháng trước</button>
-                    <button class="hv-filter-btn active" data-f="all" onclick="_hvSetFilter('all')" style="${activeBtnStyle}">✨ Tất cả</button>
+                    <button class="hv-filter-btn" data-f="today" onclick="_hvSetFilter('today')">Hôm nay</button>
+                    <button class="hv-filter-btn" data-f="yesterday" onclick="_hvSetFilter('yesterday')">Hôm qua</button>
+                    <button class="hv-filter-btn" data-f="7days" onclick="_hvSetFilter('7days')">7 ngày</button>
+                    <button class="hv-filter-btn" data-f="thismonth" onclick="_hvSetFilter('thismonth')">Tháng này</button>
+                    <button class="hv-filter-btn" data-f="lastmonth" onclick="_hvSetFilter('lastmonth')">Tháng trước</button>
+                    <button class="hv-filter-btn active" data-f="all" onclick="_hvSetFilter('all')">✨ Tất cả</button>
                     <span style="font-size:11px;color:#94a3b8;margin:0 4px;">|</span>
                     <span style="font-size:12px;color:#475569;font-weight:600;">📅 Tùy chọn</span>
                     <input type="date" id="hvDateFrom" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
@@ -329,6 +327,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
             </div>
         </div>
         <style>
+            .hv-filter-btn { padding:7px 14px; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid #e2e8f0; background:white; color:#636e72; transition:all 0.2s; }
             .hv-filter-btn:hover { background:#ede9fe !important; border-color:#c4b5fd !important; color:#6c5ce7 !important; }
             .hv-filter-btn.active { background:#6c5ce7 !important; color:white !important; border-color:#6c5ce7 !important; box-shadow:0 2px 8px rgba(108,92,231,0.3) !important; }
 
