@@ -81,15 +81,13 @@ function _hvRenderCards() {
     const totalWithdrawn = window._hvBalanceData?.totalWithdrawn || 0;
     const balance = window._hvBalanceData?.balance || 0;
     const isA = (id) => _hvActiveCard === id;
-    const userName = (window.currentUser?.name || 'Affiliate');
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+    const userName = (window.currentUser?.name || 'Đối Tác');
 
     document.getElementById('hvCards').innerHTML = `
         <!-- Welcome -->
         <div class="hv-welcome">
             <div class="hv-welcome-text">
-                <span class="hv-wave">👋</span> ${greeting}, <strong>${userName}</strong>!
+                <img src="/images/logo.png" alt="HV" class="hv-welcome-logo"> Đồng Phục HV xin chào quý đối tác <strong>${userName}</strong>!
             </div>
             <div class="hv-welcome-date">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
         </div>
@@ -97,25 +95,29 @@ function _hvRenderCards() {
         <!-- ROW 1: 4 Stat Cards -->
         <div class="hv-stats-row">
             <div class="hv-stat hv-stat-primary ${isA('commission')?'hv-stat-selected':''}" onclick="_hvCardClick('commission')">
+                <div class="hv-shimmer"></div>
                 <div class="hv-stat-icon-wrap hv-stat-icon-gold"><span>💰</span></div>
                 <div class="hv-stat-value-primary">${_hvMoney(totalComm)}</div>
                 <div class="hv-stat-label-primary">Tổng Hoa Hồng</div>
                 <div class="hv-stat-sub-primary">TT ${directRate}% · GT ${childRate}%</div>
             </div>
             <div class="hv-stat ${isA('orders')?'hv-stat-selected':''}" onclick="_hvCardClick('orders')">
+                <div class="hv-shimmer"></div>
                 <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);"><span>📦</span></div>
-                <div class="hv-stat-value">${totalOrders}</div>
-                <div class="hv-stat-label">Tổng Đơn Hàng</div>
+                <div class="hv-stat-value ${isA('orders')?'hv-val-active':''}">${totalOrders}</div>
+                <div class="hv-stat-label ${isA('orders')?'hv-lbl-active':''}">${isA('orders')?'▶ ':''}Tổng Đơn Hàng</div>
             </div>
             <div class="hv-stat ${isA('customers')?'hv-stat-selected':''}" onclick="_hvCardClick('customers')">
+                <div class="hv-shimmer"></div>
                 <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);"><span>👥</span></div>
-                <div class="hv-stat-value">${totalCust}</div>
-                <div class="hv-stat-label">Tổng Khách Hàng</div>
+                <div class="hv-stat-value ${isA('customers')?'hv-val-active':''}">${totalCust}</div>
+                <div class="hv-stat-label ${isA('customers')?'hv-lbl-active':''}">${isA('customers')?'▶ ':''}Tổng Khách Hàng</div>
             </div>
             <div class="hv-stat ${isA('affiliates')?'hv-stat-selected':''}" onclick="_hvCardClick('affiliates')">
+                <div class="hv-shimmer"></div>
                 <div class="hv-stat-icon-wrap" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);"><span>🤝</span></div>
-                <div class="hv-stat-value">${totalAff}</div>
-                <div class="hv-stat-label">Tổng Affiliate</div>
+                <div class="hv-stat-value ${isA('affiliates')?'hv-val-active':''}">${totalAff}</div>
+                <div class="hv-stat-label ${isA('affiliates')?'hv-lbl-active':''}">${isA('affiliates')?'▶ ':''}Tổng Affiliate</div>
             </div>
         </div>
 
@@ -324,11 +326,22 @@ async function renderBaoCaoHoaHongHVPage(container) {
 
             /* ===== WELCOME ===== */
             .hv-welcome { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-            .hv-welcome-text { font-size:22px; color:#2d3436; font-weight:700; }
+            .hv-welcome-text { font-size:20px; color:#2d3436; font-weight:700; display:flex; align-items:center; gap:10px; }
             .hv-welcome-text strong { color:#6c5ce7; }
+            .hv-welcome-logo { width:36px; height:36px; object-fit:contain; border-radius:8px; }
             .hv-welcome-date { font-size:12px; color:#b2bec3; font-weight:500; }
-            .hv-wave { display:inline-block; animation:hvWave 1.8s ease-in-out infinite; transform-origin:70% 70%; }
-            @keyframes hvWave { 0%,60%,100%{transform:rotate(0)} 10%{transform:rotate(14deg)} 20%{transform:rotate(-8deg)} 30%{transform:rotate(14deg)} 40%{transform:rotate(-4deg)} 50%{transform:rotate(10deg)} }
+
+            /* ===== SHIMMER ANIMATION ===== */
+            .hv-shimmer {
+                position:absolute; top:0; left:-100%; width:100%; height:100%;
+                background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+                animation:hvShimmer 3s ease-in-out infinite;
+                pointer-events:none; z-index:1;
+            }
+            .hv-stat-primary .hv-shimmer {
+                background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+            }
+            @keyframes hvShimmer { 0%{left:-100%} 50%{left:100%} 100%{left:100%} }
 
             /* ===== STAT CARDS ROW ===== */
             .hv-stats-row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
@@ -337,8 +350,16 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 border:2px solid #f1f5f9; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
                 box-shadow:0 2px 8px rgba(0,0,0,0.04); position:relative; overflow:hidden;
             }
-            .hv-stat:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.08); }
-            .hv-stat-selected { border-color:#6c5ce7 !important; box-shadow:0 4px 20px rgba(108,92,231,0.18) !important; }
+            .hv-stat:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.1); }
+
+            /* White card selected → purple gradient */
+            .hv-stat-selected:not(.hv-stat-primary) {
+                background:linear-gradient(135deg,#ede9fe 0%,#e0d4ff 100%) !important;
+                border-color:#6c5ce7 !important;
+                box-shadow:0 4px 20px rgba(108,92,231,0.25) !important;
+            }
+            .hv-val-active { color:#6c5ce7 !important; }
+            .hv-lbl-active { color:#6c5ce7 !important; font-weight:700 !important; }
 
             /* Primary card (purple) */
             .hv-stat-primary {
@@ -347,23 +368,27 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 box-shadow:0 4px 20px rgba(108,92,231,0.3);
             }
             .hv-stat-primary:hover { box-shadow:0 8px 30px rgba(108,92,231,0.4); }
-            .hv-stat-primary.hv-stat-selected { box-shadow:0 4px 24px rgba(250,204,21,0.3) !important; border-color:rgba(250,204,21,0.6) !important; }
+            .hv-stat-primary.hv-stat-selected {
+                border-color:#fbbf24 !important;
+                box-shadow:0 0 0 2px #fbbf24, 0 4px 24px rgba(250,204,21,0.35) !important;
+            }
 
             .hv-stat-icon-wrap {
                 width:48px; height:48px; border-radius:14px; display:flex;
                 align-items:center; justify-content:center; font-size:22px; margin-bottom:14px;
+                position:relative; z-index:2;
             }
             .hv-stat-icon-gold { background:rgba(255,255,255,0.2); }
-            .hv-stat-value { font-size:28px; font-weight:900; color:#2d3436; line-height:1; margin-bottom:6px; }
-            .hv-stat-label { font-size:12px; color:#636e72; font-weight:500; }
-            .hv-stat-value-primary { font-size:22px; font-weight:900; color:white; line-height:1.1; margin-bottom:6px; word-break:break-all; }
-            .hv-stat-label-primary { font-size:12px; color:rgba(255,255,255,0.8); font-weight:500; }
-            .hv-stat-sub-primary { font-size:10px; color:rgba(255,255,255,0.5); margin-top:4px; font-weight:600; }
+            .hv-stat-value { font-size:28px; font-weight:900; color:#2d3436; line-height:1; margin-bottom:6px; position:relative; z-index:2; transition:color 0.3s; }
+            .hv-stat-label { font-size:12px; color:#636e72; font-weight:500; position:relative; z-index:2; transition:all 0.3s; }
+            .hv-stat-value-primary { font-size:22px; font-weight:900; color:white; line-height:1.1; margin-bottom:6px; word-break:break-all; position:relative; z-index:2; }
+            .hv-stat-label-primary { font-size:12px; color:rgba(255,255,255,0.8); font-weight:500; position:relative; z-index:2; }
+            .hv-stat-sub-primary { font-size:10px; color:rgba(255,255,255,0.5); margin-top:4px; font-weight:600; position:relative; z-index:2; }
 
             /* ===== KPI ROW ===== */
             .hv-kpi-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
             .hv-kpi {
-                background:white; border-radius:14px; padding:18px;
+                background:white; border-radius:14px; padding:18px; position:relative; overflow:hidden;
                 border:1.5px solid #f1f5f9; transition:all 0.25s ease;
                 box-shadow:0 1px 4px rgba(0,0,0,0.03);
             }
@@ -377,7 +402,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 padding:6px 10px; border-radius:8px; cursor:pointer; transition:all 0.2s;
             }
             .hv-kpi-item:hover { background:#f8f9fa; }
-            .hv-kpi-item-active { background:#ede9fe; color:#6c5ce7; font-weight:700; }
+            .hv-kpi-item-active { background:#6c5ce7; color:white !important; font-weight:700; }
+            .hv-kpi-item-active .hv-kpi-dot { box-shadow:0 0 6px currentColor; }
             .hv-kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 
             /* ===== RESPONSIVE ===== */
@@ -385,7 +411,7 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 .hv-stats-row { grid-template-columns:1fr 1fr; }
                 .hv-kpi-row { grid-template-columns:1fr; }
                 .hv-welcome { flex-direction:column; align-items:flex-start; gap:4px; }
-                .hv-welcome-text { font-size:18px; }
+                .hv-welcome-text { font-size:16px; }
                 .hv-stat-value-primary { font-size:18px; }
             }
             @media (max-width:480px) {
