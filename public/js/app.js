@@ -960,7 +960,9 @@ async function handleRoute() {
 
     // Update page title
     const menuItem = MENU_CONFIG.find(m => m.id === currentPage);
-    document.getElementById('pageTitle').textContent = menuItem ? menuItem.label : 'Dashboard';
+    var _dtItemLabels = { 'chuyen-so': 'Chuyển Số Khách Hàng', 'quanlytkhethongaff': 'Quản Lý Tài Khoản Affiliate' };
+    var _dtPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
+    document.getElementById('pageTitle').textContent = menuItem ? ((_dtPortal && _dtItemLabels[menuItem.id]) || menuItem.label) : 'Dashboard';
 
     // Add "Chuyển Số" button for specific KD pages
     const CHUYEN_SO_PAGES = ['nhantintimdoitackh','addcmtdoitackh','dangvideo','dangcontent','danggruop','seddingcongdong','dangbanthansp','timgrzalovathongke','tuyendungsvkd','cham-soc-koc-kol'];
