@@ -553,6 +553,9 @@
     .hdsd-toc-pill { font-size: 11px; padding: 6px 12px; }
 }
 @media (max-width: 767px) {
+    /* — TOC — */
+    .hdsd-toc { margin: 0 -14px; padding: 8px 10px; gap: 4px; }
+    .hdsd-toc-pill { font-size: 10px; padding: 5px 10px; }
     /* — Hero — */
     .hdsd-hero { padding: 40px 16px; min-height: auto; border-radius: var(--hdsd-radius-md); }
     .hdsd-hero-content { max-width: 100%; padding: 0; }
