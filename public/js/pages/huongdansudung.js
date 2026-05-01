@@ -55,7 +55,7 @@ function _hdsdHeroHTML() {
             '</div>' +
             '<div class="hdsd-hero-actions">' +
                 '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
-                '<a class="hdsd-btn-outline" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';">📊 Xem Báo Cáo</a>' +
+                '<a class="hdsd-btn-sparkle-alt" href="#" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\');">✨ Cách Thức Hợp Tác</a>' +
             '</div>' +
         '</div>' +
     '</section>';
