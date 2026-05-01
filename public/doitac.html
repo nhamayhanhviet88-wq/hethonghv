@@ -120,6 +120,15 @@
         document.querySelectorAll('.hdsd-btn-sparkle').forEach(function(btn) {
             btn.textContent = '📋 Đăng Ký Đối Tác';
         });
+
+        // 6. Insert "Đăng Ký Đối Tác" button after commission banner
+        var commBanner = document.querySelector('.hdsd-comm-banner');
+        if (commBanner) {
+            var regBtn = document.createElement('div');
+            regBtn.style.cssText = 'text-align:center;margin-top:24px;';
+            regBtn.innerHTML = '<a class="hdsd-btn-sparkle" href="#" onclick="event.preventDefault();" style="margin-top:0">📋 Đăng Ký Đối Tác</a>';
+            commBanner.parentNode.insertBefore(regBtn, commBanner.nextSibling);
+        }
     })();
     </script>
 </body>
