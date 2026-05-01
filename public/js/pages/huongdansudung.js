@@ -78,9 +78,9 @@ function _hdsdWelcomeHTML() {
                 '<div class="hdsd-role-card hdsd-animate hdsd-animate-delay-3"><div class="hdsd-role-icon">💼</div><div class="hdsd-role-title">Đối tác kinh doanh đẳng cấp</div><div class="hdsd-role-desc">Chia sẻ lợi nhuận công bằng, bền vững</div></div>' +
             '</div>' +
             '<div class="hdsd-stats-grid hdsd-animate">' +
-                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">8+</div><div class="hdsd-stat-label">Năm kinh nghiệm</div></div>' +
-                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">500+</div><div class="hdsd-stat-label">Đối tác tin cậy</div></div>' +
-                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">5000+</div><div class="hdsd-stat-label">Đơn hàng hoàn thành</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">10+</div><div class="hdsd-stat-label">Năm kinh nghiệm</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">2000+</div><div class="hdsd-stat-label">Đối tác tin cậy</div></div>' +
+                '<div class="hdsd-stat-item"><div class="hdsd-stat-num">55000+</div><div class="hdsd-stat-label">Đơn hàng hoàn thành</div></div>' +
                 '<div class="hdsd-stat-item"><div class="hdsd-stat-num">100%</div><div class="hdsd-stat-label">Minh bạch hoa hồng</div></div>' +
             '</div>' +
             '<p class="hdsd-welcome-text hdsd-animate">Chúng tôi tin rằng thành công bền vững đến từ sự <strong>hợp tác chân thành</strong>. Mỗi đối tác khi đồng hành cùng HV không chỉ nhận được hoa hồng — mà còn được <strong>hỗ trợ toàn diện</strong> về tư liệu marketing, hình ảnh sản phẩm chuyên nghiệp, và đội ngũ tư vấn sẵn sàng chăm sóc khách hàng thay anh/chị.</p>' +
