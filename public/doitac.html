@@ -120,13 +120,24 @@
         document.querySelectorAll('.hdsd-btn-sparkle').forEach(function(btn) {
             btn.style.display = 'none';
         });
+        // 6. Insert "Đăng Ký Đối Tác" button after commission banner
         var commBanner = document.querySelector('.hdsd-comm-banner');
         if (commBanner) {
             var regBtn = document.createElement('div');
             regBtn.style.cssText = 'text-align:center;margin-top:24px;';
-            regBtn.innerHTML = '<a class="hdsd-btn-sparkle" href="#" onclick="event.preventDefault();" style="margin-top:0">📋 Đăng Ký Đối Tác</a>';
+            regBtn.innerHTML = '<a class="hdsd-btn-sparkle" href="#" onclick="event.preventDefault();" style="margin-top:0;display:inline-block">📋 Đăng Ký Đối Tác</a>';
             commBanner.parentNode.insertBefore(regBtn, commBanner.nextSibling);
         }
+
+        // 7. Insert "Đăng Ký Đối Tác" button after "Lưu ý quan trọng" at end of step 5
+        document.querySelectorAll('.hdsd-highlight-gold').forEach(function(el) {
+            if (el.textContent.indexOf('Lưu ý quan trọng') !== -1) {
+                var regBtn2 = document.createElement('div');
+                regBtn2.style.cssText = 'text-align:center;margin-top:24px;';
+                regBtn2.innerHTML = '<a class="hdsd-btn-sparkle" href="#" onclick="event.preventDefault();" style="margin-top:0;display:inline-block">📋 Đăng Ký Đối Tác</a>';
+                el.parentNode.insertBefore(regBtn2, el.nextSibling);
+            }
+        });
     })();
     </script>
 </body>
