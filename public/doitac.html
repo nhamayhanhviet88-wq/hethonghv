@@ -90,7 +90,7 @@
         // 2. "Xem Báo Cáo" → "Đăng Ký Đối Tác" (link TBD)
         document.querySelectorAll('.hdsd-btn-gold').forEach(function(btn) {
             if (btn.textContent.indexOf('Chuyển Số Ngay') !== -1) {
-                btn.textContent = '🤝 Cách Hợp Tác';
+                btn.textContent = '🤝 Cách Thức Hợp Tác';
                 btn.href = '#hdsd-steps';
                 btn.setAttribute('onclick', "event.preventDefault();var el=document.getElementById('hdsd-steps');if(el){var y=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:y,behavior:'smooth'});}");
             }
