@@ -934,17 +934,20 @@ function navigate(page) {
     document.getElementById('sidebarOverlay').classList.remove('show');
 }
 
-var _hdsd_isInitialLoad = true; // Flag: only true on first page load
+// Smart redirect for tkaffiliate uses sessionStorage (survives reload, clears on tab close)
 
 async function handleRoute() {
     // Read page from pathname (e.g. /crm-nhu-cau → crm-nhu-cau)
     const pathname = window.location.pathname.replace(/^\//, '') || 'dashboard';
 
-    // Block tkaffiliate from dashboard — smart redirect: first 3 logins → guide, 4th+ → report
-    // Only on initial page load (not SPA sidebar navigation)
+    // Block tkaffiliate from dashboard — first 3 login sessions → guide, 4th+ → report
+    // sessionStorage flag ensures redirect fires ONCE per login session (survives reload, clears on tab close)
+    var _hdsdSessionKey = 'hdsd_done_' + (currentUser ? currentUser.id : '0');
+    var _hdsdAlreadyDone = sessionStorage.getItem(_hdsdSessionKey);
+
     if ((pathname === 'dashboard' || pathname === 'bao-cao-hoa-hong-hv') && currentUser && currentUser.role === 'tkaffiliate'
-        && _hdsd_isInitialLoad) {
-        _hdsd_isInitialLoad = false;
+        && !_hdsdAlreadyDone) {
+        sessionStorage.setItem(_hdsdSessionKey, '1');
         var _hdsdCountKey = 'hdsd_login_count_' + currentUser.id;
         var _hdsdCount = parseInt(localStorage.getItem(_hdsdCountKey) || '0');
         if (_hdsdCount < 3) {
