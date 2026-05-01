@@ -71,7 +71,7 @@ function _hdsdWelcomeHTML() {
         '<div class="hdsd-welcome-card hdsd-animate">' +
             '<blockquote class="hdsd-quote-hero">"Trân trọng kính chào Quý anh/chị – những người đồng hành quý giá nhất của Đồng Phục HV!"</blockquote>' +
             '<p class="hdsd-welcome-text"><strong>Đồng Phục HV</strong> xin gửi lời chào nồng nhiệt và lòng biết ơn chân thành đến Quý anh/chị. Sự hiện diện của anh/chị hôm nay không chỉ là một người giới thiệu — mà là <strong>đại sứ thương hiệu</strong>, là người đồng kiến tạo nên hành trình phát triển của Đồng Phục HV.</p>' +
-            '<p class="hdsd-welcome-text">Trong mắt chúng tôi, anh/chị là:</p>' +
+            '' +
             '<div class="hdsd-role-grid">' +
                 '<div class="hdsd-role-card hdsd-animate hdsd-animate-delay-1"><div class="hdsd-role-icon">🤝</div><div class="hdsd-role-title">Người đồng hành chiến lược</div><div class="hdsd-role-desc">Cùng HV mang giá trị đến cộng đồng</div></div>' +
                 '<div class="hdsd-role-card hdsd-animate hdsd-animate-delay-2"><div class="hdsd-role-icon">🌟</div><div class="hdsd-role-title">Đại sứ thương hiệu</div><div class="hdsd-role-desc">Đại diện cho uy tín và chất lượng HV</div></div>' +
