@@ -415,28 +415,35 @@
     bottom: -120px; left: -80px; pointer-events: none;
 }
 
-/* ========== TOC (Desktop only) ========== */
-.hdsd-layout { display: flex; gap: 32px; align-items: flex-start; }
+/* ========== TOC (Horizontal Floating Bar) ========== */
 .hdsd-toc {
-    position: sticky; top: 80px; width: 210px; min-width: 210px;
-    background: #fff; border-radius: var(--hdsd-radius-md);
-    box-shadow: var(--hdsd-shadow-md); padding: 20px 16px;
-    max-height: calc(100vh - 100px); overflow-y: auto;
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; flex-wrap: wrap;
+    background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(18,37,70,.08);
+    box-shadow: 0 2px 16px rgba(18,37,70,.06);
+    padding: 12px 16px; margin: 0 -24px;
 }
-.hdsd-toc-title { font-size: 11px; font-weight: 800; color: var(--hdsd-slate-400); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; }
-.hdsd-toc-list { list-style: none; padding: 0; margin: 0; }
-.hdsd-toc-item {
-    display: block; padding: 9px 14px; font-size: 13px; font-weight: 500;
-    color: var(--hdsd-slate-500); border-left: 3px solid transparent;
-    border-radius: 0 6px 6px 0; cursor: pointer; transition: all .2s;
-    text-decoration: none; margin-bottom: 2px;
+.hdsd-toc-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 8px 16px; border-radius: var(--hdsd-radius-full);
+    font-size: 12px; font-weight: 600; color: var(--hdsd-slate-500);
+    background: var(--hdsd-slate-50); border: 1.5px solid transparent;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    transition: all .25s ease;
 }
-.hdsd-toc-item:hover { color: var(--hdsd-navy-800); background: rgba(250,210,76,.06); }
-.hdsd-toc-item.hdsd-toc-active {
-    color: var(--hdsd-navy-800); font-weight: 700;
-    border-left-color: #fad24c; background: rgba(250,210,76,.08);
+.hdsd-toc-pill:hover {
+    color: var(--hdsd-navy-800); background: rgba(250,210,76,.08);
+    border-color: rgba(250,210,76,.2);
 }
-.hdsd-main-content { flex: 1; min-width: 0; }
+.hdsd-toc-pill.hdsd-toc-active {
+    color: #0a1428; font-weight: 700;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border-color: #fad24c;
+    box-shadow: 0 2px 8px rgba(250,210,76,.25);
+}
 
 /* ========== SCROLL-TO-TOP ========== */
 .hdsd-scroll-top {
@@ -542,8 +549,8 @@
 }
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1023px) {
-    .hdsd-toc { display: none; }
-    .hdsd-layout { display: block; }
+    .hdsd-toc { gap: 4px; padding: 10px 12px; }
+    .hdsd-toc-pill { font-size: 11px; padding: 6px 12px; }
 }
 @media (max-width: 767px) {
     /* — Hero — */

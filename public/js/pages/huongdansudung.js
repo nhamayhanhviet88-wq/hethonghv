@@ -20,16 +20,12 @@ function renderHuongDanSuDungPage(container) {
 
     container.innerHTML = '<div class="hdsd-page">' +
         _hdsdHeroHTML() +
-        '<div class="hdsd-layout">' +
-            _hdsdTocHTML() +
-            '<div class="hdsd-main-content">' +
-                _hdsdWelcomeHTML() +
-                _hdsdCommissionHTML() +
-                _hdsdStepsHTML() +
-                _hdsdFeaturesHTML() +
-                _hdsdCtaHTML() +
-            '</div>' +
-        '</div>' +
+        _hdsdTocHTML() +
+        _hdsdWelcomeHTML() +
+        _hdsdCommissionHTML() +
+        _hdsdStepsHTML() +
+        _hdsdFeaturesHTML() +
+        _hdsdCtaHTML() +
     '</div>';
 
     _hdsdInitParticles();
@@ -139,14 +135,11 @@ function _hdsdCommissionHTML() {
 // ========== TOC ==========
 function _hdsdTocHTML() {
     return '<nav class="hdsd-toc" aria-label="Mục lục" id="hdsdToc">' +
-        '<div class="hdsd-toc-title">Mục lục</div>' +
-        '<ul class="hdsd-toc-list">' +
-            '<li><a class="hdsd-toc-item hdsd-toc-active" data-target="hdsd-welcome" onclick="_hdsdScrollTo(\'hdsd-welcome\')">💌 Lời chào mừng</a></li>' +
-            '<li><a class="hdsd-toc-item" data-target="hdsd-commission" onclick="_hdsdScrollTo(\'hdsd-commission\')">💰 Mô hình hoa hồng</a></li>' +
-            '<li><a class="hdsd-toc-item" data-target="hdsd-steps" onclick="_hdsdScrollTo(\'hdsd-steps\')">📘 5 bước sử dụng</a></li>' +
-            '<li><a class="hdsd-toc-item" data-target="hdsd-features" onclick="_hdsdScrollTo(\'hdsd-features\')">⭐ Tại sao chọn HV</a></li>' +
-            '<li><a class="hdsd-toc-item" data-target="hdsd-cta" onclick="_hdsdScrollTo(\'hdsd-cta\')">🎯 Bắt đầu ngay</a></li>' +
-        '</ul>' +
+        '<a class="hdsd-toc-pill hdsd-toc-active" data-target="hdsd-welcome" onclick="_hdsdScrollTo(\'hdsd-welcome\')">💌 Lời chào mừng</a>' +
+        '<a class="hdsd-toc-pill" data-target="hdsd-commission" onclick="_hdsdScrollTo(\'hdsd-commission\')">💰 Hoa hồng</a>' +
+        '<a class="hdsd-toc-pill" data-target="hdsd-steps" onclick="_hdsdScrollTo(\'hdsd-steps\')">📘 Cách hợp tác</a>' +
+        '<a class="hdsd-toc-pill" data-target="hdsd-features" onclick="_hdsdScrollTo(\'hdsd-features\')">⭐ Tại sao HV</a>' +
+        '<a class="hdsd-toc-pill" data-target="hdsd-cta" onclick="_hdsdScrollTo(\'hdsd-cta\')">🎯 Bắt đầu</a>' +
     '</nav>';
 }
 
@@ -493,7 +486,7 @@ function _hdsdInitScrollTop() {
 // ========== TOC TRACKING ==========
 function _hdsdInitToc() {
     var sections = ['hdsd-welcome', 'hdsd-commission', 'hdsd-steps', 'hdsd-features', 'hdsd-cta'];
-    var items = document.querySelectorAll('.hdsd-toc-item');
+    var items = document.querySelectorAll('.hdsd-toc-pill');
     if (!items.length) return;
 
     var currentIdx = 0;
