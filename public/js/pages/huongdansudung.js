@@ -148,7 +148,7 @@ function _hdsdTocHTML() {
 function _hdsdStepsHTML() {
     return '<section class="hdsd-section" id="hdsd-steps">' +
         '<div style="text-align:center">' +
-            '<div class="hdsd-section-tag hdsd-section-tag-dark hdsd-animate">📘 5 BƯỚC SỬ DỤNG HỆ THỐNG</div>' +
+            '<div class="hdsd-section-tag hdsd-section-tag-dark hdsd-animate">📘 CÁCH THỨC HỢP TÁC</div>' +
             '<h2 class="hdsd-section-title hdsd-animate">Đơn Giản – Minh Bạch – Hiệu Quả</h2>' +
         '</div>' +
         '<div class="hdsd-premium-highlight hdsd-animate">' +
