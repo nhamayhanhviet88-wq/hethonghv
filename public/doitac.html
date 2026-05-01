@@ -145,8 +145,9 @@
             var stickyBar = document.createElement('div');
             stickyBar.id = 'doitacStickyBar';
             stickyBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:rgba(10,20,40,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(250,210,76,.15);box-shadow:0 4px 20px rgba(0,0,0,.3);transform:translateY(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);';
-            stickyBar.innerHTML = '<a class="hdsd-btn-gold" href="#" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\');" style="padding:10px 24px;font-size:13px;border-radius:10px">🤝 Cách Thức Hợp Tác</a>' +
-                '<a class="hdsd-btn-outline" href="#" onclick="event.preventDefault();" style="padding:10px 24px;font-size:13px;border-radius:10px">📋 Đăng Ký Đối Tác</a>';
+            stickyBar.innerHTML = '<style>@media(max-width:767px){.dt-icon{display:none !important}#doitacStickyBar a{padding:8px 14px !important;font-size:12px !important}}</style>' +
+                '<a class="hdsd-btn-gold" href="#" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\');" style="padding:10px 24px;font-size:13px;border-radius:10px"><span class="dt-icon">🤝 </span>Cách Thức Hợp Tác</a>' +
+                '<a class="hdsd-btn-outline" href="#" onclick="event.preventDefault();" style="padding:10px 24px;font-size:13px;border-radius:10px"><span class="dt-icon">📋 </span>Đăng Ký Đối Tác</a>';
             document.body.appendChild(stickyBar);
 
             var tocBar = document.getElementById('hdsdToc');
