@@ -82,6 +82,40 @@
             var container = document.getElementById('doitac-content');
             renderHuongDanSuDungPage(container);
         }
+
+        // ★ DOITAC-ONLY PATCHES — customize text/links without touching huongdansudung.js
+        // This ensures /huong-dan-su-dung remains completely unaffected.
+
+        // 1. "Chuyển Số Ngay" → "Cách Hợp Tác" (scroll to steps section)
+        // 2. "Xem Báo Cáo" → "Đăng Ký Đối Tác" (link TBD)
+        document.querySelectorAll('.hdsd-btn-gold').forEach(function(btn) {
+            if (btn.textContent.indexOf('Chuyển Số Ngay') !== -1) {
+                btn.textContent = '🤝 Cách Hợp Tác';
+                btn.href = '#hdsd-steps';
+                btn.setAttribute('onclick', "event.preventDefault();var el=document.getElementById('hdsd-steps');if(el){var y=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:y,behavior:'smooth'});}");
+            }
+        });
+        document.querySelectorAll('.hdsd-btn-outline').forEach(function(btn) {
+            if (btn.textContent.indexOf('Xem Báo Cáo') !== -1) {
+                btn.textContent = '📋 Đăng Ký Đối Tác';
+                btn.href = '#';
+                btn.setAttribute('onclick', "event.preventDefault();");
+            }
+        });
+
+        // 3. Section tag "5 BƯỚC SỬ DỤNG HỆ THỐNG" → "CÁCH THỨC HỢP TÁC"
+        document.querySelectorAll('.hdsd-section-tag').forEach(function(tag) {
+            if (tag.textContent.indexOf('5 BƯỚC SỬ DỤNG') !== -1) {
+                tag.textContent = '📘 CÁCH THỨC HỢP TÁC';
+            }
+        });
+
+        // 4. TOC item "5 bước sử dụng" → "Cách thức hợp tác"
+        document.querySelectorAll('.hdsd-toc-item').forEach(function(item) {
+            if (item.textContent.indexOf('5 bước sử dụng') !== -1) {
+                item.textContent = '📘 Cách thức hợp tác';
+            }
+        });
     })();
     </script>
 </body>
