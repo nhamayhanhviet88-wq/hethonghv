@@ -697,7 +697,8 @@
 }
 @media (max-width: 767px) {
     .hdsd-premium-highlight { padding: 24px 16px; margin: 20px auto 0; }
-    .hdsd-premium-step-card { min-width: 100px; padding: 10px 12px; }
+    .hdsd-premium-inner > div[style*="display:flex"] { align-items: stretch !important; }
+    .hdsd-premium-step-card { min-width: 80px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; }
 }
 @media (max-width: 479px) {
     .hdsd-premium-step-card { min-width: 80px; padding: 8px 10px; }
