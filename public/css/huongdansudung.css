@@ -547,6 +547,33 @@
     50% { left: 120%; }
     100% { left: 120%; }
 }
+
+/* ========== SPARKLE ALT (White/Cyan) ========== */
+.hdsd-btn-sparkle-alt {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 32px; border-radius: 50px; font-size: 14px; font-weight: 700;
+    text-decoration: none; cursor: pointer; border: none;
+    color: #0a1428;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 30%, #e0f2fe 50%, #7dd3fc 70%, #e0f2fe 100%);
+    background-size: 300% 300%;
+    animation: hdsdSparkleShift 3s ease infinite;
+    box-shadow: 0 4px 20px rgba(125,211,252,.35), 0 0 40px rgba(186,230,253,.15);
+    position: relative; overflow: hidden;
+    transition: transform .25s ease, box-shadow .25s ease;
+    letter-spacing: 0.5px;
+}
+.hdsd-btn-sparkle-alt::before {
+    content: ''; position: absolute; top: -50%; left: -60%; width: 40%; height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: skewX(-20deg);
+    animation: hdsdSparkleGlide 2.5s ease-in-out infinite;
+}
+.hdsd-btn-sparkle-alt:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 8px 35px rgba(125,211,252,.5), 0 0 60px rgba(186,230,253,.25);
+}
+.hdsd-btn-sparkle-alt:active { transform: translateY(0) scale(.98); }
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1023px) {
     .hdsd-toc { gap: 4px; padding: 10px 12px; }
@@ -556,6 +583,9 @@
     /* — TOC — */
     .hdsd-toc { margin: 0 -14px; padding: 8px 10px; gap: 4px; }
     .hdsd-toc-pill { font-size: 10px; padding: 5px 10px; }
+    /* — Sticky Bar — */
+    .hdsd-sticky-icon { display: none !important; }
+    #hdsdStickyBar a { padding: 8px 14px !important; font-size: 12px !important; }
     /* — Hero — */
     .hdsd-hero { padding: 40px 16px; min-height: auto; border-radius: var(--hdsd-radius-md); }
     .hdsd-hero-content { max-width: 100%; padding: 0; }
