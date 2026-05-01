@@ -51,10 +51,10 @@ function _hdsdHeroHTML() {
             '<p class="hdsd-hero-subtitle">Giới Thiệu Khách – Không Tư Vấn - Không Bỏ Vốn - Đồng Phục HV Tư Vấn - Trả Hoa Hồng Ngay</p>' +
             '<p class="hdsd-hero-desc" style="text-align:center;margin-left:auto;margin-right:auto">Tài liệu hướng dẫn chi tiết giúp Quý đối tác sử dụng hệ thống Đồng Phục HV một cách hiệu quả nhất, từ giới thiệu khách hàng đến nhận hoa hồng.</p>' +
             '<div style="display:flex;gap:24px;justify-content:center;margin-top:20px;flex-wrap:wrap;animation:hdsdFadeUp .8s ease .8s both">' +
-                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#10b981;font-size:16px">✅</span> Miễn phí 100%</div>' +
-                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#fad24c;font-size:16px">⭐</span> Hoa hồng 10%</div>' +
-                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#3b82f6;font-size:16px">🔒</span> Minh bạch tuyệt đối</div>' +
-                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#f59e0b;font-size:16px">♻️</span> Thu nhập trọn đời</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#10b981;font-size:16px">✅</span> Chỉ Cần Giới Thiệu</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#fad24c;font-size:16px">⭐</span> Hoa Hồng 10%</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#3b82f6;font-size:16px">🔒</span> HV Báo Cáo Hằng Ngày</div>' +
+                '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#f59e0b;font-size:16px">🔄</span> Hoa Hồng Về Tự Động</div>' +
             '</div>' +
             '<div class="hdsd-hero-actions">' +
                 '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
