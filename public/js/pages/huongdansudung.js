@@ -229,6 +229,40 @@ function _hdsdStepsHTML() {
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện biểu mẫu "Chuyển Số Khách Hàng" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';" style="margin-top:14px">📋 Xem Chuyển Số</a>' +
                         '</div>' +
+                        '<div class="hdsd-highlight-navy hdsd-animate" style="margin-top:24px;padding:24px;border-radius:16px">' +
+                            '<div style="text-align:center;margin-bottom:16px">' +
+                                '<span style="font-size:20px;font-weight:800;color:#fad24c">🎯 ANH/CHỊ CHỈ CẦN LÀM DUY NHẤT 1 VIỆC</span>' +
+                            '</div>' +
+                            '<p style="text-align:center;font-size:15px;color:rgba(255,255,255,.9);line-height:1.8;margin-bottom:20px">Gửi <strong style="color:#fad24c">số điện thoại khách hàng</strong> về cho Đồng Phục HV — mọi việc còn lại, <strong style="color:#fad24c">đội ngũ HV lo toàn bộ!</strong></p>' +
+                            '<div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:20px">' +
+                                '<div style="background:rgba(250,210,76,.15);border:1px solid rgba(250,210,76,.3);border-radius:12px;padding:12px 16px;text-align:center;flex:1;min-width:140px">' +
+                                    '<div style="font-size:22px;margin-bottom:4px">📱</div>' +
+                                    '<div style="font-size:12px;font-weight:700;color:#fad24c">Bước 1</div>' +
+                                    '<div style="font-size:12px;color:rgba(255,255,255,.8)">Gửi SĐT khách</div>' +
+                                '</div>' +
+                                '<div style="color:rgba(250,210,76,.6);font-size:18px;flex-shrink:0">→</div>' +
+                                '<div style="background:rgba(250,210,76,.15);border:1px solid rgba(250,210,76,.3);border-radius:12px;padding:12px 16px;text-align:center;flex:1;min-width:140px">' +
+                                    '<div style="font-size:22px;margin-bottom:4px">💬</div>' +
+                                    '<div style="font-size:12px;font-weight:700;color:#fad24c">Bước 2</div>' +
+                                    '<div style="font-size:12px;color:rgba(255,255,255,.8)">HV tư vấn & lên mẫu</div>' +
+                                '</div>' +
+                                '<div style="color:rgba(250,210,76,.6);font-size:18px;flex-shrink:0">→</div>' +
+                                '<div style="background:rgba(250,210,76,.15);border:1px solid rgba(250,210,76,.3);border-radius:12px;padding:12px 16px;text-align:center;flex:1;min-width:140px">' +
+                                    '<div style="font-size:22px;margin-bottom:4px">📊</div>' +
+                                    '<div style="font-size:12px;font-weight:700;color:#fad24c">Bước 3</div>' +
+                                    '<div style="font-size:12px;color:rgba(255,255,255,.8)">Báo cáo tiến độ hằng ngày</div>' +
+                                '</div>' +
+                                '<div style="color:rgba(250,210,76,.6);font-size:18px;flex-shrink:0">→</div>' +
+                                '<div style="background:rgba(250,210,76,.15);border:1px solid rgba(250,210,76,.3);border-radius:12px;padding:12px 16px;text-align:center;flex:1;min-width:140px">' +
+                                    '<div style="font-size:22px;margin-bottom:4px">💰</div>' +
+                                    '<div style="font-size:12px;font-weight:700;color:#fad24c">Bước 4</div>' +
+                                    '<div style="font-size:12px;color:rgba(255,255,255,.8)">Đơn thành công = nhận tiền</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div style="background:rgba(250,210,76,.1);border-radius:10px;padding:14px 18px;text-align:center">' +
+                                '<p style="font-size:13px;color:rgba(255,255,255,.85);line-height:1.7;margin:0">✅ Anh/chị <strong style="color:#fad24c">không cần tư vấn</strong> — đội ngũ kinh doanh HV sẽ chủ động liên hệ, tư vấn chuyên nghiệp và lên mẫu thiết kế cho khách.<br>✅ HV <strong style="color:#fad24c">báo cáo tiến độ hằng ngày</strong> để anh/chị nắm rõ tình trạng từng khách hàng.<br>✅ Khi đơn hàng hoàn thành, hoa hồng <strong style="color:#fad24c">tự động được ghi nhận</strong> — anh/chị chỉ cần rút tiền!</p>' +
+                            '</div>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
