@@ -116,12 +116,10 @@
                 item.textContent = '📘 Cách thức hợp tác';
             }
         });
-        // 5. All sparkle buttons (Xem Chuyển Số, Xem Theo Dõi..., etc.) → "Đăng Ký Đối Tác"
+        // 5. Hide all sparkle buttons inside steps section (keep commission banner button)
         document.querySelectorAll('.hdsd-btn-sparkle').forEach(function(btn) {
-            btn.textContent = '📋 Đăng Ký Đối Tác';
+            btn.style.display = 'none';
         });
-
-        // 6. Insert "Đăng Ký Đối Tác" button after commission banner
         var commBanner = document.querySelector('.hdsd-comm-banner');
         if (commBanner) {
             var regBtn = document.createElement('div');
