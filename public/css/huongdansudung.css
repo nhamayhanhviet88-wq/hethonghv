@@ -707,11 +707,13 @@
     pointer-events: none; z-index: 0;
 }
 .hdsd-premium-inner { position: relative; z-index: 1; }
+.hdsd-premium-inner > div[style*="display:flex"] { align-items: stretch !important; }
 .hdsd-premium-step-card {
     background: rgba(250,210,76,.1);
     border: 1px solid rgba(250,210,76,.25);
     border-radius: 14px; padding: 14px 18px; text-align: center;
     flex: 1; min-width: 130px;
+    display: flex; flex-direction: column; justify-content: center;
     transition: transform .3s, box-shadow .3s;
     animation: hdsdPremiumFloat 3s ease-in-out infinite;
 }
