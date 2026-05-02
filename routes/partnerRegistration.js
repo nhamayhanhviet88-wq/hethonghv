@@ -96,7 +96,7 @@ async function partnerRegistrationRoutes(fastify, options) {
 
         // --- Validate required fields ---
         const {
-            ho_ten, sdt, email, dia_chi,
+            ho_ten, sdt, dia_chi, cong_viec,
             ai_gioi_thieu, biet_tu_dau, biet_tu_dau_khac,
             nhan_vien_gioi_thieu, ly_do
         } = body;
@@ -111,6 +111,12 @@ async function partnerRegistrationRoutes(fastify, options) {
         const phoneClean = sdt.trim().replace(/[\s\-\.]/g, '');
         if (!/^(0|\+84)\d{8,10}$/.test(phoneClean)) {
             return reply.code(400).send({ error: 'Số điện thoại không hợp lệ' });
+        }
+        if (!dia_chi || !dia_chi.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập Địa Chỉ' });
+        }
+        if (!cong_viec || !cong_viec.trim()) {
+            return reply.code(400).send({ error: 'Vui lòng nhập Công Việc hiện tại' });
         }
         if (!biet_tu_dau || !biet_tu_dau.trim()) {
             return reply.code(400).send({ error: 'Vui lòng chọn bạn biết tới Đồng Phục HV từ đâu' });
@@ -185,8 +191,8 @@ async function partnerRegistrationRoutes(fastify, options) {
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `👤 Họ tên: <b>${ho_ten.trim()}</b>\n` +
             `📱 SĐT: <b>${sdt.trim()}</b>\n` +
-            `📧 Email: ${email?.trim() || '—'}\n` +
-            `📍 Địa chỉ: ${dia_chi?.trim() || '—'}\n` +
+            `📍 Địa chỉ: <b>${dia_chi.trim()}</b>\n` +
+            `💼 Công Việc: <b>${cong_viec.trim()}</b>\n` +
             `🤝 Ai Giới Thiệu: ${ai_gioi_thieu?.trim() || '—'}\n` +
             `📢 Bạn biết tới Đối Tác Đồng Phục HV từ đâu: <b>${sourceDisplay}</b>\n` +
             `👨‍💼 Nhân Viên Giới Thiệu: ${nhan_vien_gioi_thieu?.trim() || '—'}\n` +

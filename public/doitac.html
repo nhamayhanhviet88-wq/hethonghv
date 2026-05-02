@@ -102,16 +102,18 @@
                         <div class="pr-error-msg" id="prSDTErr">⚠ Vui lòng nhập số điện thoại hợp lệ</div>
                     </div>
 
-                    <!-- Email -->
-                    <div class="pr-group">
-                        <label class="pr-label"><span class="pr-icon">📧</span> Email</label>
-                        <input type="email" class="pr-input" id="prEmail" placeholder="email@example.com" maxlength="150">
-                    </div>
-
                     <!-- Địa chỉ -->
                     <div class="pr-group">
-                        <label class="pr-label"><span class="pr-icon">📍</span> Địa chỉ</label>
+                        <label class="pr-label"><span class="pr-icon">📍</span> Địa chỉ <span class="pr-required">*</span></label>
                         <input type="text" class="pr-input" id="prDiaChi" placeholder="Thành phố / Quận / Huyện" maxlength="200">
+                        <div class="pr-error-msg" id="prDiaChiErr">⚠ Vui lòng nhập địa chỉ</div>
+                    </div>
+
+                    <!-- Công Việc hiện tại -->
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">💼</span> Công Việc hiện tại của bạn <span class="pr-required">*</span></label>
+                        <input type="text" class="pr-input" id="prCongViec" placeholder="VD: Kinh doanh, Kế toán, Freelancer..." maxlength="150">
+                        <div class="pr-error-msg" id="prCongViecErr">⚠ Vui lòng nhập công việc hiện tại</div>
                     </div>
 
                     <!-- Ai Giới Thiệu -->
@@ -279,8 +281,8 @@
         // --- Fields ---
         var fHoTen = document.getElementById('prHoTen');
         var fSDT = document.getElementById('prSDT');
-        var fEmail = document.getElementById('prEmail');
         var fDiaChi = document.getElementById('prDiaChi');
+        var fCongViec = document.getElementById('prCongViec');
         var fAiGT = document.getElementById('prAiGT');
         var fBietTuDau = document.getElementById('prBietTuDau');
         var fNVGT = document.getElementById('prNVGT');
@@ -334,7 +336,7 @@
         });
 
         // --- Clear error on input ---
-        [fHoTen, fSDT, fNVGT, fKhac, fLyDo].forEach(function(f) {
+        [fHoTen, fSDT, fDiaChi, fCongViec, fNVGT, fKhac, fLyDo].forEach(function(f) {
             f.addEventListener('input', function() {
                 f.classList.remove('pr-error');
                 var errId = f.id + 'Err';
@@ -390,6 +392,18 @@
                 valid = false;
             }
 
+            // Validate Địa chỉ
+            if (!fDiaChi.value.trim()) {
+                setFieldError(fDiaChi, 'prDiaChiErr');
+                valid = false;
+            }
+
+            // Validate Công Việc
+            if (!fCongViec.value.trim()) {
+                setFieldError(fCongViec, 'prCongViecErr');
+                valid = false;
+            }
+
             // Validate Biết từ đâu
             if (!fBietTuDau.value) {
                 setFieldError(fBietTuDau, 'prBietTuDauErr');
@@ -428,8 +442,8 @@
             var payload = {
                 ho_ten: fHoTen.value.trim(),
                 sdt: fSDT.value.trim(),
-                email: fEmail.value.trim(),
                 dia_chi: fDiaChi.value.trim(),
+                cong_viec: fCongViec.value.trim(),
                 ai_gioi_thieu: fAiGT.value.trim(),
                 biet_tu_dau: fBietTuDau.value,
                 biet_tu_dau_khac: fKhac.value.trim(),
