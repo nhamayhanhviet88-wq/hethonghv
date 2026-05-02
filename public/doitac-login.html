@@ -14,8 +14,9 @@
     <meta property="og:site_name" content="Đồng Phục HV">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png">
+    <link rel="stylesheet" href="/css/huongdansudung.css?v=20260502b">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -371,11 +372,44 @@
             color: rgba(250, 210, 76, 0.8);
         }
 
+        /* ===== PARTNER REG BUTTON ===== */
+        .btn-partner-reg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: auto;
+            margin: 20px auto 0;
+            padding: 12px 32px;
+            background: rgba(200, 220, 240, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(200, 220, 240, 0.25);
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            color: rgba(200, 225, 255, 0.9);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        .btn-partner-reg:hover {
+            background: rgba(200, 220, 240, 0.25);
+            border-color: rgba(200, 220, 240, 0.4);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(120, 160, 220, 0.2);
+        }
+        .btn-partner-reg:active {
+            transform: translateY(0);
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 520px) {
             .login-card { padding: 36px 24px; }
             .brand-name { font-size: 22px; letter-spacing: 2px; }
             .logo-img { width: 56px; height: 56px; }
+            .btn-partner-reg { padding: 10px 24px; font-size: 13px; }
         }
     </style>
 </head>
@@ -417,6 +451,13 @@
             </button>
         </form>
 
+        <!-- Partner Registration Button -->
+        <div style="text-align:center;">
+            <a href="#" class="btn-partner-reg" id="btnOpenPartnerReg" onclick="event.preventDefault(); _openPartnerReg();">
+                📋 Đăng Ký Đối Tác
+            </a>
+        </div>
+
         <div class="login-footer">
             <div class="footer-text">
                 Liên hệ nhân viên quản lý nếu quên mật khẩu<br>
@@ -424,6 +465,95 @@
             </div>
         </div>
     </div>
+
+    <!-- ═══════ PARTNER REGISTRATION POPUP ═══════ -->
+    <div class="pr-overlay" id="prOverlay">
+        <div class="pr-modal">
+            <button class="pr-close" id="prClose" title="Đóng">✕</button>
+            <div class="pr-scroll">
+                <div class="pr-header">
+                    <div class="pr-header-icon">🤝</div>
+                    <h2>Đăng Ký Đối Tác</h2>
+                    <p>Điền thông tin bên dưới để trở thành Đối Tác của Đồng Phục HV</p>
+                </div>
+                <form class="pr-body" id="prForm" autocomplete="off" novalidate>
+                    <div class="pr-hp"><input type="text" name="_website" tabindex="-1" autocomplete="off"></div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">👤</span> Họ Tên <span class="pr-required">*</span></label>
+                        <input type="text" class="pr-input" id="prHoTen" placeholder="Nhập họ tên đầy đủ" maxlength="100">
+                        <div class="pr-error-msg" id="prHoTenErr">⚠ Vui lòng nhập họ tên</div>
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">📱</span> Số Điện Thoại <span class="pr-required">*</span></label>
+                        <input type="tel" class="pr-input" id="prSDT" placeholder="VD: 0901234567" maxlength="15">
+                        <div class="pr-error-msg" id="prSDTErr">⚠ Vui lòng nhập số điện thoại hợp lệ</div>
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">📍</span> Địa chỉ <span class="pr-required">*</span></label>
+                        <input type="text" class="pr-input" id="prDiaChi" placeholder="Thành phố / Quận / Huyện" maxlength="200">
+                        <div class="pr-error-msg" id="prDiaChiErr">⚠ Vui lòng nhập địa chỉ</div>
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">💼</span> Công Việc hiện tại của bạn <span class="pr-required">*</span></label>
+                        <input type="text" class="pr-input" id="prCongViec" placeholder="VD: Kinh doanh, Kế toán, Freelancer..." maxlength="150">
+                        <div class="pr-error-msg" id="prCongViecErr">⚠ Vui lòng nhập công việc hiện tại</div>
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">🤝</span> Ai Giới Thiệu</label>
+                        <input type="text" class="pr-input" id="prAiGT" placeholder="Tên người giới thiệu (nếu có)" maxlength="100">
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">📢</span> Bạn biết tới Đối Tác Đồng Phục HV từ đâu <span class="pr-required">*</span></label>
+                        <select class="pr-select" id="prBietTuDau">
+                            <option value="">— Chọn —</option>
+                            <option value="Nhân Viên Gửi">Nhân Viên Gửi</option>
+                            <option value="Người Quen Giới Thiệu">Người Quen Giới Thiệu</option>
+                            <option value="Zalo">Zalo</option>
+                            <option value="Facebook">Facebook</option>
+                            <option value="Mạng Xã Hội">Mạng Xã Hội</option>
+                            <option value="Website">Website</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                        <div class="pr-error-msg" id="prBietTuDauErr">⚠ Vui lòng chọn một mục</div>
+                    </div>
+
+                    <div class="pr-conditional" id="prNVGTWrap">
+                        <div class="pr-group" style="margin-bottom:0">
+                            <label class="pr-label"><span class="pr-icon">👨‍💼</span> Nhân Viên Giới Thiệu <span class="pr-required">*</span></label>
+                            <input type="text" class="pr-input" id="prNVGT" placeholder="Nhập tên nhân viên đã giới thiệu bạn" maxlength="100">
+                            <div class="pr-error-msg" id="prNVGTErr">⚠ Vui lòng nhập tên nhân viên giới thiệu</div>
+                        </div>
+                    </div>
+
+                    <div class="pr-conditional" id="prKhacWrap">
+                        <div class="pr-group" style="margin-bottom:0">
+                            <label class="pr-label"><span class="pr-icon">📝</span> Vui lòng cho biết chi tiết <span class="pr-required">*</span></label>
+                            <input type="text" class="pr-input" id="prKhac" placeholder="Bạn biết tới chúng tôi từ đâu?" maxlength="200">
+                            <div class="pr-error-msg" id="prKhacErr">⚠ Vui lòng nhập chi tiết</div>
+                        </div>
+                    </div>
+
+                    <div class="pr-group">
+                        <label class="pr-label"><span class="pr-icon">💡</span> Lý do bạn muốn làm đối tác của Đồng Phục HV <span class="pr-required">*</span></label>
+                        <textarea class="pr-textarea" id="prLyDo" placeholder="Chia sẻ lý do bạn muốn trở thành đối tác..." maxlength="500" rows="3"></textarea>
+                        <div class="pr-error-msg" id="prLyDoErr">⚠ Vui lòng nhập lý do</div>
+                    </div>
+
+                    <button type="submit" class="pr-submit" id="prSubmit">
+                        <span class="pr-spinner"></span>
+                        <span class="pr-submit-text">✅ Xác Nhận Đăng Ký</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="pr-toast" id="prToast"></div>
 
     <script>
         // ===== SPARKLE PARTICLES =====
@@ -447,7 +577,6 @@
             if (data.user && data.user.role === 'tkaffiliate') {
                 window.location.href = '/bao-cao-hoa-hong-hv';
             } else if (data.user) {
-                // Non-affiliate user logged in on affiliate domain — logout & show error
                 fetch('/api/auth/logout', { method: 'POST' }).then(() => {
                     const errDiv = document.getElementById('loginError');
                     errDiv.textContent = 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.';
@@ -461,11 +590,9 @@
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
             const errDiv = document.getElementById('loginError');
-            
             btn.innerHTML = '<span class="spinner"></span>';
             btn.disabled = true;
             errDiv.style.display = 'none';
-
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -476,12 +603,10 @@
                     })
                 });
                 const data = await res.json();
-                
                 if (data.success) {
                     if (data.user && data.user.role === 'tkaffiliate') {
                         window.location.href = '/bao-cao-hoa-hong-hv';
                     } else {
-                        // Non-affiliate → logout immediately
                         await fetch('/api/auth/logout', { method: 'POST' });
                         errDiv.textContent = 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.';
                         errDiv.style.display = 'block';
@@ -494,10 +619,125 @@
                 errDiv.textContent = 'Lỗi kết nối server';
                 errDiv.style.display = 'block';
             }
-
             btn.innerHTML = 'ĐĂNG NHẬP';
             btn.disabled = false;
         });
+
+        // ===== PARTNER REGISTRATION POPUP =====
+        (function() {
+            var overlay = document.getElementById('prOverlay');
+            var closeBtn = document.getElementById('prClose');
+            var form = document.getElementById('prForm');
+            var submitBtn = document.getElementById('prSubmit');
+            var toast = document.getElementById('prToast');
+
+            var fHoTen = document.getElementById('prHoTen');
+            var fSDT = document.getElementById('prSDT');
+            var fDiaChi = document.getElementById('prDiaChi');
+            var fCongViec = document.getElementById('prCongViec');
+            var fAiGT = document.getElementById('prAiGT');
+            var fBietTuDau = document.getElementById('prBietTuDau');
+            var fNVGT = document.getElementById('prNVGT');
+            var fKhac = document.getElementById('prKhac');
+            var fLyDo = document.getElementById('prLyDo');
+            var wrapNVGT = document.getElementById('prNVGTWrap');
+            var wrapKhac = document.getElementById('prKhacWrap');
+
+            window._openPartnerReg = function() {
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                setTimeout(function() { fHoTen.focus(); }, 400);
+            };
+
+            function closePopup() {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            closeBtn.addEventListener('click', closePopup);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) closePopup(); });
+            document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && overlay.classList.contains('active')) closePopup(); });
+
+            fBietTuDau.addEventListener('change', function() {
+                var val = this.value;
+                if (val === 'Nhân Viên Gửi') {
+                    wrapNVGT.classList.add('pr-show'); wrapKhac.classList.remove('pr-show'); fKhac.value = '';
+                } else if (val === 'Khác') {
+                    wrapKhac.classList.add('pr-show'); wrapNVGT.classList.remove('pr-show'); fNVGT.value = '';
+                } else {
+                    wrapNVGT.classList.remove('pr-show'); wrapKhac.classList.remove('pr-show'); fNVGT.value = ''; fKhac.value = '';
+                }
+                clearFieldError(fBietTuDau, 'prBietTuDauErr');
+            });
+
+            [fHoTen, fSDT, fDiaChi, fCongViec, fNVGT, fKhac, fLyDo].forEach(function(f) {
+                f.addEventListener('input', function() {
+                    f.classList.remove('pr-error');
+                    var errEl = document.getElementById(f.id + 'Err');
+                    if (errEl) errEl.classList.remove('pr-visible');
+                });
+            });
+
+            function clearFieldError(field, errId) {
+                field.classList.remove('pr-error');
+                var errEl = document.getElementById(errId);
+                if (errEl) errEl.classList.remove('pr-visible');
+            }
+            function setFieldError(field, errId) {
+                field.classList.add('pr-error');
+                var errEl = document.getElementById(errId);
+                if (errEl) errEl.classList.add('pr-visible');
+                return false;
+            }
+
+            var toastTimer = null;
+            function showToast(msg, type) {
+                toast.textContent = msg;
+                toast.className = 'pr-toast pr-toast-' + type;
+                void toast.offsetWidth;
+                toast.classList.add('pr-toast-visible');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(function() { toast.classList.remove('pr-toast-visible'); }, 4000);
+            }
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (submitBtn.classList.contains('pr-loading')) return;
+                var valid = true;
+                if (!fHoTen.value.trim()) { setFieldError(fHoTen, 'prHoTenErr'); valid = false; }
+                var phoneClean = fSDT.value.trim().replace(/[\s\-\.]/g, '');
+                if (!phoneClean || !/^(0|\+84)\d{8,10}$/.test(phoneClean)) { setFieldError(fSDT, 'prSDTErr'); valid = false; }
+                if (!fDiaChi.value.trim()) { setFieldError(fDiaChi, 'prDiaChiErr'); valid = false; }
+                if (!fCongViec.value.trim()) { setFieldError(fCongViec, 'prCongViecErr'); valid = false; }
+                if (!fBietTuDau.value) { setFieldError(fBietTuDau, 'prBietTuDauErr'); valid = false; }
+                if (fBietTuDau.value === 'Nhân Viên Gửi' && !fNVGT.value.trim()) { setFieldError(fNVGT, 'prNVGTErr'); valid = false; }
+                if (fBietTuDau.value === 'Khác' && !fKhac.value.trim()) { setFieldError(fKhac, 'prKhacErr'); valid = false; }
+                if (!fLyDo.value.trim()) { setFieldError(fLyDo, 'prLyDoErr'); valid = false; }
+                if (!valid) { var fe = form.querySelector('.pr-error'); if (fe) fe.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+
+                submitBtn.classList.add('pr-loading'); submitBtn.disabled = true;
+                var payload = {
+                    ho_ten: fHoTen.value.trim(), sdt: fSDT.value.trim(),
+                    dia_chi: fDiaChi.value.trim(), cong_viec: fCongViec.value.trim(),
+                    ai_gioi_thieu: fAiGT.value.trim(), biet_tu_dau: fBietTuDau.value,
+                    biet_tu_dau_khac: fKhac.value.trim(), nhan_vien_gioi_thieu: fNVGT.value.trim(),
+                    ly_do: fLyDo.value.trim(), _website: form.querySelector('[name="_website"]').value
+                };
+                fetch('/api/partner-registration', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+                .then(function(res) { return res.json().then(function(d) { return {ok:res.ok,data:d}; }); })
+                .then(function(r) {
+                    submitBtn.classList.remove('pr-loading'); submitBtn.disabled = false;
+                    if (r.ok && r.data.success) {
+                        showToast('🎉 ' + r.data.message, 'success');
+                        form.reset(); wrapNVGT.classList.remove('pr-show'); wrapKhac.classList.remove('pr-show');
+                        setTimeout(closePopup, 2000);
+                    } else { showToast('❌ ' + (r.data.error || 'Có lỗi xảy ra'), 'error'); }
+                })
+                .catch(function() {
+                    submitBtn.classList.remove('pr-loading'); submitBtn.disabled = false;
+                    showToast('❌ Lỗi kết nối. Vui lòng thử lại.', 'error');
+                });
+            });
+        })();
     </script>
 </body>
 </html>
