@@ -20,6 +20,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="prize-popup" onclick="switchSettingTab('prize-popup', this)">🎉 Giải Thưởng</div>
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
                     <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
+                    <div class="tab" data-tab="partner-reg-telegram" onclick="switchSettingTab('partner-reg-telegram', this)">📲 Đăng Ký Đối Tác</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -54,6 +55,8 @@ function switchSettingTab(tab, el) {
         loadRolesPositionsSettings();
     } else if (tab === 'telesale-statuses') {
         loadTelesaleStatusesSettings();
+    } else if (tab === 'partner-reg-telegram') {
+        loadPartnerRegTelegramSettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -977,4 +980,136 @@ async function deleteTsStatus(id, name) {
     const data = await apiCall(`/api/telesale/answer-statuses/${id}`, 'DELETE');
     if (data.success) { showToast(data.message); await loadTelesaleStatusesSettings(); }
     else showToast(data.error, 'error');
+}
+
+// ========== PARTNER REGISTRATION TELEGRAM SETTINGS ==========
+async function loadPartnerRegTelegramSettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const res = await apiCall('/api/partner-registration/settings');
+    const botToken = res.bot_token || '';
+    const chatId = res.chat_id || '';
+    const counter = res.counter || '0';
+    const isConfigured = botToken && chatId;
+
+    el.innerHTML = `
+        <div style="max-width:650px;">
+            <div style="margin-bottom:24px;">
+                <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">📲 Cấu Hình Telegram — Đăng Ký Đối Tác</h4>
+                <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.6;">
+                    Khi khách hàng điền form <strong>Đăng Ký Đối Tác</strong> tại trang <code>/doitac</code>, 
+                    hệ thống sẽ gửi thông tin vào nhóm Telegram của bạn.
+                </p>
+            </div>
+
+            <!-- Status Badge -->
+            <div style="margin-bottom:20px;padding:14px 18px;border-radius:12px;
+                background:${isConfigured ? 'linear-gradient(135deg,#ecfdf5,#d1fae5)' : 'linear-gradient(135deg,#fef2f2,#fee2e2)'};
+                border:1.5px solid ${isConfigured ? '#6ee7b7' : '#fca5a5'};
+                display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">${isConfigured ? '✅' : '⚠️'}</span>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:${isConfigured ? '#065f46' : '#991b1b'};">
+                        ${isConfigured ? 'Đã cấu hình — Sẵn sàng nhận thông báo' : 'Chưa cấu hình — Đăng ký sẽ không gửi Telegram'}
+                    </div>
+                    <div style="font-size:11px;color:${isConfigured ? '#047857' : '#b91c1c'};margin-top:2px;">
+                        ${isConfigured ? 'Số đăng ký đã nhận: <strong>' + counter + '</strong>' : 'Vui lòng nhập Bot Token và Chat ID bên dưới'}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div style="padding:24px;background:linear-gradient(165deg,#f8fafc,#ffffff);border:1.5px solid #e2e8f0;border-radius:16px;">
+                <!-- Bot Token -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">
+                        🤖 Bot Token
+                    </label>
+                    <input type="text" id="prSettingBotToken" class="form-control" 
+                        value="${botToken}" 
+                        placeholder="Dán Bot Token từ @BotFather"
+                        style="font-family:monospace;font-size:13px;padding:10px 14px;border-radius:10px;">
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                        Lấy từ <strong>@BotFather</strong> trên Telegram → <code>/newbot</code> → copy token
+                    </div>
+                </div>
+
+                <!-- Chat ID -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">
+                        💬 Chat ID (Nhóm/Cá nhân)
+                    </label>
+                    <input type="text" id="prSettingChatId" class="form-control" 
+                        value="${chatId}" 
+                        placeholder="VD: -1001234567890 hoặc 123456789"
+                        style="font-family:monospace;font-size:13px;padding:10px 14px;border-radius:10px;">
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                        ID nhóm Telegram (bắt đầu bằng <code>-100...</code>) hoặc ID cá nhân
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-success" onclick="savePartnerRegTelegram()" 
+                        style="padding:10px 24px;font-size:13px;font-weight:700;border-radius:10px;">
+                        💾 Lưu Cấu Hình
+                    </button>
+                    <button class="btn" onclick="testPartnerRegTelegram()" 
+                        style="padding:10px 24px;font-size:13px;font-weight:700;border-radius:10px;
+                        background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;border:none;cursor:pointer;">
+                        🧪 Gửi Tin Nhắn Test
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hướng dẫn -->
+            <div style="margin-top:20px;padding:16px;background:#fffbeb;border:1.5px solid #fbbf24;border-radius:14px;font-size:12px;color:#92400e;">
+                <strong>📌 Hướng dẫn tạo Bot Telegram:</strong>
+                <ol style="margin:8px 0 0;padding-left:20px;line-height:2;">
+                    <li>Mở Telegram, tìm <strong>@BotFather</strong></li>
+                    <li>Gửi <code>/newbot</code> → đặt tên bot → nhận <strong>Bot Token</strong></li>
+                    <li>Thêm bot vào <strong>nhóm Telegram</strong> của bạn</li>
+                    <li>Lấy <strong>Chat ID</strong> bằng cách gửi tin nhắn trong nhóm, rồi mở:<br>
+                        <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">https://api.telegram.org/bot{TOKEN}/getUpdates</code>
+                    </li>
+                    <li>Dán Bot Token + Chat ID vào ô trên → <strong>Lưu</strong> → <strong>Test</strong></li>
+                </ol>
+            </div>
+
+            <!-- STT Counter -->
+            <div style="margin-top:16px;padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;font-size:12px;color:#0369a1;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <strong>📊 Số thứ tự hiện tại:</strong> <span style="font-family:monospace;font-weight:700;font-size:14px;">${counter}</span>
+                    <span style="color:#6b7280;margin-left:8px;">(đơn tiếp theo sẽ là #${String(parseInt(counter)+1).padStart(3,'0')})</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function savePartnerRegTelegram() {
+    const botToken = document.getElementById('prSettingBotToken')?.value?.trim();
+    const chatId = document.getElementById('prSettingChatId')?.value?.trim();
+
+    const res = await apiCall('/api/partner-registration/settings', 'PUT', {
+        bot_token: botToken || '',
+        chat_id: chatId || ''
+    });
+
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        await loadPartnerRegTelegramSettings();
+    } else {
+        showToast(res.error || 'Lỗi lưu cấu hình', 'error');
+    }
+}
+
+async function testPartnerRegTelegram() {
+    const res = await apiCall('/api/partner-registration/test-telegram', 'POST');
+    if (res.success) {
+        showToast('✅ ' + res.message);
+    } else {
+        showToast('❌ ' + (res.error || 'Gửi test thất bại'), 'error');
+    }
 }
