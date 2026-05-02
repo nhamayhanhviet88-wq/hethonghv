@@ -156,6 +156,14 @@
                 btn2.onclick = function(e) { e.preventDefault(); };
             }
         }, 100);
+
+        // 9. Patch hero sparkle-alt button to "Đăng Ký Đối Tác"
+        var heroSparkle = document.querySelector('.hdsd-hero-actions .hdsd-btn-sparkle-alt');
+        if (heroSparkle) {
+            heroSparkle.innerHTML = '📋 Đăng Ký Đối Tác';
+            heroSparkle.href = '#';
+            heroSparkle.onclick = function(e) { e.preventDefault(); };
+        }
     })();
     </script>
 </body>
