@@ -192,6 +192,7 @@ async function start() {
     fastify.register(require('./routes/notifications'));
     fastify.register(require('./routes/crmConversion'));
     fastify.register(require('./routes/affiliateAccount'));
+    fastify.register(require('./routes/partnerRegistration'));
     fastify.register(require('./routes/accessBlock'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========

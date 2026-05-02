@@ -776,3 +776,293 @@
     transition: background .2s;
 }
 .hdsd-lightbox-close:hover { background: rgba(255,255,255,.3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PARTNER REGISTRATION POPUP
+   ═══════════════════════════════════════════════════════════════ */
+/* ── Overlay ── */
+.pr-overlay {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0, 0, 0, .6);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden;
+    transition: opacity .35s cubic-bezier(.22,1,.36,1), visibility .35s;
+    padding: 16px;
+}
+.pr-overlay.active { opacity: 1; visibility: visible; }
+
+/* ── Modal Container ── */
+.pr-modal {
+    position: relative;
+    width: 100%; max-width: 580px; max-height: 90vh;
+    background: linear-gradient(165deg, #0c1929 0%, #122546 40%, #0f1d36 100%);
+    border: 1px solid rgba(250, 210, 76, .2);
+    border-radius: 24px;
+    overflow: hidden;
+    transform: scale(.88) translateY(30px);
+    transition: transform .4s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 25px 80px rgba(0,0,0,.5), 0 0 60px rgba(250,210,76,.08);
+}
+.pr-overlay.active .pr-modal {
+    transform: scale(1) translateY(0);
+}
+
+/* ── Top Gradient Bar ── */
+.pr-modal::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #fad24c, #f5a623, #fad24c, #f5a623);
+    background-size: 300% 100%;
+    animation: hdsdSparkleShift 3s ease infinite;
+    z-index: 2;
+}
+
+/* ── Shimmer Effect ── */
+.pr-modal::after {
+    content: '';
+    position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(250,210,76,.04), rgba(255,255,255,.02), transparent);
+    transform: skewX(-15deg);
+    animation: hdsdPremiumShimmer 5s ease-in-out infinite;
+    pointer-events: none; z-index: 0;
+}
+
+/* ── Scrollable Body ── */
+.pr-scroll {
+    overflow-y: auto; max-height: 90vh;
+    padding: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(250,210,76,.3) transparent;
+}
+.pr-scroll::-webkit-scrollbar { width: 6px; }
+.pr-scroll::-webkit-scrollbar-track { background: transparent; }
+.pr-scroll::-webkit-scrollbar-thumb { background: rgba(250,210,76,.3); border-radius: 3px; }
+
+/* ── Close Button ── */
+.pr-close {
+    position: absolute; top: 16px; right: 16px; z-index: 10;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+    color: rgba(255,255,255,.7); font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .25s ease;
+}
+.pr-close:hover {
+    background: rgba(255,100,100,.2); border-color: rgba(255,100,100,.4);
+    color: #ff6b6b; transform: rotate(90deg);
+}
+
+/* ── Header ── */
+.pr-header {
+    position: relative; z-index: 1;
+    padding: 32px 32px 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(250,210,76,.1);
+}
+.pr-header-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(250,210,76,.15), rgba(245,166,35,.1));
+    border: 1px solid rgba(250,210,76,.25);
+    font-size: 26px; margin-bottom: 12px;
+}
+.pr-header h2 {
+    font-family: 'Montserrat', 'Inter', sans-serif;
+    font-size: 22px; font-weight: 800;
+    background: linear-gradient(135deg, #fad24c, #f5a623);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 6px;
+}
+.pr-header p {
+    font-size: 13px; color: rgba(255,255,255,.55);
+    margin: 0; line-height: 1.5;
+}
+
+/* ── Form Body ── */
+.pr-body {
+    position: relative; z-index: 1;
+    padding: 24px 32px 32px;
+}
+
+/* ── Form Group ── */
+.pr-group {
+    margin-bottom: 18px;
+}
+.pr-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,.85);
+    margin-bottom: 7px;
+}
+.pr-label .pr-required {
+    color: #ff6b6b; font-size: 12px; font-weight: 700;
+}
+.pr-label .pr-icon {
+    font-size: 14px; opacity: .7;
+}
+
+/* ── Input / Select / Textarea ── */
+.pr-input, .pr-select, .pr-textarea {
+    width: 100%; padding: 12px 16px;
+    background: rgba(255,255,255,.06);
+    border: 1.5px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    color: #fff; font-size: 14px;
+    font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
+    transition: all .25s ease;
+    outline: none;
+}
+.pr-input::placeholder, .pr-textarea::placeholder {
+    color: rgba(255,255,255,.3);
+}
+.pr-input:focus, .pr-select:focus, .pr-textarea:focus {
+    border-color: rgba(250,210,76,.5);
+    background: rgba(255,255,255,.09);
+    box-shadow: 0 0 0 3px rgba(250,210,76,.1);
+}
+
+/* Error state */
+.pr-input.pr-error, .pr-select.pr-error, .pr-textarea.pr-error {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 3px rgba(255,107,107,.15);
+    animation: prShake .4s ease;
+}
+@keyframes prShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+}
+
+.pr-select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,.5)' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
+.pr-select option {
+    background: #122546; color: #fff;
+    padding: 8px;
+}
+
+.pr-textarea {
+    resize: vertical; min-height: 80px;
+    line-height: 1.5;
+}
+
+/* ── Conditional fields ── */
+.pr-conditional {
+    max-height: 0; overflow: hidden;
+    transition: max-height .35s cubic-bezier(.22,1,.36,1), opacity .3s, margin .3s;
+    opacity: 0; margin-top: 0;
+}
+.pr-conditional.pr-show {
+    max-height: 200px; opacity: 1; margin-top: 18px;
+}
+
+/* ── Error Message ── */
+.pr-error-msg {
+    font-size: 11px; color: #ff6b6b;
+    margin-top: 5px; display: none;
+    align-items: center; gap: 4px;
+}
+.pr-error-msg.pr-visible { display: flex; }
+
+/* ── Submit Button ── */
+.pr-submit {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 16px 24px;
+    margin-top: 24px;
+    border: none; border-radius: 14px;
+    font-size: 15px; font-weight: 700;
+    font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
+    color: #1a1a2e;
+    background: linear-gradient(135deg, #fad24c 0%, #f5a623 30%, #fad24c 50%, #f5a623 70%, #fad24c 100%);
+    background-size: 300% 300%;
+    animation: hdsdSparkleShift 3s ease infinite;
+    cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: transform .25s ease, box-shadow .25s ease;
+    box-shadow: 0 4px 20px rgba(245,166,35,.3);
+}
+.pr-submit::before {
+    content: ''; position: absolute; top: -50%; left: -60%; width: 40%; height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+    transform: skewX(-20deg);
+    animation: hdsdSparkleGlide 2.5s ease-in-out infinite;
+}
+.pr-submit:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 8px 35px rgba(245,166,35,.45);
+}
+.pr-submit:active:not(:disabled) { transform: translateY(0) scale(.98); }
+.pr-submit:disabled {
+    opacity: .7; cursor: not-allowed;
+}
+
+/* ── Loading Spinner ── */
+.pr-spinner {
+    display: none;
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(26,26,46,.3);
+    border-top-color: #1a1a2e;
+    border-radius: 50%;
+    animation: prSpin .6s linear infinite;
+}
+.pr-submit.pr-loading .pr-spinner { display: block; }
+.pr-submit.pr-loading .pr-submit-text { opacity: .5; }
+@keyframes prSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Toast Notification ── */
+.pr-toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    z-index: 100001;
+    padding: 14px 28px; border-radius: 14px;
+    font-size: 14px; font-weight: 600;
+    font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
+    box-shadow: 0 10px 40px rgba(0,0,0,.3);
+    opacity: 0; visibility: hidden;
+    transition: all .35s cubic-bezier(.22,1,.36,1);
+    max-width: 90vw; text-align: center;
+}
+.pr-toast.pr-toast-success {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+}
+.pr-toast.pr-toast-error {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: #fff;
+}
+.pr-toast.pr-toast-visible {
+    opacity: 1; visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── Honeypot (visually hidden) ── */
+.pr-hp { position: absolute; left: -9999px; opacity: 0; height: 0; }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+    .pr-modal { max-width: 100%; border-radius: 18px; }
+    .pr-header { padding: 24px 20px 16px; }
+    .pr-header-icon { width: 48px; height: 48px; font-size: 22px; border-radius: 14px; }
+    .pr-header h2 { font-size: 18px; }
+    .pr-header p { font-size: 12px; }
+    .pr-body { padding: 18px 20px 24px; }
+    .pr-input, .pr-select, .pr-textarea { padding: 11px 14px; font-size: 13px; }
+    .pr-label { font-size: 12px; }
+    .pr-submit { padding: 14px 20px; font-size: 14px; }
+}
+@media (max-width: 479px) {
+    .pr-header { padding: 20px 16px 14px; }
+    .pr-body { padding: 14px 16px 20px; }
+    .pr-modal { border-radius: 16px; }
+}
+
