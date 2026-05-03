@@ -3,6 +3,7 @@ let _hvData = null, _hvActiveCard = 'commission', _hvPage = 1;
 const _hvPageSize = 50;
 
 function _hvMoney(n) { return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0); }
+function _hvIsMobile() { return window.innerWidth <= 768; }
 
 // ===== DATE FILTER HELPERS =====
 function _hvToday() { return new Date().toISOString().slice(0,10); }
@@ -208,37 +209,71 @@ async function _hvLoadOrderData() {
 function _hvRenderOrderTable(orders) {
     const tbody = document.getElementById('hvTableBody');
     const pgEl = document.getElementById('hvPagination');
+    const tableWrap = document.querySelector('.hv-table-wrap');
+    const mobileList = document.getElementById('hvMobileList');
     if (!tbody) return;
-    if (orders.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Không có đơn hàng</td></tr>'; if(pgEl) pgEl.innerHTML=''; return; }
-    const totalPages = Math.ceil(orders.length / _hvPageSize);
+    
+    const totalPages = Math.ceil(orders.length / _hvPageSize) || 1;
     if (_hvPage > totalPages) _hvPage = totalPages;
     const start = (_hvPage-1)*_hvPageSize;
     const page = orders.slice(start, start+_hvPageSize);
-    tbody.innerHTML = page.map((o, i) => {
-        const idx = start+i+1;
-        const refLabel = o.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : `<span style="color:#8b5cf6;font-weight:600;">👥 ${o.referrer_name||'-'}</span>`;
-        const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
-        return `<tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">${idx}</td>
-            <td style="padding:8px 6px;"><span style="font-weight:700;color:#6c5ce7;font-size:12px;background:#ede9fe;padding:2px 8px;border-radius:6px;">${o.order_code||'—'}</span></td>
-            <td style="padding:8px 6px;font-weight:600;color:#1e3a5f;font-size:13px;">${o.customer_name}</td>
-            <td style="padding:8px 6px;font-size:12px;">${refLabel}</td>
-            <td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">${_hvMoney(o.revenue)}</td>
-            <td style="padding:8px 6px;font-size:12px;text-align:center;">${o.rate||0}%</td>
-            <td style="padding:8px 6px;font-size:12px;font-weight:700;color:${o.commission>0?'#059669':'#94a3b8'};">${_hvMoney(o.commission)}</td>
-            <td style="padding:8px 6px;font-size:11px;color:#64748b;">${date}</td>
-        </tr>`;
-    }).join('');
+
+    if (orders.length === 0) {
+        if (_hvIsMobile() && mobileList) { mobileList.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">Không có đơn hàng</div>'; if(tableWrap) tableWrap.style.display='none'; }
+        else { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Không có đơn hàng</td></tr>'; }
+        if(pgEl) pgEl.innerHTML='';
+        return;
+    }
+
+    if (_hvIsMobile() && mobileList) {
+        if (tableWrap) tableWrap.style.display = 'none';
+        mobileList.style.display = 'flex';
+        mobileList.innerHTML = page.map(function(o) {
+            var refLabel = o.is_direct 
+                ? '<span style="color:#10b981;font-size:11px;">🎯 Trực tiếp</span>' 
+                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(o.referrer_name||'-')+'</span>';
+            var date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '';
+            return '<div class="hv-m-card">' +
+                '<div class="hv-m-left">' +
+                    '<div class="hv-m-name-row"><span class="hv-m-name">' + o.customer_name + '</span> <span class="hv-m-badge hv-m-badge-aff">' + (o.order_code||'—') + '</span></div>' +
+                    '<div class="hv-m-ref">' + refLabel + (date ? ' · '+date : '') + '</div>' +
+                '</div>' +
+                '<div class="hv-m-right">' +
+                    '<div class="hv-m-rev">' + _hvMoney(o.revenue) + '</div>' +
+                    '<div class="hv-m-hh">HH: ' + _hvMoney(o.commission) + '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    } else {
+        if (tableWrap) tableWrap.style.display = '';
+        if (mobileList) mobileList.style.display = 'none';
+        tbody.innerHTML = page.map(function(o, i) {
+            var idx = start+i+1;
+            var refLabel = o.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(o.referrer_name||'-')+'</span>';
+            var date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
+            return '<tr style="border-bottom:1px solid #f1f5f9;">' +
+                '<td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">' + idx + '</td>' +
+                '<td style="padding:8px 6px;"><span style="font-weight:700;color:#6c5ce7;font-size:12px;background:#ede9fe;padding:2px 8px;border-radius:6px;">' + (o.order_code||'—') + '</span></td>' +
+                '<td style="padding:8px 6px;font-weight:600;color:#1e3a5f;font-size:13px;">' + o.customer_name + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;">' + refLabel + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">' + _hvMoney(o.revenue) + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;text-align:center;">' + (o.rate||0) + '%</td>' +
+                '<td style="padding:8px 6px;font-size:12px;font-weight:700;color:' + (o.commission>0?'#059669':'#94a3b8') + ';">' + _hvMoney(o.commission) + '</td>' +
+                '<td style="padding:8px 6px;font-size:11px;color:#64748b;">' + date + '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
     if (pgEl && totalPages > 1) {
-        const prevDis = _hvPage<=1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
-        const nextDis = _hvPage>=totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
-        pgEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
-            <span onclick="_hvPage--;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${prevDis}">◀ Trước</span>
-            <span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ${_hvPage} / ${totalPages} · ${orders.length} đơn</span>
-            <span onclick="_hvPage++;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${nextDis}">Sau ▶</span>
-        </div>`;
+        var prevDis = _hvPage<=1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        var nextDis = _hvPage>=totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        pgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">' +
+            '<span onclick="_hvPage--;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;' + prevDis + '">◀ Trước</span>' +
+            '<span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ' + _hvPage + '/' + totalPages + ' · ' + orders.length + ' đơn</span>' +
+            '<span onclick="_hvPage++;_hvLoadOrderData()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;' + nextDis + '">Sau ▶</span>' +
+        '</div>';
     } else if (pgEl) {
-        pgEl.innerHTML = orders.length > 0 ? `<div style="text-align:center;font-size:12px;color:#64748b;padding:8px;">Tất cả ${orders.length} đơn hàng</div>` : '';
+        pgEl.innerHTML = orders.length > 0 ? '<div style="text-align:center;font-size:12px;color:#64748b;padding:8px;">' + orders.length + ' đơn hàng</div>' : '';
     }
 }
 
@@ -286,52 +321,76 @@ function _hvApplyCardFilter() {
 function _hvRenderTable(items) {
     const tbody = document.getElementById('hvTableBody');
     const pgEl = document.getElementById('hvPagination');
+    const tableWrap = document.querySelector('.hv-table-wrap');
+    const mobileList = document.getElementById('hvMobileList');
     if (!tbody) return;
     
-    if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu</td></tr>';
-        if (pgEl) pgEl.innerHTML = '';
-        return;
-    }
-    
-    const totalPages = Math.ceil(items.length / _hvPageSize);
+    const totalPages = Math.ceil(items.length / _hvPageSize) || 1;
     if (_hvPage > totalPages) _hvPage = totalPages;
     const start = (_hvPage-1)*_hvPageSize;
     const page = items.slice(start, start+_hvPageSize);
-    
-    tbody.innerHTML = page.map((item, i) => {
-        const idx = start+i+1;
-        const srcBadge = item._src==='affiliate' 
-            ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:600;">AFF</span>'
-            : '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#dbeafe;color:#2563eb;font-weight:600;">KH</span>';
-        const keyIcon = (window._hvAffApprovedIds||[]).includes(item.id) ? '🔑' : ((window._hvAffLockedIds||[]).includes(item.id) ? '🔒' : '');
-        const refLabel = item.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : `<span style="color:#8b5cf6;font-weight:600;">👥 ${item.referrer_name||'-'}</span>`;
-        const statusBadge = _hvGetStatusBadge(item);
-        const date = item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : '—';
-        
-        return `<tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">${idx}</td>
-            <td style="padding:8px 6px;text-align:center;">${keyIcon}</td>
-            <td style="padding:8px 6px;"><span style="font-weight:700;color:#1e3a5f;font-size:13px;">${item.customer_name}</span> ${srcBadge}</td>
-            <td style="padding:8px 6px;font-size:12px;">${refLabel}</td>
-            <td style="padding:8px 6px;font-size:12px;color:#475569;">${item.phone||'—'}</td>
-            <td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">${_hvMoney(item.total_revenue)}</td>
-            <td style="padding:8px 6px;font-size:12px;text-align:center;">${item.rate||0}%</td>
-            <td style="padding:8px 6px;font-size:12px;font-weight:700;color:${item.commission>0?'#059669':'#94a3b8'};">${_hvMoney(item.commission)}</td>
-        </tr>`;
-    }).join('');
-    
-    // Pagination
+
+    if (items.length === 0) {
+        if (_hvIsMobile() && mobileList) { mobileList.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu</div>'; if(tableWrap) tableWrap.style.display='none'; }
+        else { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">Không có dữ liệu</td></tr>'; }
+        if (pgEl) pgEl.innerHTML = '';
+        return;
+    }
+
+    if (_hvIsMobile() && mobileList) {
+        if (tableWrap) tableWrap.style.display = 'none';
+        mobileList.style.display = 'flex';
+        mobileList.innerHTML = page.map(function(item) {
+            var srcBadge = item._src==='affiliate' 
+                ? '<span class="hv-m-badge hv-m-badge-aff">AFF</span>'
+                : '<span class="hv-m-badge hv-m-badge-kh">KH</span>';
+            var refLabel = item.is_direct 
+                ? '<span style="color:#10b981;font-size:11px;">🎯 Trực tiếp</span>' 
+                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(item.referrer_name||'-')+'</span>';
+            return '<div class="hv-m-card">' +
+                '<div class="hv-m-left">' +
+                    '<div class="hv-m-name-row"><span class="hv-m-name">' + item.customer_name + '</span> ' + srcBadge + '</div>' +
+                    '<div class="hv-m-ref">' + refLabel + '</div>' +
+                '</div>' +
+                '<div class="hv-m-right">' +
+                    '<div class="hv-m-rev">' + _hvMoney(item.total_revenue) + '</div>' +
+                    '<div class="hv-m-hh">HH: ' + _hvMoney(item.commission) + '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    } else {
+        if (tableWrap) tableWrap.style.display = '';
+        if (mobileList) mobileList.style.display = 'none';
+        tbody.innerHTML = page.map(function(item, i) {
+            var idx = start+i+1;
+            var srcBadge = item._src==='affiliate' 
+                ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:600;">AFF</span>'
+                : '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#dbeafe;color:#2563eb;font-weight:600;">KH</span>';
+            var keyIcon = (window._hvAffApprovedIds||[]).includes(item.id) ? '🔑' : ((window._hvAffLockedIds||[]).includes(item.id) ? '🔒' : '');
+            var refLabel = item.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(item.referrer_name||'-')+'</span>';
+            return '<tr style="border-bottom:1px solid #f1f5f9;">' +
+                '<td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">' + idx + '</td>' +
+                '<td style="padding:8px 6px;text-align:center;">' + keyIcon + '</td>' +
+                '<td style="padding:8px 6px;"><span style="font-weight:700;color:#1e3a5f;font-size:13px;">' + item.customer_name + '</span> ' + srcBadge + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;">' + refLabel + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;color:#475569;">' + (item.phone||'—') + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;font-weight:600;color:#1e40af;">' + _hvMoney(item.total_revenue) + '</td>' +
+                '<td style="padding:8px 6px;font-size:12px;text-align:center;">' + (item.rate||0) + '%</td>' +
+                '<td style="padding:8px 6px;font-size:12px;font-weight:700;color:' + (item.commission>0?'#059669':'#94a3b8') + ';">' + _hvMoney(item.commission) + '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
     if (pgEl && totalPages > 1) {
-        const prevDis = _hvPage<=1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
-        const nextDis = _hvPage>=totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
-        pgEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
-            <span onclick="_hvPage--;_hvApplyCardFilter()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${prevDis}">◀ Trước</span>
-            <span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ${_hvPage} / ${totalPages} · ${items.length} KH</span>
-            <span onclick="_hvPage++;_hvApplyCardFilter()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;${nextDis}">Sau ▶</span>
-        </div>`;
+        var prevDis = _hvPage<=1 ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        var nextDis = _hvPage>=totalPages ? 'opacity:0.4;pointer-events:none;' : 'cursor:pointer;';
+        pgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">' +
+            '<span onclick="_hvPage--;_hvApplyCardFilter()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;' + prevDis + '">◀ Trước</span>' +
+            '<span style="font-size:12px;font-weight:700;color:#1e293b;">Trang ' + _hvPage + '/' + totalPages + '</span>' +
+            '<span onclick="_hvPage++;_hvApplyCardFilter()" style="padding:5px 14px;border-radius:8px;background:#1e3a5f;color:white;font-size:12px;font-weight:600;' + nextDis + '">Sau ▶</span>' +
+        '</div>';
     } else if (pgEl) {
-        pgEl.innerHTML = items.length > 0 ? `<div style="text-align:center;font-size:12px;color:#64748b;padding:8px;">Tất cả ${items.length} khách hàng</div>` : '';
+        pgEl.innerHTML = items.length > 0 ? '<div style="text-align:center;font-size:12px;color:#64748b;padding:8px;">' + items.length + ' khách hàng</div>' : '';
     }
 }
 
@@ -386,8 +445,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
                     </select>
                 </div>
                 
-                <!-- Table -->
-                <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+                <!-- Table (desktop) -->
+                <div class="hv-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
                     <table style="width:100%;min-width:900px;border-collapse:collapse;">
                         <thead><tr style="background:#1e293b;">
                             <th style="padding:10px 6px;text-align:center;font-size:11px;color:#fff;font-weight:700;width:40px;">#</th>
@@ -404,6 +463,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
                         </tbody>
                     </table>
                 </div>
+                <!-- Mobile Card List -->
+                <div id="hvMobileList" style="display:none;flex-direction:column;gap:8px;"></div>
                 <div id="hvPagination"></div>
             </div>
         </div>
@@ -508,14 +569,36 @@ async function renderBaoCaoHoaHongHVPage(container) {
 
             /* ===== RESPONSIVE ===== */
             @media (max-width:768px) {
-                .hv-stats-row { grid-template-columns:1fr 1fr; }
-                .hv-kpi-row { grid-template-columns:1fr; }
+                .hv-stats-row { grid-template-columns:1fr 1fr; gap:10px; }
+                .hv-kpi-row { grid-template-columns:1fr; gap:10px; }
                 .hv-welcome { flex-direction:column; align-items:flex-start; gap:4px; }
                 .hv-welcome-text { font-size:16px; }
-                .hv-stat-val-lg { font-size:18px; }
+                .hv-stat { padding:14px 12px; min-height:90px; border-radius:16px; }
+                .hv-stat-val-lg { font-size:16px; }
+                .hv-stat-lbl-lg { font-size:11px; }
+                .hv-stat-icon-wrap { width:36px; height:36px; font-size:18px; margin-bottom:10px; border-radius:10px; }
+                .hv-kpi { padding:14px; min-height:auto; border-radius:16px; }
+                .hv-kpi-num { font-size:22px; }
+                .hv-table-wrap { display:none !important; }
+                #hvMobileList { display:flex !important; }
+                /* Mobile card styles */
+                .hv-m-card { display:flex; align-items:center; justify-content:space-between; background:white; border-radius:14px; padding:12px 14px; border-left:4px solid #6c5ce7; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+                .hv-m-left { flex:1; min-width:0; }
+                .hv-m-name-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+                .hv-m-name { font-weight:700; font-size:13px; color:#1e3a5f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; display:inline-block; background:#fef3c7; padding:2px 10px; border-radius:8px; border:1px solid #fbbf24; }
+                .hv-m-badge { font-size:9px; padding:1px 6px; border-radius:6px; font-weight:700; }
+                .hv-m-badge-aff { background:#ede9fe; color:#7c3aed; }
+                .hv-m-badge-kh { background:#dbeafe; color:#2563eb; }
+                .hv-m-ref { margin-top:4px; }
+                .hv-m-right { text-align:right; flex-shrink:0; padding-left:10px; }
+                .hv-m-rev { font-size:13px; font-weight:800; color:#dc2626; }
+                .hv-m-hh { font-size:11px; color:#64748b; font-weight:600; margin-top:2px; }
             }
             @media (max-width:480px) {
-                .hv-stats-row { grid-template-columns:1fr; }
+                .hv-stats-row { grid-template-columns:1fr 1fr; gap:8px; }
+                .hv-stat { padding:12px 10px; min-height:80px; }
+                .hv-stat-val-lg { font-size:14px; }
+                .hv-stat-icon-wrap { width:32px; height:32px; font-size:16px; margin-bottom:8px; }
             }
         </style>`;
 
