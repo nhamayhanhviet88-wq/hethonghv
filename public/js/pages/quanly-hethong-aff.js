@@ -147,11 +147,11 @@ async function _affSysLoad() {
             html += _aff_dateFilterHtml();
         }
         html += _affRenderTabs();
-        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
-            <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(99,102,241,0.3);"><div style="font-size:28px;font-weight:900;">${stats.totalChildren}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
-            <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(59,130,246,0.3);"><div style="font-size:28px;font-weight:900;">${stats.totalCustomers}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">📋 Tổng KH Giới Thiệu</div></div>
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(245,158,11,0.3);"><div style="font-size:28px;font-weight:900;">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">💰 Tổng Doanh Số</div></div>
-            <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(16,185,129,0.3);"><div style="font-size:28px;font-weight:900;">${stats.closedCount}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">✅ KH Chốt Đơn</div></div></div>`;
+        html += `<div class="aff-stat-grid">
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);"><div class="aff-stat-val">${stats.totalChildren}</div><div class="aff-stat-lbl">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);"><div class="aff-stat-val">${stats.closedCount}</div><div class="aff-stat-lbl">✅ KH Chốt Đơn</div></div></div>`;
         if (!isGD) {
             html += `<div style="margin-bottom:20px;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border-left:4px solid #f59e0b;"><div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:6px;">🌟 Khách Hàng Trực Tiếp Của Bạn</div><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:#78350f;"><span>📋 KH: <strong>${selfStats.total_customers}</strong></span><span>✅ Chốt: <strong>${selfStats.closed_count}</strong></span><span>💰 Doanh số: <strong>${Number(selfStats.total_revenue).toLocaleString('vi-VN')} đ</strong></span></div></div>`;
         }
@@ -161,7 +161,8 @@ async function _affSysLoad() {
             const RL = { hoa_hong:'Hoa Hồng', ctv:'CTV', nuoi_duong:'Nuôi Dưỡng', sinh_vien:'Sinh Viên', tkaffiliate:'TK Affiliate' };
             const RC = { hoa_hong:'#f59e0b', ctv:'#3b82f6', nuoi_duong:'#8b5cf6', sinh_vien:'#10b981', tkaffiliate:'#ec4899' };
             const filtered = _affSysSearch ? children.filter(c => { const q = _affSysSearch.toLowerCase(); return (c.full_name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.parent_affiliate_name||'').toLowerCase().includes(q); }) : children;
-            html += `<div style="overflow-x:auto;"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
+            // Desktop table
+            html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
             filtered.forEach((c,i) => {
                 const sb = c.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">🔒</span>';
                 html += `<tr><td style="font-weight:600;color:#6b7280;">${i+1}</td><td style="font-weight:700;color:#1e293b;">${c.full_name}</td><td style="color:#334155;">${c.phone||'—'}</td>`;
@@ -172,6 +173,22 @@ async function _affSysLoad() {
                     <td style="font-size:12px;color:#6b7280;">${c.created_at?new Date(c.created_at).toLocaleDateString('vi-VN'):'—'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
+            // Mobile card list
+            html += `<div class="aff-mobile-list">`;
+            filtered.forEach((c) => {
+                const roleBadge = `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};font-weight:700;">${RL[c.role]||c.role}</span>`;
+                html += `<div class="aff-m-card">
+                    <div class="aff-m-left">
+                        <div class="aff-m-name-row"><span class="aff-m-name">${c.full_name}</span> ${roleBadge}</div>
+                        <div class="aff-m-ref">📱 ${c.phone||'—'}</div>
+                    </div>
+                    <div class="aff-m-right">
+                        <div class="aff-m-rev">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</div>
+                        <div class="aff-m-hh">KH: ${c.total_customers} · Chốt: ${c.closed_count}</div>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
         }
         area.innerHTML = html;
     } catch (err) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>${err.message||'Lỗi'}</h3></div>`; }
@@ -386,10 +403,40 @@ function _aff_userCard(u, indent, ROLE_BADGE, ROLE_BG) {
     const name = (u.full_name || u.username || '').replace(/'/g, "\\\\'");
     return `<div onclick="_aff_selectMgr(${u.id},'${name}')"
         style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:10px;margin-bottom:3px;margin-left:${indent}px;transition:all 0.15s;
-        ${active?'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);':'background:white;border:1px solid #e5e7eb;color:#374151;'}">
-        <span style="width:32px;height:32px;border-radius:10px;background:${active?'rgba(255,255,255,0.2)':c};display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:800;flex-shrink:0;">${_aff_initials(u.full_name||u.username)}</span>
-        <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name||u.username}${badge?`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:${bg};color:white;font-weight:800;">${badge}</span>`:''}</div>
-        </div>
-    </div>`;
+        ${active?'background:linear-gradient(135deg,#122546,#1e3a5f);color:white;box-shadow:0 4px 12px rgba(18,37,70,0.3);':'background:white;border:1px solid #e5e7eb;color:#374151;'}">`
+        + `<span style="width:32px;height:32px;border-radius:10px;background:${active?'rgba(255,255,255,0.2)':c};display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:800;flex-shrink:0;">${_aff_initials(u.full_name||u.username)}</span>`
+        + `<div style="flex:1;min-width:0;">`
+        + `<div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;">${u.full_name||u.username}${badge?`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:${bg};color:white;font-weight:800;">${badge}</span>`:''}</div>`
+        + `</div></div>`;
 }
+
+// Inject mobile CSS once
+(function(){
+    if (document.getElementById('affMobileCss')) return;
+    var s = document.createElement('style'); s.id = 'affMobileCss';
+    s.textContent = `
+        .aff-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+        .aff-stat-card { border-radius:14px; padding:20px; color:white; box-shadow:0 4px 20px rgba(0,0,0,0.15); }
+        .aff-stat-val { font-size:28px; font-weight:900; }
+        .aff-stat-lbl { font-size:12px; opacity:0.85; margin-top:4px; }
+        .aff-mobile-list { display:none; flex-direction:column; gap:8px; }
+        .aff-table-wrap { overflow-x:auto; }
+        @media (max-width:768px) {
+            .aff-stat-grid { grid-template-columns:1fr 1fr !important; gap:10px !important; }
+            .aff-stat-card { padding:14px 12px !important; border-radius:16px !important; }
+            .aff-stat-val { font-size:20px !important; }
+            .aff-stat-lbl { font-size:11px !important; }
+            .aff-table-wrap { display:none !important; }
+            .aff-mobile-list { display:flex !important; }
+            .aff-m-card { display:flex; align-items:center; justify-content:space-between; background:white; border-radius:14px; padding:12px 14px; border-left:4px solid #6366f1; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+            .aff-m-left { flex:1; min-width:0; }
+            .aff-m-name-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+            .aff-m-name { font-weight:700; font-size:13px; color:#1e3a5f; background:#fef3c7; padding:2px 10px; border-radius:8px; border:1px solid #fbbf24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; display:inline-block; }
+            .aff-m-ref { margin-top:4px; font-size:11px; color:#64748b; }
+            .aff-m-right { text-align:right; flex-shrink:0; padding-left:10px; }
+            .aff-m-rev { font-size:13px; font-weight:800; color:#dc2626; }
+            .aff-m-hh { font-size:11px; color:#64748b; font-weight:600; margin-top:2px; }
+        }
+    `;
+    document.head.appendChild(s);
+})();
