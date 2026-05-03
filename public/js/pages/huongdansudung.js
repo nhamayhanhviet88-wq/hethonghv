@@ -144,6 +144,150 @@ function _hdsdTocHTML() {
     '</nav>';
 }
 
+// ========== MINDMAP / FLOWCHART ==========
+function _hdsdMindmapHTML() {
+    return '<div class="mm-wrap hdsd-animate" id="hdsd-mindmap">' +
+        '<div class="mm-shimmer"></div>' +
+        '<div class="mm-inner">' +
+            // Title
+            '<div class="mm-title-row">' +
+                '<span class="mm-title-icon">🧠</span>' +
+                '<span class="mm-title-text">SƠ ĐỒ CHIẾT KHẤU HOA HỒNG</span>' +
+            '</div>' +
+            '<p class="mm-subtitle">Nhìn là hiểu — 2 cách kiếm tiền cùng Đồng Phục HV</p>' +
+
+            // ── Central Node ──
+            '<div class="mm-tree">' +
+                '<div class="mm-center-node">' +
+                    '<div class="mm-center-pulse"></div>' +
+                    '<div class="mm-center-inner">' +
+                        '<div class="mm-center-icon">🤝</div>' +
+                        '<div class="mm-center-label">ANH/CHỊ<br>ĐỐI TÁC</div>' +
+                    '</div>' +
+                '</div>' +
+
+                // ── Connector line from center down ──
+                '<div class="mm-connector-v"></div>' +
+
+                // ── Two main branch split ──
+                '<div class="mm-branches">' +
+
+                    // ═══ BRANCH 1: Khách hàng trực tiếp ═══
+                    '<div class="mm-branch mm-branch-gold">' +
+                        '<div class="mm-branch-header">' +
+                            '<span class="mm-branch-badge mm-badge-gold">NHÁNH 1</span>' +
+                            '<span class="mm-branch-title">Giới Thiệu KHÁCH HÀNG</span>' +
+                        '</div>' +
+                        '<div class="mm-branch-body">' +
+                            // Action
+                            '<div class="mm-action-node mm-action-gold">' +
+                                '<div class="mm-action-icon">📱</div>' +
+                                '<div class="mm-action-text">Gửi SĐT khách cho<br><strong>Đồng Phục HV</strong></div>' +
+                            '</div>' +
+                            '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
+                            // Result
+                            '<div class="mm-result-node mm-result-gold">' +
+                                '<div class="mm-result-icon">💰</div>' +
+                                '<div class="mm-result-label">Khách có nhu cầu & đặt đơn</div>' +
+                                '<div class="mm-result-rate"><span class="mm-rate-num">10</span><span class="mm-rate-pct">%</span></div>' +
+                                '<div class="mm-result-desc">Hoa hồng cho Anh/Chị</div>' +
+                            '</div>' +
+                            '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
+                            // Repeat benefit
+                            '<div class="mm-repeat-node mm-repeat-gold">' +
+                                '<div class="mm-repeat-icon">🔄</div>' +
+                                '<div class="mm-repeat-text">Khách đặt lại nhiều lần</div>' +
+                                '<div class="mm-repeat-highlight">VẪN được 10% cho Anh/Chị</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // ═══ BRANCH 2: Affiliate ═══
+                    '<div class="mm-branch mm-branch-cyan">' +
+                        '<div class="mm-branch-header">' +
+                            '<span class="mm-branch-badge mm-badge-cyan">NHÁNH 2</span>' +
+                            '<span class="mm-branch-title">Giới Thiệu AFFILIATE</span>' +
+                        '</div>' +
+                        '<div class="mm-branch-body">' +
+                            // Action
+                            '<div class="mm-action-node mm-action-cyan">' +
+                                '<div class="mm-action-icon">📱</div>' +
+                                '<div class="mm-action-text">Gửi SĐT người muốn làm<br><strong>Affiliate Đồng Phục HV</strong></div>' +
+                            '</div>' +
+                            '<div class="mm-arrow-down mm-arrow-cyan">▼</div>' +
+                            // Sub-split: 2 cases
+                            '<div class="mm-sub-split">' +
+                                // Case A: Affiliate tự đặt
+                                '<div class="mm-sub-case">' +
+                                    '<div class="mm-sub-tag">Trường hợp A</div>' +
+                                    '<div class="mm-result-node mm-result-cyan">' +
+                                        '<div class="mm-result-icon">🛒</div>' +
+                                        '<div class="mm-result-label">Affiliate <strong>tự đặt đơn</strong></div>' +
+                                        '<div class="mm-result-rate"><span class="mm-rate-num">5</span><span class="mm-rate-pct">%</span></div>' +
+                                        '<div class="mm-result-desc">Hoa hồng cho Anh/Chị</div>' +
+                                    '</div>' +
+                                '</div>' +
+                                // Case B: Affiliate giới thiệu KH
+                                '<div class="mm-sub-case">' +
+                                    '<div class="mm-sub-tag">Trường hợp B</div>' +
+                                    '<div class="mm-result-node mm-result-dual">' +
+                                        '<div class="mm-result-icon">👥</div>' +
+                                        '<div class="mm-result-label">Affiliate <strong>giới thiệu khách</strong></div>' +
+                                        '<div class="mm-dual-rates">' +
+                                            '<div class="mm-dual-item mm-dual-aff">' +
+                                                '<span class="mm-dual-who">Affiliate</span>' +
+                                                '<span class="mm-dual-val">10%</span>' +
+                                            '</div>' +
+                                            '<div class="mm-dual-plus">+</div>' +
+                                            '<div class="mm-dual-item mm-dual-you">' +
+                                                '<span class="mm-dual-who">Anh/Chị</span>' +
+                                                '<span class="mm-dual-val">5%</span>' +
+                                            '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="mm-arrow-down mm-arrow-cyan">▼</div>' +
+                            // Repeat benefit
+                            '<div class="mm-repeat-node mm-repeat-cyan">' +
+                                '<div class="mm-repeat-icon">🔄</div>' +
+                                '<div class="mm-repeat-text">Khách đặt lại nhiều lần</div>' +
+                                '<div class="mm-repeat-highlight">VẪN được chiết khấu cho Anh/Chị</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+
+                '</div>' + // .mm-branches
+
+            '</div>' + // .mm-tree
+
+            // ── Advantages section ──
+            '<div class="mm-advantages">' +
+                '<div class="mm-adv-title">🏆 THẾ MẠNH VƯỢT TRỘI</div>' +
+                '<div class="mm-adv-grid">' +
+                    '<div class="mm-adv-card">' +
+                        '<div class="mm-adv-icon">🔄</div>' +
+                        '<div class="mm-adv-text">Khách đặt lại nhiều lần<br><strong>vẫn được chiết khấu</strong></div>' +
+                    '</div>' +
+                    '<div class="mm-adv-card">' +
+                        '<div class="mm-adv-icon">💳</div>' +
+                        '<div class="mm-adv-text">Tiền <strong>tự động về tài khoản</strong><br>rút tiền bất cứ lúc nào</div>' +
+                    '</div>' +
+                    '<div class="mm-adv-card">' +
+                        '<div class="mm-adv-icon">🏗️</div>' +
+                        '<div class="mm-adv-text">Được xây <strong>hệ thống Affiliate</strong><br>cho riêng Anh/Chị</div>' +
+                    '</div>' +
+                    '<div class="mm-adv-card">' +
+                        '<div class="mm-adv-icon">🙌</div>' +
+                        '<div class="mm-adv-text"><strong>Không cần tư vấn, không cần vốn</strong><br>cập nhật tình trạng hàng ngày</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+
+        '</div>' + // .mm-inner
+    '</div>'; // .mm-wrap
+}
+
 // ========== 5 STEPS ==========
 function _hdsdStepsHTML() {
     return '<section class="hdsd-section" id="hdsd-steps">' +
@@ -172,6 +316,8 @@ function _hdsdStepsHTML() {
                 '</div>' +
             '</div>' +
         '</div>' +
+        // ★ MINDMAP inserted here
+        _hdsdMindmapHTML() +
         '<div class="hdsd-timeline">' +
             // STEP 1
             '<div class="hdsd-step-item hdsd-animate">' +
