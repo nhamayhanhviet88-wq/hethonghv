@@ -396,7 +396,7 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-form-card hdsd-form-card-blue"><strong>🔵 Affiliate đối tác</strong><br>→ Điền "CRM Chăm Sóc Affiliate"<br><br><em>Họ tên — SĐT — Link FB/Zalo (nếu có)</em></div>' +
                         '</div>' +
                         '<div style="margin-top:20px;text-align:center">' +
-                            '<img src="/images/huongdan-chuyenso.png" alt="Minh họa biểu mẫu Chuyển Số Khách Hàng" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-chuyenso.png" alt="Minh họa biểu mẫu Chuyển Số Khách Hàng" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện biểu mẫu "Chuyển Số Khách Hàng" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';" style="margin-top:14px">📋 Xem Chuyển Số</a>' +
                         '</div>' +
@@ -419,20 +419,20 @@ function _hdsdStepsHTML() {
                             '<span class="hdsd-pipeline-step">🔄 Tư vấn lại</span>' +
                         '</div>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-theodoisuvankhach.png" alt="Minh họa trang Theo Dõi Tư Vấn Khách" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-theodoisuvankhach.png" alt="Minh họa trang Theo Dõi Tư Vấn Khách" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Theo Dõi Tư Vấn Khách" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/tu-van-khach-aff" onclick="event.preventDefault();window.location.href=\'/tu-van-khach-aff\';" style="margin-top:14px">👁️ Xem Theo Dõi Tư Vấn Khách</a>' +
                         '</div>' +
                         '<div class="hdsd-highlight-fire">🔥 <strong>Đặc biệt:</strong> Khi Affiliate trong hệ thống giới thiệu khách chốt đơn → họ được 10%, anh/chị tự động hưởng thêm 5%. Toàn bộ tiến độ hiển thị real-time trên hệ thống.</div>' +
                         '<p style="margin-top:16px"><strong>🤝 3.2. Theo Dõi Tư Vấn Affiliate</strong> — Xem ngay: Affiliate đã có tài khoản chưa? Đang tư vấn giai đoạn nào? Có doanh số chưa?</p>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-theodoituvan.png" alt="Minh họa trang Theo Dõi Tư Vấn Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-theodoituvan.png" alt="Minh họa trang Theo Dõi Tư Vấn Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Theo Dõi Tư Vấn Affiliate" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/theo-doi-tu-van-aff" onclick="event.preventDefault();window.location.href=\'/theo-doi-tu-van-aff\';" style="margin-top:14px">🤝 Xem Theo Dõi Affiliate</a>' +
                         '</div>' +
                         '<p style="margin-top:12px"><strong>📊 3.3. Quản Lý Hệ Thống Affiliate</strong> — Theo dõi toàn bộ: số Affiliate trong hệ thống, KH giới thiệu, doanh số, đơn chốt.</p>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Quản Lý Hệ Thống Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-quanlyhethong.png" alt="Minh họa trang Quản Lý Hệ Thống Affiliate" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Quản Lý Hệ Thống Affiliate" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/quanlytkhethongaff" onclick="event.preventDefault();window.location.href=\'/quanlytkhethongaff\';" style="margin-top:14px">📊 Xem Quản Lý Affiliate</a>' +
                         '</div>' +
@@ -459,7 +459,7 @@ function _hdsdStepsHTML() {
                             '<li style="margin-bottom:6px">✅ Bấm <strong>"Gửi Yêu Cầu"</strong></li>' +
                         '</ul>' +
                         '<div style="margin-top:14px;margin-bottom:14px;text-align:center">' +
-                            '<img src="/images/huongdan-ruttien.png" alt="Minh họa trang Rút Tiền" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-ruttien.png" alt="Minh họa trang Rút Tiền" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Rút Tiền" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/rut-tien-affiliate" onclick="event.preventDefault();window.location.href=\'/rut-tien-affiliate\';" style="margin-top:14px">💰 Xem Rút Tiền</a>' +
                         '</div>' +
@@ -484,7 +484,7 @@ function _hdsdStepsHTML() {
                             '<div class="hdsd-subcard" style="text-align:center"><div style="font-size:24px;margin-bottom:4px">👥</div><div class="hdsd-subcard-title">KH & Affiliate</div>Phân loại chi tiết</div>' +
                         '</div>' +
                         '<div style="margin-top:14px;text-align:center">' +
-                            '<img src="/images/huongdan-baocaohoahong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)" loading="lazy">' +
+                            '<img src="/images/huongdan-baocaohoahong.png" alt="Minh họa trang Báo Cáo Hoa Hồng HV" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(18,37,70,.15);border:1px solid rgba(18,37,70,.08)">' +
                             '<p style="font-size:12px;color:var(--hdsd-slate-500);margin-top:10px;font-style:italic">📸 Minh họa giao diện "Báo Cáo Hoa Hồng HV" trên hệ thống</p>' +
                             '<a class="hdsd-btn-sparkle" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';" style="margin-top:14px">📊 Xem Báo Cáo</a>' +
                         '</div>' +
