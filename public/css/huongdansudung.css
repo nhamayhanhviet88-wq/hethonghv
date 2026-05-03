@@ -661,6 +661,18 @@
     /* — Lightbox — */
     .hdsd-lightbox { padding: 10px; }
     .hdsd-lightbox img { border-radius: 8px; }
+
+    /* — CRITICAL: Disable transform animations on mobile to prevent GPU tile discard — */
+    .hdsd-animate {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+    /* Force step images always visible, prevent layout collapse */
+    .hdsd-step-card img {
+        content-visibility: visible;
+        contain-intrinsic-size: auto 300px;
+    }
 }
 @media (max-width: 479px) {
     .hdsd-hero { padding: 32px 12px; }
