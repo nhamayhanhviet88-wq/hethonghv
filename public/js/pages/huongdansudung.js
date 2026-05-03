@@ -177,6 +177,7 @@ function _hdsdMindmapHTML() {
                         '<div class="mm-branch-header">' +
                             '<span class="mm-branch-badge mm-badge-gold">NHÁNH 1</span>' +
                             '<span class="mm-branch-title">Giới Thiệu KHÁCH HÀNG</span>' +
+                            '<span class="mm-branch-rate-tag mm-rate-tag-gold">Chiết Khấu 10%</span>' +
                         '</div>' +
                         '<div class="mm-branch-body">' +
                             // Action
@@ -185,12 +186,20 @@ function _hdsdMindmapHTML() {
                                 '<div class="mm-action-text">Gửi SĐT khách cho<br><strong>Đồng Phục HV</strong></div>' +
                             '</div>' +
                             '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
-                            // Result
+                            // Result: KH đặt đơn
                             '<div class="mm-result-node mm-result-gold">' +
                                 '<div class="mm-result-icon">💰</div>' +
                                 '<div class="mm-result-label">Khách có nhu cầu & đặt đơn</div>' +
                                 '<div class="mm-result-rate"><span class="mm-rate-num">10</span><span class="mm-rate-pct">%</span></div>' +
                                 '<div class="mm-result-desc">Hoa hồng cho Anh/Chị</div>' +
+                            '</div>' +
+                            '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
+                            // Self-order benefit
+                            '<div class="mm-result-node mm-result-gold-self">' +
+                                '<div class="mm-result-icon">🛒</div>' +
+                                '<div class="mm-result-label">Anh/Chị <strong>tự đặt đơn</strong> cũng được</div>' +
+                                '<div class="mm-result-rate"><span class="mm-rate-num">10</span><span class="mm-rate-pct">%</span></div>' +
+                                '<div class="mm-result-desc">Chiết khấu cho chính Anh/Chị</div>' +
                             '</div>' +
                             '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
                             // Repeat benefit
@@ -207,6 +216,7 @@ function _hdsdMindmapHTML() {
                         '<div class="mm-branch-header">' +
                             '<span class="mm-branch-badge mm-badge-cyan">NHÁNH 2</span>' +
                             '<span class="mm-branch-title">Giới Thiệu AFFILIATE</span>' +
+                            '<span class="mm-branch-rate-tag mm-rate-tag-cyan">Chiết Khấu 5%</span>' +
                         '</div>' +
                         '<div class="mm-branch-body">' +
                             // Action

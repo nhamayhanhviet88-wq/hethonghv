@@ -895,6 +895,20 @@
     display: block; font-size: 14px; font-weight: 700;
     color: rgba(255,255,255,.9); margin-top: 4px;
 }
+/* ── Branch Rate Tag (Chiết Khấu 10% / 5%) ── */
+.mm-branch-rate-tag {
+    display: inline-block; margin-top: 8px;
+    padding: 4px 16px; border-radius: 20px;
+    font-size: 13px; font-weight: 800; letter-spacing: .5px;
+}
+.mm-rate-tag-gold {
+    background: rgba(250,210,76,.15); border: 1.5px solid rgba(250,210,76,.4);
+    color: #fad24c;
+}
+.mm-rate-tag-cyan {
+    background: rgba(56,189,248,.15); border: 1.5px solid rgba(56,189,248,.4);
+    color: #7dd3fc;
+}
 
 /* ── Branch Body ── */
 .mm-branch-body {
@@ -938,6 +952,23 @@
     background: linear-gradient(160deg, rgba(250,210,76,.12), rgba(250,210,76,.05));
     border: 1.5px solid rgba(250,210,76,.3);
     box-shadow: 0 4px 20px rgba(250,210,76,.1);
+}
+.mm-result-gold-self {
+    padding: 16px; border-radius: 14px; text-align: center; width: 100%;
+    transition: transform .25s, box-shadow .25s;
+    background: linear-gradient(160deg, rgba(250,210,76,.08), rgba(16,185,129,.06));
+    border: 1.5px dashed rgba(250,210,76,.35);
+    box-shadow: 0 4px 20px rgba(250,210,76,.08);
+}
+.mm-result-gold-self:hover { transform: scale(1.03); }
+.mm-result-gold-self .mm-result-icon { font-size: 28px; margin-bottom: 6px; }
+.mm-result-gold-self .mm-result-label {
+    font-size: 13px; color: rgba(255,255,255,.8); margin-bottom: 8px; line-height: 1.4;
+}
+.mm-result-gold-self .mm-result-label strong { color: #10b981; }
+.mm-result-gold-self .mm-rate-num, .mm-result-gold-self .mm-rate-pct { color: #fad24c; }
+.mm-result-gold-self .mm-result-desc {
+    font-size: 12px; color: rgba(255,255,255,.55); font-weight: 500;
 }
 .mm-result-cyan {
     background: linear-gradient(160deg, rgba(56,189,248,.12), rgba(56,189,248,.05));
