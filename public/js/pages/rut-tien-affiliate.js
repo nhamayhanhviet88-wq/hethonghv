@@ -130,7 +130,7 @@ function wdShowApprovedBrandedPopup(amount) {
 
     const overlay = document.createElement('div');
     overlay.id = 'wdApprovedPopup';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
 
     overlay.innerHTML = `
         <div style="background:white;border-radius:24px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.4);animation:wdPopIn 0.4s ease;">
@@ -241,7 +241,7 @@ function wdShowTransferImage(imgSrc) {
     if (old) old.remove();
     const overlay = document.createElement('div');
     overlay.id = 'wdImgPopup';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     overlay.innerHTML = `<div style="max-width:500px;max-height:80vh;position:relative;">
         <span onclick="document.getElementById('wdImgPopup').remove()" style="position:absolute;top:-12px;right:-12px;background:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">✕</span>
@@ -290,7 +290,7 @@ function wdShowSuccessPopup(amount) {
 
     const overlay = document.createElement('div');
     overlay.id = 'wdSuccessPopup';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
 
     overlay.innerHTML = `
         <div style="background:white;border-radius:24px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.3);animation:wdPopIn 0.4s ease;">
