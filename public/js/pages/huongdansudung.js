@@ -54,8 +54,8 @@ function _hdsdHeroHTML() {
                 '<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7)"><span style="color:#f59e0b;font-size:16px">🔄</span> Hoa Hồng Về Tự Động</div>' +
             '</div>' +
             '<div class="hdsd-hero-actions">' +
-                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
                 '<a class="hdsd-btn-sparkle-alt" href="#" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\');">✨ Cách Thức Hợp Tác</a>' +
+                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
             '</div>' +
         '</div>' +
     '</section>';
@@ -536,8 +536,8 @@ function _hdsdCtaHTML() {
             '<blockquote class="hdsd-quote-final hdsd-animate">"Điều quý giá nhất tại HV không phải 10% hay 5% hoa hồng — mà là quyền lợi <strong>NHẬN HOA HỒNG TRỌN ĐỜI</strong> từ mọi lần khách quay lại. Đây chính là tài sản dài hạn mà anh/chị xây dựng cho chính mình."</blockquote>' +
             '<p class="hdsd-cta-closing hdsd-animate">Hãy bắt đầu ngay hôm nay — Đồng Phục HV luôn đồng hành! 🚀</p>' +
             '<div class="hdsd-cta-actions hdsd-animate">' +
-                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
                 '<a class="hdsd-btn-outline" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';">📊 Xem Báo Cáo</a>' +
+                '<a class="hdsd-btn-gold" href="/chuyen-so" onclick="event.preventDefault();window.location.href=\'/chuyen-so\';">🚀 Chuyển Số Ngay</a>' +
             '</div>' +
             '<div class="hdsd-support-grid hdsd-animate" style="margin-top:40px">' +
                 '<div class="hdsd-support-item"><div class="hdsd-support-icon">📞</div><div class="hdsd-support-name">Hotline hỗ trợ</div><div class="hdsd-support-val">Liên hệ nhân viên phụ trách</div></div>' +
