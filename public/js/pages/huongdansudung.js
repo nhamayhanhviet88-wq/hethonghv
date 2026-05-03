@@ -672,25 +672,22 @@ function _hdsdInitToc() {
     });
 }
 
-// ========== STICKY HERO BUTTONS BAR ==========
+// ========== STICKY HERO BUTTONS BAR (BOTTOM) ==========
 function _hdsdInitStickyBar() {
     var hero = document.querySelector('.hdsd-hero');
     if (!hero || document.getElementById('hdsdStickyBar')) return;
     var bar = document.createElement('div');
     bar.id = 'hdsdStickyBar';
-    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:rgba(10,20,40,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(250,210,76,.15);box-shadow:0 4px 20px rgba(0,0,0,.3);transform:translateY(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);';
+    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:rgba(10,20,40,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(250,210,76,.15);box-shadow:0 -4px 20px rgba(0,0,0,.3);transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);';
     bar.innerHTML = '<a class="hdsd-btn-gold hdsd-sticky-btn1" href="/chuyen-so" style="padding:10px 24px;font-size:13px;border-radius:10px;text-decoration:none"><span class="hdsd-sticky-icon">🚀 </span>Chuyển Số Ngay</a>' +
         '<a class="hdsd-btn-sparkle-alt hdsd-sticky-btn2" href="#" onclick="event.preventDefault();_hdsdScrollTo(\'hdsd-steps\');" style="padding:10px 24px;font-size:13px;border-radius:50px;text-decoration:none"><span class="hdsd-sticky-icon">✨ </span>Cách Thức Hợp Tác</a>';
     document.body.appendChild(bar);
-    var tocBar = document.getElementById('hdsdToc');
     window.addEventListener('scroll', function() {
         var hb = hero.getBoundingClientRect().bottom;
         if (hb < 0) {
             bar.style.transform = 'translateY(0)';
-            if (tocBar) tocBar.style.top = '52px';
         } else {
-            bar.style.transform = 'translateY(-100%)';
-            if (tocBar) tocBar.style.top = '0';
+            bar.style.transform = 'translateY(100%)';
         }
     }, { passive: true });
 }
