@@ -262,7 +262,7 @@ function _hdsdMindmapHTML() {
                             '<div class="mm-repeat-node mm-repeat-cyan">' +
                                 '<div class="mm-repeat-icon">🔄</div>' +
                                 '<div class="mm-repeat-text">Khách đặt lại nhiều lần</div>' +
-                                '<div class="mm-repeat-highlight">VẪN được chiết khấu cho Anh/Chị</div>' +
+                                '<div class="mm-repeat-highlight">VẪN được 5% cho Anh/Chị</div>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
