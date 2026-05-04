@@ -286,13 +286,19 @@ async function affiliateRoutes(fastify) {
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
+        // ★ nhu_cau filter: cũng bao gồm KH đã chuyển sang ctv_hoa_hong (có conversion record từ nhu_cau)
         let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
                    c.cancel_requested, c.cancel_approved, c.crm_type
             FROM customers c
             WHERE c.referrer_id IN (${ph})`;
         const custParams = [...allIds];
-        if (crm_filter) {
+        if (crm_filter === 'nhu_cau') {
+            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong
+            custQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
+                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status = 'approved'
+            )))`;
+        } else if (crm_filter) {
             custQuery += ` AND c.crm_type = ?`;
             custParams.push(crm_filter);
         }
@@ -377,10 +383,12 @@ async function affiliateRoutes(fastify) {
             const isDirect = c.referrer_id === user.id;
             const convDate = affConvMap[c.id] || null;
             const baseRate = isDirect ? directRate : parentRate;
-            // Nếu KH đã chuyển Affiliate (hoặc legacy), hiển thị rate giảm
-            const displayRate = (isDirect && (convDate || c.crm_type === 'ctv_hoa_hong')) ? parentRate : baseRate;
             const completedRevenue = completedRevenueMap[c.id] || 0;
             const commission = perOrderCommMap[c.id]?.commission || 0;
+            // ★ displayRate: tính từ commission thực tế / doanh thu → phản ánh đúng tỷ lệ hỗn hợp
+            const displayRate = completedRevenue > 0
+                ? (commission / completedRevenue)
+                : ((isDirect && (convDate || c.crm_type === 'ctv_hoa_hong')) ? parentRate : baseRate);
             totalCommission += commission;
             
             // Mask phone for child referrals
@@ -392,14 +400,18 @@ async function affiliateRoutes(fastify) {
             const lastLog = consultMap[c.id] || null;
             const lastContactDate = lastLog?.created_at || c.created_at;
             
+            // ★ Flag: KH đã chuyển từ nhu_cau sang ctv_hoa_hong
+            const isConverted = (c.crm_type === 'ctv_hoa_hong' && (!!convDate || !!perOrderCommMap[c.id]?.hasConversion));
+
             return {
                 ...c,
                 phone: displayPhone,
                 is_direct: isDirect,
-                rate: displayRate * 100,
+                rate: Math.round(displayRate * 100 * 10) / 10,
                 total_revenue: totalRevenueMap[c.id] || 0,
                 completed_revenue: completedRevenue,
                 commission,
+                is_converted_to_affiliate: isConverted,
                 referrer_name: isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con'),
                 last_log_type: lastLog?.log_type || null,
                 last_log_content: lastLog?.content || null,
