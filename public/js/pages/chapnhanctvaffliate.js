@@ -867,9 +867,8 @@ async function openAffiliateAccountPopup(customerId) {
             <h4 style="color:var(--navy);margin-bottom:10px;">💰 Hoa Hồng</h4>
             <div class="form-group">
                 <label>Tầng chiết khấu</label>
-                <select id="reqAffTierId" class="form-control">
-                    <option value="">Chọn tầng</option>
-                    ${(tiers.items || []).map(t => `<option value="${t.id}">${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
+                <select id="reqAffTierId" class="form-control" disabled style="background:#e5e7eb;cursor:not-allowed;color:#374151;font-weight:600;">
+                    ${(tiers.items || []).map((t, i) => `<option value="${t.id}" ${i === 0 ? 'selected' : ''}>${t.name} (TT: ${t.percentage}% / CT: ${t.parent_percentage || 0}%)</option>`).join('')}
                 </select>
             </div>
             <div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;font-size:11px;color:#3b82f6;margin-bottom:10px;">
