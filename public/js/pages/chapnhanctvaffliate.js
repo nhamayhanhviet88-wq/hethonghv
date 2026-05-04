@@ -24,7 +24,7 @@ async function renderChapNhanCTVAffiliatePage(container) {
     _crmDatePreset = 'all';
     _crmSelectedYear = curYear;
     _cncaActiveStatCard = '';
-    _cncaCurrentTab = 'all';
+    _cncaCurrentTab = 'affaccount';
 
     // Load sidebar data (same as CRM modules)
     _crmIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
@@ -90,9 +90,8 @@ async function renderChapNhanCTVAffiliatePage(container) {
         <div id="cncaDateChipsArea"></div>
         <!-- TABS -->
         <div class="cnca-tabs" id="cncaTabs">
-            <div class="cnca-tab active" data-tab="all" onclick="_cncaSwitchTab('all')">📋 Tất Cả</div>
+            <div class="cnca-tab active" data-tab="affaccount" onclick="_cncaSwitchTab('affaccount')">🔑 Tạo TK Affiliate <span class="cnca-badge" id="cncaAffAccBadge" style="background:#8b5cf6;">0</span></div>
             <div class="cnca-tab" data-tab="pending" onclick="_cncaSwitchTab('pending')">⏳ Chờ Duyệt CTV <span class="cnca-badge" id="cncaPendingBadge">0</span></div>
-            <div class="cnca-tab" data-tab="affaccount" onclick="_cncaSwitchTab('affaccount')">🔑 Tạo TK Affiliate <span class="cnca-badge" id="cncaAffAccBadge" style="background:#8b5cf6;">0</span></div>
             <div class="cnca-tab" data-tab="history" onclick="_cncaSwitchTab('history')">📊 Lịch Sử</div>
         </div>
         <div class="cnca-card">
@@ -124,7 +123,7 @@ async function renderChapNhanCTVAffiliatePage(container) {
     }, 60000);
 }
 
-var _cncaCurrentTab = 'all';
+var _cncaCurrentTab = 'affaccount';
 
 function _cncaSwitchTab(tab, keepStatFilter) {
     _cncaCurrentTab = tab;
