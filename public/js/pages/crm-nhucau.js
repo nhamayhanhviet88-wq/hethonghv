@@ -1402,15 +1402,17 @@ async function openConsultModal(customerId) {
         // Init holiday-aware calendar
         const _today = new Date();
         const _todayStr = _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0');
+        const _tomorrow = new Date(_today); _tomorrow.setDate(_tomorrow.getDate() + 1);
+        const _tomorrowStr = _tomorrow.getFullYear() + '-' + String(_tomorrow.getMonth()+1).padStart(2,'0') + '-' + String(_tomorrow.getDate()).padStart(2,'0');
         initHolidayCalendar({
             containerId: 'consultCalendarContainer',
             hiddenInputId: 'consultAppointment',
-            minDate: _todayStr
+            minDate: _tomorrowStr
         });
         initHolidayCalendar({
             containerId: 'consultSBHCalendarContainer',
             hiddenInputId: 'consultSBHDate',
-            minDate: _todayStr
+            minDate: _tomorrowStr
         });
         onConsultTypeChange(); // trigger to show/hide correct fields
     }, 100);
