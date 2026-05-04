@@ -560,9 +560,20 @@ async function customersRoutes(fastify, options) {
         const codes = await db.all(
             `SELECT oc.*, u.full_name as user_name FROM order_codes oc LEFT JOIN users u ON oc.user_id = u.id WHERE oc.customer_id = ? ORDER BY oc.id DESC`, [custId]);
         // Get items and deposit for each order
+        // ★ Cọc thuộc về đơn tạo SAU nó: range (previous_order.created_at, current_order.created_at]
         for (const code of codes) {
             code.items = await db.all('SELECT * FROM order_items WHERE order_code_id = ? ORDER BY id', [code.id]);
-            const depRow = await db.get(`SELECT COALESCE(SUM(deposit_amount), 0) as dep FROM consultation_logs WHERE customer_id = ? AND log_type = 'dat_coc' AND created_at >= ? AND created_at <= COALESCE((SELECT created_at FROM order_codes WHERE customer_id = ? AND id > ? ORDER BY id ASC LIMIT 1), NOW())`, [custId, code.created_at, custId, code.id]);
+            const depRow = await db.get(`
+                SELECT COALESCE(SUM(deposit_amount), 0) as dep 
+                FROM consultation_logs 
+                WHERE customer_id = $1 
+                  AND log_type = 'dat_coc' 
+                  AND created_at <= $2
+                  AND created_at > COALESCE(
+                    (SELECT created_at FROM order_codes WHERE customer_id = $3 AND id < $4 ORDER BY id DESC LIMIT 1), 
+                    '1970-01-01'
+                  )
+            `, [custId, code.created_at, custId, code.id]);
             code.deposit = depRow?.dep || 0;
         }
         const depositRow = await db.get(`SELECT COALESCE(SUM(deposit_amount), 0) as total_deposit FROM consultation_logs WHERE customer_id = ? AND log_type = 'dat_coc'`, [custId]);
