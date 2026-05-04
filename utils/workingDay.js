@@ -40,7 +40,11 @@ function toDateStr(d) {
  */
 async function getNextWorkingDay(startDate, userId) {
     const holidays = await getHolidays();
-    let d = new Date(startDate);
+    // ★ Extract VN date correctly: startDate may already have +7h offset baked in
+    // Use toDateStr to get the VN calendar date, then work from that
+    const startStr = toDateStr(startDate);
+    const [y, m, day] = startStr.split('-').map(Number);
+    let d = new Date(y, m - 1, day); // local date (no timezone shift)
     d.setDate(d.getDate() + 1); // Bắt đầu từ ngày mai
     let maxIter = 30;
     while (maxIter-- > 0) {
@@ -51,7 +55,9 @@ async function getNextWorkingDay(startDate, userId) {
         if (!isSunday && !isHoliday && !onLeave) return ds;
         d.setDate(d.getDate() + 1);
     }
-    return toDateStr(new Date(startDate.getTime() + 86400000)); // Fallback: tomorrow
+    // Fallback: tomorrow
+    const fb = new Date(y, m - 1, day + 1);
+    return toDateStr(fb);
 }
 
 /**
