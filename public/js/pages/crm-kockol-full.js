@@ -1277,16 +1277,18 @@ function _kockolOnConsultTypeChange() {
     // ★ Apply max_appointment_days from SECTION config (customer's current status, not selected button)
     const today = new Date();
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const _tmr = new Date(today); _tmr.setDate(_tmr.getDate() + 1);
+    const tomorrowStr = _tmr.getFullYear() + '-' + String(_tmr.getMonth()+1).padStart(2,'0') + '-' + String(_tmr.getDate()).padStart(2,'0');
     const maxDays = window._currentConsultMaxDays || 0;
     if (maxDays > 0) {
         const maxDate = new Date();
         maxDate.setDate(maxDate.getDate() + maxDays);
         const maxDateStr = maxDate.getFullYear() + '-' + String(maxDate.getMonth()+1).padStart(2,'0') + '-' + String(maxDate.getDate()).padStart(2,'0');
-        updateHolidayCalendarMinMax('consultCalendarContainer', todayStr, maxDateStr);
+        updateHolidayCalendarMinMax('consultCalendarContainer', tomorrowStr, maxDateStr);
         const apptLabelEl = appointmentGroup?.querySelector('label');
         if (apptLabelEl) apptLabelEl.innerHTML = `Ngày Hẹn Tiếp Theo <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#f59e0b;font-weight:600;">(tối đa ${maxDays} ngày)</span>`;
     } else {
-        updateHolidayCalendarMinMax('consultCalendarContainer', todayStr, null);
+        updateHolidayCalendarMinMax('consultCalendarContainer', tomorrowStr, null);
     }
 
     // Pinned customers: override label + disable datepicker (AFTER all resets)
