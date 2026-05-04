@@ -1061,7 +1061,7 @@ async function _gd_submitChuyenSo(assignmentId, answerStatusId) {
         call_status:'answered', answer_status_id:answerStatusId, notes,
         transferred_customer_id: custRes.customer?.id || custRes.lastInsertRowid || null
     });
-    if (res.success) { showToast(`✅ Chuyển số thành công! Mã: ${custRes.dailyNum || ''}`); closeModal(); await _gd_loadCallsForUser(_gd_selectedUserId); }
+    if (res.success) { showToast('✅ Chuyển số thành công!'); closeModal(); await _gd_loadCallsForUser(_gd_selectedUserId); }
     else showToast(res.error, 'error');
 }
 

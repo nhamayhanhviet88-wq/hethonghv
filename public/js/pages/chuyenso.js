@@ -330,7 +330,7 @@ async function renderChuyenSoPage(container) {
         try {
             const data = await apiCall('/api/customers', 'POST', body);
             if (data.success) {
-                showToast(`✅ Chuyển số thành công! Mã: ${data.dailyNum}`);
+                showToast('✅ Chuyển số thành công!');
                 e.target.reset();
                 // Hide affiliate row after reset
                 document.getElementById('csoAffiliateRow').style.display = 'none';
