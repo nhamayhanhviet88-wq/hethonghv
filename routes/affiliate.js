@@ -359,6 +359,7 @@ async function affiliateRoutes(fastify) {
 
         // ★ Tính commission per-order (split trước/sau chuyển CRM)
         let perOrderCommMap = {}; // { customerId: { commission, displayRate } }
+        let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
         if (customerIds.length > 0) {
             const cphOrd2 = customerIds.map(() => '?').join(',');
             const allOrders = await db.all(`
@@ -372,10 +373,34 @@ async function affiliateRoutes(fastify) {
                 const cust = customers.find(c => c.id === o.customer_id);
                 const isDirect = cust && cust.referrer_id === user.id;
                 const convDate = affConvMap[o.customer_id] || null;
+                
+                // ★ Trang Affiliate: chỉ tính đơn SAU ngày chuyển (đơn cũ thuộc trang Khách)
+                const isPreConversion = convDate && new Date(o.order_date) < new Date(convDate);
+                if (crm_filter === 'ctv_hoa_hong' && isPreConversion) {
+                    return; // Bỏ qua đơn trước chuyển
+                }
+                
                 const rate = _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate, cust?.crm_type);
                 if (!perOrderCommMap[o.customer_id]) perOrderCommMap[o.customer_id] = { commission: 0, hasConversion: !!convDate };
                 perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
+                
+                // ★ Trang Affiliate: tính riêng doanh thu post-conversion
+                if (crm_filter === 'ctv_hoa_hong') {
+                    if (!_affPostRevMap[o.customer_id]) _affPostRevMap[o.customer_id] = 0;
+                    _affPostRevMap[o.customer_id] += Number(o.revenue);
+                }
             });
+            
+            // ★ Trang Affiliate: ghi đè revenue maps bằng doanh thu post-conversion
+            if (crm_filter === 'ctv_hoa_hong') {
+                for (const custId of customerIds) {
+                    const convDate = affConvMap[custId];
+                    if (convDate) {
+                        completedRevenueMap[custId] = _affPostRevMap[custId] || 0;
+                        totalRevenueMap[custId] = _affPostRevMap[custId] || 0;
+                    }
+                }
+            }
         }
 
         let totalCommission = 0;
