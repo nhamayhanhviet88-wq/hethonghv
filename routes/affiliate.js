@@ -42,8 +42,10 @@ function _calcOrderRate(isDirect, directRate, parentRate, orderDate, conversionD
 // ★ CHUẨN HÓA: Loại KH gián tiếp "sinh ra đã là affiliate" (cháu) khỏi danh sách
 // Quy tắc: !isDirect + crm_type=ctv_hoa_hong + KHÔNG có convDate → LOẠI
 // Dùng helper này cho MỌI API → không bao giờ lọt cháu vào dashboard ông
-function _excludeBornAsAffiliateIndirect(customers, userId, affConvMap) {
+function _excludeBornAsAffiliateIndirect(customers, userId, affConvMap, selfCustId) {
     return customers.filter(c => {
+        // ★ KH gốc (chính bản thân affiliate) → luôn giữ
+        if (selfCustId && c.id === selfCustId) return true;
         const isDirect = c.referrer_id === userId;
         if (!isDirect && c.crm_type === 'ctv_hoa_hong' && !affConvMap[c.id]) return false;
         return true;
@@ -330,9 +332,9 @@ async function affiliateRoutes(fastify) {
         }
         if (selfCustId) custParams.push(selfCustId);
         custQuery += ` ORDER BY c.created_at DESC`;
-        console.log(`[Commission API] crm_filter=${crm_filter || 'NONE'}, userId=${user.id}, totalAffIds=${allIds.length}`);
+        console.log(`[Commission API] crm_filter=${crm_filter || 'NONE'}, userId=${user.id}, totalAffIds=${allIds.length}, selfCustId=${selfCustId || 'NONE'}`);
         const customers = await db.all(custQuery, custParams);
-        console.log(`[Commission API] Found ${customers.length} customers. CRM types: ${[...new Set(customers.map(c => c.crm_type))].join(', ')}`);
+        console.log(`[Commission API] Found ${customers.length} customers (selfCustId=${selfCustId || 'NONE'}, found_self=${selfCustId ? customers.some(c => c.id === selfCustId) : 'N/A'}). CRM types: ${[...new Set(customers.map(c => c.crm_type))].join(', ')}`);
 
         // Get completed order revenue per customer
         const customerIds = customers.map(c => c.id);
@@ -384,7 +386,7 @@ async function affiliateRoutes(fastify) {
         const affConvMap = await _getAffConversionMap(db, customerIds);
 
         // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate" → không bao giờ lọt vào dashboard ông
-        const filteredCustomers = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap);
+        const filteredCustomers = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap, selfCustId);
         const filteredIds = filteredCustomers.map(c => c.id);
 
         // ★ Tính commission per-order (split trước/sau chuyển CRM)
@@ -656,7 +658,7 @@ async function affiliateRoutes(fastify) {
         const affConvMap2 = await _getAffConversionMap(db, customerIds);
 
         // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate"
-        const filteredCust2 = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap2);
+        const filteredCust2 = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap2, selfCustId2);
         if (filteredCust2.length === 0) {
             return { success: true, orders: [] };
         }
@@ -765,7 +767,7 @@ async function affiliateRoutes(fastify) {
         const affConvMapB = await _getAffConversionMap(db, customerIds);
 
         // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate"
-        const filteredCustB = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMapB);
+        const filteredCustB = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMapB, selfCustIdB);
         const filteredIdsB = filteredCustB.map(c => c.id);
 
         let totalCommission = 0;
