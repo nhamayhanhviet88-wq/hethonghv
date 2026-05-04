@@ -599,12 +599,12 @@ async function affiliateRoutes(fastify) {
             `, filteredIds);
             ordRows.forEach(r => {
                 const convDate = affConvMap[r.customer_id] || null;
+                const isSelfOrder = selfCustId && r.customer_id === selfCustId;
+                // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua (INDEPENDENT of convDate)
+                if (isSelfOrder && selfCreatedAt && new Date(r.created_at) < selfCreatedAt) return;
                 
                 if (convDate) {
                     const isPreConversion = new Date(r.created_at) < new Date(convDate);
-                    const isSelfOrder = selfCustId && r.customer_id === selfCustId;
-                    // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
-                    if (isSelfOrder && selfCreatedAt && new Date(r.created_at) < selfCreatedAt) return;
                     // Trang Affiliate: chỉ đếm đơn SAU chuyển
                     if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return;
                     // Trang Khách: chỉ đếm đơn TRƯỚC chuyển (NGOẠI TRỪ KH gốc)
@@ -722,6 +722,10 @@ async function affiliateRoutes(fastify) {
 
         const result = orders
             .filter(o => {
+                // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua (INDEPENDENT of convDate)
+                const isSelfOrd = selfCustId2 && o.customer_id === selfCustId2;
+                if (isSelfOrd && selfCreatedAt2 && new Date(o.created_at) < selfCreatedAt2) return false;
+
                 const convDate = affConvMap2[o.customer_id] || null;
                 if (!convDate) return true;
                 
@@ -729,9 +733,6 @@ async function affiliateRoutes(fastify) {
                 // ★ Trang Affiliate: loại bỏ đơn TRƯỚC ngày chuyển
                 if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return false;
                 // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển (NGOẠI TRỪ KH gốc)
-                const isSelfOrd = selfCustId2 && o.customer_id === selfCustId2;
-                // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
-                if (isSelfOrd && selfCreatedAt2 && new Date(o.created_at) < selfCreatedAt2) return false;
                 if (crm_filter === 'nhu_cau' && !isPreConversion && !isSelfOrd) return false;
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → loại bỏ đơn SAU ngày chuyển
                 const cust2 = custMap[o.customer_id];
