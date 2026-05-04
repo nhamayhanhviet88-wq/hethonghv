@@ -196,6 +196,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(wdPollPending, 15000);
     }
 
+    // ★ Commission cap alert (>15%) for GĐ — check once per session
+    if (currentUser && currentUser.role === 'giam_doc' && !sessionStorage.getItem('commCapChecked')) {
+        setTimeout(async () => {
+            try {
+                const data = await apiCall('/api/admin/commission-cap-check');
+                sessionStorage.setItem('commCapChecked', '1');
+                if (data.alerts && data.alerts.length > 0) {
+                    _showCommCapAlert(data.alerts);
+                }
+            } catch(e) {}
+        }, 4000);
+    }
+
     // CTV Conversion pending badge polling
     if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
         _ctvPollBadge();
@@ -482,6 +495,81 @@ function cancelManagerShowPopup(total) {
             </div>
         </div>
     `;
+    if (!document.getElementById('emPopupStyles')) {
+        const st = document.createElement('style'); st.id = 'emPopupStyles';
+        st.textContent = '@keyframes emPopFadeIn{from{opacity:0}to{opacity:1}}@keyframes emPopBounce{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}@keyframes emPopShake{0%,100%{transform:rotate(0)}15%{transform:rotate(-15deg)}30%{transform:rotate(15deg)}45%{transform:rotate(-10deg)}60%{transform:rotate(10deg)}}';
+        document.head.appendChild(st);
+    }
+    document.body.appendChild(overlay);
+}
+
+// ========== COMMISSION CAP ALERT (>15%) FOR GIÁM ĐỐC ==========
+function _showCommCapAlert(alerts) {
+    if (document.getElementById('commCapAlertOverlay')) return;
+
+    const fmtMoney = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+    
+    let tableRows = alerts.map(a => {
+        const detailsHtml = a.details.map(d => 
+            `<span style="display:inline-block;background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:6px;margin:2px;font-size:11px;">
+                ${d.type}: <strong>${d.username}</strong> ${d.rate}%
+            </span>`
+        ).join('');
+        
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+            <td style="padding:10px 8px;font-weight:700;color:#fbbf24;">${a.order_code}</td>
+            <td style="padding:10px 8px;font-size:12px;">${a.customer_name}</td>
+            <td style="padding:10px 8px;text-align:right;font-weight:600;">${fmtMoney(a.revenue)}</td>
+            <td style="padding:10px 8px;text-align:center;">
+                <span style="background:#dc2626;color:white;padding:3px 10px;border-radius:20px;font-weight:800;font-size:13px;">
+                    ${a.total_percent}%
+                </span>
+            </td>
+            <td style="padding:10px 8px;text-align:right;color:#fca5a5;font-weight:600;">+${fmtMoney(a.excess_amount)}</td>
+            <td style="padding:10px 8px;">${detailsHtml}</td>
+        </tr>`;
+    }).join('');
+
+    const totalExcess = alerts.reduce((s, a) => s + a.excess_amount, 0);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'commCapAlertOverlay';
+    overlay.innerHTML = `
+        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:emPopFadeIn 0.3s ease;">
+            <div style="background:linear-gradient(135deg,#991b1b,#7f1d1d);color:white;border-radius:20px;max-width:900px;width:100%;max-height:85vh;overflow:hidden;box-shadow:0 25px 80px rgba(220,38,38,0.6);animation:emPopBounce 0.5s ease;display:flex;flex-direction:column;">
+                <div style="padding:24px 28px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;">
+                    <div style="font-size:50px;margin-bottom:8px;animation:emPopShake 0.5s ease infinite;">🚨</div>
+                    <div style="font-size:22px;font-weight:900;letter-spacing:2px;text-transform:uppercase;">CẢNH BÁO CHIẾT KHẤU VƯỢT MỨC</div>
+                    <div style="margin-top:8px;font-size:14px;opacity:0.85;">Phát hiện <strong style="color:#fbbf24;font-size:18px;">${alerts.length}</strong> đơn hàng vượt giới hạn <strong>${alerts[0]?.cap_percent || 15}%</strong> chiết khấu</div>
+                    <div style="margin-top:6px;background:rgba(0,0,0,0.3);display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;">
+                        💸 Tổng vượt mức: <strong style="color:#fca5a5;font-size:15px;">${fmtMoney(totalExcess)}</strong>
+                    </div>
+                </div>
+                <div style="overflow-y:auto;flex:1;padding:0 16px 16px;">
+                    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+                        <thead>
+                            <tr style="border-bottom:2px solid rgba(255,255,255,0.2);font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.7;">
+                                <th style="padding:8px;text-align:left;">Mã đơn</th>
+                                <th style="padding:8px;text-align:left;">Khách hàng</th>
+                                <th style="padding:8px;text-align:right;">Doanh thu</th>
+                                <th style="padding:8px;text-align:center;">Tổng %</th>
+                                <th style="padding:8px;text-align:right;">Vượt</th>
+                                <th style="padding:8px;text-align:left;">Chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+                <div style="padding:16px 28px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;flex-shrink:0;">
+                    <button onclick="document.getElementById('commCapAlertOverlay').remove()"
+                        style="padding:12px 36px;border:none;background:#fbbf24;color:#7f1d1d;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(251,191,36,0.4);text-transform:uppercase;letter-spacing:1px;">
+                        ✅ Đã Kiểm Tra
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
     if (!document.getElementById('emPopupStyles')) {
         const st = document.createElement('style'); st.id = 'emPopupStyles';
         st.textContent = '@keyframes emPopFadeIn{from{opacity:0}to{opacity:1}}@keyframes emPopBounce{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}@keyframes emPopShake{0%,100%{transform:rotate(0)}15%{transform:rotate(-15deg)}30%{transform:rotate(15deg)}45%{transform:rotate(-10deg)}60%{transform:rotate(10deg)}}';

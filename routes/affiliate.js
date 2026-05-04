@@ -2135,6 +2135,127 @@ async function affiliateRoutes(fastify) {
             }
         };
     });
+
+    // ========== COMMISSION CAP ALERT (Giám Đốc only) ==========
+    // Scans completed orders in last 30 days, flags any with total commission > 15%
+    fastify.get('/api/admin/commission-cap-check', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+        if (user.role !== 'giam_doc') return { success: false, error: 'Unauthorized' };
+
+        const CAP_PERCENT = 15; // Maximum allowed commission %
+        const DAYS = 30;
+
+        // Get all completed orders in last N days
+        const orders = await db.all(`
+            SELECT oc.id, oc.order_code, oc.status, oc.created_at, oc.customer_id,
+                   COALESCE(SUM(oi.total), 0) as revenue
+            FROM order_codes oc
+            LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+            WHERE oc.status = 'completed'
+            AND oc.created_at >= NOW() - INTERVAL '${DAYS} days'
+            GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oc.customer_id
+            HAVING COALESCE(SUM(oi.total), 0) > 0
+            ORDER BY oc.created_at DESC
+        `);
+
+        if (orders.length === 0) return { success: true, alerts: [], total: 0 };
+
+        // Get all affiliate users with their source_customer_id and assigned_to
+        const affUsers = await db.all(`
+            SELECT id, username, full_name, source_customer_id, assigned_to_user_id, created_at,
+                   commission_tier_id
+            FROM users WHERE role = 'tkaffiliate' AND status = 'active'
+        `);
+
+        // Get all commission tiers
+        const tiers = await db.all('SELECT id, percentage, parent_percentage FROM commission_tiers');
+        const tierMap = {};
+        tiers.forEach(t => { tierMap[t.id] = t; });
+
+        // Get all customers with referrer_id
+        const custIds = [...new Set(orders.map(o => o.customer_id))];
+        const cph = custIds.map(() => '?').join(',');
+        const customers = custIds.length > 0 
+            ? await db.all(`SELECT id, customer_name, referrer_id FROM customers WHERE id IN (${cph})`, custIds)
+            : [];
+        const custMap = {};
+        customers.forEach(c => { custMap[c.id] = c; });
+
+        // Build affiliate user maps
+        const affByUserId = {};
+        const affBySourceCustId = {};
+        affUsers.forEach(u => {
+            affByUserId[u.id] = u;
+            if (u.source_customer_id) affBySourceCustId[u.source_customer_id] = u;
+        });
+
+        const alerts = [];
+
+        for (const order of orders) {
+            const cust = custMap[order.customer_id];
+            if (!cust) continue;
+
+            const revenue = Number(order.revenue);
+            if (revenue <= 0) continue;
+
+            let totalCommPercent = 0;
+            const commDetails = [];
+
+            // Find who earns commission on this order
+            // 1. Self-commission: if the customer IS the affiliate (source_customer_id match)
+            const selfAff = affBySourceCustId[order.customer_id];
+            if (selfAff) {
+                const tier = tierMap[selfAff.commission_tier_id];
+                const rate = tier ? (tier.percentage || 10) : 10;
+                // Check if order is after TK creation
+                if (new Date(order.created_at) >= new Date(selfAff.created_at)) {
+                    totalCommPercent += rate;
+                    commDetails.push({ name: selfAff.full_name, username: selfAff.username, type: 'Tự mua', rate });
+                }
+            }
+
+            // 2. Direct referrer commission
+            if (cust.referrer_id) {
+                const refAff = affByUserId[cust.referrer_id];
+                if (refAff && !(selfAff && selfAff.id === refAff.id)) {
+                    // Not the same as self
+                    const tier = tierMap[refAff.commission_tier_id];
+                    const rate = tier ? (tier.percentage || 10) : 10;
+                    totalCommPercent += rate;
+                    commDetails.push({ name: refAff.full_name, username: refAff.username, type: 'Trực tiếp', rate });
+
+                    // 3. Parent (indirect) commission
+                    if (refAff.assigned_to_user_id) {
+                        const parentAff = affByUserId[refAff.assigned_to_user_id];
+                        if (parentAff) {
+                            const parentTier = tierMap[parentAff.commission_tier_id];
+                            const parentRate = parentTier ? (parentTier.parent_percentage || 5) : 5;
+                            totalCommPercent += parentRate;
+                            commDetails.push({ name: parentAff.full_name, username: parentAff.username, type: 'Gián tiếp', rate: parentRate });
+                        }
+                    }
+                }
+            }
+
+            if (totalCommPercent > CAP_PERCENT) {
+                const totalCommAmount = Math.round(revenue * totalCommPercent / 100);
+                alerts.push({
+                    order_code: order.order_code,
+                    order_date: order.created_at,
+                    customer_name: cust.customer_name,
+                    revenue,
+                    total_percent: totalCommPercent,
+                    total_amount: totalCommAmount,
+                    cap_percent: CAP_PERCENT,
+                    excess_percent: totalCommPercent - CAP_PERCENT,
+                    excess_amount: Math.round(revenue * (totalCommPercent - CAP_PERCENT) / 100),
+                    details: commDetails
+                });
+            }
+        }
+
+        return { success: true, alerts, total: alerts.length };
+    });
 }
 
 module.exports = affiliateRoutes;
