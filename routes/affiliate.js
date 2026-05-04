@@ -482,57 +482,36 @@ async function affiliateRoutes(fastify) {
         // Build referrer names list for filter dropdown
         const referrerNames = [...new Set(items.map(i => i.referrer_name))];
 
-        // Count orders per customer + total
+        // Count orders per customer + total (date-aware for converted customers)
         let orderCountMap = {};
         let totalOrders = 0;
         if (customerIds.length > 0) {
             const cphOrd = customerIds.map(() => '?').join(',');
+            // ★ Query từng đơn với ngày tạo để filter theo conversion date
             const ordRows = await db.all(`
-                SELECT oi.customer_id, COUNT(DISTINCT oc.id) as cnt
+                SELECT DISTINCT oc.id, oc.created_at, oi.customer_id
                 FROM order_items oi
                 LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
                 WHERE oi.customer_id IN (${cphOrd})
                 AND (oc.status IS NULL OR oc.status != 'cancelled')
-                GROUP BY oi.customer_id
             `, customerIds);
             ordRows.forEach(r => {
-                const c = parseInt(r.cnt || 0, 10);
-                orderCountMap[r.customer_id] = c;
-                totalOrders += c;
+                const convDate = affConvMap[r.customer_id] || null;
+                
+                if (convDate) {
+                    const isPreConversion = new Date(r.created_at) < new Date(convDate);
+                    // Trang Affiliate: chỉ đếm đơn SAU chuyển
+                    if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return;
+                    // Trang Khách: chỉ đếm đơn TRƯỚC chuyển
+                    if (crm_filter === 'nhu_cau' && !isPreConversion) return;
+                }
+                
+                if (!orderCountMap[r.customer_id]) orderCountMap[r.customer_id] = 0;
+                orderCountMap[r.customer_id]++;
+                totalOrders++;
             });
         }
 
-        // Inject order_count into items
-        // ★ Trang Affiliate: chỉ đếm đơn SAU chuyển cho KH đã convert
-        if (crm_filter === 'ctv_hoa_hong') {
-            for (const custId of customerIds) {
-                const convDate = affConvMap[custId];
-                if (convDate) {
-                    const postRevenue = _affPostRevMap[custId] || 0;
-                    if (postRevenue === 0) {
-                        const oldCount = orderCountMap[custId] || 0;
-                        totalOrders -= oldCount;
-                        orderCountMap[custId] = 0;
-                    }
-                }
-            }
-        }
-        // ★ Trang Khách: chỉ đếm đơn TRƯỚC chuyển cho KH đã convert
-        if (crm_filter === 'nhu_cau') {
-            for (const custId of customerIds) {
-                const convDate = affConvMap[custId];
-                if (convDate) {
-                    const preRevenue = _nhuCauPreRevMap[custId] || 0;
-                    // Tính lại order count dựa trên doanh thu pre-conversion
-                    // Nếu không có doanh thu pre → 0 đơn (đơn cũ đã bị filter)
-                    if (preRevenue === 0) {
-                        const oldCount = orderCountMap[custId] || 0;
-                        totalOrders -= oldCount;
-                        orderCountMap[custId] = 0;
-                    }
-                }
-            }
-        }
         items.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
 
         // Include filter diagnostic in response
