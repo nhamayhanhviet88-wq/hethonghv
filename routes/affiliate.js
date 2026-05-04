@@ -570,7 +570,18 @@ async function affiliateRoutes(fastify) {
         const directCustIds2 = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
         const affConvMap2 = await _getAffConversionMap(db, directCustIds2);
 
-        const result = orders.map(o => {
+        const result = orders
+            .filter(o => {
+                // ★ Trang Affiliate: loại bỏ đơn TRƯỚC ngày chuyển
+                if (crm_filter === 'ctv_hoa_hong') {
+                    const convDate = affConvMap2[o.customer_id] || null;
+                    if (convDate && new Date(o.created_at) < new Date(convDate)) {
+                        return false;
+                    }
+                }
+                return true;
+            })
+            .map(o => {
             const cust = custMap[o.customer_id] || {};
             const isDirect = cust.referrer_id === user.id;
             const convDate = affConvMap2[o.customer_id] || null;
