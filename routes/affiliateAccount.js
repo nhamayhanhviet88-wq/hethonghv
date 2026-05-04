@@ -219,6 +219,18 @@ async function affiliateAccountRoutes(fastify, options) {
 
         // === CREATE THE ACCOUNT (with full proposed_data if available) ===
         const pd = accReq.proposed_data ? (typeof accReq.proposed_data === 'string' ? JSON.parse(accReq.proposed_data) : accReq.proposed_data) : {};
+
+        // ★ BACKEND FALLBACK: Nếu frontend không gửi assigned_to_user_id
+        // nhưng KH gốc có referrer_id = tkaffiliate → tự gán Affiliate cha
+        let finalAssignedTo = pd.assigned_to_user_id ? Number(pd.assigned_to_user_id) : null;
+        if (!finalAssignedTo && customer.referrer_id) {
+            const referrerUser = await db.get(
+                "SELECT id FROM users WHERE id = ? AND role = 'tkaffiliate'",
+                [customer.referrer_id]
+            );
+            if (referrerUser) finalAssignedTo = referrerUser.id;
+        }
+
         const result = await db.run(
             `INSERT INTO users (username, password_hash, full_name, phone, address, role,
              managed_by_user_id, source_customer_id, province, birth_date,
@@ -234,7 +246,7 @@ async function affiliateAccountRoutes(fastify, options) {
              pd.birth_date || null,
              pd.department_id ? Number(pd.department_id) : null,
              pd.commission_tier_id ? Number(pd.commission_tier_id) : null,
-             pd.assigned_to_user_id ? Number(pd.assigned_to_user_id) : null,
+             finalAssignedTo,
              pd.bank_name || null,
              pd.bank_account || null,
              pd.bank_holder || null,

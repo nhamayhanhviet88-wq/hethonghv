@@ -519,9 +519,14 @@ async function openCrmTransferPopup(customerId) {
     const currentCrm = c.crm_type;
     const currentInfo = _CRM_TRANSFER_MAP[currentCrm] || { label: currentCrm, color: '#64748b', bg: '#f1f5f9' };
 
-    // Build target CRM buttons (exclude current)
+    // Build target CRM buttons (exclude current + referrer gate)
+    const hasReferrer = !!c.referrer_id;
     const targets = Object.entries(_CRM_TRANSFER_MAP)
-        .filter(([key]) => key !== currentCrm)
+        .filter(([key]) => {
+            if (key === currentCrm) return false;
+            if (hasReferrer && key !== 'ctv_hoa_hong') return false; // Chỉ cho Affiliate
+            return true;
+        })
         .map(([key, info]) =>
             `<div class="crm-tf-opt" data-crm="${key}" onclick="_crmTfSelect(this,'${key}')"
                  style="padding:10px 14px;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;text-align:center;transition:all .2s;background:white;">
@@ -529,6 +534,14 @@ async function openCrmTransferPopup(customerId) {
                 <div style="font-size:11px;font-weight:700;color:#374151;">${info.label}</div>
             </div>`
         ).join('');
+
+    const referrerWarning = hasReferrer ? `
+        <div style="background:#fef3c7;padding:10px 14px;border-radius:8px;margin-bottom:12px;
+            border:2px solid #f59e0b;font-size:12px;color:#92400e;">
+            ⚠️ <b>Khách có nguồn giới thiệu từ Đối Tác</b> — chỉ được chuyển sang
+            <b>Chăm Sóc Affiliate</b> (yêu cầu có đơn hàng). Chiết khấu Đối Tác sẽ
+            chuyển từ 10% → 5%.
+        </div>` : '';
 
     const overlay = document.createElement('div');
     overlay.id = 'crmTransferOverlay';
@@ -549,6 +562,7 @@ async function openCrmTransferPopup(customerId) {
                     <div style="font-size:10px;color:${currentInfo.color};font-weight:600;">CRM HIỆN TẠI</div>
                     <div style="font-size:13px;font-weight:700;color:${currentInfo.color};margin-top:2px;">${currentInfo.label}</div>
                 </div>
+                ${referrerWarning}
                 <div style="margin-bottom:4px;font-weight:700;font-size:13px;color:#122546;">→ Chuyển sang <span style="color:#dc2626;">*</span></div>
                 <div id="crmTfTargets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
                     ${targets}

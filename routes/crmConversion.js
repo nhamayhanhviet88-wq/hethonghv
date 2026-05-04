@@ -104,6 +104,26 @@ async function crmConversionRoutes(fastify, options) {
             return reply.code(400).send({ error: 'Không thể đề xuất khách đang chờ duyệt hủy' });
         }
 
+        // ★ GATE: KH có nguồn giới thiệu (referrer_id) → kiểm soát chặt chuyển CRM
+        if (customer.referrer_id) {
+            // Chỉ cho phép chuyển sang Affiliate (ctv_hoa_hong)
+            if (targetCrm !== 'ctv_hoa_hong') {
+                return reply.code(400).send({
+                    error: 'Khách có nguồn giới thiệu từ Đối Tác — chỉ được chuyển sang Chăm Sóc Affiliate'
+                });
+            }
+            // Phải có ít nhất 1 đơn hàng (chứng minh tiềm năng)
+            const orderCount = await db.get(
+                "SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'",
+                [Number(customer_id)]
+            );
+            if (!orderCount || orderCount.cnt === 0) {
+                return reply.code(400).send({
+                    error: 'Khách cần có ít nhất 1 đơn hàng trước khi chuyển sang Affiliate'
+                });
+            }
+        }
+
         // Block: only NV assigned or GĐ/QL/QLCC can request
         const user = request.user;
         const isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(user.role);
@@ -175,6 +195,25 @@ async function crmConversionRoutes(fastify, options) {
                 `NV thực hiện: ${requester?.full_name || user.username}\n` +
                 `Lý do: ${reason.trim()}`;
             sendConversionTelegram(tgMsg);
+
+            // ★ Gửi Telegram riêng cho Đối tác khi KH có referrer chuyển sang Affiliate
+            if (customer.referrer_id && targetCrm === 'ctv_hoa_hong') {
+                try {
+                    const referrer = await db.get(
+                        'SELECT full_name, telegram_group_id FROM users WHERE id = ?',
+                        [customer.referrer_id]
+                    );
+                    if (referrer?.telegram_group_id) {
+                        const partnerMsg =
+                            `📋 <b>KH đã chuyển sang Affiliate</b>\n` +
+                            `Khách: <b>${customer.customer_name}</b> — ${customer.phone || 'N/A'}\n` +
+                            `→ Chiết khấu từ KH này giờ là <b>5%</b> (gián tiếp qua Affiliate).\n` +
+                            `Vui lòng theo dõi tại "Quản Lý TK Affiliate".`;
+                        sendTelegramMessage(referrer.telegram_group_id, partnerMsg);
+                    }
+                } catch(e) { /* skip */ }
+            }
+
             return { success: true, message: `Đã chuyển sang ${CRM_LABELS[targetCrm]}!`, autoApproved: true };
         }
 
