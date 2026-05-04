@@ -1,6 +1,6 @@
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
-const { getNextWorkingDay } = require('../utils/workingDay');
+const { getNextWorkingDay, getVNToday } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
 
 module.exports = function(fastify, db, getManagedDeptIds) {
@@ -13,8 +13,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
         // Helper: next working day (skip CN + lễ + nghỉ phép NV)
-        const vnNow = new Date(Date.now() + 7*3600000);
-        const getNextBizDay = async () => getNextWorkingDay(vnNow, customer.assigned_to_id);
+        const getNextBizDay = async () => getNextWorkingDay(new Date(), customer.assigned_to_id);
 
         // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
         if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
@@ -118,8 +117,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         } else {
             // Next working day (skip CN + lễ + nghỉ phép NV)
             const cust = await db.get('SELECT assigned_to_id FROM customers WHERE id = $1', [custId]);
-            const vnNow2 = new Date(Date.now() + 7*3600000);
-            const nextBizDay = await getNextWorkingDay(vnNow2, cust?.assigned_to_id);
+            const nextBizDay = await getNextWorkingDay(new Date(), cust?.assigned_to_id);
             await db.run(
                 `UPDATE customers SET cancel_approved = -1, cancel_approved_by = ?,
                  cancel_approved_at = NOW()::text,
@@ -143,9 +141,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         );
         if (expired.length === 0) return { success: true, reverted: 0, customers: [] };
 
-        const vnNow = new Date(Date.now() + 7*3600000);
         for (const c of expired) {
-            const nextBizDay = await getNextWorkingDay(vnNow, c.assigned_to_id);
+            const nextBizDay = await getNextWorkingDay(new Date(), c.assigned_to_id);
             await db.run(
                 `UPDATE customers SET cancel_approved = -2,
                  cancel_reason = cancel_reason || $1,
@@ -209,11 +206,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const pendingEm = await db.get("SELECT id FROM emergencies WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
 
         // Calculate next business day for appointment
-        const vnNow = new Date(Date.now() + 7*3600000);
-        const nextDay = new Date(vnNow);
-        nextDay.setDate(nextDay.getDate() + 1);
-        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1); // Skip Sunday
-        const nextBizDay = nextDay.toISOString().split('T')[0];
+        const nextBizDay = await getNextWorkingDay(new Date(), customer_id);
 
         if (pendingEm) {
             // REPEAT: Don't create new emergency, just log + send Telegram reminder
@@ -371,12 +364,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             [status || 'resolved', request.user.id, note || null, emId]
         );
         if (em && em.customer_id) {
-        const vnNow = new Date(Date.now() + 7*3600000);
-        const nextDay = new Date(vnNow);
-        nextDay.setDate(nextDay.getDate() + 1);
-        // Skip Sunday (0 = Sunday)
-        if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1);
-        const nextBizDay = nextDay.toISOString().split('T')[0];
+        const nextBizDay = await getNextWorkingDay(new Date(), em.customer_id);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'hoan_thanh_cap_cuu', ?, ?)`,
                 [em.customer_id, `🏥 Cấp cứu hoàn thành: ${note || ''}`, request.user.id]);
             await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, em.customer_id]);
@@ -599,16 +587,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         // Pinned customers: always set appointment to next working day (ignore user input)
         if (customer.is_pinned) {
-            const vnNow = new Date(Date.now() + 7*3600000);
-            const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
+            const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
         } else if (fields.appointment_date) {
             // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
-            const vnToday = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+            const vnToday = getVNToday();
             if (fields.appointment_date <= vnToday) {
                 // Auto-correct to next working day
-                const vnNow2 = new Date(Date.now() + 7*3600000);
-                const nextWorkDay2 = await getNextWorkingDay(vnNow2, customer.assigned_to_id);
+                const nextWorkDay2 = await getNextWorkingDay(new Date(), customer.assigned_to_id);
                 await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay2, customerId]);
             } else {
                 await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
@@ -617,11 +603,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
         if (log_type === 'hoan_thanh_cap_cuu' && !fields.appointment_date) {
-            const vnNow = new Date(Date.now() + 7*3600000);
-            const nextDay = new Date(vnNow);
-            nextDay.setDate(nextDay.getDate() + 1);
-            if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1); // Skip Sunday
-            const nextBizDay = nextDay.toISOString().split('T')[0];
+            const nextBizDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextBizDay, customerId]);
         }
 
@@ -757,8 +739,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         if (newPinned) {
             // PIN ON: set appointment to next working day
-            const vnNow = new Date(Date.now() + 7*3600000);
-            const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
+            const nextWorkDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
             await db.run(
                 'UPDATE customers SET is_pinned = true, pinned_at = NOW(), appointment_date = ? WHERE id = ?',
                 [nextWorkDay, custId]

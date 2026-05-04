@@ -1,7 +1,11 @@
 /**
  * WORKING DAY UTILITIES
  * Shared helpers for calculating next working days
- * Used by: deadline-checker.js, customers_part2.js (pin feature)
+ * Used by: deadline-checker.js, customers_part2.js (pin feature), affiliateAccount.js
+ *
+ * ★ TIMEZONE-SAFE: Uses Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Ho_Chi_Minh'})
+ *   to always get correct VN date regardless of server timezone (UTC or UTC+7).
+ *   Callers should pass `new Date()` — NO `Date.now() + 7*3600000` needed.
  */
 const db = require('../db/pool');
 
@@ -27,37 +31,46 @@ async function isUserOnLeave(userId, dateStr) {
     return !!leave;
 }
 
-// Format date → YYYY-MM-DD
+/**
+ * ★ TIMEZONE-SAFE: Trả về ngày VN (YYYY-MM-DD) từ bất kỳ Date object nào
+ * Luôn chính xác bất kể server chạy UTC hay UTC+7
+ */
 function toDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(d);
+}
+
+/**
+ * ★ TIMEZONE-SAFE: Lấy ngày VN hôm nay (YYYY-MM-DD)
+ */
+function getVNToday() {
+    return toDateStr(new Date());
 }
 
 /**
  * Tính ngày làm việc tiếp theo (bỏ qua CN, lễ, nghỉ phép NV)
- * @param {Date} startDate - Ngày bắt đầu (sẽ tính từ ngày sau startDate)
+ * ★ Caller chỉ cần truyền new Date() — KHÔNG cần Date.now() + 7h
+ * @param {Date} startDate - Ngày bắt đầu (sẽ tính từ ngày SAU startDate theo VN timezone)
  * @param {number|null} userId - User cần check nghỉ phép
  * @returns {string} - YYYY-MM-DD ngày làm việc tiếp theo
  */
 async function getNextWorkingDay(startDate, userId) {
     const holidays = await getHolidays();
-    // ★ Extract VN date correctly: startDate may already have +7h offset baked in
-    // Use toDateStr to get the VN calendar date, then work from that
-    const startStr = toDateStr(startDate);
-    const [y, m, day] = startStr.split('-').map(Number);
-    let d = new Date(y, m - 1, day); // local date (no timezone shift)
-    d.setDate(d.getDate() + 1); // Bắt đầu từ ngày mai
+    // Get VN date string then parse → use UTC methods to avoid any timezone drift
+    const vnDateStr = toDateStr(startDate instanceof Date ? startDate : new Date());
+    const [y, m, day] = vnDateStr.split('-').map(Number);
+    // Use UTC to avoid local timezone shifting during date math
+    let current = new Date(Date.UTC(y, m - 1, day + 1)); // tomorrow
     let maxIter = 30;
     while (maxIter-- > 0) {
-        const ds = toDateStr(d);
-        const isSunday = d.getDay() === 0;
+        const ds = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
+        const isSunday = current.getUTCDay() === 0;
         const isHoliday = holidays.has(ds);
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
         if (!isSunday && !isHoliday && !onLeave) return ds;
-        d.setDate(d.getDate() + 1);
+        current.setUTCDate(current.getUTCDate() + 1);
     }
     // Fallback: tomorrow
-    const fb = new Date(y, m - 1, day + 1);
-    return toDateStr(fb);
+    return `${y}-${String(m).padStart(2, '0')}-${String(day + 1).padStart(2, '0')}`;
 }
 
 /**
@@ -65,23 +78,26 @@ async function getNextWorkingDay(startDate, userId) {
  * Nếu ngày gốc rơi vào CN/Lễ/NV nghỉ → dời tới ngày đi làm tiếp theo
  */
 async function getEffectiveWorkingDay(originalDate, userId, holidays) {
-    let d = new Date(originalDate);
+    const vnDateStr = toDateStr(originalDate instanceof Date ? originalDate : new Date(originalDate));
+    const [y, m, day] = vnDateStr.split('-').map(Number);
+    let current = new Date(Date.UTC(y, m - 1, day));
     let maxIter = 30;
     while (maxIter-- > 0) {
-        const ds = toDateStr(d);
-        const isSunday = d.getDay() === 0;
+        const ds = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
+        const isSunday = current.getUTCDay() === 0;
         const isHoliday = holidays.has(ds);
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
         if (!isSunday && !isHoliday && !onLeave) return ds;
-        d.setDate(d.getDate() + 1);
+        current.setUTCDate(current.getUTCDate() + 1);
     }
-    return toDateStr(originalDate);
+    return vnDateStr;
 }
 
 module.exports = {
     getHolidays,
     isUserOnLeave,
     toDateStr,
+    getVNToday,
     getNextWorkingDay,
     getEffectiveWorkingDay
 };
