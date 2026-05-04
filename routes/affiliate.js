@@ -1787,7 +1787,7 @@ async function affiliateRoutes(fastify) {
             return {
                 success: true, children: [],
                 selfStats: { total_customers: Number(sc.total_customers), closed_count: Number(sc.closed_count), total_revenue: selfRevenue },
-                stats: { totalChildren: 0, totalCustomers: Number(sc.total_customers), totalRevenue: selfRevenue, closedCount: Number(sc.closed_count) }
+                stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 }
             };
         }
 
