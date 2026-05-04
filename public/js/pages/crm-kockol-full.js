@@ -1735,6 +1735,7 @@ async function _kockolSubmitConsultLog(customerId) {
         if (depositAmount <= 0) {
             showToast('Vui lòng nhập số tiền đặt cọc!', 'error'); _kockolEnableSubmitBtn(); return;
         }
+        if (!appointment_date && !window._currentConsultCustomerPinned) { showToast('Vui lòng chọn ngày hẹn!', 'error'); _kockolEnableSubmitBtn(); return; }
         const contentText = content || `Đặt cọc: ${formatCurrency(depositAmount)} VNĐ`;
 
         try {
@@ -1744,7 +1745,7 @@ async function _kockolSubmitConsultLog(customerId) {
             formData.append('log_type', 'dat_coc');
             formData.append('content', contentText);
             formData.append('deposit_amount', depositAmount);
-            if (appointment_date) formData.append('appointment_date', appointment_date);
+            formData.append('appointment_date', appointment_date);
             if (window._consultImageBlob) {
                 formData.append('image', window._consultImageBlob, 'screenshot.png');
             }
