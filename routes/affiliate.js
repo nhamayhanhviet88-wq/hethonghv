@@ -309,22 +309,26 @@ async function affiliateRoutes(fastify) {
         // Get customers referred by these affiliates (optionally filtered by crm_type)
         // ★ nhu_cau filter: cũng bao gồm KH đã chuyển sang ctv_hoa_hong (có conversion record từ nhu_cau)
         // ★ Thêm KH gốc (source_customer_id) để tính HH cho đơn của chính mình
+        // ★ KH gốc BYPASS crm_type filter (luôn hiện bất kể crm_type)
+        let crmFilterClause = '';
+        if (crm_filter === 'nhu_cau') {
+            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong (approved hoặc pending)
+            crmFilterClause = ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
+                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
+            )))`;
+        } else if (crm_filter) {
+            crmFilterClause = ` AND c.crm_type = ?`;
+        }
         let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
                    c.cancel_requested, c.cancel_approved, c.crm_type
             FROM customers c
-            WHERE (c.referrer_id IN (${ph})${selfCustId ? ' OR c.id = ?' : ''})`;
+            WHERE (c.referrer_id IN (${ph})${crmFilterClause})${selfCustId ? ' OR c.id = ?' : ''}`;
         const custParams = [...allIds];
-        if (selfCustId) custParams.push(selfCustId);
-        if (crm_filter === 'nhu_cau') {
-            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong (approved hoặc pending)
-            custQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
-                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
-            )))`;
-        } else if (crm_filter) {
-            custQuery += ` AND c.crm_type = ?`;
+        if (crm_filter && crm_filter !== 'nhu_cau') {
             custParams.push(crm_filter);
         }
+        if (selfCustId) custParams.push(selfCustId);
         custQuery += ` ORDER BY c.created_at DESC`;
         console.log(`[Commission API] crm_filter=${crm_filter || 'NONE'}, userId=${user.id}, totalAffIds=${allIds.length}`);
         const customers = await db.all(custQuery, custParams);
@@ -621,22 +625,25 @@ async function affiliateRoutes(fastify) {
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
-        // ★ Cùng logic filter đặc biệt với main API + thêm KH gốc
-        let allCustQuery = `
-            SELECT ${_AFF_CUST_FIELDS_LIGHT}
-            FROM customers c
-            WHERE (c.referrer_id IN (${ph})${selfCustId2 ? ' OR c.id = ?' : ''})`;
-        const allCustParams = [...allIds];
-        if (selfCustId2) allCustParams.push(selfCustId2);
+        // ★ Cùng logic filter đặc biệt với main API + KH gốc BYPASS crm_type filter
+        let allCustCrmClause = '';
         if (crm_filter === 'nhu_cau') {
             // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong
-            allCustQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
+            allCustCrmClause = ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
                 SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
             )))`;
         } else if (crm_filter) {
-            allCustQuery += ` AND c.crm_type = ?`;
+            allCustCrmClause = ` AND c.crm_type = ?`;
+        }
+        let allCustQuery = `
+            SELECT ${_AFF_CUST_FIELDS_LIGHT}
+            FROM customers c
+            WHERE (c.referrer_id IN (${ph})${allCustCrmClause})${selfCustId2 ? ' OR c.id = ?' : ''}`;
+        const allCustParams = [...allIds];
+        if (crm_filter && crm_filter !== 'nhu_cau') {
             allCustParams.push(crm_filter);
         }
+        if (selfCustId2) allCustParams.push(selfCustId2);
         const customers = await db.all(allCustQuery, allCustParams);
 
         if (customers.length === 0) {
