@@ -152,9 +152,7 @@ async function _affSysLoad() {
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);"><div class="aff-stat-val">${stats.closedCount}</div><div class="aff-stat-lbl">✅ KH Chốt Đơn</div></div></div>`;
-        if (!isGD) {
-            html += `<div style="margin-bottom:20px;padding:16px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border-left:4px solid #f59e0b;"><div style="font-weight:800;font-size:14px;color:#92400e;margin-bottom:6px;">🌟 Khách Hàng Trực Tiếp Của Bạn</div><div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:#78350f;"><span>📋 KH: <strong>${selfStats.total_customers}</strong></span><span>✅ Chốt: <strong>${selfStats.closed_count}</strong></span><span>💰 Doanh số: <strong>${Number(selfStats.total_revenue).toLocaleString('vi-VN')} đ</strong></span></div></div>`;
-        }
+        // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }
         else {

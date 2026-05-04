@@ -1862,9 +1862,9 @@ async function affiliateRoutes(fastify) {
             },
             stats: {
                 totalChildren: children.length,
-                totalCustomers: totalCustomers + selfStats.total_customers,
-                totalRevenue: totalRevenue + selfRevenue,
-                closedCount: closedCount + selfStats.closed_count
+                totalCustomers: totalCustomers,
+                totalRevenue: totalRevenue,
+                closedCount: closedCount
             }
         };
     });
