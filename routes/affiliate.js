@@ -482,6 +482,21 @@ async function affiliateRoutes(fastify) {
         }
 
         // Inject order_count into items
+        // ★ Trang Affiliate: chỉ đếm đơn SAU chuyển cho KH đã convert
+        if (crm_filter === 'ctv_hoa_hong') {
+            for (const custId of customerIds) {
+                const convDate = affConvMap[custId];
+                if (convDate) {
+                    // Nếu không có doanh thu post-conversion → 0 đơn
+                    const postRevenue = _affPostRevMap[custId] || 0;
+                    if (postRevenue === 0) {
+                        const oldCount = orderCountMap[custId] || 0;
+                        totalOrders -= oldCount;
+                        orderCountMap[custId] = 0;
+                    }
+                }
+            }
+        }
         items.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
 
         // Include filter diagnostic in response
