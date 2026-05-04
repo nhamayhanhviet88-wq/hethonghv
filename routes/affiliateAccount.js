@@ -147,7 +147,7 @@ async function affiliateAccountRoutes(fastify, options) {
 
         const { status, year, requested_by } = request.query;
         let query = `SELECT r.*,
-            c.customer_name, c.phone, c.facebook_link, c.crm_type,
+            c.customer_name, c.phone, c.facebook_link, c.crm_type, c.referrer_id,
             req.full_name as requested_by_name, req.role as requested_by_role,
             apr.full_name as approved_by_name,
             cu.full_name as created_user_name, cu.username as created_username
@@ -176,6 +176,41 @@ async function affiliateAccountRoutes(fastify, options) {
 
         const requests = await db.all(query, params);
         const pendingCount = await db.get("SELECT COUNT(*) as cnt FROM affiliate_account_requests WHERE status = 'pending'");
+
+        // Enrich: parent affiliate name + CRM conversion history
+        for (const req of requests) {
+            // 1. Affiliate Cha: from proposed_data.assigned_to_user_id or created user's assigned_to_user_id
+            let parentName = null;
+            try {
+                const pd = req.proposed_data ? (typeof req.proposed_data === 'string' ? JSON.parse(req.proposed_data) : req.proposed_data) : {};
+                const parentId = pd.assigned_to_user_id || null;
+                if (parentId) {
+                    const parent = await db.get('SELECT full_name, username FROM users WHERE id = ?', [Number(parentId)]);
+                    if (parent) parentName = parent.full_name;
+                }
+                // Fallback: check referrer_id on customer
+                if (!parentName && req.referrer_id) {
+                    const ref = await db.get("SELECT full_name, username FROM users WHERE id = ? AND role = 'tkaffiliate'", [req.referrer_id]);
+                    if (ref) parentName = ref.full_name;
+                }
+            } catch(e) {}
+            req.parent_affiliate_name = parentName;
+
+            // 2. CRM History: latest conversion for this customer
+            try {
+                const conv = await db.get(
+                    `SELECT from_crm_type, to_crm_type FROM crm_conversion_requests
+                     WHERE customer_id = ? AND status = 'approved'
+                     ORDER BY processed_at DESC LIMIT 1`,
+                    [req.customer_id]
+                );
+                req.crm_from = conv?.from_crm_type || null;
+                req.crm_to = conv?.to_crm_type || null;
+            } catch(e) {
+                req.crm_from = null;
+                req.crm_to = null;
+            }
+        }
 
         return { requests, pendingCount: pendingCount?.cnt || 0 };
     });

@@ -636,13 +636,15 @@ async function _cncaLoadAffAccountData() {
 
     thead.innerHTML = `<tr>
         <th>STT</th><th>Tên KH</th><th>SĐT</th><th>Username</th>
-        <th>Chi Tiết TK</th><th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th style="text-align:center">Hành Động</th>
+        <th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th>Affiliate Cha</th><th>Nguồn CRM</th>
     </tr>`;
 
     if (requests.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
         return;
     }
+
+    const CRM_SHORT = { nhu_cau:'Nhu Cầu', ctv:'CTV', ctv_hoa_hong:'Affiliate', koc_tiktok:'KOL/KOC' };
 
     let allRows = [...pending, ...processed];
     // Apply stat card filter
@@ -656,37 +658,30 @@ async function _cncaLoadAffAccountData() {
                 ? `<span class="cnca-status cnca-status-approved">✅ Đã tạo TK</span>`
                 : `<span class="cnca-status cnca-status-rejected">❌ Từ chối</span>`;
 
-        const isSelfRequest = r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc';
-        const actionHtml = isPending
-            ? (isSelfRequest
-                ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Yêu cầu của bạn</span>'
-                : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt & Tạo TK</button>
-                   <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`)
-            : r.status === 'approved'
-                ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
-                : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
+        // Affiliate Cha
+        const parentHtml = r.parent_affiliate_name
+            ? `<span style="font-weight:700;color:#7c3aed;font-size:12px;">👤 ${r.parent_affiliate_name}</span>`
+            : '<span style="color:#9ca3af;font-size:11px;">— Chưa gán</span>';
 
-        // Parse proposed_data for detail display
-        let pd = {};
-        try { pd = r.proposed_data ? (typeof r.proposed_data === 'string' ? JSON.parse(r.proposed_data) : r.proposed_data) : {}; } catch(e) {}
-        const detailBadges = [];
-        if (pd.commission_tier_id) detailBadges.push(`<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;">💰 Tầng #${pd.commission_tier_id}</span>`);
-        if (pd.department_id) detailBadges.push(`<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;">📁 PB</span>`);
-        if (pd.bank_name) detailBadges.push(`<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;">🏦 ${pd.bank_name}</span>`);
-        if (pd.assigned_to_user_id) detailBadges.push(`<span style="background:#f3e8ff;color:#7c3aed;padding:2px 6px;border-radius:4px;font-size:10px;">👥 Cha</span>`);
-        const detailHtml = detailBadges.length > 0 ? detailBadges.join(' ') : '<span style="color:#9ca3af;font-size:11px;">—</span>';
+        // Nguồn CRM
+        let crmHistoryHtml = '<span style="color:#9ca3af;font-size:11px;">— Trực tiếp</span>';
+        if (r.crm_from && r.crm_to) {
+            const fromLabel = CRM_SHORT[r.crm_from] || r.crm_from;
+            const toLabel = CRM_SHORT[r.crm_to] || r.crm_to;
+            crmHistoryHtml = `<span style="font-size:11px;font-weight:600;"><span style="color:#6b7280;">${fromLabel}</span> <span style="color:#059669;">→</span> <span style="color:#7c3aed;">${toLabel}</span></span>`;
+        }
 
         return `<tr style="${isPending ? 'background:rgba(139,92,246,.04);' : ''}">
             <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
             <td><span class="cnca-name-link" onclick="_cncaEditCustomer(${r.customer_id})">${r.customer_name || '—'}</span></td>
             <td>${r.phone ? '<a href="tel:'+r.phone+'" style="color:var(--info)">'+r.phone+'</a>' : '—'}</td>
             <td>${r.status === 'approved' && r.created_user_id ? `<span class="cnca-user-link" onclick="_cncaEditAffUser(${r.created_user_id})">🔑 ${r.proposed_username}</span>` : `<span style="font-weight:700;color:#8b5cf6;font-family:'Courier New',monospace;font-size:13px;">🔑 ${r.proposed_username}</span>`}</td>
-            <td style="font-size:11px;">${detailHtml}</td>
             <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e65100;font-weight:600;" title="${(r.reason||'').replace(/"/g,'&quot;')}">${r.reason || '—'}</td>
             <td style="font-size:12px;">${r.requested_by_name || '—'} <span style="color:#94a3b8;font-size:10px;">(${CNCA_ROLE_LABELS[r.requested_by_role] || ''})</span></td>
             <td style="font-size:12px;color:#64748b;">${r.created_at ? new Date(r.created_at).toLocaleString('vi-VN') : '—'}</td>
             <td>${statusHtml}</td>
-            <td style="text-align:center;white-space:nowrap;">${actionHtml}</td>
+            <td>${parentHtml}</td>
+            <td>${crmHistoryHtml}</td>
         </tr>`;
     }).join('');
 }
