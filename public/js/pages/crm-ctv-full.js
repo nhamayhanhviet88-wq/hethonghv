@@ -107,6 +107,7 @@ let CTV_CONSULT_TYPES = {
     tu_van_lai: { label: 'Tư Vấn Lại', icon: '🔄', color: '#0891b2' },
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
     khong_xu_ly: { label: 'Không Xử Lý', icon: '⚠️', color: '#ef4444', textColor: 'white' },
+    tao_tk_affiliate: { label: 'Đã Tạo TK Affiliate', icon: '🔑', color: '#8b5cf6', textColor: 'white' },
 };
 
 // Merge dynamic types from consult_type_configs API into CTV_CONSULT_TYPES
@@ -308,7 +309,7 @@ function _ctvGetCategory(c, stats) {
 
     // Check if consulted today (exclude system logs like conversion)
     let consultedToday = false;
-    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm') {
+    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate') {
         const logDate = new Date(s.lastLog.created_at);
         const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
         consultedToday = (logStr === todayStr);

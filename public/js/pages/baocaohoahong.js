@@ -5,7 +5,8 @@ let CONSULT_TYPES_HH = {};
 // System-generated types (not in DB but appear in consultation_logs)
 const CONSULT_TYPES_FALLBACK = {
     khong_xu_ly: { icon: '⚠️', label: 'Không Xử Lý', color: '#f59e0b', textColor: 'white' },
-    chuyen_doi_crm: { icon: '🔀', label: 'Chuyển Đổi CRM', color: '#6366f1', textColor: 'white' }
+    chuyen_doi_crm: { icon: '🔀', label: 'Chuyển Đổi CRM', color: '#6366f1', textColor: 'white' },
+    tao_tk_affiliate: { icon: '🔑', label: 'Đã Tạo TK Affiliate', color: '#8b5cf6', textColor: 'white' }
 };
 
 async function hhLoadConsultTypes() {

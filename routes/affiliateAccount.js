@@ -300,7 +300,7 @@ async function affiliateAccountRoutes(fastify, options) {
         // Log in consultation_logs
         await db.run(
             `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by)
-             VALUES (?, 'chuyen_doi_crm', ?, ?)`,
+             VALUES (?, 'tao_tk_affiliate', ?, ?)`,
             [accReq.customer_id,
              `🔑 Đã tạo TK Affiliate — Username: ${accReq.proposed_username} — Duyệt bởi: ${user.username}`,
              user.id]

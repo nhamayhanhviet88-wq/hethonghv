@@ -70,6 +70,16 @@ async function crmConversionRoutes(fastify, options) {
         if (orphanedPending.length > 0) console.log(`[Migration] Auto-rejected ${orphanedPending.length} orphaned pending CTV request(s) — feature deprecated`);
     } catch(e) { console.error('[Migration] Orphaned CTV cleanup error:', e.message); }
 
+    // ========== MIGRATION: Fix log_type for affiliate account creation logs ==========
+    // Old code logged 'chuyen_doi_crm' when creating affiliate accounts — wrong semantic
+    try {
+        const fixed = await db.run(
+            "UPDATE consultation_logs SET log_type = 'tao_tk_affiliate' WHERE log_type = 'chuyen_doi_crm' AND content LIKE '%Đã tạo TK Affiliate%'"
+        );
+        const count = fixed?.changes || fixed?.rowCount || 0;
+        if (count > 0) console.log(`[Migration] Fixed ${count} consultation log(s): chuyen_doi_crm → tao_tk_affiliate`);
+    } catch(e) { console.error('[Migration] Fix affiliate log_type error:', e.message); }
+
     // ========== Helper: check if user can approve ==========
     async function canApprove(userId, userRole) {
         if (userRole === 'giam_doc') return true;

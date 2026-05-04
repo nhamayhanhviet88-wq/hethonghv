@@ -107,6 +107,7 @@ let KOCKOL_CONSULT_TYPES = {
     tu_van_lai: { label: 'Tư Vấn Lại', icon: '🔄', color: '#0891b2' },
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
     khong_xu_ly: { label: 'Không Xử Lý', icon: '⚠️', color: '#ef4444', textColor: 'white' },
+    tao_tk_affiliate: { label: 'Đã Tạo TK Affiliate', icon: '🔑', color: '#8b5cf6', textColor: 'white' },
 };
 
 // Merge dynamic types from consult_type_configs API into KOCKOL_CONSULT_TYPES
