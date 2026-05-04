@@ -410,6 +410,7 @@ async function affiliateRoutes(fastify) {
         let perOrderCommMap = {}; // { customerId: { commission, displayRate } }
         let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
         let _nhuCauPreRevMap = {}; // Doanh thu pre-conversion cho trang Khách
+        let _selfQualifyingRev = 0; // ★ Doanh thu self-customer chỉ từ đơn SAU ngày tạo TK
         if (filteredIds.length > 0) {
             const cphOrd2 = filteredIds.map(() => '?').join(',');
             const allOrders = await db.all(`
@@ -451,6 +452,8 @@ async function affiliateRoutes(fastify) {
                 const rate = isSelf ? directRate : _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate, cust?.crm_type);
                 if (!perOrderCommMap[o.customer_id]) perOrderCommMap[o.customer_id] = { commission: 0, hasConversion: !!convDate };
                 perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
+                // ★ Track doanh thu qualifying cho self-customer
+                if (isSelf) _selfQualifyingRev += Number(o.revenue);
                 
                 // ★ Track doanh thu theo trang
                 if (crm_filter === 'ctv_hoa_hong') {
@@ -482,6 +485,11 @@ async function affiliateRoutes(fastify) {
                         totalRevenueMap[custId] = _nhuCauPreRevMap[custId] || 0;
                     }
                 }
+            }
+            // ★ KH gốc: ghi đè revenue bằng doanh thu qualifying (chỉ đơn SAU ngày tạo TK)
+            if (selfCustId) {
+                completedRevenueMap[selfCustId] = _selfQualifyingRev;
+                totalRevenueMap[selfCustId] = _selfQualifyingRev;
             }
         }
 
