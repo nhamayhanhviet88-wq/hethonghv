@@ -500,14 +500,18 @@ async function renderChuyenSoPage(container) {
 
 // Settings modal — GĐ only
 async function csoOpenSettings() {
-    const [deptData, configData] = await Promise.all([
+    const [deptData, configData, cfgWeekday, cfgSaturday] = await Promise.all([
         apiCall('/api/departments'),
-        apiCall('/api/app-config/chuyenso_allowed_depts')
+        apiCall('/api/app-config/chuyenso_allowed_depts'),
+        apiCall('/api/app-config/chuyenso_cutoff_weekday'),
+        apiCall('/api/app-config/chuyenso_cutoff_saturday')
     ]);
 
     const allDepts = deptData.departments || [];
     const rootDepts = allDepts.filter(d => !d.parent_id);
     const allowedIds = configData.value ? JSON.parse(configData.value) : [];
+    const cutoffWeekday = cfgWeekday.value || '18:15';
+    const cutoffSaturday = cfgSaturday.value || '17:15';
 
     let checkboxes = rootDepts.map(d => {
         const checked = allowedIds.includes(d.id) ? 'checked' : '';
@@ -522,15 +526,44 @@ async function csoOpenSettings() {
     overlay.id = 'csoSettingsOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `
-        <div style="background:white;border-radius:12px;padding:24px;width:480px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="background:white;border-radius:12px;padding:24px;width:520px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 style="margin:0;color:#122546;">⚙️ Cài đặt đơn vị nhận số</h3>
+                <h3 style="margin:0;color:#122546;">⚙️ Cài đặt Chuyển Số</h3>
                 <span onclick="document.getElementById('csoSettingsOverlay').remove()" style="cursor:pointer;font-size:20px;color:#6b7280;">✕</span>
             </div>
-            <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">Chọn đơn vị được hiển thị trong dropdown "Người Nhận Số". Nếu không chọn đơn vị nào, tất cả nhân viên sẽ được hiển thị.</p>
-            <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;">
-                ${checkboxes}
+
+            <!-- ★ CUTOFF TIME SETTINGS -->
+            <div style="margin-bottom:20px;padding:16px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:12px;">
+                <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:12px;">🕐 Mốc Giờ Chuyển Sang Ngày Hôm Sau</div>
+                <p style="font-size:11px;color:#b45309;margin:0 0 12px;line-height:1.5;">
+                    Số chuyển sau mốc giờ này sẽ được gán sang <strong>ngày làm việc kế tiếp</strong> (tự động bỏ qua CN, Lễ, NV nghỉ phép).
+                </p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:#78350f;margin-bottom:4px;">📅 Thứ 2 → Thứ 6</label>
+                        <input type="time" id="csoCutoffWeekday" value="${cutoffWeekday}" class="form-control"
+                            style="font-size:15px;font-weight:700;text-align:center;padding:8px;border-radius:8px;border:2px solid #fbbf24;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:#78350f;margin-bottom:4px;">📅 Thứ 7</label>
+                        <input type="time" id="csoCutoffSaturday" value="${cutoffSaturday}" class="form-control"
+                            style="font-size:15px;font-weight:700;text-align:center;padding:8px;border-radius:8px;border:2px solid #fbbf24;">
+                    </div>
+                </div>
+                <div style="margin-top:8px;font-size:10px;color:#92400e;line-height:1.5;">
+                    ℹ️ <strong>Chủ Nhật / Ngày Lễ / NV nghỉ phép</strong>: Luôn tự động chuyển sang ngày đi làm kế tiếp (không cần cài mốc giờ)
+                </div>
             </div>
+
+            <!-- DEPARTMENT SETTINGS -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:14px;font-weight:700;color:#122546;margin-bottom:8px;">🏢 Đơn vị nhận số</div>
+                <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">Chọn đơn vị được hiển thị trong dropdown "Người Nhận Số". Nếu không chọn, tất cả NV sẽ được hiển thị.</p>
+                <div style="display:flex;flex-direction:column;gap:8px;max-height:250px;overflow-y:auto;">
+                    ${checkboxes}
+                </div>
+            </div>
+
             <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
                 <button onclick="document.getElementById('csoSettingsOverlay').remove()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;">Hủy</button>
                 <button onclick="csoSaveSettings()" class="btn btn-primary" style="width:auto;">💾 Lưu</button>
@@ -542,9 +575,16 @@ async function csoOpenSettings() {
 
 async function csoSaveSettings() {
     const checked = [...document.querySelectorAll('.cso-dept-cb:checked')].map(cb => Number(cb.value));
+    const cutoffWeekday = document.getElementById('csoCutoffWeekday')?.value || '18:15';
+    const cutoffSaturday = document.getElementById('csoCutoffSaturday')?.value || '17:15';
+
     try {
-        await apiCall('/api/app-config/chuyenso_allowed_depts', 'PUT', { value: JSON.stringify(checked) });
-        showToast('✅ Đã lưu cài đặt đơn vị nhận số');
+        await Promise.all([
+            apiCall('/api/app-config/chuyenso_allowed_depts', 'PUT', { value: JSON.stringify(checked) }),
+            apiCall('/api/app-config/chuyenso_cutoff_weekday', 'PUT', { value: cutoffWeekday }),
+            apiCall('/api/app-config/chuyenso_cutoff_saturday', 'PUT', { value: cutoffSaturday })
+        ]);
+        showToast('✅ Đã lưu cài đặt Chuyển Số');
         document.getElementById('csoSettingsOverlay')?.remove();
         // Reload page to apply filter
         const container = document.getElementById('mainContent');

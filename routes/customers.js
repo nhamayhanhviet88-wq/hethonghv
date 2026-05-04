@@ -85,11 +85,53 @@ async function customersRoutes(fastify, options) {
             referrerId = Number(affiliate_user_id);
         }
 
-        const today = getVNToday();
-        const [_y, _m, _d] = today.split('-').map(Number);
+        // ★ CUTOFF LOGIC — Chuyển số ngoài giờ → gán sang ngày LV kế tiếp
+        const { getVNTimeInfo, getNextWorkingDay: getNextWD, getHolidays: getHols, isUserOnLeave: isLeave } = require('../utils/workingDay');
+        let effectiveDate = getVNToday();
+        const vnTime = getVNTimeInfo();
+        const todayStr = effectiveDate;
+
+        // Bước 1: Kiểm tra hôm nay có phải CN / Lễ / NV nghỉ không → luôn dời
+        const _holidays = await getHols();
+        const isSunday = vnTime.dayOfWeek === 0;
+        const isHoliday = _holidays.has(todayStr);
+        const isOnLeave = actualReceiverId ? await isLeave(actualReceiverId, todayStr) : false;
+
+        if (isSunday || isHoliday || isOnLeave) {
+            // Ngày không đi làm → dời sang ngày LV kế tiếp
+            effectiveDate = await getNextWD(new Date(), actualReceiverId);
+        } else {
+            // Bước 2: Kiểm tra giờ cutoff
+            let cutoffH = 18, cutoffM = 15; // Mặc định T2-T6: 18:15
+            try {
+                if (vnTime.dayOfWeek === 6) {
+                    // Thứ 7
+                    const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_saturday'");
+                    const val = cfgRow?.value || '17:15';
+                    const [h, m] = val.split(':').map(Number);
+                    cutoffH = h; cutoffM = m;
+                } else {
+                    // T2-T6
+                    const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_weekday'");
+                    const val = cfgRow?.value || '18:15';
+                    const [h, m] = val.split(':').map(Number);
+                    cutoffH = h; cutoffM = m;
+                }
+            } catch(e) { /* dùng mặc định */ }
+
+            const currentMinutes = vnTime.hour * 60 + vnTime.minute;
+            const cutoffMinutes = cutoffH * 60 + cutoffM;
+
+            if (currentMinutes >= cutoffMinutes) {
+                // Quá giờ cutoff → dời sang ngày LV kế tiếp
+                effectiveDate = await getNextWD(new Date(), actualReceiverId);
+            }
+        }
+
+        const [_y, _m, _d] = effectiveDate.split('-').map(Number);
         const maxNum = await db.get(
             "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
-            [today, actualReceiverId]
+            [effectiveDate, actualReceiverId]
         );
         const dailyNum = (maxNum?.mx || 0) + 1;
 

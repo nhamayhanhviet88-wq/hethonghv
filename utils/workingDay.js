@@ -100,12 +100,28 @@ function getVNHour() {
     return parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: 'numeric', hour12: false }).format(new Date()));
 }
 
+/**
+ * ★ TIMEZONE-SAFE: Lấy thông tin thời gian VN hiện tại (giờ, phút, thứ)
+ * @returns {{ hour: number, minute: number, dayOfWeek: number }} dayOfWeek: 0=CN, 1=T2, ..., 6=T7
+ */
+function getVNTimeInfo() {
+    const now = new Date();
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: 'numeric', hour12: false }).format(now));
+    const minute = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', minute: 'numeric' }).format(now));
+    // Get VN day of week: parse VN date string → create Date → getDay()
+    const vnDateStr = toDateStr(now);
+    const [y, m, d] = vnDateStr.split('-').map(Number);
+    const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=CN, 6=T7
+    return { hour, minute, dayOfWeek };
+}
+
 module.exports = {
     getHolidays,
     isUserOnLeave,
     toDateStr,
     getVNToday,
     getVNHour,
+    getVNTimeInfo,
     getNextWorkingDay,
     getEffectiveWorkingDay
 };
