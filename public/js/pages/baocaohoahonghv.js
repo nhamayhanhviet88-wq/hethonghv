@@ -90,7 +90,9 @@ function _hvRenderCards() {
         <!-- Welcome -->
         <div class="hv-welcome">
             <div class="hv-welcome-text">
-                <img src="/images/logo.png" alt="HV" class="hv-welcome-logo"> Đồng Phục HV xin chào quý đối tác <strong>${userName}</strong>!
+                <img src="/images/logo.png" alt="HV" class="hv-welcome-logo">
+                <span class="hv-welcome-desktop">Đồng Phục HV xin chào quý đối tác <strong>${userName}</strong>!</span>
+                <span class="hv-welcome-mobile">HV Xin Chào <strong>${userName}</strong>!</span>
             </div>
             <div class="hv-welcome-date">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
         </div>
@@ -475,10 +477,11 @@ async function renderBaoCaoHoaHongHVPage(container) {
 
             /* ===== WELCOME ===== */
             .hv-welcome { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-            .hv-welcome-text { font-size:20px; color:#2d3436; font-weight:700; display:flex; align-items:center; gap:10px; }
+            .hv-welcome-text { font-size:20px; color:#2d3436; font-weight:700; display:flex; align-items:center; gap:10px; white-space:nowrap; }
             .hv-welcome-text strong { color:#6c5ce7; }
             .hv-welcome-logo { width:36px; height:36px; object-fit:contain; border-radius:8px; }
             .hv-welcome-date { font-size:12px; color:#b2bec3; font-weight:500; }
+            .hv-welcome-mobile { display:none; }
 
             /* ===== SHIMMER ANIMATION ===== */
             .hv-shimmer {
@@ -573,7 +576,9 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 .hv-kpi-row { grid-template-columns:1fr 1fr; gap:10px; }
                 .hv-kpi-row .hv-kpi:last-child { grid-column:1 / -1; }
                 .hv-welcome { flex-direction:column; align-items:flex-start; gap:4px; }
-                .hv-welcome-text { font-size:16px; }
+                .hv-welcome-text { font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                .hv-welcome-desktop { display:none !important; }
+                .hv-welcome-mobile { display:inline !important; }
                 .hv-stat { padding:14px 12px; min-height:90px; border-radius:16px; }
                 .hv-stat-val-lg { font-size:16px; }
                 .hv-stat-lbl-lg { font-size:11px; }
