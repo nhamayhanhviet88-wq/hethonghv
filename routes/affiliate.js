@@ -532,12 +532,18 @@ async function affiliateRoutes(fastify) {
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
+        // ★ Cùng logic filter đặc biệt với main API
         let allCustQuery = `
             SELECT c.id, c.customer_name, c.referrer_id
             FROM customers c
             WHERE c.referrer_id IN (${ph})`;
         const allCustParams = [...allIds];
-        if (crm_filter) {
+        if (crm_filter === 'nhu_cau') {
+            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong
+            allCustQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
+                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
+            )))`;
+        } else if (crm_filter) {
             allCustQuery += ` AND c.crm_type = ?`;
             allCustParams.push(crm_filter);
         }
