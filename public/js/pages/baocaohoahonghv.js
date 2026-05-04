@@ -126,12 +126,12 @@ function _hvRenderCards() {
 
         <!-- ROW 2: 3 White Panels -->
         <div class="hv-kpi-row">
-            <div class="hv-kpi hv-kpi-click ${isA('afftk')?'hv-kpi-gold':''}" onclick="_hvCardClick('afftk')">
+            <div class="hv-kpi hv-kpi-click hv-kpi-small ${isA('afftk')?'hv-kpi-gold':''}" onclick="_hvCardClick('afftk')">
                 <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#f59e0b;">🔑</div>
                 <div class="hv-kpi-num" style="color:${isA('afftk')?'white':'#f59e0b'};">${affWithTK}</div>
                 <div class="hv-kpi-name">Có Tài Khoản Affiliate</div>
             </div>
-            <div class="hv-kpi hv-kpi-click ${isA('cancelled')?'hv-kpi-gold':''}" onclick="_hvCardClick('cancelled')">
+            <div class="hv-kpi hv-kpi-click hv-kpi-small ${isA('cancelled')?'hv-kpi-gold':''}" onclick="_hvCardClick('cancelled')">
                 <div class="hv-kpi-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:#ef4444;">❌</div>
                 <div class="hv-kpi-num" style="color:${isA('cancelled')?'white':'#ef4444'};">${cancelledCust}</div>
                 <div class="hv-kpi-name">Hủy Khách</div>
@@ -416,12 +416,12 @@ async function renderBaoCaoHoaHongHVPage(container) {
                     <button class="hv-filter-btn" data-f="thismonth" onclick="_hvSetFilter('thismonth')">Tháng này</button>
                     <button class="hv-filter-btn" data-f="lastmonth" onclick="_hvSetFilter('lastmonth')">Tháng trước</button>
                     <button class="hv-filter-btn active" data-f="all" onclick="_hvSetFilter('all')">✨ Tất cả</button>
-                    <span style="font-size:11px;color:#94a3b8;margin:0 4px;">|</span>
-                    <span style="font-size:12px;color:#475569;font-weight:600;">📅 Tùy chọn</span>
-                    <input type="date" id="hvDateFrom" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
-                    <span style="color:#94a3b8;">—</span>
-                    <input type="date" id="hvDateTo" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
-                    <select onchange="_hvSetYear(this)" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
+                    <span class="hv-date-hide" style="font-size:11px;color:#94a3b8;margin:0 4px;">|</span>
+                    <span class="hv-date-hide" style="font-size:12px;color:#475569;font-weight:600;">📅 Tùy chọn</span>
+                    <input class="hv-date-hide" type="date" id="hvDateFrom" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
+                    <span class="hv-date-hide" style="color:#94a3b8;">—</span>
+                    <input class="hv-date-hide" type="date" id="hvDateTo" onchange="_hvApplyDateFilter()" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
+                    <select class="hv-date-hide" onchange="_hvSetYear(this)" style="padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:12px;">
                         <option value="2026" selected>2026</option><option value="2025">2025</option>
                     </select>
                     <span style="font-size:12px;color:#475569;font-weight:600;">🗓 CHỌN THÁNG</span>
@@ -570,7 +570,8 @@ async function renderBaoCaoHoaHongHVPage(container) {
             /* ===== RESPONSIVE ===== */
             @media (max-width:768px) {
                 .hv-stats-row { grid-template-columns:1fr 1fr; gap:10px; }
-                .hv-kpi-row { grid-template-columns:1fr; gap:10px; }
+                .hv-kpi-row { grid-template-columns:1fr 1fr; gap:10px; }
+                .hv-kpi-row .hv-kpi:last-child { grid-column:1 / -1; }
                 .hv-welcome { flex-direction:column; align-items:flex-start; gap:4px; }
                 .hv-welcome-text { font-size:16px; }
                 .hv-stat { padding:14px 12px; min-height:90px; border-radius:16px; }
@@ -578,7 +579,12 @@ async function renderBaoCaoHoaHongHVPage(container) {
                 .hv-stat-lbl-lg { font-size:11px; }
                 .hv-stat-icon-wrap { width:36px; height:36px; font-size:18px; margin-bottom:10px; border-radius:10px; }
                 .hv-kpi { padding:14px; min-height:auto; border-radius:16px; }
+                .hv-kpi-small { padding:12px; min-height:80px; }
+                .hv-kpi-small .hv-kpi-icon { width:36px; height:36px; font-size:18px; margin-bottom:8px; border-radius:10px; }
+                .hv-kpi-small .hv-kpi-num { font-size:20px; }
+                .hv-kpi-small .hv-kpi-name { font-size:11px; }
                 .hv-kpi-num { font-size:22px; }
+                .hv-date-hide { display:none !important; }
                 .hv-table-wrap { display:none !important; }
                 #hvMobileList { display:flex !important; }
                 /* Mobile card styles */
