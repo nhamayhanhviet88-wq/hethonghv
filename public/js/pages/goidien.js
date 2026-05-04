@@ -16,6 +16,7 @@ let _gd_selectedYear = new Date().getFullYear();
 let _gd_statusFilter = null;
 let _gd_selfSearchSources = [];
 let _gd_selfSearchLocations = [];
+let _gd_crmLinks = {}; // { goi_hop_tac: 'url', goi_ban_hang: 'url', tu_tim_kiem: 'url' }
 let _gd_selfSearchCount = 0;
 let _gd_visibleUserIds = new Set(); // Role-based visible user IDs
 let _gd_overrideUserIds = new Set(); // Users with task overrides
@@ -104,6 +105,18 @@ async function renderGoiDienPage(container) {
             apiCall('/api/self-search-locations'),
             apiCall('/api/telesale/visible-members')
         ]);
+        // Load CRM tab links (non-blocking)
+        Promise.all([
+            apiCall('/api/app-config/telesale_link_goi_hop_tac').catch(() => ({ value: null })),
+            apiCall('/api/app-config/telesale_link_goi_ban_hang').catch(() => ({ value: null })),
+            apiCall('/api/app-config/telesale_link_tu_tim_kiem').catch(() => ({ value: null }))
+        ]).then(([r1, r2, r3]) => {
+            _gd_crmLinks = {
+                goi_hop_tac: r1.value || '',
+                goi_ban_hang: r2.value || '',
+                tu_tim_kiem: r3.value || ''
+            };
+        });
         // Fetch override user IDs (parallel, non-blocking)
         apiCall('/api/schedule/override-users').then(r => { _gd_overrideUserIds = new Set((r.user_ids || []).map(Number)); }).catch(() => {});
     } catch (err) {
@@ -630,7 +643,9 @@ async function _gd_loadCallsForUser(userId) {
         <div id="gdSelfSearchProgress"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:4px;background:#f1f5f9;border-radius:14px;">
             ${_gd_CRM_TABS.map(tab => { const isA = _gd_activeCrmTab === tab.value; const cnt = tab.value === null ? crmCounts['all'] : (crmCounts[tab.value]||0);
-                return `<button onclick="_gd_activeCrmTab=${tab.value===null?'null':"'"+tab.value+"'"};_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;${isA?`background:${tab.grad};color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);`:'background:transparent;color:#64748b;'}"><span style="font-size:15px;">${tab.icon}</span><span>${tab.label}</span><span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800;${isA?'background:rgba(255,255,255,0.25);color:white;':'background:#e2e8f0;color:#475569;'}">${cnt}</span></button>`; }).join('')}
+                const linkUrl = tab.value ? (_gd_crmLinks[tab.value] || '') : '';
+                const linkIcon = (tab.value && linkUrl) ? `<a href="${linkUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" title="Mở đường link" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${isA?'rgba(255,255,255,0.25)':'rgba(99,102,241,0.08)'};color:${isA?'white':'#6366f1'};font-size:13px;text-decoration:none;transition:all .2s;flex-shrink:0;" onmouseover="this.style.transform='scale(1.15)';this.style.background='${isA?'rgba(255,255,255,0.4)':'rgba(99,102,241,0.18)'}';" onmouseout="this.style.transform='scale(1)';this.style.background='${isA?'rgba(255,255,255,0.25)':'rgba(99,102,241,0.08)'}';"\>🔗</a>` : '';
+                return `<div style="display:flex;align-items:center;gap:4px;"><button onclick="_gd_activeCrmTab=${tab.value===null?'null':"'"+tab.value+"'"};_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;${isA?`background:${tab.grad};color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);`:'background:transparent;color:#64748b;'}"><span style="font-size:15px;">${tab.icon}</span><span>${tab.label}</span><span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:800;${isA?'background:rgba(255,255,255,0.25);color:white;':'background:#e2e8f0;color:#475569;'}">${cnt}</span></button>${linkIcon}</div>`; }).join('')}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
             <button class="ts-source-pill${!_gd_activeSourceFilter?' active':''}" onclick="_gd_activeSourceFilter=null;_gd_loadCallsForUser(${userId});">Tất cả <span class="ts-pill-count">${crmFilteredCalls.length}</span></button>
@@ -1082,18 +1097,51 @@ function _gd_formatDateShort(dateStr) {
 
 // ========== SETTINGS MODAL (GĐ only) ==========
 async function _gd_openSettings() {
-    const [res, coldNR, nccNR] = await Promise.all([
+    const [res, coldNR, nccNR, lnk1, lnk2, lnk3] = await Promise.all([
         apiCall('/api/telesale/settings'),
         apiCall('/api/app-config/telesale_cold_no_repump'),
-        apiCall('/api/app-config/telesale_ncc_no_repump')
+        apiCall('/api/app-config/telesale_ncc_no_repump'),
+        apiCall('/api/app-config/telesale_link_goi_hop_tac').catch(() => ({ value: null })),
+        apiCall('/api/app-config/telesale_link_goi_ban_hang').catch(() => ({ value: null })),
+        apiCall('/api/app-config/telesale_link_tu_tim_kiem').catch(() => ({ value: null }))
     ]);
     const coldMonths = res.cold_months || 4;
     const nccMonths = res.ncc_cold_months || 3;
     const coldNoRepump = coldNR.value === 'true';
     const nccNoRepump = nccNR.value === 'true';
-    console.log('[GD Settings] Loaded:', { coldMonths, nccMonths, coldNoRepump, nccNoRepump });
+    const linkHopTac = lnk1.value || '';
+    const linkBanHang = lnk2.value || '';
+    const linkTuTim = lnk3.value || '';
+    console.log('[GD Settings] Loaded:', { coldMonths, nccMonths, coldNoRepump, nccNoRepump, linkHopTac, linkBanHang, linkTuTim });
     openModal('⚙️ Cài Đặt Gọi Điện Telesale', `
         <div style="display:flex;flex-direction:column;gap:16px;">
+            <div style="padding:16px;background:linear-gradient(135deg,#fdf2f8,#fce7f3);border-radius:12px;border:1.5px solid #f9a8d4;">
+                <div style="font-size:13px;font-weight:700;color:#9d174d;margin-bottom:8px;">🔗 Đường Link CRM Telesale</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:12px;">Cài đặt đường link mở nhanh bên cạnh mỗi mục CRM. Nhân viên sẽ thấy icon 🔗 để mở link.</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;flex-shrink:0;">🤝</span>
+                        <div style="flex:1;">
+                            <label style="font-size:11px;font-weight:700;color:#92400e;display:block;margin-bottom:3px;">Gọi Điện Đối Tác</label>
+                            <input type="url" id="gdSettingLinkHopTac" class="form-control" value="${linkHopTac}" placeholder="https://..." style="font-size:12px;padding:6px 10px;">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;flex-shrink:0;">📞</span>
+                        <div style="flex:1;">
+                            <label style="font-size:11px;font-weight:700;color:#065f46;display:block;margin-bottom:3px;">Gọi Điện Bán Hàng</label>
+                            <input type="url" id="gdSettingLinkBanHang" class="form-control" value="${linkBanHang}" placeholder="https://..." style="font-size:12px;padding:6px 10px;">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;flex-shrink:0;">🔍</span>
+                        <div style="flex:1;">
+                            <label style="font-size:11px;font-weight:700;color:#1e40af;display:block;margin-bottom:3px;">Tự Tìm Kiếm Telesale</label>
+                            <input type="url" id="gdSettingLinkTuTim" class="form-control" value="${linkTuTim}" placeholder="https://..." style="font-size:12px;padding:6px 10px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1.5px solid #93c5fd;">
                 <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;">❄️ Kho Lạnh — Không Có Nhu Cầu</div>
                 <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Khi KH không có nhu cầu → đóng băng bao lâu trước khi gọi lại</div>
@@ -1149,12 +1197,20 @@ async function _gd_saveSettings() {
     const ncc_cold_months = parseInt(document.getElementById('gdSettingNccMonths')?.value) || 3;
     const cold_no_repump = document.getElementById('gdColdNoRepump')?.checked === true;
     const ncc_no_repump = document.getElementById('gdNccNoRepump')?.checked === true;
+    const linkHopTac = document.getElementById('gdSettingLinkHopTac')?.value?.trim() || '';
+    const linkBanHang = document.getElementById('gdSettingLinkBanHang')?.value?.trim() || '';
+    const linkTuTim = document.getElementById('gdSettingLinkTuTim')?.value?.trim() || '';
     // Save all values via stable app-config API
     await Promise.all([
         apiCall('/api/telesale/settings', 'PUT', { cold_months, ncc_cold_months }),
         apiCall('/api/app-config/telesale_cold_no_repump', 'PUT', { value: String(cold_no_repump) }),
-        apiCall('/api/app-config/telesale_ncc_no_repump', 'PUT', { value: String(ncc_no_repump) })
+        apiCall('/api/app-config/telesale_ncc_no_repump', 'PUT', { value: String(ncc_no_repump) }),
+        apiCall('/api/app-config/telesale_link_goi_hop_tac', 'PUT', { value: linkHopTac }),
+        apiCall('/api/app-config/telesale_link_goi_ban_hang', 'PUT', { value: linkBanHang }),
+        apiCall('/api/app-config/telesale_link_tu_tim_kiem', 'PUT', { value: linkTuTim })
     ]);
+    // Update local cache immediately
+    _gd_crmLinks = { goi_hop_tac: linkHopTac, goi_ban_hang: linkBanHang, tu_tim_kiem: linkTuTim };
     showToast('✅ Đã lưu cài đặt');
     closeModal();
 }
