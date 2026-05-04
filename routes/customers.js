@@ -480,7 +480,8 @@ async function customersRoutes(fastify, options) {
         const lastCode = await db.get('SELECT order_code FROM order_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1', [userId]);
         let nextNum = 1;
         if (lastCode) {
-            const match = lastCode.order_code.match(/(\d+)$/);
+            // ★ Chỉ lấy 4 chữ số cuối (padStart(4, '0')) — tránh bắt nhầm số trong prefix
+            const match = lastCode.order_code.match(/(\d{4})$/);
             if (match) nextNum = parseInt(match[1]) + 1;
         }
         return nextNum;
