@@ -2,6 +2,33 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const AFFILIATE_ROLES = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
+// ★ Helper: lấy ngày chuyển CRM sang Affiliate cho các KH
+// Trả về Map { customerId: 'YYYY-MM-DD HH:MM:SS' }
+async function _getAffConversionMap(db, customerIds) {
+    const map = {};
+    if (!customerIds || customerIds.length === 0) return map;
+    const ph = customerIds.map(() => '?').join(',');
+    const rows = await db.all(`
+        SELECT customer_id, processed_at
+        FROM crm_conversion_requests
+        WHERE customer_id IN (${ph})
+        AND to_crm_type = 'ctv_hoa_hong'
+        AND status = 'approved'
+        ORDER BY processed_at ASC
+    `, customerIds);
+    // Chỉ lấy lần chuyển ĐẦU TIÊN cho mỗi KH
+    rows.forEach(r => { if (!map[r.customer_id]) map[r.customer_id] = r.processed_at; });
+    return map;
+}
+
+// ★ Helper: tính rate cho 1 đơn dựa trên isDirect + ngày chuyển Affiliate
+function _calcOrderRate(isDirect, directRate, parentRate, orderDate, conversionDate) {
+    if (!isDirect) return parentRate; // Gián tiếp → luôn 5%
+    if (!conversionDate) return directRate; // Chưa chuyển → 10%
+    // So sánh ngày đơn vs ngày chuyển CRM
+    return new Date(orderDate) < new Date(conversionDate) ? directRate : parentRate;
+}
+
 // Helper: parse period_type + value into dateFrom/dateTo
 function _parsePeriodDateRange(periodType, value) {
     let dateFrom = null, dateTo = null;
@@ -315,12 +342,40 @@ async function affiliateRoutes(fastify) {
             logs.forEach(l => { consultMap[l.customer_id] = l; });
         }
 
+        // ★ Lấy ngày chuyển Affiliate cho các KH trực tiếp (để split rate per-order)
+        const directCustIds = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
+        const affConvMap = await _getAffConversionMap(db, directCustIds);
+
+        // ★ Tính commission per-order (split trước/sau chuyển CRM)
+        let perOrderCommMap = {}; // { customerId: { commission, displayRate } }
+        if (customerIds.length > 0) {
+            const cphOrd2 = customerIds.map(() => '?').join(',');
+            const allOrders = await db.all(`
+                SELECT oc.customer_id, oc.created_at as order_date,
+                       COALESCE(SUM(oi.total), 0) as revenue
+                FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                WHERE oc.customer_id IN (${cphOrd2}) AND oc.status = 'completed'
+                GROUP BY oc.id, oc.customer_id, oc.created_at
+            `, customerIds);
+            allOrders.forEach(o => {
+                const cust = customers.find(c => c.id === o.customer_id);
+                const isDirect = cust && cust.referrer_id === user.id;
+                const convDate = affConvMap[o.customer_id] || null;
+                const rate = _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate);
+                if (!perOrderCommMap[o.customer_id]) perOrderCommMap[o.customer_id] = { commission: 0, hasConversion: !!convDate };
+                perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
+            });
+        }
+
         let totalCommission = 0;
         const items = customers.map(c => {
             const isDirect = c.referrer_id === user.id;
-            const rate = isDirect ? directRate : parentRate;
+            const convDate = affConvMap[c.id] || null;
+            const baseRate = isDirect ? directRate : parentRate;
+            // Nếu KH đã chuyển Affiliate, hiển thị rate giảm
+            const displayRate = (isDirect && convDate) ? parentRate : baseRate;
             const completedRevenue = completedRevenueMap[c.id] || 0;
-            const commission = completedRevenue > 0 ? Math.round(completedRevenue * rate) : 0;
+            const commission = perOrderCommMap[c.id]?.commission || 0;
             totalCommission += commission;
             
             // Mask phone for child referrals
@@ -336,7 +391,7 @@ async function affiliateRoutes(fastify) {
                 ...c,
                 phone: displayPhone,
                 is_direct: isDirect,
-                rate: rate * 100,
+                rate: displayRate * 100,
                 total_revenue: totalRevenueMap[c.id] || 0,
                 completed_revenue: completedRevenue,
                 commission,
@@ -444,10 +499,15 @@ async function affiliateRoutes(fastify) {
         const custMap = {};
         customers.forEach(c => { custMap[c.id] = c; });
 
+        // ★ Lấy ngày chuyển Affiliate
+        const directCustIds2 = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
+        const affConvMap2 = await _getAffConversionMap(db, directCustIds2);
+
         const result = orders.map(o => {
             const cust = custMap[o.customer_id] || {};
             const isDirect = cust.referrer_id === user.id;
-            const rate = isDirect ? directRate : parentRate;
+            const convDate = affConvMap2[o.customer_id] || null;
+            const rate = _calcOrderRate(isDirect, directRate, parentRate, o.created_at, convDate);
             const revenue = Number(o.revenue) || 0;
             const commission = o.status === 'completed' ? Math.round(revenue * rate) : 0;
             const referrerName = isDirect
@@ -498,21 +558,25 @@ async function affiliateRoutes(fastify) {
         const customers = await db.all(`SELECT c.id, c.referrer_id FROM customers c WHERE c.referrer_id IN (${ph})`, allIds);
         const customerIds = customers.map(c => c.id);
 
-        // Get completed revenue
+        // ★ Get completed revenue — per-order split (trước/sau chuyển CRM)
+        const directCustIdsB = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
+        const affConvMapB = await _getAffConversionMap(db, directCustIdsB);
         let totalCommission = 0;
         if (customerIds.length > 0) {
             const cph = customerIds.map(() => '?').join(',');
-            const revenueRows = await db.all(`
-                SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as completed_revenue
+            const orderRows = await db.all(`
+                SELECT oc.customer_id, oc.created_at as order_date,
+                       COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
-                GROUP BY oc.customer_id
+                GROUP BY oc.id, oc.customer_id, oc.created_at
             `, customerIds);
-            revenueRows.forEach(r => {
+            orderRows.forEach(r => {
                 const cust = customers.find(c => c.id === r.customer_id);
                 const isDirect = cust && cust.referrer_id === user.id;
-                const rate = isDirect ? directRate : parentRate;
-                totalCommission += Math.round(r.completed_revenue * rate);
+                const convDate = affConvMapB[r.customer_id] || null;
+                const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate);
+                totalCommission += Math.round(Number(r.revenue) * rate);
             });
         }
 
@@ -585,34 +649,43 @@ async function affiliateRoutes(fastify) {
 
                 let totalCommission = 0;
                 let affFilteredCommission = 0;
+                // ★ Per-order split (trước/sau chuyển CRM)
+                const directCustIdsS = customers.filter(c => c.referrer_id === aff.id).map(c => c.id);
+                const affConvMapS = await _getAffConversionMap(db, directCustIdsS);
                 if (customerIds.length > 0) {
                     const cph = customerIds.map(() => '?').join(',');
-                    // All-time commission
-                    const revenueRows = await db.all(`
-                        SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as completed_revenue
+                    // All-time commission — per-order
+                    const orderRowsS = await db.all(`
+                        SELECT oc.customer_id, oc.created_at as order_date,
+                               COALESCE(SUM(oi.total), 0) as revenue
                         FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                         WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
-                        GROUP BY oc.customer_id
+                        GROUP BY oc.id, oc.customer_id, oc.created_at
                     `, customerIds);
-                    revenueRows.forEach(r => {
+                    orderRowsS.forEach(r => {
                         const cust = customers.find(c => c.id === r.customer_id);
                         const isDirect = cust && cust.referrer_id === aff.id;
-                        totalCommission += Math.round(r.completed_revenue * (isDirect ? directRate : parentRate));
+                        const convDate = affConvMapS[r.customer_id] || null;
+                        const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate);
+                        totalCommission += Math.round(Number(r.revenue) * rate);
                     });
 
-                    // Filtered commission by date
+                    // Filtered commission by date — per-order
                     if (dateFrom && dateTo) {
-                        const filteredRows = await db.all(`
-                            SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as completed_revenue
+                        const filteredRowsS = await db.all(`
+                            SELECT oc.customer_id, oc.created_at as order_date,
+                                   COALESCE(SUM(oi.total), 0) as revenue
                             FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                             WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
                             AND oc.created_at >= ? AND oc.created_at <= ?
-                            GROUP BY oc.customer_id
+                            GROUP BY oc.id, oc.customer_id, oc.created_at
                         `, [...customerIds, dateFrom, dateTo + ' 23:59:59']);
-                        filteredRows.forEach(r => {
+                        filteredRowsS.forEach(r => {
                             const cust = customers.find(c => c.id === r.customer_id);
                             const isDirect = cust && cust.referrer_id === aff.id;
-                            affFilteredCommission += Math.round(r.completed_revenue * (isDirect ? directRate : parentRate));
+                            const convDate = affConvMapS[r.customer_id] || null;
+                            const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate);
+                            affFilteredCommission += Math.round(Number(r.revenue) * rate);
                         });
                     }
                 }
@@ -681,10 +754,14 @@ async function affiliateRoutes(fastify) {
                 GROUP BY oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at
                 ORDER BY oc.created_at DESC
             `, customerIds);
+            // ★ Lấy ngày chuyển Affiliate
+            const directCustIdsA = customers.filter(c => c.referrer_id === aff.id).map(c => c.id);
+            const affConvMapA = await _getAffConversionMap(db, directCustIdsA);
             rows.forEach(r => {
                 const cust = customers.find(c => c.id === r.customer_id);
                 const isDirect = cust && cust.referrer_id === aff.id;
-                const rate = isDirect ? directRate : parentRate;
+                const convDate = affConvMapA[r.customer_id] || null;
+                const rate = _calcOrderRate(isDirect, directRate, parentRate, r.created_at, convDate);
                 const nvName = cust?.assigned_to_id ? (nvMap[cust.assigned_to_id] || '—') : '—';
                 orders.push({
                     order_code: r.order_code, customer_name: cust?.customer_name || '-',
