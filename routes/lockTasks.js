@@ -3,6 +3,7 @@ const { authenticate } = require('../middleware/auth');
 const path = require('path');
 const fs = require('fs');
 const { canApproveByRole } = require('../utils/approvalHierarchy');
+const { getVNToday } = require('../utils/workingDay');
 
 async function lockTaskRoutes(fastify, options) {
 
@@ -385,12 +386,13 @@ async function lockTaskRoutes(fastify, options) {
             const groupCoZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible);
 
             // Calculate start of current week (Monday)
-            const nowVN = new Date(Date.now() + 7 * 3600000);
-            const dayOfWeek = nowVN.getDay(); // 0=Sun, 1=Mon
+            const vnToday = getVNToday();
+            const [yy, mmo, ddo] = vnToday.split('-').map(Number);
+            const nowVN = new Date(Date.UTC(yy, mmo - 1, ddo));
+            const dayOfWeek = nowVN.getUTCDay(); // 0=Sun, 1=Mon
             const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             const weekStart = new Date(nowVN);
-            weekStart.setDate(weekStart.getDate() + mondayOffset);
-            weekStart.setHours(0, 0, 0, 0);
+            weekStart.setUTCDate(weekStart.getUTCDate() + mondayOffset);
 
             const unmarked = [];
             for (const r of groupCoZalo) {

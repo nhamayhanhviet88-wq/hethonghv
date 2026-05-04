@@ -3,6 +3,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
 const { maskCustomerData } = require('../utils/dataMasking');
+const { getVNToday } = require('../utils/workingDay');
 
 const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
@@ -84,8 +85,8 @@ async function customersRoutes(fastify, options) {
             referrerId = Number(affiliate_user_id);
         }
 
-        const now = new Date(Date.now() + 7*3600000);
-        const today = now.toISOString().split('T')[0];
+        const today = getVNToday();
+        const [_y, _m, _d] = today.split('-').map(Number);
         const maxNum = await db.get(
             "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
             [today, actualReceiverId]
@@ -103,7 +104,7 @@ async function customersRoutes(fastify, options) {
              request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null]
         );
 
-        const code = `${dailyNum}-${now.getUTCDate()}-${now.getUTCMonth() + 1}`;
+        const code = `${dailyNum}-${_d}-${_m}`;
         const sourceName = resolvedSourceId ? (await db.get('SELECT name FROM settings_sources WHERE id = ?', [resolvedSourceId]))?.name : '';
         const promoName = promotion_id ? (await db.get('SELECT name FROM settings_promotions WHERE id = ?', [Number(promotion_id)]))?.name : '';
         const industryName = industry_id ? (await db.get('SELECT name FROM settings_industries WHERE id = ?', [Number(industry_id)]))?.name : '';

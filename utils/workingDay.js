@@ -93,11 +93,19 @@ async function getEffectiveWorkingDay(originalDate, userId, holidays) {
     return vnDateStr;
 }
 
+/**
+ * ★ TIMEZONE-SAFE: Lấy giờ VN hiện tại (0-23)
+ */
+function getVNHour() {
+    return parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: 'numeric', hour12: false }).format(new Date()));
+}
+
 module.exports = {
     getHolidays,
     isUserOnLeave,
     toDateStr,
     getVNToday,
+    getVNHour,
     getNextWorkingDay,
     getEffectiveWorkingDay
 };

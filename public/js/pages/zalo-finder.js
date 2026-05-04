@@ -140,8 +140,7 @@ function _zlRenderToolbar() {
 }
 
 function _vnTodayFE() {
-    const now = new Date(Date.now() + 7 * 3600000);
-    return now.toISOString().split('T')[0];
+    return new Date().toLocaleDateString('en-CA');
 }
 
 function _zlRenderDateBar() {
@@ -178,7 +177,7 @@ function _zlSetDateFilter(key) {
 
 function _zlGetDateParams() {
     const today = _vnTodayFE();
-    const d = new Date(Date.now() + 7 * 3600000);
+    const d = new Date();
     switch (_zlDateFilter) {
         case 'today': return { date: today };
         case 'yesterday': {

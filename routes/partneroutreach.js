@@ -2,6 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
+const { getVNToday } = require('../utils/workingDay');
 
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -59,8 +60,7 @@ module.exports = async function (fastify) {
 
     // ===== HELPERS =====
     function _vnToday() {
-        const now = new Date(Date.now() + 7 * 3600000);
-        return now.toISOString().split('T')[0];
+        return getVNToday();
     }
 
     function _isManager(role) {
@@ -608,8 +608,7 @@ module.exports = async function (fastify) {
             // Compress: resize to 1200px max, JPEG 80%
             buffer = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
 
-            const now = new Date(Date.now() + 7 * 3600000);
-            const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const month = getVNToday().substring(0, 7);
             const uploadDir = path.join(__dirname, '..', 'uploads', 'partner-outreach', month);
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 

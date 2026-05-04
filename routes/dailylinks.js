@@ -1,6 +1,7 @@
 // ========== DAILY LINKS — UNIFIED MODULE ==========
 // Handles: Add/Cmt, Đăng Video, Đăng Content, Đăng Group, Sedding, Tuyển Dụng
 const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
+const { getVNToday } = require('../utils/workingDay');
 module.exports = async function (fastify) {
     const db = require('../db/pool');
     const { authenticate } = require('../middleware/auth');
@@ -53,7 +54,7 @@ module.exports = async function (fastify) {
         dang_banthan_sp: '%Đăng%Bản Thân%Sản Phẩm%'
     };
 
-    function _vnToday() { const n = new Date(Date.now() + 7 * 3600000); return n.toISOString().split('T')[0]; }
+    function _vnToday() { return getVNToday(); }
 
     function _validateType(t) { return VALID_TYPES.includes(t); }
 
@@ -1277,12 +1278,13 @@ module.exports = async function (fastify) {
             const groupCoZalo = allResults.filter(r => !r.spam_eligible && !r.spam_not_eligible);
 
             // Calculate start of current week (Monday VN time)
-            const nowVN = new Date(Date.now() + 7 * 3600000);
-            const dayOfWeek = nowVN.getDay();
+            const vnToday = getVNToday();
+            const [_yy, _mmo, _ddo] = vnToday.split('-').map(Number);
+            const nowVN = new Date(Date.UTC(_yy, _mmo - 1, _ddo));
+            const dayOfWeek = nowVN.getUTCDay();
             const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             const weekStart = new Date(nowVN);
-            weekStart.setDate(weekStart.getDate() + mondayOffset);
-            weekStart.setHours(0, 0, 0, 0);
+            weekStart.setUTCDate(weekStart.getUTCDate() + mondayOffset);
 
             // Check if any are still unmarked or outdated
             for (const r of groupCoZalo) {
@@ -1556,9 +1558,9 @@ module.exports = async function (fastify) {
             );
             if (Number(remainingCount.c) === 0) {
                 // All QL Chưa Spam groups are done → auto-complete the task
-                const nowVN = new Date(Date.now() + 7 * 3600000);
-                const todayStr = nowVN.toISOString().split('T')[0];
-                const dayOfWeek = nowVN.getDay(); // 0=Sun...3=Wed
+                const todayStr = getVNToday();
+                const _dTmp = new Date(todayStr + 'T00:00:00');
+                const dayOfWeek = _dTmp.getDay(); // 0=Sun...3=Wed
                 // Find "Setup Spam Zalo" task assigned to this user
                 const spamTask = await db.get(
                     `SELECT lt.id FROM lock_tasks lt
@@ -1684,8 +1686,7 @@ module.exports = async function (fastify) {
         try {
             const remainingCount = await db.get(`SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`);
             if (Number(remainingCount.c) === 0) {
-                const nowVN = new Date(Date.now() + 7 * 3600000);
-                const todayStr = nowVN.toISOString().split('T')[0];
+                const todayStr = getVNToday();
                 const spamTask = await db.get(
                     `SELECT lt.id FROM lock_tasks lt JOIN lock_task_assignments lta ON lta.lock_task_id = lt.id
                      WHERE lt.is_active = true AND lt.task_name ILIKE '%setup spam zalo%' AND lta.user_id = $1 LIMIT 1`, [req.user.id]
@@ -1763,9 +1764,12 @@ module.exports = async function (fastify) {
         // Today
         const todayR = await db.get(`SELECT COUNT(*) FILTER (WHERE status IN ('done','no_result')) as done, COUNT(*) as total FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date = $2`, [uid, today]);
         // Week
-        const weekStart = new Date(Date.now() + 7 * 3600000);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        const weekStr = weekStart.toISOString().split('T')[0];
+        const _wsTmp = new Date(today + 'T00:00:00');
+        const _wsDow = _wsTmp.getDay();
+        const _wsOff = _wsDow === 0 ? -6 : 1 - _wsDow;
+        const weekStart = new Date(_wsTmp);
+        weekStart.setDate(weekStart.getDate() + _wsOff);
+        const weekStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
         const weekR = await db.get(`SELECT COUNT(*) FILTER (WHERE status IN ('done','no_result')) as done, COUNT(*) as total FROM zalo_daily_tasks WHERE user_id = $1 AND assigned_date BETWEEN $2 AND $3`, [uid, weekStr, today]);
         // Month
         const monthStr = today.substring(0, 7) + '-01';
@@ -1799,8 +1803,7 @@ module.exports = async function (fastify) {
         );
 
         // Check today's completion
-        const nowVN = new Date(Date.now() + 7 * 3600000);
-        const todayStr = nowVN.toISOString().split('T')[0];
+        const todayStr = getVNToday();
         let completed = false;
         let overdue_days = [];
         let total_penalty = 0;
@@ -1875,8 +1878,7 @@ module.exports = async function (fastify) {
                AND lta.user_id = $1 LIMIT 1`, [userId]
         );
 
-        const nowVN = new Date(Date.now() + 7 * 3600000);
-        const todayStr = nowVN.toISOString().split('T')[0];
+        const todayStr = getVNToday();
         let completed = false;
         let overdue_days = [];
         let total_penalty = 0;

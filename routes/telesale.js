@@ -1,5 +1,6 @@
 // ========== TELESALE API ROUTES ==========
 const db = require('../db/pool');
+const { getVNToday, getVNHour, getNextWorkingDay: _getNextWorkingDay } = require('../utils/workingDay');
 
 async function telesaleRoutes(fastify) {
     const { authenticate } = require('../middleware/auth');
@@ -957,7 +958,7 @@ async function telesaleRoutes(fastify) {
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
         // VN today for filtering out past pending
-        const vnToday = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+        const vnToday = getVNToday();
         const calls = await db.all(`SELECT a.*, d.company_name, d.group_name, d.post_link, d.post_content,
             d.customer_name, d.phone, d.address, d.extra_data, d.fb_link, d.self_searched_by,
             s.name as source_name, s.icon as source_icon, s.crm_type as source_crm_type,
@@ -1052,7 +1053,7 @@ async function telesaleRoutes(fastify) {
         const dateFrom = req.query.date_from || req.query.date || new Date().toISOString().split('T')[0];
         const dateTo = req.query.date_to || req.query.date || dateFrom;
         // VN today for filtering out past pending
-        const vnToday = new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+        const vnToday = getVNToday();
 
         const _buildUserStats = async (df, dt) => {
             const row = await db.get(`SELECT
@@ -1107,7 +1108,7 @@ async function telesaleRoutes(fastify) {
             return reply.code(400).send({ error: 'Thiếu user_id, crm_type hoặc count' });
         }
 
-        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+        const today = getVNToday();
         const sources = await db.all('SELECT * FROM telesale_sources WHERE is_active = true AND crm_type = ? ORDER BY display_order', [crm_type]);
         if (sources.length === 0) return { success: false, error: 'Không có nguồn nào cho tab này' };
 
@@ -1421,8 +1422,7 @@ async function telesaleRoutes(fastify) {
                     const hasCallHistory = existing.last_call_status && existing.last_call_status !== 'pending';
                     if (existing.status === 'available' && !hasCallHistory) {
                         // Transfer: update source + assign to NV
-                        const vnNowT = new Date(Date.now() + 7 * 3600000);
-                        const todayT = vnNowT.toISOString().split('T')[0];
+                        const todayT = getVNToday();
                         await db.run(
                             `UPDATE telesale_data SET source_id = $1, customer_name = $2, fb_link = $3,
                              search_location_id = $4, self_searched_by = $5, self_searched_at = NOW(),
@@ -1495,9 +1495,8 @@ async function telesaleRoutes(fastify) {
             if (dupFb) return reply.code(400).send({ error: 'Link FB đã tồn tại trong CRM' });
         }
 
-        // Use VN timezone (UTC+7) for date — matching pattern from runTelesaleRecall
-        const vnNow = new Date(Date.now() + 7 * 3600000);
-        const today = vnNow.toISOString().split('T')[0];
+        // Use VN timezone for date
+        const today = getVNToday();
         const now = new Date().toISOString();
 
         // Only INSERT new record if we didn't already transfer an existing one
@@ -1551,8 +1550,7 @@ async function telesaleRoutes(fastify) {
             const crmType = _telesaleToCrm[src.crm_type] || src.crm_type || 'nhu_cau';
             try {
                 // Calculate next working day for appointment
-                const { getNextWorkingDay } = require('../utils/workingDay');
-                const nextWorkDay = await getNextWorkingDay(vnNow, req.user.id);
+                const nextWorkDay = await _getNextWorkingDay(new Date(), req.user.id);
 
                 // Get daily order number for this user
                 const maxNum = await db.get(
@@ -1871,9 +1869,10 @@ async function runTelesalePump() {
 
 async function runTelesaleRecall() {
     // Use VN time (UTC+7) for date calculation
-    const vnNow = new Date(Date.now() + 7 * 3600000);
-    const vnToday = vnNow.toISOString().split('T')[0];
-    const yesterday = new Date(vnNow.getTime() - 86400000).toISOString().split('T')[0];
+    const vnToday = getVNToday();
+    const [yy, mm, dd] = vnToday.split('-').map(Number);
+    const yesterdayDate = new Date(Date.UTC(yy, mm - 1, dd - 1));
+    const yesterday = `${yesterdayDate.getUTCFullYear()}-${String(yesterdayDate.getUTCMonth()+1).padStart(2,'0')}-${String(yesterdayDate.getUTCDate()).padStart(2,'0')}`;
     console.log(`[Telesale Recall] VN today=${vnToday}, yesterday=${yesterday}`);
     let recalled = 0, invalidated = 0;
 
@@ -1947,13 +1946,12 @@ async function runTelesaleRecall() {
 // ========== PUMP FOR SINGLE USER (called on account unlock) ==========
 async function runTelesalePumpForUser(userId) {
     // Check VN time < 18:00
-    const vnNow = new Date(Date.now() + 7 * 3600000);
-    const vnHour = vnNow.getUTCHours();
+    const vnHour = getVNHour();
     if (vnHour >= 18) {
         return { pumped: 0, message: 'Sau 18:00 — sẽ bơm tự động sáng mai', skipped: true };
     }
 
-    const today = vnNow.toISOString().split('T')[0];
+    const today = getVNToday();
     const CRM_TYPES = ['tu_tim_kiem', 'goi_ban_hang', 'goi_hop_tac'];
     let totalPumped = 0;
 

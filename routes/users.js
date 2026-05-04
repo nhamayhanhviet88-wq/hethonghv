@@ -4,6 +4,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { checkPhoneDuplicate } = require('../utils/phoneCheck');
 const { runTelesalePumpForUser } = require('./telesale');
 const { sendTelegramMessage } = require('../utils/telegram');
+const { getVNToday } = require('../utils/workingDay');
 const { maskPhone } = require('../utils/dataMasking');
 const path = require('path');
 const fs = require('fs');
@@ -461,7 +462,7 @@ async function usersRoutes(fastify, options) {
         await db.run("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = ?", [userId]);
 
         if (user.source_customer_id) {
-            const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+            const today = getVNToday();
             await db.run(
                 `UPDATE customers SET 
                  cancel_requested = 0, cancel_reason = NULL,

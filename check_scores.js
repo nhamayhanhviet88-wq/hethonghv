@@ -1,12 +1,13 @@
 // Simulate the missing-dates API logic locally
 const db = require('./db/pool');
+const { getVNToday } = require('./utils/workingDay');
 (async () => {
     const uid = 2;
     const moduleType = 'dang_banthan_sp';
     const pattern = /đăng.*bản.*thân/i;
     
     // Use same _vnToday as server
-    const todayStr = (() => { const n = new Date(Date.now() + 7 * 3600000); return n.toISOString().split('T')[0]; })();
+    const todayStr = getVNToday();
     console.log('todayStr:', todayStr);
     
     function _localDateStr(date) {

@@ -117,7 +117,7 @@ function _dlInit() {
     _dl.selTab = _dlUrlParams.get('sel_tab') || null;
     if (_dl.selDate) {
         const selDate = _dl.selDate;
-        const today = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA');
         if (selDate === today) {
             _dlDatePreset = 'today';
         } else {

@@ -2,6 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const { getManagedDeptIds } = require('../utils/getManagedDeptIds');
+const { getVNToday } = require('../utils/workingDay');
 
 module.exports = async function (fastify) {
     const db = require('../db/pool');
@@ -25,8 +26,7 @@ module.exports = async function (fastify) {
     try { await db.exec('ALTER TABLE addcmt_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
 
     function _vnToday() {
-        const now = new Date(Date.now() + 7 * 3600000);
-        return now.toISOString().split('T')[0];
+        return getVNToday();
     }
 
     // GET entries
