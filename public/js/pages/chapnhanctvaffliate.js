@@ -678,7 +678,7 @@ async function _cncaLoadAffAccountData() {
                 : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt</button>
                    <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`)
             : r.status === 'approved'
-                ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
+                ? `<span style="font-size:11px;color:#059669;font-weight:600;">✅ ${r.approved_by_name || '—'}</span>`
                 : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
 
         return `<tr style="${isPending ? 'background:rgba(139,92,246,.04);' : ''}">
