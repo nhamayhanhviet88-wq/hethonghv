@@ -472,9 +472,9 @@ function _crmGetCategory(c, stats) {
     const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     const s = stats[c.id] || {};
 
-    // Check if consulted today
+    // Check if consulted today (exclude system logs like CRM conversion & affiliate account creation)
     let consultedToday = false;
-    if (s.lastLog && s.lastLog.created_at) {
+    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate') {
         const logDate = new Date(s.lastLog.created_at);
         const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
         consultedToday = (logStr === todayStr);
