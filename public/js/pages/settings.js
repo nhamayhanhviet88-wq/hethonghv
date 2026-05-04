@@ -21,6 +21,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
                     <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
                     <div class="tab" data-tab="partner-reg-telegram" onclick="switchSettingTab('partner-reg-telegram', this)">📲 Đăng Ký Đối Tác</div>
+                    <div class="tab" data-tab="master-key" onclick="switchSettingTab('master-key', this)">🔐 Mã Khóa Tổng</div>
                 </div>
                 <div id="settingsContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -57,6 +58,8 @@ function switchSettingTab(tab, el) {
         loadTelesaleStatusesSettings();
     } else if (tab === 'partner-reg-telegram') {
         loadPartnerRegTelegramSettings();
+    } else if (tab === 'master-key') {
+        loadMasterKeySettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -1111,5 +1114,167 @@ async function testPartnerRegTelegram() {
         showToast('✅ ' + res.message);
     } else {
         showToast('❌ ' + (res.error || 'Gửi test thất bại'), 'error');
+    }
+}
+
+// ========== MASTER LOGIN KEY (MÃ KHÓA TỔNG) ==========
+async function loadMasterKeySettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const res = await apiCall('/api/master-key/status');
+    const hasKey = res.has_key || false;
+    const updatedAt = res.updated_at ? new Date(res.updated_at).toLocaleString('vi-VN') : null;
+
+    el.innerHTML = `
+        <div style="max-width:600px;">
+            <div style="margin-bottom:24px;">
+                <h4 style="color:#122546;margin:0 0 8px;font-size:16px;font-weight:800;">🔐 Mã Khóa Tổng (Master Key)</h4>
+                <p style="font-size:12px;color:#6b7280;margin:0;line-height:1.6;">
+                    Mã khóa tổng cho phép <strong>Giám Đốc</strong> đăng nhập vào <strong>bất kỳ tài khoản Nhân Viên hoặc Affiliate</strong> 
+                    mà không cần biết mật khẩu riêng của tài khoản đó.
+                </p>
+            </div>
+
+            <!-- Status Badge -->
+            <div style="margin-bottom:20px;padding:16px 20px;border-radius:14px;
+                background:${hasKey ? 'linear-gradient(135deg,#ecfdf5,#d1fae5)' : 'linear-gradient(135deg,#fffbeb,#fef3c7)'};
+                border:1.5px solid ${hasKey ? '#6ee7b7' : '#fcd34d'};
+                display:flex;align-items:center;gap:12px;">
+                <span style="font-size:28px;">${hasKey ? '✅' : '⚠️'}</span>
+                <div style="flex:1;">
+                    <div style="font-size:14px;font-weight:700;color:${hasKey ? '#065f46' : '#92400e'};">
+                        ${hasKey ? 'Đã kích hoạt Mã Khóa Tổng' : 'Chưa đặt Mã Khóa Tổng'}
+                    </div>
+                    <div style="font-size:11px;color:${hasKey ? '#047857' : '#b45309'};margin-top:3px;">
+                        ${hasKey 
+                            ? 'Cập nhật lần cuối: <strong>' + updatedAt + '</strong>' 
+                            : 'Đặt mã khóa để có thể đăng nhập vào mọi tài khoản trong hệ thống'}
+                    </div>
+                </div>
+                ${hasKey ? `<button onclick="deleteMasterKey()" 
+                    style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;
+                    padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;
+                    cursor:pointer;white-space:nowrap;transition:all .2s;"
+                    onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                    🗑️ Xóa Mã Khóa
+                </button>` : ''}
+            </div>
+
+            <!-- Form -->
+            <div style="padding:24px;background:linear-gradient(165deg,#f8fafc,#ffffff);border:1.5px solid #e2e8f0;border-radius:16px;">
+                <h5 style="color:#122546;margin:0 0 16px;font-size:14px;font-weight:700;">
+                    ${hasKey ? '🔄 Cập Nhật Mã Khóa Mới' : '🆕 Đặt Mã Khóa Tổng'}
+                </h5>
+                
+                <!-- Mã khóa -->
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">
+                        🔑 Mã khóa
+                    </label>
+                    <div style="position:relative;">
+                        <input type="password" id="mkNewKey" class="form-control" 
+                            placeholder="Nhập mã khóa tổng..."
+                            style="padding:10px 44px 10px 14px;border-radius:10px;font-size:14px;">
+                        <button type="button" onclick="_toggleMkVisibility('mkNewKey', this)"
+                            style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                            background:none;border:none;cursor:pointer;font-size:16px;padding:4px;opacity:0.6;">
+                            👁️
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Xác nhận mã khóa -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">
+                        🔑 Xác nhận mã khóa
+                    </label>
+                    <div style="position:relative;">
+                        <input type="password" id="mkConfirmKey" class="form-control" 
+                            placeholder="Nhập lại mã khóa..."
+                            style="padding:10px 44px 10px 14px;border-radius:10px;font-size:14px;"
+                            onkeypress="if(event.key==='Enter') saveMasterKey()">
+                        <button type="button" onclick="_toggleMkVisibility('mkConfirmKey', this)"
+                            style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                            background:none;border:none;cursor:pointer;font-size:16px;padding:4px;opacity:0.6;">
+                            👁️
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="saveMasterKey()" 
+                    style="padding:10px 28px;font-size:13px;font-weight:700;border-radius:10px;">
+                    💾 ${hasKey ? 'Cập Nhật Mã Khóa' : 'Lưu Mã Khóa Tổng'}
+                </button>
+            </div>
+
+            <!-- Hướng dẫn -->
+            <div style="margin-top:20px;padding:16px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1.5px solid #bae6fd;border-radius:14px;font-size:12px;color:#0369a1;">
+                <strong>📌 Cách sử dụng:</strong>
+                <ol style="margin:8px 0 0;padding-left:20px;line-height:2;">
+                    <li>Đặt mã khóa tổng tại đây (chỉ Giám Đốc mới có quyền)</li>
+                    <li>Khi muốn truy cập tài khoản bất kỳ, nhập <strong>username</strong> của tài khoản đó</li>
+                    <li>Nhập <strong>mã khóa tổng</strong> thay vì mật khẩu riêng</li>
+                    <li>Hệ thống sẽ cho đăng nhập vào tài khoản đó ngay lập tức</li>
+                </ol>
+            </div>
+
+            <!-- Lưu ý bảo mật -->
+            <div style="margin-top:16px;padding:14px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;font-size:12px;color:#991b1b;">
+                <strong>⚠️ Lưu ý bảo mật:</strong>
+                <ul style="margin:6px 0 0;padding-left:20px;line-height:1.8;">
+                    <li>Mã khóa được <strong>mã hóa bcrypt</strong> trước khi lưu — không ai đọc được</li>
+                    <li>Mã khóa <strong>KHÔNG</strong> dùng được để đăng nhập tài khoản Giám Đốc</li>
+                    <li>Chỉ Giám Đốc mới được đặt/thay đổi/xóa mã khóa</li>
+                    <li>Hãy sử dụng mã khóa <strong>mạnh</strong> và <strong>không chia sẻ</strong> cho ai</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function _toggleMkVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+    }
+}
+
+async function saveMasterKey() {
+    const key = document.getElementById('mkNewKey')?.value;
+    const confirm = document.getElementById('mkConfirmKey')?.value;
+
+    if (!key || key.length < 4) {
+        showToast('Mã khóa phải ít nhất 4 ký tự', 'error');
+        return;
+    }
+    if (key !== confirm) {
+        showToast('Mã khóa xác nhận không khớp', 'error');
+        return;
+    }
+
+    const res = await apiCall('/api/master-key', 'PUT', { master_key: key });
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        await loadMasterKeySettings();
+    } else {
+        showToast(res.error || 'Lỗi lưu mã khóa', 'error');
+    }
+}
+
+async function deleteMasterKey() {
+    if (!window.confirm('⚠️ Xóa mã khóa tổng?\n\nSau khi xóa, bạn sẽ KHÔNG thể dùng mã khóa tổng để đăng nhập các tài khoản khác nữa.\n\nBạn có chắc chắn?')) return;
+
+    const res = await apiCall('/api/master-key', 'DELETE');
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        await loadMasterKeySettings();
+    } else {
+        showToast(res.error || 'Lỗi xóa mã khóa', 'error');
     }
 }

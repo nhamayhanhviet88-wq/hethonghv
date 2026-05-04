@@ -155,6 +155,40 @@ async function settingsRoutes(fastify, options) {
         return { items };
     });
 
+    // ===== MASTER LOGIN KEY (Mã Khóa Tổng) =====
+    const bcrypt = require('bcrypt');
+
+    // GET: Kiểm tra đã có master key chưa (không trả value, chỉ trả status)
+    fastify.get('/api/master-key/status', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const row = await db.get("SELECT value, updated_at FROM app_config WHERE key = 'master_login_key'");
+        return {
+            has_key: !!(row && row.value),
+            updated_at: row ? row.updated_at : null
+        };
+    });
+
+    // PUT: Đặt/Cập nhật master key (hash bcrypt trước khi lưu)
+    fastify.put('/api/master-key', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { master_key } = request.body || {};
+        if (!master_key || master_key.length < 4) {
+            return reply.code(400).send({ error: 'Mã khóa phải ít nhất 4 ký tự' });
+        }
+
+        const hash = await bcrypt.hash(master_key, 10);
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('master_login_key', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [hash]
+        );
+        return { success: true, message: 'Đã lưu mã khóa tổng thành công' };
+    });
+
+    // DELETE: Xóa master key (vô hiệu hóa tính năng)
+    fastify.delete('/api/master-key', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        await db.run("DELETE FROM app_config WHERE key = 'master_login_key'");
+        return { success: true, message: 'Đã xóa mã khóa tổng' };
+    });
+
     // ===== App Config (generic key-value) =====
     fastify.get('/api/app-config/:key', { preHandler: [authenticate] }, async (request, reply) => {
         const row = await db.get('SELECT value FROM app_config WHERE key = ?', [request.params.key]);

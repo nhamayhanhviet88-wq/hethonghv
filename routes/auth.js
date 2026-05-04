@@ -64,7 +64,19 @@ async function authRoutes(fastify, options) {
 
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) {
-            return reply.code(401).send({ error: 'Tài khoản hoặc mật khẩu không đúng' });
+            // ★ MASTER KEY FALLBACK — thử mã khóa tổng (chỉ áp dụng cho non-GĐ)
+            let masterKeyValid = false;
+            if (user.role !== 'giam_doc') {
+                try {
+                    const mkRow = await db.get("SELECT value FROM app_config WHERE key = 'master_login_key'");
+                    if (mkRow && mkRow.value) {
+                        masterKeyValid = await bcrypt.compare(password, mkRow.value);
+                    }
+                } catch(e) { /* ignore */ }
+            }
+            if (!masterKeyValid) {
+                return reply.code(401).send({ error: 'Tài khoản hoặc mật khẩu không đúng' });
+            }
         }
 
         // ★ DOMAIN ISOLATION — chặn chéo giữa 2 domain
