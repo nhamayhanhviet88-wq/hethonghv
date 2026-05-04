@@ -32,6 +32,29 @@ async function crmConversionRoutes(fastify, options) {
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_ccr_status ON crm_conversion_requests(status)'); } catch(e) {}
     try { await db.exec('CREATE INDEX IF NOT EXISTS idx_ccr_customer ON crm_conversion_requests(customer_id)'); } catch(e) {}
 
+    // ========== MIGRATION: Auto-approve legacy pending non-CTV requests ==========
+    try {
+        const legacyPending = await db.all(
+            "SELECT id, customer_id, to_crm_type FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type != 'ctv'"
+        );
+        for (const req of legacyPending) {
+            await db.run(
+                "UPDATE crm_conversion_requests SET status = 'approved', processed_at = NOW() WHERE id = ?",
+                [req.id]
+            );
+            await db.run(
+                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
+                [req.to_crm_type, req.customer_id]
+            );
+            await db.run(
+                "UPDATE users SET source_crm_type = ? WHERE source_customer_id = ? AND role = 'tkaffiliate'",
+                [req.to_crm_type, req.customer_id]
+            );
+            console.log(`[Migration] Auto-approved legacy pending request #${req.id} → ${req.to_crm_type}`);
+        }
+        if (legacyPending.length > 0) console.log(`[Migration] Cleaned up ${legacyPending.length} legacy pending non-CTV request(s)`);
+    } catch(e) { console.error('[Migration] Legacy cleanup error:', e.message); }
+
     // ========== Helper: check if user can approve ==========
     async function canApprove(userId, userRole) {
         if (userRole === 'giam_doc') return true;
