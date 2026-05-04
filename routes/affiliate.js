@@ -360,6 +360,7 @@ async function affiliateRoutes(fastify) {
         // ★ Tính commission per-order (split trước/sau chuyển CRM)
         let perOrderCommMap = {}; // { customerId: { commission, displayRate } }
         let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
+        let _nhuCauPreRevMap = {}; // Doanh thu pre-conversion cho trang Khách
         if (customerIds.length > 0) {
             const cphOrd2 = customerIds.map(() => '?').join(',');
             const allOrders = await db.all(`
@@ -374,20 +375,30 @@ async function affiliateRoutes(fastify) {
                 const isDirect = cust && cust.referrer_id === user.id;
                 const convDate = affConvMap[o.customer_id] || null;
                 
-                // ★ Trang Affiliate: chỉ tính đơn SAU ngày chuyển (đơn cũ thuộc trang Khách)
                 const isPreConversion = convDate && new Date(o.order_date) < new Date(convDate);
+                const isPostConversion = convDate && !isPreConversion;
+                
+                // ★ Trang Affiliate: chỉ tính đơn SAU ngày chuyển
                 if (crm_filter === 'ctv_hoa_hong' && isPreConversion) {
-                    return; // Bỏ qua đơn trước chuyển
+                    return;
+                }
+                // ★ Trang Khách: chỉ tính đơn TRƯỚC ngày chuyển (đơn mới thuộc trang Affiliate)
+                if (crm_filter === 'nhu_cau' && isPostConversion) {
+                    return;
                 }
                 
                 const rate = _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate, cust?.crm_type);
                 if (!perOrderCommMap[o.customer_id]) perOrderCommMap[o.customer_id] = { commission: 0, hasConversion: !!convDate };
                 perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
                 
-                // ★ Trang Affiliate: tính riêng doanh thu post-conversion
+                // ★ Track doanh thu theo trang
                 if (crm_filter === 'ctv_hoa_hong') {
                     if (!_affPostRevMap[o.customer_id]) _affPostRevMap[o.customer_id] = 0;
                     _affPostRevMap[o.customer_id] += Number(o.revenue);
+                }
+                if (crm_filter === 'nhu_cau' && convDate) {
+                    if (!_nhuCauPreRevMap[o.customer_id]) _nhuCauPreRevMap[o.customer_id] = 0;
+                    _nhuCauPreRevMap[o.customer_id] += Number(o.revenue);
                 }
             });
             
@@ -398,6 +409,16 @@ async function affiliateRoutes(fastify) {
                     if (convDate) {
                         completedRevenueMap[custId] = _affPostRevMap[custId] || 0;
                         totalRevenueMap[custId] = _affPostRevMap[custId] || 0;
+                    }
+                }
+            }
+            // ★ Trang Khách: ghi đè revenue maps bằng doanh thu pre-conversion
+            if (crm_filter === 'nhu_cau') {
+                for (const custId of customerIds) {
+                    const convDate = affConvMap[custId];
+                    if (convDate) {
+                        completedRevenueMap[custId] = _nhuCauPreRevMap[custId] || 0;
+                        totalRevenueMap[custId] = _nhuCauPreRevMap[custId] || 0;
                     }
                 }
             }
@@ -487,9 +508,24 @@ async function affiliateRoutes(fastify) {
             for (const custId of customerIds) {
                 const convDate = affConvMap[custId];
                 if (convDate) {
-                    // Nếu không có doanh thu post-conversion → 0 đơn
                     const postRevenue = _affPostRevMap[custId] || 0;
                     if (postRevenue === 0) {
+                        const oldCount = orderCountMap[custId] || 0;
+                        totalOrders -= oldCount;
+                        orderCountMap[custId] = 0;
+                    }
+                }
+            }
+        }
+        // ★ Trang Khách: chỉ đếm đơn TRƯỚC chuyển cho KH đã convert
+        if (crm_filter === 'nhu_cau') {
+            for (const custId of customerIds) {
+                const convDate = affConvMap[custId];
+                if (convDate) {
+                    const preRevenue = _nhuCauPreRevMap[custId] || 0;
+                    // Tính lại order count dựa trên doanh thu pre-conversion
+                    // Nếu không có doanh thu pre → 0 đơn (đơn cũ đã bị filter)
+                    if (preRevenue === 0) {
                         const oldCount = orderCountMap[custId] || 0;
                         totalOrders -= oldCount;
                         orderCountMap[custId] = 0;
@@ -578,13 +614,15 @@ async function affiliateRoutes(fastify) {
 
         const result = orders
             .filter(o => {
+                const convDate = affConvMap2[o.customer_id] || null;
+                if (!convDate) return true;
+                
+                const isPreConversion = new Date(o.created_at) < new Date(convDate);
                 // ★ Trang Affiliate: loại bỏ đơn TRƯỚC ngày chuyển
-                if (crm_filter === 'ctv_hoa_hong') {
-                    const convDate = affConvMap2[o.customer_id] || null;
-                    if (convDate && new Date(o.created_at) < new Date(convDate)) {
-                        return false;
-                    }
-                }
+                if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return false;
+                // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển
+                if (crm_filter === 'nhu_cau' && !isPreConversion) return false;
+                
                 return true;
             })
             .map(o => {
