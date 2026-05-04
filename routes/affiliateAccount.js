@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage } = require('../utils/telegram');
+const { getNextWorkingDay } = require('../utils/workingDay');
 
 async function affiliateAccountRoutes(fastify, options) {
 
@@ -304,6 +305,11 @@ async function affiliateAccountRoutes(fastify, options) {
              `🔑 Đã tạo TK Affiliate — Username: ${accReq.proposed_username} — Duyệt bởi: ${user.username}`,
              user.id]
         );
+
+        // ★ Set appointment_date to next working day (skip CN, lễ, ngày NV nghỉ)
+        const vnNow = new Date(Date.now() + 7 * 3600000);
+        const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
+        await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, accReq.customer_id]);
 
         // Notification for requesting employee
         try {
