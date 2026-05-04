@@ -1635,9 +1635,9 @@ function getStatusBadge(status) {
     return `<span class="badge ${s.class}">${s.text}</span>`;
 }
 
-// Build customer code: dailyNum-day-month
+// Build customer code: dailyNum-day-month (uses effective_date for cutoff logic)
 function getCustomerCode(customer) {
-    const d = new Date(customer.created_at || customer.handover_date);
+    const d = new Date(customer.effective_date || customer.created_at || customer.handover_date);
     const yearSuffix = 'Y' + String(d.getFullYear()).slice(-2);
     return `${customer.daily_order_number || 0}-${d.getDate()}-${d.getMonth() + 1}-${yearSuffix}`;
 }

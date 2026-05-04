@@ -91,42 +91,50 @@ async function customersRoutes(fastify, options) {
         const vnTime = getVNTimeInfo();
         const todayStr = effectiveDate;
 
+        console.log('[CUTOFF DEBUG] vnTime:', JSON.stringify(vnTime), '| today:', todayStr);
+
         // Bước 1: Kiểm tra hôm nay có phải CN / Lễ / NV nghỉ không → luôn dời
         const _holidays = await getHols();
         const isSunday = vnTime.dayOfWeek === 0;
         const isHoliday = _holidays.has(todayStr);
         const isOnLeave = actualReceiverId ? await isLeave(actualReceiverId, todayStr) : false;
 
+        console.log('[CUTOFF DEBUG] isSunday:', isSunday, '| isHoliday:', isHoliday, '| isOnLeave:', isOnLeave);
+
         if (isSunday || isHoliday || isOnLeave) {
-            // Ngày không đi làm → dời sang ngày LV kế tiếp
             effectiveDate = await getNextWD(new Date(), actualReceiverId);
+            console.log('[CUTOFF DEBUG] Non-working day → effectiveDate:', effectiveDate);
         } else {
             // Bước 2: Kiểm tra giờ cutoff
-            let cutoffH = 18, cutoffM = 15; // Mặc định T2-T6: 18:15
+            let cutoffH = 18, cutoffM = 15;
             try {
                 if (vnTime.dayOfWeek === 6) {
-                    // Thứ 7
                     const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_saturday'");
+                    console.log('[CUTOFF DEBUG] Saturday cfgRow:', JSON.stringify(cfgRow));
                     const val = cfgRow?.value || '17:15';
                     const [h, m] = val.split(':').map(Number);
                     cutoffH = h; cutoffM = m;
                 } else {
-                    // T2-T6
                     const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'chuyenso_cutoff_weekday'");
+                    console.log('[CUTOFF DEBUG] Weekday cfgRow:', JSON.stringify(cfgRow));
                     const val = cfgRow?.value || '18:15';
                     const [h, m] = val.split(':').map(Number);
                     cutoffH = h; cutoffM = m;
                 }
-            } catch(e) { /* dùng mặc định */ }
+            } catch(e) { console.log('[CUTOFF DEBUG] Config error:', e.message); }
 
             const currentMinutes = vnTime.hour * 60 + vnTime.minute;
             const cutoffMinutes = cutoffH * 60 + cutoffM;
 
+            console.log('[CUTOFF DEBUG] currentMinutes:', currentMinutes, '| cutoffH:', cutoffH, '| cutoffM:', cutoffM, '| cutoffMinutes:', cutoffMinutes, '| shouldShift:', currentMinutes >= cutoffMinutes);
+
             if (currentMinutes >= cutoffMinutes) {
-                // Quá giờ cutoff → dời sang ngày LV kế tiếp
                 effectiveDate = await getNextWD(new Date(), actualReceiverId);
+                console.log('[CUTOFF DEBUG] Past cutoff → effectiveDate:', effectiveDate);
             }
         }
+
+        console.log('[CUTOFF DEBUG] FINAL effectiveDate:', effectiveDate);
 
         const [_y, _m, _d] = effectiveDate.split('-').map(Number);
         const maxNum = await db.get(
