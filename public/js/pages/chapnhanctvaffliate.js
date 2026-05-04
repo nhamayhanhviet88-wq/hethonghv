@@ -635,11 +635,11 @@ async function _cncaLoadAffAccountData() {
 
     thead.innerHTML = `<tr>
         <th>STT</th><th>Tên KH</th><th>SĐT</th><th>Username</th>
-        <th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th>Affiliate Cha</th><th>Nguồn CRM</th>
+        <th>Lý Do</th><th>NV Yêu Cầu</th><th>Ngày Tạo</th><th>Trạng Thái</th><th>Affiliate Cha</th><th>Nguồn CRM</th><th style="text-align:center">Hành Động</th>
     </tr>`;
 
     if (requests.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11"><div class="cnca-empty"><div class="icon">🔑</div><h3>Chưa có yêu cầu tạo TK Affiliate</h3></div></td></tr>`;
         return;
     }
 
@@ -670,6 +670,17 @@ async function _cncaLoadAffAccountData() {
             crmHistoryHtml = `<span style="font-size:11px;font-weight:600;"><span style="color:#6b7280;">${fromLabel}</span> <span style="color:#059669;">→</span> <span style="color:#7c3aed;">${toLabel}</span></span>`;
         }
 
+        // Hành Động
+        const isSelfRequest = r.requested_by === (currentUser?.id || 0) && currentUser?.role !== 'giam_doc';
+        const actionHtml = isPending
+            ? (isSelfRequest
+                ? '<span style="font-size:11px;color:#94a3b8;font-style:italic;">⚠️ Yêu cầu của bạn</span>'
+                : `<button class="cnca-btn cnca-btn-approve" onclick="_cncaApproveAffAcc(${r.id})">✅ Duyệt</button>
+                   <button class="cnca-btn cnca-btn-reject" onclick="_cncaRejectAffAcc(${r.id})" style="margin-left:4px;">❌</button>`)
+            : r.status === 'approved'
+                ? `<span style="font-size:11px;color:#059669;font-weight:600;">👤 ${r.created_username || '—'}</span>`
+                : `<span style="font-size:11px;color:#dc2626;" title="${(r.reject_reason||'').replace(/"/g,'&quot;')}">${r.reject_reason ? '💬 ' + r.reject_reason.substring(0,30) + (r.reject_reason.length > 30 ? '...' : '') : '—'}</span>`;
+
         return `<tr style="${isPending ? 'background:rgba(139,92,246,.04);' : ''}">
             <td style="text-align:center;font-weight:700;color:#64748b;">${i+1}</td>
             <td><span class="cnca-name-link" onclick="_cncaEditCustomer(${r.customer_id})">${r.customer_name || '—'}</span></td>
@@ -681,6 +692,7 @@ async function _cncaLoadAffAccountData() {
             <td>${statusHtml}</td>
             <td>${parentHtml}</td>
             <td>${crmHistoryHtml}</td>
+            <td style="text-align:center;white-space:nowrap;">${actionHtml}</td>
         </tr>`;
     }).join('');
 }
