@@ -1378,7 +1378,8 @@ async function openConsultModal(customerId) {
             </div>
             <div class="form-group">
                 <label id="consultChotDonApptLabel">Ngày Hẹn Làm Việc Khách <span style="color:var(--danger)">*</span></label>
-                <input type="date" id="consultSBHDate" class="form-control" min="${(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()}">
+                <input type="hidden" id="consultSBHDate">
+                <div id="consultSBHCalendarContainer"></div>
             </div>
         </div>
     `;
@@ -1404,6 +1405,11 @@ async function openConsultModal(customerId) {
         initHolidayCalendar({
             containerId: 'consultCalendarContainer',
             hiddenInputId: 'consultAppointment',
+            minDate: _todayStr
+        });
+        initHolidayCalendar({
+            containerId: 'consultSBHCalendarContainer',
+            hiddenInputId: 'consultSBHDate',
             minDate: _todayStr
         });
         onConsultTypeChange(); // trigger to show/hide correct fields
@@ -2004,6 +2010,9 @@ async function submitConsultLog(customerId) {
             formData.append('appointment_date', sbhDate);
             const chotDonNextType = document.getElementById('consultChotDonNextType')?.value;
             if (chotDonNextType) formData.append('next_consult_type', chotDonNextType);
+            if (window._consultImageBlob) {
+                formData.append('image', window._consultImageBlob, 'screenshot.png');
+            }
             const res = await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
