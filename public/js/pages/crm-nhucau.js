@@ -365,11 +365,6 @@ async function renderCRMNhuCauPage(container) {
                 <div class="stat-count" id="crmStatHuyKhach">0</div>
                 <div class="stat-label">Hủy khách</div>
             </div>
-            <div class="crm-stat-card" data-cat="cho_duyet_ctv" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;" onclick="_crmFilterByCat('cho_duyet_ctv')">
-                <div class="stat-icon">⏳</div>
-                <div class="stat-count" id="crmStatChoDuyetCtv">0</div>
-                <div class="stat-label">Chờ Duyệt CTV/Affiliate</div>
-            </div>
         </div>
         <div id="crmDateChipsArea"></div>
 
@@ -466,9 +461,6 @@ function _crmFilterByCat(cat) {
 
 
 function _crmGetCategory(c, stats) {
-    // Priority 0: ĐÓNG BĂNG — KH đang chờ duyệt CTV
-    if (_crmPendingCtvIds.includes(c.id)) return 'cho_duyet_ctv';
-
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -789,11 +781,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="openOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly || !canDo('crm_nhu_cau', 'edit') ? (
-                _crmPendingCtvIds.includes(c.id) ? `
-                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </span>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
@@ -809,11 +797,7 @@ function _crmRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : _crmPendingCtvIds.includes(c.id) ? `
-                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </button>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </button>
@@ -939,7 +923,7 @@ async function loadCrmNhuCauData() {
     _crmAllStats = stats;
 
     // Count categories
-    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0, cho_duyet_ctv: 0 };
+    const counts = { phai_xu_ly: 0, moi_chuyen: 0, da_xu_ly: 0, xu_ly_tre: 0, cho_xu_ly: 0, huy_khach: 0 };
     customers.forEach(c => { const cat = _crmGetCategory(c, stats); if (counts[cat] !== undefined) counts[cat]++; });
 
     // Update stat cards - show TOTAL counts (not monthly filtered)
@@ -949,7 +933,6 @@ async function loadCrmNhuCauData() {
     if (el('crmStatXuLyTre')) el('crmStatXuLyTre').textContent = counts.xu_ly_tre;
     if (el('crmStatChoXuLy')) el('crmStatChoXuLy').textContent = counts.cho_xu_ly;
     if (el('crmStatHuyKhach')) el('crmStatHuyKhach').textContent = counts.huy_khach;
-    if (el('crmStatChoDuyetCtv')) el('crmStatChoDuyetCtv').textContent = counts.cho_duyet_ctv;
 
     // Re-highlight active card
     document.querySelectorAll('.crm-stat-card').forEach(c => c.classList.remove('active'));
@@ -2534,10 +2517,8 @@ async function openCustomerDetail(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved && !_crmPendingCtvIds.includes(customerId) ? `
+        ${!c.cancel_requested && !c.cancel_approved ? `
             <button class="btn btn-primary" onclick="closeModal();openConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
-        ` : _crmPendingCtvIds.includes(customerId) ? `
-            <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
         ` : ''}
     `;
 

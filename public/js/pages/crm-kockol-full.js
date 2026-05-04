@@ -304,9 +304,6 @@ function _kockolFilterByCat(cat) {
 
 
 function _kockolGetCategory(c, stats) {
-    // Priority 0: ĐÓNG BĂNG — KH đang chờ duyệt CTV
-    if (_kockolPendingCtvIds.includes(c.id)) return 'cho_duyet_ctv';
-
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -619,18 +616,14 @@ function _kockolRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_koc_kol', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_kockolTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${_kockolAffApprovedIds.includes(c.id) ? (_kockolAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_kockolOpenAffiliateDetail(${_kockolAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();_kockolOpenAffiliateDetail(${_kockolAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _kockolAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 && !_kockolPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
+            ${_kockolAffApprovedIds.includes(c.id) ? (_kockolAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_kockolOpenAffiliateDetail(${_kockolAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();_kockolOpenAffiliateDetail(${_kockolAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _kockolAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_koc_kol', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_kockolOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly || !canDo('crm_koc_kol', 'edit') ? (
-                _kockolPendingCtvIds.includes(c.id) ? `
-                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </span>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
@@ -646,11 +639,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : _kockolPendingCtvIds.includes(c.id) ? `
-                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </button>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </button>
@@ -2327,11 +2316,9 @@ async function _kockolOpenCustomerDetail(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved && !_kockolPendingCtvIds.includes(customerId) ? `
+        ${!c.cancel_requested && !c.cancel_approved ? `
             <button onclick="closeModal();openAffiliateAccountPopup(${customerId});" style="padding:8px 20px;border:2px solid rgba(139,92,246,.4);background:rgba(139,92,246,.12);color:#8b5cf6;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(139,92,246,.25)'" onmouseout="this.style.background='rgba(139,92,246,.12)'">🔑 Xin Tạo TK</button>
             <button class="btn btn-primary" onclick="closeModal();_kockolOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
-        ` : _kockolPendingCtvIds.includes(customerId) ? `
-            <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
         ` : ''}
     `;
 

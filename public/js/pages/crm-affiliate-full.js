@@ -304,9 +304,6 @@ function _affFilterByCat(cat) {
 
 
 function _affGetCategory(c, stats) {
-    // Priority 0: ĐÓNG BĂNG — KH đang chờ duyệt CTV
-    if (_affPendingCtvIds.includes(c.id)) return 'cho_duyet_ctv';
-
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -619,18 +616,14 @@ function _affRenderCustomerRow(c, stats, stt) {
             ${!c.readonly && canDo('crm_affiliate', 'edit') ? `<span class="crm-pin-btn ${c.is_pinned ? 'active' : ''}" onclick="event.stopPropagation();_affTogglePin(${c.id})" title="${c.is_pinned ? 'Bỏ pin' : 'Pin khách'}">${c.is_pinned ? '📌' : '<span style="opacity:0.3">📌</span>'}</span>` : ''}
         </td>
         <td style="text-align:center;padding:4px 2px;">
-            ${_affAffApprovedIds.includes(c.id) ? (_affAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _affAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 && !_affPendingCtvIds.includes(c.id) ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
+            ${_affAffApprovedIds.includes(c.id) ? (_affAffLockedIds.includes(c.id) ? `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="TK Affiliate Đã Khóa — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑🔒</span>` : `<span onclick="event.stopPropagation();_affOpenAffiliateDetail(${_affAffApprovedMap[c.id]})" title="Đã Có TK Affiliate — Click xem" style="font-size:14px;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🔑✅</span>`) : _affAffPendingIds.includes(c.id) ? `<span title="Đang Chờ Duyệt TK Affiliate" style="font-size:14px;cursor:default;animation:emBlink 2s infinite;">🔑⏳</span>` : (!c.readonly && canDo('crm_affiliate', 'edit') && c.cancel_approved !== 1 ? `<span onclick="event.stopPropagation();openAffiliateAccountPopup(${c.id})" title="Xin Tạo TK Affiliate" style="cursor:pointer;font-size:16px;opacity:0.5;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔑</span>` : '')}
         </td>
         <td style="text-align:center;font-weight:700;color:#64748b;font-size:12px;">${stt || ''}</td>
         <td style="font-size:12px;font-weight:600;">${c.assigned_to_name || '<span style="color:var(--gray-500)">—</span>'}</td>
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_affOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly || !canDo('crm_affiliate', 'edit') ? (
-                _affPendingCtvIds.includes(c.id) ? `
-                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </span>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
@@ -646,11 +639,7 @@ function _affRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : _affPendingCtvIds.includes(c.id) ? `
-                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </button>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </button>
@@ -2317,11 +2306,9 @@ async function _affOpenCustomerDetail(customerId) {
 
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        ${!c.cancel_requested && !c.cancel_approved && !_affPendingCtvIds.includes(customerId) ? `
+        ${!c.cancel_requested && !c.cancel_approved ? `
             <button onclick="closeModal();openAffiliateAccountPopup(${customerId});" style="padding:8px 20px;border:2px solid rgba(139,92,246,.4);background:rgba(139,92,246,.12);color:#8b5cf6;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.background='rgba(139,92,246,.25)'" onmouseout="this.style.background='rgba(139,92,246,.12)'">🔑 Xin Tạo TK</button>
             <button class="btn btn-primary" onclick="closeModal();_affOpenConsultModal(${customerId});" style="width:auto;${consultBtnColor ? 'background:' + consultBtnColor + ';color:' + consultBtnTextColor + ';' : ''}">${consultBtnLabel}</button>
-        ` : _affPendingCtvIds.includes(customerId) ? `
-            <button class="btn btn-sm" disabled style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;padding:8px 20px;">⏳ Chờ Duyệt CTV/Affiliate</button>
         ` : ''}
     `;
 

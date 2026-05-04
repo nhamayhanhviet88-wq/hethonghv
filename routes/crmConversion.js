@@ -55,6 +55,21 @@ async function crmConversionRoutes(fastify, options) {
         if (legacyPending.length > 0) console.log(`[Migration] Cleaned up ${legacyPending.length} legacy pending non-CTV request(s)`);
     } catch(e) { console.error('[Migration] Legacy cleanup error:', e.message); }
 
+    // ========== MIGRATION: Auto-reject ALL remaining pending CTV requests ==========
+    // Feature "Chuyển CRM sang CTV" đã bỏ → dọn hết orphaned pending records
+    try {
+        const orphanedPending = await db.all(
+            "SELECT id, customer_id FROM crm_conversion_requests WHERE status = 'pending'"
+        );
+        for (const req of orphanedPending) {
+            await db.run(
+                "UPDATE crm_conversion_requests SET status = 'rejected', reject_reason = 'Chức năng chuyển CRM đã bỏ — tự động hủy', processed_at = NOW() WHERE id = ?",
+                [req.id]
+            );
+        }
+        if (orphanedPending.length > 0) console.log(`[Migration] Auto-rejected ${orphanedPending.length} orphaned pending CTV request(s) — feature deprecated`);
+    } catch(e) { console.error('[Migration] Orphaned CTV cleanup error:', e.message); }
+
     // ========== Helper: check if user can approve ==========
     async function canApprove(userId, userRole) {
         if (userRole === 'giam_doc') return true;
@@ -546,19 +561,15 @@ async function crmConversionRoutes(fastify, options) {
     });
 
     // ========== PENDING COUNT (for badge/polling) ==========
+    // Feature "Chuyển CRM" đã bỏ — luôn trả 0 để không còn freeze khách
     fastify.get('/api/crm-conversion/pending-count', { preHandler: [authenticate] }, async (request, reply) => {
-        // Chỉ đếm pending CTV (các CRM khác auto-approve)
-        const count = await db.get("SELECT COUNT(*) as cnt FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type = 'ctv'");
-        return { count: count?.cnt || 0 };
+        return { count: 0 };
     });
 
     // ========== PENDING CUSTOMER IDS (batch for CRM pages freeze) ==========
-    // Chỉ freeze khách chờ duyệt CTV (các CRM khác auto-approve nên không freeze)
+    // Feature "Chuyển CRM" đã bỏ — luôn trả [] để không còn freeze khách
     fastify.get('/api/crm-conversion/pending-customers', { preHandler: [authenticate] }, async (request, reply) => {
-        const rows = await db.all(
-            "SELECT customer_id, expires_at FROM crm_conversion_requests WHERE status = 'pending' AND to_crm_type = 'ctv'"
-        );
-        return { customers: rows.map(r => ({ id: r.customer_id, expires_at: r.expires_at })) };
+        return { customers: [] };
     });
 
     // Auto-expire is handled by standalone expireCtvRequests() called from deadline-checker

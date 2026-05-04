@@ -296,9 +296,6 @@ function _ctvFilterByCat(cat) {
 
 
 function _ctvGetCategory(c, stats) {
-    // Priority 0: ĐÓNG BĂNG — KH đang chờ duyệt CTV/Affiliate
-    if (_ctvPendingCtvIds.includes(c.id)) return 'cho_duyet_ctv';
-
     // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
 
@@ -615,11 +612,7 @@ function _ctvRenderCustomerRow(c, stats, stt) {
         <td style="font-size:11px;font-weight:700;color:#e65100;cursor:pointer;" onclick="_ctvOpenOrderCodesPopup(${c.id})">${s.latestOrderCode || '—'}</td>
         <td>
             ${c.readonly || !canDo('crm_ctv', 'edit') ? (
-                _ctvPendingCtvIds.includes(c.id) ? `
-                <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;opacity:0.85;cursor:not-allowed;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </span>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+                (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </span>
@@ -635,11 +628,7 @@ function _ctvRenderCustomerRow(c, stats, stt) {
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:${lastType?.color || 'var(--gray-600)'};color:${lastType?.textColor || 'white'};opacity:0.6;cursor:not-allowed;">
                     ${lastType ? lastType.icon + ' ' + lastType.label : '📋 Tư Vấn'}
                 </span>
-            `) : _ctvPendingCtvIds.includes(c.id) ? `
-                <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;cursor:not-allowed;opacity:0.85;">
-                    ⏳ Chờ Duyệt CTV/Affiliate
-                </button>
-            ` : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
+            `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
                     ⏳ Chờ Duyệt Hủy
                 </button>
