@@ -590,13 +590,14 @@ async function affiliateRoutes(fastify) {
                 
                 if (convDate) {
                     const isPreConversion = new Date(r.created_at) < new Date(convDate);
+                    const isSelfOrder = selfCustId && r.customer_id === selfCustId;
                     // Trang Affiliate: chỉ đếm đơn SAU chuyển
                     if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return;
-                    // Trang Khách: chỉ đếm đơn TRƯỚC chuyển
-                    if (crm_filter === 'nhu_cau' && !isPreConversion) return;
-                    // ★ Silent Freeze: KH gián tiếp đã chuyển → chỉ đếm đơn TRƯỚC chuyển
+                    // Trang Khách: chỉ đếm đơn TRƯỚC chuyển (NGOẠI TRỪ KH gốc)
+                    if (crm_filter === 'nhu_cau' && !isPreConversion && !isSelfOrder) return;
+                    // ★ Silent Freeze: KH gián tiếp đã chuyển → chỉ đếm đơn TRƯỚC chuyển (NGOẠI TRỪ KH gốc)
                     const cObj = filteredCustomers.find(cc => cc.id === r.customer_id);
-                    if (crm_filter !== 'ctv_hoa_hong' && cObj && cObj.referrer_id !== user.id && !isPreConversion) return;
+                    if (!isSelfOrder && crm_filter !== 'ctv_hoa_hong' && cObj && cObj.referrer_id !== user.id && !isPreConversion) return;
                 }
                 
                 if (!orderCountMap[r.customer_id]) orderCountMap[r.customer_id] = 0;
