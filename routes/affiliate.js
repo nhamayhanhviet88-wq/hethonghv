@@ -283,7 +283,7 @@ async function affiliateRoutes(fastify) {
         
         // Get user's commission tier rates from DB (NOT from JWT which doesn't have commission_tier_id)
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id, created_at FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -307,6 +307,8 @@ async function affiliateRoutes(fastify) {
                 console.log(`[Commission API] Auto-repaired source_customer_id=${selfCustId} for user ${user.id}`);
             }
         }
+        // ★ Mốc thời gian tạo TK Affiliate — đơn tự mua chỉ tính SAU ngày này
+        const selfCreatedAt = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
         // Get child affiliate IDs via assigned_to_user_id (Gán cho TK Affiliate nào?)
         const childAffiliates = await db.all(
@@ -420,6 +422,8 @@ async function affiliateRoutes(fastify) {
             allOrders.forEach(o => {
                 const cust = filteredCustomers.find(c => c.id === o.customer_id);
                 const isSelf = selfCustId && o.customer_id === selfCustId;
+                // ★ Đơn tự mua TRƯỚC khi tạo TK Affiliate → bỏ qua
+                if (isSelf && selfCreatedAt && new Date(o.order_date) < selfCreatedAt) return;
                 const isDirect = isSelf || (cust && cust.referrer_id === user.id);
                 const convDate = affConvMap[o.customer_id] || null;
                 
@@ -591,6 +595,8 @@ async function affiliateRoutes(fastify) {
                 if (convDate) {
                     const isPreConversion = new Date(r.created_at) < new Date(convDate);
                     const isSelfOrder = selfCustId && r.customer_id === selfCustId;
+                    // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
+                    if (isSelfOrder && selfCreatedAt && new Date(r.created_at) < selfCreatedAt) return;
                     // Trang Affiliate: chỉ đếm đơn SAU chuyển
                     if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return;
                     // Trang Khách: chỉ đếm đơn TRƯỚC chuyển (NGOẠI TRỪ KH gốc)
@@ -610,7 +616,7 @@ async function affiliateRoutes(fastify) {
 
         // Include filter diagnostic in response
         const crmTypesFound = [...new Set(customers.map(c => c.crm_type))];
-        return { success: true, items, totalCommission, referrerNames, totalOrders, crm_filter_applied: crm_filter || null, crm_types_found: crmTypesFound };
+        return { success: true, items, totalCommission, referrerNames, totalOrders, crm_filter_applied: crm_filter || null, crm_types_found: crmTypesFound, selfCreatedAt: selfCreatedAt?.toISOString() || null };
     });
 
     // All orders popup — single API for "Tổng Đơn Đặt Hàng" detail
@@ -620,7 +626,7 @@ async function affiliateRoutes(fastify) {
 
         // Get commission rates
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id, created_at FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -635,6 +641,7 @@ async function affiliateRoutes(fastify) {
             const fb2 = await db.get(`SELECT customer_id FROM affiliate_account_requests WHERE created_user_id = ? AND status = 'approved' LIMIT 1`, [user.id]);
             if (fb2?.customer_id) selfCustId2 = fb2.customer_id;
         }
+        const selfCreatedAt2 = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
         // Get child affiliates
         const childAffiliates = await db.all(
@@ -715,6 +722,8 @@ async function affiliateRoutes(fastify) {
                 if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return false;
                 // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển (NGOẠI TRỪ KH gốc)
                 const isSelfOrd = selfCustId2 && o.customer_id === selfCustId2;
+                // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
+                if (isSelfOrd && selfCreatedAt2 && new Date(o.created_at) < selfCreatedAt2) return false;
                 if (crm_filter === 'nhu_cau' && !isPreConversion && !isSelfOrd) return false;
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → loại bỏ đơn SAU ngày chuyển
                 const cust2 = custMap[o.customer_id];
@@ -760,7 +769,7 @@ async function affiliateRoutes(fastify) {
         
         // Calculate total commission (reuse commission logic)
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id, bank_name, bank_account, bank_holder, full_name FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id, created_at, bank_name, bank_account, bank_holder, full_name FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -775,6 +784,7 @@ async function affiliateRoutes(fastify) {
             const fbB = await db.get(`SELECT customer_id FROM affiliate_account_requests WHERE created_user_id = ? AND status = 'approved' LIMIT 1`, [user.id]);
             if (fbB?.customer_id) selfCustIdB = fbB.customer_id;
         }
+        const selfCreatedAtB = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
         // Get child affiliates
         const childAffiliates = await db.all(
@@ -812,6 +822,8 @@ async function affiliateRoutes(fastify) {
             orderRows.forEach(r => {
                 const cust = filteredCustB.find(c => c.id === r.customer_id);
                 const isSelfB = selfCustIdB && r.customer_id === selfCustIdB;
+                // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
+                if (isSelfB && selfCreatedAtB && new Date(r.order_date) < selfCreatedAtB) return;
                 const isDirect = isSelfB || (cust && cust.referrer_id === user.id);
                 const convDate = affConvMapB[r.customer_id] || null;
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → chỉ tính đơn TRƯỚC chuyển

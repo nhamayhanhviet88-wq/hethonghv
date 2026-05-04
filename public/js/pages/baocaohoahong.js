@@ -73,6 +73,11 @@ async function hhViewOrders(customerId, customerName) {
         const crmFilter = window._hhCrmFilter || '';
         const isSelfCustomer = hhItem && hhItem.is_self;
         const isConverted = !isSelfCustomer && hhItem && (hhItem.is_converted_to_affiliate || hhItem.is_silently_frozen);
+        // ★ KH gốc: chỉ hiện đơn SAU ngày tạo TK Affiliate
+        if (isSelfCustomer && window._hhData?.selfCreatedAt) {
+            const selfDate = new Date(window._hhData.selfCreatedAt);
+            codes = codes.filter(c => new Date(c.created_at) >= selfDate);
+        }
         if (isConverted) {
             try {
                 const convRes = await apiCall('/api/customers/' + customerId + '/conversion-date');
