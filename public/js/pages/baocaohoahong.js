@@ -68,9 +68,11 @@ async function hhViewOrders(customerId, customerName) {
         // - Trang Khách (nhu_cau): chỉ hiện đơn TRƯỚC ngày chuyển
         // - Trang Affiliate (ctv_hoa_hong): chỉ hiện đơn SAU ngày chuyển
         // - Trang khác (Báo Cáo HH HV): áp dụng freeze cho khách gián tiếp
+        // ★ NGOẠI TRỪ: KH gốc (is_self) → hiện TẤT CẢ đơn (không split)
         const hhItem = (window._hhData?.items || []).find(i => i.id === customerId);
         const crmFilter = window._hhCrmFilter || '';
-        const isConverted = hhItem && (hhItem.is_converted_to_affiliate || hhItem.is_silently_frozen);
+        const isSelfCustomer = hhItem && hhItem.is_self;
+        const isConverted = !isSelfCustomer && hhItem && (hhItem.is_converted_to_affiliate || hhItem.is_silently_frozen);
         if (isConverted) {
             try {
                 const convRes = await apiCall('/api/customers/' + customerId + '/conversion-date');
