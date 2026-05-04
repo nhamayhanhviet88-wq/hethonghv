@@ -2,6 +2,11 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const AFFILIATE_ROLES = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
+// ★ CHUẨN HÓA: Luôn dùng helper này để lấy customers trong mọi API affiliate
+// → Đảm bảo KHÔNG BAO GIỜ thiếu field (crm_type, referrer_id, etc.)
+const _AFF_CUST_FIELDS = 'c.id, c.customer_name, c.phone, c.referrer_id, c.crm_type, c.cancel_approved, c.appointment_date, c.created_at, c.assigned_to_id, c.order_status';
+const _AFF_CUST_FIELDS_LIGHT = 'c.id, c.customer_name, c.referrer_id, c.crm_type'; // Cho API nhẹ (all-orders, balance)
+
 // ★ Helper: lấy ngày chuyển CRM sang Affiliate cho các KH
 // Trả về Map { customerId: 'YYYY-MM-DD HH:MM:SS' }
 async function _getAffConversionMap(db, customerIds) {
@@ -32,6 +37,17 @@ function _calcOrderRate(isDirect, directRate, parentRate, orderDate, conversionD
     // Không có conversion record nhưng KH đã ở Affiliate (legacy) → 5%
     if (customerCrmType === 'ctv_hoa_hong') return parentRate;
     return directRate; // Chưa chuyển → 10%
+}
+
+// ★ CHUẨN HÓA: Loại KH gián tiếp "sinh ra đã là affiliate" (cháu) khỏi danh sách
+// Quy tắc: !isDirect + crm_type=ctv_hoa_hong + KHÔNG có convDate → LOẠI
+// Dùng helper này cho MỌI API → không bao giờ lọt cháu vào dashboard ông
+function _excludeBornAsAffiliateIndirect(customers, userId, affConvMap) {
+    return customers.filter(c => {
+        const isDirect = c.referrer_id === userId;
+        if (!isDirect && c.crm_type === 'ctv_hoa_hong' && !affConvMap[c.id]) return false;
+        return true;
+    });
 }
 
 // Helper: parse period_type + value into dateFrom/dateTo
@@ -265,7 +281,7 @@ async function affiliateRoutes(fastify) {
         
         // Get user's commission tier rates from DB (NOT from JWT which doesn't have commission_tier_id)
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -273,6 +289,9 @@ async function affiliateRoutes(fastify) {
                 parentRate = (tier.parent_percentage || 5) / 100;
             }
         }
+
+        // ★ KH gốc (chính bản thân affiliate) — hưởng directRate cho đơn của mình
+        const selfCustId = freshUser?.source_customer_id || null;
 
         // Get child affiliate IDs via assigned_to_user_id (Gán cho TK Affiliate nào?)
         const childAffiliates = await db.all(
@@ -289,12 +308,14 @@ async function affiliateRoutes(fastify) {
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
         // ★ nhu_cau filter: cũng bao gồm KH đã chuyển sang ctv_hoa_hong (có conversion record từ nhu_cau)
+        // ★ Thêm KH gốc (source_customer_id) để tính HH cho đơn của chính mình
         let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
                    c.cancel_requested, c.cancel_approved, c.crm_type
             FROM customers c
-            WHERE c.referrer_id IN (${ph})`;
+            WHERE (c.referrer_id IN (${ph})${selfCustId ? ' OR c.id = ?' : ''})`;
         const custParams = [...allIds];
+        if (selfCustId) custParams.push(selfCustId);
         if (crm_filter === 'nhu_cau') {
             // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong (approved hoặc pending)
             custQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
@@ -355,26 +376,30 @@ async function affiliateRoutes(fastify) {
             logs.forEach(l => { consultMap[l.customer_id] = l; });
         }
 
-        // ★ Lấy ngày chuyển Affiliate cho các KH trực tiếp (để split rate per-order)
-        const directCustIds = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
-        const affConvMap = await _getAffConversionMap(db, directCustIds);
+        // ★ Lấy ngày chuyển Affiliate cho TẤT CẢ KH (cả gián tiếp) để split rate + silent freeze
+        const affConvMap = await _getAffConversionMap(db, customerIds);
+
+        // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate" → không bao giờ lọt vào dashboard ông
+        const filteredCustomers = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap);
+        const filteredIds = filteredCustomers.map(c => c.id);
 
         // ★ Tính commission per-order (split trước/sau chuyển CRM)
         let perOrderCommMap = {}; // { customerId: { commission, displayRate } }
         let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
         let _nhuCauPreRevMap = {}; // Doanh thu pre-conversion cho trang Khách
-        if (customerIds.length > 0) {
-            const cphOrd2 = customerIds.map(() => '?').join(',');
+        if (filteredIds.length > 0) {
+            const cphOrd2 = filteredIds.map(() => '?').join(',');
             const allOrders = await db.all(`
                 SELECT oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cphOrd2}) AND oc.status = 'completed'
                 GROUP BY oc.id, oc.customer_id, oc.created_at
-            `, customerIds);
+            `, filteredIds);
             allOrders.forEach(o => {
-                const cust = customers.find(c => c.id === o.customer_id);
-                const isDirect = cust && cust.referrer_id === user.id;
+                const cust = filteredCustomers.find(c => c.id === o.customer_id);
+                const isSelf = selfCustId && o.customer_id === selfCustId;
+                const isDirect = isSelf || (cust && cust.referrer_id === user.id);
                 const convDate = affConvMap[o.customer_id] || null;
                 
                 const isPreConversion = convDate && new Date(o.order_date) < new Date(convDate);
@@ -388,8 +413,15 @@ async function affiliateRoutes(fastify) {
                 if (crm_filter === 'nhu_cau' && isPostConversion) {
                     return;
                 }
+                // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → chỉ tính đơn TRƯỚC ngày chuyển
+                const custObj = filteredCustomers.find(cc => cc.id === o.customer_id);
+                const isIndirectFrozen = custObj && custObj.referrer_id !== user.id && convDate;
+                if (crm_filter !== 'ctv_hoa_hong' && isIndirectFrozen && !isPreConversion) {
+                    return;
+                }
                 
-                const rate = _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate, cust?.crm_type);
+                // ★ KH gốc (chính mình) → luôn directRate (10%)
+                const rate = isSelf ? directRate : _calcOrderRate(isDirect, directRate, parentRate, o.order_date, convDate, cust?.crm_type);
                 if (!perOrderCommMap[o.customer_id]) perOrderCommMap[o.customer_id] = { commission: 0, hasConversion: !!convDate };
                 perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
                 
@@ -427,17 +459,21 @@ async function affiliateRoutes(fastify) {
         }
 
         let totalCommission = 0;
-        const items = customers.map(c => {
-            const isDirect = c.referrer_id === user.id;
+        const items = await Promise.all(filteredCustomers.map(async c => {
+            const isSelf = selfCustId && c.id === selfCustId;
+            const isDirect = isSelf || c.referrer_id === user.id;
             const convDate = affConvMap[c.id] || null;
-            const baseRate = isDirect ? directRate : parentRate;
+            const baseRate = isSelf ? directRate : (isDirect ? directRate : parentRate);
             const completedRevenue = completedRevenueMap[c.id] || 0;
             const commission = perOrderCommMap[c.id]?.commission || 0;
             // ★ displayRate: phụ thuộc vào trang đang xem
             // - Trang Affiliate (ctv_hoa_hong): luôn hiện tỷ lệ hiện hành (parentRate = 5%)
             // - Trang Khách (nhu_cau): hiện tỷ lệ thực tế từ commission/revenue
             let displayRate;
-            if (crm_filter === 'ctv_hoa_hong') {
+            if (isSelf) {
+                // ★ KH gốc (chính mình) → luôn directRate (10%)
+                displayRate = directRate;
+            } else if (crm_filter === 'ctv_hoa_hong') {
                 // Trang Affiliate → tỷ lệ hiện tại
                 displayRate = isDirect ? parentRate : parentRate;
             } else if (completedRevenue > 0) {
@@ -447,11 +483,10 @@ async function affiliateRoutes(fastify) {
                 // Chưa có doanh thu → hiện tỷ lệ mặc định
                 displayRate = (isDirect && (convDate || c.crm_type === 'ctv_hoa_hong')) ? parentRate : baseRate;
             }
-            totalCommission += commission;
             
-            // Mask phone for child referrals
+            // Mask phone for child referrals (not for self)
             let displayPhone = c.phone;
-            if (!isDirect && c.phone && c.phone.length >= 4) {
+            if (!isDirect && !isSelf && c.phone && c.phone.length >= 4) {
                 displayPhone = c.phone.substring(0, 2) + 'xx xxx xx' + c.phone.substring(c.phone.length - 1);
             }
 
@@ -461,22 +496,52 @@ async function affiliateRoutes(fastify) {
             // ★ Flag: KH đã chuyển từ nhu_cau sang ctv_hoa_hong
             const isConverted = (c.crm_type === 'ctv_hoa_hong' && (!!convDate || !!perOrderCommMap[c.id]?.hasConversion));
 
+            // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → đóng băng dữ liệu tại thời điểm chuyển
+            // Affiliate cha (ông) sẽ thấy bình thường nhưng dữ liệu không cập nhật
+            const isSilentlyFrozen = !isDirect && !isSelf && !!convDate && crm_filter !== 'ctv_hoa_hong';
+
+            // Nếu frozen: lấy log tư vấn TRƯỚC ngày chuyển (không hiện hoạt động sau)
+            let frozenLog = lastLog;
+            let frozenContactDate = lastContactDate;
+            let frozenAppointmentDate = c.appointment_date || null;
+            if (isSilentlyFrozen && convDate) {
+                // Tìm log cuối cùng TRƯỚC ngày chuyển
+                const preConvLogs = await db.all(`
+                    SELECT log_type, content, created_at FROM consultation_logs
+                    WHERE customer_id = ? AND created_at < ?
+                    ORDER BY created_at DESC, id DESC LIMIT 1
+                `, [c.id, convDate]);
+                if (preConvLogs.length > 0) {
+                    frozenLog = preConvLogs[0];
+                    frozenContactDate = preConvLogs[0].created_at;
+                }
+                // Ngày hẹn: nếu sau ngày chuyển thì ẩn
+                if (frozenAppointmentDate && new Date(frozenAppointmentDate) > new Date(convDate)) {
+                    frozenAppointmentDate = null;
+                }
+            }
+
             return {
                 ...c,
                 phone: displayPhone,
                 is_direct: isDirect,
+                is_self: isSelf,
                 rate: Math.round(displayRate * 100 * 10) / 10,
                 total_revenue: totalRevenueMap[c.id] || 0,
                 completed_revenue: completedRevenue,
                 commission,
                 is_converted_to_affiliate: isConverted,
-                referrer_name: isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con'),
-                last_log_type: lastLog?.log_type || null,
-                last_log_content: lastLog?.content || null,
-                last_contact_date: lastContactDate,
-                appointment_date: c.appointment_date || null
+                is_silently_frozen: isSilentlyFrozen,
+                referrer_name: isSelf ? 'Đơn Của Tôi' : (isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con')),
+                last_log_type: frozenLog?.log_type || null,
+                last_log_content: frozenLog?.content || null,
+                last_contact_date: frozenContactDate,
+                appointment_date: frozenAppointmentDate
             };
-        });
+        }));
+
+        // Tính tổng commission sau khi resolve tất cả
+        items.forEach(item => { totalCommission += item.commission; });
 
         // Sort by last_contact_date DESC (most recent first)
         items.sort((a, b) => new Date(b.last_contact_date) - new Date(a.last_contact_date));
@@ -487,8 +552,8 @@ async function affiliateRoutes(fastify) {
         // Count orders per customer + total (date-aware for converted customers)
         let orderCountMap = {};
         let totalOrders = 0;
-        if (customerIds.length > 0) {
-            const cphOrd = customerIds.map(() => '?').join(',');
+        if (filteredIds.length > 0) {
+            const cphOrd = filteredIds.map(() => '?').join(',');
             // ★ Query từng đơn với ngày tạo để filter theo conversion date
             const ordRows = await db.all(`
                 SELECT DISTINCT oc.id, oc.created_at, oi.customer_id
@@ -496,7 +561,7 @@ async function affiliateRoutes(fastify) {
                 LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
                 WHERE oi.customer_id IN (${cphOrd})
                 AND (oc.status IS NULL OR oc.status != 'cancelled')
-            `, customerIds);
+            `, filteredIds);
             ordRows.forEach(r => {
                 const convDate = affConvMap[r.customer_id] || null;
                 
@@ -506,6 +571,9 @@ async function affiliateRoutes(fastify) {
                     if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return;
                     // Trang Khách: chỉ đếm đơn TRƯỚC chuyển
                     if (crm_filter === 'nhu_cau' && !isPreConversion) return;
+                    // ★ Silent Freeze: KH gián tiếp đã chuyển → chỉ đếm đơn TRƯỚC chuyển
+                    const cObj = filteredCustomers.find(cc => cc.id === r.customer_id);
+                    if (crm_filter !== 'ctv_hoa_hong' && cObj && cObj.referrer_id !== user.id && !isPreConversion) return;
                 }
                 
                 if (!orderCountMap[r.customer_id]) orderCountMap[r.customer_id] = 0;
@@ -528,7 +596,7 @@ async function affiliateRoutes(fastify) {
 
         // Get commission rates
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -536,6 +604,9 @@ async function affiliateRoutes(fastify) {
                 parentRate = (tier.parent_percentage || 5) / 100;
             }
         }
+
+        // ★ KH gốc (chính bản thân affiliate)
+        const selfCustId2 = freshUser?.source_customer_id || null;
 
         // Get child affiliates
         const childAffiliates = await db.all(
@@ -550,12 +621,13 @@ async function affiliateRoutes(fastify) {
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
-        // ★ Cùng logic filter đặc biệt với main API
+        // ★ Cùng logic filter đặc biệt với main API + thêm KH gốc
         let allCustQuery = `
-            SELECT c.id, c.customer_name, c.referrer_id
+            SELECT ${_AFF_CUST_FIELDS_LIGHT}
             FROM customers c
-            WHERE c.referrer_id IN (${ph})`;
+            WHERE (c.referrer_id IN (${ph})${selfCustId2 ? ' OR c.id = ?' : ''})`;
         const allCustParams = [...allIds];
+        if (selfCustId2) allCustParams.push(selfCustId2);
         if (crm_filter === 'nhu_cau') {
             // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong
             allCustQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
@@ -572,7 +644,17 @@ async function affiliateRoutes(fastify) {
         }
 
         const customerIds = customers.map(c => c.id);
-        const cph = customerIds.map(() => '?').join(',');
+
+        // ★ Lấy ngày chuyển Affiliate cho TẤT CẢ KH (cả gián tiếp) — silent freeze
+        const affConvMap2 = await _getAffConversionMap(db, customerIds);
+
+        // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate"
+        const filteredCust2 = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMap2);
+        if (filteredCust2.length === 0) {
+            return { success: true, orders: [] };
+        }
+        const filteredIds2 = filteredCust2.map(c => c.id);
+        const cph = filteredIds2.map(() => '?').join(',');
 
         // Get all non-cancelled orders with revenue
         const orders = await db.all(`
@@ -584,15 +666,11 @@ async function affiliateRoutes(fastify) {
             AND (oc.status IS NULL OR oc.status != 'cancelled')
             GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oi.customer_id
             ORDER BY oc.created_at DESC
-        `, customerIds);
+        `, filteredIds2);
 
         // Build customer map and referrer name map
         const custMap = {};
-        customers.forEach(c => { custMap[c.id] = c; });
-
-        // ★ Lấy ngày chuyển Affiliate
-        const directCustIds2 = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
-        const affConvMap2 = await _getAffConversionMap(db, directCustIds2);
+        filteredCust2.forEach(c => { custMap[c.id] = c; });
 
         const result = orders
             .filter(o => {
@@ -604,19 +682,26 @@ async function affiliateRoutes(fastify) {
                 if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return false;
                 // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển
                 if (crm_filter === 'nhu_cau' && !isPreConversion) return false;
+                // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → loại bỏ đơn SAU ngày chuyển
+                const cust2 = custMap[o.customer_id];
+                const isSelfOrder = selfCustId2 && o.customer_id === selfCustId2;
+                if (!isSelfOrder && crm_filter !== 'ctv_hoa_hong' && cust2 && cust2.referrer_id !== user.id && !isPreConversion) return false;
                 
                 return true;
             })
             .map(o => {
             const cust = custMap[o.customer_id] || {};
-            const isDirect = cust.referrer_id === user.id;
+            const isSelf = selfCustId2 && o.customer_id === selfCustId2;
+            const isDirect = isSelf || cust.referrer_id === user.id;
             const convDate = affConvMap2[o.customer_id] || null;
-            const rate = _calcOrderRate(isDirect, directRate, parentRate, o.created_at, convDate, cust?.crm_type);
+            const rate = isSelf ? directRate : _calcOrderRate(isDirect, directRate, parentRate, o.created_at, convDate, cust?.crm_type);
             const revenue = Number(o.revenue) || 0;
             const commission = o.status === 'completed' ? Math.round(revenue * rate) : 0;
-            const referrerName = isDirect
-                ? 'Trực tiếp'
-                : (childAffiliates.find(a => a.id === cust.referrer_id)?.full_name || 'Gián tiếp');
+            const referrerName = isSelf
+                ? 'Đơn Của Tôi'
+                : (isDirect
+                    ? 'Trực tiếp'
+                    : (childAffiliates.find(a => a.id === cust.referrer_id)?.full_name || 'Gián tiếp'));
 
             return {
                 order_code: o.order_code,
@@ -625,6 +710,7 @@ async function affiliateRoutes(fastify) {
                 customer_name: cust.customer_name || '',
                 referrer_name: referrerName,
                 is_direct: isDirect,
+                is_self: isSelf,
                 rate: rate * 100,
                 revenue,
                 commission
@@ -640,7 +726,7 @@ async function affiliateRoutes(fastify) {
         
         // Calculate total commission (reuse commission logic)
         let directRate = 0.10, parentRate = 0.05;
-        const freshUser = await db.get('SELECT commission_tier_id, bank_name, bank_account, bank_holder, full_name FROM users WHERE id = ?', [user.id]);
+        const freshUser = await db.get('SELECT commission_tier_id, source_customer_id, bank_name, bank_account, bank_holder, full_name FROM users WHERE id = ?', [user.id]);
         if (freshUser && freshUser.commission_tier_id) {
             const tier = await db.get('SELECT percentage, parent_percentage FROM commission_tiers WHERE id = ?', [freshUser.commission_tier_id]);
             if (tier) {
@@ -648,6 +734,9 @@ async function affiliateRoutes(fastify) {
                 parentRate = (tier.parent_percentage || 5) / 100;
             }
         }
+
+        // ★ KH gốc (chính bản thân affiliate)
+        const selfCustIdB = freshUser?.source_customer_id || null;
 
         // Get child affiliates
         const childAffiliates = await db.all(
@@ -658,31 +747,42 @@ async function affiliateRoutes(fastify) {
         const allIds = [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
 
-        // Get customers
-        const customers = await db.all(`SELECT c.id, c.referrer_id, c.crm_type FROM customers c WHERE c.referrer_id IN (${ph})`, allIds);
+        // Get customers (including self)
+        let balCustQuery = `SELECT ${_AFF_CUST_FIELDS_LIGHT} FROM customers c WHERE (c.referrer_id IN (${ph})${selfCustIdB ? ' OR c.id = ?' : ''})`;
+        const balCustParams = [...allIds];
+        if (selfCustIdB) balCustParams.push(selfCustIdB);
+        const customers = await db.all(balCustQuery, balCustParams);
         const customerIds = customers.map(c => c.id);
 
         // ★ Get completed revenue — per-order split (trước/sau chuyển CRM)
-        const directCustIdsB = customers.filter(c => c.referrer_id === user.id).map(c => c.id);
-        const affConvMapB = await _getAffConversionMap(db, directCustIdsB);
+        const affConvMapB = await _getAffConversionMap(db, customerIds);
+
+        // ★ CHUẨN HÓA: Loại "cháu sinh ra đã là affiliate"
+        const filteredCustB = _excludeBornAsAffiliateIndirect(customers, user.id, affConvMapB);
+        const filteredIdsB = filteredCustB.map(c => c.id);
+
         let totalCommission = 0;
-        if (customerIds.length > 0) {
-            const cph = customerIds.map(() => '?').join(',');
+        if (filteredIdsB.length > 0) {
+            const cph = filteredIdsB.map(() => '?').join(',');
             const orderRows = await db.all(`
                 SELECT oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
                 GROUP BY oc.id, oc.customer_id, oc.created_at
-            `, customerIds);
+            `, filteredIdsB);
             orderRows.forEach(r => {
-                const cust = customers.find(c => c.id === r.customer_id);
-                const isDirect = cust && cust.referrer_id === user.id;
-                // ★ Bỏ qua hoa hồng gián tiếp từ khách affiliate (ctv_hoa_hong)
-                // → Affiliate cha không hưởng HH trên khách affiliate của con
-                if (!isDirect && cust?.crm_type === 'ctv_hoa_hong') return;
+                const cust = filteredCustB.find(c => c.id === r.customer_id);
+                const isSelfB = selfCustIdB && r.customer_id === selfCustIdB;
+                const isDirect = isSelfB || (cust && cust.referrer_id === user.id);
                 const convDate = affConvMapB[r.customer_id] || null;
-                const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
+                // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → chỉ tính đơn TRƯỚC chuyển
+                if (!isDirect && !isSelfB && cust?.crm_type === 'ctv_hoa_hong') {
+                    if (!convDate) return;
+                    const isPreConversion = new Date(r.order_date) < new Date(convDate);
+                    if (!isPreConversion) return;
+                }
+                const rate = isSelfB ? directRate : _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
                 totalCommission += Math.round(Number(r.revenue) * rate);
             });
         }
@@ -751,16 +851,18 @@ async function affiliateRoutes(fastify) {
                 const allIds = [aff.id, ...childIds];
                 const ph = allIds.map(() => '?').join(',');
 
-                const customers = await db.all(`SELECT c.id, c.referrer_id, c.crm_type FROM customers c WHERE c.referrer_id IN (${ph})`, allIds);
+                const customers = await db.all(`SELECT ${_AFF_CUST_FIELDS_LIGHT} FROM customers c WHERE c.referrer_id IN (${ph})`, allIds);
                 const customerIds = customers.map(c => c.id);
 
                 let totalCommission = 0;
                 let affFilteredCommission = 0;
                 // ★ Per-order split (trước/sau chuyển CRM)
-                const directCustIdsS = customers.filter(c => c.referrer_id === aff.id).map(c => c.id);
-                const affConvMapS = await _getAffConversionMap(db, directCustIdsS);
-                if (customerIds.length > 0) {
-                    const cph = customerIds.map(() => '?').join(',');
+                // ★ CHUẨN HÓA: convMap cho TẤT CẢ KH + loại cháu born-as-affiliate
+                const affConvMapS = await _getAffConversionMap(db, customerIds);
+                const filteredCustS = _excludeBornAsAffiliateIndirect(customers, aff.id, affConvMapS);
+                const filteredIdsS = filteredCustS.map(c => c.id);
+                if (filteredIdsS.length > 0) {
+                    const cph = filteredIdsS.map(() => '?').join(',');
                     // All-time commission — per-order
                     const orderRowsS = await db.all(`
                         SELECT oc.customer_id, oc.created_at as order_date,
@@ -768,9 +870,9 @@ async function affiliateRoutes(fastify) {
                         FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                         WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
                         GROUP BY oc.id, oc.customer_id, oc.created_at
-                    `, customerIds);
+                    `, filteredIdsS);
                     orderRowsS.forEach(r => {
-                        const cust = customers.find(c => c.id === r.customer_id);
+                        const cust = filteredCustS.find(c => c.id === r.customer_id);
                         const isDirect = cust && cust.referrer_id === aff.id;
                         const convDate = affConvMapS[r.customer_id] || null;
                         const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
@@ -786,9 +888,9 @@ async function affiliateRoutes(fastify) {
                             WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
                             AND oc.created_at >= ? AND oc.created_at <= ?
                             GROUP BY oc.id, oc.customer_id, oc.created_at
-                        `, [...customerIds, dateFrom, dateTo + ' 23:59:59']);
+                        `, [...filteredIdsS, dateFrom, dateTo + ' 23:59:59']);
                         filteredRowsS.forEach(r => {
-                            const cust = customers.find(c => c.id === r.customer_id);
+                            const cust = filteredCustS.find(c => c.id === r.customer_id);
                             const isDirect = cust && cust.referrer_id === aff.id;
                             const convDate = affConvMapS[r.customer_id] || null;
                             const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
@@ -852,31 +954,35 @@ async function affiliateRoutes(fastify) {
 
         const orders = [];
         if (customerIds.length > 0) {
-            const cph = customerIds.map(() => '?').join(',');
-            const rows = await db.all(`
-                SELECT oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at,
-                       COALESCE(SUM(oi.total), 0) as revenue
-                FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
-                GROUP BY oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at
-                ORDER BY oc.created_at DESC
-            `, customerIds);
-            // ★ Lấy ngày chuyển Affiliate
-            const directCustIdsA = customers.filter(c => c.referrer_id === aff.id).map(c => c.id);
-            const affConvMapA = await _getAffConversionMap(db, directCustIdsA);
-            rows.forEach(r => {
-                const cust = customers.find(c => c.id === r.customer_id);
-                const isDirect = cust && cust.referrer_id === aff.id;
-                const convDate = affConvMapA[r.customer_id] || null;
-                const rate = _calcOrderRate(isDirect, directRate, parentRate, r.created_at, convDate, cust?.crm_type);
-                const nvName = cust?.assigned_to_id ? (nvMap[cust.assigned_to_id] || '—') : '—';
-                orders.push({
-                    order_code: r.order_code, customer_name: cust?.customer_name || '-',
-                    nv_quan_ly: nvName,
-                    revenue: Number(r.revenue), rate: rate * 100, commission: Math.round(Number(r.revenue) * rate),
-                    type: isDirect ? 'Trực tiếp' : 'Gián tiếp', completed_at: r.created_at
+            // ★ CHUẨN HÓA: convMap cho TẤT CẢ KH + loại cháu born-as-affiliate
+            const affConvMapA = await _getAffConversionMap(db, customerIds);
+            const filteredCustA = _excludeBornAsAffiliateIndirect(customers, aff.id, affConvMapA);
+            const filteredIdsA = filteredCustA.map(c => c.id);
+
+            if (filteredIdsA.length > 0) {
+                const cph = filteredIdsA.map(() => '?').join(',');
+                const rows = await db.all(`
+                    SELECT oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at,
+                           COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
+                    GROUP BY oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at
+                    ORDER BY oc.created_at DESC
+                `, filteredIdsA);
+                rows.forEach(r => {
+                    const cust = filteredCustA.find(c => c.id === r.customer_id);
+                    const isDirect = cust && cust.referrer_id === aff.id;
+                    const convDate = affConvMapA[r.customer_id] || null;
+                    const rate = _calcOrderRate(isDirect, directRate, parentRate, r.created_at, convDate, cust?.crm_type);
+                    const nvName = cust?.assigned_to_id ? (nvMap[cust.assigned_to_id] || '—') : '—';
+                    orders.push({
+                        order_code: r.order_code, customer_name: cust?.customer_name || '-',
+                        nv_quan_ly: nvName,
+                        revenue: Number(r.revenue), rate: rate * 100, commission: Math.round(Number(r.revenue) * rate),
+                        type: isDirect ? 'Trực tiếp' : 'Gián tiếp', completed_at: r.created_at
+                    });
                 });
-            });
+            }
         }
 
         return { success: true, name: aff.full_name, orders };

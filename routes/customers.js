@@ -556,6 +556,18 @@ async function customersRoutes(fastify, options) {
         return { success: true, message: 'Đã hủy đơn!' };
     });
 
+    // ★ Lấy ngày chuyển CRM sang Affiliate cho 1 KH (dùng cho Silent Freeze)
+    fastify.get('/api/customers/:id/conversion-date', { preHandler: [authenticate] }, async (request, reply) => {
+        const custId = Number(request.params.id);
+        const row = await db.get(`
+            SELECT COALESCE(processed_at, created_at) as conv_date
+            FROM crm_conversion_requests
+            WHERE customer_id = ? AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
+            ORDER BY created_at ASC LIMIT 1
+        `, [custId]);
+        return { conv_date: row?.conv_date || null };
+    });
+
     fastify.get('/api/customers/:id/order-codes', { preHandler: [authenticate] }, async (request, reply) => {
         const custId = Number(request.params.id);
         const codes = await db.all(

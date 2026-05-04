@@ -231,9 +231,11 @@ function _hvRenderOrderTable(orders) {
         if (tableWrap) tableWrap.style.display = 'none';
         mobileList.style.display = 'flex';
         mobileList.innerHTML = page.map(function(o) {
-            var refLabel = o.is_direct 
+            var refLabel = o.is_self 
+                ? '<span style="color:#f59e0b;font-size:11px;">🏠 Đơn Của Tôi</span>' 
+                : (o.is_direct 
                 ? '<span style="color:#10b981;font-size:11px;">🎯 Trực tiếp</span>' 
-                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(o.referrer_name||'-')+'</span>';
+                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(o.referrer_name||'-')+'</span>');
             var date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '';
             return '<div class="hv-m-card">' +
                 '<div class="hv-m-left">' +
@@ -251,7 +253,7 @@ function _hvRenderOrderTable(orders) {
         if (mobileList) mobileList.style.display = 'none';
         tbody.innerHTML = page.map(function(o, i) {
             var idx = start+i+1;
-            var refLabel = o.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(o.referrer_name||'-')+'</span>';
+            var refLabel = o.is_self ? '<span style="color:#f59e0b;font-weight:600;">🏠 Đơn Của Tôi</span>' : (o.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(o.referrer_name||'-')+'</span>');
             var date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
             return '<tr style="border-bottom:1px solid #f1f5f9;">' +
                 '<td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">' + idx + '</td>' +
@@ -346,9 +348,11 @@ function _hvRenderTable(items) {
             var srcBadge = item._src==='affiliate' 
                 ? '<span class="hv-m-badge hv-m-badge-aff">AFF</span>'
                 : '<span class="hv-m-badge hv-m-badge-kh">KH</span>';
-            var refLabel = item.is_direct 
+            var refLabel = item.is_self 
+                ? '<span style="color:#f59e0b;font-size:11px;">🏠 Đơn Của Tôi</span>' 
+                : (item.is_direct 
                 ? '<span style="color:#10b981;font-size:11px;">🎯 Trực tiếp</span>' 
-                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(item.referrer_name||'-')+'</span>';
+                : '<span style="color:#8b5cf6;font-size:11px;">👥 '+(item.referrer_name||'-')+'</span>');
             return '<div class="hv-m-card">' +
                 '<div class="hv-m-left">' +
                     '<div class="hv-m-name-row"><span class="hv-m-name">' + item.customer_name + '</span> ' + srcBadge + '</div>' +
@@ -369,7 +373,7 @@ function _hvRenderTable(items) {
                 ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:600;">AFF</span>'
                 : '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#dbeafe;color:#2563eb;font-weight:600;">KH</span>';
             var keyIcon = (window._hvAffApprovedIds||[]).includes(item.id) ? '🔑' : ((window._hvAffLockedIds||[]).includes(item.id) ? '🔒' : '');
-            var refLabel = item.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(item.referrer_name||'-')+'</span>';
+            var refLabel = item.is_self ? '<span style="color:#f59e0b;font-weight:600;">🏠 Đơn Của Tôi</span>' : (item.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(item.referrer_name||'-')+'</span>');
             return '<tr style="border-bottom:1px solid #f1f5f9;">' +
                 '<td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">' + idx + '</td>' +
                 '<td style="padding:8px 6px;text-align:center;">' + keyIcon + '</td>' +
@@ -625,11 +629,20 @@ async function renderBaoCaoHoaHongHVPage(container) {
         window._hvAffLockedIds = affStatus.lockedCustomerIds || [];
         window._hvBalanceData = { totalCommission: balanceData.totalCommission||0, totalWithdrawn: balanceData.totalWithdrawn||0, totalPending: balanceData.totalPending||0, balance: balanceData.balance||0 };
         
-        // Tag items by crm_type: nhu_cau → customer, ctv_hoa_hong → affiliate, others → based on type
-        const allItems = (allData.items||[]).map(i => ({
-            ...i,
-            _src: (i.crm_type === 'ctv_hoa_hong') ? 'affiliate' : 'customer'
-        }));
+        // ★ Lọc: ẩn hoàn toàn khách gián tiếp sinh ra đã là affiliate (cháu)
+        // - Gián tiếp + ctv_hoa_hong + KHÔNG frozen (không có convDate) → ẩn
+        // - Gián tiếp + ctv_hoa_hong + frozen (có convDate) → giữ (hiện dữ liệu trước chuyển)
+        const allItems = (allData.items||[])
+            .filter(i => {
+                // ★ KH gốc (is_self) luôn hiện
+                if (i.is_self) return true;
+                if (!i.is_direct && i.crm_type === 'ctv_hoa_hong' && !i.is_silently_frozen) return false;
+                return true;
+            })
+            .map(i => ({
+                ...i,
+                _src: i.is_self ? 'customer' : ((i.crm_type === 'ctv_hoa_hong' && i.is_direct) ? 'affiliate' : 'customer')
+            }));
         allItems.sort((a,b) => (b.commission||0) - (a.commission||0));
         
         _hvData = { allItems, filtered: [...allItems] };

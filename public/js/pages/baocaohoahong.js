@@ -62,7 +62,34 @@ async function hhViewOrders(customerId, customerName) {
 
     try {
         const data = await apiCall('/api/customers/' + customerId + '/order-codes');
-        const codes = data.codes || [];
+        let codes = data.codes || [];
+
+        // ★ Split đơn hàng theo ngày chuyển Affiliate (conversion date)
+        // - Trang Khách (nhu_cau): chỉ hiện đơn TRƯỚC ngày chuyển
+        // - Trang Affiliate (ctv_hoa_hong): chỉ hiện đơn SAU ngày chuyển
+        // - Trang khác (Báo Cáo HH HV): áp dụng freeze cho khách gián tiếp
+        const hhItem = (window._hhData?.items || []).find(i => i.id === customerId);
+        const crmFilter = window._hhCrmFilter || '';
+        const isConverted = hhItem && (hhItem.is_converted_to_affiliate || hhItem.is_silently_frozen);
+        if (isConverted) {
+            try {
+                const convRes = await apiCall('/api/customers/' + customerId + '/conversion-date');
+                if (convRes.conv_date) {
+                    const convDate = new Date(convRes.conv_date);
+                    if (crmFilter === 'nhu_cau') {
+                        // Trang Khách: chỉ đơn TRƯỚC chuyển
+                        codes = codes.filter(c => new Date(c.created_at) < convDate);
+                    } else if (crmFilter === 'ctv_hoa_hong') {
+                        // Trang Affiliate: chỉ đơn SAU chuyển
+                        codes = codes.filter(c => new Date(c.created_at) >= convDate);
+                    } else if (hhItem.is_silently_frozen) {
+                        // Trang Báo Cáo HH: KH gián tiếp frozen → chỉ đơn TRƯỚC
+                        codes = codes.filter(c => new Date(c.created_at) < convDate);
+                    }
+                }
+            } catch(e2) { /* fallback: show all */ }
+        }
+
         if (codes.length === 0) {
             document.getElementById('hhOrderPopupBody').innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có đơn hàng nào</div>';
             return;
@@ -380,14 +407,16 @@ function hhRenderTable(items) {
             const globalIdx = startIdx + i;
             const commAmt = item.commission > 0 ? hhFormatMoney(item.commission) : '0₫';
             const revenueAmt = hhFormatMoney(item.total_revenue);
-            const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
-            const borderColor = item.is_direct ? '#10b981' : '#8b5cf6';
-            const bgColor = item.is_direct ? '#fefce8' : '#f5f3ff';
+            const refLabel = item.is_self
+                ? '🏠 Đơn Của Tôi'
+                : (item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-'));
+            const borderColor = item.is_self ? '#f59e0b' : (item.is_direct ? '#10b981' : '#8b5cf6');
+            const bgColor = item.is_self ? '#fffbeb' : (item.is_direct ? '#fefce8' : '#f5f3ff');
             const hasRevenue = item.total_revenue > 0;
 
             return `<div class="hh-card" style="border-left:4px solid ${borderColor};background:${bgColor};padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onclick="hhShowMobileDetail(${globalIdx})">
                 <div style="flex:1;min-width:0;">
-                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒 '; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑 '; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳ '; if (item.crm_type === 'ctv_hoa_hong') return '💎 '; return ''; })()}${item.customer_name}</div>${item.is_converted_to_affiliate ? '<div style="font-size:9px;color:#7c3aed;font-weight:700;margin-top:3px;background:#ede9fe;padding:2px 8px;border-radius:6px;display:inline-block;">🔄 Đã chuyển Affiliate</div>' : ''}
+                    <div style="display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0.2px;">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '🔒 '; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '🔑 '; if ((window._hhAffPendingIds||[]).includes(item.id)) return '⏳ '; if (item.crm_type === 'ctv_hoa_hong') return '💎 '; return ''; })()}${item.customer_name}</div>${item.is_converted_to_affiliate ? '<div style="font-size:9px;color:#7c3aed;font-weight:700;margin-top:3px;background:#ede9fe;padding:2px 8px;border-radius:6px;display:inline-block;">🔄 Đã chuyển Affiliate</div>' : ''}${(item.is_silently_frozen && typeof currentUser !== 'undefined' && currentUser.role === 'giam_doc') ? '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-top:3px;background:#fef2f2;padding:2px 8px;border-radius:6px;display:inline-block;">🔒 KH Chuyển Affiliate</div>' : ''}
                     <div style="font-size:11px;color:${item.is_direct ? '#059669' : '#7c3aed'};font-weight:600;margin-top:5px;letter-spacing:0.1px;">${refLabel}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;background:${hasRevenue ? 'linear-gradient(135deg,#fef2f2,#fee2e2)' : '#f8fafc'};padding:8px 12px;border-radius:10px;min-width:105px;border:1px solid ${hasRevenue ? '#fecaca' : '#e2e8f0'};">
@@ -421,16 +450,18 @@ function hhRenderTable(items) {
             let contentShort = item.last_log_content || '';
             if (contentShort.length > 30) contentShort = contentShort.substring(0, 30) + '...';
             
-            const referrerDisplay = item.is_direct 
-                ? `<span style="font-size:11px;color:#10b981;font-weight:600;">🎯 Trực tiếp</span>` 
-                : `<span style="font-size:11px;color:#8b5cf6;font-weight:600;">👥 ${item.referrer_name}</span>`;
+            const referrerDisplay = item.is_self
+                ? `<span style="font-size:11px;color:#f59e0b;font-weight:600;">🏠 Đơn Của Tôi</span>`
+                : (item.is_direct 
+                    ? `<span style="font-size:11px;color:#10b981;font-weight:600;">🎯 Trực tiếp</span>` 
+                    : `<span style="font-size:11px;color:#8b5cf6;font-weight:600;">👥 ${item.referrer_name}</span>`);
 
             const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '-';
 
-            return `<tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
+            return `<tr style="background:${item.is_self ? '#fffbeb' : (item.is_direct ? '#fefce8' : '#f5f3ff')};">
                 <td>${globalIdx + 1}</td>
                 <td style="text-align:center;padding:4px 2px;font-size:14px;">${(() => { if ((window._hhAffLockedIds||[]).includes(item.id)) return '<span title="TK Affiliate bị khóa" style="cursor:help;">🔒</span>'; if ((window._hhAffApprovedIds||[]).includes(item.id)) return '<span title="Có TK Affiliate" style="cursor:help;">🔑</span>'; if ((window._hhAffPendingIds||[]).includes(item.id)) return '<span title="Đang chờ duyệt TK" style="cursor:help;">⏳</span>'; if (item.crm_type === 'ctv_hoa_hong') return '<span title="Đã chuyển Affiliate (chưa có TK)" style="cursor:help;color:#7c3aed;font-weight:700;">💎</span>'; return ''; })()}</td>
-                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span>${item.is_converted_to_affiliate ? ' <span style="font-size:9px;padding:2px 6px;border-radius:5px;background:#ede9fe;color:#7c3aed;font-weight:700;">🔄 Đã chuyển Aff</span>' : ''}</td>
+                <td><span onclick="hhShowCustomerPopup(${item.id})" style="cursor:pointer;display:inline-flex;align-items:center;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(212,168,67,0.3);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(212,168,67,0.3)';this.style.borderColor='#fad24c'" onmouseout="this.style.boxShadow='none';this.style.borderColor='rgba(212,168,67,0.3)'">${item.customer_name}</span>${item.is_converted_to_affiliate ? ' <span style="font-size:9px;padding:2px 6px;border-radius:5px;background:#ede9fe;color:#7c3aed;font-weight:700;">🔄 Đã chuyển Aff</span>' : ''}${(item.is_silently_frozen && typeof currentUser !== 'undefined' && currentUser.role === 'giam_doc') ? ' <span title="KH Chuyển Affiliate, nền Affiliate Ông không được cập nhật" style="font-size:9px;padding:2px 6px;border-radius:5px;background:#fef2f2;color:#dc2626;font-weight:700;cursor:help;">🔒 KH Chuyển Affiliate</span>' : ''}</td>
                 <td>${referrerDisplay}</td>
                 <td>${item.phone || '-'}</td>
                 <td style="text-align:center;">${item.order_count > 0 ? `<span onclick="hhViewOrders(${item.id}, '${item.customer_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:6px;background:#3b82f6;color:white;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Xem đơn hàng">📋 Xem Đơn</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
@@ -515,8 +546,8 @@ function hhShowMobileDetail(index) {
     const consultLabel = ct ? `${ct.icon} ${ct.label}` : '📋 Tư Vấn';
     const consultColor = ct ? ct.color : '#6b7280';
     const consultTextColor = ct ? ct.textColor : 'white';
-    const refLabel = item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-');
-    const refColor = item.is_direct ? '#10b981' : '#8b5cf6';
+    const refLabel = item.is_self ? '🏠 Đơn Của Tôi' : (item.is_direct ? '🎯 Trực tiếp' : '👥 ' + (item.referrer_name || '-'));
+    const refColor = item.is_self ? '#f59e0b' : (item.is_direct ? '#10b981' : '#8b5cf6');
     const contactDate = item.last_contact_date ? new Date(item.last_contact_date).toLocaleDateString('vi-VN') : '—';
     const appointDate = item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('vi-VN') : '—';
     let contentShort = item.last_log_content || '—';
@@ -606,8 +637,8 @@ async function hhShowAllOrdersPopup() {
             const rev = Number(o.revenue || 0).toLocaleString('vi-VN') + '₫';
             const comm = Number(o.commission || 0).toLocaleString('vi-VN') + '₫';
             const date = o.created_at ? new Date(o.created_at).toLocaleDateString('vi-VN') : '—';
-            const srcBg = o.is_direct ? 'linear-gradient(135deg,#065f46,#10b981)' : 'linear-gradient(135deg,#92400e,#f59e0b)';
-            const srcLabel = o.is_direct ? '🎯 ' + o.referrer_name : '👥 ' + o.referrer_name;
+            const srcBg = o.is_self ? 'linear-gradient(135deg,#92400e,#f59e0b)' : (o.is_direct ? 'linear-gradient(135deg,#065f46,#10b981)' : 'linear-gradient(135deg,#92400e,#f59e0b)');
+            const srcLabel = o.is_self ? '🏠 ' + o.referrer_name : (o.is_direct ? '🎯 ' + o.referrer_name : '👥 ' + o.referrer_name);
 
             return `<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -684,9 +715,9 @@ function hhShowCommissionPopup(filter) {
     let totalComm = itemsWithCommission.reduce((s, i) => s + i.commission, 0);
 
     const rows = itemsWithCommission.map(item => `
-        <tr style="background:${item.is_direct ? '#fefce8' : '#f5f3ff'};">
+        <tr style="background:${item.is_self ? '#fffbeb' : (item.is_direct ? '#fefce8' : '#f5f3ff')};">
             <td style="padding:8px 10px;font-weight:600;">${item.customer_name}</td>
-            <td style="padding:8px 10px;font-size:11px;color:${item.is_direct ? '#10b981' : '#8b5cf6'};">${item.is_direct ? '🎯 Trực tiếp' : '👥 ' + item.referrer_name}</td>
+            <td style="padding:8px 10px;font-size:11px;color:${item.is_self ? '#f59e0b' : (item.is_direct ? '#10b981' : '#8b5cf6')};">${item.is_self ? '🏠 Đơn Của Tôi' : (item.is_direct ? '🎯 Trực tiếp' : '👥 ' + item.referrer_name)}</td>
             <td style="padding:8px 10px;text-align:right;">${hhFormatMoney(item.completed_revenue)}</td>
             <td style="padding:8px 10px;text-align:center;">${item.rate}%</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;color:#10b981;">${hhFormatMoney(item.commission)}</td>
