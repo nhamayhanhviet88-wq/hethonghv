@@ -293,7 +293,20 @@ async function affiliateRoutes(fastify) {
         }
 
         // ★ KH gốc (chính bản thân affiliate) — hưởng directRate cho đơn của mình
-        const selfCustId = freshUser?.source_customer_id || null;
+        // Fallback: nếu source_customer_id chưa được set (TK tạo trước khi có logic), tra ngược affiliate_account_requests
+        let selfCustId = freshUser?.source_customer_id || null;
+        if (!selfCustId) {
+            const fallback = await db.get(
+                `SELECT customer_id FROM affiliate_account_requests WHERE created_user_id = ? AND status = 'approved' LIMIT 1`,
+                [user.id]
+            );
+            if (fallback?.customer_id) {
+                selfCustId = fallback.customer_id;
+                // Auto-repair: cập nhật source_customer_id để lần sau không cần tra ngược
+                await db.run('UPDATE users SET source_customer_id = ? WHERE id = ? AND source_customer_id IS NULL', [selfCustId, user.id]);
+                console.log(`[Commission API] Auto-repaired source_customer_id=${selfCustId} for user ${user.id}`);
+            }
+        }
 
         // Get child affiliate IDs via assigned_to_user_id (Gán cho TK Affiliate nào?)
         const childAffiliates = await db.all(
@@ -612,7 +625,11 @@ async function affiliateRoutes(fastify) {
         }
 
         // ★ KH gốc (chính bản thân affiliate)
-        const selfCustId2 = freshUser?.source_customer_id || null;
+        let selfCustId2 = freshUser?.source_customer_id || null;
+        if (!selfCustId2) {
+            const fb2 = await db.get(`SELECT customer_id FROM affiliate_account_requests WHERE created_user_id = ? AND status = 'approved' LIMIT 1`, [user.id]);
+            if (fb2?.customer_id) selfCustId2 = fb2.customer_id;
+        }
 
         // Get child affiliates
         const childAffiliates = await db.all(
@@ -745,7 +762,11 @@ async function affiliateRoutes(fastify) {
         }
 
         // ★ KH gốc (chính bản thân affiliate)
-        const selfCustIdB = freshUser?.source_customer_id || null;
+        let selfCustIdB = freshUser?.source_customer_id || null;
+        if (!selfCustIdB) {
+            const fbB = await db.get(`SELECT customer_id FROM affiliate_account_requests WHERE created_user_id = ? AND status = 'approved' LIMIT 1`, [user.id]);
+            if (fbB?.customer_id) selfCustIdB = fbB.customer_id;
+        }
 
         // Get child affiliates
         const childAffiliates = await db.all(
