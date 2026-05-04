@@ -282,7 +282,9 @@ async function affiliateRoutes(fastify) {
             [user.id]
         );
         const childIds = childAffiliates.map(a => a.id);
-        const allIds = [user.id, ...childIds];
+        // ★ Trang Affiliate (ctv_hoa_hong): chỉ hiển thị khách TRỰC TIẾP, không gộp con
+        // → Affiliate cha không thấy/hưởng hoa hồng khách affiliate của con
+        const allIds = (crm_filter === 'ctv_hoa_hong') ? [user.id] : [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
@@ -543,7 +545,8 @@ async function affiliateRoutes(fastify) {
             [user.id]
         );
         const childIds = childAffiliates.map(a => a.id);
-        const allIds = [user.id, ...childIds];
+        // ★ Trang Affiliate: chỉ hiển thị đơn của khách TRỰC TIẾP
+        const allIds = (crm_filter === 'ctv_hoa_hong') ? [user.id] : [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
 
         // Get customers referred by these affiliates (optionally filtered by crm_type)
@@ -675,6 +678,9 @@ async function affiliateRoutes(fastify) {
             orderRows.forEach(r => {
                 const cust = customers.find(c => c.id === r.customer_id);
                 const isDirect = cust && cust.referrer_id === user.id;
+                // ★ Bỏ qua hoa hồng gián tiếp từ khách affiliate (ctv_hoa_hong)
+                // → Affiliate cha không hưởng HH trên khách affiliate của con
+                if (!isDirect && cust?.crm_type === 'ctv_hoa_hong') return;
                 const convDate = affConvMapB[r.customer_id] || null;
                 const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
                 totalCommission += Math.round(Number(r.revenue) * rate);
