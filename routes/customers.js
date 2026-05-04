@@ -130,20 +130,20 @@ async function customersRoutes(fastify, options) {
 
         const [_y, _m, _d] = effectiveDate.split('-').map(Number);
         const maxNum = await db.get(
-            "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = ?::date AND assigned_to_id = ?",
+            "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
             [effectiveDate, actualReceiverId]
         );
         const dailyNum = (maxNum?.mx || 0) + 1;
 
         const result = await db.run(
             `INSERT INTO customers (crm_type, customer_name, phone, phone2, source_id, promotion_id,
-             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [crm_type, customer_name || null, phone || null, phone2 || null,
              resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
-             request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null]
+             request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate]
         );
 
         const code = `${dailyNum}-${_d}-${_m}`;
