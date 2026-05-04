@@ -43,7 +43,7 @@ async function crmConversionRoutes(fastify, options) {
                 [req.id]
             );
             await db.run(
-                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
+                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
                 [req.to_crm_type, req.customer_id]
             );
             await db.run(
@@ -203,7 +203,7 @@ async function crmConversionRoutes(fastify, options) {
             );
             // Update customer crm_type
             await db.run(
-                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
+                'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
                 [targetCrm, Number(customer_id)]
             );
             // Auto-sync linked tkaffiliate
@@ -392,7 +392,7 @@ async function crmConversionRoutes(fastify, options) {
 
         // 1. Update customer crm_type + set appointment to today (assigned_to_id stays the same)
         await db.run(
-            'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE, updated_at = NOW() WHERE id = ?',
+            'UPDATE customers SET crm_type = ?, appointment_date = CURRENT_DATE + INTERVAL \'1 day\', updated_at = NOW() WHERE id = ?',
             [convReq.to_crm_type, convReq.customer_id]
         );
 

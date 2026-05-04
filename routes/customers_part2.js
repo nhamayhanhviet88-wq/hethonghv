@@ -603,7 +603,16 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const nextWorkDay = await getNextWorkingDay(vnNow, customer.assigned_to_id);
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay, customerId]);
         } else if (fields.appointment_date) {
-            await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
+            // ★ VALIDATE: appointment_date must be AFTER today (never today or past)
+            const vnToday = new Date(Date.now() + 7*3600000).toISOString().split('T')[0];
+            if (fields.appointment_date <= vnToday) {
+                // Auto-correct to next working day
+                const vnNow2 = new Date(Date.now() + 7*3600000);
+                const nextWorkDay2 = await getNextWorkingDay(vnNow2, customer.assigned_to_id);
+                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextWorkDay2, customerId]);
+            } else {
+                await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [fields.appointment_date, customerId]);
+            }
         }
 
         // Auto-set appointment to next business day for 'Hoàn thành cấp cứu'
