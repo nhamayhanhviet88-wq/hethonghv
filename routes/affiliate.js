@@ -334,16 +334,18 @@ async function affiliateRoutes(fastify) {
         } else if (crm_filter) {
             crmFilterClause = ` AND c.crm_type = ?`;
         }
+        // ★ KH gốc chỉ hiện ở trang Khách (nhu_cau), KHÔNG hiện ở trang Affiliate (ctv_hoa_hong)
+        const showSelf = selfCustId && crm_filter !== 'ctv_hoa_hong';
         let custQuery = `
             SELECT c.id, c.customer_name, c.phone, c.order_status, c.referrer_id, c.created_at, c.appointment_date,
                    c.cancel_requested, c.cancel_approved, c.crm_type
             FROM customers c
-            WHERE (c.referrer_id IN (${ph})${crmFilterClause})${selfCustId ? ' OR c.id = ?' : ''}`;
+            WHERE (c.referrer_id IN (${ph})${crmFilterClause})${showSelf ? ' OR c.id = ?' : ''}`;
         const custParams = [...allIds];
         if (crm_filter && crm_filter !== 'nhu_cau') {
             custParams.push(crm_filter);
         }
-        if (selfCustId) custParams.push(selfCustId);
+        if (showSelf) custParams.push(selfCustId);
         custQuery += ` ORDER BY c.created_at DESC`;
         console.log(`[Commission API] crm_filter=${crm_filter || 'NONE'}, userId=${user.id}, totalAffIds=${allIds.length}, selfCustId=${selfCustId || 'NONE'}`);
         const customers = await db.all(custQuery, custParams);
@@ -429,12 +431,14 @@ async function affiliateRoutes(fastify) {
                     return;
                 }
                 // ★ Trang Khách: chỉ tính đơn TRƯỚC ngày chuyển (đơn mới thuộc trang Affiliate)
-                if (crm_filter === 'nhu_cau' && isPostConversion) {
+                // ★ NGOẠI TRỪ: KH gốc (is_self) → tính TẤT CẢ đơn (không split)
+                if (crm_filter === 'nhu_cau' && isPostConversion && !isSelf) {
                     return;
                 }
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → chỉ tính đơn TRƯỚC ngày chuyển
+                // ★ NGOẠI TRỪ: KH gốc (is_self)
                 const custObj = filteredCustomers.find(cc => cc.id === o.customer_id);
-                const isIndirectFrozen = custObj && custObj.referrer_id !== user.id && convDate;
+                const isIndirectFrozen = !isSelf && custObj && custObj.referrer_id !== user.id && convDate;
                 if (crm_filter !== 'ctv_hoa_hong' && isIndirectFrozen && !isPreConversion) {
                     return;
                 }
@@ -654,15 +658,17 @@ async function affiliateRoutes(fastify) {
         } else if (crm_filter) {
             allCustCrmClause = ` AND c.crm_type = ?`;
         }
+        // ★ KH gốc chỉ hiện ở trang Khách (nhu_cau), KHÔNG hiện ở trang Affiliate
+        const showSelf2 = selfCustId2 && crm_filter !== 'ctv_hoa_hong';
         let allCustQuery = `
             SELECT ${_AFF_CUST_FIELDS_LIGHT}
             FROM customers c
-            WHERE (c.referrer_id IN (${ph})${allCustCrmClause})${selfCustId2 ? ' OR c.id = ?' : ''}`;
+            WHERE (c.referrer_id IN (${ph})${allCustCrmClause})${showSelf2 ? ' OR c.id = ?' : ''}`;
         const allCustParams = [...allIds];
         if (crm_filter && crm_filter !== 'nhu_cau') {
             allCustParams.push(crm_filter);
         }
-        if (selfCustId2) allCustParams.push(selfCustId2);
+        if (showSelf2) allCustParams.push(selfCustId2);
         const customers = await db.all(allCustQuery, allCustParams);
 
         if (customers.length === 0) {
@@ -706,8 +712,9 @@ async function affiliateRoutes(fastify) {
                 const isPreConversion = new Date(o.created_at) < new Date(convDate);
                 // ★ Trang Affiliate: loại bỏ đơn TRƯỚC ngày chuyển
                 if (crm_filter === 'ctv_hoa_hong' && isPreConversion) return false;
-                // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển
-                if (crm_filter === 'nhu_cau' && !isPreConversion) return false;
+                // ★ Trang Khách: loại bỏ đơn SAU ngày chuyển (NGOẠI TRỪ KH gốc)
+                const isSelfOrd = selfCustId2 && o.customer_id === selfCustId2;
+                if (crm_filter === 'nhu_cau' && !isPreConversion && !isSelfOrd) return false;
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → loại bỏ đơn SAU ngày chuyển
                 const cust2 = custMap[o.customer_id];
                 const isSelfOrder = selfCustId2 && o.customer_id === selfCustId2;
