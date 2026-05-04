@@ -385,10 +385,20 @@ async function affiliateRoutes(fastify) {
             const baseRate = isDirect ? directRate : parentRate;
             const completedRevenue = completedRevenueMap[c.id] || 0;
             const commission = perOrderCommMap[c.id]?.commission || 0;
-            // ★ displayRate: tính từ commission thực tế / doanh thu → phản ánh đúng tỷ lệ hỗn hợp
-            const displayRate = completedRevenue > 0
-                ? (commission / completedRevenue)
-                : ((isDirect && (convDate || c.crm_type === 'ctv_hoa_hong')) ? parentRate : baseRate);
+            // ★ displayRate: phụ thuộc vào trang đang xem
+            // - Trang Affiliate (ctv_hoa_hong): luôn hiện tỷ lệ hiện hành (parentRate = 5%)
+            // - Trang Khách (nhu_cau): hiện tỷ lệ thực tế từ commission/revenue
+            let displayRate;
+            if (crm_filter === 'ctv_hoa_hong') {
+                // Trang Affiliate → tỷ lệ hiện tại
+                displayRate = isDirect ? parentRate : parentRate;
+            } else if (completedRevenue > 0) {
+                // Có doanh thu → tính tỷ lệ thực tế
+                displayRate = commission / completedRevenue;
+            } else {
+                // Chưa có doanh thu → hiện tỷ lệ mặc định
+                displayRate = (isDirect && (convDate || c.crm_type === 'ctv_hoa_hong')) ? parentRate : baseRate;
+            }
             totalCommission += commission;
             
             // Mask phone for child referrals
