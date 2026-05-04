@@ -1293,14 +1293,13 @@ function _kockolOnConsultTypeChange() {
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
     // Image required: hide * for specific types
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'sau_ban_hang', 'huy', 'huy_coc'];
     if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
     if (type === 'huy') {
         if (cancelGroup) cancelGroup.style.display = 'block';
         if (contentGroup) contentGroup.style.display = 'none';
-        if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
     }
@@ -1323,7 +1322,6 @@ function _kockolOnConsultTypeChange() {
     if (type === 'chot_don') {
         if (orderGroup) orderGroup.style.display = 'block';
         if (contentGroup) contentGroup.style.display = 'none';
-        if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
         // Fetch order code (reuses existing from đặt cọc if any)
@@ -1349,21 +1347,19 @@ function _kockolOnConsultTypeChange() {
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
     }
 
-    // Sau Bán Hàng flow - just content + appointment
+    // Sau Bán Hàng flow - content + image (optional) + appointment
     if (type === 'sau_ban_hang') {
-        if (imageGroup) imageGroup.style.display = 'none';
+        // imageGroup luôn hiện — chỉ bỏ dấu * bắt buộc (đã xử lý ở imageExemptTypes)
     }
 
     // Hoàn Thành Đơn flow - content + appointment
     if (type === 'hoan_thanh') {
-        if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
     }
 
     // Hủy Cọc flow - content (lý do) + appointment date
     if (type === 'huy_coc') {
         if (contentGroup) contentGroup.style.display = 'block';
-        if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
         // Relabel
         const contentLabel = contentGroup?.querySelector('label');
