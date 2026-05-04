@@ -504,8 +504,8 @@ async function _cncaSaveSettings() {
 const _CRM_TRANSFER_MAP = {
     nhu_cau: { label: 'Chăm Sóc KH Nhu Cầu', color: '#dc2626', bg: '#fee2e2', icon: '❤️' },
     ctv: { label: 'Chăm Sóc CTV', color: '#d97706', bg: '#fef3c7', icon: '🤝' },
-    ctv_hoa_hong: { label: 'Chăm Sóc Affiliate', color: '#7c3aed', bg: '#f3e8ff', icon: '💎' },
-    koc_tiktok: { label: 'Chăm Sóc KOL/KOC Tiktok', color: '#0891b2', bg: '#cffafe', icon: '🎬' }
+    ctv_hoa_hong: { label: 'Chăm Sóc Affiliate', color: '#7c3aed', bg: '#f3e8ff', icon: '💎' }
+    // koc_tiktok removed: KOL/KOC Tiktok chỉ nhận khách qua "Chuyển Số" (tạo mới), không qua "Đề Xuất Chuyển CRM"
 };
 
 async function openCrmTransferPopup(customerId) {

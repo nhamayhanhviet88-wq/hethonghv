@@ -74,9 +74,10 @@ async function crmConversionRoutes(fastify, options) {
         if (!reason || !reason.trim()) return reply.code(400).send({ error: 'Vui lòng nhập lý do đề xuất' });
 
         const targetCrm = to_crm_type || 'ctv';
-        if (!['nhu_cau', 'ctv', 'ctv_hoa_hong', 'koc_tiktok'].includes(targetCrm)) {
+        if (!['nhu_cau', 'ctv', 'ctv_hoa_hong'].includes(targetCrm)) {
             return reply.code(400).send({ error: 'Loại CRM chuyển đổi không hợp lệ' });
         }
+        // Block: KOL/KOC Tiktok chỉ nhận khách qua "Chuyển Số" (tạo mới), không qua Đề Xuất Chuyển CRM
 
         // Fetch customer
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [Number(customer_id)]);
