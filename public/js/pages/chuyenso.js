@@ -158,12 +158,17 @@ async function renderChuyenSoPage(container) {
                             </select>
                             `}
                         </div>
+                        ${isAffiliate ? `
+                        <div class="form-group">
+                            <label>💎 Chiết Khấu Hoa Hồng</label>
+                            <div id="csoCommRate" style="padding:10px 14px;border-radius:8px;font-weight:800;font-size:16px;color:#059669;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px solid #6ee7b7;text-align:center;cursor:not-allowed;">
+                                10% Hoa Hồng
+                            </div>
+                            <small style="color:#6b7280;font-size:10px;margin-top:4px;display:block;">Tỷ lệ chiết khấu tự động theo CRM</small>
+                        </div>
+                        ` : `
                         <div class="form-group">
                             <label>Nguồn Khách NV Kinh Doanh <span style="color:var(--danger)">*</span></label>
-                            ${isAffiliate ? `
-                                <input type="text" id="csoSourceDisplay" class="form-control" value="AFFILIATE GIỚI THIỆU KHÁCH" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
-                                <input type="hidden" id="csoSourceAffiliate" value="">
-                            ` : `
                             <select id="csoSource" class="form-control" required>
                                 <option value="">-- Chọn nguồn --</option>
                                 ${(() => {
@@ -171,9 +176,19 @@ async function renderChuyenSoPage(container) {
                                     return csoSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                                 })()}
                             </select>
-                            `}
                         </div>
+                        `}
                     </div>
+                    ${isAffiliate ? `
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Nguồn Khách NV Kinh Doanh <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="csoSourceDisplay" class="form-control" value="AFFILIATE GIỚI THIỆU KHÁCH" disabled style="font-weight:700;color:#122546;background:#f1f5f9;cursor:not-allowed;">
+                            <input type="hidden" id="csoSourceAffiliate" value="">
+                        </div>
+                        <div></div>
+                    </div>
+                    ` : ''}
                     <div id="csoJobTitleRow" style="display:none; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>Lĩnh Vực <span style="color:var(--danger)">*</span></label>
@@ -408,6 +423,21 @@ async function renderChuyenSoPage(container) {
             // Always hide Affiliate HV row for affiliate users (they ARE the affiliate)
             const affRow = document.getElementById('csoAffiliateRow');
             if (affRow) affRow.style.display = 'none';
+            // Update commission rate display
+            const commEl = document.getElementById('csoCommRate');
+            if (commEl) {
+                if (crmVal === 'nhu_cau') {
+                    commEl.textContent = '10% Hoa Hồng';
+                    commEl.style.color = '#059669';
+                    commEl.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)';
+                    commEl.style.borderColor = '#6ee7b7';
+                } else if (crmVal === 'ctv_hoa_hong') {
+                    commEl.textContent = '5% Hoa Hồng';
+                    commEl.style.color = '#d97706';
+                    commEl.style.background = 'linear-gradient(135deg,#fffbeb,#fef3c7)';
+                    commEl.style.borderColor = '#fbbf24';
+                }
+            }
         }
         // Init on load
         _affSyncSource();
