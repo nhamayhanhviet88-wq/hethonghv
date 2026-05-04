@@ -9,15 +9,15 @@ async function _getAffConversionMap(db, customerIds) {
     if (!customerIds || customerIds.length === 0) return map;
     const ph = customerIds.map(() => '?').join(',');
     const rows = await db.all(`
-        SELECT customer_id, processed_at
+        SELECT customer_id, COALESCE(processed_at, created_at) as conv_date
         FROM crm_conversion_requests
         WHERE customer_id IN (${ph})
         AND to_crm_type = 'ctv_hoa_hong'
-        AND status = 'approved'
-        ORDER BY processed_at ASC
+        AND status IN ('approved', 'pending')
+        ORDER BY created_at ASC
     `, customerIds);
     // Chỉ lấy lần chuyển ĐẦU TIÊN cho mỗi KH
-    rows.forEach(r => { if (!map[r.customer_id]) map[r.customer_id] = r.processed_at; });
+    rows.forEach(r => { if (!map[r.customer_id]) map[r.customer_id] = r.conv_date; });
     return map;
 }
 
@@ -294,9 +294,9 @@ async function affiliateRoutes(fastify) {
             WHERE c.referrer_id IN (${ph})`;
         const custParams = [...allIds];
         if (crm_filter === 'nhu_cau') {
-            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong
+            // Lấy cả KH đang ở nhu_cau + KH đã chuyển từ nhu_cau sang ctv_hoa_hong (approved hoặc pending)
             custQuery += ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
-                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status = 'approved'
+                SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
             )))`;
         } else if (crm_filter) {
             custQuery += ` AND c.crm_type = ?`;
