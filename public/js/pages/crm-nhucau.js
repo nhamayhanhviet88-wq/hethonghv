@@ -2425,7 +2425,7 @@ async function openCustomerDetail(customerId) {
                 </div>
                 ${!c.readonly && c.cancel_approved !== 1 ? (() => {
                     // ★ GATE UI: KH có referrer_id + chưa có đơn → khóa nút chuyển CRM
-                    if (c.referrer_id && codes.length === 0) {
+                    if (c.referrer_id && orderCodes.length === 0) {
                         return `<div style="margin-top:10px;text-align:center;">
                             <span style="padding:8px 20px;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);border-radius:10px;font-size:13px;font-weight:700;cursor:not-allowed;display:inline-block;" title="Khách cần có đơn hàng mới được chuyển CRM">🔒 Chuyển CRM</span>
                         </div>`;
