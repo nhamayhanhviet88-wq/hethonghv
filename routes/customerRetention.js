@@ -842,8 +842,6 @@ module.exports = async function(fastify) {
         leaderboard.forEach(l => { l.affiliate_new = affMap[l.user_id] || 0; });
 
         // === 1c. PREVIOUS PERIOD comparison data ===
-        const pPrevStart = userIds.length + 3;
-        const pPrevEnd = userIds.length + 4;
         const prevLeaderRows = await db.all(`
             WITH completed AS (
                 SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
@@ -854,7 +852,7 @@ module.exports = async function(fastify) {
                 WHERE c.assigned_to_id IN (${ph})
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
-                  AND oc.created_at >= $${pPrevStart}::timestamp AND oc.created_at < $${pPrevEnd}::timestamp
+                  AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
             ),
             ranked AS (
@@ -867,7 +865,7 @@ module.exports = async function(fastify) {
                 COALESCE(SUM(revenue), 0) AS total_revenue
             FROM ranked
             GROUP BY assigned_to_id
-        `, [...userIds, current.start, current.end, previous.start, previous.end]);
+        `, [...userIds, previous.start, previous.end]);
 
         const prevAffRows = await db.all(`
             SELECT c.assigned_to_id AS uid, COUNT(DISTINCT cl.customer_id) AS aff_new
@@ -875,9 +873,9 @@ module.exports = async function(fastify) {
             JOIN customers c ON cl.customer_id = c.id
             WHERE cl.log_type = 'tao_tk_affiliate'
               AND c.assigned_to_id IN (${ph})
-              AND cl.created_at >= $${pPrevStart}::timestamp AND cl.created_at < $${pPrevEnd}::timestamp
+              AND cl.created_at >= $${pStart}::timestamp AND cl.created_at < $${pEnd}::timestamp
             GROUP BY c.assigned_to_id
-        `, [...userIds, current.start, current.end, previous.start, previous.end]);
+        `, [...userIds, previous.start, previous.end]);
 
         const prevMap = {};
         prevLeaderRows.forEach(r => {
@@ -1046,9 +1044,9 @@ module.exports = async function(fastify) {
             SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
             FROM customers
             WHERE assigned_to_id IN (${ph})
-              AND created_at >= $${pPrevStart}::timestamp AND created_at < $${pPrevEnd}::timestamp
+              AND created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
             GROUP BY assigned_to_id
-        `, [...userIds, current.start, current.end, previous.start, previous.end]) : [];
+        `, [...userIds, previous.start, previous.end]) : [];
 
         leaderboard.forEach(l => {
             if (!l.prev) l.prev = { total_orders: 0, revenue: 0, rate: 0, affiliate_new: 0 };
