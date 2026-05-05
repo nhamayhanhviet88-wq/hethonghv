@@ -70,7 +70,8 @@ async function renderDashboardkdoanhPage(container) {
 
             /* === LEADERBOARD === */
             .cr-lb-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; }
-            .cr-lb-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); color: #1e1b4b; }
+            @keyframes crShimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+            .cr-lb-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid rgba(99,102,241,0.15); color: #1e1b4b; position: relative; overflow: hidden; background: linear-gradient(90deg, #eef2ff 0%, #e0e7ff 20%, #c7d2fe 35%, #f5f3ff 50%, #c7d2fe 65%, #e0e7ff 80%, #eef2ff 100%); background-size: 200% 100%; animation: crShimmer 4s ease-in-out infinite; }
             .cr-lb-tabs { display: flex; gap: 0; margin: 0 24px; border-bottom: 2px solid #f1f5f9; }
             .cr-lb-tab { padding: 12px 20px; font-size: 13px; font-weight: 700; cursor: pointer; background: none; border: none; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s; }
             .cr-lb-tab.active { color: #4338ca; border-bottom-color: #4338ca; }
