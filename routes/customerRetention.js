@@ -824,7 +824,7 @@ module.exports = async function(fastify) {
 
         // === 5. TOP CUSTOMERS by revenue ===
         const topCust = await db.all(`
-            SELECT c.full_name, c.phone, c.assigned_to_id,
+            SELECT c.customer_name, c.phone, c.assigned_to_id,
                 COUNT(DISTINCT oc.id) AS order_count,
                 COALESCE(SUM(oi.rev), 0) AS total_revenue
             FROM customers c
@@ -835,7 +835,7 @@ module.exports = async function(fastify) {
               AND COALESCE(c.cancel_approved, 0) != 1
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'hoan_thanh')
-            GROUP BY c.id, c.full_name, c.phone, c.assigned_to_id
+            GROUP BY c.id, c.customer_name, c.phone, c.assigned_to_id
             ORDER BY total_revenue DESC
             LIMIT 10
         `, [...userIds, current.start, current.end]);
@@ -870,7 +870,7 @@ module.exports = async function(fastify) {
             processing: { avg_days: parseFloat(avgTimeRow?.avg_days || 0) },
             topCustomers: topCust.map(r => {
                 const emp = users.find(u => u.id === r.assigned_to_id);
-                return { name: r.full_name, phone: r.phone, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
+                return { name: r.customer_name, phone: r.phone, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
             }),
             teamComparison,
             period: { type: period, label: current.label }
