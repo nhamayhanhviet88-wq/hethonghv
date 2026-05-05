@@ -105,22 +105,32 @@ module.exports = async function(fastify) {
             const paramOffset = allDeptIds.length;
             return {
                 sql: `
-                    WITH all_hoan_thanh AS (
-                        SELECT
+                    WITH unique_hoan_thanh AS (
+                        SELECT DISTINCT ON (cl.customer_id)
                             cl.id,
                             cl.customer_id,
                             c.assigned_to_id,
                             cl.created_at,
-                            c.phone,
-                            ROW_NUMBER() OVER (
-                                PARTITION BY c.phone
-                                ORDER BY cl.created_at ASC
-                            ) AS phone_order_number
+                            c.phone
                         FROM consultation_logs cl
                         JOIN customers c ON cl.customer_id = c.id
                         WHERE cl.log_type = 'hoan_thanh'
                           AND c.phone IS NOT NULL AND c.phone != ''
                           AND COALESCE(c.cancel_approved, 0) != 1
+                        ORDER BY cl.customer_id, cl.created_at ASC
+                    ),
+                    all_hoan_thanh AS (
+                        SELECT
+                            id,
+                            customer_id,
+                            assigned_to_id,
+                            created_at,
+                            phone,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY phone
+                                ORDER BY created_at ASC
+                            ) AS phone_order_number
+                        FROM unique_hoan_thanh
                     )
                     SELECT
                         assigned_to_id AS employee_id,
@@ -397,23 +407,34 @@ module.exports = async function(fastify) {
         const { current } = parsePeriod(period, date);
 
         const rows = await db.all(`
-            WITH all_hoan_thanh AS (
-                SELECT
+            WITH unique_hoan_thanh AS (
+                SELECT DISTINCT ON (cl.customer_id)
                     cl.id AS log_id,
                     cl.customer_id,
                     c.assigned_to_id,
                     cl.created_at,
                     c.phone,
-                    c.customer_name,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY c.phone
-                        ORDER BY cl.created_at ASC
-                    ) AS phone_order_number
+                    c.customer_name
                 FROM consultation_logs cl
                 JOIN customers c ON cl.customer_id = c.id
                 WHERE cl.log_type = 'hoan_thanh'
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                ORDER BY cl.customer_id, cl.created_at ASC
+            ),
+            all_hoan_thanh AS (
+                SELECT
+                    log_id,
+                    customer_id,
+                    assigned_to_id,
+                    created_at,
+                    phone,
+                    customer_name,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY phone
+                        ORDER BY created_at ASC
+                    ) AS phone_order_number
+                FROM unique_hoan_thanh
             )
             SELECT
                 ah.log_id,
