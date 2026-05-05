@@ -201,7 +201,7 @@ async function renderDashboardkdoanhPage(container) {
             }
         </style>
         <div class="cr-wrap" id="crWrap">
-            <div class="cr-header">
+            <div class="cr-header" style="position:sticky;top:0;z-index:100;background:#fff;padding:12px 0;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <div class="cr-period-tabs">
                     <button class="cr-tab ${_cr.period === 'day' ? 'active' : ''}" onclick="crSwitchPeriod('day')">Hôm nay</button>
                     <button class="cr-tab ${_cr.period === 'week' ? 'active' : ''}" onclick="crSwitchPeriod('week')">Tuần</button>
@@ -273,6 +273,7 @@ async function renderDashboardkdoanhPage(container) {
             <!-- Leaderboard + Team Comparison (below chart, always visible in overview) -->
             <div id="crLeaderboard"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Chọn tab để tải dữ liệu...</div></div>
             <div id="crTeamComparison"></div>
+            <div id="crTopCustomers"></div>
 
             <!-- TAB 1: Xếp Hạng & KPI (kept for backward compat, content rendered above) -->
             <div class="cr-main-tab-content" id="crTabRanking">
@@ -1128,6 +1129,7 @@ async function crLoadAdvanced() {
         crRenderAlerts(_crAdvData.alerts || []);
         crRenderLeaderboard(_crAdvData);
         crRenderTeamComparison(_crAdvData.teamComparison || []);
+        crRenderTopCustomers(_crAdvData.topCustomers || []);
         crRenderDetail(_crAdvData);
     } catch (err) {
         console.error('Advanced data error:', err);
@@ -1339,18 +1341,33 @@ function crRenderDetail(data) {
         </table></div>
     </div>`;
 
-    // Top Customers
-    html += `<div class="cr-data-section">
-        <div class="cr-data-header">👑 Top Khách Hàng Chi Tiêu Nhiều Nhất</div>
-        <div style="overflow-x:auto;"><table class="cr-data-table">
-            <thead><tr><th>#</th><th>Khách hàng</th><th>SĐT</th><th style="text-align:center;">Số đơn</th><th style="text-align:right;">Doanh số</th><th>NV phụ trách</th></tr></thead>
-            <tbody>${topCust.length ? topCust.map((r, i) => {
-                const medal = i < 3 ? ['🥇','🥈','🥉'][i] : (i + 1);
-                return `<tr><td style="text-align:center;font-size:16px;">${medal}</td><td style="font-weight:700;">${r.name || 'KH'}</td><td>${r.phone || '-'}</td><td style="text-align:center;font-weight:700;">${r.orders}</td><td style="text-align:right;font-weight:800;color:#0369a1;">${crFormatVND(r.revenue)}</td><td style="color:#6b7280;">${r.employee}</td></tr>`;
-            }).join('') : '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px;">Chưa có dữ liệu</td></tr>'}
-            </tbody>
-        </table></div>
-    </div>`;
+    // Top Customers (removed — now rendered separately in overview via crRenderTopCustomers)
 
     el.innerHTML = html;
+}
+
+// ===== TOP CUSTOMERS (Overview) =====
+function crRenderTopCustomers(topCust) {
+    var el = document.getElementById('crTopCustomers');
+    if (!el) return;
+    if (!topCust || !topCust.length) { el.innerHTML = ''; return; }
+    var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+    var rows = topCust.map(function(r, i) {
+        var medal = i < 3 ? '<span style="font-size:16px;">' + medals[i] + '</span>' : (i + 1);
+        return '<tr>'
+            + '<td style="text-align:center;">' + medal + '</td>'
+            + '<td style="font-weight:700;">' + (r.name || 'KH') + '</td>'
+            + '<td>' + (r.phone || '-') + '</td>'
+            + '<td style="text-align:center;font-weight:700;">' + r.orders + '</td>'
+            + '<td style="text-align:right;font-weight:800;color:#0369a1;">' + crFormatVND(r.revenue) + '</td>'
+            + '<td style="color:#6b7280;">' + r.employee + '</td>'
+            + '</tr>';
+    }).join('');
+
+    el.innerHTML = '<div class="cr-lb-section">'
+        + '<div class="cr-lb-header">\uD83D\uDC51 Top Kh\u00e1ch H\u00e0ng Chi Ti\u00eau Nhi\u1ec1u Nh\u1ea5t</div>'
+        + '<div style="overflow-x:auto;padding:0 24px 20px;"><table class="cr-data-table">'
+        + '<thead><tr><th>#</th><th>Kh\u00e1ch h\u00e0ng</th><th>S\u0110T</th><th style="text-align:center;">S\u1ed1 \u0111\u01a1n</th><th style="text-align:right;">Doanh s\u1ed1</th><th>NV ph\u1ee5 tr\u00e1ch</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody>'
+        + '</table></div></div>';
 }
