@@ -6,8 +6,9 @@ var _cr = {
     period: 'month',
     dateStr: '',
     data: null,
-    expandedMgr: new Set(),
-    expandedTeam: new Set()
+    expandedMgr: new Set([0]),
+    expandedTeam: new Set(),
+    _autoExpanded: false
 };
 
 async function renderDashboardkdoanhPage(container) {
@@ -489,6 +490,17 @@ function crRenderGroups(data) {
     const convMap = data.conversionMap || {};
     const kpiMap = data.kpiMap || {};
     const isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+
+    // Auto-expand all groups and teams on first load
+    if (!_cr._autoExpanded) {
+        _cr._autoExpanded = true;
+        data.groups.forEach((g, gi) => {
+            _cr.expandedMgr.add(gi);
+            (g.teams || []).forEach((t, ti) => {
+                _cr.expandedTeam.add(gi + '-' + ti);
+            });
+        });
+    }
 
     // Find top employee (highest returning rate with at least 1 order)
     let topEmpId = null, topRate = -1;
