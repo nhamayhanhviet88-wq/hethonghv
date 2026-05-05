@@ -812,6 +812,21 @@ module.exports = async function(fastify) {
             };
         });
 
+        // Add employees who have NO orders (so they still appear in the list)
+        const leaderIds = new Set(leaderboard.map(l => l.user_id));
+        users.forEach(u => {
+            if (!leaderIds.has(u.id)) {
+                const dept = childDepts.find(d => d.id === u.department_id);
+                leaderboard.push({
+                    user_id: u.id,
+                    name: u.full_name || '?',
+                    team: dept?.name || '',
+                    total_orders: 0, new_orders: 0, returning_orders: 0,
+                    rate: 0, revenue: 0
+                });
+            }
+        });
+
         // === 1b. AFFILIATE NEW: Count new affiliate accounts created per employee ===
         const affRows = await db.all(`
             SELECT c.assigned_to_id AS uid, COUNT(DISTINCT cl.customer_id) AS aff_new
@@ -972,10 +987,10 @@ module.exports = async function(fastify) {
 
         return {
             leaderboard: {
-                by_revenue: [...leaderboard].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
-                by_orders: [...leaderboard].sort((a, b) => b.total_orders - a.total_orders).slice(0, 10),
-                by_affiliate: [...leaderboard].sort((a, b) => b.affiliate_new - a.affiliate_new).slice(0, 10),
-                by_retention: [...leaderboard].filter(l => l.total_orders >= 2).sort((a, b) => b.rate - a.rate).slice(0, 10)
+                by_revenue: [...leaderboard].sort((a, b) => b.revenue - a.revenue),
+                by_orders: [...leaderboard].sort((a, b) => b.total_orders - a.total_orders),
+                by_affiliate: [...leaderboard].sort((a, b) => b.affiliate_new - a.affiliate_new),
+                by_retention: [...leaderboard].sort((a, b) => b.rate - a.rate)
             },
             allEmployees: leaderboard,
             alerts: alerts.sort((a, b) => (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1)),
