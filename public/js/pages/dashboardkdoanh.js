@@ -1228,26 +1228,58 @@ function crSwitchLb(type, btn) {
 }
 
 // ===== TEAM COMPARISON =====
+var _crTeamSort = 'by_revenue';
+
 function crRenderTeamComparison(teams) {
     const el = document.getElementById('crTeamComparison');
-    if (!teams.length) { el.innerHTML = ''; return; }
-    el.innerHTML = `
-        <div class="cr-lb-section">
-            <div class="cr-lb-header">🏅 So Sánh Team</div>
-            <div class="cr-tc-grid">
-                ${teams.map(t => `
-                    <div class="cr-tc-card">
-                        <div class="cr-tc-name">🏠 ${t.name} <span style="font-size:11px;color:#6b7280;font-weight:500;">(${t.employee_count} NV)</span></div>
-                        <div class="cr-tc-stats">
-                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#0369a1;">${crFormatVND(t.revenue)}</div><div class="cr-tc-stat-label">Doanh số</div></div>
-                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">${t.total_orders}</div><div class="cr-tc-stat-label">Tổng đơn</div></div>
-                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">${t.returning}</div><div class="cr-tc-stat-label">Đơn KH cũ</div></div>
-                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">${t.rate}%</div><div class="cr-tc-stat-label">Tỷ lệ KH cũ</div></div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
+    if (!teams || !teams.length) { el.innerHTML = ''; return; }
+    const medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+
+    var sorted = teams.slice().sort(function(a, b) {
+        switch (_crTeamSort) {
+            case 'by_revenue': return b.revenue - a.revenue;
+            case 'by_orders': return b.total_orders - a.total_orders;
+            case 'by_affiliate': return (b.affiliate_new || 0) - (a.affiliate_new || 0);
+            case 'by_retention': return b.rate - a.rate;
+            default: return b.revenue - a.revenue;
+        }
+    });
+
+    var tabs = ''
+        + '<button class="cr-lb-tab ' + (_crTeamSort === 'by_revenue' ? 'active' : '') + '" onclick="crSwitchTeam(\'by_revenue\',this)">\uD83D\uDCB0 Doanh S\u1ed1</button>'
+        + '<button class="cr-lb-tab ' + (_crTeamSort === 'by_orders' ? 'active' : '') + '" onclick="crSwitchTeam(\'by_orders\',this)">\uD83D\uDCE6 \u0110\u01a1n H\u00e0ng</button>'
+        + '<button class="cr-lb-tab ' + (_crTeamSort === 'by_affiliate' ? 'active' : '') + '" onclick="crSwitchTeam(\'by_affiliate\',this)">\uD83E\uDD1D TK Affiliate</button>'
+        + '<button class="cr-lb-tab ' + (_crTeamSort === 'by_retention' ? 'active' : '') + '" onclick="crSwitchTeam(\'by_retention\',this)">\uD83D\uDD04 KH C\u0169 Quay L\u1ea1i</button>';
+
+    var cards = sorted.map(function(t, i) {
+        var medal = i < 3 ? '<span style="font-size:22px;margin-right:4px;">' + medals[i] + '</span>' : '';
+        var rankBorder = i === 0 ? 'border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.2);'
+            : i === 1 ? 'border:2px solid #94a3b8;box-shadow:0 4px 12px rgba(148,163,184,0.15);'
+            : i === 2 ? 'border:2px solid #d97706;box-shadow:0 4px 12px rgba(217,119,6,0.12);' : '';
+        return '<div class="cr-tc-card" style="' + rankBorder + '">'
+            + '<div class="cr-tc-name">' + medal + t.name + ' <span style="font-size:11px;color:#6b7280;font-weight:500;">(' + t.employee_count + ' NV)</span></div>'
+            + '<div class="cr-tc-stats" style="grid-template-columns:1fr 1fr;gap:8px;">'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#0369a1;">' + crFormatVND(t.revenue) + '</div><div class="cr-tc-stat-label">\uD83D\uDCB0 Doanh s\u1ed1</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">' + t.total_orders + '</div><div class="cr-tc-stat-label">\uD83D\uDCE6 T\u1ed5ng \u0111\u01a1n</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">' + t.rate + '%</div><div class="cr-tc-stat-label">\uD83D\uDD04 T\u1ec9 l\u1ec7 KH c\u0169</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">' + (t.affiliate_new || 0) + '</div><div class="cr-tc-stat-label">\uD83E\uDD1D T\u1ea1o TK Aff</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#d97706;">' + t.returning + '</div><div class="cr-tc-stat-label">\uD83D\uDC74 \u0110\u01a1n KH c\u0169</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#2563eb;">' + (t.new_orders || 0) + '</div><div class="cr-tc-stat-label">\uD83C\uDD95 \u0110\u01a1n KH m\u1edbi</div></div>'
+            + '</div></div>';
+    }).join('');
+
+    el.innerHTML = '<div class="cr-lb-section">'
+        + '<div class="cr-lb-header">\uD83C\uDFC5 So S\u00e1nh Team</div>'
+        + '<div class="cr-lb-tabs">' + tabs + '</div>'
+        + '<div class="cr-tc-grid">' + cards + '</div>'
+        + '</div>';
+}
+
+function crSwitchTeam(type, btn) {
+    _crTeamSort = type;
+    document.querySelectorAll('#crTeamComparison .cr-lb-tab').forEach(function(t) { t.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    if (_crAdvData) crRenderTeamComparison(_crAdvData.teamComparison || []);
 }
 
 // ===== TAB 3: DETAIL =====

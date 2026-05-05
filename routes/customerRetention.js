@@ -1004,13 +1004,16 @@ module.exports = async function(fastify) {
             const totalOrders = teamLeader.reduce((s, r) => s + parseInt(r.total_orders), 0);
             const totalRev = teamLeader.reduce((s, r) => s + parseFloat(r.total_revenue), 0);
             const totalRet = teamLeader.reduce((s, r) => s + parseInt(r.returning_orders), 0);
+            const teamAff = leaderboard.filter(l => teamUserIds.includes(l.user_id)).reduce((s, l) => s + (l.affiliate_new || 0), 0);
             return {
                 team_id: dept.id,
                 name: dept.name,
                 total_orders: totalOrders,
+                new_orders: totalOrders - totalRet,
                 revenue: totalRev,
                 returning: totalRet,
                 rate: totalOrders > 0 ? Math.round(1000 * totalRet / totalOrders) / 10 : 0,
+                affiliate_new: teamAff,
                 employee_count: teamUserIds.length
             };
         });
