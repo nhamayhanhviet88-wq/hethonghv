@@ -236,12 +236,14 @@ module.exports = async function(fastify) {
         }
 
         function calcTrend(cur, prev) {
+            const revPct = prev.revenue > 0 ? Math.round(1000 * (cur.revenue - prev.revenue) / prev.revenue) / 10 : (cur.revenue > 0 ? 100 : 0);
             return {
                 total: cur.total - prev.total,
                 new: cur.new - prev.new,
                 returning: cur.returning - prev.returning,
                 rate: Math.round(10 * (cur.rate - prev.rate)) / 10,
-                revenue: cur.revenue - prev.revenue
+                revenue: cur.revenue - prev.revenue,
+                revenue_pct: revPct
             };
         }
 
@@ -317,7 +319,8 @@ module.exports = async function(fastify) {
                             name: emp.full_name,
                             role: emp.role,
                             current: ec,
-                            previous: ep
+                            previous: ep,
+                            trend: calcTrend(ec, ep)
                         };
                     })
                 });
@@ -367,7 +370,7 @@ module.exports = async function(fastify) {
                     employees: deptEmployees.map(emp => {
                         const ec = calcGroup([emp.id], currentMap);
                         const ep = calcGroup([emp.id], previousMap);
-                        return { user_id: emp.id, name: emp.full_name, role: emp.role, current: ec, previous: ep };
+                        return { user_id: emp.id, name: emp.full_name, role: emp.role, current: ec, previous: ep, trend: calcTrend(ec, ep) };
                     })
                 });
             }

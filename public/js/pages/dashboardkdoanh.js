@@ -53,7 +53,7 @@ async function renderDashboardkdoanhPage(container) {
             .cr-group-header:hover { background: #f8fafc; }
             .cr-mgr-header { background: linear-gradient(135deg, #fefce8, #fef9c3); border-bottom: 2px solid #fbbf24; }
             .cr-mgr-name { font-size: 15px; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 8px; }
-            .cr-stat-grid { display: grid; grid-template-columns: 50px 60px 50px 80px 50px 55px; gap: 6px; align-items: center; justify-items: center; }
+            .cr-stat-grid { display: grid; grid-template-columns: 50px 60px 50px 70px 50px 55px 70px 55px; gap: 5px; align-items: center; justify-items: center; }
             .cr-stat-cell { font-size: 11px; font-weight: 700; white-space: nowrap; text-align: center; }
             .cr-stat-pill { font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 20px; white-space: nowrap; text-align: center; width: 100%; display: block; }
             .cr-arrow { font-size: 12px; color: #9ca3af; transition: transform 0.3s; }
@@ -68,7 +68,7 @@ async function renderDashboardkdoanhPage(container) {
             .cr-emp { padding: 10px 20px 10px 68px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #f9fafb; transition: background 0.15s; }
             .cr-emp:hover { background: #fefce8; }
             .cr-emp-name { font-size: 13px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-            .cr-emp-stats { display: grid; grid-template-columns: 50px 60px 50px 80px 50px 55px; gap: 6px; align-items: center; justify-items: center; flex-shrink: 0; }
+            .cr-emp-stats { display: grid; grid-template-columns: 50px 60px 50px 70px 50px 55px 70px 55px; gap: 5px; align-items: center; justify-items: center; flex-shrink: 0; }
 
             .cr-progress-wrap { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
             .cr-progress-bar { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
@@ -130,7 +130,7 @@ async function renderDashboardkdoanhPage(container) {
                 .cr-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
                 .cr-card { padding: 16px 12px; }
                 .cr-card-value { font-size: 28px; }
-                .cr-stat-grid, .cr-emp-stats { grid-template-columns: 40px 50px 40px 60px 40px 45px; gap: 4px; }
+                .cr-stat-grid, .cr-emp-stats { grid-template-columns: 35px 50px 40px 55px 40px 45px 60px 45px; gap: 3px; }
                 .cr-stat-pill { font-size: 9px; padding: 3px 0; }
                 .cr-stat-cell { font-size: 10px; }
                 .cr-emp { padding-left: 44px; }
@@ -389,7 +389,7 @@ function crRenderCards(data) {
         <div class="cr-card revenue">
             <div class="cr-card-value">${crFormatVND(c.revenue || 0)}</div>
             <div class="cr-card-label">💰 Tổng Doanh Số</div>
-            ${crTrendHTML(t.revenue)}
+            ${crTrendHTML(t.revenue_pct, '%')}
         </div>
     `;
 }
@@ -429,9 +429,11 @@ function crRenderGroups(data) {
                 <span class="cr-stat-pill" style="background:#1e1b4b;color:white;">${mc.total || 0}</span>
                 <span class="cr-stat-pill" style="background:#047857;color:white;">${mc.new || 0} đ.mới</span>
                 <span class="cr-stat-pill" style="background:#c2410c;color:white;">${mc.returning || 0} đ.cũ</span>
-                <span class="cr-stat-pill" style="background:#7c3aed;color:white;" colspan="2">${mc.rate || 0}%</span>
+                <span class="cr-stat-pill" style="background:#7c3aed;color:white;">${mc.rate || 0}%</span>
                 <span></span>
                 <span class="cr-stat-cell">${crTrendMini(group.trend?.rate)}</span>
+                <span class="cr-stat-pill" style="background:#0369a1;color:white;font-size:10px;">${crFormatVND(mc.revenue || 0)}</span>
+                <span class="cr-stat-cell">${crTrendMini(group.trend?.revenue_pct)}</span>
             </div>
         </div>`;
 
@@ -455,13 +457,14 @@ function crRenderGroups(data) {
                             <span class="cr-stat-pill" style="background:#ede9fe;color:#5b21b6;">${tc.rate || 0}%</span>
                             <span></span>
                             <span class="cr-stat-cell">${crTrendMini(team.trend?.rate)}</span>
+                            <span class="cr-stat-pill" style="background:#e0f2fe;color:#0c4a6e;font-size:10px;">${crFormatVND(tc.revenue || 0)}</span>
+                            <span class="cr-stat-cell">${crTrendMini(team.trend?.revenue_pct)}</span>
                         </div>
                     </div>`;
 
                 if (teamExpanded && team.employees) {
                     team.employees.forEach(emp => {
                         const ec = emp.current || {};
-                        const et = { rate: Math.round(10 * ((ec.rate || 0) - (emp.previous?.rate || 0))) / 10 };
                         const isTop = emp.user_id === topEmpId && topRate > 0;
                         const roleBadge = emp.role === 'truong_phong' ? '<span class="cr-role-badge cr-role-tp">TP</span>' :
                             emp.role === 'thu_viec' ? '<span class="cr-role-badge cr-role-tv">TV</span>' :
@@ -469,19 +472,21 @@ function crRenderGroups(data) {
 
                         html += `<div class="cr-emp" onclick="crShowDetail(${emp.user_id}, '${emp.name.replace(/'/g, "\\'")}')" ${isTop ? 'style="background:linear-gradient(90deg,#fffbeb,#fef3c7);border-left:3px solid #f59e0b;"' : ''}>
                             <div class="cr-emp-name">
-                                ${isTop ? '<span class="cr-top-badge">✨ TOP</span>' : ''}
+                                ${isTop ? '<span class="cr-top-badge">\u2728 TOP</span>' : ''}
                                 ${roleBadge}
                                 ${emp.name}
                             </div>
                             <div class="cr-emp-stats">
                                 <span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">${ec.total || 0}</span>
-                                <span class="cr-stat-cell" style="color:#059669;">${ec.new || 0} đ.mới</span>
-                                <span class="cr-stat-cell" style="color:#c2410c;">${ec.returning || 0} đ.cũ</span>
+                                <span class="cr-stat-cell" style="color:#059669;">${ec.new || 0} \u0111.m\u1edbi</span>
+                                <span class="cr-stat-cell" style="color:#c2410c;">${ec.returning || 0} \u0111.c\u0169</span>
                                 <div class="cr-progress-wrap">
                                     <div class="cr-progress-bar" style="width:${Math.min(ec.rate || 0, 100)}%;background:${crProgressColor(ec.rate || 0)};"></div>
                                 </div>
                                 <span class="cr-stat-cell" style="font-weight:800;color:#7c3aed;">${ec.rate || 0}%</span>
-                                <span class="cr-stat-cell">${crTrendMini(et.rate)}</span>
+                                <span class="cr-stat-cell">${crTrendMini(emp.trend?.rate)}</span>
+                                <span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">${crFormatVND(ec.revenue || 0)}</span>
+                                <span class="cr-stat-cell">${crTrendMini(emp.trend?.revenue_pct)}</span>
                             </div>
                         </div>`;
                     });
