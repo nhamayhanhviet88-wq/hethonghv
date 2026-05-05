@@ -812,6 +812,20 @@ module.exports = async function(fastify) {
             };
         });
 
+        // === 1b. AFFILIATE NEW: Count new affiliate accounts created per employee ===
+        const affRows = await db.all(`
+            SELECT c.assigned_to_id AS uid, COUNT(DISTINCT cl.customer_id) AS aff_new
+            FROM consultation_logs cl
+            JOIN customers c ON cl.customer_id = c.id
+            WHERE cl.log_type = 'tao_tk_affiliate'
+              AND c.assigned_to_id IN (${ph})
+              AND cl.created_at >= $${pStart}::timestamp AND cl.created_at < $${pEnd}::timestamp
+            GROUP BY c.assigned_to_id
+        `, [...userIds, current.start, current.end]);
+        const affMap = {};
+        affRows.forEach(r => { affMap[r.uid] = parseInt(r.aff_new); });
+        leaderboard.forEach(l => { l.affiliate_new = affMap[l.user_id] || 0; });
+
         // === 2. ALERTS: NV inactive > 7 days, high cancel rate ===
         const alerts = [];
         const lastOrderRows = await db.all(`
@@ -960,6 +974,7 @@ module.exports = async function(fastify) {
             leaderboard: {
                 by_revenue: [...leaderboard].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
                 by_orders: [...leaderboard].sort((a, b) => b.total_orders - a.total_orders).slice(0, 10),
+                by_affiliate: [...leaderboard].sort((a, b) => b.affiliate_new - a.affiliate_new).slice(0, 10),
                 by_retention: [...leaderboard].filter(l => l.total_orders >= 2).sort((a, b) => b.rate - a.rate).slice(0, 10)
             },
             allEmployees: leaderboard,
