@@ -325,7 +325,8 @@ function kpiRenderContent(data) {
     data.teams.forEach(team => {
         // Employee rows
         team.employees.forEach((emp, ei) => {
-            html += `<tr><td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${emp.full_name}</td>`;
+            const roleIcon = emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao' ? '👑 ' : emp.role === 'truong_phong' ? '⭐ ' : '';
+            html += `<tr><td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
             html += `<td style="font-weight:700">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate}%</td>`;

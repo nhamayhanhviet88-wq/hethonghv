@@ -173,7 +173,7 @@ module.exports = async function(fastify) {
             const teamTarget = empData.reduce((s, e) => s + e.target, 0);
             teams.push({
                 dept_id: rootDept.id,
-                dept_name: 'TRƯỞNG PHÒNG',
+                dept_name: 'QUẢN LÝ',
                 leader_name: managers[0]?.full_name || null,
                 target_1: teamTarget,
                 target_120: Math.round(teamTarget * 1.2),
@@ -215,6 +215,10 @@ module.exports = async function(fastify) {
                     daily
                 };
             });
+
+            // Sort: truong_phong first, then others
+            const rolePriority = { truong_phong: 0, quan_ly: 1, quan_ly_cap_cao: 1, nhan_vien: 2 };
+            empData.sort((a, b) => (rolePriority[a.role] ?? 9) - (rolePriority[b.role] ?? 9));
 
             const teamDaily = sumDailyArrays(empData.map(e => e.daily));
             const teamActual = teamDaily.reduce((s, v) => s + v, 0);
