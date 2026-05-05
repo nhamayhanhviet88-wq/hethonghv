@@ -114,9 +114,17 @@ async function renderDashboardkdoanhPage(container) {
             .cr-chart-year-label { font-size: 15px; font-weight: 800; min-width: 50px; text-align: center; }
             .cr-chart-body { padding: 24px; position: relative; }
             .cr-chart-canvas-wrap { position: relative; height: 350px; }
-            .cr-chart-legend { display: flex; gap: 24px; justify-content: center; padding: 16px 24px; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
-            .cr-chart-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #475569; }
-            .cr-chart-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+            .cr-chart-legend { display: flex; gap: 20px; justify-content: center; padding: 16px 24px; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
+            .cr-chart-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; padding: 4px 10px; border-radius: 8px; transition: all 0.2s; user-select: none; }
+            .cr-chart-legend-item:hover { background: #f1f5f9; }
+            .cr-chart-legend-item.disabled { opacity: 0.35; text-decoration: line-through; }
+            .cr-chart-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+            .cr-chart-period-tabs { display: flex; gap: 2px; background: rgba(255,255,255,0.12); border-radius: 8px; padding: 2px; }
+            .cr-chart-period-tab { padding: 5px 12px; border-radius: 6px; border: none; background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+            .cr-chart-period-tab.active { background: rgba(255,255,255,0.25); color: white; }
+            .cr-chart-period-tab:hover { color: white; }
+            .cr-chart-select optgroup { font-weight: 800; color: #312e81; font-size: 13px; }
+            .cr-chart-select option { font-weight: 600; padding-left: 12px; }
 
             @media (max-width: 768px) {
                 .cr-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -162,8 +170,13 @@ async function renderDashboardkdoanhPage(container) {
             <!-- CHART SECTION -->
             <div class="cr-chart-section" id="crChartSection">
                 <div class="cr-chart-header">
-                    <h3>📊 Biểu Đồ Đơn Hàng Theo Tháng</h3>
+                    <h3>📊 Biểu Đồ Đơn Hàng</h3>
                     <div class="cr-chart-filters">
+                        <div class="cr-chart-period-tabs">
+                            <button class="cr-chart-period-tab active" onclick="crChartSwitchPeriod('month',this)">Tháng</button>
+                            <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('quarter',this)">Quý</button>
+                            <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('year',this)">Năm</button>
+                        </div>
                         <select class="cr-chart-select" id="crChartTarget" onchange="crChartLoad()">
                             <option value="all">🏢 Tổng P.Kinh Doanh</option>
                         </select>
@@ -179,11 +192,11 @@ async function renderDashboardkdoanhPage(container) {
                         <canvas id="crChartCanvas"></canvas>
                     </div>
                 </div>
-                <div class="cr-chart-legend">
-                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
-                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
-                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
-                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#0284c7;border-radius:50%;"></div> Doanh Số (triệu)</div>
+                <div class="cr-chart-legend" id="crChartLegend">
+                    <div class="cr-chart-legend-item" data-idx="0" onclick="crToggleLegend(0,this)"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
+                    <div class="cr-chart-legend-item" data-idx="1" onclick="crToggleLegend(1,this)"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
+                    <div class="cr-chart-legend-item" data-idx="2" onclick="crToggleLegend(2,this)"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
+                    <div class="cr-chart-legend-item" data-idx="3" onclick="crToggleLegend(3,this)"><div class="cr-chart-legend-dot" style="background:#0284c7;border-radius:50%;"></div> Doanh Số (triệu)</div>
                 </div>
             </div>
         </div>
@@ -608,10 +621,11 @@ function crRenderDetailTable(orders) {
 }
 
 // ===== CHART SECTION =====
-var _crChart = { instance: null, year: new Date().getFullYear(), optionsLoaded: false };
+var _crChart = { instance: null, year: new Date().getFullYear(), optionsLoaded: false, chartPeriod: 'month' };
 
 async function crChartInit() {
     _crChart.year = new Date().getFullYear();
+    _crChart.chartPeriod = 'month';
     document.getElementById('crChartYearLabel').textContent = _crChart.year;
     await crChartLoad();
 }
@@ -620,6 +634,21 @@ function crChartNavYear(delta) {
     _crChart.year += delta;
     document.getElementById('crChartYearLabel').textContent = _crChart.year;
     crChartLoad();
+}
+
+function crChartSwitchPeriod(p, btn) {
+    _crChart.chartPeriod = p;
+    document.querySelectorAll('.cr-chart-period-tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    crChartLoad();
+}
+
+function crToggleLegend(idx, el) {
+    if (!_crChart.instance) return;
+    const meta = _crChart.instance.getDatasetMeta(idx);
+    meta.hidden = !meta.hidden;
+    el.classList.toggle('disabled', meta.hidden);
+    _crChart.instance.update();
 }
 
 async function crChartLoad() {
@@ -636,31 +665,32 @@ async function crChartLoad() {
     }
 
     try {
-        const data = await apiCall(`/api/reports/customer-retention/chart?year=${_crChart.year}&type=${type}&target_id=${target_id}`);
+        const data = await apiCall(`/api/reports/customer-retention/chart?year=${_crChart.year}&type=${type}&target_id=${target_id}&chart_period=${_crChart.chartPeriod}`);
 
-        // Populate dropdown on first load
+        // Populate dropdown on first load (with nested team > employees)
         if (!_crChart.optionsLoaded && data.options) {
             _crChart.optionsLoaded = true;
-            let html = '<option value="all">\ud83c\udfe2 T\u1ed5ng P.Kinh Doanh</option>';
+            let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
             if (data.options.teams) {
-                html += '<optgroup label="\ud83d\udc65 Theo Team">';
                 data.options.teams.forEach(t => {
-                    html += `<option value="team_${t.id}">${t.name}</option>`;
+                    html += `<optgroup label="👥 ${t.name}">`;
+                    html += `<option value="team_${t.id}">📊 Tổng ${t.name}</option>`;
+                    if (t.employees) {
+                        t.employees.forEach(e => {
+                            html += `<option value="emp_${e.id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
+                        });
+                    }
+                    html += '</optgroup>';
                 });
-                html += '</optgroup>';
-            }
-            if (data.options.employees) {
-                html += '<optgroup label="\ud83d\udc64 Theo Nh\u00e2n Vi\u00ean">';
-                data.options.employees.forEach(e => {
-                    html += `<option value="emp_${e.id}">${e.name}</option>`;
-                });
-                html += '</optgroup>';
             }
             sel.innerHTML = html;
             sel.value = val;
         }
 
-        crChartRender(data.months || []);
+        // Reset legend toggle state
+        document.querySelectorAll('.cr-chart-legend-item').forEach(el => el.classList.remove('disabled'));
+
+        crChartRender(data.data || data.months || []);
     } catch (err) {
         console.error('Chart error:', err);
     }

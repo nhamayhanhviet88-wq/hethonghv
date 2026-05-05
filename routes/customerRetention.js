@@ -538,9 +538,9 @@ module.exports = async function(fastify) {
         };
     });
 
-    // ===== Chart API: Monthly breakdown for 12 months =====
+    // ===== Chart API: Monthly/Quarterly/Yearly breakdown =====
     fastify.get('/api/reports/customer-retention/chart', { preHandler: [authenticate] }, async (request, reply) => {
-        const { year, type = 'all', target_id } = request.query;
+        const { year, type = 'all', target_id, chart_period = 'month' } = request.query;
         const yr = parseInt(year) || new Date().getFullYear();
 
         // Get KD hierarchy for dropdown options
@@ -564,13 +564,12 @@ module.exports = async function(fastify) {
             filterParams = [parseInt(target_id)];
         } else if (type === 'team' && target_id) {
             const teamUsers = users.filter(u => u.department_id === parseInt(target_id));
-            if (teamUsers.length === 0) return { months: [], options: { teams: childDepts, employees: users } };
+            if (teamUsers.length === 0) return { data: [], options: { teams: childDepts, employees: users } };
             const ph = teamUsers.map((_, i) => `$${i + 1}`).join(',');
             employeeFilter = `AND c.assigned_to_id IN (${ph})`;
             filterParams = teamUsers.map(u => u.id);
         } else {
-            // All KD department
-            if (users.length === 0) return { months: [], options: { teams: childDepts, employees: users } };
+            if (users.length === 0) return { data: [], options: { teams: childDepts, employees: users } };
             const ph = users.map((_, i) => `$${i + 1}`).join(',');
             employeeFilter = `AND c.assigned_to_id IN (${ph})`;
             filterParams = users.map(u => u.id);
@@ -579,7 +578,19 @@ module.exports = async function(fastify) {
         const pStart = filterParams.length + 1;
         const pEnd = filterParams.length + 2;
 
-        // Query 12 months at once
+        // Determine grouping expression
+        let groupExpr, groupAlias;
+        if (chart_period === 'quarter') {
+            groupExpr = `EXTRACT(QUARTER FROM created_at)::int`;
+            groupAlias = 'quarter';
+        } else if (chart_period === 'year') {
+            groupExpr = `EXTRACT(YEAR FROM created_at)::int`;
+            groupAlias = 'yr';
+        } else {
+            groupExpr = `EXTRACT(MONTH FROM created_at)::int`;
+            groupAlias = 'month';
+        }
+
         const rows = await db.all(`
             WITH completed_orders AS (
                 SELECT
@@ -615,7 +626,7 @@ module.exports = async function(fastify) {
                 FROM completed_orders
             )
             SELECT
-                EXTRACT(MONTH FROM created_at)::int AS month,
+                ${groupExpr} AS bucket,
                 COUNT(*) AS total,
                 SUM(CASE WHEN phone_order_number = 1 THEN 1 ELSE 0 END) AS new_orders,
                 SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders,
@@ -623,29 +634,46 @@ module.exports = async function(fastify) {
             FROM ranked_orders
             WHERE created_at >= $${pStart}::timestamp
               AND created_at < $${pEnd}::timestamp
-            GROUP BY EXTRACT(MONTH FROM created_at)
-            ORDER BY month
+            GROUP BY ${groupExpr}
+            ORDER BY bucket
         `, [...filterParams, `${yr}-01-01`, `${yr + 1}-01-01`]);
 
-        // Fill all 12 months
-        const months = [];
-        for (let m = 1; m <= 12; m++) {
-            const row = rows.find(r => r.month === m);
+        // Fill buckets
+        const data = [];
+        let bucketCount = 12, labelFn = b => `T${b}`;
+        if (chart_period === 'quarter') {
+            bucketCount = 4;
+            labelFn = b => `Q${b}`;
+        } else if (chart_period === 'year') {
+            bucketCount = 1;
+            labelFn = () => `${yr}`;
+        }
+
+        for (let b = 1; b <= bucketCount; b++) {
+            const row = rows.find(r => r.bucket === b || (chart_period === 'year' && r.bucket === yr));
             const total = row ? parseInt(row.total) : 0;
             const newO = row ? parseInt(row.new_orders) : 0;
             const retO = row ? parseInt(row.returning_orders) : 0;
             const rev = row ? parseFloat(row.total_revenue) : 0;
             const rate = total > 0 ? Math.round(1000 * retO / total) / 10 : 0;
-            months.push({ month: m, label: `T${m}`, total, new: newO, returning: retO, rate, revenue: rev });
+            data.push({ bucket: b, label: labelFn(b), total, new: newO, returning: retO, rate, revenue: rev });
         }
+
+        // Build structured options: teams with nested employees
+        const teamOptions = childDepts.map(d => ({
+            id: d.id,
+            name: d.name,
+            employees: users.filter(u => u.department_id === d.id).map(u => ({ id: u.id, name: u.full_name }))
+        }));
 
         return {
             year: yr,
+            chart_period,
             type,
             target_id: target_id ? parseInt(target_id) : null,
-            months,
+            data,
             options: {
-                teams: childDepts.map(d => ({ id: d.id, name: d.name })),
+                teams: teamOptions,
                 employees: users.map(u => ({ id: u.id, name: u.full_name, department_id: u.department_id }))
             }
         };
