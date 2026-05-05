@@ -1,5 +1,5 @@
 // ========== CUSTOMER RETENTION REPORT — Khách Mới vs Khách Cũ Quay Lại ==========
-// Logic: Dùng ROW_NUMBER() OVER (PARTITION BY phone) trên consultation_logs (hoan_thanh)
+// Logic: Dùng ROW_NUMBER() OVER (PARTITION BY phone) trên consultation_logs (chot_don)
 // phone_order_number = 1 → Khách MỚI, > 1 → Khách CŨ quay lại
 // Scope: Chỉ P.Kinh Doanh (department id=1 + children)
 // ★ Teams = child departments (parent_id = 1), NOT the "teams" table
@@ -169,7 +169,7 @@ module.exports = async function(fastify) {
                           AND EXISTS (
                               SELECT 1 FROM consultation_logs cl
                               WHERE cl.customer_id = oc.customer_id
-                                AND cl.log_type = 'hoan_thanh'
+                                AND cl.log_type = 'chot_don'
                           )
                     ),
                     ranked_orders AS (
@@ -547,7 +547,7 @@ module.exports = async function(fastify) {
                   AND EXISTS (
                       SELECT 1 FROM consultation_logs cl
                       WHERE cl.customer_id = oc.customer_id
-                        AND cl.log_type = 'hoan_thanh'
+                        AND cl.log_type = 'chot_don'
                   )
             ),
             ranked_orders AS (
@@ -675,7 +675,7 @@ module.exports = async function(fastify) {
                   AND EXISTS (
                       SELECT 1 FROM consultation_logs cl
                       WHERE cl.customer_id = oc.customer_id
-                        AND cl.log_type = 'hoan_thanh'
+                        AND cl.log_type = 'chot_don'
                   )
             ),
             ranked_orders AS (
@@ -780,7 +780,7 @@ module.exports = async function(fastify) {
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
@@ -853,7 +853,7 @@ module.exports = async function(fastify) {
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
@@ -909,7 +909,7 @@ module.exports = async function(fastify) {
             FROM order_codes oc
             JOIN customers c ON oc.customer_id = c.id
             WHERE c.assigned_to_id IN (${ph})
-              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
             GROUP BY c.assigned_to_id
         `, userIds);
 
@@ -962,7 +962,7 @@ module.exports = async function(fastify) {
             WHERE c.assigned_to_id IN (${ph})
               AND COALESCE(c.cancel_approved, 0) != 1
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
-              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
         `, [...userIds, current.start, current.end]);
 
         const assigned = parseInt(assignedCount?.cnt || 0);
@@ -975,7 +975,7 @@ module.exports = async function(fastify) {
             FROM consultation_logs cl
             JOIN customers c ON cl.customer_id = c.id
             WHERE c.assigned_to_id IN (${ph})
-              AND cl.log_type = 'hoan_thanh'
+              AND cl.log_type = 'chot_don'
               AND cl.created_at >= $${pStart}::timestamp AND cl.created_at < $${pEnd}::timestamp
         `, [...userIds, current.start, current.end]);
 
@@ -991,7 +991,7 @@ module.exports = async function(fastify) {
               AND c.phone IS NOT NULL AND c.phone != ''
               AND COALESCE(c.cancel_approved, 0) != 1
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
-              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'hoan_thanh')
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
             GROUP BY c.id, c.customer_name, c.phone, c.assigned_to_id
             ORDER BY total_revenue DESC
             LIMIT 10

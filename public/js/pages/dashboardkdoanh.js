@@ -457,7 +457,7 @@ function crRenderCards(data) {
     document.getElementById('crCards').innerHTML = `
         <div class="cr-card total">
             <div class="cr-card-value">${c.total || 0}</div>
-            <div class="cr-card-label">Tổng Đơn Hoàn Thành</div>
+            <div class="cr-card-label">Tổng Đơn Chốt</div>
             ${crTrendHTML(t.total)}
         </div>
         <div class="cr-card new">
