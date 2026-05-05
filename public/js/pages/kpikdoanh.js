@@ -469,15 +469,18 @@ async function kpiLoadDashboard() {
     if (!lbEl || !tcEl) return;
 
     try {
+        const retUrl = '/api/reports/customer-retention?period=month' + '&date=' + _kpi.month;
+        const advUrl = '/api/reports/customer-retention/advanced?period=month' + '&date=' + _kpi.month;
         const [mainData, advData] = await Promise.all([
-            apiCall(`/api/reports/customer-retention?period=month&date=${_kpi.month}`),
-            apiCall(`/api/reports/customer-retention/advanced?period=month&date=${_kpi.month}`)
+            apiCall(retUrl),
+            apiCall(advUrl)
         ]);
 
         kpiRenderLeaderboard(lbEl, advData);
         kpiRenderTeamCompare(tcEl, mainData);
     } catch(e) {
-        console.error('Dashboard embed error:', e);
+        console.error('Dashboard embed error:', e.message || e);
+        if (lbEl) lbEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được BXH: ' + (e.message || '') + '</div>';
     }
 }
 
