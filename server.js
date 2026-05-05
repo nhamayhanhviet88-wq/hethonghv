@@ -216,6 +216,7 @@ async function start() {
     fastify.register(require('./routes/accessBlock'));
     fastify.register(require('./routes/customerRetention'));
     fastify.register(require('./routes/kpiTargets'));
+    fastify.register(require('./routes/kpiKdoanh'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
