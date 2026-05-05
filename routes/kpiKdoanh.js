@@ -346,7 +346,7 @@ module.exports = async function(fastify) {
             SELECT
                 oc.id AS order_id,
                 oc.order_code,
-                c.name AS customer_name,
+                c.customer_name AS customer_name,
                 c.phone AS customer_phone,
                 COALESCE(oi_sum.revenue, 0) AS revenue,
                 oc.created_at,
