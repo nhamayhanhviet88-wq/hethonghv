@@ -97,6 +97,23 @@ async function renderDashboardkdoanhPage(container) {
             .cr-type-new { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #d1fae5; color: #065f46; }
             .cr-type-ret { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #ffedd5; color: #9a3412; }
 
+            /* === CHART SECTION === */
+            .cr-chart-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; margin-top: 32px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+            .cr-chart-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px 24px; background: linear-gradient(135deg, #1e1b4b, #312e81); color: white; }
+            .cr-chart-header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+            .cr-chart-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+            .cr-chart-select { padding: 7px 14px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.12); color: white; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; min-width: 140px; }
+            .cr-chart-select option { color: #1e1b4b; background: white; }
+            .cr-chart-year-nav { display: flex; align-items: center; gap: 6px; }
+            .cr-chart-year-btn { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+            .cr-chart-year-btn:hover { background: rgba(255,255,255,0.3); }
+            .cr-chart-year-label { font-size: 15px; font-weight: 800; min-width: 50px; text-align: center; }
+            .cr-chart-body { padding: 24px; position: relative; }
+            .cr-chart-canvas-wrap { position: relative; height: 350px; }
+            .cr-chart-legend { display: flex; gap: 24px; justify-content: center; padding: 16px 24px; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
+            .cr-chart-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #475569; }
+            .cr-chart-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
             @media (max-width: 768px) {
                 .cr-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
                 .cr-card { padding: 16px 12px; }
@@ -108,8 +125,13 @@ async function renderDashboardkdoanhPage(container) {
                 .cr-team-header { padding-left: 28px; }
                 .cr-emp-name { min-width: auto; }
                 .cr-header { flex-direction: column; align-items: stretch; }
+                .cr-chart-canvas-wrap { height: 280px; }
+                .cr-chart-header { padding: 16px; }
+                .cr-chart-filters { width: 100%; }
+                .cr-chart-select { flex: 1; min-width: 100px; }
             }
         </style>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
         <div class="cr-wrap" id="crWrap">
             <div class="cr-header">
                 <div class="cr-period-tabs">
@@ -130,10 +152,38 @@ async function renderDashboardkdoanhPage(container) {
                 <div class="cr-card rate"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
             </div>
             <div id="crGroups"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div></div>
+
+            <!-- CHART SECTION -->
+            <div class="cr-chart-section" id="crChartSection">
+                <div class="cr-chart-header">
+                    <h3>📊 Biểu Đồ Đơn Hàng Theo Tháng</h3>
+                    <div class="cr-chart-filters">
+                        <select class="cr-chart-select" id="crChartTarget" onchange="crChartLoad()">
+                            <option value="all">🏢 Tổng P.Kinh Doanh</option>
+                        </select>
+                        <div class="cr-chart-year-nav">
+                            <button class="cr-chart-year-btn" onclick="crChartNavYear(-1)">‹</button>
+                            <span class="cr-chart-year-label" id="crChartYearLabel">${new Date().getFullYear()}</span>
+                            <button class="cr-chart-year-btn" onclick="crChartNavYear(1)">›</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="cr-chart-body">
+                    <div class="cr-chart-canvas-wrap">
+                        <canvas id="crChartCanvas"></canvas>
+                    </div>
+                </div>
+                <div class="cr-chart-legend">
+                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
+                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
+                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
+                </div>
+            </div>
         </div>
     `;
 
     await crLoadData();
+    crChartInit();
 }
 
 function crSwitchPeriod(period) {
@@ -489,4 +539,201 @@ function crRenderDetailTable(orders) {
 
     html += '</tbody></table>';
     body.innerHTML = html;
+}
+
+// ===== CHART SECTION =====
+var _crChart = { instance: null, year: new Date().getFullYear(), optionsLoaded: false };
+
+async function crChartInit() {
+    _crChart.year = new Date().getFullYear();
+    document.getElementById('crChartYearLabel').textContent = _crChart.year;
+    await crChartLoad();
+}
+
+function crChartNavYear(delta) {
+    _crChart.year += delta;
+    document.getElementById('crChartYearLabel').textContent = _crChart.year;
+    crChartLoad();
+}
+
+async function crChartLoad() {
+    const sel = document.getElementById('crChartTarget');
+    const val = sel.value;
+    let type = 'all', target_id = '';
+
+    if (val.startsWith('team_')) {
+        type = 'team';
+        target_id = val.replace('team_', '');
+    } else if (val.startsWith('emp_')) {
+        type = 'employee';
+        target_id = val.replace('emp_', '');
+    }
+
+    try {
+        const data = await apiCall(`/api/reports/customer-retention/chart?year=${_crChart.year}&type=${type}&target_id=${target_id}`);
+
+        // Populate dropdown on first load
+        if (!_crChart.optionsLoaded && data.options) {
+            _crChart.optionsLoaded = true;
+            let html = '<option value="all">\ud83c\udfe2 T\u1ed5ng P.Kinh Doanh</option>';
+            if (data.options.teams) {
+                html += '<optgroup label="\ud83d\udc65 Theo Team">';
+                data.options.teams.forEach(t => {
+                    html += `<option value="team_${t.id}">${t.name}</option>`;
+                });
+                html += '</optgroup>';
+            }
+            if (data.options.employees) {
+                html += '<optgroup label="\ud83d\udc64 Theo Nh\u00e2n Vi\u00ean">';
+                data.options.employees.forEach(e => {
+                    html += `<option value="emp_${e.id}">${e.name}</option>`;
+                });
+                html += '</optgroup>';
+            }
+            sel.innerHTML = html;
+            sel.value = val;
+        }
+
+        crChartRender(data.months || []);
+    } catch (err) {
+        console.error('Chart error:', err);
+    }
+}
+
+function crChartRender(months) {
+    const canvas = document.getElementById('crChartCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // Destroy previous chart
+    if (_crChart.instance) {
+        _crChart.instance.destroy();
+        _crChart.instance = null;
+    }
+
+    const labels = months.map(m => m.label);
+    const newData = months.map(m => m.new);
+    const retData = months.map(m => m.returning);
+    const rateData = months.map(m => m.rate);
+
+    // Gradient fills
+    const greenGrad = ctx.createLinearGradient(0, 0, 0, 350);
+    greenGrad.addColorStop(0, 'rgba(5, 150, 105, 0.85)');
+    greenGrad.addColorStop(1, 'rgba(5, 150, 105, 0.35)');
+
+    const orangeGrad = ctx.createLinearGradient(0, 0, 0, 350);
+    orangeGrad.addColorStop(0, 'rgba(194, 65, 12, 0.85)');
+    orangeGrad.addColorStop(1, 'rgba(194, 65, 12, 0.35)');
+
+    _crChart.instance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: '\u0110\u01a1n KH M\u1edbi',
+                    data: newData,
+                    backgroundColor: greenGrad,
+                    borderColor: '#059669',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    yAxisID: 'y',
+                    order: 2
+                },
+                {
+                    label: '\u0110\u01a1n KH C\u0169 Quay L\u1ea1i',
+                    data: retData,
+                    backgroundColor: orangeGrad,
+                    borderColor: '#c2410c',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    yAxisID: 'y',
+                    order: 3
+                },
+                {
+                    label: 'T\u1ef7 L\u1ec7 KH C\u0169 (%)',
+                    data: rateData,
+                    type: 'line',
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#7c3aed',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 7,
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y1',
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 27, 75, 0.95)',
+                    titleFont: { size: 14, weight: '800' },
+                    bodyFont: { size: 13 },
+                    padding: 14,
+                    cornerRadius: 12,
+                    displayColors: true,
+                    boxWidth: 12,
+                    boxHeight: 12,
+                    boxPadding: 4,
+                    callbacks: {
+                        title: function(items) {
+                            const m = months[items[0].dataIndex];
+                            return `${m.label}/${_crChart.year} \u2014 T\u1ed5ng: ${m.total} \u0111\u01a1n`;
+                        },
+                        label: function(item) {
+                            if (item.datasetIndex === 2) return ` T\u1ef7 l\u1ec7 KH c\u0169: ${item.raw}%`;
+                            return ` ${item.dataset.label}: ${item.raw} \u0111\u01a1n`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12, weight: '700' }, color: '#64748b' }
+                },
+                y: {
+                    beginAtZero: true,
+                    position: 'left',
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: {
+                        font: { size: 11, weight: '600' },
+                        color: '#64748b',
+                        stepSize: 1,
+                        callback: v => Number.isInteger(v) ? v : ''
+                    },
+                    title: { display: true, text: 'S\u1ed1 \u0111\u01a1n', font: { size: 12, weight: '700' }, color: '#475569' }
+                },
+                y1: {
+                    beginAtZero: true,
+                    max: 100,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: {
+                        font: { size: 11, weight: '600' },
+                        color: '#7c3aed',
+                        callback: v => v + '%'
+                    },
+                    title: { display: true, text: 'T\u1ef7 l\u1ec7 %', font: { size: 12, weight: '700' }, color: '#7c3aed' }
+                }
+            },
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            }
+        }
+    });
 }

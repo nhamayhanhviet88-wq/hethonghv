@@ -478,4 +478,110 @@ module.exports = async function(fastify) {
             }))
         };
     });
+
+    // ===== Chart API: Monthly breakdown for 12 months =====
+    fastify.get('/api/reports/customer-retention/chart', { preHandler: [authenticate] }, async (request, reply) => {
+        const { year, type = 'all', target_id } = request.query;
+        const yr = parseInt(year) || new Date().getFullYear();
+
+        // Get KD hierarchy for dropdown options
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id, head_user_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        const allDeptIds = allDepts.map(d => d.id);
+
+        const users = allDeptIds.length > 0 ? await db.all(
+            `SELECT id, full_name, department_id FROM users WHERE department_id IN (${allDeptIds.map((_, i) => `$${i + 1}`).join(',')}) AND status = 'active' ORDER BY full_name`,
+            allDeptIds
+        ) : [];
+
+        // Build WHERE clause for target
+        let employeeFilter = '';
+        let filterParams = [];
+        if (type === 'employee' && target_id) {
+            employeeFilter = `AND c.assigned_to_id = $1`;
+            filterParams = [parseInt(target_id)];
+        } else if (type === 'team' && target_id) {
+            const teamUsers = users.filter(u => u.department_id === parseInt(target_id));
+            if (teamUsers.length === 0) return { months: [], options: { teams: childDepts, employees: users } };
+            const ph = teamUsers.map((_, i) => `$${i + 1}`).join(',');
+            employeeFilter = `AND c.assigned_to_id IN (${ph})`;
+            filterParams = teamUsers.map(u => u.id);
+        } else {
+            // All KD department
+            if (users.length === 0) return { months: [], options: { teams: childDepts, employees: users } };
+            const ph = users.map((_, i) => `$${i + 1}`).join(',');
+            employeeFilter = `AND c.assigned_to_id IN (${ph})`;
+            filterParams = users.map(u => u.id);
+        }
+
+        const pStart = filterParams.length + 1;
+        const pEnd = filterParams.length + 2;
+
+        // Query 12 months at once
+        const rows = await db.all(`
+            WITH completed_orders AS (
+                SELECT
+                    oc.id AS order_id,
+                    oc.created_at,
+                    c.phone,
+                    c.assigned_to_id
+                FROM order_codes oc
+                JOIN customers c ON oc.customer_id = c.id
+                WHERE c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  ${employeeFilter}
+                  AND EXISTS (
+                      SELECT 1 FROM consultation_logs cl
+                      WHERE cl.customer_id = oc.customer_id
+                        AND cl.log_type = 'hoan_thanh'
+                  )
+            ),
+            ranked_orders AS (
+                SELECT
+                    order_id,
+                    created_at,
+                    phone,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY phone
+                        ORDER BY created_at ASC
+                    ) AS phone_order_number
+                FROM completed_orders
+            )
+            SELECT
+                EXTRACT(MONTH FROM created_at)::int AS month,
+                COUNT(*) AS total,
+                SUM(CASE WHEN phone_order_number = 1 THEN 1 ELSE 0 END) AS new_orders,
+                SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders
+            FROM ranked_orders
+            WHERE created_at >= $${pStart}::timestamp
+              AND created_at < $${pEnd}::timestamp
+            GROUP BY EXTRACT(MONTH FROM created_at)
+            ORDER BY month
+        `, [...filterParams, `${yr}-01-01`, `${yr + 1}-01-01`]);
+
+        // Fill all 12 months
+        const months = [];
+        for (let m = 1; m <= 12; m++) {
+            const row = rows.find(r => r.month === m);
+            const total = row ? parseInt(row.total) : 0;
+            const newO = row ? parseInt(row.new_orders) : 0;
+            const retO = row ? parseInt(row.returning_orders) : 0;
+            const rate = total > 0 ? Math.round(1000 * retO / total) / 10 : 0;
+            months.push({ month: m, label: `T${m}`, total, new: newO, returning: retO, rate });
+        }
+
+        return {
+            year: yr,
+            type,
+            target_id: target_id ? parseInt(target_id) : null,
+            months,
+            options: {
+                teams: childDepts.map(d => ({ id: d.id, name: d.name })),
+                employees: users.map(u => ({ id: u.id, name: u.full_name, department_id: u.department_id }))
+            }
+        };
+    });
 };
