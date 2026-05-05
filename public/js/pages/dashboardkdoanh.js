@@ -74,7 +74,7 @@ async function renderDashboardkdoanhPage(container) {
             .cr-lb-tab.active { color: #4338ca; border-bottom-color: #4338ca; }
             .cr-lb-tab:hover { color: #4338ca; }
             .cr-lb-body { padding: 0; }
-            .cr-lb-row { display: grid; grid-template-columns: 50px 1fr 100px 100px 100px; padding: 14px 24px; border-bottom: 1px solid #f8fafc; align-items: center; transition: background 0.2s; }
+            .cr-lb-row { display: grid; grid-template-columns: 50px 1fr 100px 80px 80px 80px; padding: 14px 24px; border-bottom: 1px solid #f8fafc; align-items: center; transition: background 0.2s; }
             .cr-lb-row:hover { background: #fefce8; }
             .cr-lb-rank { font-size: 20px; font-weight: 900; text-align: center; }
             .cr-lb-name { font-weight: 700; color: #1e1b4b; }
@@ -624,8 +624,8 @@ function crRenderGroups(data) {
 // KPI Setting Modal — only for Director
 function crOpenKPI(userId, empName) {
     const periodType = _cr.period;
-    const periodValue = _cr.data?.period?.label || '';
-    const kpiMap = _cr.data?.kpiMap || {};
+    const periodValue = _cr.data?.period?.label || _crAdvData?.period?.label || '';
+    const kpiMap = Object.assign({}, _cr.data?.kpiMap || {}, _crAdvData?.kpiMap || {});
 
     const getKPI = (metric) => {
         const v = kpiMap['user_' + userId + '_' + metric];
@@ -710,7 +710,8 @@ async function crSaveKPI(userId) {
         if (res.success) {
             document.getElementById('crKpiModal').remove();
             alert('\u2705 \u0110\u00e3 l\u01b0u KPI th\u00e0nh c\u00f4ng! (' + res.created + ' m\u1edbi, ' + res.updated + ' c\u1eadp nh\u1eadt)');
-            crLoadData(); // Reload to show new KPI bars
+            crLoadData(); // Reload Tab 1 data
+            _crAdvLoaded = false; crLoadAdvanced(); // Reload Tab 2 data
         } else {
             alert('\u274c L\u1ed7i: ' + (res.error || 'Kh\u00f4ng r\u00f5'));
         }
@@ -1129,37 +1130,66 @@ var _crLbType = 'by_revenue';
 function crRenderLeaderboard(data) {
     const lb = data.leaderboard || {};
     const el = document.getElementById('crLeaderboard');
-    const medals = ['🥇', '🥈', '🥉'];
+    const medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+    const convMap = data.conversionMap || {};
+    const kpiMap = data.kpiMap || {};
+    const isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
 
-    function renderRows(list, valFn) {
-        if (!list || !list.length) return '<div style="padding:24px;text-align:center;color:#9ca3af;">Chưa có dữ liệu</div>';
-        return list.map((item, i) => {
-            const rank = i < 3 ? `<span style="font-size:24px;">${medals[i]}</span>` : `<span style="color:#6b7280;">${i + 1}</span>`;
-            return `<div class="cr-lb-row" ${i < 3 ? 'style="background:linear-gradient(90deg,' + ['#fefce8','#f8fafc','#fff7ed'][i] + ',white);"' : ''}>
-                <div class="cr-lb-rank">${rank}</div>
-                <div><div class="cr-lb-name">${item.name}</div><div class="cr-lb-team">${item.team}</div></div>
-                <div class="cr-lb-val" style="color:#0369a1;">${crFormatVND(item.revenue)}</div>
-                <div class="cr-lb-val" style="color:#1e1b4b;">${item.total_orders} đơn</div>
-                <div class="cr-lb-val" style="color:#7c3aed;">${item.rate}%</div>
-            </div>`;
+    function kpiB(uid, metric, actual) {
+        const v = kpiMap['user_' + uid + '_' + metric];
+        if (!v || v <= 0) return '';
+        const pct = Math.min(Math.round(actual / v * 100), 150);
+        const c = pct >= 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
+        return '<div style="display:flex;align-items:center;gap:3px;"><div style="flex:1;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + Math.min(pct,100) + '%;background:' + c + ';border-radius:2px;"></div></div><span style="font-size:9px;font-weight:700;color:' + c + ';">' + pct + '%' + (pct>=100?'\uD83C\uDFC6':'') + '</span></div>';
+    }
+
+    function renderRows(list) {
+        if (!list || !list.length) return '<div style="padding:24px;text-align:center;color:#9ca3af;">Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u</div>';
+        return list.map(function(item, i) {
+            var rank = i < 3 ? '<span style="font-size:24px;">' + medals[i] + '</span>' : '<span style="color:#6b7280;">' + (i + 1) + '</span>';
+            var cv = convMap[item.user_id];
+            var cvRate = cv ? cv.rate : 0;
+            var cvColor = cvRate >= 70 ? '#10b981' : cvRate >= 40 ? '#f59e0b' : '#ef4444';
+            var cvBg = cvRate >= 70 ? '#d1fae5' : cvRate >= 40 ? '#fef3c7' : '#fee2e2';
+            var kR = kpiB(item.user_id, 'revenue', item.revenue);
+            var kO = kpiB(item.user_id, 'orders', item.total_orders);
+            var kC = kpiB(item.user_id, 'conversion_rate', cvRate);
+            var kRt = kpiB(item.user_id, 'retention_rate', item.rate);
+            var hasKpi = kR || kO || kC || kRt;
+            var kpiBtn = isGD ? ' <span onclick="crOpenKPI(' + item.user_id + ',\'' + item.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : '';
+            var row = '<div class="cr-lb-row" ' + (i < 3 ? 'style="background:linear-gradient(90deg,' + ['#fefce8','#f8fafc','#fff7ed'][i] + ',white);"' : '') + '>';
+            row += '<div class="cr-lb-rank">' + rank + '</div>';
+            row += '<div><div class="cr-lb-name">' + item.name + kpiBtn + '</div><div class="cr-lb-team">' + item.team + '</div></div>';
+            row += '<div class="cr-lb-val" style="color:#0369a1;">' + crFormatVND(item.revenue) + '</div>';
+            row += '<div class="cr-lb-val" style="color:#1e1b4b;">' + item.total_orders + ' \u0111\u01a1n</div>';
+            row += '<div class="cr-lb-val"><span style="background:' + cvBg + ';color:' + cvColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">' + cvRate + '%</span></div>';
+            row += '<div class="cr-lb-val" style="color:#7c3aed;">' + item.rate + '%</div>';
+            row += '</div>';
+            if (hasKpi) {
+                row += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px 10px;padding:4px 16px 10px 52px;background:#fafbfd;border-bottom:1px solid #f1f5f9;">';
+                row += kR ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF DS</span>' + kR + '</div>' : '<div></div>';
+                row += kO ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF \u0110\u01a1n</span>' + kO + '</div>' : '<div></div>';
+                row += kC ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF C\u0110</span>' + kC + '</div>' : '<div></div>';
+                row += kRt ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF KHC</span>' + kRt + '</div>' : '<div></div>';
+                row += '</div>';
+            }
+            return row;
         }).join('');
     }
 
-    el.innerHTML = `
-        <div class="cr-lb-section">
-            <div class="cr-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>
-            <div class="cr-lb-tabs">
-                <button class="cr-lb-tab ${_crLbType === 'by_revenue' ? 'active' : ''}" onclick="crSwitchLb('by_revenue',this)">💰 Doanh Số</button>
-                <button class="cr-lb-tab ${_crLbType === 'by_orders' ? 'active' : ''}" onclick="crSwitchLb('by_orders',this)">📦 Số Đơn</button>
-                <button class="cr-lb-tab ${_crLbType === 'by_retention' ? 'active' : ''}" onclick="crSwitchLb('by_retention',this)">🔄 KH Cũ Quay Lại</button>
-            </div>
-            <div class="cr-lb-body" id="crLbBody">
-                <div class="cr-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569;">
-                    <div style="text-align:center;">#</div><div>Nhân viên</div><div style="text-align:right;">Doanh số</div><div style="text-align:right;">Đơn hàng</div><div style="text-align:right;">KH cũ %</div>
-                </div>
-                ${renderRows(lb[_crLbType])}
-            </div>
-        </div>`;
+    el.innerHTML = '<div class="cr-lb-section">'
+        + '<div class="cr-lb-header">\uD83C\uDFC6 B\u1ea3ng X\u1ebfp H\u1ea1ng Nh\u00e2n Vi\u00ean</div>'
+        + '<div class="cr-lb-tabs">'
+        + '<button class="cr-lb-tab ' + (_crLbType === 'by_revenue' ? 'active' : '') + '" onclick="crSwitchLb(\'by_revenue\',this)">\uD83D\uDCB0 Doanh S\u1ed1</button>'
+        + '<button class="cr-lb-tab ' + (_crLbType === 'by_orders' ? 'active' : '') + '" onclick="crSwitchLb(\'by_orders\',this)">\uD83D\uDCE6 S\u1ed1 \u0110\u01a1n</button>'
+        + '<button class="cr-lb-tab ' + (_crLbType === 'by_retention' ? 'active' : '') + '" onclick="crSwitchLb(\'by_retention\',this)">\uD83D\uDD04 KH C\u0169 Quay L\u1ea1i</button>'
+        + '</div>'
+        + '<div class="cr-lb-body" id="crLbBody">'
+        + '<div class="cr-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569;">'
+        + '<div style="text-align:center;">#</div><div>Nh\u00e2n vi\u00ean</div><div style="text-align:right;">Doanh s\u1ed1</div><div style="text-align:right;">\u0110\u01a1n h\u00e0ng</div><div style="text-align:right;">\uD83D\uDD04 C\u0110</div><div style="text-align:right;">KH c\u0169 %</div>'
+        + '</div>'
+        + renderRows(lb[_crLbType])
+        + '</div></div>';
 }
 
 function crSwitchLb(type, btn) {

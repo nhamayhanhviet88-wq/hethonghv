@@ -904,12 +904,44 @@ module.exports = async function(fastify) {
             };
         });
 
+        // ===== PER-EMPLOYEE CONVERSION + KPI for Tab 2 =====
+        const assignedPerEmpAdv = userIds.length > 0 ? await db.all(`
+            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            FROM customers
+            WHERE assigned_to_id IN (${ph})
+              AND created_at >= $${pStart}::timestamp AND created_at < $${pEnd}::timestamp
+            GROUP BY assigned_to_id
+        `, [...userIds, current.start, current.end]) : [];
+
+        const conversionMapAdv = {};
+        assignedPerEmpAdv.forEach(r => {
+            const uid = r.uid;
+            const assigned = parseInt(r.assigned);
+            const lbEntry = leaderboard.find(l => l.user_id === uid);
+            const completed = lbEntry ? lbEntry.total_orders : 0;
+            conversionMapAdv[uid] = { assigned, completed, rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0 };
+        });
+        userIds.forEach(uid => {
+            if (!conversionMapAdv[uid]) {
+                const lbEntry = leaderboard.find(l => l.user_id === uid);
+                conversionMapAdv[uid] = { assigned: 0, completed: lbEntry ? lbEntry.total_orders : 0, rate: 0 };
+            }
+        });
+
+        const kpiTargetsAdv = await db.all(
+            `SELECT target_type, target_id, metric, target_value FROM kpi_targets WHERE period_type = $1 AND period_value = $2`,
+            [period, current.label]
+        );
+        const kpiMapAdv = {};
+        kpiTargetsAdv.forEach(k => { kpiMapAdv[`${k.target_type}_${k.target_id}_${k.metric}`] = parseFloat(k.target_value); });
+
         return {
             leaderboard: {
                 by_revenue: [...leaderboard].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
                 by_orders: [...leaderboard].sort((a, b) => b.total_orders - a.total_orders).slice(0, 10),
                 by_retention: [...leaderboard].filter(l => l.total_orders >= 2).sort((a, b) => b.rate - a.rate).slice(0, 10)
             },
+            allEmployees: leaderboard,
             alerts: alerts.sort((a, b) => (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1)),
             conversion: { assigned, completed, rate: conversionRate },
             cancel: cancelData,
@@ -919,6 +951,8 @@ module.exports = async function(fastify) {
                 return { name: r.customer_name, phone: r.phone, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
             }),
             teamComparison,
+            conversionMap: conversionMapAdv,
+            kpiMap: kpiMapAdv,
             period: { type: period, label: current.label }
         };
     });
