@@ -19,8 +19,7 @@ async function renderDashboardkdoanhPage(container) {
 
     container.innerHTML = `
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
-            .cr-wrap { max-width: 1200px; margin: 0 auto; font-family: 'Be Vietnam Pro', 'Segoe UI', Tahoma, Arial, sans-serif; }
+            .cr-wrap { max-width: 1200px; margin: 0 auto; font-family: inherit; }
             .cr-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
             .cr-period-tabs { display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1.5px solid #4338ca; }
             .cr-tab { padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; background: white; color: #4338ca; border: none; transition: all 0.25s; }
