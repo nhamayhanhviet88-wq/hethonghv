@@ -793,13 +793,13 @@ module.exports = async function(fastify) {
         });
 
         // === 3. CONVERSION RATE: KH được giao vs đơn hoàn thành ===
-        const assignedCount = await db.one(`
+        const assignedCount = await db.get(`
             SELECT COUNT(DISTINCT c.id) AS cnt FROM customers c
             WHERE c.assigned_to_id IN (${ph})
               AND c.created_at >= $${pStart}::timestamp AND c.created_at < $${pEnd}::timestamp
         `, [...userIds, current.start, current.end]);
 
-        const completedCount = await db.one(`
+        const completedCount = await db.get(`
             SELECT COUNT(DISTINCT oc.id) AS cnt FROM order_codes oc
             JOIN customers c ON oc.customer_id = c.id
             WHERE c.assigned_to_id IN (${ph})
@@ -813,7 +813,7 @@ module.exports = async function(fastify) {
         const conversionRate = assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0;
 
         // === 4. AVG PROCESSING TIME ===
-        const avgTimeRow = await db.one(`
+        const avgTimeRow = await db.get(`
             SELECT AVG(EXTRACT(EPOCH FROM (cl.created_at - c.created_at)) / 86400)::numeric(10,1) AS avg_days
             FROM consultation_logs cl
             JOIN customers c ON cl.customer_id = c.id
