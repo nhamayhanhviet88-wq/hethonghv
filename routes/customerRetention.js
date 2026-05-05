@@ -404,7 +404,7 @@ module.exports = async function(fastify) {
                     c.assigned_to_id,
                     cl.created_at,
                     c.phone,
-                    c.name AS customer_name,
+                    c.customer_name,
                     c.order_code,
                     ROW_NUMBER() OVER (
                         PARTITION BY c.phone
