@@ -550,6 +550,7 @@ module.exports = async function(fastify) {
                         AND cl.log_type = 'hoan_thanh'
                   )
             ),
+            ranked_orders AS (
                 SELECT
                     order_id,
                     order_code,
