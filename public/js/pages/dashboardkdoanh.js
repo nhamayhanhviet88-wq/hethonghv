@@ -491,14 +491,11 @@ function crRenderGroups(data) {
     const kpiMap = data.kpiMap || {};
     const isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
 
-    // Auto-expand all groups and teams on first load
+    // Auto-expand all manager groups on first load (teams stay collapsed)
     if (!_cr._autoExpanded) {
         _cr._autoExpanded = true;
         data.groups.forEach((g, gi) => {
             _cr.expandedMgr.add(gi);
-            (g.teams || []).forEach((t, ti) => {
-                _cr.expandedTeam.add(gi + '-' + ti);
-            });
         });
     }
 
