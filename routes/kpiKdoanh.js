@@ -216,9 +216,13 @@ module.exports = async function(fastify) {
                 };
             });
 
-            // Sort: truong_phong first, then others
-            const rolePriority = { truong_phong: 0, quan_ly: 1, quan_ly_cap_cao: 1, nhan_vien: 2 };
-            empData.sort((a, b) => (rolePriority[a.role] ?? 9) - (rolePriority[b.role] ?? 9));
+            // Sort: truong_phong first, then nhan_vien
+            empData.sort((a, b) => {
+                const p = { truong_phong: 0, quan_ly: 1, quan_ly_cap_cao: 1, nhan_vien: 2 };
+                const pa = p[a.role] !== undefined ? p[a.role] : 9;
+                const pb = p[b.role] !== undefined ? p[b.role] : 9;
+                return pa - pb;
+            });
 
             const teamDaily = sumDailyArrays(empData.map(e => e.daily));
             const teamActual = teamDaily.reduce((s, v) => s + v, 0);
