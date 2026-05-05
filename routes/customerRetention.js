@@ -344,6 +344,7 @@ module.exports = async function(fastify) {
                 type: 'manager',
                 user_id: mgr.id,
                 name: mgr.full_name,
+                dept_name: rootDept.head_user_id === mgr.id ? rootDept.name : (managedDepts[0]?.name || mgr.full_name),
                 role: mgr.role,
                 current: mgrCur,
                 previous: mgrPrev,

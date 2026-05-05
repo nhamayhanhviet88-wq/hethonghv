@@ -476,11 +476,6 @@ function crRenderCards(data) {
             <div class="cr-card-label">💰 Tổng Doanh Số</div>
             ${crTrendHTML(t.revenue_pct, '%')}
         </div>
-        <div class="cr-card aov">
-            <div class="cr-card-value">${c.total > 0 ? crFormatVND(Math.round((c.revenue || 0) / c.total)) : '0'}</div>
-            <div class="cr-card-label">📊 Doanh Số TB/Đơn</div>
-            ${(() => { const prevAov = (s.previous?.total > 0) ? (s.previous.revenue || 0) / s.previous.total : 0; const curAov = c.total > 0 ? (c.revenue || 0) / c.total : 0; const pct = prevAov > 0 ? Math.round(1000 * (curAov - prevAov) / prevAov) / 10 : (curAov > 0 ? 100 : 0); return crTrendHTML(pct, '%'); })()}
-        </div>
     `;
 }
 
@@ -532,7 +527,7 @@ function crRenderGroups(data) {
         html += `<div class="cr-group-header cr-mgr-header" onclick="crToggleMgr(${gi})">
             <div class="cr-mgr-name">
                 <span class="cr-arrow ${mgrExpanded ? 'open' : ''}">▶</span>
-                👔 ${group.name || 'Chưa phân Quản Lý'}
+                🏢 ${group.dept_name || group.name || 'Chưa phân Quản Lý'}
             </div>
             <div class="cr-stat-grid">
                 <span class="cr-stat-pill" style="background:#1e1b4b;color:white;">${mc.total || 0}</span>
@@ -550,12 +545,6 @@ function crRenderGroups(data) {
             // Show manager's personal stats if they have data
             if (group.personal) {
                 const pc = group.personal.current || {};
-                const cvMgr = convMap[group.user_id];
-                const kRM = kpiBar(group.user_id, 'revenue', pc.revenue || 0);
-                const kOM = kpiBar(group.user_id, 'orders', pc.total || 0);
-                const kCM = kpiBar(group.user_id, 'conversion_rate', cvMgr ? cvMgr.rate : 0);
-                const kRtM = kpiBar(group.user_id, 'retention_rate', pc.rate || 0);
-                const hasKpiM = kRM || kOM || kCM || kRtM;
 
                 var mgrEscName = (group.name || '').replace(/'/g, "\'");
                 html += '<div class="cr-emp" onclick="crShowDetail(' + group.user_id + ',\'' + mgrEscName + '\')"  style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-left:3px solid #d97706;margin:4px 8px;border-radius:10px;">'
@@ -563,7 +552,6 @@ function crRenderGroups(data) {
                     + '<span class="cr-role-badge" style="background:#d97706;color:white;">QL</span> '
                     + (group.name || '') + ' <span style="font-size:11px;color:#92400e;">(c\u00e1 nh\u00e2n)</span> '
                     + convBadge(group.user_id)
-                    + (isGD ? ' <span onclick="event.stopPropagation();crOpenKPI(' + group.user_id + ',\'' + mgrEscName + '\')\" style="cursor:pointer;margin-left:4px;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : '')
                     + '</div>'
                     + '<div class="cr-emp-stats">'
                     + '<span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">' + (pc.total || 0) + '</span>'
@@ -575,7 +563,6 @@ function crRenderGroups(data) {
                     + '<span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">' + crFormatVND(pc.revenue || 0) + '</span>'
                     + '<span class="cr-stat-cell">' + crTrendMini(group.personal.trend?.revenue_pct) + '</span>'
                     + '</div>'
-                    + (hasKpiM ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.7);border-radius:8px;">' + (kRM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Doanh s\u1ed1</span>' + kRM + '</div>' : '') + (kOM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF S\u1ed1 \u0111\u01a1n</span>' + kOM + '</div>' : '') + (kCM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Chuy\u1ec3n \u0111\u1ed5i</span>' + kCM + '</div>' : '') + (kRtM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF KH c\u0169</span>' + kRtM + '</div>' : '') + '</div>' : '')
                     + '</div>';
             }
 
@@ -611,20 +598,12 @@ function crRenderGroups(data) {
                             emp.role === 'thu_viec' ? '<span class="cr-role-badge cr-role-tv">TV</span>' :
                             '<span class="cr-role-badge cr-role-nv">NV</span>';
 
-                        const cv = convMap[emp.user_id];
-                        const kR = kpiBar(emp.user_id, 'revenue', ec.revenue || 0);
-                        const kO = kpiBar(emp.user_id, 'orders', ec.total || 0);
-                        const kC = kpiBar(emp.user_id, 'conversion_rate', cv ? cv.rate : 0);
-                        const kRt = kpiBar(emp.user_id, 'retention_rate', ec.rate || 0);
-                        const hasKpi = kR || kO || kC || kRt;
-
                         html += `<div class="cr-emp" onclick="crShowDetail(${emp.user_id}, '${emp.name.replace(/'/g, "\\'")}')" ${isTop ? 'style="background:linear-gradient(90deg,#fffbeb,#fef3c7);border-left:3px solid #f59e0b;"' : ''}>
                             <div class="cr-emp-name">
                                 ${isTop ? '<span class="cr-top-badge">\u2728 TOP</span>' : ''}
                                 ${roleBadge}
                                 ${emp.name}
                                 ${convBadge(emp.user_id)}
-                                ${isGD ? '<span onclick="event.stopPropagation();crOpenKPI(' + emp.user_id + ',\'' + emp.name.replace(/'/g, '\\\'') + '\')" style="cursor:pointer;margin-left:4px;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : ''}
                             </div>
                             <div class="cr-emp-stats">
                                 <span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">${ec.total || 0}</span>
@@ -638,7 +617,6 @@ function crRenderGroups(data) {
                                 <span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">${crFormatVND(ec.revenue || 0)}</span>
                                 <span class="cr-stat-cell">${crTrendMini(emp.trend?.revenue_pct)}</span>
                             </div>
-                            ${hasKpi ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;padding:6px 8px;background:#f8fafc;border-radius:8px;">' + (kR ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Doanh s\u1ed1</span>' + kR + '</div>' : '') + (kO ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF S\u1ed1 \u0111\u01a1n</span>' + kO + '</div>' : '') + (kC ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Chuy\u1ec3n \u0111\u1ed5i</span>' + kC + '</div>' : '') + (kRt ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF KH c\u0169</span>' + kRt + '</div>' : '') + '</div>' : ''}
                         </div>`;
                     });
                 }
