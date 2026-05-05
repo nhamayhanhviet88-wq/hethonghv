@@ -328,16 +328,20 @@ module.exports = async function(fastify) {
         if (!user_id || !month) return reply.code(400).send({ error: 'Thiếu user_id hoặc month' });
 
         const [year, mo] = month.split('-').map(Number);
-        const monthStart = `${year}-${String(mo).padStart(2,'0')}-01`;
+        const monthStart = `${year}-${String(mo).padStart(2,'0')}-01 00:00:00+07`;
         const nextMo = mo === 12 ? 1 : mo + 1;
         const nextYear = mo === 12 ? year + 1 : year;
-        const monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01`;
+        const monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01 00:00:00+07`;
 
         // Get employee info
         const emp = await db.get('SELECT id, full_name FROM users WHERE id = $1', [user_id]);
         if (!emp) return reply.code(404).send({ error: 'Không tìm thấy NV' });
 
-        // Get orders: only customers that have chot_don log, assigned to this user
+        // Phone visibility: GĐ sees all, employee sees own customers only
+        const isDirector = request.user.role === 'giam_doc';
+        const isOwner = request.user.id === parseInt(user_id);
+
+        // Get orders: customers with chot_don log in this month, assigned to this user
         const orders = await db.all(`
             SELECT
                 oc.id AS order_id,
@@ -364,23 +368,33 @@ module.exports = async function(fastify) {
             WHERE c.assigned_to_id = $1
               AND COALESCE(c.cancel_approved, 0) != 1
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
-              AND oc.created_at >= $2::timestamp
-              AND oc.created_at < $3::timestamp
+              AND oc.created_at >= $2::timestamptz
+              AND oc.created_at < $3::timestamptz
             ORDER BY oc.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
 
-        const totalNew = orders.filter(o => o.customer_type === 'moi').length;
-        const totalOld = orders.filter(o => o.customer_type === 'cu').length;
+        // Mask phone if not authorized
+        const maskedOrders = orders.map(o => {
+            const phone = o.customer_phone || '';
+            if (isDirector || isOwner) {
+                return o;
+            } else {
+                return { ...o, customer_phone: phone.length > 4 ? phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4) : '****' };
+            }
+        });
+
+        const totalNew = maskedOrders.filter(o => o.customer_type === 'moi').length;
+        const totalOld = maskedOrders.filter(o => o.customer_type === 'cu').length;
 
         return {
             employee: emp,
             month: month,
-            orders: orders,
+            orders: maskedOrders,
             summary: {
-                total: orders.length,
+                total: maskedOrders.length,
                 new_orders: totalNew,
                 old_orders: totalOld,
-                total_revenue: orders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+                total_revenue: maskedOrders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
             }
         };
     });
