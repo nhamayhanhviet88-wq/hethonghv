@@ -547,10 +547,10 @@ function crRenderGroups(data) {
                 const pc = group.personal.current || {};
 
                 var mgrEscName = (group.name || '').replace(/'/g, "\'");
-                html += '<div class="cr-emp" onclick="crShowDetail(' + group.user_id + ',\'' + mgrEscName + '\')"  style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-left:3px solid #d97706;margin:4px 8px;border-radius:10px;">'
+                html += '<div class="cr-emp" onclick="crShowDetail(' + group.user_id + ',\'' + mgrEscName + '\')"  style="background:#f3f4f6;border-left:3px solid #9ca3af;margin:4px 8px;border-radius:10px;">'
                     + '<div class="cr-emp-name">'
-                    + '<span class="cr-role-badge" style="background:#d97706;color:white;">QL</span> '
-                    + (group.name || '') + ' <span style="font-size:11px;color:#92400e;">(c\u00e1 nh\u00e2n)</span> '
+                    + '<span class="cr-role-badge" style="background:#6b7280;color:white;">QL</span> '
+                    + (group.name || '') + ' <span style="font-size:11px;color:#6b7280;">(c\u00e1 nh\u00e2n)</span> '
                     + convBadge(group.user_id)
                     + '</div>'
                     + '<div class="cr-emp-stats">'
