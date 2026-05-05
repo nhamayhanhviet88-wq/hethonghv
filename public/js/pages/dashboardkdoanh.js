@@ -40,9 +40,13 @@ async function renderDashboardkdoanhPage(container) {
             .cr-card.new { background: linear-gradient(135deg, #064e3b, #047857); color: white; }
             .cr-card.returning { background: linear-gradient(135deg, #7c2d12, #c2410c); color: white; }
             .cr-card.rate { background: linear-gradient(135deg, #4c1d95, #7c3aed); color: white; }
+            .cr-card.revenue { background: linear-gradient(135deg, #0c4a6e, #0284c7); color: white; }
             .cr-trend-up { color: #34d399; background: rgba(52,211,153,0.15); }
             .cr-trend-down { color: #f87171; background: rgba(248,113,113,0.15); }
             .cr-trend-flat { color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
+            .cr-period-label { cursor: pointer; position: relative; }
+            .cr-period-label:hover { color: #4338ca; }
+            #crMonthPicker { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 
             .cr-group { background: white; border-radius: 14px; border: 1px solid #e5e7eb; margin-bottom: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
             .cr-group-header { padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: background 0.2s; }
@@ -134,13 +138,16 @@ async function renderDashboardkdoanhPage(container) {
         <div class="cr-wrap" id="crWrap">
             <div class="cr-header">
                 <div class="cr-period-tabs">
+                    <button class="cr-tab ${_cr.period === 'day' ? 'active' : ''}" onclick="crSwitchPeriod('day')">Hôm nay</button>
+                    <button class="cr-tab ${_cr.period === 'week' ? 'active' : ''}" onclick="crSwitchPeriod('week')">Tuần</button>
                     <button class="cr-tab ${_cr.period === 'month' ? 'active' : ''}" onclick="crSwitchPeriod('month')">Tháng</button>
                     <button class="cr-tab ${_cr.period === 'quarter' ? 'active' : ''}" onclick="crSwitchPeriod('quarter')">Quý</button>
                     <button class="cr-tab ${_cr.period === 'year' ? 'active' : ''}" onclick="crSwitchPeriod('year')">Năm</button>
                 </div>
                 <div class="cr-nav">
                     <button class="cr-nav-btn" onclick="crNavPrev()" title="Kỳ trước">‹</button>
-                    <div class="cr-period-label" id="crPeriodLabel">...</div>
+                    <div class="cr-period-label" id="crPeriodLabel" onclick="crOpenDatePicker()" title="Nhấn để chọn ngày/tháng">...</div>
+                    <input type="month" id="crMonthPicker" onchange="crPickMonth(this.value)">
                     <button class="cr-nav-btn" onclick="crNavNext()" title="Kỳ sau">›</button>
                 </div>
             </div>
@@ -176,6 +183,7 @@ async function renderDashboardkdoanhPage(container) {
                     <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
                     <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
                     <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
+                    <div class="cr-chart-legend-item"><div class="cr-chart-legend-dot" style="background:#0284c7;border-radius:50%;"></div> Doanh Số (triệu)</div>
                 </div>
             </div>
         </div>
@@ -196,11 +204,20 @@ async function renderDashboardkdoanhPage(container) {
 
 function crSwitchPeriod(period) {
     _cr.period = period;
-    // Reset dateStr to current period
     const now = new Date();
     const yr = now.getFullYear();
     const mo = now.getMonth() + 1;
-    if (period === 'month') {
+    const d = now.getDate();
+    if (period === 'day') {
+        _cr.dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    } else if (period === 'week') {
+        const day = now.getDay() || 7;
+        const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
+        const wy = monday.getFullYear(), wm = monday.getMonth()+1;
+        const jan1 = new Date(wy, 0, 1);
+        const wn = Math.ceil(((monday - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+        _cr.dateStr = `${wy}-W${wn}`;
+    } else if (period === 'month') {
         _cr.dateStr = `${yr}-${String(mo).padStart(2, '0')}`;
     } else if (period === 'quarter') {
         const q = Math.ceil(mo / 3);
@@ -208,14 +225,36 @@ function crSwitchPeriod(period) {
     } else {
         _cr.dateStr = `${yr}`;
     }
-    // Re-render tabs
     document.querySelectorAll('.cr-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`.cr-tab[onclick="crSwitchPeriod('${period}')"]`).classList.add('active');
     crLoadData();
 }
 
+function crOpenDatePicker() {
+    const picker = document.getElementById('crMonthPicker');
+    if (picker) {
+        picker.style.pointerEvents = 'auto';
+        picker.showPicker ? picker.showPicker() : picker.click();
+    }
+}
+
+function crPickMonth(val) {
+    if (!val) return;
+    _cr.period = 'month';
+    _cr.dateStr = val;
+    document.querySelectorAll('.cr-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.cr-tab[onclick="crSwitchPeriod(\'month\')"]').classList.add('active');
+    crLoadData();
+}
+
 function crNavPrev() {
-    if (_cr.period === 'month') {
+    if (_cr.period === 'day') {
+        const d = new Date(_cr.dateStr + 'T00:00:00'); d.setDate(d.getDate() - 1);
+        _cr.dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    } else if (_cr.period === 'week') {
+        const [y, w] = _cr.dateStr.split('-W').map(Number);
+        _cr.dateStr = w <= 1 ? `${y-1}-W52` : `${y}-W${w-1}`;
+    } else if (_cr.period === 'month') {
         const [y, m] = _cr.dateStr.split('-').map(Number);
         const pm = m === 1 ? 12 : m - 1;
         const py = m === 1 ? y - 1 : y;
@@ -232,7 +271,13 @@ function crNavPrev() {
 }
 
 function crNavNext() {
-    if (_cr.period === 'month') {
+    if (_cr.period === 'day') {
+        const d = new Date(_cr.dateStr + 'T00:00:00'); d.setDate(d.getDate() + 1);
+        _cr.dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    } else if (_cr.period === 'week') {
+        const [y, w] = _cr.dateStr.split('-W').map(Number);
+        _cr.dateStr = w >= 52 ? `${y+1}-W1` : `${y}-W${w+1}`;
+    } else if (_cr.period === 'month') {
         const [y, m] = _cr.dateStr.split('-').map(Number);
         const nm = m === 12 ? 1 : m + 1;
         const ny = m === 12 ? y + 1 : y;
@@ -292,6 +337,14 @@ function crProgressColor(rate) {
     return 'linear-gradient(90deg, #dc2626, #f87171)';
 }
 
+function crFormatVND(num) {
+    if (!num) return '0';
+    if (num >= 1e9) return (num / 1e9).toFixed(1).replace(/\.0$/, '') + ' tỷ';
+    if (num >= 1e6) return (num / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr';
+    if (num >= 1e3) return Math.round(num / 1e3) + 'k';
+    return num.toLocaleString('vi-VN');
+}
+
 function crRenderCards(data) {
     const s = data.summary;
     const c = s.current || {};
@@ -319,6 +372,11 @@ function crRenderCards(data) {
             <div class="cr-card-value">${c.rate || 0}%</div>
             <div class="cr-card-label">Tỷ Lệ Đơn KH Cũ Quay Lại</div>
             ${crTrendHTML(t.rate, '%')}
+        </div>
+        <div class="cr-card revenue">
+            <div class="cr-card-value">${crFormatVND(c.revenue || 0)}</div>
+            <div class="cr-card-label">💰 Tổng Doanh Số</div>
+            ${crTrendHTML(t.revenue)}
         </div>
     `;
 }
@@ -633,6 +691,8 @@ function crChartRender(months) {
     orangeGrad.addColorStop(0, 'rgba(194, 65, 12, 0.85)');
     orangeGrad.addColorStop(1, 'rgba(194, 65, 12, 0.35)');
 
+    const revenueData = months.map(m => Math.round((m.revenue || 0) / 1e6 * 10) / 10);
+
     _crChart.instance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -646,7 +706,7 @@ function crChartRender(months) {
                     borderWidth: 1,
                     borderRadius: 6,
                     yAxisID: 'y',
-                    order: 2
+                    order: 3
                 },
                 {
                     label: '\u0110\u01a1n KH C\u0169 Quay L\u1ea1i',
@@ -656,7 +716,7 @@ function crChartRender(months) {
                     borderWidth: 1,
                     borderRadius: 6,
                     yAxisID: 'y',
-                    order: 3
+                    order: 4
                 },
                 {
                     label: 'T\u1ef7 L\u1ec7 KH C\u0169 (%)',
@@ -674,6 +734,24 @@ function crChartRender(months) {
                     fill: true,
                     yAxisID: 'y1',
                     order: 1
+                },
+                {
+                    label: 'Doanh S\u1ed1 (tri\u1ec7u)',
+                    data: revenueData,
+                    type: 'line',
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    borderWidth: 2.5,
+                    borderDash: [6, 3],
+                    pointRadius: 4,
+                    pointBackgroundColor: '#0284c7',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 6,
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y2',
+                    order: 2
                 }
             ]
         },
@@ -703,6 +781,7 @@ function crChartRender(months) {
                         },
                         label: function(item) {
                             if (item.datasetIndex === 2) return ` T\u1ef7 l\u1ec7 KH c\u0169: ${item.raw}%`;
+                            if (item.datasetIndex === 3) return ` Doanh s\u1ed1: ${item.raw} tri\u1ec7u VN\u0110`;
                             return ` ${item.dataset.label}: ${item.raw} \u0111\u01a1n`;
                         }
                     }
@@ -736,6 +815,10 @@ function crChartRender(months) {
                         callback: v => v + '%'
                     },
                     title: { display: true, text: 'T\u1ef7 l\u1ec7 %', font: { size: 12, weight: '700' }, color: '#7c3aed' }
+                },
+                y2: {
+                    beginAtZero: true,
+                    display: false
                 }
             },
             animation: {

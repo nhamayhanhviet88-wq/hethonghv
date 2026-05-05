@@ -14,7 +14,53 @@ module.exports = async function(fastify) {
         let current = {}, previous = {};
         const now = new Date();
 
-        if (period === 'month') {
+        if (period === 'day') {
+            let dateObj;
+            if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                dateObj = new Date(dateStr + 'T00:00:00');
+            } else {
+                dateObj = now;
+            }
+            const y = dateObj.getFullYear(), m = dateObj.getMonth() + 1, d = dateObj.getDate();
+            current.start = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const next = new Date(dateObj); next.setDate(next.getDate() + 1);
+            current.end = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
+            current.label = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+
+            const prev = new Date(dateObj); prev.setDate(prev.getDate() - 1);
+            previous.start = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}-${String(prev.getDate()).padStart(2,'0')}`;
+            previous.end = current.start;
+            previous.label = `${String(prev.getDate()).padStart(2,'0')}/${String(prev.getMonth()+1).padStart(2,'0')}/${prev.getFullYear()}`;
+        } else if (period === 'week') {
+            let dateObj;
+            if (dateStr && /^\d{4}-W\d{1,2}$/.test(dateStr)) {
+                const [y, w] = dateStr.split('-W').map(Number);
+                // ISO week to date
+                const jan4 = new Date(y, 0, 4);
+                const dayOfWeek = jan4.getDay() || 7;
+                dateObj = new Date(jan4);
+                dateObj.setDate(jan4.getDate() - dayOfWeek + 1 + (w - 1) * 7);
+            } else {
+                dateObj = new Date(now);
+                const day = dateObj.getDay() || 7;
+                dateObj.setDate(dateObj.getDate() - day + 1); // Monday
+            }
+            dateObj.setHours(0,0,0,0);
+            const y = dateObj.getFullYear(), m = dateObj.getMonth()+1, d = dateObj.getDate();
+            current.start = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const endDate = new Date(dateObj); endDate.setDate(endDate.getDate() + 7);
+            current.end = `${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+            // ISO week number
+            const jan1 = new Date(y, 0, 1);
+            const weekNum = Math.ceil(((dateObj - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+            current.label = `Tuần ${weekNum}/${y}`;
+            current._weekStr = `${y}-W${weekNum}`;
+
+            const prevStart = new Date(dateObj); prevStart.setDate(prevStart.getDate() - 7);
+            previous.start = `${prevStart.getFullYear()}-${String(prevStart.getMonth()+1).padStart(2,'0')}-${String(prevStart.getDate()).padStart(2,'0')}`;
+            previous.end = current.start;
+            previous.label = `Tuần ${weekNum - 1 > 0 ? weekNum - 1 : 52}/${weekNum - 1 > 0 ? y : y - 1}`;
+        } else if (period === 'month') {
             let year, month;
             if (dateStr && /^\d{4}-\d{2}$/.test(dateStr)) {
                 [year, month] = dateStr.split('-').map(Number);
@@ -111,9 +157,13 @@ module.exports = async function(fastify) {
                             oc.customer_id,
                             oc.created_at,
                             c.phone,
-                            c.assigned_to_id
+                            c.assigned_to_id,
+                            COALESCE(oi_sum.revenue, 0) AS revenue
                         FROM order_codes oc
                         JOIN customers c ON oc.customer_id = c.id
+                        LEFT JOIN LATERAL (
+                            SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                        ) oi_sum ON true
                         WHERE c.phone IS NOT NULL AND c.phone != ''
                           AND COALESCE(c.cancel_approved, 0) != 1
                           AND EXISTS (
@@ -129,6 +179,7 @@ module.exports = async function(fastify) {
                             assigned_to_id,
                             created_at,
                             phone,
+                            revenue,
                             ROW_NUMBER() OVER (
                                 PARTITION BY phone
                                 ORDER BY created_at ASC
@@ -139,7 +190,8 @@ module.exports = async function(fastify) {
                         assigned_to_id AS employee_id,
                         COUNT(*) AS total_orders,
                         SUM(CASE WHEN phone_order_number = 1 THEN 1 ELSE 0 END) AS new_orders,
-                        SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders
+                        SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                        COALESCE(SUM(revenue), 0) AS total_revenue
                     FROM ranked_orders
                     WHERE created_at >= $${paramOffset + 1}::timestamp
                       AND created_at < $${paramOffset + 2}::timestamp
@@ -167,23 +219,30 @@ module.exports = async function(fastify) {
         previousStats.forEach(s => { previousMap[s.employee_id] = s; });
 
         function calcGroup(empIds, statsMap) {
-            let total = 0, newO = 0, retO = 0;
+            let total = 0, newO = 0, retO = 0, revenue = 0;
             empIds.forEach(id => {
                 const s = statsMap[id];
                 if (s) {
                     total += Number(s.total_orders);
                     newO += Number(s.new_orders);
                     retO += Number(s.returning_orders);
+                    revenue += Number(s.total_revenue || 0);
                 }
             });
             return {
-                total, new: newO, returning: retO,
+                total, new: newO, returning: retO, revenue,
                 rate: total > 0 ? Math.round(1000 * retO / total) / 10 : 0
             };
         }
 
         function calcTrend(cur, prev) {
-            return { rate: Math.round(10 * (cur.rate - prev.rate)) / 10 };
+            return {
+                total: cur.total - prev.total,
+                new: cur.new - prev.new,
+                returning: cur.returning - prev.returning,
+                rate: Math.round(10 * (cur.rate - prev.rate)) / 10,
+                revenue: cur.revenue - prev.revenue
+            };
         }
 
         // ===== 5. Build org hierarchy using DEPARTMENTS =====
@@ -527,9 +586,13 @@ module.exports = async function(fastify) {
                     oc.id AS order_id,
                     oc.created_at,
                     c.phone,
-                    c.assigned_to_id
+                    c.assigned_to_id,
+                    COALESCE(oi_sum.revenue, 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                ) oi_sum ON true
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   ${employeeFilter}
@@ -544,6 +607,7 @@ module.exports = async function(fastify) {
                     order_id,
                     created_at,
                     phone,
+                    revenue,
                     ROW_NUMBER() OVER (
                         PARTITION BY phone
                         ORDER BY created_at ASC
@@ -554,7 +618,8 @@ module.exports = async function(fastify) {
                 EXTRACT(MONTH FROM created_at)::int AS month,
                 COUNT(*) AS total,
                 SUM(CASE WHEN phone_order_number = 1 THEN 1 ELSE 0 END) AS new_orders,
-                SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders
+                SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                COALESCE(SUM(revenue), 0) AS total_revenue
             FROM ranked_orders
             WHERE created_at >= $${pStart}::timestamp
               AND created_at < $${pEnd}::timestamp
@@ -569,8 +634,9 @@ module.exports = async function(fastify) {
             const total = row ? parseInt(row.total) : 0;
             const newO = row ? parseInt(row.new_orders) : 0;
             const retO = row ? parseInt(row.returning_orders) : 0;
+            const rev = row ? parseFloat(row.total_revenue) : 0;
             const rate = total > 0 ? Math.round(1000 * retO / total) / 10 : 0;
-            months.push({ month: m, label: `T${m}`, total, new: newO, returning: retO, rate });
+            months.push({ month: m, label: `T${m}`, total, new: newO, returning: retO, rate, revenue: rev });
         }
 
         return {
