@@ -323,7 +323,17 @@ function kpiRenderContent(data) {
     html += '</tr></thead><tbody>';
 
     data.teams.forEach(team => {
-        // Employee rows
+        // Team total row — on top
+        html += `<tr class="team-row"><td></td><td></td><td class="name">${team.dept_name}</td>`;
+        html += `<td>${kpiFmtFull(team.target_1)}</td>`;
+        html += `<td>${kpiFmtFull(team.actual)}</td>`;
+        html += `<td class="pct-cell ${team.rate_1>=100?'pos':'neg'}">${team.rate_1}%</td>`;
+        html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
+        team.daily.forEach(v => {
+            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
+        });
+        html += '</tr>';
+        // Employee rows — below
         team.employees.forEach((emp, ei) => {
             const roleIcon = emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao' ? '👑 ' : emp.role === 'truong_phong' ? '⭐ ' : '';
             html += `<tr><td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
@@ -336,16 +346,6 @@ function kpiRenderContent(data) {
             });
             html += '</tr>';
         });
-        // Team total row
-        html += `<tr class="team-row"><td></td><td></td><td class="name">${team.dept_name}</td>`;
-        html += `<td>${kpiFmtFull(team.target_1)}</td>`;
-        html += `<td>${kpiFmtFull(team.actual)}</td>`;
-        html += `<td class="pct-cell ${team.rate_1>=100?'pos':'neg'}">${team.rate_1}%</td>`;
-        html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
-        team.daily.forEach(v => {
-            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
-        });
-        html += '</tr>';
         // Empty separator row
         html += '<tr><td colspan="99" style="height:8px;background:#f8fafc;border:none"></td></tr>';
     });
