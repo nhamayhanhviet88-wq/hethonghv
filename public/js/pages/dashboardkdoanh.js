@@ -41,12 +41,67 @@ async function renderDashboardkdoanhPage(container) {
             .cr-card.returning { background: linear-gradient(135deg, #7c2d12, #c2410c); color: white; }
             .cr-card.rate { background: linear-gradient(135deg, #4c1d95, #7c3aed); color: white; }
             .cr-card.revenue { background: linear-gradient(135deg, #0c4a6e, #0284c7); color: white; }
+            .cr-card.aov { background: linear-gradient(135deg, #134e4a, #0d9488); color: white; }
+            .cr-card.conversion { background: linear-gradient(135deg, #78350f, #d97706); color: white; }
             .cr-trend-up { color: #34d399; background: rgba(52,211,153,0.15); }
             .cr-trend-down { color: #f87171; background: rgba(248,113,113,0.15); }
             .cr-trend-flat { color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
             .cr-period-label { cursor: pointer; position: relative; }
             .cr-period-label:hover { color: #4338ca; }
             #crMonthPicker { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+
+            /* === MAIN TABS === */
+            .cr-main-tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: 14px; overflow: hidden; border: 2px solid #312e81; background: white; }
+            .cr-main-tab { flex: 1; padding: 14px 12px; font-size: 13px; font-weight: 800; cursor: pointer; background: white; color: #312e81; border: none; transition: all 0.3s; text-align: center; letter-spacing: 0.3px; }
+            .cr-main-tab.active { background: linear-gradient(135deg, #312e81, #4338ca); color: white; }
+            .cr-main-tab:hover:not(.active) { background: #eef2ff; }
+            .cr-main-tab-content { display: none; animation: crTabFadeIn 0.4s ease; }
+            .cr-main-tab-content.active { display: block; }
+            @keyframes crTabFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+            /* === ALERT BANNER === */
+            .cr-alerts { margin-bottom: 20px; }
+            .cr-alert-item { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; font-weight: 600; animation: crSlideIn 0.3s ease; }
+            .cr-alert-warning { background: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
+            .cr-alert-danger { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+            @keyframes crSlideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+
+            /* === LEADERBOARD === */
+            .cr-lb-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; }
+            .cr-lb-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; }
+            .cr-lb-tabs { display: flex; gap: 0; margin: 0 24px; border-bottom: 2px solid #f1f5f9; }
+            .cr-lb-tab { padding: 12px 20px; font-size: 13px; font-weight: 700; cursor: pointer; background: none; border: none; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s; }
+            .cr-lb-tab.active { color: #4338ca; border-bottom-color: #4338ca; }
+            .cr-lb-tab:hover { color: #4338ca; }
+            .cr-lb-body { padding: 0; }
+            .cr-lb-row { display: grid; grid-template-columns: 50px 1fr 100px 100px 100px; padding: 14px 24px; border-bottom: 1px solid #f8fafc; align-items: center; transition: background 0.2s; }
+            .cr-lb-row:hover { background: #fefce8; }
+            .cr-lb-rank { font-size: 20px; font-weight: 900; text-align: center; }
+            .cr-lb-name { font-weight: 700; color: #1e1b4b; }
+            .cr-lb-team { font-size: 11px; color: #6b7280; margin-top: 2px; }
+            .cr-lb-val { text-align: right; font-weight: 800; font-size: 14px; }
+
+            /* === TEAM COMPARISON === */
+            .cr-tc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 20px 24px; }
+            .cr-tc-card { border-radius: 14px; padding: 20px; background: linear-gradient(135deg, #f8fafc, #eef2ff); border: 1px solid #e0e7ff; transition: transform 0.2s, box-shadow 0.2s; }
+            .cr-tc-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(67,56,202,0.12); }
+            .cr-tc-name { font-size: 15px; font-weight: 800; color: #1e40af; margin-bottom: 12px; }
+            .cr-tc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .cr-tc-stat { text-align: center; padding: 8px; border-radius: 8px; background: white; }
+            .cr-tc-stat-val { font-size: 20px; font-weight: 900; color: #1e1b4b; }
+            .cr-tc-stat-label { font-size: 10px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-top: 2px; }
+
+            /* === TAB 3 TABLES === */
+            .cr-data-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; }
+            .cr-data-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; }
+            .cr-data-table { width: 100%; border-collapse: collapse; }
+            .cr-data-table th { background: #f8fafc; padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+            .cr-data-table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+            .cr-data-table tr:hover { background: #fefce8; }
+            .cr-data-mini-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 20px 24px; }
+            .cr-data-mini { text-align: center; padding: 20px; border-radius: 12px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd; }
+            .cr-data-mini-val { font-size: 28px; font-weight: 900; color: #0c4a6e; }
+            .cr-data-mini-label { font-size: 11px; font-weight: 600; color: #64748b; margin-top: 4px; text-transform: uppercase; }
 
             .cr-group { background: white; border-radius: 14px; border: 1px solid #e5e7eb; margin-bottom: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
             .cr-group-header { padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: background 0.2s; }
@@ -159,45 +214,68 @@ async function renderDashboardkdoanhPage(container) {
                     <button class="cr-nav-btn" onclick="crNavNext()" title="Kỳ sau">›</button>
                 </div>
             </div>
-            <div class="cr-cards" id="crCards">
-                <div class="cr-card total"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
-                <div class="cr-card new"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
-                <div class="cr-card returning"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
-                <div class="cr-card rate"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
-            </div>
-            <div id="crGroups"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div></div>
 
-            <!-- CHART SECTION -->
-            <div class="cr-chart-section" id="crChartSection">
-                <div class="cr-chart-header">
-                    <h3>📊 Biểu Đồ Đơn Hàng</h3>
-                    <div class="cr-chart-filters">
-                        <div class="cr-chart-period-tabs">
-                            <button class="cr-chart-period-tab active" onclick="crChartSwitchPeriod('month',this)">Tháng</button>
-                            <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('quarter',this)">Quý</button>
-                            <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('year',this)">Năm</button>
-                        </div>
-                        <select class="cr-chart-select" id="crChartTarget" onchange="crChartLoad()">
-                            <option value="all">🏢 Tổng P.Kinh Doanh</option>
-                        </select>
-                        <div class="cr-chart-year-nav">
-                            <button class="cr-chart-year-btn" onclick="crChartNavYear(-1)">‹</button>
-                            <span class="cr-chart-year-label" id="crChartYearLabel">${new Date().getFullYear()}</span>
-                            <button class="cr-chart-year-btn" onclick="crChartNavYear(1)">›</button>
+            <!-- MAIN TABS -->
+            <div class="cr-main-tabs">
+                <button class="cr-main-tab active" onclick="crSwitchMainTab(0,this)">📊 Tổng Quan</button>
+                <button class="cr-main-tab" onclick="crSwitchMainTab(1,this)">🏆 Xếp Hạng & KPI</button>
+                <button class="cr-main-tab" onclick="crSwitchMainTab(2,this)">📋 Chi Tiết & Phân Tích</button>
+            </div>
+
+            <!-- TAB 0: Tổng Quan -->
+            <div class="cr-main-tab-content active" id="crTabOverview">
+                <div id="crAlertBanner"></div>
+                <div class="cr-cards" id="crCards">
+                    <div class="cr-card total"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
+                    <div class="cr-card new"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
+                    <div class="cr-card returning"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
+                    <div class="cr-card rate"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
+                </div>
+                <div id="crGroups"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div></div>
+
+                <!-- CHART SECTION -->
+                <div class="cr-chart-section" id="crChartSection">
+                    <div class="cr-chart-header">
+                        <h3>📊 Biểu Đồ Đơn Hàng</h3>
+                        <div class="cr-chart-filters">
+                            <div class="cr-chart-period-tabs">
+                                <button class="cr-chart-period-tab active" onclick="crChartSwitchPeriod('month',this)">Tháng</button>
+                                <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('quarter',this)">Quý</button>
+                                <button class="cr-chart-period-tab" onclick="crChartSwitchPeriod('year',this)">Năm</button>
+                            </div>
+                            <select class="cr-chart-select" id="crChartTarget" onchange="crChartLoad()">
+                                <option value="all">🏢 Tổng P.Kinh Doanh</option>
+                            </select>
+                            <div class="cr-chart-year-nav">
+                                <button class="cr-chart-year-btn" onclick="crChartNavYear(-1)">‹</button>
+                                <span class="cr-chart-year-label" id="crChartYearLabel">${new Date().getFullYear()}</span>
+                                <button class="cr-chart-year-btn" onclick="crChartNavYear(1)">›</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="cr-chart-body">
-                    <div class="cr-chart-canvas-wrap">
-                        <canvas id="crChartCanvas"></canvas>
+                    <div class="cr-chart-body">
+                        <div class="cr-chart-canvas-wrap">
+                            <canvas id="crChartCanvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="cr-chart-legend" id="crChartLegend">
+                        <div class="cr-chart-legend-item" data-idx="0" onclick="crToggleLegend(0,this)"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
+                        <div class="cr-chart-legend-item" data-idx="1" onclick="crToggleLegend(1,this)"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
+                        <div class="cr-chart-legend-item" data-idx="2" onclick="crToggleLegend(2,this)"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
+                        <div class="cr-chart-legend-item" data-idx="3" onclick="crToggleLegend(3,this)"><div class="cr-chart-legend-dot" style="background:#0284c7;border-radius:50%;"></div> Doanh Số (triệu)</div>
                     </div>
                 </div>
-                <div class="cr-chart-legend" id="crChartLegend">
-                    <div class="cr-chart-legend-item" data-idx="0" onclick="crToggleLegend(0,this)"><div class="cr-chart-legend-dot" style="background:#059669;"></div> Đơn KH Mới</div>
-                    <div class="cr-chart-legend-item" data-idx="1" onclick="crToggleLegend(1,this)"><div class="cr-chart-legend-dot" style="background:#c2410c;"></div> Đơn KH Cũ Quay Lại</div>
-                    <div class="cr-chart-legend-item" data-idx="2" onclick="crToggleLegend(2,this)"><div class="cr-chart-legend-dot" style="background:#7c3aed;border-radius:50%;"></div> Tỷ Lệ KH Cũ (%)</div>
-                    <div class="cr-chart-legend-item" data-idx="3" onclick="crToggleLegend(3,this)"><div class="cr-chart-legend-dot" style="background:#0284c7;border-radius:50%;"></div> Doanh Số (triệu)</div>
-                </div>
+            </div>
+
+            <!-- TAB 1: Xếp Hạng & KPI -->
+            <div class="cr-main-tab-content" id="crTabRanking">
+                <div id="crLeaderboard"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Chọn tab để tải dữ liệu...</div></div>
+                <div id="crTeamComparison"></div>
+            </div>
+
+            <!-- TAB 2: Chi Tiết & Phân Tích -->
+            <div class="cr-main-tab-content" id="crTabDetail">
+                <div id="crDetailContent"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Chọn tab để tải dữ liệu...</div></div>
             </div>
         </div>
     `;
@@ -307,6 +385,7 @@ function crNavNext() {
 }
 
 async function crLoadData() {
+    _crAdvLoaded = false; // Reset so Tab 2/3 reload with new period
     const groupsEl = document.getElementById('crGroups');
     if (groupsEl) groupsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div>';
 
@@ -390,6 +469,11 @@ function crRenderCards(data) {
             <div class="cr-card-value">${crFormatVND(c.revenue || 0)}</div>
             <div class="cr-card-label">💰 Tổng Doanh Số</div>
             ${crTrendHTML(t.revenue_pct, '%')}
+        </div>
+        <div class="cr-card aov">
+            <div class="cr-card-value">${c.total > 0 ? crFormatVND(Math.round((c.revenue || 0) / c.total)) : '0'}</div>
+            <div class="cr-card-label">📊 Doanh Số TB/Đơn</div>
+            ${(() => { const prevAov = (s.previous?.total > 0) ? (s.previous.revenue || 0) / s.previous.total : 0; const curAov = c.total > 0 ? (c.revenue || 0) / c.total : 0; const pct = prevAov > 0 ? Math.round(1000 * (curAov - prevAov) / prevAov) / 10 : (curAov > 0 ? 100 : 0); return crTrendHTML(pct, '%'); })()}
         </div>
     `;
 }
@@ -862,4 +946,173 @@ function crChartRender(months) {
             }
         }
     });
+}
+
+// ===== MAIN TAB SWITCHING =====
+var _crAdvData = null;
+var _crAdvLoaded = false;
+
+function crSwitchMainTab(idx, btn) {
+    document.querySelectorAll('.cr-main-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cr-main-tab-content').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const tabs = ['crTabOverview', 'crTabRanking', 'crTabDetail'];
+    const el = document.getElementById(tabs[idx]);
+    if (el) { el.classList.add('active'); el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
+
+    if ((idx === 1 || idx === 2) && !_crAdvLoaded) {
+        crLoadAdvanced();
+    }
+}
+
+async function crLoadAdvanced() {
+    try {
+        _crAdvData = await apiCall(`/api/reports/customer-retention/advanced?period=${_cr.period}&date=${_cr.dateStr}`);
+        _crAdvLoaded = true;
+        crRenderAlerts(_crAdvData.alerts || []);
+        crRenderLeaderboard(_crAdvData);
+        crRenderTeamComparison(_crAdvData.teamComparison || []);
+        crRenderDetail(_crAdvData);
+    } catch (err) {
+        console.error('Advanced data error:', err);
+    }
+}
+
+// ===== ALERTS =====
+function crRenderAlerts(alerts) {
+    const el = document.getElementById('crAlertBanner');
+    if (!alerts.length) { el.innerHTML = ''; return; }
+    const top5 = alerts.slice(0, 5);
+    el.innerHTML = '<div class="cr-alerts">' + top5.map(a => {
+        const icon = a.severity === 'danger' ? '🚨' : '⚠️';
+        const cls = a.severity === 'danger' ? 'cr-alert-danger' : 'cr-alert-warning';
+        return `<div class="cr-alert-item ${cls}">${icon} <strong>${a.name}</strong> <span style="opacity:0.7">(${a.team})</span> — ${a.message}</div>`;
+    }).join('') + '</div>';
+}
+
+// ===== LEADERBOARD =====
+var _crLbType = 'by_revenue';
+
+function crRenderLeaderboard(data) {
+    const lb = data.leaderboard || {};
+    const el = document.getElementById('crLeaderboard');
+    const medals = ['🥇', '🥈', '🥉'];
+
+    function renderRows(list, valFn) {
+        if (!list || !list.length) return '<div style="padding:24px;text-align:center;color:#9ca3af;">Chưa có dữ liệu</div>';
+        return list.map((item, i) => {
+            const rank = i < 3 ? `<span style="font-size:24px;">${medals[i]}</span>` : `<span style="color:#6b7280;">${i + 1}</span>`;
+            return `<div class="cr-lb-row" ${i < 3 ? 'style="background:linear-gradient(90deg,' + ['#fefce8','#f8fafc','#fff7ed'][i] + ',white);"' : ''}>
+                <div class="cr-lb-rank">${rank}</div>
+                <div><div class="cr-lb-name">${item.name}</div><div class="cr-lb-team">${item.team}</div></div>
+                <div class="cr-lb-val" style="color:#0369a1;">${crFormatVND(item.revenue)}</div>
+                <div class="cr-lb-val" style="color:#1e1b4b;">${item.total_orders} đơn</div>
+                <div class="cr-lb-val" style="color:#7c3aed;">${item.rate}%</div>
+            </div>`;
+        }).join('');
+    }
+
+    el.innerHTML = `
+        <div class="cr-lb-section">
+            <div class="cr-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>
+            <div class="cr-lb-tabs">
+                <button class="cr-lb-tab ${_crLbType === 'by_revenue' ? 'active' : ''}" onclick="crSwitchLb('by_revenue',this)">💰 Doanh Số</button>
+                <button class="cr-lb-tab ${_crLbType === 'by_orders' ? 'active' : ''}" onclick="crSwitchLb('by_orders',this)">📦 Số Đơn</button>
+                <button class="cr-lb-tab ${_crLbType === 'by_retention' ? 'active' : ''}" onclick="crSwitchLb('by_retention',this)">🔄 KH Cũ Quay Lại</button>
+            </div>
+            <div class="cr-lb-body" id="crLbBody">
+                <div class="cr-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569;">
+                    <div style="text-align:center;">#</div><div>Nhân viên</div><div style="text-align:right;">Doanh số</div><div style="text-align:right;">Đơn hàng</div><div style="text-align:right;">KH cũ %</div>
+                </div>
+                ${renderRows(lb[_crLbType])}
+            </div>
+        </div>`;
+}
+
+function crSwitchLb(type, btn) {
+    _crLbType = type;
+    document.querySelectorAll('.cr-lb-tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    if (_crAdvData) crRenderLeaderboard(_crAdvData);
+}
+
+// ===== TEAM COMPARISON =====
+function crRenderTeamComparison(teams) {
+    const el = document.getElementById('crTeamComparison');
+    if (!teams.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+        <div class="cr-lb-section">
+            <div class="cr-lb-header">🏅 So Sánh Team</div>
+            <div class="cr-tc-grid">
+                ${teams.map(t => `
+                    <div class="cr-tc-card">
+                        <div class="cr-tc-name">🏠 ${t.name} <span style="font-size:11px;color:#6b7280;font-weight:500;">(${t.employee_count} NV)</span></div>
+                        <div class="cr-tc-stats">
+                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#0369a1;">${crFormatVND(t.revenue)}</div><div class="cr-tc-stat-label">Doanh số</div></div>
+                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">${t.total_orders}</div><div class="cr-tc-stat-label">Tổng đơn</div></div>
+                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">${t.returning}</div><div class="cr-tc-stat-label">Đơn KH cũ</div></div>
+                            <div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">${t.rate}%</div><div class="cr-tc-stat-label">Tỷ lệ KH cũ</div></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+}
+
+// ===== TAB 3: DETAIL =====
+function crRenderDetail(data) {
+    const el = document.getElementById('crDetailContent');
+    const conv = data.conversion || {};
+    const proc = data.processing || {};
+    const cancel = data.cancel || [];
+    const topCust = data.topCustomers || [];
+
+    // Summary mini cards
+    let html = `<div class="cr-data-mini-cards">
+        <div class="cr-data-mini">
+            <div class="cr-data-mini-val">${conv.assigned || 0}</div>
+            <div class="cr-data-mini-label">📥 KH được giao</div>
+        </div>
+        <div class="cr-data-mini">
+            <div class="cr-data-mini-val">${conv.completed || 0}</div>
+            <div class="cr-data-mini-label">✅ Đơn hoàn thành</div>
+        </div>
+        <div class="cr-data-mini" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7;">
+            <div class="cr-data-mini-val" style="color:#065f46;">${conv.rate || 0}%</div>
+            <div class="cr-data-mini-label">🎯 Tỷ lệ chuyển đổi</div>
+        </div>
+        <div class="cr-data-mini" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-color:#a78bfa;">
+            <div class="cr-data-mini-val" style="color:#5b21b6;">${proc.avg_days || 0} ngày</div>
+            <div class="cr-data-mini-label">⏱️ TG xử lý trung bình</div>
+        </div>
+    </div>`;
+
+    // Cancel rate table
+    const cancelSorted = [...cancel].sort((a, b) => b.rate - a.rate);
+    html += `<div class="cr-data-section">
+        <div class="cr-data-header">❌ Tỷ Lệ Hủy Đơn Theo Nhân Viên</div>
+        <div style="overflow-x:auto;"><table class="cr-data-table">
+            <thead><tr><th>Nhân viên</th><th>Team</th><th style="text-align:center;">Tổng đơn</th><th style="text-align:center;">Hủy</th><th style="text-align:center;">Tỷ lệ</th></tr></thead>
+            <tbody>${cancelSorted.length ? cancelSorted.map(r => {
+                const color = r.rate >= 30 ? '#ef4444' : r.rate >= 15 ? '#f59e0b' : '#059669';
+                return `<tr><td style="font-weight:700;">${r.name}</td><td style="color:#6b7280;">${r.team}</td><td style="text-align:center;">${r.total}</td><td style="text-align:center;color:#ef4444;font-weight:700;">${r.cancelled}</td><td style="text-align:center;"><span style="font-weight:800;color:${color};">${r.rate}%</span></td></tr>`;
+            }).join('') : '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px;">Chưa có dữ liệu</td></tr>'}
+            </tbody>
+        </table></div>
+    </div>`;
+
+    // Top Customers
+    html += `<div class="cr-data-section">
+        <div class="cr-data-header">👑 Top Khách Hàng Chi Tiêu Nhiều Nhất</div>
+        <div style="overflow-x:auto;"><table class="cr-data-table">
+            <thead><tr><th>#</th><th>Khách hàng</th><th>SĐT</th><th style="text-align:center;">Số đơn</th><th style="text-align:right;">Doanh số</th><th>NV phụ trách</th></tr></thead>
+            <tbody>${topCust.length ? topCust.map((r, i) => {
+                const medal = i < 3 ? ['🥇','🥈','🥉'][i] : (i + 1);
+                return `<tr><td style="text-align:center;font-size:16px;">${medal}</td><td style="font-weight:700;">${r.name || 'KH'}</td><td>${r.phone || '-'}</td><td style="text-align:center;font-weight:700;">${r.orders}</td><td style="text-align:right;font-weight:800;color:#0369a1;">${crFormatVND(r.revenue)}</td><td style="color:#6b7280;">${r.employee}</td></tr>`;
+            }).join('') : '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px;">Chưa có dữ liệu</td></tr>'}
+            </tbody>
+        </table></div>
+    </div>`;
+
+    el.innerHTML = html;
 }

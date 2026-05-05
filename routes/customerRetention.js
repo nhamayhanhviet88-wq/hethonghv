@@ -676,4 +676,204 @@ module.exports = async function(fastify) {
             }
         };
     });
+
+    // ===== Dashboard Advanced API: Leaderboard, Alerts, Conversion, Cancel, Processing Time, Top Customers =====
+    fastify.get('/api/reports/customer-retention/advanced', { preHandler: [authenticate] }, async (request, reply) => {
+        const { period = 'month', date } = request.query;
+        const { current, previous } = parsePeriod(period, date);
+
+        // Get KD hierarchy
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        const allDeptIds = allDepts.map(d => d.id);
+
+        const users = allDeptIds.length > 0 ? await db.all(
+            `SELECT id, full_name, department_id, role FROM users WHERE department_id IN (${allDeptIds.map((_, i) => `$${i + 1}`).join(',')}) AND status = 'active' AND role NOT IN ('giam_doc') ORDER BY full_name`,
+            allDeptIds
+        ) : [];
+        const userIds = users.map(u => u.id);
+        if (userIds.length === 0) return { leaderboard: [], alerts: [], conversion: {}, cancel: {}, processing: {}, topCustomers: [] };
+
+        const ph = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const pStart = userIds.length + 1;
+        const pEnd = userIds.length + 2;
+
+        // === 1. LEADERBOARD: Top NV by revenue, orders, retention ===
+        const leaderRows = await db.all(`
+            WITH completed AS (
+                SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
+                    COALESCE(oi.rev, 0) AS revenue
+                FROM order_codes oc
+                JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN LATERAL (SELECT COALESCE(SUM(total), 0) AS rev FROM order_items WHERE order_code_id = oc.id) oi ON true
+                WHERE c.assigned_to_id IN (${ph})
+                  AND c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+            ),
+            ranked AS (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
+                FROM completed
+            )
+            SELECT assigned_to_id AS uid,
+                COUNT(*) AS total_orders,
+                SUM(CASE WHEN pn = 1 THEN 1 ELSE 0 END) AS new_orders,
+                SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                COALESCE(SUM(revenue), 0) AS total_revenue
+            FROM ranked
+            GROUP BY assigned_to_id
+        `, [...userIds, current.start, current.end]);
+
+        const leaderboard = leaderRows.map(r => {
+            const u = users.find(u2 => u2.id === r.uid);
+            const dept = childDepts.find(d => d.id === u?.department_id);
+            const total = parseInt(r.total_orders);
+            const ret = parseInt(r.returning_orders);
+            return {
+                user_id: r.uid,
+                name: u?.full_name || '?',
+                team: dept?.name || '',
+                total_orders: total,
+                new_orders: parseInt(r.new_orders),
+                returning_orders: ret,
+                rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0,
+                revenue: parseFloat(r.total_revenue)
+            };
+        });
+
+        // === 2. ALERTS: NV inactive > 7 days, high cancel rate ===
+        const alerts = [];
+        const lastOrderRows = await db.all(`
+            SELECT c.assigned_to_id AS uid, MAX(oc.created_at) AS last_order
+            FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id
+            WHERE c.assigned_to_id IN (${ph})
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+            GROUP BY c.assigned_to_id
+        `, userIds);
+
+        const now = new Date();
+        users.forEach(u => {
+            const row = lastOrderRows.find(r => r.uid === u.id);
+            if (!row || !row.last_order) {
+                alerts.push({ type: 'no_order', user_id: u.id, name: u.full_name, team: childDepts.find(d => d.id === u.department_id)?.name || '', message: 'Chưa có đơn nào', severity: 'warning' });
+            } else {
+                const days = Math.floor((now - new Date(row.last_order)) / 86400000);
+                if (days >= 7) {
+                    alerts.push({ type: 'inactive', user_id: u.id, name: u.full_name, team: childDepts.find(d => d.id === u.department_id)?.name || '', message: `${days} ngày không có đơn mới`, severity: days >= 14 ? 'danger' : 'warning' });
+                }
+            }
+        });
+
+        // Cancel rate per employee
+        const cancelRows = await db.all(`
+            SELECT c.assigned_to_id AS uid,
+                COUNT(*) AS total,
+                SUM(CASE WHEN COALESCE(c.cancel_approved, 0) = 1 THEN 1 ELSE 0 END) AS cancelled
+            FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id
+            WHERE c.assigned_to_id IN (${ph})
+              AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
+            GROUP BY c.assigned_to_id
+        `, [...userIds, current.start, current.end]);
+
+        const cancelData = cancelRows.map(r => {
+            const u = users.find(u2 => u2.id === r.uid);
+            const total = parseInt(r.total);
+            const cancelled = parseInt(r.cancelled);
+            const rate = total > 0 ? Math.round(1000 * cancelled / total) / 10 : 0;
+            if (rate >= 30) {
+                alerts.push({ type: 'high_cancel', user_id: r.uid, name: u?.full_name || '?', team: childDepts.find(d => d.id === u?.department_id)?.name || '', message: `Tỷ lệ hủy ${rate}%`, severity: 'danger' });
+            }
+            return { user_id: r.uid, name: u?.full_name || '?', team: childDepts.find(d => d.id === u?.department_id)?.name || '', total, cancelled, rate };
+        });
+
+        // === 3. CONVERSION RATE: KH được giao vs đơn hoàn thành ===
+        const assignedCount = await db.one(`
+            SELECT COUNT(DISTINCT c.id) AS cnt FROM customers c
+            WHERE c.assigned_to_id IN (${ph})
+              AND c.created_at >= $${pStart}::timestamp AND c.created_at < $${pEnd}::timestamp
+        `, [...userIds, current.start, current.end]);
+
+        const completedCount = await db.one(`
+            SELECT COUNT(DISTINCT oc.id) AS cnt FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id
+            WHERE c.assigned_to_id IN (${ph})
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+        `, [...userIds, current.start, current.end]);
+
+        const assigned = parseInt(assignedCount?.cnt || 0);
+        const completed = parseInt(completedCount?.cnt || 0);
+        const conversionRate = assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0;
+
+        // === 4. AVG PROCESSING TIME ===
+        const avgTimeRow = await db.one(`
+            SELECT AVG(EXTRACT(EPOCH FROM (cl.created_at - c.created_at)) / 86400)::numeric(10,1) AS avg_days
+            FROM consultation_logs cl
+            JOIN customers c ON cl.customer_id = c.id
+            WHERE c.assigned_to_id IN (${ph})
+              AND cl.log_type = 'hoan_thanh'
+              AND cl.created_at >= $${pStart}::timestamp AND cl.created_at < $${pEnd}::timestamp
+        `, [...userIds, current.start, current.end]);
+
+        // === 5. TOP CUSTOMERS by revenue ===
+        const topCust = await db.all(`
+            SELECT c.full_name, c.phone, c.assigned_to_id,
+                COUNT(DISTINCT oc.id) AS order_count,
+                COALESCE(SUM(oi.rev), 0) AS total_revenue
+            FROM customers c
+            JOIN order_codes oc ON oc.customer_id = c.id
+            LEFT JOIN LATERAL (SELECT COALESCE(SUM(total), 0) AS rev FROM order_items WHERE order_code_id = oc.id) oi ON true
+            WHERE c.assigned_to_id IN (${ph})
+              AND c.phone IS NOT NULL AND c.phone != ''
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'hoan_thanh')
+            GROUP BY c.id, c.full_name, c.phone, c.assigned_to_id
+            ORDER BY total_revenue DESC
+            LIMIT 10
+        `, [...userIds, current.start, current.end]);
+
+        // === 6. TEAM COMPARISON ===
+        const teamComparison = childDepts.map(dept => {
+            const teamUserIds = users.filter(u => u.department_id === dept.id).map(u => u.id);
+            const teamLeader = leaderRows.filter(r => teamUserIds.includes(r.uid));
+            const totalOrders = teamLeader.reduce((s, r) => s + parseInt(r.total_orders), 0);
+            const totalRev = teamLeader.reduce((s, r) => s + parseFloat(r.total_revenue), 0);
+            const totalRet = teamLeader.reduce((s, r) => s + parseInt(r.returning_orders), 0);
+            return {
+                team_id: dept.id,
+                name: dept.name,
+                total_orders: totalOrders,
+                revenue: totalRev,
+                returning: totalRet,
+                rate: totalOrders > 0 ? Math.round(1000 * totalRet / totalOrders) / 10 : 0,
+                employee_count: teamUserIds.length
+            };
+        });
+
+        return {
+            leaderboard: {
+                by_revenue: [...leaderboard].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
+                by_orders: [...leaderboard].sort((a, b) => b.total_orders - a.total_orders).slice(0, 10),
+                by_retention: [...leaderboard].filter(l => l.total_orders >= 2).sort((a, b) => b.rate - a.rate).slice(0, 10)
+            },
+            alerts: alerts.sort((a, b) => (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1)),
+            conversion: { assigned, completed, rate: conversionRate },
+            cancel: cancelData,
+            processing: { avg_days: parseFloat(avgTimeRow?.avg_days || 0) },
+            topCustomers: topCust.map(r => {
+                const emp = users.find(u => u.id === r.assigned_to_id);
+                return { name: r.full_name, phone: r.phone, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
+            }),
+            teamComparison,
+            period: { type: period, label: current.label }
+        };
+    });
 };
