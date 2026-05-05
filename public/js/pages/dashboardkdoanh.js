@@ -1278,8 +1278,6 @@ function crRenderTeamComparison(teams) {
             + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">' + t.total_orders + '</div>' + td(t.total_orders, p.total_orders || 0) + '<div class="cr-tc-stat-label">\uD83D\uDCE6 T\u1ed5ng \u0111\u01a1n</div></div>'
             + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">' + t.rate + '%</div>' + tdA(t.rate, p.rate || 0) + '<div class="cr-tc-stat-label">\uD83D\uDD04 T\u1ec9 l\u1ec7 KH c\u0169</div></div>'
             + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">' + (t.affiliate_new || 0) + '</div>' + td(t.affiliate_new || 0, p.affiliate_new || 0) + '<div class="cr-tc-stat-label">\uD83E\uDD1D T\u1ea1o TK Aff</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#d97706;">' + t.returning + '</div>' + td(t.returning, p.returning || 0) + '<div class="cr-tc-stat-label">\uD83D\uDC74 \u0110\u01a1n KH c\u0169</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#2563eb;">' + (t.new_orders || 0) + '</div>' + td(t.new_orders || 0, p.new_orders || 0) + '<div class="cr-tc-stat-label">\uD83C\uDD95 \u0110\u01a1n KH m\u1edbi</div></div>'
             + '</div></div>';
     }).join('');
 
