@@ -547,6 +547,38 @@ function crRenderGroups(data) {
         </div>`;
 
         if (mgrExpanded && group.teams) {
+            // Show manager's personal stats if they have data
+            if (group.personal) {
+                const pc = group.personal.current || {};
+                const cvMgr = convMap[group.user_id];
+                const kRM = kpiBar(group.user_id, 'revenue', pc.revenue || 0);
+                const kOM = kpiBar(group.user_id, 'orders', pc.total || 0);
+                const kCM = kpiBar(group.user_id, 'conversion_rate', cvMgr ? cvMgr.rate : 0);
+                const kRtM = kpiBar(group.user_id, 'retention_rate', pc.rate || 0);
+                const hasKpiM = kRM || kOM || kCM || kRtM;
+
+                var mgrEscName = (group.name || '').replace(/'/g, "\'");
+                html += '<div class="cr-emp" onclick="crShowDetail(' + group.user_id + ',\'' + mgrEscName + '\')"  style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-left:3px solid #d97706;margin:4px 8px;border-radius:10px;">'
+                    + '<div class="cr-emp-name">'
+                    + '<span class="cr-role-badge" style="background:#d97706;color:white;">QL</span> '
+                    + (group.name || '') + ' <span style="font-size:11px;color:#92400e;">(c\u00e1 nh\u00e2n)</span> '
+                    + convBadge(group.user_id)
+                    + (isGD ? ' <span onclick="event.stopPropagation();crOpenKPI(' + group.user_id + ',\'' + mgrEscName + '\')\" style="cursor:pointer;margin-left:4px;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : '')
+                    + '</div>'
+                    + '<div class="cr-emp-stats">'
+                    + '<span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">' + (pc.total || 0) + '</span>'
+                    + '<span class="cr-stat-cell" style="color:#059669;">' + (pc.new || 0) + ' \u0111.m\u1edbi</span>'
+                    + '<span class="cr-stat-cell" style="color:#c2410c;">' + (pc.returning || 0) + ' \u0111.c\u0169</span>'
+                    + '<div class="cr-progress-wrap"><div class="cr-progress-bar" style="width:' + Math.min(pc.rate || 0, 100) + '%;background:' + crProgressColor(pc.rate || 0) + ';"></div></div>'
+                    + '<span class="cr-stat-cell" style="font-weight:800;color:#7c3aed;">' + (pc.rate || 0) + '%</span>'
+                    + '<span class="cr-stat-cell">' + crTrendMini(group.personal.trend?.rate) + '</span>'
+                    + '<span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">' + crFormatVND(pc.revenue || 0) + '</span>'
+                    + '<span class="cr-stat-cell">' + crTrendMini(group.personal.trend?.revenue_pct) + '</span>'
+                    + '</div>'
+                    + (hasKpiM ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.7);border-radius:8px;">' + (kRM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Doanh s\u1ed1</span>' + kRM + '</div>' : '') + (kOM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF S\u1ed1 \u0111\u01a1n</span>' + kOM + '</div>' : '') + (kCM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Chuy\u1ec3n \u0111\u1ed5i</span>' + kCM + '</div>' : '') + (kRtM ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF KH c\u0169</span>' + kRtM + '</div>' : '') + '</div>' : '')
+                    + '</div>';
+            }
+
             group.teams.forEach((team, ti) => {
                 const teamKey = `${gi}-${ti}`;
                 const teamExpanded = _cr.expandedTeam.has(teamKey);

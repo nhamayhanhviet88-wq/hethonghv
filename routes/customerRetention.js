@@ -326,12 +326,19 @@ module.exports = async function(fastify) {
                 });
             }
 
-            // Calc manager-level totals from all their teams' employees
+            // Calc manager-level totals from all their teams' employees + manager's own data
             const allMgrEmpIds = [];
             teamsArr.forEach(t => t.employees.forEach(e => allMgrEmpIds.push(e.user_id)));
 
-            const mgrCur = calcGroup(allMgrEmpIds, currentMap);
-            const mgrPrev = calcGroup(allMgrEmpIds, previousMap);
+            // Include manager's own stats in the totals
+            const allMgrEmpIdsWithSelf = [...allMgrEmpIds, mgr.id];
+
+            const mgrCur = calcGroup(allMgrEmpIdsWithSelf, currentMap);
+            const mgrPrev = calcGroup(allMgrEmpIdsWithSelf, previousMap);
+
+            // Manager's personal stats (separate from team totals)
+            const mgrPersonalCur = calcGroup([mgr.id], currentMap);
+            const mgrPersonalPrev = calcGroup([mgr.id], previousMap);
 
             groups.push({
                 type: 'manager',
@@ -341,6 +348,12 @@ module.exports = async function(fastify) {
                 current: mgrCur,
                 previous: mgrPrev,
                 trend: calcTrend(mgrCur, mgrPrev),
+                // Manager's own performance data
+                personal: {
+                    current: mgrPersonalCur,
+                    previous: mgrPersonalPrev,
+                    trend: calcTrend(mgrPersonalCur, mgrPersonalPrev)
+                },
                 teams: teamsArr
             });
         }
