@@ -491,6 +491,10 @@ function crRenderGroups(data) {
         return;
     }
 
+    const convMap = data.conversionMap || {};
+    const kpiMap = data.kpiMap || {};
+    const isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
+
     // Find top employee (highest returning rate with at least 1 order)
     let topEmpId = null, topRate = -1;
     data.groups.forEach(g => {
@@ -503,6 +507,21 @@ function crRenderGroups(data) {
             });
         });
     });
+
+    function kpiBar(uid, metric, actual) {
+        const v = kpiMap['user_' + uid + '_' + metric];
+        if (!v || v <= 0) return '';
+        const pct = Math.min(Math.round(actual / v * 100), 150);
+        const c = pct >= 100 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444';
+        return '<div style="display:flex;align-items:center;gap:3px;margin-top:2px;"><div style="flex:1;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;min-width:36px;"><div style="height:100%;width:' + Math.min(pct,100) + '%;background:' + c + ';border-radius:2px;"></div></div><span style="font-size:9px;font-weight:700;color:' + c + ';">' + pct + '%' + (pct>=100?'\uD83C\uDFC6':'') + '</span></div>';
+    }
+
+    function convBadge(uid) {
+        const c = convMap[uid]; if (!c) return '';
+        const cl = c.rate >= 70 ? '#10b981' : c.rate >= 40 ? '#f59e0b' : '#ef4444';
+        const bg = c.rate >= 70 ? '#d1fae5' : c.rate >= 40 ? '#fef3c7' : '#fee2e2';
+        return '<span style="background:' + bg + ';color:' + cl + ';padding:2px 6px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap;" title="Chuy\u1ec3n \u0111\u1ed5i: ' + c.completed + '/' + c.assigned + ' KH">\uD83D\uDD04 ' + c.rate + '%</span>';
+    }
 
     let html = '';
     data.groups.forEach((group, gi) => {
@@ -560,11 +579,20 @@ function crRenderGroups(data) {
                             emp.role === 'thu_viec' ? '<span class="cr-role-badge cr-role-tv">TV</span>' :
                             '<span class="cr-role-badge cr-role-nv">NV</span>';
 
+                        const cv = convMap[emp.user_id];
+                        const kR = kpiBar(emp.user_id, 'revenue', ec.revenue || 0);
+                        const kO = kpiBar(emp.user_id, 'orders', ec.total || 0);
+                        const kC = kpiBar(emp.user_id, 'conversion_rate', cv ? cv.rate : 0);
+                        const kRt = kpiBar(emp.user_id, 'retention_rate', ec.rate || 0);
+                        const hasKpi = kR || kO || kC || kRt;
+
                         html += `<div class="cr-emp" onclick="crShowDetail(${emp.user_id}, '${emp.name.replace(/'/g, "\\'")}')" ${isTop ? 'style="background:linear-gradient(90deg,#fffbeb,#fef3c7);border-left:3px solid #f59e0b;"' : ''}>
                             <div class="cr-emp-name">
                                 ${isTop ? '<span class="cr-top-badge">\u2728 TOP</span>' : ''}
                                 ${roleBadge}
                                 ${emp.name}
+                                ${convBadge(emp.user_id)}
+                                ${isGD ? '<span onclick="event.stopPropagation();crOpenKPI(' + emp.user_id + ',\'' + emp.name.replace(/'/g, '\\\'') + '\')" style="cursor:pointer;margin-left:4px;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : ''}
                             </div>
                             <div class="cr-emp-stats">
                                 <span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">${ec.total || 0}</span>
@@ -578,6 +606,7 @@ function crRenderGroups(data) {
                                 <span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">${crFormatVND(ec.revenue || 0)}</span>
                                 <span class="cr-stat-cell">${crTrendMini(emp.trend?.revenue_pct)}</span>
                             </div>
+                            ${hasKpi ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;padding:6px 8px;background:#f8fafc;border-radius:8px;">' + (kR ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Doanh s\u1ed1</span>' + kR + '</div>' : '') + (kO ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF S\u1ed1 \u0111\u01a1n</span>' + kO + '</div>' : '') + (kC ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF Chuy\u1ec3n \u0111\u1ed5i</span>' + kC + '</div>' : '') + (kRt ? '<div><span style="font-size:9px;color:#6b7280;">\uD83C\uDFAF KH c\u0169</span>' + kRt + '</div>' : '') + '</div>' : ''}
                         </div>`;
                     });
                 }
@@ -590,6 +619,104 @@ function crRenderGroups(data) {
     });
 
     el.innerHTML = html;
+}
+
+// KPI Setting Modal — only for Director
+function crOpenKPI(userId, empName) {
+    const periodType = _cr.period;
+    const periodValue = _cr.data?.period?.label || '';
+    const kpiMap = _cr.data?.kpiMap || {};
+
+    const getKPI = (metric) => {
+        const v = kpiMap['user_' + userId + '_' + metric];
+        return v || '';
+    };
+
+    // Remove existing modal if any
+    const existing = document.getElementById('crKpiModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'crKpiModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:28px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="font-size:16px;font-weight:800;color:#1e1b4b;">\uD83C\uDFAF \u0110\u1eb7t KPI — ${empName}</h3>
+                <button onclick="document.getElementById('crKpiModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;">&times;</button>
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:16px;">K\u1ef3: <strong>${periodValue}</strong> (${periodType === 'month' ? 'Th\u00e1ng' : periodType === 'quarter' ? 'Qu\u00fd' : 'N\u0103m'})</div>
+            <div style="display:grid;gap:12px;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#374151;">Doanh s\u1ed1 m\u1ee5c ti\u00eau (VN\u0110)</label>
+                    <input type="number" id="kpi_revenue" value="${getKPI('revenue')}" placeholder="VD: 500000000 = 500 tri\u1ec7u" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#374151;">S\u1ed1 \u0111\u01a1n m\u1ee5c ti\u00eau</label>
+                    <input type="number" id="kpi_orders" value="${getKPI('orders')}" placeholder="VD: 20" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#374151;">T\u1ec9 l\u1ec7 chuy\u1ec3n \u0111\u1ed5i m\u1ee5c ti\u00eau (%)</label>
+                    <input type="number" id="kpi_conversion" value="${getKPI('conversion_rate')}" placeholder="VD: 70" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#374151;">T\u1ec9 l\u1ec7 KH c\u0169 quay l\u1ea1i m\u1ee5c ti\u00eau (%)</label>
+                    <input type="number" id="kpi_retention" value="${getKPI('retention_rate')}" placeholder="VD: 50" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:4px;">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="crSaveKPI(${userId})" style="flex:1;padding:12px;background:linear-gradient(135deg,#4338ca,#6366f1);color:white;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">L\u01b0u KPI</button>
+                <button onclick="document.getElementById('crKpiModal').remove()" style="padding:12px 20px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;">H\u1ee7y</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+async function crSaveKPI(userId) {
+    const targets = [];
+    const periodType = _cr.period;
+    const periodValue = _cr.data?.period?.label || '';
+
+    const metrics = [
+        { id: 'kpi_revenue', metric: 'revenue' },
+        { id: 'kpi_orders', metric: 'orders' },
+        { id: 'kpi_conversion', metric: 'conversion_rate' },
+        { id: 'kpi_retention', metric: 'retention_rate' }
+    ];
+
+    for (const m of metrics) {
+        const el = document.getElementById(m.id);
+        if (el && el.value && parseFloat(el.value) > 0) {
+            targets.push({
+                target_type: 'user',
+                target_id: userId,
+                metric: m.metric,
+                period_type: periodType,
+                period_value: periodValue,
+                target_value: parseFloat(el.value)
+            });
+        }
+    }
+
+    if (targets.length === 0) {
+        alert('Vui l\u00f2ng nh\u1eadp \u00edt nh\u1ea5t 1 ch\u1ec9 ti\u00eau');
+        return;
+    }
+
+    try {
+        const res = await apiCall('/api/kpi-targets/batch', 'POST', { targets });
+        if (res.success) {
+            document.getElementById('crKpiModal').remove();
+            alert('\u2705 \u0110\u00e3 l\u01b0u KPI th\u00e0nh c\u00f4ng! (' + res.created + ' m\u1edbi, ' + res.updated + ' c\u1eadp nh\u1eadt)');
+            crLoadData(); // Reload to show new KPI bars
+        } else {
+            alert('\u274c L\u1ed7i: ' + (res.error || 'Kh\u00f4ng r\u00f5'));
+        }
+    } catch(err) {
+        alert('\u274c L\u1ed7i k\u1ebft n\u1ed1i: ' + err.message);
+    }
 }
 
 function crToggleMgr(index) {

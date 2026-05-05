@@ -447,6 +447,50 @@ module.exports = async function(fastify) {
         const summCur = calcGroup(allKDIds, currentMap);
         const summPrev = calcGroup(allKDIds, previousMap);
 
+        // ===== PER-EMPLOYEE CONVERSION RATE =====
+        // Query: KH được giao per employee in current period
+        const assignedPerEmp = allKDIds.length > 0 ? await db.all(`
+            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            FROM customers
+            WHERE assigned_to_id IN (${allKDIds.map((_, i) => `$${i + 1}`).join(',')})
+              AND created_at >= $${allKDIds.length + 1}::timestamp
+              AND created_at < $${allKDIds.length + 2}::timestamp
+            GROUP BY assigned_to_id
+        `, [...allKDIds, current.start, current.end]) : [];
+
+        // Build conversion map: uid -> { assigned, completed, rate }
+        const conversionMap = {};
+        assignedPerEmp.forEach(r => {
+            const uid = r.uid;
+            const assigned = parseInt(r.assigned);
+            const completed = currentMap[uid] ? parseInt(currentMap[uid].total_orders) : 0;
+            conversionMap[uid] = {
+                assigned,
+                completed,
+                rate: assigned > 0 ? Math.round(1000 * completed / assigned) / 10 : 0
+            };
+        });
+        // Ensure all employees have an entry
+        allKDIds.forEach(uid => {
+            if (!conversionMap[uid]) {
+                const completed = currentMap[uid] ? parseInt(currentMap[uid].total_orders) : 0;
+                conversionMap[uid] = { assigned: 0, completed, rate: 0 };
+            }
+        });
+
+        // ===== LOAD KPI TARGETS for current period =====
+        const kpiTargets = await db.all(
+            `SELECT target_type, target_id, metric, target_value
+             FROM kpi_targets
+             WHERE period_type = $1 AND period_value = $2`,
+            [type, current.label]
+        );
+        const kpiMap = {};
+        kpiTargets.forEach(k => {
+            const key = `${k.target_type}_${k.target_id}_${k.metric}`;
+            kpiMap[key] = parseFloat(k.target_value);
+        });
+
         return {
             period: { type, label: current.label, start: current.start, end: current.end },
             previous: { label: previous.label, start: previous.start, end: previous.end },
@@ -455,7 +499,9 @@ module.exports = async function(fastify) {
                 previous: summPrev,
                 trend: calcTrend(summCur, summPrev)
             },
-            groups
+            groups,
+            conversionMap,
+            kpiMap
         };
     });
 

@@ -97,6 +97,23 @@ async function start() {
         }
     } catch(e) { console.log('thu_viec seed:', e.message); }
 
+    // Migration: KPI Targets — chỉ tiêu kinh doanh
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS kpi_targets (
+            id SERIAL PRIMARY KEY,
+            target_type TEXT NOT NULL CHECK (target_type IN ('user', 'team')),
+            target_id INTEGER NOT NULL,
+            metric TEXT NOT NULL CHECK (metric IN ('revenue', 'orders', 'conversion_rate', 'retention_rate')),
+            period_type TEXT NOT NULL CHECK (period_type IN ('month', 'quarter', 'year')),
+            period_value TEXT NOT NULL,
+            target_value NUMERIC NOT NULL DEFAULT 0,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(target_type, target_id, metric, period_type, period_value)
+        )`);
+    } catch(e) { /* exists */ }
+
     // Migration: Access Block — chặn truy cập thay vì khóa TK
     try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked BOOLEAN DEFAULT false'); } catch(e) { /* exists */ }
     try { await db.exec('ALTER TABLE users ADD COLUMN access_blocked_at TIMESTAMP'); } catch(e) { /* exists */ }
@@ -198,6 +215,7 @@ async function start() {
     fastify.register(require('./routes/partnerRegistration'));
     fastify.register(require('./routes/accessBlock'));
     fastify.register(require('./routes/customerRetention'));
+    fastify.register(require('./routes/kpiTargets'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
