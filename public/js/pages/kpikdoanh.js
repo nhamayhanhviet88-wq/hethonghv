@@ -485,7 +485,11 @@ async function kpiLoadDashboard() {
 }
 
 function kpiRenderLeaderboard(el, data) {
-    if (!data || !data.leaderboard || data.leaderboard.length === 0) {
+    // API returns: leaderboard = { by_revenue:[], by_orders:[], by_affiliate:[], by_retention:[] }
+    // and allEmployees = [] (flat array)
+    const lbObj = data && data.leaderboard;
+    const allEmp = data && data.allEmployees;
+    if (!lbObj && (!allEmp || allEmp.length === 0)) {
         el.innerHTML = '';
         return;
     }
@@ -499,11 +503,16 @@ function kpiRenderLeaderboard(el, data) {
     window.kpiDashSortLB = sortLB;
     window._kpiAdvData = data;
 
-    const lb = [...data.leaderboard];
-    if (_kpiDashSort === 'orders') lb.sort((a,b) => b.total_orders - a.total_orders);
-    else if (_kpiDashSort === 'affiliate') lb.sort((a,b) => (b.affiliate_count||0) - (a.affiliate_count||0));
-    else if (_kpiDashSort === 'retention') lb.sort((a,b) => b.retention_rate - a.retention_rate);
-    else lb.sort((a,b) => b.total_revenue - a.total_revenue);
+    // Pick the right pre-sorted array from the API
+    let lb;
+    if (lbObj) {
+        if (_kpiDashSort === 'orders') lb = lbObj.by_orders || allEmp || [];
+        else if (_kpiDashSort === 'affiliate') lb = lbObj.by_affiliate || allEmp || [];
+        else if (_kpiDashSort === 'retention') lb = lbObj.by_retention || allEmp || [];
+        else lb = lbObj.by_revenue || allEmp || [];
+    } else {
+        lb = Array.isArray(allEmp) ? [...allEmp] : [];
+    }
 
     const tabs = [
         { key: 'revenue', icon: '💰', label: 'Doanh Số' },
@@ -529,12 +538,12 @@ function kpiRenderLeaderboard(el, data) {
         const convColor = emp.conversion_rate >= 70 ? '#10b981' : emp.conversion_rate >= 40 ? '#f59e0b' : '#ef4444';
         html += `<div class="kpi-lb-row">
             <div class="kpi-lb-rank">${rank}</div>
-            <div><div class="kpi-lb-name">${emp.name}</div><div class="kpi-lb-team">${emp.team_name || ''}</div></div>
+            <div><div class="kpi-lb-name">${emp.name}</div><div class="kpi-lb-team">${emp.team || ''}</div></div>
             <div class="kpi-lb-val" style="color:#4338ca">${emp.total_orders} đơn</div>
-            <div class="kpi-lb-val" style="color:#059669">${kpiDashFmtVND(emp.total_revenue)}</div>
+            <div class="kpi-lb-val" style="color:#059669">${kpiDashFmtVND(emp.revenue)}</div>
             <div class="kpi-lb-val" style="color:${convColor};font-size:12px">${convRate}</div>
-            <div class="kpi-lb-val" style="color:#7c3aed">${emp.affiliate_count || 0}</div>
-            <div class="kpi-lb-val" style="color:#c2410c">${emp.retention_rate || 0}%</div>
+            <div class="kpi-lb-val" style="color:#7c3aed">${emp.affiliate_new || 0}</div>
+            <div class="kpi-lb-val" style="color:#c2410c">${emp.rate || 0}%</div>
         </div>`;
     });
 
