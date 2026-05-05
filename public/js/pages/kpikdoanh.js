@@ -946,6 +946,7 @@ window.kpiShowEmpOrders = async function(userId, userName) {
 
 window.odSetFilter = function(f) {
     _odFilter = f;
+    _odPage = 1;
     var tabs = document.querySelectorAll('#odTabs .kpi-od-tab');
     for (var i = 0; i < tabs.length; i++) {
         var t = tabs[i];
@@ -963,6 +964,9 @@ window.odSetFilter = function(f) {
     odRenderTable();
 };
 
+var _odPage = 1;
+var _odPerPage = 25;
+
 function odRenderTable() {
     var wrap = document.getElementById('odTableWrap');
     if (!wrap) return;
@@ -973,12 +977,19 @@ function odRenderTable() {
         return;
     }
 
+    var totalPages = Math.ceil(filtered.length / _odPerPage);
+    if (_odPage > totalPages) _odPage = totalPages;
+    if (_odPage < 1) _odPage = 1;
+    var start = (_odPage - 1) * _odPerPage;
+    var end = Math.min(start + _odPerPage, filtered.length);
+    var pageItems = filtered.slice(start, end);
+
     var h = '<table class="kpi-od-table"><thead><tr>'
         + '<th>#</th><th>Loại</th><th>Mã Đơn</th><th>Khách Hàng</th><th>SĐT</th><th style="text-align:right">Doanh số</th><th>Ngày HT</th><th style="text-align:center">Lần</th>'
         + '</tr></thead><tbody>';
 
-    for (var i = 0; i < filtered.length; i++) {
-        var o = filtered[i];
+    for (var i = 0; i < pageItems.length; i++) {
+        var o = pageItems[i];
         var dt = new Date(o.created_at);
         var dateStr = dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + dt.getFullYear();
         var typeClass = o.customer_type === 'moi' ? 'kpi-od-type-moi' : 'kpi-od-type-cu';
@@ -986,7 +997,7 @@ function odRenderTable() {
         var rev = parseFloat(o.revenue || 0);
         var revStr = rev >= 1e6 ? (rev / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr' : rev.toLocaleString('vi-VN');
 
-        h += '<tr><td>' + (i + 1) + '</td>'
+        h += '<tr><td>' + (start + i + 1) + '</td>'
             + '<td><span class="kpi-od-type ' + typeClass + '">' + typeLabel + '</span></td>'
             + '<td class="kpi-od-code">' + (o.order_code || '—') + '</td>'
             + '<td>' + (o.customer_name || '') + '</td>'
@@ -997,5 +1008,34 @@ function odRenderTable() {
             + '</tr>';
     }
     h += '</tbody></table>';
+
+    // Pagination
+    if (totalPages > 1) {
+        h += '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;border-top:1px solid rgba(255,255,255,.06)">';
+        h += '<button onclick="odGoPage(' + (_odPage - 1) + ')" ' + (_odPage <= 1 ? 'disabled' : '') + ' style="padding:6px 14px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:' + (_odPage <= 1 ? 'rgba(255,255,255,.05);color:#475569' : 'rgba(99,102,241,.15);color:#818cf8') + '">‹ Trước</button>';
+        // Page numbers
+        for (var p = 1; p <= totalPages; p++) {
+            if (totalPages <= 7 || p <= 2 || p >= totalPages - 1 || Math.abs(p - _odPage) <= 1) {
+                h += '<button onclick="odGoPage(' + p + ')" style="width:32px;height:32px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;'
+                    + (p === _odPage ? 'background:#6366f1;color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.4)' : 'background:rgba(255,255,255,.05);color:#94a3b8') + '">' + p + '</button>';
+            } else if (p === 3 && _odPage > 4) {
+                h += '<span style="color:#475569;font-size:12px">…</span>';
+            } else if (p === totalPages - 2 && _odPage < totalPages - 3) {
+                h += '<span style="color:#475569;font-size:12px">…</span>';
+            }
+        }
+        h += '<button onclick="odGoPage(' + (_odPage + 1) + ')" ' + (_odPage >= totalPages ? 'disabled' : '') + ' style="padding:6px 14px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:' + (_odPage >= totalPages ? 'rgba(255,255,255,.05);color:#475569' : 'rgba(99,102,241,.15);color:#818cf8') + '">Sau ›</button>';
+        h += '<span style="font-size:11px;color:#64748b;margin-left:8px">' + filtered.length + ' đơn</span>';
+        h += '</div>';
+    }
+
     wrap.innerHTML = h;
 }
+
+window.odGoPage = function(p) {
+    _odPage = p;
+    odRenderTable();
+    // Scroll table to top
+    var wrap = document.getElementById('odTableWrap');
+    if (wrap) wrap.scrollTop = 0;
+};
