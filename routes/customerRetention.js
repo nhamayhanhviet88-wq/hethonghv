@@ -535,9 +535,13 @@ module.exports = async function(fastify) {
                     oc.created_at,
                     c.phone,
                     c.customer_name,
-                    c.assigned_to_id
+                    c.assigned_to_id,
+                    COALESCE(oi_sum.revenue, 0) AS revenue
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+                ) oi_sum ON true
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND EXISTS (
@@ -546,7 +550,6 @@ module.exports = async function(fastify) {
                         AND cl.log_type = 'hoan_thanh'
                   )
             ),
-            ranked_orders AS (
                 SELECT
                     order_id,
                     order_code,
@@ -555,6 +558,7 @@ module.exports = async function(fastify) {
                     created_at,
                     phone,
                     customer_name,
+                    revenue,
                     ROW_NUMBER() OVER (
                         PARTITION BY phone
                         ORDER BY created_at ASC
@@ -568,6 +572,7 @@ module.exports = async function(fastify) {
                 customer_name,
                 phone,
                 created_at,
+                revenue,
                 phone_order_number,
                 CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
             FROM ranked_orders
@@ -590,6 +595,7 @@ module.exports = async function(fastify) {
                 phone: r.phone,
                 order_code: r.order_code || '-',
                 date: r.created_at,
+                revenue: parseFloat(r.revenue || 0),
                 order_number: r.phone_order_number,
                 type: r.order_type
             }))

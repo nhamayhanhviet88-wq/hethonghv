@@ -837,6 +837,7 @@ function crRenderDetailTable(orders) {
             <th>Mã Đơn</th>
             <th>Khách Hàng</th>
             <th>SĐT</th>
+            <th>Doanh số</th>
             <th>Ngày HT</th>
             <th style="width:40px;">Lần</th>
         </tr></thead><tbody>`;
@@ -852,6 +853,7 @@ function crRenderDetailTable(orders) {
             <td style="font-size:12px;color:#4338ca;font-weight:700;">${o.order_code || '-'}</td>
             <td style="font-weight:600;">${o.customer_name || '-'}</td>
             <td style="font-family:monospace;font-size:12px;">${o.phone || '-'}</td>
+            <td style="font-weight:700;color:#0369a1;font-size:12px;">${o.revenue ? crFormatVND(o.revenue) : '0'}</td>
             <td style="font-size:12px;">${dateStr}</td>
             <td style="text-align:center;font-weight:700;color:${o.order_number === 1 ? '#059669' : '#c2410c'};">${o.order_number}</td>
         </tr>`;
