@@ -174,6 +174,16 @@ async function crLoadData() {
 
     try {
         const data = await apiCall(`/api/reports/customer-retention?period=${_cr.period}&date=${_cr.dateStr}`);
+        if (data.error) {
+            console.error('API error:', data.error);
+            if (groupsEl) groupsEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">❌ ${data.error}</div>`;
+            return;
+        }
+        if (!data.summary) {
+            console.error('API returned unexpected data:', data);
+            if (groupsEl) groupsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">❌ Dữ liệu không hợp lệ. Vui lòng thử lại.</div>';
+            return;
+        }
         _cr.data = data;
         crRenderCards(data);
         crRenderGroups(data);
