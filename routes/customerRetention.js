@@ -2,19 +2,12 @@
 // Logic: Dùng ROW_NUMBER() OVER (PARTITION BY phone) trên consultation_logs (hoan_thanh)
 // phone_order_number = 1 → Khách MỚI, > 1 → Khách CŨ quay lại
 // Scope: Chỉ P.Kinh Doanh (department id=1 + children)
+// ★ Teams = child departments (parent_id = 1), NOT the "teams" table
 
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 
 module.exports = async function(fastify) {
-
-    // ===== Helper: Get all department IDs in P.Kinh Doanh tree =====
-    async function getKDDeptIds() {
-        const depts = await db.all(
-            "SELECT id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active'"
-        );
-        return depts.map(d => d.id);
-    }
 
     // ===== Helper: Parse period params into date ranges =====
     function parsePeriod(period, dateStr) {
@@ -22,7 +15,6 @@ module.exports = async function(fastify) {
         const now = new Date();
 
         if (period === 'month') {
-            // dateStr = '2026-05' or auto
             let year, month;
             if (dateStr && /^\d{4}-\d{2}$/.test(dateStr)) {
                 [year, month] = dateStr.split('-').map(Number);
@@ -36,14 +28,12 @@ module.exports = async function(fastify) {
             current.end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
             current.label = `T${month}/${year}`;
 
-            // Previous month
             const prevMonth = month === 1 ? 12 : month - 1;
             const prevYear = month === 1 ? year - 1 : year;
             previous.start = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
             previous.end = current.start;
             previous.label = `T${prevMonth}/${prevYear}`;
         } else if (period === 'quarter') {
-            // dateStr = '2026-Q2' or auto
             let year, quarter;
             if (dateStr && /^\d{4}-Q[1-4]$/.test(dateStr)) {
                 year = parseInt(dateStr.split('-Q')[0]);
@@ -62,7 +52,6 @@ module.exports = async function(fastify) {
             }
             current.label = `Q${quarter}/${year}`;
 
-            // Previous quarter
             const prevQ = quarter === 1 ? 4 : quarter - 1;
             const prevY = quarter === 1 ? year - 1 : year;
             const prevStartMonth = (prevQ - 1) * 3 + 1;
@@ -70,7 +59,6 @@ module.exports = async function(fastify) {
             previous.end = current.start;
             previous.label = `Q${prevQ}/${prevY}`;
         } else {
-            // year — dateStr = '2026' or auto
             const year = (dateStr && /^\d{4}$/.test(dateStr)) ? parseInt(dateStr) : now.getFullYear();
             current.start = `${year}-01-01`;
             current.end = `${year + 1}-01-01`;
@@ -87,22 +75,34 @@ module.exports = async function(fastify) {
     // ===== Main API =====
     fastify.get('/api/reports/customer-retention', { preHandler: [authenticate] }, async (request, reply) => {
         const { period = 'month', date } = request.query;
-
-        // Parse period
         const { current, previous, type } = parsePeriod(period, date);
 
-        // Get KD department tree
-        const kdDeptIds = await getKDDeptIds();
-        if (kdDeptIds.length === 0) {
-            return { period: { type, ...current }, previous, summary: { current: {}, previous: {} }, groups: [] };
+        // ===== 1. Get KD department tree =====
+        // Root = P.Kinh Doanh (id=1), Children = Team departments (parent_id=1)
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id, head_user_id, display_order FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        if (allDepts.length === 0) {
+            return { period: { type, ...current }, previous, summary: { current: { total: 0, new: 0, returning: 0, rate: 0 }, previous: { total: 0, new: 0, returning: 0, rate: 0 }, trend: { total: 0, new: 0, returning: 0, rate: 0 } }, groups: [] };
         }
 
-        const kdPh = kdDeptIds.map((_, i) => `$${i + 1}`).join(',');
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept.id); // These are "teams"
+        const allDeptIds = allDepts.map(d => d.id);
+        const kdPh = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
 
-        // ===== Core Query: ROW_NUMBER by phone (all-time) =====
-        // Then filter by period + KD departments
+        // ===== 2. Get all active users in KD tree =====
+        const users = await db.all(
+            `SELECT u.id, u.full_name, u.role, u.department_id, u.username
+             FROM users u
+             WHERE u.department_id IN (${kdPh}) AND u.status = 'active'
+             ORDER BY u.full_name`,
+            allDeptIds
+        );
+
+        // ===== 3. Core Query: ROW_NUMBER by phone (all-time) =====
         const buildStatsQuery = (startDate, endDate) => {
-            const paramOffset = kdDeptIds.length;
+            const paramOffset = allDeptIds.length;
             return {
                 sql: `
                     WITH all_hoan_thanh AS (
@@ -135,55 +135,24 @@ module.exports = async function(fastify) {
                       )
                     GROUP BY assigned_to_id
                 `,
-                params: [...kdDeptIds, startDate, endDate]
+                params: [...allDeptIds, startDate, endDate]
             };
         };
 
-        // Run both current and previous period queries in parallel
         const currentQ = buildStatsQuery(current.start, current.end);
         const previousQ = buildStatsQuery(previous.start, previous.end);
 
-        const [currentStats, previousStats, orgData] = await Promise.all([
+        const [currentStats, previousStats] = await Promise.all([
             db.all(currentQ.sql, currentQ.params),
-            db.all(previousQ.sql, previousQ.params),
-            // Get org structure: departments + users + teams
-            (async () => {
-                const departments = await db.all(
-                    `SELECT d.id, d.name, d.parent_id, d.head_user_id, d.display_order
-                     FROM departments d
-                     WHERE d.id IN (${kdPh}) AND d.status = 'active'
-                     ORDER BY d.display_order, d.id`,
-                    kdDeptIds
-                );
-
-                const users = await db.all(
-                    `SELECT u.id, u.full_name, u.role, u.department_id, u.username
-                     FROM users u
-                     WHERE u.department_id IN (${kdPh}) AND u.status = 'active'
-                     ORDER BY u.full_name`,
-                    kdDeptIds
-                );
-
-                const teams = await db.all(
-                    `SELECT t.id, t.name, t.leader_id, t.manager_id,
-                            tm.user_id
-                     FROM teams t
-                     LEFT JOIN team_members tm ON tm.team_id = t.id
-                     ORDER BY t.id`
-                );
-
-                return { departments, users, teams };
-            })()
+            db.all(previousQ.sql, previousQ.params)
         ]);
 
-        // Build lookup maps
+        // ===== 4. Build lookup maps =====
         const currentMap = {};
         currentStats.forEach(s => { currentMap[s.employee_id] = s; });
-
         const previousMap = {};
         previousStats.forEach(s => { previousMap[s.employee_id] = s; });
 
-        // Helper: calc stats for a set of employee IDs
         function calcGroup(empIds, statsMap) {
             let total = 0, newO = 0, retO = 0;
             empIds.forEach(id => {
@@ -200,169 +169,204 @@ module.exports = async function(fastify) {
             };
         }
 
-        // Build team membership map
-        const teamMap = {}; // team_id → { id, name, leader_id, manager_id, member_ids: [] }
-        const userTeam = {}; // user_id → team_id
-        orgData.teams.forEach(t => {
-            if (!teamMap[t.id]) {
-                teamMap[t.id] = { id: t.id, name: t.name, leader_id: t.leader_id, manager_id: t.manager_id, member_ids: [] };
-            }
-            if (t.user_id) {
-                teamMap[t.id].member_ids.push(t.user_id);
-                userTeam[t.user_id] = t.id;
-            }
-        });
+        function calcTrend(cur, prev) {
+            return { rate: Math.round(10 * (cur.rate - prev.rate)) / 10 };
+        }
 
-        // Build org hierarchy: Root dept (P.Kinh Doanh) → child depts (teams/phòng)
-        const rootDept = orgData.departments.find(d => d.id === 1) || orgData.departments[0];
-        const childDepts = orgData.departments.filter(d => d.parent_id === (rootDept ? rootDept.id : 1));
+        // ===== 5. Build org hierarchy using DEPARTMENTS =====
+        // Manager = head_user_id of root dept (P.Kinh Doanh) OR users with role quan_ly/quan_ly_cap_cao
+        // Teams = child departments (parent_id = root)
+        // Employees = users whose department_id = child dept id
 
-        // Find managers (head_user_id of child depts OR users with role 'quan_ly' in KD tree)
-        const managers = orgData.users.filter(u =>
+        const managers = users.filter(u =>
             ['quan_ly', 'quan_ly_cap_cao'].includes(u.role)
         );
 
-        // Group users under managers → teams → employees
+        // For each manager, find which child departments they manage
+        // A manager "manages" a child dept if: dept.head_user_id = manager.id
+        // OR: the child dept doesn't have a specific head and falls under the root managed by this manager
         const groups = [];
-        const processedUserIds = new Set();
+        const processedDeptIds = new Set();
 
         for (const mgr of managers) {
-            // Find departments this manager heads
-            const mgrDepts = orgData.departments.filter(d => d.head_user_id === mgr.id);
-            const mgrDeptIds = new Set(mgrDepts.map(d => d.id));
-            // Also include child departments
-            orgData.departments.forEach(d => {
-                if (d.parent_id && mgrDeptIds.has(d.parent_id)) mgrDeptIds.add(d.id);
-            });
+            // Find child depts this manager heads
+            const mgrChildDepts = childDepts.filter(d => d.head_user_id === mgr.id);
 
-            // Get employees in this manager's departments
-            const mgrEmployees = orgData.users.filter(u =>
-                u.id !== mgr.id && mgrDeptIds.has(u.department_id) &&
-                !['quan_ly', 'quan_ly_cap_cao', 'giam_doc'].includes(u.role)
-            );
+            // If manager doesn't head any child depts, check if they head the root
+            if (mgrChildDepts.length === 0 && rootDept.head_user_id !== mgr.id) {
+                // This manager has no departments — skip or put in unassigned
+                continue;
+            }
 
-            // Group by teams
-            const teamGroups = {};
-            const noTeam = [];
+            // If manager is head of root, they manage ALL child depts not headed by another manager
+            let managedDepts;
+            if (rootDept.head_user_id === mgr.id) {
+                // Root manager → manages all unassigned child depts + their own child depts
+                managedDepts = childDepts.filter(d =>
+                    d.head_user_id === mgr.id ||
+                    !d.head_user_id ||
+                    !managers.some(m => m.id === d.head_user_id && m.id !== mgr.id)
+                );
+            } else {
+                managedDepts = mgrChildDepts;
+            }
 
-            mgrEmployees.forEach(emp => {
-                const tId = userTeam[emp.id];
-                if (tId && teamMap[tId]) {
-                    if (!teamGroups[tId]) teamGroups[tId] = [];
-                    teamGroups[tId].push(emp);
-                } else {
-                    noTeam.push(emp);
-                }
-                processedUserIds.add(emp.id);
-            });
-
-            // Build teams array
             const teamsArr = [];
-            for (const [tId, members] of Object.entries(teamGroups)) {
-                const team = teamMap[tId];
-                const empIds = members.map(m => m.id);
-                // Include leader in stats if they're in KD
-                const leaderUser = team.leader_id ? orgData.users.find(u => u.id === team.leader_id) : null;
+            for (const dept of managedDepts) {
+                processedDeptIds.add(dept.id);
+
+                // Find employees in this team/dept (excluding managers)
+                const deptEmployees = users.filter(u =>
+                    u.department_id === dept.id &&
+                    !['quan_ly', 'quan_ly_cap_cao', 'giam_doc'].includes(u.role)
+                );
+
+                // Find team leader (truong_phong in this dept, or dept.head_user_id)
+                const leaderUser = dept.head_user_id ? users.find(u => u.id === dept.head_user_id) : null;
+                const leaderName = leaderUser ? leaderUser.full_name : null;
+
+                const empIds = deptEmployees.map(e => e.id);
+                const curStats = calcGroup(empIds, currentMap);
+                const prevStats = calcGroup(empIds, previousMap);
 
                 teamsArr.push({
-                    team_id: Number(tId),
-                    name: team.name,
-                    leader_id: team.leader_id,
-                    leader_name: leaderUser ? leaderUser.full_name : null,
-                    current: calcGroup(empIds, currentMap),
-                    previous: calcGroup(empIds, previousMap),
-                    employees: members.map(emp => ({
-                        user_id: emp.id,
-                        name: emp.full_name,
-                        role: emp.role,
-                        current: calcGroup([emp.id], currentMap),
-                        previous: calcGroup([emp.id], previousMap)
-                    }))
+                    team_id: dept.id,
+                    name: dept.name,
+                    leader_id: dept.head_user_id,
+                    leader_name: leaderName,
+                    current: curStats,
+                    previous: prevStats,
+                    trend: calcTrend(curStats, prevStats),
+                    employees: deptEmployees.map(emp => {
+                        const ec = calcGroup([emp.id], currentMap);
+                        const ep = calcGroup([emp.id], previousMap);
+                        return {
+                            user_id: emp.id,
+                            name: emp.full_name,
+                            role: emp.role,
+                            current: ec,
+                            previous: ep
+                        };
+                    })
                 });
             }
 
-            // Add trend to each team
-            teamsArr.forEach(t => {
-                t.trend = { rate: Math.round(10 * (t.current.rate - t.previous.rate)) / 10 };
-            });
+            // Calc manager-level totals from all their teams' employees
+            const allMgrEmpIds = [];
+            teamsArr.forEach(t => t.employees.forEach(e => allMgrEmpIds.push(e.user_id)));
 
-            // Unassigned employees (no team)
-            if (noTeam.length > 0) {
-                const noTeamIds = noTeam.map(e => e.id);
-                teamsArr.push({
-                    team_id: null,
-                    name: 'Chưa phân Team',
-                    leader_id: null,
-                    leader_name: null,
-                    current: calcGroup(noTeamIds, currentMap),
-                    previous: calcGroup(noTeamIds, previousMap),
-                    trend: { rate: 0 },
-                    employees: noTeam.map(emp => ({
-                        user_id: emp.id,
-                        name: emp.full_name,
-                        role: emp.role,
-                        current: calcGroup([emp.id], currentMap),
-                        previous: calcGroup([emp.id], previousMap)
-                    }))
-                });
-                const lt = teamsArr[teamsArr.length - 1];
-                lt.trend = { rate: Math.round(10 * (lt.current.rate - lt.previous.rate)) / 10 };
-            }
+            const mgrCur = calcGroup(allMgrEmpIds, currentMap);
+            const mgrPrev = calcGroup(allMgrEmpIds, previousMap);
 
-            // Add manager's own stats too
-            processedUserIds.add(mgr.id);
-            const allMgrEmpIds = mgrEmployees.map(e => e.id);
-
-            const group = {
+            groups.push({
                 type: 'manager',
                 user_id: mgr.id,
                 name: mgr.full_name,
                 role: mgr.role,
-                current: calcGroup(allMgrEmpIds, currentMap),
-                previous: calcGroup(allMgrEmpIds, previousMap),
+                current: mgrCur,
+                previous: mgrPrev,
+                trend: calcTrend(mgrCur, mgrPrev),
                 teams: teamsArr
-            };
-            group.trend = { rate: Math.round(10 * (group.current.rate - group.previous.rate)) / 10 };
-
-            groups.push(group);
+            });
         }
 
-        // Handle users not under any manager
-        const unprocessed = orgData.users.filter(u =>
-            !processedUserIds.has(u.id) &&
-            !['quan_ly', 'quan_ly_cap_cao', 'giam_doc'].includes(u.role)
-        );
-        if (unprocessed.length > 0) {
-            const ids = unprocessed.map(u => u.id);
+        // Handle child depts not assigned to any manager
+        const unprocessedDepts = childDepts.filter(d => !processedDeptIds.has(d.id));
+        if (unprocessedDepts.length > 0) {
+            const teamsArr = [];
+            for (const dept of unprocessedDepts) {
+                const deptEmployees = users.filter(u =>
+                    u.department_id === dept.id &&
+                    !['quan_ly', 'quan_ly_cap_cao', 'giam_doc'].includes(u.role)
+                );
+                const leaderUser = dept.head_user_id ? users.find(u => u.id === dept.head_user_id) : null;
+                const empIds = deptEmployees.map(e => e.id);
+                const curStats = calcGroup(empIds, currentMap);
+                const prevStats = calcGroup(empIds, previousMap);
+
+                teamsArr.push({
+                    team_id: dept.id,
+                    name: dept.name,
+                    leader_id: dept.head_user_id,
+                    leader_name: leaderUser ? leaderUser.full_name : null,
+                    current: curStats,
+                    previous: prevStats,
+                    trend: calcTrend(curStats, prevStats),
+                    employees: deptEmployees.map(emp => {
+                        const ec = calcGroup([emp.id], currentMap);
+                        const ep = calcGroup([emp.id], previousMap);
+                        return { user_id: emp.id, name: emp.full_name, role: emp.role, current: ec, previous: ep };
+                    })
+                });
+            }
+
+            const allIds = [];
+            teamsArr.forEach(t => t.employees.forEach(e => allIds.push(e.user_id)));
+            const uCur = calcGroup(allIds, currentMap);
+            const uPrev = calcGroup(allIds, previousMap);
+
             groups.push({
                 type: 'unassigned',
                 user_id: null,
                 name: 'Chưa phân Quản Lý',
                 role: null,
-                current: calcGroup(ids, currentMap),
-                previous: calcGroup(ids, previousMap),
-                trend: { rate: 0 },
-                teams: [{
-                    team_id: null,
-                    name: 'Chưa phân Team',
-                    leader_id: null,
-                    leader_name: null,
-                    current: calcGroup(ids, currentMap),
-                    previous: calcGroup(ids, previousMap),
-                    trend: { rate: 0 },
-                    employees: unprocessed.map(emp => ({
-                        user_id: emp.id,
-                        name: emp.full_name,
-                        role: emp.role,
-                        current: calcGroup([emp.id], currentMap),
-                        previous: calcGroup([emp.id], previousMap)
-                    }))
-                }]
+                current: uCur,
+                previous: uPrev,
+                trend: calcTrend(uCur, uPrev),
+                teams: teamsArr
             });
         }
 
-        // Summary (all KD employees)
-        const allKDIds = orgData.users
+        // Handle users in root dept (department_id = 1) who are not managers — "Chưa phân Team"
+        const rootDeptUsers = users.filter(u =>
+            u.department_id === rootDept.id &&
+            !['quan_ly', 'quan_ly_cap_cao', 'giam_doc'].includes(u.role)
+        );
+        if (rootDeptUsers.length > 0) {
+            const empIds = rootDeptUsers.map(e => e.id);
+            const curStats = calcGroup(empIds, currentMap);
+            const prevStats = calcGroup(empIds, previousMap);
+
+            // Add to first manager group, or create a separate one
+            const noTeamEntry = {
+                team_id: null,
+                name: 'Chưa phân Team',
+                leader_id: null,
+                leader_name: null,
+                current: curStats,
+                previous: prevStats,
+                trend: calcTrend(curStats, prevStats),
+                employees: rootDeptUsers.map(emp => {
+                    const ec = calcGroup([emp.id], currentMap);
+                    const ep = calcGroup([emp.id], previousMap);
+                    return { user_id: emp.id, name: emp.full_name, role: emp.role, current: ec, previous: ep };
+                })
+            };
+
+            if (groups.length > 0 && groups[0].type === 'manager') {
+                groups[0].teams.push(noTeamEntry);
+                // Recalc manager totals
+                const allIds = [];
+                groups[0].teams.forEach(t => t.employees.forEach(e => allIds.push(e.user_id)));
+                groups[0].current = calcGroup(allIds, currentMap);
+                groups[0].previous = calcGroup(allIds, previousMap);
+                groups[0].trend = calcTrend(groups[0].current, groups[0].previous);
+            } else {
+                groups.push({
+                    type: 'unassigned',
+                    user_id: null,
+                    name: 'Chưa phân Quản Lý',
+                    role: null,
+                    current: curStats,
+                    previous: prevStats,
+                    trend: calcTrend(curStats, prevStats),
+                    teams: [noTeamEntry]
+                });
+            }
+        }
+
+        // Summary (all KD employees, excluding GĐ)
+        const allKDIds = users
             .filter(u => !['giam_doc'].includes(u.role))
             .map(u => u.id);
         const summCur = calcGroup(allKDIds, currentMap);
