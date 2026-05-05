@@ -131,7 +131,6 @@ async function renderDashboardkdoanhPage(container) {
                 .cr-chart-select { flex: 1; min-width: 100px; }
             }
         </style>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
         <div class="cr-wrap" id="crWrap">
             <div class="cr-header">
                 <div class="cr-period-tabs">
@@ -183,7 +182,16 @@ async function renderDashboardkdoanhPage(container) {
     `;
 
     await crLoadData();
-    crChartInit();
+
+    // Load Chart.js dynamically then init chart
+    if (typeof Chart === 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+        s.onload = () => crChartInit();
+        document.head.appendChild(s);
+    } else {
+        crChartInit();
+    }
 }
 
 function crSwitchPeriod(period) {
