@@ -382,6 +382,7 @@ const BXH_PAGES = [
     { key: 'bxh_ctv_allowed_roles', label: '🤝 BXH CTV', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
     { key: 'bxh_sanxuat_allowed_roles', label: '🏭 BXH Khối Sản Xuất', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
     { key: 'bxh_vanphong_allowed_roles', label: '🏢 BXH Khối Văn Phòng', defaults: ['giam_doc','quan_ly','quan_ly_cap_cao'] },
+    { key: 'dashboard_kdoanh_allowed_roles', label: '📈 Dashboard P.Kinh Doanh', defaults: ['giam_doc'] },
 ];
 
 async function loadLeaderboardRolesSettings() {
