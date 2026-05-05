@@ -453,12 +453,7 @@ module.exports = async function(fastify) {
             summary: {
                 current: summCur,
                 previous: summPrev,
-                trend: {
-                    total: summCur.total - summPrev.total,
-                    new: summCur.new - summPrev.new,
-                    returning: summCur.returning - summPrev.returning,
-                    rate: Math.round(10 * (summCur.rate - summPrev.rate)) / 10
-                }
+                trend: calcTrend(summCur, summPrev)
             },
             groups
         };
