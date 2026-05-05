@@ -425,7 +425,9 @@ module.exports = async function(fastify) {
                 CASE WHEN ah.phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type,
                 oc.order_code
             FROM all_hoan_thanh ah
-            LEFT JOIN order_codes oc ON oc.customer_id = ah.customer_id
+            LEFT JOIN LATERAL (
+                SELECT order_code FROM order_codes WHERE customer_id = ah.customer_id ORDER BY created_at DESC LIMIT 1
+            ) oc ON true
             WHERE ah.assigned_to_id = $1
               AND ah.created_at >= $2::timestamp
               AND ah.created_at < $3::timestamp
