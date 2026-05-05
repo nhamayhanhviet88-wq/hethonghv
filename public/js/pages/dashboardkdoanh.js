@@ -60,15 +60,13 @@ async function renderDashboardkdoanhPage(container) {
             .cr-main-tab-content.active { display: block; }
             @keyframes crTabFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-            /* === ALERT BANNER — fixed left panel === */
-            .cr-alert-panel { position: fixed; left: 8px; top: 72px; width: 260px; max-height: calc(100vh - 90px); overflow-y: auto; z-index: 90; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+            /* === ALERT BANNER === */
+            .cr-alert-panel { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
             .cr-alert-panel:empty { display: none; }
-            .cr-alert-panel .cr-alert-title { font-size: 12px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px; background: rgba(254,226,226,0.9); border-radius: 8px; backdrop-filter: blur(8px); text-align: center; }
-            .cr-alert-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; animation: crSlideIn 0.3s ease; backdrop-filter: blur(8px); }
-            .cr-alert-warning { background: rgba(254,243,199,0.95); color: #92400e; border-left: 4px solid #f59e0b; }
-            .cr-alert-danger { background: rgba(254,226,226,0.95); color: #991b1b; border-left: 4px solid #ef4444; }
-            @keyframes crSlideIn { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:translateX(0); } }
-            @media (max-width: 900px) { .cr-alert-panel { position: relative; left: auto; top: auto; width: 100%; max-height: none; } }
+            .cr-alert-item { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; animation: crSlideIn 0.3s ease; white-space: nowrap; }
+            .cr-alert-warning { background: #fef3c7; color: #92400e; border-left: 3px solid #f59e0b; }
+            .cr-alert-danger { background: #fee2e2; color: #991b1b; border-left: 3px solid #ef4444; }
+            @keyframes crSlideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 
             /* === LEADERBOARD === */
             .cr-lb-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; }
@@ -219,6 +217,8 @@ async function renderDashboardkdoanhPage(container) {
                 </div>
             </div>
 
+            <div id="crAlertBanner" class="cr-alert-panel"></div>
+
             <!-- MAIN TABS -->
             <div class="cr-main-tabs">
                 <button class="cr-main-tab active" onclick="crSwitchMainTab(0,this)">📊 Tổng Quan</button>
@@ -227,7 +227,6 @@ async function renderDashboardkdoanhPage(container) {
             </div>
 
             <!-- TAB 0: Tổng Quan -->
-            <div id="crAlertBanner" class="cr-alert-panel"></div>
             <div class="cr-main-tab-content active" id="crTabOverview">
                 <div class="cr-cards" id="crCards">
                     <div class="cr-card total"><div class="cr-card-value">...</div><div class="cr-card-label">Đang tải</div></div>
@@ -1135,11 +1134,10 @@ async function crLoadAdvanced() {
 function crRenderAlerts(alerts) {
     const el = document.getElementById('crAlertBanner');
     if (!alerts.length) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="cr-alert-title">⚠️ Cảnh Báo (' + alerts.length + ')</div>'
-        + alerts.map(a => {
-        const icon = a.severity === 'danger' ? '🚨' : '⚠️';
+    el.innerHTML = alerts.map(a => {
+        const icon = a.severity === 'danger' ? '\uD83D\uDEA8' : '\u26A0\uFE0F';
         const cls = a.severity === 'danger' ? 'cr-alert-danger' : 'cr-alert-warning';
-        return '<div class="cr-alert-item ' + cls + '">' + icon + ' <strong>' + a.name + '</strong> <span style="opacity:0.7;font-size:10px;">(' + a.team + ')</span><br><span style="font-size:11px;font-weight:500;">' + a.message + '</span></div>';
+        return '<div class="cr-alert-item ' + cls + '">' + icon + ' <strong>' + a.name + '</strong> <span style="opacity:0.7;">(' + a.team + ')</span> \u2014 ' + a.message + '</div>';
     }).join('');
 }
 
