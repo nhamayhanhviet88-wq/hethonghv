@@ -1256,15 +1256,30 @@ function crRenderTeamComparison(teams) {
         var rankBorder = i === 0 ? 'border:2px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.2);'
             : i === 1 ? 'border:2px solid #94a3b8;box-shadow:0 4px 12px rgba(148,163,184,0.15);'
             : i === 2 ? 'border:2px solid #d97706;box-shadow:0 4px 12px rgba(217,119,6,0.12);' : '';
+        var p = t.prev || {};
+        function td(cur, prev) {
+            if (prev === 0 && cur === 0) return '';
+            if (prev === 0) return '<div style="font-size:9px;color:#10b981;font-weight:600;">\u25B2 m\u1edbi</div>';
+            var pct = Math.round((cur - prev) / prev * 100);
+            if (pct === 0) return '<div style="font-size:9px;color:#9ca3af;">\u2014</div>';
+            var c = pct > 0 ? '#10b981' : '#ef4444';
+            return '<div style="font-size:9px;color:' + c + ';font-weight:600;">' + (pct > 0 ? '\u25B2' : '\u25BC') + ' ' + Math.abs(pct) + '%</div>';
+        }
+        function tdA(cur, prev) {
+            var diff = cur - prev;
+            if (diff === 0) return '<div style="font-size:9px;color:#9ca3af;">\u2014</div>';
+            var c = diff > 0 ? '#10b981' : '#ef4444';
+            return '<div style="font-size:9px;color:' + c + ';font-weight:600;">' + (diff > 0 ? '\u25B2' : '\u25BC') + ' ' + Math.abs(Math.round(diff * 10) / 10) + '</div>';
+        }
         return '<div class="cr-tc-card" style="' + rankBorder + '">'
             + '<div class="cr-tc-name">' + medal + t.name + ' <span style="font-size:11px;color:#6b7280;font-weight:500;">(' + t.employee_count + ' NV)</span></div>'
             + '<div class="cr-tc-stats" style="grid-template-columns:1fr 1fr;gap:8px;">'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#0369a1;">' + crFormatVND(t.revenue) + '</div><div class="cr-tc-stat-label">\uD83D\uDCB0 Doanh s\u1ed1</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">' + t.total_orders + '</div><div class="cr-tc-stat-label">\uD83D\uDCE6 T\u1ed5ng \u0111\u01a1n</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">' + t.rate + '%</div><div class="cr-tc-stat-label">\uD83D\uDD04 T\u1ec9 l\u1ec7 KH c\u0169</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">' + (t.affiliate_new || 0) + '</div><div class="cr-tc-stat-label">\uD83E\uDD1D T\u1ea1o TK Aff</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#d97706;">' + t.returning + '</div><div class="cr-tc-stat-label">\uD83D\uDC74 \u0110\u01a1n KH c\u0169</div></div>'
-            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#2563eb;">' + (t.new_orders || 0) + '</div><div class="cr-tc-stat-label">\uD83C\uDD95 \u0110\u01a1n KH m\u1edbi</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#0369a1;">' + crFormatVND(t.revenue) + '</div>' + td(t.revenue, p.revenue || 0) + '<div class="cr-tc-stat-label">\uD83D\uDCB0 Doanh s\u1ed1</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#1e1b4b;">' + t.total_orders + '</div>' + td(t.total_orders, p.total_orders || 0) + '<div class="cr-tc-stat-label">\uD83D\uDCE6 T\u1ed5ng \u0111\u01a1n</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#7c3aed;">' + t.rate + '%</div>' + tdA(t.rate, p.rate || 0) + '<div class="cr-tc-stat-label">\uD83D\uDD04 T\u1ec9 l\u1ec7 KH c\u0169</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#059669;">' + (t.affiliate_new || 0) + '</div>' + td(t.affiliate_new || 0, p.affiliate_new || 0) + '<div class="cr-tc-stat-label">\uD83E\uDD1D T\u1ea1o TK Aff</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#d97706;">' + t.returning + '</div>' + td(t.returning, p.returning || 0) + '<div class="cr-tc-stat-label">\uD83D\uDC74 \u0110\u01a1n KH c\u0169</div></div>'
+            + '<div class="cr-tc-stat"><div class="cr-tc-stat-val" style="color:#2563eb;">' + (t.new_orders || 0) + '</div>' + td(t.new_orders || 0, p.new_orders || 0) + '<div class="cr-tc-stat-label">\uD83C\uDD95 \u0110\u01a1n KH m\u1edbi</div></div>'
             + '</div></div>';
     }).join('');
 
