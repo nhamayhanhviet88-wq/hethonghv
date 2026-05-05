@@ -1170,28 +1170,15 @@ function crRenderLeaderboard(data) {
             var cvRate = cv ? cv.rate : 0;
             var cvColor = cvRate >= 70 ? '#10b981' : cvRate >= 40 ? '#f59e0b' : '#ef4444';
             var cvBg = cvRate >= 70 ? '#d1fae5' : cvRate >= 40 ? '#fef3c7' : '#fee2e2';
-            var kR = kpiB(item.user_id, 'revenue', item.revenue);
-            var kO = kpiB(item.user_id, 'orders', item.total_orders);
-            var kC = kpiB(item.user_id, 'conversion_rate', cvRate);
-            var kRt = kpiB(item.user_id, 'retention_rate', item.rate);
-            var hasKpi = kR || kO || kC || kRt;
-            var kpiBtn = isGD ? ' <span onclick="crOpenKPI(' + item.user_id + ',\'' + item.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:12px;" title="\u0110\u1eb7t KPI">\uD83C\uDFAF</span>' : '';
             var row = '<div class="cr-lb-row" ' + (i < 3 ? 'style="background:linear-gradient(90deg,' + ['#fefce8','#f8fafc','#fff7ed'][i] + ',white);"' : '') + '>';
             row += '<div class="cr-lb-rank">' + rank + '</div>';
-            row += '<div><div class="cr-lb-name">' + item.name + kpiBtn + '</div><div class="cr-lb-team">' + item.team + '</div></div>';
+            row += '<div><div class="cr-lb-name">' + item.name + '</div><div class="cr-lb-team">' + item.team + '</div></div>';
             row += '<div class="cr-lb-val" style="color:#1e1b4b;">' + item.total_orders + ' \u0111\u01a1n</div>';
             row += '<div class="cr-lb-val" style="color:#0369a1;">' + crFormatVND(item.revenue) + '</div>';
             row += '<div class="cr-lb-val"><span style="background:' + cvBg + ';color:' + cvColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">' + cvRate + '%</span></div>';
             row += '<div class="cr-lb-val" style="color:#059669;font-weight:700;">' + (item.affiliate_new || 0) + '</div>';
             row += '<div class="cr-lb-val" style="color:#7c3aed;">' + item.rate + '%</div>';
-            if (hasKpi) {
-                row += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px 10px;padding:4px 16px 10px 52px;background:#fafbfd;border-bottom:1px solid #f1f5f9;">';
-                row += kR ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF DS</span>' + kR + '</div>' : '<div></div>';
-                row += kO ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF \u0110\u01a1n</span>' + kO + '</div>' : '<div></div>';
-                row += kC ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF C\u0110</span>' + kC + '</div>' : '<div></div>';
-                row += kRt ? '<div><span style="font-size:8px;color:#9ca3af;">\uD83C\uDFAF KHC</span>' + kRt + '</div>' : '<div></div>';
-                row += '</div>';
-            }
+            row += '</div>';
             return row;
         }).join('');
     }
