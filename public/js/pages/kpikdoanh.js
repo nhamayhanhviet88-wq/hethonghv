@@ -34,9 +34,22 @@ async function renderKpikdoanhPage(container) {
             .kpi-sum-detail-label{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
             .kpi-sum-detail-val{font-size:16px;font-weight:900}
 
-            .kpi-section-title{font-size:15px;font-weight:800;color:#1e1b4b;margin:24px 0 10px;padding:8px 16px;background:linear-gradient(90deg,#eef2ff,#e0e7ff);border-left:4px solid #4338ca;border-radius:0 8px 8px 0}
+            .kpi-section-title{font-size:15px;font-weight:800;color:#e0f2fe;margin:0 0 16px;padding:10px 20px;background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border-left:4px solid #38bdf8;border-radius:0 8px 8px 0;text-shadow:0 0 8px rgba(56,189,248,.4)}
 
-            .kpi-tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:24px}
+            /* === DARK SECTION CONTAINER with sparkle === */
+            .kpi-dark-section{position:relative;border-radius:20px;padding:24px 20px;margin-bottom:28px;overflow:hidden;border:1px solid rgba(56,189,248,.15);box-shadow:0 8px 32px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.05)}
+            .kpi-dark-section.sec-1{background:linear-gradient(135deg,#0f172a 0%,#0c4a6e 40%,#164e63 70%,#0f172a 100%)}
+            .kpi-dark-section.sec-2{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 35%,#155e75 65%,#0f172a 100%)}
+            .kpi-dark-section.sec-3{background:linear-gradient(135deg,#0f172a 0%,#134e4a 40%,#0c4a6e 70%,#0f172a 100%)}
+            /* Sparkle shimmer overlay */
+            .kpi-dark-section::before{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 20%,rgba(56,189,248,.06) 30%,rgba(255,255,255,.1) 50%,rgba(56,189,248,.06) 70%,transparent 80%);background-size:200% 100%;animation:kpiSparkleShimmer 4s ease-in-out infinite;pointer-events:none;z-index:0}
+            @keyframes kpiSparkleShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+            /* Floating sparkle particles */
+            .kpi-dark-section::after{content:'✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧';position:absolute;top:0;left:0;right:0;bottom:0;font-size:10px;color:rgba(56,189,248,.15);letter-spacing:40px;word-spacing:60px;line-height:80px;overflow:hidden;pointer-events:none;z-index:0;animation:kpiSparkleFloat 8s linear infinite}
+            @keyframes kpiSparkleFloat{0%{transform:translateY(0) translateX(0)}50%{transform:translateY(-10px) translateX(5px)}100%{transform:translateY(0) translateX(0)}}
+            .kpi-dark-section>*{position:relative;z-index:1}
+
+            .kpi-tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid rgba(255,255,255,.1);box-shadow:0 2px 12px rgba(0,0,0,.2);margin-bottom:0;background:rgba(255,255,255,.03)}
             .kpi-tbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
             .kpi-tbl th{background:#1e293b;color:#fff;padding:8px 10px;font-weight:700;text-align:center;position:sticky;top:0;z-index:2;font-size:11px;letter-spacing:.3px}
             .kpi-tbl th.sub{background:#334155;font-size:10px}
@@ -327,6 +340,7 @@ function kpiRenderContent(data) {
     const currentStage = todayDay >= 1 && todayDay <= 10 ? 1 : todayDay >= 11 && todayDay <= 20 ? 2 : todayDay >= 21 ? 3 : 0;
 
     // ===== SECTION 1: Team Summary =====
+    html += '<div class="kpi-dark-section sec-1">';
     html += '<div class="kpi-section-title">📊 TỔNG QUAN KPI THEO TEAM</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl kpi-ov">';
     // Header — highlight current stage with fire effect
@@ -380,8 +394,10 @@ function kpiRenderContent(data) {
         html += `<td>${kpiFmtFull(st.target)}</td><td>${kpiFmtFull(st.actual)}</td><td>${kpiFmtFull(st.avg_per_day)}</td><td class="${st.missing<=0?'pos':'neg'}">${kpiSignFmtFull(st.missing)}</td>`;
     });
     html += '</tr></tbody></table></div>';
+    html += '</div>'; // close sec-1
 
     // ===== SECTION 2: Doanh Thu Theo Ngày (Team) =====
+    html += '<div class="kpi-dark-section sec-2">';
     html += '<div class="kpi-section-title">📅 DOANH THU THEO NGÀY</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr><th>STT</th><th>Cơ sở</th>';
     for (let d = 1; d <= dim; d++) {
@@ -403,8 +419,10 @@ function kpiRenderContent(data) {
         html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:900">${v>0?kpiFmt(v):'-'}</td>`;
     });
     html += '</tr></tbody></table></div>';
+    html += '</div>'; // close sec-2
 
     // ===== SECTION 3: Doanh Thu Và Target Nhân Sự =====
+    html += '<div class="kpi-dark-section sec-3">';
     html += '<div class="kpi-section-title">👥 DOANH THU VÀ TARGET NHÂN SỰ</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr>';
     html += '<th>STT</th><th>Mã NV</th><th>TVV</th><th>Target</th><th>DTTT</th><th>Tỷ lệ HT</th><th>Còn thiếu</th>';
@@ -444,6 +462,7 @@ function kpiRenderContent(data) {
     });
 
     html += '</tbody></table></div>';
+    html += '</div>'; // close sec-3
     el.innerHTML = html;
 }
 
