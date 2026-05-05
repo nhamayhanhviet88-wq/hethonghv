@@ -70,7 +70,7 @@ async function renderDashboardkdoanhPage(container) {
 
             /* === LEADERBOARD === */
             .cr-lb-section { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; }
-            .cr-lb-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; }
+            .cr-lb-header { padding: 18px 24px; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); color: #1e1b4b; }
             .cr-lb-tabs { display: flex; gap: 0; margin: 0 24px; border-bottom: 2px solid #f1f5f9; }
             .cr-lb-tab { padding: 12px 20px; font-size: 13px; font-weight: 700; cursor: pointer; background: none; border: none; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s; }
             .cr-lb-tab.active { color: #4338ca; border-bottom-color: #4338ca; }
@@ -219,8 +219,8 @@ async function renderDashboardkdoanhPage(container) {
 
             <div id="crAlertBanner" class="cr-alert-panel"></div>
 
-            <!-- MAIN TABS -->
-            <div class="cr-main-tabs">
+            <!-- MAIN TABS (hidden - all sections now on single overview page) -->
+            <div class="cr-main-tabs" style="display:none;">
                 <button class="cr-main-tab active" onclick="crSwitchMainTab(0,this)">📊 Tổng Quan</button>
                 <button class="cr-main-tab" onclick="crSwitchMainTab(1,this)">🏆 Xếp Hạng & KPI</button>
                 <button class="cr-main-tab" onclick="crSwitchMainTab(2,this)">📋 Chi Tiết & Phân Tích</button>
