@@ -182,28 +182,51 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
     // ===== GET employees structure (for embed) =====
     fastify.get('/api/meeting-commitments/employees', { preHandler: [authenticate] }, async (request, reply) => {
-        const depts = await db.all(`SELECT id, name FROM departments WHERE parent_id = (SELECT id FROM departments WHERE name = 'Phòng Kinh Doanh' LIMIT 1) ORDER BY name`);
+        // Use same dept logic as KPI: root dept id=1, children are teams
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        const allDeptIds = allDepts.map(d => d.id);
 
+        if (allDeptIds.length === 0) return { teams: [], managers: [] };
+
+        const ph = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
         const employees = await db.all(`
             SELECT u.id, u.full_name, u.role, u.department_id, d.name AS dept_name
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
             WHERE u.status = 'active'
-              AND u.role IN ('giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec')
+              AND u.department_id IN (${ph})
+              AND u.role NOT IN ('giam_doc')
             ORDER BY d.name, u.role, u.full_name
-        `);
+        `, allDeptIds);
 
-        // Group by department
-        const teams = depts.map(dept => ({
-            id: dept.id,
-            name: dept.name,
-            members: employees.filter(e => e.department_id === dept.id)
-        }));
+        // Group by child departments (teams)
+        const teams = [];
 
-        // Add managers (no dept or at parent level)
-        const managers = employees.filter(e => ['giam_doc','quan_ly_cap_cao','quan_ly'].includes(e.role) && !depts.find(d => d.id === e.department_id));
+        // Managers at root dept first
+        const rootMembers = employees.filter(e => e.department_id === rootDept?.id);
+        if (rootMembers.length > 0) {
+            teams.push({
+                id: rootDept.id,
+                name: 'QUẢN LÝ',
+                members: rootMembers
+            });
+        }
 
-        return { teams, managers };
+        // Child dept teams
+        for (const dept of childDepts) {
+            const members = employees.filter(e => e.department_id === dept.id);
+            teams.push({
+                id: dept.id,
+                name: dept.name,
+                members: members
+            });
+        }
+
+        return { teams };
     });
 
     // ===== GET latest session for embed =====
