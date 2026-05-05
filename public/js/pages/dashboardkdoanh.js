@@ -270,10 +270,12 @@ async function renderDashboardkdoanhPage(container) {
                 </div>
             </div>
 
-            <!-- TAB 1: Xếp Hạng & KPI -->
+            <!-- Leaderboard + Team Comparison (below chart, always visible in overview) -->
+            <div id="crLeaderboard"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Chọn tab để tải dữ liệu...</div></div>
+            <div id="crTeamComparison"></div>
+
+            <!-- TAB 1: Xếp Hạng & KPI (kept for backward compat, content rendered above) -->
             <div class="cr-main-tab-content" id="crTabRanking">
-                <div id="crLeaderboard"><div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Chọn tab để tải dữ liệu...</div></div>
-                <div id="crTeamComparison"></div>
             </div>
 
             <!-- TAB 2: Chi Tiết & Phân Tích -->
@@ -1114,7 +1116,7 @@ function crSwitchMainTab(idx, btn) {
     const el = document.getElementById(tabs[idx]);
     if (el) { el.classList.add('active'); el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
 
-    if ((idx === 1 || idx === 2) && !_crAdvLoaded) {
+    if (!_crAdvLoaded) {
         crLoadAdvanced();
     }
 }
