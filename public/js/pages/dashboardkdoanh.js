@@ -405,6 +405,12 @@ async function crLoadData() {
         _cr.data = data;
         crRenderCards(data);
         crRenderGroups(data);
+
+        // Auto-reload Tab 2/3 if currently active
+        const activeTab = document.querySelector('.cr-main-tab-content.active');
+        if (activeTab && (activeTab.id === 'crTabRanking' || activeTab.id === 'crTabDetail')) {
+            crLoadAdvanced();
+        }
     } catch (err) {
         console.error('Customer retention error:', err);
         if (groupsEl) groupsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">❌ Lỗi tải dữ liệu</div>';
