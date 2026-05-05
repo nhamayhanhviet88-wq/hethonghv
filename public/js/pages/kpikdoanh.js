@@ -477,129 +477,108 @@ async function kpiLoadDashboard() {
         ]);
 
         kpiRenderLeaderboard(lbEl, advData);
-        kpiRenderTeamCompare(tcEl, mainData);
+        kpiRenderTeamCompare(tcEl, mainData, advData);
     } catch(e) {
         console.error('Dashboard embed error:', e.message || e);
-        if (lbEl) lbEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Không tải được BXH: ' + (e.message || '') + '</div>';
+        if (lbEl) lbEl.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">⚠️ Lỗi tải BXH: ' + (e.message || '') + '</div>';
     }
 }
 
-function kpiRenderLeaderboard(el, data) {
-    // API returns: leaderboard = { by_revenue:[], by_orders:[], by_affiliate:[], by_retention:[] }
-    // and allEmployees = [] (flat array)
-    const lbObj = data && data.leaderboard;
-    const allEmp = data && data.allEmployees;
-    if (!lbObj && (!allEmp || allEmp.length === 0)) {
-        el.innerHTML = '';
-        return;
-    }
+function kpiTrend(cur, prev) {
+    if (prev == null || prev === 0) return cur > 0 ? '<span style="color:#10b981;font-size:10px;font-weight:700">🆕</span>' : '';
+    var diff = cur - prev;
+    if (diff === 0) return '<span style="color:#94a3b8;font-size:10px">→0%</span>';
+    var pct = Math.round(100 * diff / prev);
+    if (diff > 0) return '<span style="color:#10b981;font-size:10px;font-weight:700">▲+' + pct + '%</span>';
+    return '<span style="color:#ef4444;font-size:10px;font-weight:700">▼' + pct + '%</span>';
+}
 
-    const medals = ['🥇','🥈','🥉'];
-    function sortLB(metric) {
+function kpiRenderLeaderboard(el, data) {
+    var lbObj = data && data.leaderboard;
+    var allEmp = data && data.allEmployees;
+    var convMap = (data && data.conversionMap) || {};
+    if (!lbObj && (!allEmp || allEmp.length === 0)) { el.innerHTML = ''; return; }
+
+    var medals = ['🥇','🥈','🥉'];
+    window.kpiDashSortLB = function(metric) {
         _kpiDashSort = metric;
-        const lbEl = document.getElementById('kpiLeaderboard');
-        if (lbEl && window._kpiAdvData) kpiRenderLeaderboard(lbEl, window._kpiAdvData);
-    }
-    window.kpiDashSortLB = sortLB;
+        var lbEl2 = document.getElementById('kpiLeaderboard');
+        if (lbEl2 && window._kpiAdvData) kpiRenderLeaderboard(lbEl2, window._kpiAdvData);
+    };
     window._kpiAdvData = data;
 
-    // Pick the right pre-sorted array from the API
-    let lb;
+    var lb;
     if (lbObj) {
         if (_kpiDashSort === 'orders') lb = lbObj.by_orders || allEmp || [];
         else if (_kpiDashSort === 'affiliate') lb = lbObj.by_affiliate || allEmp || [];
         else if (_kpiDashSort === 'retention') lb = lbObj.by_retention || allEmp || [];
         else lb = lbObj.by_revenue || allEmp || [];
     } else {
-        lb = Array.isArray(allEmp) ? [...allEmp] : [];
+        lb = Array.isArray(allEmp) ? [].concat(allEmp) : [];
     }
 
-    const tabs = [
+    var tabs = [
         { key: 'revenue', icon: '💰', label: 'Doanh Số' },
         { key: 'orders', icon: '📦', label: 'Đơn Hàng' },
         { key: 'affiliate', icon: '🤝', label: 'TK Affiliate' },
         { key: 'retention', icon: '🔁', label: 'KH Cũ Quay Lại' }
     ];
 
-    let html = `<div class="kpi-lb-section">
-        <div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>
-        <div class="kpi-lb-tabs">`;
-    tabs.forEach(t => {
-        html += `<button class="kpi-lb-tab ${_kpiDashSort===t.key?'active':''}" onclick="kpiDashSortLB('${t.key}')">${t.icon} ${t.label}</button>`;
-    });
-    html += `</div><div>
-        <div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">
-            <div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right">KH cũ %</div>
-        </div>`;
-
-    lb.forEach((emp, i) => {
-        const rank = i < 3 ? medals[i] : (i + 1);
-        const convRate = emp.conversion_rate != null ? emp.conversion_rate + '%' : '—';
-        const convColor = emp.conversion_rate >= 70 ? '#10b981' : emp.conversion_rate >= 40 ? '#f59e0b' : '#ef4444';
-        html += `<div class="kpi-lb-row">
-            <div class="kpi-lb-rank">${rank}</div>
-            <div><div class="kpi-lb-name">${emp.name}</div><div class="kpi-lb-team">${emp.team || ''}</div></div>
-            <div class="kpi-lb-val" style="color:#4338ca">${emp.total_orders} đơn</div>
-            <div class="kpi-lb-val" style="color:#059669">${kpiDashFmtVND(emp.revenue)}</div>
-            <div class="kpi-lb-val" style="color:${convColor};font-size:12px">${convRate}</div>
-            <div class="kpi-lb-val" style="color:#7c3aed">${emp.affiliate_new || 0}</div>
-            <div class="kpi-lb-val" style="color:#c2410c">${emp.rate || 0}%</div>
-        </div>`;
-    });
-
-    html += '</div></div>';
-    el.innerHTML = html;
-}
-
-function kpiRenderTeamCompare(el, data) {
-    if (!data || !data.groups || data.groups.length === 0) {
-        el.innerHTML = '';
-        return;
+    var h = '<div class="kpi-lb-section">';
+    h += '<div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>';
+    h += '<div class="kpi-lb-tabs">';
+    for (var ti = 0; ti < tabs.length; ti++) {
+        var t = tabs[ti];
+        h += '<button class="kpi-lb-tab ' + (_kpiDashSort === t.key ? 'active' : '') + '" onclick="kpiDashSortLB(\'' + t.key + '\')">' + t.icon + ' ' + t.label + '</button>';
     }
+    h += '</div><div>';
+    h += '<div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">';
+    h += '<div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right">KH cũ %</div>';
+    h += '</div>';
 
-    // Collect all teams from all groups
-    const allTeams = [];
-    data.groups.forEach(g => {
-        if (g.teams) {
-            g.teams.forEach(t => {
-                const empCount = t.employees ? t.employees.length : 0;
-                allTeams.push({ ...t, empCount });
-            });
-        }
-    });
-
-    if (allTeams.length === 0) { el.innerHTML = ''; return; }
-
-    let html = `<div class="kpi-lb-section">
-        <div class="kpi-lb-header">📊 So Sánh Team</div>
-        <div class="kpi-tc-grid">`;
-
-    allTeams.forEach(team => {
-        const tc = team.current || {};
-        const hasBorder = tc.total > 0;
-        html += `<div class="kpi-tc-card" ${hasBorder ? 'style="border-color:#f59e0b;border-width:2px"' : ''}>
-            <div class="kpi-tc-name">🏠 ${team.name} <span style="font-size:12px;font-weight:500;color:#6b7280">(${team.empCount} NV)</span></div>
-            <div class="kpi-tc-stats">
-                <div class="kpi-tc-stat">
-                    <div class="kpi-tc-stat-val" style="color:#059669">${kpiDashFmtVND(tc.revenue || 0)}</div>
-                    <div class="kpi-tc-stat-label">💰 Doanh Số</div>
-                </div>
-                <div class="kpi-tc-stat">
-                    <div class="kpi-tc-stat-val" style="color:#4338ca">${tc.total || 0}</div>
-                    <div class="kpi-tc-stat-label">📦 Tổng Đơn</div>
-                </div>
-                <div class="kpi-tc-stat">
-                    <div class="kpi-tc-stat-val" style="color:#7c3aed">${tc.rate || 0}%</div>
-                    <div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div>
-                </div>
-                <div class="kpi-tc-stat">
-                    <div class="kpi-tc-stat-val" style="color:#c2410c">${tc.returning || 0}</div>
-                    <div class="kpi-tc-stat-label">📋 ĐƠN KH CŨ</div>
-                </div>
-            </div>
-        </div>`;
-    });
-
-    html += '</div></div>';
-    el.innerHTML = html;
+    for (var i = 0; i < lb.length; i++) {
+        var emp = lb[i];
+        var rank = i < 3 ? medals[i] : (i + 1);
+        var conv = convMap[emp.user_id] || {};
+        var cRate = conv.rate != null ? conv.rate + '%' : '—';
+        var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
+        var prev = emp.prev || {};
+        h += '<div class="kpi-lb-row">';
+        h += '<div class="kpi-lb-rank">' + rank + '</div>';
+        h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#4338ca">' + emp.total_orders + ' đơn<div>' + kpiTrend(emp.total_orders, prev.total_orders) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#059669">' + kpiDashFmtVND(emp.revenue) + '<div>' + kpiTrend(emp.revenue, prev.revenue) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:' + cColor + ';font-size:12px">' + cRate + '<div>' + kpiTrend(conv.rate || 0, prev.conversion_rate || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#7c3aed">' + (emp.affiliate_new || 0) + '<div>' + kpiTrend(emp.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
+        h += '<div class="kpi-lb-val" style="color:#c2410c">' + (emp.rate || 0) + '%<div>' + kpiTrend(emp.rate || 0, prev.rate || 0) + '</div></div>';
+        h += '</div>';
+    }
+    h += '</div></div>';
+    el.innerHTML = h;
 }
+
+function kpiRenderTeamCompare(el, data, advData) {
+    var teams = advData && advData.teamComparison;
+    if (!teams || teams.length === 0) { el.innerHTML = ''; return; }
+
+    var h = '<div class="kpi-lb-section">';
+    h += '<div class="kpi-lb-header">📊 So Sánh Team</div>';
+    h += '<div class="kpi-tc-grid">';
+
+    for (var i = 0; i < teams.length; i++) {
+        var team = teams[i];
+        var prev = team.prev || {};
+        var hb = team.total_orders > 0;
+        h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
+        h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
+        h += '<div class="kpi-tc-stats">';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + kpiDashFmtVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#7c3aed">' + (team.rate || 0) + '%</div><div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div><div style="margin-top:4px">' + kpiTrend(team.rate || 0, prev.rate || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#c2410c">' + (team.returning || 0) + '</div><div class="kpi-tc-stat-label">📋 ĐƠN KH CŨ</div><div style="margin-top:4px">' + kpiTrend(team.returning || 0, prev.returning || 0) + '</div></div>';
+        h += '</div></div>';
+    }
+    h += '</div></div>';
+    el.innerHTML = h;
+}
+
