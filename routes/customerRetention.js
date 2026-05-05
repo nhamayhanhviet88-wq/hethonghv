@@ -405,7 +405,6 @@ module.exports = async function(fastify) {
                     cl.created_at,
                     c.phone,
                     c.customer_name,
-                    c.daily_order_number,
                     ROW_NUMBER() OVER (
                         PARTITION BY c.phone
                         ORDER BY cl.created_at ASC
@@ -417,19 +416,20 @@ module.exports = async function(fastify) {
                   AND COALESCE(c.cancel_approved, 0) != 1
             )
             SELECT
-                log_id,
-                customer_id,
-                customer_name,
-                phone,
-                daily_order_number,
-                created_at,
-                phone_order_number,
-                CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
-            FROM all_hoan_thanh
-            WHERE assigned_to_id = $1
-              AND created_at >= $2::timestamp
-              AND created_at < $3::timestamp
-            ORDER BY created_at DESC
+                ah.log_id,
+                ah.customer_id,
+                ah.customer_name,
+                ah.phone,
+                ah.created_at,
+                ah.phone_order_number,
+                CASE WHEN ah.phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type,
+                oc.order_code
+            FROM all_hoan_thanh ah
+            LEFT JOIN order_codes oc ON oc.customer_id = ah.customer_id
+            WHERE ah.assigned_to_id = $1
+              AND ah.created_at >= $2::timestamp
+              AND ah.created_at < $3::timestamp
+            ORDER BY ah.created_at DESC
         `, [user_id, current.start, current.end]);
 
         return {
@@ -443,7 +443,7 @@ module.exports = async function(fastify) {
                 customer_id: r.customer_id,
                 customer_name: r.customer_name,
                 phone: r.phone,
-                order_code: r.daily_order_number ? `#${r.daily_order_number}` : `KH-${r.customer_id}`,
+                order_code: r.order_code || '-',
                 date: r.created_at,
                 order_number: r.phone_order_number,
                 type: r.order_type
