@@ -1164,20 +1164,41 @@ function crRenderLeaderboard(data) {
 
     function renderRows(list) {
         if (!list || !list.length) return '<div style="padding:24px;text-align:center;color:#9ca3af;">Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u</div>';
+
+        function delta(cur, prev) {
+            if (prev === 0 && cur === 0) return '';
+            if (prev === 0) return '<div style="font-size:9px;color:#10b981;font-weight:600;">\u25B2 m\u1edbi</div>';
+            var pct = Math.round((cur - prev) / prev * 100);
+            if (pct === 0) return '<div style="font-size:9px;color:#9ca3af;">\u2014</div>';
+            var color = pct > 0 ? '#10b981' : '#ef4444';
+            var arrow = pct > 0 ? '\u25B2' : '\u25BC';
+            return '<div style="font-size:9px;color:' + color + ';font-weight:600;">' + arrow + ' ' + Math.abs(pct) + '%</div>';
+        }
+        function deltaAbs(cur, prev) {
+            var diff = cur - prev;
+            if (diff === 0) return '<div style="font-size:9px;color:#9ca3af;">\u2014</div>';
+            var color = diff > 0 ? '#10b981' : '#ef4444';
+            var arrow = diff > 0 ? '\u25B2' : '\u25BC';
+            return '<div style="font-size:9px;color:' + color + ';font-weight:600;">' + arrow + ' ' + Math.abs(Math.round(diff * 10) / 10) + '</div>';
+        }
+
         return list.map(function(item, i) {
             var rank = i < 3 ? '<span style="font-size:24px;">' + medals[i] + '</span>' : '<span style="color:#6b7280;">' + (i + 1) + '</span>';
             var cv = convMap[item.user_id];
             var cvRate = cv ? cv.rate : 0;
             var cvColor = cvRate >= 70 ? '#10b981' : cvRate >= 40 ? '#f59e0b' : '#ef4444';
             var cvBg = cvRate >= 70 ? '#d1fae5' : cvRate >= 40 ? '#fef3c7' : '#fee2e2';
+            var p = item.prev || {};
+            var prevCvRate = p.conversion_rate || 0;
+
             var row = '<div class="cr-lb-row" ' + (i < 3 ? 'style="background:linear-gradient(90deg,' + ['#fefce8','#f8fafc','#fff7ed'][i] + ',white);"' : '') + '>';
             row += '<div class="cr-lb-rank">' + rank + '</div>';
             row += '<div><div class="cr-lb-name">' + item.name + '</div><div class="cr-lb-team">' + item.team + '</div></div>';
-            row += '<div class="cr-lb-val" style="color:#1e1b4b;">' + item.total_orders + ' \u0111\u01a1n</div>';
-            row += '<div class="cr-lb-val" style="color:#0369a1;">' + crFormatVND(item.revenue) + '</div>';
-            row += '<div class="cr-lb-val"><span style="background:' + cvBg + ';color:' + cvColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">' + cvRate + '%</span></div>';
-            row += '<div class="cr-lb-val" style="color:#059669;font-weight:700;">' + (item.affiliate_new || 0) + '</div>';
-            row += '<div class="cr-lb-val" style="color:#7c3aed;">' + item.rate + '%</div>';
+            row += '<div class="cr-lb-val" style="color:#1e1b4b;">' + item.total_orders + ' \u0111\u01a1n' + delta(item.total_orders, p.total_orders || 0) + '</div>';
+            row += '<div class="cr-lb-val" style="color:#0369a1;">' + crFormatVND(item.revenue) + delta(item.revenue, p.revenue || 0) + '</div>';
+            row += '<div class="cr-lb-val"><span style="background:' + cvBg + ';color:' + cvColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">' + cvRate + '%</span>' + deltaAbs(cvRate, prevCvRate) + '</div>';
+            row += '<div class="cr-lb-val" style="color:#059669;font-weight:700;">' + (item.affiliate_new || 0) + delta(item.affiliate_new || 0, p.affiliate_new || 0) + '</div>';
+            row += '<div class="cr-lb-val" style="color:#7c3aed;">' + item.rate + '%' + deltaAbs(item.rate, p.rate || 0) + '</div>';
             row += '</div>';
             return row;
         }).join('');

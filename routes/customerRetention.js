@@ -841,6 +841,69 @@ module.exports = async function(fastify) {
         affRows.forEach(r => { affMap[r.uid] = parseInt(r.aff_new); });
         leaderboard.forEach(l => { l.affiliate_new = affMap[l.user_id] || 0; });
 
+        // === 1c. PREVIOUS PERIOD comparison data ===
+        const pPrevStart = userIds.length + 3;
+        const pPrevEnd = userIds.length + 4;
+        const prevLeaderRows = await db.all(`
+            WITH completed AS (
+                SELECT oc.id AS order_id, oc.created_at, c.phone, c.assigned_to_id,
+                    COALESCE(oi.rev, 0) AS revenue
+                FROM order_codes oc
+                JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN LATERAL (SELECT COALESCE(SUM(total), 0) AS rev FROM order_items WHERE order_code_id = oc.id) oi ON true
+                WHERE c.assigned_to_id IN (${ph})
+                  AND c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND oc.created_at >= $${pPrevStart}::timestamp AND oc.created_at < $${pPrevEnd}::timestamp
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'hoan_thanh')
+            ),
+            ranked AS (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
+                FROM completed
+            )
+            SELECT assigned_to_id AS uid,
+                COUNT(*) AS total_orders,
+                SUM(CASE WHEN pn > 1 THEN 1 ELSE 0 END) AS returning_orders,
+                COALESCE(SUM(revenue), 0) AS total_revenue
+            FROM ranked
+            GROUP BY assigned_to_id
+        `, [...userIds, current.start, current.end, previous.start, previous.end]);
+
+        const prevAffRows = await db.all(`
+            SELECT c.assigned_to_id AS uid, COUNT(DISTINCT cl.customer_id) AS aff_new
+            FROM consultation_logs cl
+            JOIN customers c ON cl.customer_id = c.id
+            WHERE cl.log_type = 'tao_tk_affiliate'
+              AND c.assigned_to_id IN (${ph})
+              AND cl.created_at >= $${pPrevStart}::timestamp AND cl.created_at < $${pPrevEnd}::timestamp
+            GROUP BY c.assigned_to_id
+        `, [...userIds, current.start, current.end, previous.start, previous.end]);
+
+        const prevMap = {};
+        prevLeaderRows.forEach(r => {
+            const total = parseInt(r.total_orders);
+            const ret = parseInt(r.returning_orders);
+            prevMap[r.uid] = {
+                total_orders: total,
+                revenue: parseFloat(r.total_revenue),
+                rate: total > 0 ? Math.round(1000 * ret / total) / 10 : 0
+            };
+        });
+        const prevAffMap = {};
+        prevAffRows.forEach(r => { prevAffMap[r.uid] = parseInt(r.aff_new); });
+
+        // Merge previous data into leaderboard
+        leaderboard.forEach(l => {
+            const prev = prevMap[l.user_id] || { total_orders: 0, revenue: 0, rate: 0 };
+            const prevAff = prevAffMap[l.user_id] || 0;
+            l.prev = {
+                total_orders: prev.total_orders,
+                revenue: prev.revenue,
+                rate: prev.rate,
+                affiliate_new: prevAff
+            };
+        });
+
         // === 2. ALERTS: NV inactive > 7 days, high cancel rate ===
         const alerts = [];
         const lastOrderRows = await db.all(`
@@ -976,6 +1039,23 @@ module.exports = async function(fastify) {
                 const lbEntry = leaderboard.find(l => l.user_id === uid);
                 conversionMapAdv[uid] = { assigned: 0, completed: lbEntry ? lbEntry.total_orders : 0, rate: 0 };
             }
+        });
+
+        // Previous period conversion rate
+        const prevAssignedAdv = userIds.length > 0 ? await db.all(`
+            SELECT assigned_to_id AS uid, COUNT(DISTINCT id) AS assigned
+            FROM customers
+            WHERE assigned_to_id IN (${ph})
+              AND created_at >= $${pPrevStart}::timestamp AND created_at < $${pPrevEnd}::timestamp
+            GROUP BY assigned_to_id
+        `, [...userIds, current.start, current.end, previous.start, previous.end]) : [];
+
+        leaderboard.forEach(l => {
+            if (!l.prev) l.prev = { total_orders: 0, revenue: 0, rate: 0, affiliate_new: 0 };
+            const prevAssigned = prevAssignedAdv.find(r => r.uid === l.user_id);
+            const pAssigned = prevAssigned ? parseInt(prevAssigned.assigned) : 0;
+            const pCompleted = l.prev.total_orders;
+            l.prev.conversion_rate = pAssigned > 0 ? Math.round(1000 * pCompleted / pAssigned) / 10 : 0;
         });
 
         const kpiTargetsAdv = await db.all(
