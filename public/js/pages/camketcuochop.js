@@ -1,7 +1,7 @@
 // ===== CAM KẾT CUỘC HỌP — Trang riêng /camketcuochop =====
 
-async function renderCamketcuochop() {
-    var container = document.getElementById('main-content');
+async function renderCamketcuochopPage(content) {
+    var container = content || document.getElementById('main-content');
     if (!container) return;
 
     var now = new Date();
