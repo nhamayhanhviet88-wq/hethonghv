@@ -94,6 +94,29 @@ async function renderKpikdoanhPage(container) {
             .kpi-ov tr.total-row td:nth-child(n+18):nth-child(-n+21){background:#dcfce7}
 
             @media(max-width:768px){.kpi-summary{flex-direction:column}.kpi-sum-box{min-width:auto}.kpi-topbar{flex-direction:column;align-items:stretch}}
+
+            /* === LEADERBOARD & TEAM COMPARISON (embedded) === */
+            .kpi-lb-section{background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-top:28px}
+            .kpi-lb-header{padding:18px 24px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;border-bottom:2px solid rgba(99,102,241,.15);color:#1e1b4b;background:linear-gradient(90deg,#eef2ff,#e0e7ff,#c7d2fe,#f5f3ff,#c7d2fe,#e0e7ff,#eef2ff);background-size:200% 100%;animation:kpiShimmer 4s ease-in-out infinite}
+            @keyframes kpiShimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+            .kpi-lb-tabs{display:flex;gap:0;margin:0 24px;border-bottom:2px solid #f1f5f9}
+            .kpi-lb-tab{padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;background:none;border:none;color:#6b7280;border-bottom:3px solid transparent;transition:all .2s}
+            .kpi-lb-tab.active{color:#4338ca;border-bottom-color:#4338ca}
+            .kpi-lb-tab:hover{color:#4338ca}
+            .kpi-lb-row{display:grid;grid-template-columns:50px 1fr 80px 90px 70px 80px 70px;padding:14px 24px;border-bottom:1px solid #f8fafc;align-items:center;gap:8px;transition:background .2s}
+            .kpi-lb-row:hover{background:#fefce8}
+            .kpi-lb-rank{font-size:20px;font-weight:900;text-align:center}
+            .kpi-lb-name{font-weight:700;color:#1e1b4b}
+            .kpi-lb-team{font-size:11px;color:#6b7280;margin-top:2px}
+            .kpi-lb-val{text-align:right;font-weight:800;font-size:14px}
+            .kpi-tc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:20px 24px}
+            .kpi-tc-card{border-radius:14px;padding:20px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #e0e7ff;transition:transform .2s,box-shadow .2s}
+            .kpi-tc-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,56,202,.12)}
+            .kpi-tc-name{font-size:15px;font-weight:800;color:#1e40af;margin-bottom:12px}
+            .kpi-tc-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+            .kpi-tc-stat{text-align:center;padding:8px;border-radius:8px;background:#fff}
+            .kpi-tc-stat-val{font-size:20px;font-weight:900;color:#1e1b4b}
+            .kpi-tc-stat-label{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-top:2px}
         </style>
         <div class="kpi-wrap" id="kpiWrap">
             <div class="kpi-topbar">
@@ -107,9 +130,12 @@ async function renderKpikdoanhPage(container) {
             </div>
             <div id="kpiSummary"></div>
             <div id="kpiContent"><div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải dữ liệu...</div></div>
+            <div id="kpiLeaderboard"></div>
+            <div id="kpiTeamCompare"></div>
         </div>
     `;
     await kpiLoadData();
+    kpiLoadDashboard();
 }
 
 function kpiNavMonth(dir) {
@@ -160,6 +186,7 @@ async function kpiLoadData() {
     } catch(e) {
         if(content) content.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ${e.message}</div>`;
     }
+    kpiLoadDashboard();
 }
 
 function kpiRenderSummary(data) {
@@ -424,4 +451,143 @@ async function kpiSaveTargets(periodLabel) {
             alert('❌ Lỗi: ' + (res.error || 'Không rõ'));
         }
     } catch(e) { alert('❌ Lỗi: ' + e.message); }
+}
+
+// ===== Embedded Dashboard: Leaderboard + Team Comparison =====
+var _kpiDashSort = 'revenue'; // default sort
+function kpiDashFmtVND(n) {
+    if (!n) return '0';
+    if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + ' tỷ';
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+    return n.toLocaleString('vi-VN');
+}
+
+async function kpiLoadDashboard() {
+    const lbEl = document.getElementById('kpiLeaderboard');
+    const tcEl = document.getElementById('kpiTeamCompare');
+    if (!lbEl || !tcEl) return;
+
+    try {
+        const [mainData, advData] = await Promise.all([
+            apiCall(`/api/reports/customer-retention?period=month&date=${_kpi.month}`),
+            apiCall(`/api/reports/customer-retention/advanced?period=month&date=${_kpi.month}`)
+        ]);
+
+        kpiRenderLeaderboard(lbEl, advData);
+        kpiRenderTeamCompare(tcEl, mainData);
+    } catch(e) {
+        console.error('Dashboard embed error:', e);
+    }
+}
+
+function kpiRenderLeaderboard(el, data) {
+    if (!data || !data.leaderboard || data.leaderboard.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+
+    const medals = ['🥇','🥈','🥉'];
+    function sortLB(metric) {
+        _kpiDashSort = metric;
+        const lbEl = document.getElementById('kpiLeaderboard');
+        if (lbEl && window._kpiAdvData) kpiRenderLeaderboard(lbEl, window._kpiAdvData);
+    }
+    window.kpiDashSortLB = sortLB;
+    window._kpiAdvData = data;
+
+    const lb = [...data.leaderboard];
+    if (_kpiDashSort === 'orders') lb.sort((a,b) => b.total_orders - a.total_orders);
+    else if (_kpiDashSort === 'affiliate') lb.sort((a,b) => (b.affiliate_count||0) - (a.affiliate_count||0));
+    else if (_kpiDashSort === 'retention') lb.sort((a,b) => b.retention_rate - a.retention_rate);
+    else lb.sort((a,b) => b.total_revenue - a.total_revenue);
+
+    const tabs = [
+        { key: 'revenue', icon: '💰', label: 'Doanh Số' },
+        { key: 'orders', icon: '📦', label: 'Đơn Hàng' },
+        { key: 'affiliate', icon: '🤝', label: 'TK Affiliate' },
+        { key: 'retention', icon: '🔁', label: 'KH Cũ Quay Lại' }
+    ];
+
+    let html = `<div class="kpi-lb-section">
+        <div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>
+        <div class="kpi-lb-tabs">`;
+    tabs.forEach(t => {
+        html += `<button class="kpi-lb-tab ${_kpiDashSort===t.key?'active':''}" onclick="kpiDashSortLB('${t.key}')">${t.icon} ${t.label}</button>`;
+    });
+    html += `</div><div>
+        <div class="kpi-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569">
+            <div>#</div><div>Nhân viên</div><div style="text-align:right">Đơn hàng</div><div style="text-align:right">Doanh số</div><div style="text-align:right">📊 CĐ</div><div style="text-align:right">TK Aff</div><div style="text-align:right">KH cũ %</div>
+        </div>`;
+
+    lb.forEach((emp, i) => {
+        const rank = i < 3 ? medals[i] : (i + 1);
+        const convRate = emp.conversion_rate != null ? emp.conversion_rate + '%' : '—';
+        const convColor = emp.conversion_rate >= 70 ? '#10b981' : emp.conversion_rate >= 40 ? '#f59e0b' : '#ef4444';
+        html += `<div class="kpi-lb-row">
+            <div class="kpi-lb-rank">${rank}</div>
+            <div><div class="kpi-lb-name">${emp.name}</div><div class="kpi-lb-team">${emp.team_name || ''}</div></div>
+            <div class="kpi-lb-val" style="color:#4338ca">${emp.total_orders} đơn</div>
+            <div class="kpi-lb-val" style="color:#059669">${kpiDashFmtVND(emp.total_revenue)}</div>
+            <div class="kpi-lb-val" style="color:${convColor};font-size:12px">${convRate}</div>
+            <div class="kpi-lb-val" style="color:#7c3aed">${emp.affiliate_count || 0}</div>
+            <div class="kpi-lb-val" style="color:#c2410c">${emp.retention_rate || 0}%</div>
+        </div>`;
+    });
+
+    html += '</div></div>';
+    el.innerHTML = html;
+}
+
+function kpiRenderTeamCompare(el, data) {
+    if (!data || !data.groups || data.groups.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+
+    // Collect all teams from all groups
+    const allTeams = [];
+    data.groups.forEach(g => {
+        if (g.teams) {
+            g.teams.forEach(t => {
+                const empCount = t.employees ? t.employees.length : 0;
+                allTeams.push({ ...t, empCount });
+            });
+        }
+    });
+
+    if (allTeams.length === 0) { el.innerHTML = ''; return; }
+
+    let html = `<div class="kpi-lb-section">
+        <div class="kpi-lb-header">📊 So Sánh Team</div>
+        <div class="kpi-tc-grid">`;
+
+    allTeams.forEach(team => {
+        const tc = team.current || {};
+        const hasBorder = tc.total > 0;
+        html += `<div class="kpi-tc-card" ${hasBorder ? 'style="border-color:#f59e0b;border-width:2px"' : ''}>
+            <div class="kpi-tc-name">🏠 ${team.name} <span style="font-size:12px;font-weight:500;color:#6b7280">(${team.empCount} NV)</span></div>
+            <div class="kpi-tc-stats">
+                <div class="kpi-tc-stat">
+                    <div class="kpi-tc-stat-val" style="color:#059669">${kpiDashFmtVND(tc.revenue || 0)}</div>
+                    <div class="kpi-tc-stat-label">💰 Doanh Số</div>
+                </div>
+                <div class="kpi-tc-stat">
+                    <div class="kpi-tc-stat-val" style="color:#4338ca">${tc.total || 0}</div>
+                    <div class="kpi-tc-stat-label">📦 Tổng Đơn</div>
+                </div>
+                <div class="kpi-tc-stat">
+                    <div class="kpi-tc-stat-val" style="color:#7c3aed">${tc.rate || 0}%</div>
+                    <div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div>
+                </div>
+                <div class="kpi-tc-stat">
+                    <div class="kpi-tc-stat-val" style="color:#c2410c">${tc.returning || 0}</div>
+                    <div class="kpi-tc-stat-label">📋 ĐƠN KH CŨ</div>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    html += '</div></div>';
+    el.innerHTML = html;
 }
