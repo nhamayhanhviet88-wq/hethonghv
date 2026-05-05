@@ -136,6 +136,33 @@ async function start() {
         }
     } catch(e) { /* exists */ }
 
+    // Migration: Meeting Commitments — Cam kết cuộc họp
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS meeting_sessions (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            meeting_date DATE NOT NULL,
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS meeting_commitments (
+            id SERIAL PRIMARY KEY,
+            session_id INTEGER NOT NULL REFERENCES meeting_sessions(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            stt INTEGER NOT NULL DEFAULT 1,
+            content TEXT NOT NULL,
+            target_revenue NUMERIC DEFAULT 0,
+            is_completed BOOLEAN DEFAULT false,
+            completion_pct INTEGER DEFAULT 0,
+            review_note TEXT,
+            reviewed_by INTEGER REFERENCES users(id),
+            reviewed_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -217,6 +244,7 @@ async function start() {
     fastify.register(require('./routes/customerRetention'));
     fastify.register(require('./routes/kpiTargets'));
     fastify.register(require('./routes/kpiKdoanh'));
+    fastify.register(require('./routes/meetingCommitments'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

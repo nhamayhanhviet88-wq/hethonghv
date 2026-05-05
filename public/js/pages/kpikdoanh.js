@@ -117,6 +117,39 @@ async function renderKpikdoanhPage(container) {
             .kpi-tc-stat{text-align:center;padding:8px;border-radius:8px;background:#fff}
             .kpi-tc-stat-val{font-size:20px;font-weight:900;color:#1e1b4b}
             .kpi-tc-stat-label{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-top:2px}
+
+            /* === MEETING COMMITMENTS === */
+            .kpi-mc-section{background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-top:28px}
+            .kpi-mc-header{padding:18px 24px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid rgba(234,179,8,.2);color:#78350f;background:linear-gradient(90deg,#fefce8,#fef9c3,#fef08a,#fef9c3,#fefce8);background-size:200% 100%;animation:kpiShimmer 4s ease-in-out infinite}
+            .kpi-mc-btn{padding:8px 16px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+            .kpi-mc-btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,.3)}
+            .kpi-mc-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,70,229,.4)}
+            .kpi-mc-btn-ghost{background:rgba(99,102,241,.08);color:#4338ca}
+            .kpi-mc-btn-ghost:hover{background:rgba(99,102,241,.15)}
+            .kpi-mc-team{padding:16px 24px;border-bottom:1px solid #f1f5f9}
+            .kpi-mc-team-name{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#f8fafc,#f1f5f9);border-radius:8px}
+            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s}
+            .kpi-mc-emp:hover{background:#f8fafc}
+            .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155}
+            .kpi-mc-emp-role{font-size:11px;color:#94a3b8;margin-left:8px}
+            .kpi-mc-emp-actions{display:flex;gap:6px;align-items:center}
+            .kpi-mc-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700}
+            .kpi-mc-badge-done{background:#dcfce7;color:#166534}
+            .kpi-mc-badge-pending{background:#fef3c7;color:#92400e}
+            .kpi-mc-badge-none{background:#f1f5f9;color:#6b7280}
+            .kpi-mc-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+            .kpi-mc-modal{background:#fff;border-radius:20px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:kpiMcSlideUp .3s ease}
+            @keyframes kpiMcSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+            .kpi-mc-modal-head{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+            .kpi-mc-modal-head h3{font-size:16px;font-weight:800;color:#1e293b;margin:0}
+            .kpi-mc-modal-body{padding:20px 24px}
+            .kpi-mc-modal-foot{padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px}
+            .kpi-mc-input{width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;transition:border .2s;outline:none;font-family:inherit}
+            .kpi-mc-input:focus{border-color:#6366f1}
+            .kpi-mc-item{padding:14px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fafafa}
+            .kpi-mc-item-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+            .kpi-mc-item-stt{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+            .kpi-mc-remove{width:24px;height:24px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
         </style>
         <div class="kpi-wrap" id="kpiWrap">
             <div class="kpi-topbar">
@@ -132,10 +165,12 @@ async function renderKpikdoanhPage(container) {
             <div id="kpiContent"><div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải dữ liệu...</div></div>
             <div id="kpiLeaderboard"></div>
             <div id="kpiTeamCompare"></div>
+            <div id="kpiMeetingCommit"></div>
         </div>
     `;
     await kpiLoadData();
     kpiLoadDashboard();
+    kpiLoadMeetingCommit();
 }
 
 function kpiNavMonth(dir) {
@@ -579,6 +614,260 @@ function kpiRenderTeamCompare(el, data, advData) {
         h += '</div></div>';
     }
     h += '</div></div>';
+    h += '</div></div>';
     el.innerHTML = h;
 }
 
+// ===== MEETING COMMITMENTS EMBED =====
+var _mcSession = null;
+var _mcCommitments = [];
+var _mcTeams = [];
+
+async function kpiLoadMeetingCommit() {
+    var el = document.getElementById('kpiMeetingCommit');
+    if (!el) return;
+    try {
+        var empData = await apiCall('/api/meeting-commitments/employees');
+        _mcTeams = empData.teams || [];
+        var latestData = await apiCall('/api/meeting-commitments/latest');
+        _mcSession = latestData.session;
+        _mcCommitments = latestData.commitments || [];
+        kpiRenderMeetingCommit(el);
+    } catch(e) {
+        console.error('Meeting commit error:', e);
+        el.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">Lỗi tải cam kết: ' + (e.message||'') + '</div>';
+    }
+}
+
+function kpiRenderMeetingCommit(el) {
+    var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
+    var h = '<div class="kpi-mc-section">';
+    h += '<div class="kpi-mc-header"><div>📝 Cam Kết Cuộc Họp';
+    if (_mcSession) {
+        var d = new Date(_mcSession.meeting_date);
+        h += ' <span style="font-size:13px;font-weight:500;color:#92400e;margin-left:8px">— ' + _mcSession.title + ' (' + d.toLocaleDateString('vi-VN') + ')</span>';
+    }
+    h += '</div><div style="display:flex;gap:8px">';
+    if (isGD) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcCreateSession()">➕ Tạo Cuộc Họp</button>';
+    }
+    h += '<a href="/camketcuochop" class="kpi-mc-btn kpi-mc-btn-ghost" style="text-decoration:none">📋 Xem Lịch Sử</a>';
+    h += '</div></div>';
+
+    if (!_mcSession) {
+        h += '<div style="padding:40px;text-align:center;color:#6b7280"><div style="font-size:40px;margin-bottom:12px">📭</div>';
+        h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào</div>';
+        h += '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bấm "➕ Tạo Cuộc Họp" để bắt đầu</div></div>';
+        h += '</div>';
+        el.innerHTML = h;
+        return;
+    }
+
+    for (var ti = 0; ti < _mcTeams.length; ti++) {
+        var team = _mcTeams[ti];
+        if (!team.members || team.members.length === 0) continue;
+        h += '<div class="kpi-mc-team">';
+        h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
+
+        for (var mi = 0; mi < team.members.length; mi++) {
+            var emp = team.members[mi];
+            var empCommits = _mcCommitments.filter(function(c) { return c.user_id === emp.id; });
+            var totalItems = empCommits.length;
+            var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
+            var avgPct = totalItems > 0 ? Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems) : 0;
+
+            var roleLabel = '';
+            if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
+            else if (emp.role === 'truong_phong') roleLabel = 'Trưởng Phòng';
+
+            h += '<div class="kpi-mc-emp">';
+            h += '<div><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
+            if (roleLabel) h += '<span class="kpi-mc-emp-role">(' + roleLabel + ')</span>';
+            h += '</div>';
+            h += '<div class="kpi-mc-emp-actions">';
+
+            if (totalItems > 0) {
+                if (doneItems === totalItems) {
+                    h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
+                } else {
+                    h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
+                }
+                if (isGD) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                }
+            } else {
+                h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                if (isGD) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
+                }
+            }
+            h += '</div></div>';
+        }
+        h += '</div>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+}
+
+// Create session popup
+window.mcCreateSession = function() {
+    var today = new Date().toISOString().split('T')[0];
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = '<div class="kpi-mc-modal">'
+        + '<div class="kpi-mc-modal-head"><h3>➕ Tạo Cuộc Họp Mới</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">'
+        + '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp</label>'
+        + '<input class="kpi-mc-input" id="mcSessionTitle" placeholder="VD: Họp tuần 1 - Tháng 5/2026"></div>'
+        + '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>'
+        + '<input class="kpi-mc-input" type="date" id="mcSessionDate" value="' + today + '"></div>'
+        + '</div>'
+        + '<div class="kpi-mc-modal-foot">'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveSession()">Tạo Cuộc Họp</button>'
+        + '</div></div>';
+    document.body.appendChild(overlay);
+};
+
+window.mcSaveSession = async function() {
+    var title = document.getElementById('mcSessionTitle').value.trim();
+    var date = document.getElementById('mcSessionDate').value;
+    if (!title) return alert('Vui lòng nhập tiêu đề');
+    if (!date) return alert('Vui lòng chọn ngày');
+    try {
+        await apiCall('/api/meeting-commitments/sessions', 'POST', { title: title, meeting_date: date });
+        document.querySelector('.kpi-mc-modal-overlay').remove();
+        kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
+
+// Edit/Add commitments for a user
+window.mcEditUser = async function(userId, userName) {
+    var existing = _mcCommitments.filter(function(c) { return c.user_id === userId; });
+    var items = existing.length > 0
+        ? existing.map(function(c) { return { content: c.content, target_revenue: c.target_revenue }; })
+        : [{ content: '', target_revenue: 0 }];
+
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var h = '<div class="kpi-mc-modal">'
+        + '<div class="kpi-mc-modal-head"><h3>📝 Cam Kết — ' + userName + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body"><div id="mcItemsList">';
+
+    for (var i = 0; i < items.length; i++) {
+        h += mcRenderItemEdit(i + 1, items[i].content, items[i].target_revenue);
+    }
+
+    h += '</div>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem()" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>'
+        + '</div>'
+        + '<div class="kpi-mc-modal-foot">'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveCommitments(' + userId + ')">💾 Lưu Cam Kết</button>'
+        + '</div></div>';
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+};
+
+function mcRenderItemEdit(stt, content, revenue) {
+    return '<div class="kpi-mc-item" data-mc-item>'
+        + '<div class="kpi-mc-item-head">'
+        + '<div class="kpi-mc-item-stt">' + stt + '</div>'
+        + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + '</div>'
+        + '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>'
+        + '</div>'
+        + '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
+        + '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu doanh số (VD: 50000000)" value="' + (revenue || 0) + '">'
+        + '</div>';
+}
+
+window.mcAddItem = function() {
+    var list = document.getElementById('mcItemsList');
+    var count = list.querySelectorAll('[data-mc-item]').length;
+    list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, '', 0));
+};
+
+window.mcReindex = function() {
+    var items = document.querySelectorAll('#mcItemsList [data-mc-item]');
+    for (var i = 0; i < items.length; i++) {
+        var stt = items[i].querySelector('.kpi-mc-item-stt');
+        if (stt) stt.textContent = i + 1;
+        var head = items[i].querySelector('.kpi-mc-item-head div:nth-child(2)');
+        if (head) head.textContent = 'Cam kết #' + (i + 1);
+    }
+};
+
+window.mcSaveCommitments = async function(userId) {
+    var itemEls = document.querySelectorAll('#mcItemsList [data-mc-item]');
+    var items = [];
+    for (var i = 0; i < itemEls.length; i++) {
+        var content = itemEls[i].querySelector('.mc-content').value.trim();
+        var revenue = parseFloat(itemEls[i].querySelector('.mc-revenue').value) || 0;
+        if (content) items.push({ content: content, target_revenue: revenue });
+    }
+    if (items.length === 0) return alert('Cần ít nhất 1 cam kết');
+    try {
+        await apiCall('/api/meeting-commitments', 'POST', { session_id: _mcSession.id, user_id: userId, items: items });
+        document.querySelector('.kpi-mc-modal-overlay').remove();
+        kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
+
+// Review commitments for a user
+window.mcReviewUser = async function(userId, userName) {
+    var userCommits = _mcCommitments.filter(function(c) { return c.user_id === userId; });
+    if (userCommits.length === 0) return alert('Chưa có cam kết');
+
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var h = '<div class="kpi-mc-modal">'
+        + '<div class="kpi-mc-modal-head"><h3>✅ Review — ' + userName + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">';
+
+    for (var i = 0; i < userCommits.length; i++) {
+        var c = userCommits[i];
+        var rev = c.target_revenue > 0 ? ' — Mục tiêu: ' + kpiDashFmtVND(c.target_revenue) : '';
+        h += '<div class="kpi-mc-item" data-review-id="' + c.id + '">'
+            + '<div class="kpi-mc-item-head"><div class="kpi-mc-item-stt">' + c.stt + '</div>'
+            + '<div style="flex:1;font-size:13px"><div style="font-weight:700;color:#1e293b">' + c.content + '</div>'
+            + '<div style="font-size:11px;color:#6b7280;margin-top:2px">' + rev + '</div></div></div>'
+            + '<div style="display:flex;gap:10px;align-items:center;margin-top:8px">'
+            + '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#374151"><input type="checkbox" class="rv-done" ' + (c.is_completed ? 'checked' : '') + '> Hoàn thành</label>'
+            + '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"><span style="font-size:11px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>'
+            + '</div>'
+            + '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:8px">'
+            + '</div>';
+    }
+
+    h += '</div><div class="kpi-mc-modal-foot">'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveReview()">💾 Lưu Review</button>'
+        + '</div></div>';
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+};
+
+window.mcSaveReview = async function() {
+    var items = document.querySelectorAll('[data-review-id]');
+    var reviews = [];
+    for (var i = 0; i < items.length; i++) {
+        var el = items[i];
+        reviews.push({
+            id: parseInt(el.getAttribute('data-review-id')),
+            is_completed: el.querySelector('.rv-done').checked,
+            completion_pct: parseInt(el.querySelector('.rv-pct').value) || 0,
+            review_note: el.querySelector('.rv-note').value
+        });
+    }
+    try {
+        await apiCall('/api/meeting-commitments/batch-review', 'PUT', { reviews: reviews });
+        document.querySelector('.kpi-mc-modal-overlay').remove();
+        kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
