@@ -100,28 +100,31 @@ module.exports = async function(fastify) {
             allDeptIds
         );
 
-        // ===== 3. Core Query: ROW_NUMBER by phone (all-time) =====
+        // ===== 3. Core Query: count by ORDER_CODES, rank by phone =====
         const buildStatsQuery = (startDate, endDate) => {
             const paramOffset = allDeptIds.length;
             return {
                 sql: `
-                    WITH unique_hoan_thanh AS (
-                        SELECT DISTINCT ON (cl.customer_id)
-                            cl.id,
-                            cl.customer_id,
-                            c.assigned_to_id,
-                            cl.created_at,
-                            c.phone
-                        FROM consultation_logs cl
-                        JOIN customers c ON cl.customer_id = c.id
-                        WHERE cl.log_type = 'hoan_thanh'
-                          AND c.phone IS NOT NULL AND c.phone != ''
-                          AND COALESCE(c.cancel_approved, 0) != 1
-                        ORDER BY cl.customer_id, cl.created_at ASC
-                    ),
-                    all_hoan_thanh AS (
+                    WITH completed_orders AS (
                         SELECT
-                            id,
+                            oc.id AS order_id,
+                            oc.customer_id,
+                            oc.created_at,
+                            c.phone,
+                            c.assigned_to_id
+                        FROM order_codes oc
+                        JOIN customers c ON oc.customer_id = c.id
+                        WHERE c.phone IS NOT NULL AND c.phone != ''
+                          AND COALESCE(c.cancel_approved, 0) != 1
+                          AND EXISTS (
+                              SELECT 1 FROM consultation_logs cl
+                              WHERE cl.customer_id = oc.customer_id
+                                AND cl.log_type = 'hoan_thanh'
+                          )
+                    ),
+                    ranked_orders AS (
+                        SELECT
+                            order_id,
                             customer_id,
                             assigned_to_id,
                             created_at,
@@ -130,14 +133,14 @@ module.exports = async function(fastify) {
                                 PARTITION BY phone
                                 ORDER BY created_at ASC
                             ) AS phone_order_number
-                        FROM unique_hoan_thanh
+                        FROM completed_orders
                     )
                     SELECT
                         assigned_to_id AS employee_id,
                         COUNT(*) AS total_orders,
                         SUM(CASE WHEN phone_order_number = 1 THEN 1 ELSE 0 END) AS new_orders,
                         SUM(CASE WHEN phone_order_number > 1 THEN 1 ELSE 0 END) AS returning_orders
-                    FROM all_hoan_thanh
+                    FROM ranked_orders
                     WHERE created_at >= $${paramOffset + 1}::timestamp
                       AND created_at < $${paramOffset + 2}::timestamp
                       AND assigned_to_id IN (
@@ -407,24 +410,29 @@ module.exports = async function(fastify) {
         const { current } = parsePeriod(period, date);
 
         const rows = await db.all(`
-            WITH unique_hoan_thanh AS (
-                SELECT DISTINCT ON (cl.customer_id)
-                    cl.id AS log_id,
-                    cl.customer_id,
-                    c.assigned_to_id,
-                    cl.created_at,
-                    c.phone,
-                    c.customer_name
-                FROM consultation_logs cl
-                JOIN customers c ON cl.customer_id = c.id
-                WHERE cl.log_type = 'hoan_thanh'
-                  AND c.phone IS NOT NULL AND c.phone != ''
-                  AND COALESCE(c.cancel_approved, 0) != 1
-                ORDER BY cl.customer_id, cl.created_at ASC
-            ),
-            all_hoan_thanh AS (
+            WITH completed_orders AS (
                 SELECT
-                    log_id,
+                    oc.id AS order_id,
+                    oc.order_code,
+                    oc.customer_id,
+                    oc.created_at,
+                    c.phone,
+                    c.customer_name,
+                    c.assigned_to_id
+                FROM order_codes oc
+                JOIN customers c ON oc.customer_id = c.id
+                WHERE c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND EXISTS (
+                      SELECT 1 FROM consultation_logs cl
+                      WHERE cl.customer_id = oc.customer_id
+                        AND cl.log_type = 'hoan_thanh'
+                  )
+            ),
+            ranked_orders AS (
+                SELECT
+                    order_id,
+                    order_code,
                     customer_id,
                     assigned_to_id,
                     created_at,
@@ -434,25 +442,22 @@ module.exports = async function(fastify) {
                         PARTITION BY phone
                         ORDER BY created_at ASC
                     ) AS phone_order_number
-                FROM unique_hoan_thanh
+                FROM completed_orders
             )
             SELECT
-                ah.log_id,
-                ah.customer_id,
-                ah.customer_name,
-                ah.phone,
-                ah.created_at,
-                ah.phone_order_number,
-                CASE WHEN ah.phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type,
-                oc.order_code
-            FROM all_hoan_thanh ah
-            LEFT JOIN LATERAL (
-                SELECT order_code FROM order_codes WHERE customer_id = ah.customer_id ORDER BY created_at DESC LIMIT 1
-            ) oc ON true
-            WHERE ah.assigned_to_id = $1
-              AND ah.created_at >= $2::timestamp
-              AND ah.created_at < $3::timestamp
-            ORDER BY ah.created_at DESC
+                order_id,
+                order_code,
+                customer_id,
+                customer_name,
+                phone,
+                created_at,
+                phone_order_number,
+                CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
+            FROM ranked_orders
+            WHERE assigned_to_id = $1
+              AND created_at >= $2::timestamp
+              AND created_at < $3::timestamp
+            ORDER BY created_at DESC
         `, [user_id, current.start, current.end]);
 
         return {
@@ -462,7 +467,7 @@ module.exports = async function(fastify) {
             new_count: rows.filter(r => r.order_type === 'new').length,
             returning_count: rows.filter(r => r.order_type === 'returning').length,
             orders: rows.map(r => ({
-                log_id: r.log_id,
+                order_id: r.order_id,
                 customer_id: r.customer_id,
                 customer_name: r.customer_name,
                 phone: r.phone,
