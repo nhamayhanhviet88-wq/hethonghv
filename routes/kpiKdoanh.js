@@ -321,4 +321,67 @@ module.exports = async function(fastify) {
             stage3: { target: s3Target, actual: s3Actual, avg_per_day: s3Days > 0 ? Math.round(s3Actual / s3Days) : 0, missing: s3Target - s3Actual }
         };
     }
+
+    // ===== GET employee order details for a month =====
+    fastify.get('/api/kpi-kdoanh/employee-orders', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, month } = request.query;
+        if (!user_id || !month) return reply.code(400).send({ error: 'Thiếu user_id hoặc month' });
+
+        const [year, mo] = month.split('-').map(Number);
+        const monthStart = `${year}-${String(mo).padStart(2,'0')}-01`;
+        const nextMo = mo === 12 ? 1 : mo + 1;
+        const nextYear = mo === 12 ? year + 1 : year;
+        const monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01`;
+
+        // Get employee info
+        const emp = await db.get('SELECT id, full_name FROM users WHERE id = $1', [user_id]);
+        if (!emp) return reply.code(404).send({ error: 'Không tìm thấy NV' });
+
+        // Get orders: only customers that have chot_don log, assigned to this user
+        const orders = await db.all(`
+            SELECT
+                oc.id AS order_id,
+                oc.order_code,
+                c.name AS customer_name,
+                c.phone AS customer_phone,
+                COALESCE(oi_sum.revenue, 0) AS revenue,
+                oc.created_at,
+                (SELECT COUNT(*) FROM order_codes oc2
+                 WHERE oc2.customer_id = c.id
+                   AND oc2.created_at < oc.created_at) + 1 AS order_count,
+                CASE
+                    WHEN (SELECT COUNT(*) FROM order_codes oc3
+                          WHERE oc3.customer_id = c.id
+                            AND oc3.created_at < oc.created_at) > 0
+                    THEN 'cu'
+                    ELSE 'moi'
+                END AS customer_type
+            FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+            ) oi_sum ON true
+            WHERE c.assigned_to_id = $1
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
+              AND oc.created_at >= $2::timestamp
+              AND oc.created_at < $3::timestamp
+            ORDER BY oc.created_at DESC
+        `, [parseInt(user_id), monthStart, monthEnd]);
+
+        const totalNew = orders.filter(o => o.customer_type === 'moi').length;
+        const totalOld = orders.filter(o => o.customer_type === 'cu').length;
+
+        return {
+            employee: emp,
+            month: month,
+            orders: orders,
+            summary: {
+                total: orders.length,
+                new_orders: totalNew,
+                old_orders: totalOld,
+                total_revenue: orders.reduce((s, o) => s + parseFloat(o.revenue || 0), 0)
+            }
+        };
+    });
 };

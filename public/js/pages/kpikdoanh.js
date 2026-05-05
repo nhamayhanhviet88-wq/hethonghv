@@ -150,6 +150,36 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-item-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
             .kpi-mc-item-stt{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
             .kpi-mc-remove{width:24px;height:24px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+
+            /* === ORDER DETAIL MODAL === */
+            .kpi-od-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+            .kpi-od-modal{background:#1e293b;border-radius:20px;width:750px;max-width:95vw;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.4);animation:kpiMcSlideUp .3s ease;display:flex;flex-direction:column}
+            .kpi-od-head{padding:18px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
+            .kpi-od-head h3{font-size:16px;font-weight:800;color:#fff;margin:0}
+            .kpi-od-close{background:rgba(255,255,255,.1);border:none;color:#94a3b8;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+            .kpi-od-close:hover{background:rgba(255,255,255,.2);color:#fff}
+            .kpi-od-tabs{display:flex;gap:8px;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.06)}
+            .kpi-od-tab{padding:6px 16px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+            .kpi-od-tab-all{background:#3b82f6;color:#fff}
+            .kpi-od-tab-new{background:rgba(16,185,129,.15);color:#10b981}
+            .kpi-od-tab-old{background:rgba(168,85,247,.15);color:#a855f7}
+            .kpi-od-tab.active-all{background:#3b82f6;color:#fff}
+            .kpi-od-tab.active-new{background:#10b981;color:#fff}
+            .kpi-od-tab.active-old{background:#a855f7;color:#fff}
+            .kpi-od-tab:not([class*='active']){opacity:.6}.kpi-od-tab:hover{opacity:1}
+            .kpi-od-month{margin-left:auto;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:6px}
+            .kpi-od-body{overflow-y:auto;flex:1;padding:0}
+            .kpi-od-table{width:100%;border-collapse:collapse;font-size:12px}
+            .kpi-od-table th{padding:10px 12px;text-align:left;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;background:#1e293b;z-index:1}
+            .kpi-od-table td{padding:10px 12px;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.04)}
+            .kpi-od-table tr:hover td{background:rgba(255,255,255,.03)}
+            .kpi-od-type{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
+            .kpi-od-type-moi{background:rgba(16,185,129,.15);color:#34d399}
+            .kpi-od-type-cu{background:rgba(168,85,247,.15);color:#c084fc}
+            .kpi-od-code{color:#60a5fa;font-weight:700}
+            .kpi-od-revenue{color:#fbbf24;font-weight:800}
+            .kpi-od-empty{padding:40px;text-align:center;color:#64748b;font-size:13px}
+            @media(max-width:768px){.kpi-od-modal{width:100%;max-width:100%;max-height:100%;border-radius:0}}
         </style>
         <div class="kpi-wrap" id="kpiWrap">
             <div class="kpi-topbar">
@@ -398,7 +428,8 @@ function kpiRenderContent(data) {
         // Employee rows — below
         team.employees.forEach((emp, ei) => {
             const roleIcon = emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao' ? '👑 ' : emp.role === 'truong_phong' ? '⭐ ' : '';
-            html += `<tr><td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
+            html += `<tr style="cursor:pointer" onclick="kpiShowEmpOrders(${emp.user_id},'${emp.full_name.replace(/'/g, "\\'")}')">`
+            + `<td>${ei+1}</td><td>${emp.username||''}</td><td class="name">${roleIcon}${emp.full_name}</td>`;
             html += `<td>${kpiFmtFull(emp.target)}</td>`;
             html += `<td style="font-weight:700">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate}%</td>`;
@@ -578,7 +609,7 @@ function kpiRenderLeaderboard(el, data) {
         var cRate = conv.rate != null ? conv.rate + '%' : '—';
         var cColor = conv.rate >= 70 ? '#10b981' : conv.rate >= 40 ? '#f59e0b' : '#ef4444';
         var prev = emp.prev || {};
-        h += '<div class="kpi-lb-row">';
+        h += '<div class="kpi-lb-row" style="cursor:pointer" onclick="kpiShowEmpOrders(' + emp.user_id + ',\'' + emp.name.replace(/'/g, "\\'") + '\')">';
         h += '<div class="kpi-lb-rank">' + rank + '</div>';
         h += '<div><div class="kpi-lb-name">' + emp.name + '</div><div class="kpi-lb-team">' + (emp.team || '') + '</div></div>';
         h += '<div class="kpi-lb-val" style="color:#4338ca">' + emp.total_orders + ' đơn<div>' + kpiTrend(emp.total_orders, prev.total_orders) + '</div></div>';
@@ -871,3 +902,100 @@ window.mcSaveReview = async function() {
         kpiLoadMeetingCommit();
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
+
+// ===== ORDER DETAIL POPUP =====
+var _odOrders = [];
+var _odFilter = 'all';
+
+window.kpiShowEmpOrders = async function(userId, userName) {
+    _odFilter = 'all';
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-od-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = '<div class="kpi-od-modal">'
+        + '<div class="kpi-od-head"><h3>📊 Chi tiết đơn — ' + userName + '</h3>'
+        + '<button class="kpi-od-close" onclick="this.closest(\'.kpi-od-overlay\').remove()">✕</button></div>'
+        + '<div class="kpi-od-body" id="odBody"><div style="padding:40px;text-align:center;color:#64748b">⏳ Đang tải...</div></div>'
+        + '</div>';
+    document.body.appendChild(overlay);
+
+    try {
+        var data = await apiCall('/api/kpi-kdoanh/employee-orders?user_id=' + userId + '&month=' + _kpi.month);
+        _odOrders = data.orders || [];
+        var summary = data.summary || {};
+        var body = document.getElementById('odBody');
+        if (!body) return;
+
+        var [y, m] = _kpi.month.split('-').map(Number);
+        var monthLabel = 'T' + m + '/' + y;
+
+        var h = '<div class="kpi-od-tabs" id="odTabs">'
+            + '<button class="kpi-od-tab kpi-od-tab-all active-all" data-f="all" onclick="odSetFilter(\'all\')">Tất cả (' + summary.total + ')</button>'
+            + '<button class="kpi-od-tab kpi-od-tab-new" data-f="moi" onclick="odSetFilter(\'moi\')">Đ.Mới (' + summary.new_orders + ')</button>'
+            + '<button class="kpi-od-tab kpi-od-tab-old" data-f="cu" onclick="odSetFilter(\'cu\')">Đ.Cũ (' + summary.old_orders + ')</button>'
+            + '<div class="kpi-od-month">📅 ' + monthLabel + '</div>'
+            + '</div>';
+        h += '<div id="odTableWrap"></div>';
+        body.innerHTML = h;
+        odRenderTable();
+    } catch(e) {
+        var body = document.getElementById('odBody');
+        if (body) body.innerHTML = '<div class="kpi-od-empty">⚠️ Lỗi: ' + (e.message || '') + '</div>';
+    }
+};
+
+window.odSetFilter = function(f) {
+    _odFilter = f;
+    var tabs = document.querySelectorAll('#odTabs .kpi-od-tab');
+    for (var i = 0; i < tabs.length; i++) {
+        var t = tabs[i];
+        var df = t.getAttribute('data-f');
+        t.className = 'kpi-od-tab';
+        if (df === 'all') t.classList.add('kpi-od-tab-all');
+        else if (df === 'moi') t.classList.add('kpi-od-tab-new');
+        else t.classList.add('kpi-od-tab-old');
+        if (df === f) {
+            if (f === 'all') t.classList.add('active-all');
+            else if (f === 'moi') t.classList.add('active-new');
+            else t.classList.add('active-old');
+        }
+    }
+    odRenderTable();
+};
+
+function odRenderTable() {
+    var wrap = document.getElementById('odTableWrap');
+    if (!wrap) return;
+    var filtered = _odFilter === 'all' ? _odOrders : _odOrders.filter(function(o) { return o.customer_type === _odFilter; });
+
+    if (filtered.length === 0) {
+        wrap.innerHTML = '<div class="kpi-od-empty">Không có đơn hàng</div>';
+        return;
+    }
+
+    var h = '<table class="kpi-od-table"><thead><tr>'
+        + '<th>#</th><th>Loại</th><th>Mã Đơn</th><th>Khách Hàng</th><th>SĐT</th><th style="text-align:right">Doanh số</th><th>Ngày HT</th><th style="text-align:center">Lần</th>'
+        + '</tr></thead><tbody>';
+
+    for (var i = 0; i < filtered.length; i++) {
+        var o = filtered[i];
+        var dt = new Date(o.created_at);
+        var dateStr = dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + dt.getFullYear();
+        var typeClass = o.customer_type === 'moi' ? 'kpi-od-type-moi' : 'kpi-od-type-cu';
+        var typeLabel = o.customer_type === 'moi' ? '🆕 Mới' : '🔄 Cũ';
+        var rev = parseFloat(o.revenue || 0);
+        var revStr = rev >= 1e6 ? (rev / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr' : rev.toLocaleString('vi-VN');
+
+        h += '<tr><td>' + (i + 1) + '</td>'
+            + '<td><span class="kpi-od-type ' + typeClass + '">' + typeLabel + '</span></td>'
+            + '<td class="kpi-od-code">' + (o.order_code || '—') + '</td>'
+            + '<td>' + (o.customer_name || '') + '</td>'
+            + '<td style="color:#94a3b8;font-size:11px">' + (o.customer_phone || '') + '</td>'
+            + '<td class="kpi-od-revenue" style="text-align:right">' + revStr + '</td>'
+            + '<td style="font-size:11px">' + dateStr + '</td>'
+            + '<td style="text-align:center;font-weight:700;color:#60a5fa">' + (o.order_count || 1) + '</td>'
+            + '</tr>';
+    }
+    h += '</tbody></table>';
+    wrap.innerHTML = h;
+}
