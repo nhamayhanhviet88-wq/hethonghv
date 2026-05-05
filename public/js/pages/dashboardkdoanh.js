@@ -229,17 +229,17 @@ function crRenderCards(data) {
         </div>
         <div class="cr-card new">
             <div class="cr-card-value">${c.new || 0}</div>
-            <div class="cr-card-label">Khách Mới</div>
+            <div class="cr-card-label">Số Đơn KH Mới</div>
             ${crTrendHTML(t.new)}
         </div>
         <div class="cr-card returning">
             <div class="cr-card-value">${c.returning || 0}</div>
-            <div class="cr-card-label">Khách Cũ Quay Lại</div>
+            <div class="cr-card-label">Số Đơn KH Cũ Quay Lại</div>
             ${crTrendHTML(t.returning)}
         </div>
         <div class="cr-card rate">
             <div class="cr-card-value">${c.rate || 0}%</div>
-            <div class="cr-card-label">Tỷ Lệ KH Cũ Quay Lại</div>
+            <div class="cr-card-label">Tỷ Lệ Đơn KH Cũ Quay Lại</div>
             ${crTrendHTML(t.rate, '%')}
         </div>
     `;
@@ -278,8 +278,8 @@ function crRenderGroups(data) {
             </div>
             <div class="cr-stat-grid">
                 <span class="cr-stat-pill" style="background:#1e1b4b;color:white;">${mc.total || 0}</span>
-                <span class="cr-stat-pill" style="background:#047857;color:white;">${mc.new || 0} mới</span>
-                <span class="cr-stat-pill" style="background:#c2410c;color:white;">${mc.returning || 0} cũ</span>
+                <span class="cr-stat-pill" style="background:#047857;color:white;">${mc.new || 0} đ.mới</span>
+                <span class="cr-stat-pill" style="background:#c2410c;color:white;">${mc.returning || 0} đ.cũ</span>
                 <span class="cr-stat-pill" style="background:#7c3aed;color:white;" colspan="2">${mc.rate || 0}%</span>
                 <span></span>
                 <span class="cr-stat-cell">${crTrendMini(group.trend?.rate)}</span>
@@ -301,8 +301,8 @@ function crRenderGroups(data) {
                         </div>
                         <div class="cr-stat-grid">
                             <span class="cr-stat-pill" style="background:#e0e7ff;color:#3730a3;">${tc.total || 0}</span>
-                            <span class="cr-stat-pill" style="background:#d1fae5;color:#065f46;">${tc.new || 0} mới</span>
-                            <span class="cr-stat-pill" style="background:#ffedd5;color:#9a3412;">${tc.returning || 0} cũ</span>
+                            <span class="cr-stat-pill" style="background:#d1fae5;color:#065f46;">${tc.new || 0} đ.mới</span>
+                            <span class="cr-stat-pill" style="background:#ffedd5;color:#9a3412;">${tc.returning || 0} đ.cũ</span>
                             <span class="cr-stat-pill" style="background:#ede9fe;color:#5b21b6;">${tc.rate || 0}%</span>
                             <span></span>
                             <span class="cr-stat-cell">${crTrendMini(team.trend?.rate)}</span>
@@ -326,8 +326,8 @@ function crRenderGroups(data) {
                             </div>
                             <div class="cr-emp-stats">
                                 <span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">${ec.total || 0}</span>
-                                <span class="cr-stat-cell" style="color:#059669;">${ec.new || 0} mới</span>
-                                <span class="cr-stat-cell" style="color:#c2410c;">${ec.returning || 0} cũ</span>
+                                <span class="cr-stat-cell" style="color:#059669;">${ec.new || 0} đ.mới</span>
+                                <span class="cr-stat-cell" style="color:#c2410c;">${ec.returning || 0} đ.cũ</span>
                                 <div class="cr-progress-wrap">
                                     <div class="cr-progress-bar" style="width:${Math.min(ec.rate || 0, 100)}%;background:${crProgressColor(ec.rate || 0)};"></div>
                                 </div>
