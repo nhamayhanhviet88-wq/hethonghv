@@ -388,4 +388,66 @@ module.exports = async function(fastify) {
             groups
         };
     });
+
+    // ===== Detail API: Get individual orders for an employee =====
+    fastify.get('/api/reports/customer-retention/detail', { preHandler: [authenticate] }, async (request, reply) => {
+        const { user_id, period = 'month', date } = request.query;
+        if (!user_id) return { error: 'Thiếu user_id' };
+
+        const { current } = parsePeriod(period, date);
+
+        const rows = await db.all(`
+            WITH all_hoan_thanh AS (
+                SELECT
+                    cl.id AS log_id,
+                    cl.customer_id,
+                    c.assigned_to_id,
+                    cl.created_at,
+                    c.phone,
+                    c.name AS customer_name,
+                    c.order_code,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY c.phone
+                        ORDER BY cl.created_at ASC
+                    ) AS phone_order_number
+                FROM consultation_logs cl
+                JOIN customers c ON cl.customer_id = c.id
+                WHERE cl.log_type = 'hoan_thanh'
+                  AND c.phone IS NOT NULL AND c.phone != ''
+                  AND COALESCE(c.cancel_approved, 0) != 1
+            )
+            SELECT
+                log_id,
+                customer_id,
+                customer_name,
+                phone,
+                order_code,
+                created_at,
+                phone_order_number,
+                CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
+            FROM all_hoan_thanh
+            WHERE assigned_to_id = $1
+              AND created_at >= $2::timestamp
+              AND created_at < $3::timestamp
+            ORDER BY created_at DESC
+        `, [user_id, current.start, current.end]);
+
+        return {
+            period: current,
+            user_id: Number(user_id),
+            total: rows.length,
+            new_count: rows.filter(r => r.order_type === 'new').length,
+            returning_count: rows.filter(r => r.order_type === 'returning').length,
+            orders: rows.map(r => ({
+                log_id: r.log_id,
+                customer_id: r.customer_id,
+                customer_name: r.customer_name,
+                phone: r.phone,
+                order_code: r.order_code,
+                date: r.created_at,
+                order_number: r.phone_order_number,
+                type: r.order_type
+            }))
+        };
+    });
 };

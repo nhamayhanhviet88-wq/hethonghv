@@ -77,6 +77,26 @@ async function renderDashboardkdoanhPage(container) {
             .cr-top-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 800; color: #ca8a04; background: linear-gradient(135deg, #fef9c3, #fef3c7); padding: 2px 8px; border-radius: 12px; border: 1px solid #fbbf24; animation: crShimmer 2s ease-in-out infinite; }
             @keyframes crShimmer { 0%, 100% { box-shadow: 0 0 4px rgba(251,191,36,0.3); } 50% { box-shadow: 0 0 12px rgba(251,191,36,0.6); } }
 
+            .cr-emp { cursor: pointer; }
+            .cr-detail-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: crFadeIn 0.2s; }
+            @keyframes crFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            .cr-detail-modal { background: white; border-radius: 16px; width: 90%; max-width: 750px; max-height: 85vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+            .cr-detail-header { padding: 20px 24px; background: linear-gradient(135deg, #1e1b4b, #312e81); color: white; display: flex; justify-content: space-between; align-items: center; }
+            .cr-detail-header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+            .cr-detail-close { background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+            .cr-detail-close:hover { background: rgba(255,255,255,0.4); }
+            .cr-detail-summary { display: flex; gap: 12px; padding: 16px 24px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+            .cr-detail-badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+            .cr-detail-badge:hover { opacity: 0.85; }
+            .cr-detail-badge.active { border-color: #1e1b4b; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+            .cr-detail-body { overflow-y: auto; flex: 1; }
+            .cr-detail-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            .cr-detail-table th { background: #f1f5f9; padding: 10px 14px; text-align: left; font-weight: 700; color: #475569; position: sticky; top: 0; z-index: 1; border-bottom: 2px solid #e2e8f0; }
+            .cr-detail-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+            .cr-detail-table tr:hover { background: #fefce8; }
+            .cr-type-new { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #d1fae5; color: #065f46; }
+            .cr-type-ret { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #ffedd5; color: #9a3412; }
+
             @media (max-width: 768px) {
                 .cr-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
                 .cr-card { padding: 16px 12px; }
@@ -318,7 +338,7 @@ function crRenderGroups(data) {
                             emp.role === 'thu_viec' ? '<span class="cr-role-badge cr-role-tv">TV</span>' :
                             '<span class="cr-role-badge cr-role-nv">NV</span>';
 
-                        html += `<div class="cr-emp" ${isTop ? 'style="background:linear-gradient(90deg,#fffbeb,#fef3c7);border-left:3px solid #f59e0b;"' : ''}>
+                        html += `<div class="cr-emp" onclick="crShowDetail(${emp.user_id}, '${emp.name.replace(/'/g, "\\'")}')" ${isTop ? 'style="background:linear-gradient(90deg,#fffbeb,#fef3c7);border-left:3px solid #f59e0b;"' : ''}>
                             <div class="cr-emp-name">
                                 ${isTop ? '<span class="cr-top-badge">✨ TOP</span>' : ''}
                                 ${roleBadge}
@@ -364,4 +384,109 @@ function crToggleTeam(key) {
         _cr.expandedTeam.add(key);
     }
     if (_cr.data) crRenderGroups(_cr.data);
+}
+
+// ===== Employee Detail Modal =====
+async function crShowDetail(userId, empName) {
+    // Create overlay
+    let overlay = document.getElementById('crDetailOverlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'crDetailOverlay';
+    overlay.className = 'cr-detail-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="cr-detail-modal">
+            <div class="cr-detail-header">
+                <h3>📋 Chi tiết đơn — ${empName}</h3>
+                <button class="cr-detail-close" onclick="document.getElementById('crDetailOverlay').remove()">✕</button>
+            </div>
+            <div class="cr-detail-summary" id="crDetailSummary">
+                <span style="color:#9ca3af;font-size:13px;">⏳ Đang tải...</span>
+            </div>
+            <div class="cr-detail-body" id="crDetailBody">
+                <div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    try {
+        const data = await apiCall(`/api/reports/customer-retention/detail?user_id=${userId}&period=${_cr.period}&date=${_cr.dateStr}`);
+        if (data.error) {
+            document.getElementById('crDetailBody').innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">❌ ${data.error}</div>`;
+            return;
+        }
+
+        window._crDetailOrders = data.orders || [];
+        window._crDetailFilter = 'all';
+
+        // Render summary badges
+        document.getElementById('crDetailSummary').innerHTML = `
+            <span class="cr-detail-badge active" id="crFilterAll" style="background:#1e1b4b;color:white;" onclick="crFilterOrders('all')">Tất cả (${data.total})</span>
+            <span class="cr-detail-badge" id="crFilterNew" style="background:#d1fae5;color:#065f46;" onclick="crFilterOrders('new')">Đ.Mới (${data.new_count})</span>
+            <span class="cr-detail-badge" id="crFilterRet" style="background:#ffedd5;color:#9a3412;" onclick="crFilterOrders('returning')">Đ.Cũ (${data.returning_count})</span>
+            <span style="margin-left:auto;font-size:12px;color:#6b7280;font-weight:600;">📅 ${data.period?.label || ''}</span>
+        `;
+
+        crRenderDetailTable(data.orders);
+    } catch (err) {
+        console.error('Detail error:', err);
+        document.getElementById('crDetailBody').innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">❌ Lỗi tải dữ liệu</div>';
+    }
+}
+
+function crFilterOrders(filter) {
+    window._crDetailFilter = filter;
+    // Update active badge
+    ['All','New','Ret'].forEach(k => {
+        const el = document.getElementById('crFilter' + k);
+        if (el) el.classList.remove('active');
+    });
+    const activeId = filter === 'all' ? 'crFilterAll' : filter === 'new' ? 'crFilterNew' : 'crFilterRet';
+    const activeEl = document.getElementById(activeId);
+    if (activeEl) activeEl.classList.add('active');
+
+    const orders = window._crDetailOrders || [];
+    const filtered = filter === 'all' ? orders : orders.filter(o => o.type === filter);
+    crRenderDetailTable(filtered);
+}
+
+function crRenderDetailTable(orders) {
+    const body = document.getElementById('crDetailBody');
+    if (!orders || orders.length === 0) {
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">📭 Không có đơn nào</div>';
+        return;
+    }
+
+    let html = `<table class="cr-detail-table">
+        <thead><tr>
+            <th style="width:40px;">#</th>
+            <th>Loại</th>
+            <th>Khách Hàng</th>
+            <th>SĐT</th>
+            <th>Mã Đơn</th>
+            <th>Ngày HT</th>
+            <th style="width:40px;">Lần</th>
+        </tr></thead><tbody>`;
+
+    orders.forEach((o, i) => {
+        const typeLabel = o.type === 'new'
+            ? '<span class="cr-type-new">🆕 Mới</span>'
+            : '<span class="cr-type-ret">🔄 Cũ</span>';
+        const dateStr = o.date ? new Date(o.date).toLocaleDateString('vi-VN') : '-';
+        html += `<tr>
+            <td style="color:#9ca3af;font-weight:600;">${i + 1}</td>
+            <td>${typeLabel}</td>
+            <td style="font-weight:600;">${o.customer_name || '-'}</td>
+            <td style="font-family:monospace;font-size:12px;">${o.phone || '-'}</td>
+            <td style="font-size:12px;color:#4338ca;font-weight:600;">${o.order_code || '-'}</td>
+            <td style="font-size:12px;">${dateStr}</td>
+            <td style="text-align:center;font-weight:700;color:${o.order_number === 1 ? '#059669' : '#c2410c'};">${o.order_number}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    body.innerHTML = html;
 }
