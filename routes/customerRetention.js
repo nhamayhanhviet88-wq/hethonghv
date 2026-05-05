@@ -405,7 +405,7 @@ module.exports = async function(fastify) {
                     cl.created_at,
                     c.phone,
                     c.customer_name,
-                    c.order_code,
+                    c.daily_order_number,
                     ROW_NUMBER() OVER (
                         PARTITION BY c.phone
                         ORDER BY cl.created_at ASC
@@ -421,7 +421,7 @@ module.exports = async function(fastify) {
                 customer_id,
                 customer_name,
                 phone,
-                order_code,
+                daily_order_number,
                 created_at,
                 phone_order_number,
                 CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
@@ -443,7 +443,7 @@ module.exports = async function(fastify) {
                 customer_id: r.customer_id,
                 customer_name: r.customer_name,
                 phone: r.phone,
-                order_code: r.order_code,
+                order_code: r.daily_order_number ? `#${r.daily_order_number}` : `KH-${r.customer_id}`,
                 date: r.created_at,
                 order_number: r.phone_order_number,
                 type: r.order_type
