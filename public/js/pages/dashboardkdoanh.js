@@ -49,8 +49,9 @@ async function renderDashboardkdoanhPage(container) {
             .cr-group-header:hover { background: #f8fafc; }
             .cr-mgr-header { background: linear-gradient(135deg, #fefce8, #fef9c3); border-bottom: 2px solid #fbbf24; }
             .cr-mgr-name { font-size: 15px; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 8px; }
-            .cr-mgr-stats { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-            .cr-stat-pill { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+            .cr-stat-grid { display: grid; grid-template-columns: 50px 60px 50px 80px 50px 55px; gap: 6px; align-items: center; justify-items: center; }
+            .cr-stat-cell { font-size: 11px; font-weight: 700; white-space: nowrap; text-align: center; }
+            .cr-stat-pill { font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 20px; white-space: nowrap; text-align: center; width: 100%; display: block; }
             .cr-arrow { font-size: 12px; color: #9ca3af; transition: transform 0.3s; }
             .cr-arrow.open { transform: rotate(90deg); }
 
@@ -62,10 +63,10 @@ async function renderDashboardkdoanhPage(container) {
 
             .cr-emp { padding: 10px 20px 10px 68px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #f9fafb; transition: background 0.15s; }
             .cr-emp:hover { background: #fefce8; }
-            .cr-emp-name { font-size: 13px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 6px; min-width: 140px; }
-            .cr-emp-stats { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+            .cr-emp-name { font-size: 13px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+            .cr-emp-stats { display: grid; grid-template-columns: 50px 60px 50px 80px 50px 55px; gap: 6px; align-items: center; justify-items: center; flex-shrink: 0; }
 
-            .cr-progress-wrap { width: 80px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+            .cr-progress-wrap { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
             .cr-progress-bar { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
 
             .cr-role-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -80,8 +81,9 @@ async function renderDashboardkdoanhPage(container) {
                 .cr-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
                 .cr-card { padding: 16px 12px; }
                 .cr-card-value { font-size: 28px; }
-                .cr-mgr-stats, .cr-emp-stats { gap: 6px; }
-                .cr-stat-pill { font-size: 10px; padding: 3px 7px; }
+                .cr-stat-grid, .cr-emp-stats { grid-template-columns: 40px 50px 40px 60px 40px 45px; gap: 4px; }
+                .cr-stat-pill { font-size: 9px; padding: 3px 0; }
+                .cr-stat-cell { font-size: 10px; }
                 .cr-emp { padding-left: 44px; }
                 .cr-team-header { padding-left: 28px; }
                 .cr-emp-name { min-width: auto; }
@@ -274,12 +276,13 @@ function crRenderGroups(data) {
                 <span class="cr-arrow ${mgrExpanded ? 'open' : ''}">▶</span>
                 👔 ${group.name || 'Chưa phân Quản Lý'}
             </div>
-            <div class="cr-mgr-stats">
-                <span class="cr-stat-pill" style="background:#1e1b4b;color:white;">${mc.total || 0} đơn</span>
+            <div class="cr-stat-grid">
+                <span class="cr-stat-pill" style="background:#1e1b4b;color:white;">${mc.total || 0}</span>
                 <span class="cr-stat-pill" style="background:#047857;color:white;">${mc.new || 0} mới</span>
                 <span class="cr-stat-pill" style="background:#c2410c;color:white;">${mc.returning || 0} cũ</span>
-                <span class="cr-stat-pill" style="background:#7c3aed;color:white;">${mc.rate || 0}%</span>
-                ${crTrendMini(group.trend?.rate)}
+                <span class="cr-stat-pill" style="background:#7c3aed;color:white;" colspan="2">${mc.rate || 0}%</span>
+                <span></span>
+                <span class="cr-stat-cell">${crTrendMini(group.trend?.rate)}</span>
             </div>
         </div>`;
 
@@ -296,12 +299,13 @@ function crRenderGroups(data) {
                             <span class="cr-team-name" style="display:inline;">🏠 ${team.name}</span>
                             ${team.leader_name ? `<span class="cr-team-leader"> — TP: ${team.leader_name}</span>` : ''}
                         </div>
-                        <div class="cr-mgr-stats">
+                        <div class="cr-stat-grid">
                             <span class="cr-stat-pill" style="background:#e0e7ff;color:#3730a3;">${tc.total || 0}</span>
                             <span class="cr-stat-pill" style="background:#d1fae5;color:#065f46;">${tc.new || 0} mới</span>
                             <span class="cr-stat-pill" style="background:#ffedd5;color:#9a3412;">${tc.returning || 0} cũ</span>
                             <span class="cr-stat-pill" style="background:#ede9fe;color:#5b21b6;">${tc.rate || 0}%</span>
-                            ${crTrendMini(team.trend?.rate)}
+                            <span></span>
+                            <span class="cr-stat-cell">${crTrendMini(team.trend?.rate)}</span>
                         </div>
                     </div>`;
 
@@ -321,14 +325,14 @@ function crRenderGroups(data) {
                                 ${emp.name}
                             </div>
                             <div class="cr-emp-stats">
-                                <span style="font-size:12px;font-weight:700;color:#1e1b4b;">${ec.total || 0}</span>
-                                <span style="font-size:11px;color:#059669;">${ec.new || 0} mới</span>
-                                <span style="font-size:11px;color:#c2410c;">${ec.returning || 0} cũ</span>
+                                <span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">${ec.total || 0}</span>
+                                <span class="cr-stat-cell" style="color:#059669;">${ec.new || 0} mới</span>
+                                <span class="cr-stat-cell" style="color:#c2410c;">${ec.returning || 0} cũ</span>
                                 <div class="cr-progress-wrap">
                                     <div class="cr-progress-bar" style="width:${Math.min(ec.rate || 0, 100)}%;background:${crProgressColor(ec.rate || 0)};"></div>
                                 </div>
-                                <span style="font-size:12px;font-weight:800;color:#7c3aed;">${ec.rate || 0}%</span>
-                                ${crTrendMini(et.rate)}
+                                <span class="cr-stat-cell" style="font-weight:800;color:#7c3aed;">${ec.rate || 0}%</span>
+                                <span class="cr-stat-cell">${crTrendMini(et.rate)}</span>
                             </div>
                         </div>`;
                     });
