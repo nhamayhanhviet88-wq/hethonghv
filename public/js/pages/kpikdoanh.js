@@ -62,6 +62,19 @@ async function renderKpikdoanhPage(container) {
             .kpi-stage2{background:#fce7f3!important}
             .kpi-stage3{background:#dcfce7!important}
 
+            /* === TODAY HIGHLIGHT: fiery sparkling effect === */
+            @keyframes kpiFireGlow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+            @keyframes kpiSparkle{0%,100%{text-shadow:0 0 4px #fff,0 0 8px #fbbf24,0 0 12px #f59e0b}50%{text-shadow:0 0 8px #fff,0 0 16px #fb923c,0 0 24px #ef4444,0 0 32px #dc2626}}
+            @keyframes kpiPulse{0%,100%{box-shadow:inset 0 0 8px rgba(251,146,60,.3)}50%{box-shadow:inset 0 0 16px rgba(239,68,68,.5),0 0 6px rgba(251,146,60,.4)}}
+
+            .kpi-today-col{background:linear-gradient(180deg,#fef3c7,#fed7aa,#fecaca)!important;border-left:2.5px solid #f97316!important;border-right:2.5px solid #f97316!important;animation:kpiPulse 2s ease-in-out infinite}
+            .kpi-today-col.has-val{background:linear-gradient(180deg,#fde68a,#fdba74,#fca5a5)!important;color:#9a3412!important;font-weight:800!important;animation:kpiSparkle 1.5s ease-in-out infinite,kpiPulse 2s ease-in-out infinite}
+            th.kpi-today-hdr{background:linear-gradient(135deg,#dc2626,#f97316,#eab308,#f97316,#dc2626)!important;background-size:300% 300%!important;animation:kpiFireGlow 2s ease-in-out infinite!important;color:#fff!important;font-weight:900!important;font-size:11px!important;text-shadow:0 0 6px rgba(255,255,255,.8),0 0 12px #fbbf24!important;position:relative}
+
+            .kpi-stage-fire{background:linear-gradient(135deg,#dc2626,#ea580c,#f59e0b,#ea580c,#dc2626)!important;background-size:400% 400%!important;animation:kpiFireGlow 2.5s ease-in-out infinite!important;font-size:12px!important;text-shadow:0 0 8px rgba(255,255,255,.9),0 0 16px #fbbf24!important;position:relative;overflow:hidden}
+            .kpi-stage-fire::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:kpiShimmer 2s ease-in-out infinite}
+            @keyframes kpiShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
             /* Column group borders for Bảng 1 — only on td (header has colored backgrounds already)
                1=STT, 2=Cơ sở, 3-4=MỤC TIÊU, 5=DTTT, 6-7=Tỷ lệ HT, 8-9=Còn thiếu, 10-13=GĐ1, 14-17=GĐ2, 18-21=GĐ3 */
             .kpi-ov td:nth-child(3){border-left:2.5px solid #3b82f6}
@@ -219,14 +232,27 @@ function kpiRenderContent(data) {
     const dim = data.month.days_in_month;
     let html = '';
 
+    // Determine today and current stage
+    const now = new Date();
+    const [selY, selM] = _kpi.month.split('-').map(Number);
+    const isCurrentMonth = (now.getFullYear() === selY && (now.getMonth()+1) === selM);
+    const todayDay = isCurrentMonth ? now.getDate() : -1;
+    const currentStage = todayDay >= 1 && todayDay <= 10 ? 1 : todayDay >= 11 && todayDay <= 20 ? 2 : todayDay >= 21 ? 3 : 0;
+
     // ===== SECTION 1: Team Summary =====
     html += '<div class="kpi-section-title">📊 TỔNG QUAN KPI THEO TEAM</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl kpi-ov">';
-    // Header
+    // Header — highlight current stage with fire effect
+    const s1Cls = currentStage===1 ? 'kpi-stage-hdr kpi-stage-fire' : 'kpi-stage-hdr';
+    const s2Cls = currentStage===2 ? 'kpi-stage-hdr kpi-stage-fire' : 'kpi-stage-hdr';
+    const s3Cls = currentStage===3 ? 'kpi-stage-hdr kpi-stage-fire' : 'kpi-stage-hdr';
+    const s1Style = currentStage===1 ? '' : 'style="background:#1d4ed8!important"';
+    const s2Style = currentStage===2 ? '' : 'style="background:#be185d!important"';
+    const s3Style = currentStage===3 ? '' : 'style="background:#15803d!important"';
     html += '<thead><tr><th rowspan="2">STT</th><th rowspan="2">Cơ sở</th><th colspan="2">MỤC TIÊU</th><th rowspan="2">DT Thực tế</th><th colspan="2">Tỷ lệ HT</th><th colspan="2">Còn thiếu</th>';
-    html += '<th colspan="4" class="kpi-stage-hdr" style="background:#1d4ed8!important">GIAI ĐOẠN 1 (1-10)</th>';
-    html += '<th colspan="4" class="kpi-stage-hdr" style="background:#be185d!important">GIAI ĐOẠN 2 (11-20)</th>';
-    html += '<th colspan="4" class="kpi-stage-hdr" style="background:#15803d!important">GIAI ĐOẠN 3 (21-' + dim + ')</th>';
+    html += `<th colspan="4" class="${s1Cls}" ${s1Style}>🔥 GIAI ĐOẠN 1 (1-10)${currentStage===1?' ⬅ HIỆN TẠI':''}</th>`;
+    html += `<th colspan="4" class="${s2Cls}" ${s2Style}>${currentStage===2?'🔥 ':''}GIAI ĐOẠN 2 (11-20)${currentStage===2?' ⬅ HIỆN TẠI':''}</th>`;
+    html += `<th colspan="4" class="${s3Cls}" ${s3Style}>${currentStage===3?'🔥 ':''}GIAI ĐOẠN 3 (21-${dim})${currentStage===3?' ⬅ HIỆN TẠI':''}</th>`;
     html += '</tr><tr>';
     html += '<th class="sub">Mốc 1</th><th class="sub">Mốc 120%</th>';
     html += '<th class="sub">Mốc 1</th><th class="sub">Mốc 120%</th>';
@@ -271,20 +297,25 @@ function kpiRenderContent(data) {
     // ===== SECTION 2: Doanh Thu Theo Ngày (Team) =====
     html += '<div class="kpi-section-title">📅 DOANH THU THEO NGÀY</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr><th>STT</th><th>Cơ sở</th>';
-    for (let d = 1; d <= dim; d++) html += `<th class="sub">${d}/${data.month.month}</th>`;
+    for (let d = 1; d <= dim; d++) {
+        const isTdy = (d === todayDay);
+        html += `<th class="sub${isTdy?' kpi-today-hdr':''}">${d}/${data.month.month}${isTdy?' 📍':''}</th>`;
+    }
     html += '</tr></thead><tbody>';
 
     data.teams.forEach((t, idx) => {
         html += `<tr><td>${idx+1}</td><td class="name">${t.dept_name}</td>`;
-        t.daily.forEach(v => {
-            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}">${v>0?kpiFmt(v):'-'}</td>`;
+        t.daily.forEach((v, di) => {
+            const isTdy = ((di+1) === todayDay);
+            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}${isTdy?' kpi-today-col':''}">${v>0?kpiFmt(v):'-'}</td>`;
         });
         html += '</tr>';
     });
     // TỔNG
     html += `<tr class="total-row"><td></td><td class="name">TỔNG</td>`;
-    s.daily.forEach(v => {
-        html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:900">${v>0?kpiFmt(v):'-'}</td>`;
+    s.daily.forEach((v, di) => {
+        const isTdy = ((di+1) === todayDay);
+        html += `<td class="day-cell ${v>0?'has-val':'zero-val'}${isTdy?' kpi-today-col':''}" style="font-weight:900">${v>0?kpiFmt(v):'-'}</td>`;
     });
     html += '</tr></tbody></table></div>';
 
@@ -292,7 +323,10 @@ function kpiRenderContent(data) {
     html += '<div class="kpi-section-title">👥 DOANH THU VÀ TARGET NHÂN SỰ</div>';
     html += '<div class="kpi-tbl-wrap"><table class="kpi-tbl"><thead><tr>';
     html += '<th>STT</th><th>Mã NV</th><th>TVV</th><th>Target</th><th>DTTT</th><th>Tỷ lệ HT</th><th>Còn thiếu</th>';
-    for (let d = 1; d <= dim; d++) html += `<th class="sub">${d}/${data.month.month}</th>`;
+    for (let d = 1; d <= dim; d++) {
+        const isTdy = (d === todayDay);
+        html += `<th class="sub${isTdy?' kpi-today-hdr':''}">${d}/${data.month.month}${isTdy?' 📍':''}</th>`;
+    }
     html += '</tr></thead><tbody>';
 
     data.teams.forEach(team => {
@@ -303,8 +337,9 @@ function kpiRenderContent(data) {
             html += `<td style="font-weight:700">${kpiFmtFull(emp.actual)}</td>`;
             html += `<td class="pct-cell ${emp.rate>=100?'pos':'neg'}">${emp.rate}%</td>`;
             html += `<td class="${emp.missing<=0?'pos':'neg'}">${kpiSignFmtFull(emp.missing)}</td>`;
-            emp.daily.forEach(v => {
-                html += `<td class="day-cell ${v>0?'has-val':'zero-val'}">${v>0?kpiFmt(v):'-'}</td>`;
+            emp.daily.forEach((v, di) => {
+                const isTdy = ((di+1) === todayDay);
+                html += `<td class="day-cell ${v>0?'has-val':'zero-val'}${isTdy?' kpi-today-col':''}">${v>0?kpiFmt(v):'-'}</td>`;
             });
             html += '</tr>';
         });
@@ -314,8 +349,9 @@ function kpiRenderContent(data) {
         html += `<td>${kpiFmtFull(team.actual)}</td>`;
         html += `<td class="pct-cell ${team.rate_1>=100?'pos':'neg'}">${team.rate_1}%</td>`;
         html += `<td class="${team.missing_1<=0?'pos':'neg'}">${kpiSignFmtFull(team.missing_1)}</td>`;
-        team.daily.forEach(v => {
-            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
+        team.daily.forEach((v, di) => {
+            const isTdy = ((di+1) === todayDay);
+            html += `<td class="day-cell ${v>0?'has-val':'zero-val'}${isTdy?' kpi-today-col':''}" style="font-weight:800">${v>0?kpiFmt(v):'-'}</td>`;
         });
         html += '</tr>';
         // Empty separator row
