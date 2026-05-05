@@ -17,8 +17,25 @@ async function renderDashboardkdoanhPage(container) {
     const mo = now.getMonth() + 1;
     if (!_cr.dateStr) _cr.dateStr = `${yr}-${String(mo).padStart(2, '0')}`;
 
+    // Inject Inter font into document head (must be in <head> to load properly)
+    if (!document.getElementById('cr-inter-font')) {
+        const preconnect = document.createElement('link');
+        preconnect.rel = 'preconnect';
+        preconnect.href = 'https://fonts.googleapis.com';
+        document.head.appendChild(preconnect);
+        const preconnect2 = document.createElement('link');
+        preconnect2.rel = 'preconnect';
+        preconnect2.href = 'https://fonts.gstatic.com';
+        preconnect2.crossOrigin = 'anonymous';
+        document.head.appendChild(preconnect2);
+        const fontLink = document.createElement('link');
+        fontLink.id = 'cr-inter-font';
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap';
+        document.head.appendChild(fontLink);
+    }
+
     container.innerHTML = `
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
             .cr-wrap { max-width: 1200px; margin: 0 auto; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
             .cr-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
