@@ -1194,6 +1194,7 @@ function crRenderLeaderboard(data) {
         + '<div class="cr-lb-body" id="crLbBody">'
         + '<div class="cr-lb-row" style="background:#f8fafc;font-weight:700;font-size:12px;color:#475569;">'
         + '<div style="text-align:center;">#</div><div>Nh\u00e2n vi\u00ean</div><div style="text-align:right;">\u0110\u01a1n h\u00e0ng</div><div style="text-align:right;">Doanh s\u1ed1</div><div style="text-align:right;">\uD83D\uDD04 C\u0110</div><div style="text-align:right;">TK Aff</div><div style="text-align:right;">KH c\u0169 %</div>'
+        + '</div>'
         + renderRows(lb[_crLbType])
         + '</div></div>';
 }
