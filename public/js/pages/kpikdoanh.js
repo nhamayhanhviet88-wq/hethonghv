@@ -638,7 +638,7 @@ function kpiRenderTeamCompare(el, data, advData) {
         h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
         h += '<div class="kpi-tc-name">🏠 ' + team.name + ' <span style="font-size:12px;font-weight:500;color:#6b7280">(' + (team.employee_count || 0) + ' NV)</span></div>';
         h += '<div class="kpi-tc-stats">';
-        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + kpiDashFmtVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
+        h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#3b82f6">' + kpiDashFmtVND(team.revenue || 0) + '</div><div class="kpi-tc-stat-label">💰 Doanh Số</div><div style="margin-top:4px">' + kpiTrend(team.revenue || 0, prev.revenue || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#4338ca">' + (team.total_orders || 0) + '</div><div class="kpi-tc-stat-label">📦 Tổng Đơn</div><div style="margin-top:4px">' + kpiTrend(team.total_orders || 0, prev.total_orders || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#7c3aed">' + (team.rate || 0) + '%</div><div class="kpi-tc-stat-label">🔁 TỈ LỆ KH CŨ</div><div style="margin-top:4px">' + kpiTrend(team.rate || 0, prev.rate || 0) + '</div></div>';
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + (team.affiliate_new || 0) + '</div><div class="kpi-tc-stat-label">🤝 TẠO TK AFF</div><div style="margin-top:4px">' + kpiTrend(team.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
