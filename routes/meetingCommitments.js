@@ -151,10 +151,12 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true };
     });
 
-    // ===== ADD commitments for a user (GĐ only) =====
+    // ===== ADD commitments for a user (GĐ or self) =====
     fastify.post('/api/meeting-commitments', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được ghi cam kết' });
+        const targetUserId = parseInt(request.body?.user_id);
+        const isSelf = targetUserId === request.user.id;
+        if (request.user.role !== 'giam_doc' && !isSelf) {
+            return reply.code(403).send({ error: 'Bạn chỉ được ghi cam kết cho chính mình' });
         }
 
         const { session_id, user_id, items } = request.body || {};
@@ -177,10 +179,13 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true, count: items.length };
     });
 
-    // ===== REVIEW/UPDATE commitment (GĐ only) =====
+    // ===== REVIEW/UPDATE commitment (GĐ or self) =====
     fastify.put('/api/meeting-commitments/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được review' });
+        // Check if this commitment belongs to the current user
+        const commitment = await db.get('SELECT user_id FROM meeting_commitments WHERE id = $1', [request.params.id]);
+        const isSelf = commitment && commitment.user_id === request.user.id;
+        if (request.user.role !== 'giam_doc' && !isSelf) {
+            return reply.code(403).send({ error: 'Bạn chỉ được review cam kết của chính mình' });
         }
 
         const { is_completed, completion_pct, review_note } = request.body || {};
@@ -197,10 +202,24 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true };
     });
 
-    // ===== BATCH REVIEW (GĐ only) =====
+    // ===== BATCH REVIEW (GĐ or self) =====
     fastify.put('/api/meeting-commitments/batch-review', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+        const isDirector = request.user.role === 'giam_doc';
+
+        if (!isDirector) {
+            // Verify all review items belong to the current user
+            const { reviews } = request.body || {};
+            if (Array.isArray(reviews) && reviews.length > 0) {
+                const ids = reviews.map(r => r.id);
+                const ph = ids.map((_, i) => `$${i + 1}`).join(',');
+                const owned = await db.all(
+                    `SELECT id FROM meeting_commitments WHERE id IN (${ph}) AND user_id = $${ids.length + 1}`,
+                    [...ids, request.user.id]
+                );
+                if (owned.length !== ids.length) {
+                    return reply.code(403).send({ error: 'Bạn chỉ được review cam kết của chính mình' });
+                }
+            }
         }
 
         const { reviews } = request.body || {};
