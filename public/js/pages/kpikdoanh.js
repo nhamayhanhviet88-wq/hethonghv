@@ -959,17 +959,62 @@ window.mcReviewUser = async function(userId, userName) {
 
     for (var i = 0; i < userCommits.length; i++) {
         var c = userCommits[i];
-        var rev = c.target_revenue > 0 ? ' — Mục tiêu: ' + kpiDashFmtVND(c.target_revenue) : '';
-        h += '<div class="kpi-mc-item" data-review-id="' + c.id + '">'
+        var hasTarget = c.target_revenue > 0;
+
+        // Parse content: split ❓ question and ✅ answer
+        var contentHtml = '';
+        if (c.content.indexOf('❓') >= 0 && c.content.indexOf('✅') >= 0) {
+            var parts = c.content.split('\n');
+            var questionLine = '', answerLine = '';
+            for (var p = 0; p < parts.length; p++) {
+                if (parts[p].trim().indexOf('❓') === 0) questionLine = parts[p].trim().substring(2).trim();
+                if (parts[p].trim().indexOf('✅') === 0) answerLine = parts[p].trim().substring(2).trim();
+            }
+            contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;border-left:3px solid #4338ca;margin-bottom:8px">';
+            contentHtml += '<div style="font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">📋 Câu hỏi</div>';
+            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b">' + questionLine + '</div>';
+            contentHtml += '</div>';
+            contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:8px;border-left:3px solid #059669;margin-bottom:8px">';
+            contentHtml += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">✍️ Câu trả lời</div>';
+            contentHtml += '<div style="font-size:13px;color:#1e293b;white-space:pre-line">' + answerLine + '</div>';
+            contentHtml += '</div>';
+        } else {
+            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:8px;white-space:pre-line">' + c.content + '</div>';
+        }
+
+        // Target display
+        if (hasTarget) {
+            contentHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:8px;border-left:3px solid #f59e0b;margin-bottom:10px">';
+            contentHtml += '<span style="font-size:13px;font-weight:700;color:#b45309">🎯 Mục tiêu:</span>';
+            contentHtml += '<span style="font-size:16px;font-weight:800;color:#d97706">' + kpiDashFmtVND(c.target_revenue) + '</span>';
+            contentHtml += '</div>';
+        }
+
+        h += '<div class="kpi-mc-item" data-review-id="' + c.id + '" data-has-target="' + (hasTarget ? '1' : '0') + '" data-target="' + (c.target_revenue || 0) + '">'
             + '<div class="kpi-mc-item-head"><div class="kpi-mc-item-stt">' + c.stt + '</div>'
-            + '<div style="flex:1;font-size:13px"><div style="font-weight:700;color:#1e293b">' + c.content + '</div>'
-            + '<div style="font-size:11px;color:#6b7280;margin-top:2px">' + rev + '</div></div></div>'
-            + '<div style="display:flex;gap:10px;align-items:center;margin-top:8px">'
-            + '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#374151"><input type="checkbox" class="rv-done" ' + (c.is_completed ? 'checked' : '') + '> Hoàn thành</label>'
-            + '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"><span style="font-size:11px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>'
-            + '</div>'
-            + '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:8px">'
-            + '</div>';
+            + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + c.stt + '</div></div>'
+            + contentHtml;
+
+        if (hasTarget) {
+            // Mandatory actual achieved input + auto-calc completion %
+            var currentPct = c.completion_pct || 0;
+            var currentActual = hasTarget && currentPct > 0 ? Math.round(c.target_revenue * currentPct / 100) : '';
+            h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+            h += '<span style="font-size:12px;font-weight:700;color:#7c3aed;white-space:nowrap">📊 Đã đạt:</span>';
+            h += '<input class="kpi-mc-input rv-actual" type="number" placeholder="Nhập số liệu hoàn thành..." value="' + currentActual + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)">';
+            h += '<span class="rv-pct-display" style="font-size:14px;font-weight:800;color:#4338ca;min-width:50px;text-align:right">' + currentPct + '%</span>';
+            h += '</div>';
+            h += '<input type="hidden" class="rv-pct" value="' + currentPct + '">';
+        } else {
+            // No target: simple slider
+            h += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">';
+            h += '<span style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">📊 Tiến độ:</span>';
+            h += '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"><span style="font-size:12px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>';
+            h += '</div>';
+        }
+
+        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px">';
+        h += '</div>';
     }
 
     h += '</div><div class="kpi-mc-modal-foot">'
@@ -980,15 +1025,32 @@ window.mcReviewUser = async function(userId, userName) {
     document.body.appendChild(overlay);
 };
 
+// Auto-calculate completion % from actual vs target
+window.mcCalcPct = function(input) {
+    var item = input.closest('[data-review-id]');
+    var target = parseFloat(item.getAttribute('data-target')) || 0;
+    var actual = parseFloat(input.value) || 0;
+    var pct = target > 0 ? Math.min(Math.round(100 * actual / target), 999) : 0;
+    item.querySelector('.rv-pct').value = pct;
+    item.querySelector('.rv-pct-display').textContent = pct + '%';
+    // Color coding
+    var display = item.querySelector('.rv-pct-display');
+    if (pct >= 100) display.style.color = '#059669';
+    else if (pct >= 50) display.style.color = '#f59e0b';
+    else display.style.color = '#ef4444';
+};
+
 window.mcSaveReview = async function() {
     var items = document.querySelectorAll('[data-review-id]');
     var reviews = [];
     for (var i = 0; i < items.length; i++) {
         var el = items[i];
+        var pct = parseInt(el.querySelector('.rv-pct').value) || 0;
+        var hasTarget = el.getAttribute('data-has-target') === '1';
         reviews.push({
             id: parseInt(el.getAttribute('data-review-id')),
-            is_completed: el.querySelector('.rv-done').checked,
-            completion_pct: parseInt(el.querySelector('.rv-pct').value) || 0,
+            is_completed: pct >= 100,
+            completion_pct: pct,
             review_note: el.querySelector('.rv-note').value
         });
     }
