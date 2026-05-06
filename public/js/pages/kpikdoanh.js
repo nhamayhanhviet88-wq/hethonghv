@@ -797,20 +797,38 @@ function kpiRenderMeetingCommit(el) {
         h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px">📊 Tổng Kết Cam Kết Tháng';
         var mNow = new Date();
         h += ' <span style="font-size:12px;font-weight:500;color:#6366f1">' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
-        // Build per-person aggregates
+        // Build per-person aggregates (per-session averaging)
         var personMap = {};
         for (var ai = 0; ai < _mcAllCommitments.length; ai++) {
             var ac = _mcAllCommitments[ai];
+            if (ac.team_dept_id) continue; // Skip team-own commits for individual summary
             if (!personMap[ac.user_id]) {
-                personMap[ac.user_id] = { name: ac.user_name, role: ac.user_role, total: 0, done: 0, sumPct: 0 };
+                personMap[ac.user_id] = { name: ac.user_name, role: ac.user_role, total: 0, done: 0, sessionPcts: {} };
             }
             personMap[ac.user_id].total++;
             if (ac.is_completed) personMap[ac.user_id].done++;
-            personMap[ac.user_id].sumPct += (ac.completion_pct || 0);
+            // Group by session_id
+            if (!personMap[ac.user_id].sessionPcts[ac.session_id]) {
+                personMap[ac.user_id].sessionPcts[ac.session_id] = { sum: 0, count: 0 };
+            }
+            personMap[ac.user_id].sessionPcts[ac.session_id].sum += (ac.completion_pct || 0);
+            personMap[ac.user_id].sessionPcts[ac.session_id].count++;
         }
         var personArr = Object.keys(personMap).map(function(uid) {
             var p = personMap[uid];
-            p.avgPct = p.total > 0 ? Math.round(p.sumPct / p.total) : 0;
+            // Average of per-session averages
+            var sessKeys = Object.keys(p.sessionPcts);
+            if (sessKeys.length > 0) {
+                var sessAvgSum = 0;
+                for (var sk = 0; sk < sessKeys.length; sk++) {
+                    var sp = p.sessionPcts[sessKeys[sk]];
+                    sessAvgSum += (sp.sum / sp.count);
+                }
+                p.avgPct = Math.round(sessAvgSum / sessKeys.length);
+            } else {
+                p.avgPct = 0;
+            }
+            p.sessionCount = sessKeys.length;
             return p;
         }).sort(function(a, b) { return b.avgPct - a.avgPct; });
 
@@ -838,12 +856,12 @@ function kpiRenderMeetingCommit(el) {
             h += '</div>';
             h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;font-weight:600">';
             h += '<span>Hoàn thành: ' + p.done + '/' + p.total + '</span>';
-            h += '<span>' + _mcSessions.length + ' cuộc họp</span>';
+            h += '<span>' + p.sessionCount + ' cuộc họp</span>';
             h += '</div></div>';
         }
         h += '</div>';
 
-        // ===== TEAM SUMMARY CARDS =====
+        // ===== TEAM SUMMARY CARDS (team-own commits only, per-session averaging) =====
         if (_mcTeams && _mcTeams.length > 0) {
             h += '<div style="margin-top:16px">';
             h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
@@ -851,17 +869,31 @@ function kpiRenderMeetingCommit(el) {
             for (var tsi = 0; tsi < _mcTeams.length; tsi++) {
                 var tteam = _mcTeams[tsi];
                 if (!tteam.members || tteam.members.length === 0) continue;
-                var memberIds = tteam.members.map(function(m) { return m.id; });
-                // Aggregate: individual member commits + team-own commits
-                var teamAllCommits = _mcAllCommitments.filter(function(c) {
-                    return memberIds.indexOf(c.user_id) >= 0 || c.team_dept_id === tteam.id;
-                });
-                var tTotal = teamAllCommits.length;
-                var tDone = teamAllCommits.filter(function(c) { return c.is_completed; }).length;
-                var tAvgPct = tTotal > 0 ? Math.round(teamAllCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / tTotal) : 0;
+                // ONLY team-own commits (team_dept_id === team.id)
+                var teamOwnAll = _mcAllCommitments.filter(function(c) { return c.team_dept_id === tteam.id; });
+                var tTotal = teamOwnAll.length;
+                var tDone = teamOwnAll.filter(function(c) { return c.is_completed; }).length;
+
+                // Per-session averaging
+                var tSessionMap = {};
+                for (var tci = 0; tci < teamOwnAll.length; tci++) {
+                    var tc = teamOwnAll[tci];
+                    if (!tSessionMap[tc.session_id]) tSessionMap[tc.session_id] = { sum: 0, count: 0 };
+                    tSessionMap[tc.session_id].sum += (tc.completion_pct || 0);
+                    tSessionMap[tc.session_id].count++;
+                }
+                var tSessKeys = Object.keys(tSessionMap);
+                var tAvgPct = 0;
+                if (tSessKeys.length > 0) {
+                    var tSessSum = 0;
+                    for (var tsk = 0; tsk < tSessKeys.length; tsk++) {
+                        var ts = tSessionMap[tSessKeys[tsk]];
+                        tSessSum += (ts.sum / ts.count);
+                    }
+                    tAvgPct = Math.round(tSessSum / tSessKeys.length);
+                }
 
                 var tColor = tAvgPct >= 80 ? '#059669' : (tAvgPct >= 50 ? '#d97706' : '#dc2626');
-                var tBorder = tAvgPct >= 80 ? '#a7f3d0' : (tAvgPct >= 50 ? '#fde68a' : '#fecaca');
                 var tGrad = tAvgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (tAvgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
 
                 h += '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:10px;padding:12px 14px;border:1px solid #c4b5fd;border-left:4px solid #8b5cf6;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(139,92,246,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
@@ -879,7 +911,7 @@ function kpiRenderMeetingCommit(el) {
                 h += '</div>';
                 h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;font-weight:600">';
                 h += '<span>Hoàn thành: ' + tDone + '/' + tTotal + '</span>';
-                h += '<span>' + _mcSessions.length + ' cuộc họp</span>';
+                h += '<span>' + tSessKeys.length + ' cuộc họp</span>';
                 h += '</div></div>';
             }
             h += '</div></div>';
