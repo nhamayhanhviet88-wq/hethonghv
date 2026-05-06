@@ -758,9 +758,13 @@ function kpiRenderMeetingCommit(el) {
                 } else {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
                 }
-                var alreadyReviewed = empCommits.some(function(c) { return c.reviewed_by && c.reviewed_by !== emp.id; });
-                if (isGD || (isSelf && !alreadyReviewed)) {
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">' + (isSelf ? '📝 Tự đánh giá' : '✅ Review') + '</button>';
+                var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
+                if (isGD) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                } else if (isSelf && !anyReviewed) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Tự đánh giá</button>';
+                } else if (isSelf && anyReviewed) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem đánh giá</button>';
                 }
                 if (isGD) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
@@ -1014,8 +1018,8 @@ window.mcSaveCommitments = async function(userId) {
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
-// Review commitments for a user
-window.mcReviewUser = async function(userId, userName) {
+// Review commitments for a user (readOnly=true → view only, no editing)
+window.mcReviewUser = async function(userId, userName, readOnly) {
     var userCommits = _mcCommitments.filter(function(c) { return c.user_id === userId; });
     if (userCommits.length === 0) return alert('Chưa có cam kết');
 
@@ -1023,8 +1027,9 @@ window.mcReviewUser = async function(userId, userName) {
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
+    var modalTitle = readOnly ? '👁️ Xem Đánh Giá — ' + userName : '✅ Review — ' + userName;
     var h = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>✅ Review — ' + userName + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-head"><h3>' + modalTitle + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
         + '<div class="kpi-mc-modal-body">';
 
     for (var i = 0; i < userCommits.length; i++) {
@@ -1066,31 +1071,33 @@ window.mcReviewUser = async function(userId, userName) {
             + contentHtml;
 
         if (hasTarget) {
-            // Mandatory actual achieved input + auto-calc completion %
             var currentPct = c.completion_pct || 0;
             var currentActual = hasTarget && currentPct > 0 ? Math.round(c.target_revenue * currentPct / 100) : '';
             h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
             h += '<span style="font-size:12px;font-weight:700;color:#7c3aed;white-space:nowrap">📊 Đã đạt:</span>';
-            h += '<input class="kpi-mc-input rv-actual" type="number" placeholder="Nhập số liệu hoàn thành..." value="' + currentActual + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)">';
+            h += '<input class="kpi-mc-input rv-actual" type="number" placeholder="Nhập số liệu hoàn thành..." value="' + currentActual + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)"' + (readOnly ? ' disabled' : '') + '>';
             h += '<span class="rv-pct-display" style="font-size:14px;font-weight:800;color:#4338ca;min-width:50px;text-align:right">' + currentPct + '%</span>';
             h += '</div>';
             h += '<input type="hidden" class="rv-pct" value="' + currentPct + '">';
         } else {
-            // No target: simple slider
             h += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">';
             h += '<span style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">📊 Tiến độ:</span>';
-            h += '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"><span style="font-size:12px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>';
+            h += '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"' + (readOnly ? ' disabled' : '') + '><span style="font-size:12px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>';
             h += '</div>';
         }
 
-        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px">';
+        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
         h += '</div>';
     }
 
-    h += '</div><div class="kpi-mc-modal-foot">'
-        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
-        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveReview()">💾 Lưu Review</button>'
-        + '</div></div>';
+    h += '</div><div class="kpi-mc-modal-foot">';
+    if (readOnly) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button>';
+    } else {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveReview()">💾 Lưu Review</button>';
+    }
+    h += '</div></div>';
     overlay.innerHTML = h;
     document.body.appendChild(overlay);
 };
