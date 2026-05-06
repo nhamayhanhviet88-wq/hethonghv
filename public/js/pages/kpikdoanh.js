@@ -886,9 +886,12 @@ function kpiRenderMeetingCommit(el) {
                 var teamBadgeClass = teamDone === allTeamScope.length && allTeamScope.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
                 h += '<div class="kpi-mc-team">';
-                h += '<div class="kpi-mc-team-name" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">';
-                h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
-                h += '<div style="display:flex;align-items:center;gap:6px">';
+                h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
+
+                // Team actions row — same structure as employee rows for alignment
+                h += '<div class="kpi-mc-emp" style="background:linear-gradient(90deg,#faf5ff,#f3e8ff);border:1px solid #e9d5ff;border-radius:10px;margin:4px 0">';
+                h += '<div><span class="kpi-mc-emp-name" style="color:#7c3aed;font-weight:800">📊 Cam Kết Team</span></div>';
+                h += '<div class="kpi-mc-emp-actions">';
                 if (allTeamScope.length > 0) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
                 }
@@ -897,15 +900,15 @@ function kpiRenderMeetingCommit(el) {
                     if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
                         if (isGD) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✏️</button>';
                         } else if (!teamReviewed) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                         } else {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
                         }
                     } else {
-                        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">📝 Ghi Team</button>';
+                        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">📝 Ghi Team</button>';
                     }
                 }
                 h += '</div></div>';
