@@ -246,6 +246,45 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
         return { session, commitments };
     });
+
+    // ===== GET commitment templates for a page =====
+    fastify.get('/api/meeting-commitments/templates', { preHandler: [authenticate] }, async (request, reply) => {
+        const { page } = request.query;
+        if (!page) return reply.code(400).send({ error: 'Thiếu page key' });
+
+        const templates = await db.all(
+            'SELECT * FROM meeting_commitment_templates WHERE page_key = $1 ORDER BY stt',
+            [page]
+        );
+        return { templates };
+    });
+
+    // ===== SAVE commitment templates for a page (GĐ only) =====
+    fastify.put('/api/meeting-commitments/templates', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') {
+            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được setup câu hỏi' });
+        }
+
+        const { page_key, items } = request.body || {};
+        if (!page_key || !Array.isArray(items)) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+
+        // Delete old templates for this page, then insert new ones
+        await db.run('DELETE FROM meeting_commitment_templates WHERE page_key = $1', [page_key]);
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (!item.question_content || !item.question_content.trim()) continue;
+            await db.run(
+                `INSERT INTO meeting_commitment_templates (page_key, stt, question_content, has_revenue_target, created_by, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [page_key, i + 1, item.question_content.trim(), !!item.has_revenue_target, request.user.id]
+            );
+        }
+
+        return { success: true, count: items.length };
+    });
 }
 
 module.exports = meetingCommitmentsRoutes;

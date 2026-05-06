@@ -162,6 +162,17 @@ async function start() {
             created_at TIMESTAMP DEFAULT NOW()
         )`);
     } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS meeting_commitment_templates (
+            id SERIAL PRIMARY KEY,
+            page_key VARCHAR(100) NOT NULL,
+            stt INTEGER NOT NULL DEFAULT 1,
+            question_content TEXT NOT NULL,
+            has_revenue_target BOOLEAN DEFAULT false,
+            created_by INTEGER REFERENCES users(id),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
 
     // Plugins
     fastify.register(require('@fastify/cookie'));

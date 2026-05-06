@@ -713,6 +713,7 @@ function kpiRenderMeetingCommit(el) {
     h += '</div><div style="display:flex;gap:8px">';
     if (isGD) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcCreateSession()">➕ Tạo Cuộc Họp</button>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates()" title="Setup câu hỏi cam kết mẫu">⚙️ Câu Hỏi Mẫu</button>';
     }
     h += '<a href="/camketcuochop" class="kpi-mc-btn kpi-mc-btn-ghost" style="text-decoration:none">📋 Xem Lịch Sử</a>';
     h += '</div></div>';
@@ -806,12 +807,28 @@ window.mcSaveSession = async function() {
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
-// Edit/Add commitments for a user
+// Edit/Add commitments for a user — auto-fill from templates if no existing commitments
 window.mcEditUser = async function(userId, userName) {
     var existing = _mcCommitments.filter(function(c) { return c.user_id === userId; });
-    var items = existing.length > 0
-        ? existing.map(function(c) { return { content: c.content, target_revenue: c.target_revenue }; })
-        : [{ content: '', target_revenue: 0 }];
+    var items;
+
+    if (existing.length > 0) {
+        items = existing.map(function(c) { return { content: c.content, target_revenue: c.target_revenue }; });
+    } else {
+        // Try to load templates for this page
+        try {
+            var tplData = await apiCall('/api/meeting-commitments/templates?page=kpikdoanh');
+            if (tplData.templates && tplData.templates.length > 0) {
+                items = tplData.templates.map(function(t) {
+                    return { content: t.question_content, target_revenue: 0, isTemplate: true, hasRevenue: t.has_revenue_target };
+                });
+            } else {
+                items = [{ content: '', target_revenue: 0 }];
+            }
+        } catch(e) {
+            items = [{ content: '', target_revenue: 0 }];
+        }
+    }
 
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
@@ -822,7 +839,7 @@ window.mcEditUser = async function(userId, userName) {
         + '<div class="kpi-mc-modal-body"><div id="mcItemsList">';
 
     for (var i = 0; i < items.length; i++) {
-        h += mcRenderItemEdit(i + 1, items[i].content, items[i].target_revenue);
+        h += mcRenderItemEdit(i + 1, items[i].content, items[i].target_revenue, items[i].isTemplate);
     }
 
     h += '</div>'
@@ -836,11 +853,12 @@ window.mcEditUser = async function(userId, userName) {
     document.body.appendChild(overlay);
 };
 
-function mcRenderItemEdit(stt, content, revenue) {
+function mcRenderItemEdit(stt, content, revenue, isTemplate) {
+    var tplBadge = isTemplate ? '<span style="font-size:10px;background:#dbeafe;color:#2563eb;padding:1px 6px;border-radius:4px;margin-left:6px">Mẫu</span>' : '';
     return '<div class="kpi-mc-item" data-mc-item>'
         + '<div class="kpi-mc-item-head">'
         + '<div class="kpi-mc-item-stt">' + stt + '</div>'
-        + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + '</div>'
+        + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + tplBadge + '</div>'
         + '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>'
         + '</div>'
         + '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
@@ -932,6 +950,88 @@ window.mcSaveReview = async function() {
         await apiCall('/api/meeting-commitments/batch-review', 'PUT', { reviews: reviews });
         document.querySelector('.kpi-mc-modal-overlay').remove();
         kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
+
+// ===== TEMPLATE SETUP MODAL (GĐ only) =====
+window.mcSetupTemplates = async function() {
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    // Load existing templates
+    var templates = [];
+    try {
+        var res = await apiCall('/api/meeting-commitments/templates?page=kpikdoanh');
+        templates = res.templates || [];
+    } catch(e) {}
+
+    var h = '<div class="kpi-mc-modal" style="max-width:600px">'
+        + '<div class="kpi-mc-modal-head"><h3>⚙️ Setup Câu Hỏi Cam Kết — KPI P.Kinh Doanh</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">'
+        + '<div style="margin-bottom:12px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534">💡 Các câu hỏi mẫu sẽ tự động điền vào form khi bấm "📝 Ghi" cho nhân viên chưa có cam kết.</div>'
+        + '<div id="mcTplList">';
+
+    if (templates.length === 0) {
+        h += mcRenderTplItem(1, '', false);
+    } else {
+        for (var i = 0; i < templates.length; i++) {
+            h += mcRenderTplItem(i + 1, templates[i].question_content, templates[i].has_revenue_target);
+        }
+    }
+
+    h += '</div>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddTplItem()" style="width:100%;margin-top:10px">➕ Thêm câu hỏi</button>'
+        + '</div>'
+        + '<div class="kpi-mc-modal-foot">'
+        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
+        + '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveTemplates()">💾 Lưu Câu Hỏi Mẫu</button>'
+        + '</div></div>';
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+};
+
+function mcRenderTplItem(stt, content, hasRevenue) {
+    return '<div class="kpi-mc-item" data-tpl-item>'
+        + '<div class="kpi-mc-item-head">'
+        + '<div class="kpi-mc-item-stt">' + stt + '</div>'
+        + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Câu hỏi #' + stt + '</div>'
+        + '<button class="kpi-mc-remove" onclick="this.closest(\'[data-tpl-item]\').remove();mcReindexTpl()">✕</button>'
+        + '</div>'
+        + '<textarea class="kpi-mc-input tpl-content" rows="2" placeholder="VD: Mục tiêu doanh số giai đoạn tiếp theo?" style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;cursor:pointer"><input type="checkbox" class="tpl-has-rev"' + (hasRevenue ? ' checked' : '') + '> Có ô nhập mục tiêu doanh số</label>'
+        + '</div>';
+}
+
+window.mcAddTplItem = function() {
+    var list = document.getElementById('mcTplList');
+    if (!list) return;
+    var count = list.querySelectorAll('[data-tpl-item]').length;
+    list.insertAdjacentHTML('beforeend', mcRenderTplItem(count + 1, '', false));
+};
+
+window.mcReindexTpl = function() {
+    var items = document.querySelectorAll('[data-tpl-item]');
+    for (var i = 0; i < items.length; i++) {
+        items[i].querySelector('.kpi-mc-item-stt').textContent = (i + 1);
+        items[i].querySelector('[style*="flex:1"]').childNodes[0].textContent = 'Câu hỏi #' + (i + 1);
+    }
+};
+
+window.mcSaveTemplates = async function() {
+    var items = document.querySelectorAll('[data-tpl-item]');
+    var data = [];
+    for (var i = 0; i < items.length; i++) {
+        var content = items[i].querySelector('.tpl-content').value.trim();
+        var hasRev = items[i].querySelector('.tpl-has-rev').checked;
+        if (content) {
+            data.push({ question_content: content, has_revenue_target: hasRev });
+        }
+    }
+    try {
+        await apiCall('/api/meeting-commitments/templates', 'PUT', { page_key: 'kpikdoanh', items: data });
+        document.querySelector('.kpi-mc-modal-overlay').remove();
+        alert('✅ Đã lưu ' + data.length + ' câu hỏi mẫu!');
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
