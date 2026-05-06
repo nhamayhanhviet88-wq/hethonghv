@@ -956,19 +956,18 @@ function kpiRenderMeetingCommit(el) {
                     var memberIds = team.members.map(function(m) { return m.id; });
                     return memberIds.indexOf(c.user_id) >= 0 && !c.team_dept_id;
                 });
-                // Team-level commits (department_id set)
+                // Team-level commits (department_id set) — used for team badge
                 var teamOwnCommits = sessCommits.filter(function(c) { return c.team_dept_id === team.id; });
-                var allTeamScope = teamCommits.concat(teamOwnCommits);
-                var teamDone = allTeamScope.filter(function(c) { return c.is_completed; }).length;
-                var teamPct = allTeamScope.length > 0 ? Math.round(allTeamScope.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / allTeamScope.length) : 0;
-                var teamBadgeClass = teamDone === allTeamScope.length && allTeamScope.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
+                var teamDone = teamOwnCommits.filter(function(c) { return c.is_completed; }).length;
+                var teamPct = teamOwnCommits.length > 0 ? Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length) : 0;
+                var teamBadgeClass = teamDone === teamOwnCommits.length && teamOwnCommits.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
                 h += '<div class="kpi-mc-team">';
                 h += '<div class="kpi-mc-team-name" style="justify-content:space-between">';
                 h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
-                if (allTeamScope.length > 0) {
-                    h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
+                if (teamOwnCommits.length > 0) {
+                    h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
                     if (teamOwnCommits.length > 0) {
