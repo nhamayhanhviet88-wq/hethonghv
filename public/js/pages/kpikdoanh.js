@@ -775,10 +775,17 @@ function kpiRenderMeetingCommit(el) {
                 }
                 var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
 
-                if (canEdit) {
-                    // GĐ / QL: full review + edit
+                if (isGD) {
+                    // GĐ: always full Review + Edit
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                } else if (canEdit && !isSelf) {
+                    // QL: can review if not yet reviewed, view-only if already reviewed
+                    if (!anyReviewed) {
+                        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                    } else {
+                        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                    }
                 } else if (isSelf && !anyReviewed) {
                     // Self: not yet reviewed → can self-assess
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Tự đánh giá</button>';
@@ -791,7 +798,7 @@ function kpiRenderMeetingCommit(el) {
                 }
             } else {
                 h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                if (canEdit || isSelf) {
+                if (isGD || canEdit || isSelf) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
                 }
             }
