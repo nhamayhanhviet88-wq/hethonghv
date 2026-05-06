@@ -750,19 +750,23 @@ function kpiRenderMeetingCommit(el) {
             h += '</div>';
             h += '<div class="kpi-mc-emp-actions">';
 
+            var isSelf = typeof currentUser !== 'undefined' && currentUser && currentUser.id === emp.id;
+
             if (totalItems > 0) {
                 if (doneItems === totalItems) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
                 } else {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
                 }
-                if (isGD) {
+                if (isGD || isSelf) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                }
+                if (isGD) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                 }
             } else {
                 h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                if (isGD) {
+                if (isGD || isSelf) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
                 }
             }
