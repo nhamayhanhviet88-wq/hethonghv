@@ -162,6 +162,8 @@ async function start() {
             created_at TIMESTAMP DEFAULT NOW()
         )`);
     } catch(e) { /* exists */ }
+    // Migration: add department_id for team-level commitments
+    try { await db.exec(`ALTER TABLE meeting_commitments ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id)`); } catch(e) { /* exists */ }
     try {
         await db.exec(`CREATE TABLE IF NOT EXISTS meeting_commitment_templates (
             id SERIAL PRIMARY KEY,

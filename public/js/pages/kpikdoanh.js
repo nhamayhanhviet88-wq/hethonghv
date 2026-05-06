@@ -867,24 +867,45 @@ function kpiRenderMeetingCommit(el) {
             h += '<div id="mcSessBody_' + sess.id + '" style="' + (isNewest ? '' : 'display:none') + '">';
 
             // Render teams for this session
+            var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
             for (var ti = 0; ti < _mcTeams.length; ti++) {
                 var team = _mcTeams[ti];
                 if (!team.members || team.members.length === 0) continue;
                 var teamCommits = sessCommits.filter(function(c) {
                     var memberIds = team.members.map(function(m) { return m.id; });
-                    return memberIds.indexOf(c.user_id) >= 0;
+                    return memberIds.indexOf(c.user_id) >= 0 && !c.team_dept_id;
                 });
-                var teamDone = teamCommits.filter(function(c) { return c.is_completed; }).length;
-                var teamPct = teamCommits.length > 0 ? Math.round(teamCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamCommits.length) : 0;
-                var teamBadgeClass = teamDone === teamCommits.length && teamCommits.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
+                // Team-level commits (department_id set)
+                var teamOwnCommits = sessCommits.filter(function(c) { return c.team_dept_id === team.id; });
+                var allTeamScope = teamCommits.concat(teamOwnCommits);
+                var teamDone = allTeamScope.filter(function(c) { return c.is_completed; }).length;
+                var teamPct = allTeamScope.length > 0 ? Math.round(allTeamScope.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / allTeamScope.length) : 0;
+                var teamBadgeClass = teamDone === allTeamScope.length && allTeamScope.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
                 h += '<div class="kpi-mc-team">';
-                h += '<div class="kpi-mc-team-name" style="display:flex;align-items:center;justify-content:space-between">';
+                h += '<div class="kpi-mc-team-name" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">';
                 h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
-                if (teamCommits.length > 0) {
-                    h += '<span class="kpi-mc-badge ' + teamBadgeClass + '" style="font-size:11px">' + teamDone + '/' + teamCommits.length + ' — ' + teamPct + '%</span>';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
+                if (allTeamScope.length > 0) {
+                    h += '<span class="kpi-mc-badge ' + teamBadgeClass + '" style="font-size:11px">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
                 }
-                h += '</div>';
+                // Team Ghi/Review buttons (GĐ + QL only)
+                if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
+                    if (teamOwnCommits.length > 0) {
+                        var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
+                        if (isGD) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                        } else if (!teamReviewed) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                        } else {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                        }
+                    } else {
+                        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" style="font-size:11px;padding:3px 8px" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">📝 Ghi Team</button>';
+                    }
+                }
+                h += '</div></div>';
 
                 for (var mi = 0; mi < team.members.length; mi++) {
                     var emp = team.members[mi];
@@ -986,6 +1007,127 @@ window.mcSwitchSession = function(sessionId) {
     if (sess) {
         _mcSession = sess;
         _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === sessionId; });
+    }
+};
+
+// ===== TEAM EDIT =====
+window.mcEditTeam = function(deptId, teamName) {
+    var existing = _mcCommitments.filter(function(c) { return c.team_dept_id === deptId; });
+    var items;
+    if (existing.length > 0) {
+        items = existing.map(function(c) {
+            var parsed = mcParseContent(c.content);
+            return { question: parsed.question, answer: parsed.answer, content: c.content, target_revenue: c.target_revenue, hasRevenue: c.target_revenue > 0, isSelfAdd: true };
+        });
+    } else {
+        items = [{ question: '', answer: '', target_revenue: 0, isSelfAdd: true }];
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    var h = '<div class="kpi-mc-modal">';
+    h += '<div class="kpi-mc-modal-head"><div>🏠 Cam Kết Team: ' + teamName + '</div>';
+    h += '<button class="kpi-mc-remove" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">✕</button></div>';
+    h += '<div class="kpi-mc-modal-body"><div id="mcTeamItemsList">';
+    for (var i = 0; i < items.length; i++) {
+        h += mcRenderItemEdit(i + 1, items[i]);
+    }
+    h += '</div>';
+    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcAddItem(\'mcTeamItemsList\')" style="width:100%;margin-top:10px">➕ Thêm cam kết</button>';
+    h += '</div>';
+    h += '<div class="kpi-mc-modal-foot">';
+    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>';
+    h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveTeamCommitments(' + deptId + ')">💾 Lưu Cam Kết Team</button>';
+    h += '</div></div>';
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+};
+
+// Save team commitments
+window.mcSaveTeamCommitments = async function(deptId) {
+    var itemEls = document.querySelectorAll('#mcTeamItemsList [data-mc-item]');
+    var items = [];
+    for (var i = 0; i < itemEls.length; i++) {
+        var el = itemEls[i];
+        var qEdit = el.querySelector('.mc-question-edit');
+        var q = qEdit ? qEdit.value.trim() : '';
+        var a = el.querySelector('.mc-answer') ? el.querySelector('.mc-answer').value.trim() : '';
+        var content = q ? ('❓ ' + q + '\n✅ ' + a) : a;
+        var revEl = el.querySelector('.mc-revenue');
+        var revenue = revEl ? parseFloat(revEl.value) || 0 : 0;
+        if (content) items.push({ content: content, target_revenue: revenue });
+    }
+    if (items.length === 0) return alert('Cần ít nhất 1 cam kết');
+    try {
+        await apiCall('/api/meeting-commitments', 'POST', { session_id: _mcSession.id, department_id: deptId, items: items });
+        document.querySelector('.kpi-mc-modal-overlay').remove();
+        kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
+
+// ===== TEAM REVIEW =====
+window.mcReviewTeam = function(deptId, teamName, readOnly) {
+    var teamCommits = _mcCommitments.filter(function(c) { return c.team_dept_id === deptId; });
+    if (teamCommits.length === 0) return alert('Team chưa có cam kết');
+
+    var overlay = document.createElement('div');
+    overlay.className = 'kpi-mc-modal-overlay';
+    var h = '<div class="kpi-mc-modal">';
+    h += '<div class="kpi-mc-modal-head"><div>🏠 Review Team: ' + teamName + '</div>';
+    h += '<button class="kpi-mc-remove" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">✕</button></div>';
+    h += '<div class="kpi-mc-modal-body">';
+
+    for (var i = 0; i < teamCommits.length; i++) {
+        var c = teamCommits[i];
+        var hasTarget = c.target_revenue > 0;
+        var contentHtml = '';
+        if (c.content.indexOf('❓') >= 0 && c.content.indexOf('✅') >= 0) {
+            var parsed = mcParseContent(c.content);
+            contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;border-left:3px solid #4338ca;margin-bottom:8px">';
+            contentHtml += '<div style="font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">📋 Câu hỏi</div>';
+            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b">' + parsed.question + '</div></div>';
+            contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:8px;border-left:3px solid #059669;margin-bottom:8px">';
+            contentHtml += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">✍️ Câu trả lời</div>';
+            contentHtml += '<div style="font-size:13px;color:#1e293b;white-space:pre-line">' + parsed.answer + '</div></div>';
+        } else {
+            contentHtml = '<div style="font-size:13px;color:#1e293b;margin-bottom:8px;white-space:pre-line">' + c.content + '</div>';
+        }
+
+        h += '<div style="padding:12px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;background:#fafbff">';
+        h += '<div style="font-size:12px;font-weight:800;color:#4338ca;margin-bottom:8px">Cam kết #' + (i+1) + '</div>';
+        h += contentHtml;
+        if (hasTarget) {
+            h += '<div style="font-size:12px;color:#b45309;font-weight:700;margin-bottom:8px">💰 Mục tiêu: ' + (c.target_revenue || 0).toLocaleString('vi-VN') + '</div>';
+        }
+        h += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">';
+        h += '<span style="font-size:11px;font-weight:700;color:#6366f1">📊 Hoàn thành (%):</span>';
+        h += '<input type="range" min="0" max="100" value="' + (c.completion_pct || 0) + '" class="mc-review-pct" data-id="' + c.id + '" style="flex:1" ' + (readOnly ? 'disabled' : '') + '>';
+        h += '<span class="mc-review-pct-val" style="font-size:13px;font-weight:800;color:#4338ca;min-width:40px;text-align:right">' + (c.completion_pct || 0) + '%</span>';
+        h += '</div>';
+        h += '<div><span style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:3px">📝 Ghi chú đánh giá:</span>';
+        h += '<textarea class="kpi-mc-input mc-review-note" data-id="' + c.id + '" rows="2" style="resize:vertical" ' + (readOnly ? 'disabled' : '') + '>' + (c.review_note || '') + '</textarea></div>';
+        h += '</div>';
+    }
+
+    h += '</div>';
+    if (!readOnly) {
+        h += '<div class="kpi-mc-modal-foot">';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveBatchReview()">💾 Lưu Đánh Giá</button>';
+        h += '</div>';
+    } else {
+        h += '<div class="kpi-mc-modal-foot"><button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button></div>';
+    }
+    h += '</div>';
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+
+    // Bind range sliders
+    var sliders = overlay.querySelectorAll('.mc-review-pct');
+    for (var s = 0; s < sliders.length; s++) {
+        sliders[s].addEventListener('input', function() {
+            this.nextElementSibling.textContent = this.value + '%';
+        });
     }
 };
 
@@ -1175,8 +1317,8 @@ window.mcToggleTarget = function(chk) {
     }
 };
 
-window.mcAddItem = function() {
-    var list = document.getElementById('mcItemsList');
+window.mcAddItem = function(containerId) {
+    var list = document.getElementById(containerId || 'mcItemsList');
     var count = list.querySelectorAll('[data-mc-item]').length;
     list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, { isSelfAdd: true, content: '', answer: '', target_revenue: 0 }));
 };

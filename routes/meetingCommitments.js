@@ -164,21 +164,39 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true };
     });
 
-    // ===== ADD commitments for a user (role hierarchy) =====
+    // ===== ADD commitments for a user OR team (role hierarchy) =====
     fastify.post('/api/meeting-commitments', { preHandler: [authenticate] }, async (request, reply) => {
-        const targetUserId = parseInt(request.body?.user_id);
+        const { session_id, user_id, department_id, items } = request.body || {};
+        if (!session_id || !Array.isArray(items) || items.length === 0) {
+            return reply.code(400).send({ error: 'Thiếu thông tin' });
+        }
+
+        // Team commitment
+        if (department_id && !user_id) {
+            if (!['giam_doc', 'quan_ly', 'quan_ly_cap_cao'].includes(request.user.role)) {
+                return reply.code(403).send({ error: 'Bạn không có quyền ghi cam kết cho team' });
+            }
+            await db.run('DELETE FROM meeting_commitments WHERE session_id = $1 AND department_id = $2 AND user_id = $3', [session_id, department_id, request.user.id]);
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                await db.run(
+                    `INSERT INTO meeting_commitments (session_id, user_id, department_id, stt, content, target_revenue)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [session_id, request.user.id, department_id, i + 1, item.content || '', parseFloat(item.target_revenue) || 0]
+                );
+            }
+            return { success: true, count: items.length };
+        }
+
+        // Individual commitment
+        const targetUserId = parseInt(user_id);
         const allowed = await canManageUser(request.user, targetUserId);
         if (!allowed) {
             return reply.code(403).send({ error: 'Bạn không có quyền ghi cam kết cho người này' });
         }
+        if (!user_id) return reply.code(400).send({ error: 'Thiếu user_id' });
 
-        const { session_id, user_id, items } = request.body || {};
-        if (!session_id || !user_id || !Array.isArray(items) || items.length === 0) {
-            return reply.code(400).send({ error: 'Thiếu thông tin' });
-        }
-
-        // Delete existing commitments for this user in this session (overwrite)
-        await db.run('DELETE FROM meeting_commitments WHERE session_id = $1 AND user_id = $2', [session_id, user_id]);
+        await db.run('DELETE FROM meeting_commitments WHERE session_id = $1 AND user_id = $2 AND department_id IS NULL', [session_id, user_id]);
 
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
@@ -320,10 +338,12 @@ async function meetingCommitmentsRoutes(fastify, options) {
         const ph = sessionIds.map((_, i) => `$${i + 1}`).join(',');
         const allCommitments = await db.all(`
             SELECT mc.*, u.full_name AS user_name, u.role AS user_role,
-                   d.name AS dept_name, d.id AS dept_id
+                   COALESCE(d2.name, d.name) AS dept_name, COALESCE(mc.department_id, d.id) AS dept_id,
+                   mc.department_id AS team_dept_id
             FROM meeting_commitments mc
             JOIN users u ON mc.user_id = u.id
             LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN departments d2 ON mc.department_id = d2.id
             WHERE mc.session_id IN (${ph})
             ORDER BY d.name, u.full_name, mc.stt
         `, sessionIds);
