@@ -841,7 +841,51 @@ function kpiRenderMeetingCommit(el) {
             h += '<span>' + _mcSessions.length + ' cuộc họp</span>';
             h += '</div></div>';
         }
-        h += '</div></div>';
+        h += '</div>';
+
+        // ===== TEAM SUMMARY CARDS =====
+        if (_mcTeams && _mcTeams.length > 0) {
+            h += '<div style="margin-top:16px">';
+            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team</div>';
+            h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            for (var tsi = 0; tsi < _mcTeams.length; tsi++) {
+                var tteam = _mcTeams[tsi];
+                if (!tteam.members || tteam.members.length === 0) continue;
+                var memberIds = tteam.members.map(function(m) { return m.id; });
+                // Aggregate: individual member commits + team-own commits
+                var teamAllCommits = _mcAllCommitments.filter(function(c) {
+                    return memberIds.indexOf(c.user_id) >= 0 || c.team_dept_id === tteam.id;
+                });
+                var tTotal = teamAllCommits.length;
+                var tDone = teamAllCommits.filter(function(c) { return c.is_completed; }).length;
+                var tAvgPct = tTotal > 0 ? Math.round(teamAllCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / tTotal) : 0;
+
+                var tColor = tAvgPct >= 80 ? '#059669' : (tAvgPct >= 50 ? '#d97706' : '#dc2626');
+                var tBorder = tAvgPct >= 80 ? '#a7f3d0' : (tAvgPct >= 50 ? '#fde68a' : '#fecaca');
+                var tGrad = tAvgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (tAvgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+
+                h += '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:10px;padding:12px 14px;border:1px solid #c4b5fd;border-left:4px solid #8b5cf6;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(139,92,246,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
+                h += '<span style="font-size:16px">🏠</span>';
+                h += '<div><div style="font-size:13px;font-weight:800;color:#4c1d95">' + tteam.name + '</div>';
+                h += '<div style="font-size:10px;color:#7c3aed;font-weight:500">' + tteam.members.length + ' thành viên</div></div>';
+                h += '</div>';
+                h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tAvgPct + '%</div>';
+                h += '</div>';
+                // Progress bar
+                h += '<div style="height:6px;background:#ddd6fe;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+                h += '<div style="height:100%;width:' + tAvgPct + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+                h += '</div>';
+                h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;font-weight:600">';
+                h += '<span>Hoàn thành: ' + tDone + '/' + tTotal + '</span>';
+                h += '<span>' + _mcSessions.length + ' cuộc họp</span>';
+                h += '</div></div>';
+            }
+            h += '</div></div>';
+        }
+
+        h += '</div>';
         // Render each session as accordion (newest last = expanded)
         for (var si = 0; si < _mcSessions.length; si++) {
             var sess = _mcSessions[si];
