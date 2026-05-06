@@ -2127,14 +2127,28 @@ window.kpiShowEmpOrders = async function(userId, userName) {
     document.body.appendChild(overlay);
 
     try {
-        var data = await apiCall('/api/kpi-kdoanh/employee-orders?user_id=' + userId + '&month=' + _kpi.month);
+        // Build API URL based on current BXH filter
+        var apiUrl = '/api/kpi-kdoanh/employee-orders?user_id=' + userId;
+        var periodInfo = window._kpiAdvData && window._kpiAdvData.period;
+
+        if (periodInfo && periodInfo.start && periodInfo.end) {
+            // Use the actual queried date range from the advanced API
+            // periodInfo.end already has +1 day applied, so subtract 1 for endDate
+            var endD = new Date(periodInfo.end + 'T00:00:00');
+            endD.setDate(endD.getDate() - 1);
+            var endStr = endD.getFullYear() + '-' + String(endD.getMonth()+1).padStart(2,'0') + '-' + String(endD.getDate()).padStart(2,'0');
+            apiUrl += '&startDate=' + periodInfo.start + '&endDate=' + endStr;
+        } else {
+            apiUrl += '&month=' + _kpi.month;
+        }
+
+        var data = await apiCall(apiUrl);
         _odOrders = data.orders || [];
         var summary = data.summary || {};
         var body = document.getElementById('odBody');
         if (!body) return;
 
-        var [y, m] = _kpi.month.split('-').map(Number);
-        var monthLabel = 'T' + m + '/' + y;
+        var monthLabel = data.periodLabel || ('T' + _kpi.month.split('-')[1] + '/' + _kpi.month.split('-')[0]);
 
         var h = '<div class="kpi-od-tabs" id="odTabs">'
             + '<button class="kpi-od-tab kpi-od-tab-all active-all" data-f="all" onclick="odSetFilter(\'all\')">Tất cả (' + summary.total + ')</button>'

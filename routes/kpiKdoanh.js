@@ -324,14 +324,29 @@ module.exports = async function(fastify) {
 
     // ===== GET employee order details for a month =====
     fastify.get('/api/kpi-kdoanh/employee-orders', { preHandler: [authenticate] }, async (request, reply) => {
-        const { user_id, month } = request.query;
-        if (!user_id || !month) return reply.code(400).send({ error: 'Thiếu user_id hoặc month' });
+        const { user_id, month, startDate, endDate } = request.query;
+        if (!user_id) return reply.code(400).send({ error: 'Thiếu user_id' });
 
-        const [year, mo] = month.split('-').map(Number);
-        const monthStart = `${year}-${String(mo).padStart(2,'0')}-01 00:00:00+07`;
-        const nextMo = mo === 12 ? 1 : mo + 1;
-        const nextYear = mo === 12 ? year + 1 : year;
-        const monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01 00:00:00+07`;
+        let monthStart, monthEnd, periodLabel;
+
+        // Custom date range takes priority
+        if (startDate && endDate) {
+            monthStart = startDate + ' 00:00:00+07';
+            // endDate inclusive — add 1 day
+            const endD = new Date(endDate + 'T00:00:00');
+            endD.setDate(endD.getDate() + 1);
+            monthEnd = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')} 00:00:00+07`;
+            periodLabel = startDate + ' → ' + endDate;
+        } else if (month) {
+            const [year, mo] = month.split('-').map(Number);
+            monthStart = `${year}-${String(mo).padStart(2,'0')}-01 00:00:00+07`;
+            const nextMo = mo === 12 ? 1 : mo + 1;
+            const nextYear = mo === 12 ? year + 1 : year;
+            monthEnd = `${nextYear}-${String(nextMo).padStart(2,'0')}-01 00:00:00+07`;
+            periodLabel = `T${mo}/${year}`;
+        } else {
+            return reply.code(400).send({ error: 'Thiếu month hoặc startDate/endDate' });
+        }
 
         // Get employee info
         const emp = await db.get('SELECT id, full_name FROM users WHERE id = $1', [user_id]);
@@ -341,7 +356,7 @@ module.exports = async function(fastify) {
         const isDirector = request.user.role === 'giam_doc';
         const isOwner = request.user.id === parseInt(user_id);
 
-        // Get orders: customers with chot_don log in this month, assigned to this user
+        // Get orders: customers with chot_don log in this date range, assigned to this user
         const orders = await db.all(`
             SELECT
                 oc.id AS order_id,
@@ -389,6 +404,7 @@ module.exports = async function(fastify) {
         return {
             employee: emp,
             month: month,
+            periodLabel: periodLabel,
             orders: maskedOrders,
             summary: {
                 total: maskedOrders.length,
