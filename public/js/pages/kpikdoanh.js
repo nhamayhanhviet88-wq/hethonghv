@@ -949,6 +949,17 @@ function kpiRenderMeetingCommit(el) {
         // ===== YEARLY SUMMARY (collapsible, gold theme) =====
         h += mcRenderYearlySummary();
         // Render each session as accordion (newest last = expanded)
+        // Color palette for distinct session themes — each meeting gets its own color
+        var _mcSessionPalette = [
+            { bg:'#f5f3ff', border:'#c4b5fd', headerBg:'linear-gradient(135deg,#ede9fe,#ddd6fe)', accent:'#7c3aed', text:'#4c1d95', teamBg:'linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff)', teamBorder:'#8b5cf6', teamNameBg:'linear-gradient(90deg,#ede9fe,#ddd6fe)', teamNameColor:'#4c1d95', newestBg:'#4338ca', icon:'#7c3aed' },
+            { bg:'#ecfdf5', border:'#6ee7b7', headerBg:'linear-gradient(135deg,#d1fae5,#a7f3d0)', accent:'#059669', text:'#065f46', teamBg:'linear-gradient(135deg,#ecfdf5,#d1fae5,#ecfdf5)', teamBorder:'#10b981', teamNameBg:'linear-gradient(90deg,#d1fae5,#a7f3d0)', teamNameColor:'#065f46', newestBg:'#059669', icon:'#10b981' },
+            { bg:'#fffbeb', border:'#fcd34d', headerBg:'linear-gradient(135deg,#fef3c7,#fde68a)', accent:'#d97706', text:'#78350f', teamBg:'linear-gradient(135deg,#fffbeb,#fef3c7,#fffbeb)', teamBorder:'#f59e0b', teamNameBg:'linear-gradient(90deg,#fef3c7,#fde68a)', teamNameColor:'#78350f', newestBg:'#d97706', icon:'#f59e0b' },
+            { bg:'#fff1f2', border:'#fda4af', headerBg:'linear-gradient(135deg,#ffe4e6,#fecdd3)', accent:'#e11d48', text:'#881337', teamBg:'linear-gradient(135deg,#fff1f2,#ffe4e6,#fff1f2)', teamBorder:'#fb7185', teamNameBg:'linear-gradient(90deg,#ffe4e6,#fecdd3)', teamNameColor:'#881337', newestBg:'#e11d48', icon:'#fb7185' },
+            { bg:'#f0fdfa', border:'#5eead4', headerBg:'linear-gradient(135deg,#ccfbf1,#99f6e4)', accent:'#0d9488', text:'#134e4a', teamBg:'linear-gradient(135deg,#f0fdfa,#ccfbf1,#f0fdfa)', teamBorder:'#14b8a6', teamNameBg:'linear-gradient(90deg,#ccfbf1,#99f6e4)', teamNameColor:'#134e4a', newestBg:'#0d9488', icon:'#14b8a6' },
+            { bg:'#faf5ff', border:'#d8b4fe', headerBg:'linear-gradient(135deg,#f3e8ff,#e9d5ff)', accent:'#9333ea', text:'#581c87', teamBg:'linear-gradient(135deg,#faf5ff,#f3e8ff,#faf5ff)', teamBorder:'#a855f7', teamNameBg:'linear-gradient(90deg,#f3e8ff,#e9d5ff)', teamNameColor:'#581c87', newestBg:'#9333ea', icon:'#a855f7' },
+            { bg:'#fff7ed', border:'#fdba74', headerBg:'linear-gradient(135deg,#ffedd5,#fed7aa)', accent:'#ea580c', text:'#7c2d12', teamBg:'linear-gradient(135deg,#fff7ed,#ffedd5,#fff7ed)', teamBorder:'#f97316', teamNameBg:'linear-gradient(90deg,#ffedd5,#fed7aa)', teamNameColor:'#7c2d12', newestBg:'#ea580c', icon:'#f97316' },
+            { bg:'#ecfeff', border:'#67e8f9', headerBg:'linear-gradient(135deg,#cffafe,#a5f3fc)', accent:'#0891b2', text:'#164e63', teamBg:'linear-gradient(135deg,#ecfeff,#cffafe,#ecfeff)', teamBorder:'#06b6d4', teamNameBg:'linear-gradient(90deg,#cffafe,#a5f3fc)', teamNameColor:'#164e63', newestBg:'#0891b2', icon:'#06b6d4' }
+        ];
         for (var si = 0; si < _mcSessions.length; si++) {
             var sess = _mcSessions[si];
             var stt = si + 1;
@@ -957,21 +968,24 @@ function kpiRenderMeetingCommit(el) {
             var sessCommits = _mcAllCommitments.filter(function(c) { return c.session_id === sess.id; });
             var totalDone = sessCommits.filter(function(c) { return c.is_completed; }).length;
 
-            h += '<div class="kpi-mc-session-block" style="margin-bottom:12px;border:1px solid ' + (isNewest ? '#c7d2fe' : '#e2e8f0') + ';border-radius:12px;overflow:hidden;background:' + (isNewest ? '#fafbff' : '#fff') + '">';
+            // Pick a unique color theme for this session
+            var pal = _mcSessionPalette[si % _mcSessionPalette.length];
+
+            h += '<div class="kpi-mc-session-block" style="margin-bottom:12px;border:2px solid ' + pal.border + ';border-radius:12px;overflow:hidden;background:' + pal.bg + ';border-left:5px solid ' + pal.accent + '">';
 
             // Session header (clickable)
-            h += '<div class="kpi-mc-session-head" onclick="mcToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + (isNewest ? 'linear-gradient(135deg,#eef2ff,#e0e7ff)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)') + ';border-bottom:1px solid ' + (isNewest ? '#c7d2fe' : '#e2e8f0') + '">';
+            h += '<div class="kpi-mc-session-head" onclick="mcToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + pal.headerBg + ';border-bottom:1px solid ' + pal.border + '">';
             h += '<div style="display:flex;align-items:center;gap:10px">';
-            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:#6366f1">' + (isNewest ? '▼' : '▶') + '</span>';
-            h += '<span style="font-size:14px;font-weight:800;color:' + (isNewest ? '#4338ca' : '#475569') + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
-            h += '<span style="font-size:12px;font-weight:500;color:#64748b">— ' + sess.title + ' (' + sessDate.toLocaleDateString('vi-VN') + ')</span>';
+            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">' + (isNewest ? '▼' : '▶') + '</span>';
+            h += '<span style="font-size:14px;font-weight:800;color:' + pal.text + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
+            h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDate.toLocaleDateString('vi-VN') + ')</span>';
             h += '</div>';
             h += '<div style="display:flex;align-items:center;gap:8px">';
             if (sessCommits.length > 0) {
                 var pctAll = Math.round(sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length);
                 h += '<span class="kpi-mc-badge ' + (totalDone === sessCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + totalDone + '/' + sessCommits.length + ' — ' + pctAll + '%</span>';
             }
-            if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#4338ca;color:#fff;font-weight:700">Mới nhất</span>';
+            if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + pal.newestBg + ';color:#fff;font-weight:700">Mới nhất</span>';
             h += '</div></div>';
 
             // Session body (expandable)
@@ -992,9 +1006,9 @@ function kpiRenderMeetingCommit(el) {
                 var teamPct = teamOwnCommits.length > 0 ? Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length) : 0;
                 var teamBadgeClass = teamDone === teamOwnCommits.length && teamOwnCommits.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
-                h += '<div class="kpi-mc-team">';
-                h += '<div class="kpi-mc-team-name" style="justify-content:space-between">';
-                h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
+                h += '<div class="kpi-mc-team" style="background:' + pal.teamBg + ';border-left:4px solid ' + pal.teamBorder + ';border-color:' + pal.teamBorder + '">';
+                h += '<div class="kpi-mc-team-name" style="justify-content:space-between;background:' + pal.teamNameBg + ';color:' + pal.teamNameColor + '">';
+                h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:' + pal.teamNameColor + ';opacity:.6;font-weight:500">(' + team.members.length + ' người)</span></span>';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
                 if (teamOwnCommits.length > 0) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
