@@ -886,14 +886,14 @@ function mcRenderItemEdit(stt, item) {
         h += '</div>';
         if (hasRevenue) {
             h += '<div style="display:flex;align-items:center;gap:8px">';
-            h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu doanh số:</span>';
+            h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:</span>';
             h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
             h += '</div>';
         }
     } else {
         // Free-form: editable content
         h += '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + question + '</textarea>';
-        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu doanh số (VD: 50000000)" value="' + revenue + '">';
+        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu (VD: 50000000)" value="' + revenue + '">';
     }
 
     h += '</div>';
@@ -1044,8 +1044,8 @@ function mcRenderTplItem(stt, content, hasRevenue) {
         + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Câu hỏi #' + stt + '</div>'
         + '<button class="kpi-mc-remove" onclick="this.closest(\'[data-tpl-item]\').remove();mcReindexTpl()">✕</button>'
         + '</div>'
-        + '<textarea class="kpi-mc-input tpl-content" rows="2" placeholder="VD: Mục tiêu doanh số giai đoạn tiếp theo?" style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;cursor:pointer"><input type="checkbox" class="tpl-has-rev"' + (hasRevenue ? ' checked' : '') + '> Có ô nhập mục tiêu doanh số</label>'
+        + '<textarea class="kpi-mc-input tpl-content" rows="2" placeholder="VD: Mục tiêu giai đoạn tiếp theo?" style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;cursor:pointer"><input type="checkbox" class="tpl-has-rev"' + (hasRevenue ? ' checked' : '') + '> Có ô nhập mục tiêu</label>'
         + '</div>';
 }
 
