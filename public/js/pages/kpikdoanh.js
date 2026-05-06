@@ -834,8 +834,15 @@ window.mcEditUser = async function(userId, userName) {
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
+
+    var sessionInfo = '';
+    if (_mcSession) {
+        var sd = new Date(_mcSession.meeting_date);
+        sessionInfo = ' <span style="font-size:13px;font-weight:500;color:#92400e;display:block;margin-top:2px">— ' + _mcSession.title + ' (' + sd.toLocaleDateString('vi-VN') + ')</span>';
+    }
+
     var h = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>📝 Cam Kết — ' + userName + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-head"><h3>📝 Cam Kết — ' + userName + sessionInfo + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
         + '<div class="kpi-mc-modal-body"><div id="mcItemsList">';
 
     for (var i = 0; i < items.length; i++) {
