@@ -368,6 +368,35 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
         return { session, commitments };
     });
+
+    // ===== YEARLY SUMMARY =====
+    fastify.get('/api/meeting-commitments/yearly-summary', { preHandler: [authenticate] }, async (request, reply) => {
+        const year = parseInt(request.query.year) || new Date().getFullYear();
+
+        const sessions = await db.all(
+            `SELECT id, meeting_date, title, EXTRACT(MONTH FROM meeting_date)::int AS month_num
+             FROM meeting_sessions
+             WHERE EXTRACT(YEAR FROM meeting_date) = $1
+             ORDER BY meeting_date ASC`,
+            [year]
+        );
+
+        if (sessions.length === 0) return { year, sessions: [], allCommitments: [] };
+
+        const sessionIds = sessions.map(s => s.id);
+        const ph = sessionIds.map((_, i) => `$${i + 1}`).join(',');
+        const allCommitments = await db.all(`
+            SELECT mc.id, mc.session_id, mc.user_id, mc.completion_pct, mc.is_completed,
+                   mc.target_revenue, mc.department_id AS team_dept_id,
+                   u.full_name AS user_name, u.role AS user_role
+            FROM meeting_commitments mc
+            JOIN users u ON mc.user_id = u.id
+            WHERE mc.session_id IN (${ph})
+            ORDER BY mc.session_id, u.full_name
+        `, sessionIds);
+
+        return { year, sessions, allCommitments };
+    });
 }
 
 module.exports = meetingCommitmentsRoutes;

@@ -736,6 +736,7 @@ var _mcAllCommitments = [];  // all commitments across all monthly sessions
 var _mcCommitments = [];     // commitments for active session (backward compat)
 var _mcTeams = [];
 var _mcCollapsed = false;    // main section collapsed
+var _mcYearlyData = null;    // yearly summary data
 
 async function kpiLoadMeetingCommit() {
     var el = document.getElementById('kpiMeetingCommit');
@@ -747,6 +748,8 @@ async function kpiLoadMeetingCommit() {
         var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + (now.getMonth() + 1) + '&year=' + now.getFullYear());
         _mcSessions = monthlyData.sessions || [];
         _mcAllCommitments = monthlyData.allCommitments || [];
+        // Load yearly data
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { _mcYearlyData = null; }
         // Set active session to latest (last in array since sorted ASC)
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
@@ -930,6 +933,9 @@ function kpiRenderMeetingCommit(el) {
         }
 
         h += '</div>';
+
+        // ===== YEARLY SUMMARY (collapsible, gold theme) =====
+        h += mcRenderYearlySummary();
         // Render each session as accordion (newest last = expanded)
         for (var si = 0; si < _mcSessions.length; si++) {
             var sess = _mcSessions[si];
@@ -1087,6 +1093,190 @@ window.mcToggleSection = function() {
     if (body) body.style.display = _mcCollapsed ? 'none' : '';
     if (icon) icon.textContent = _mcCollapsed ? '▶' : '▼';
 };
+
+// ===== YEARLY SUMMARY RENDER =====
+var _mcYearlyCollapsed = true; // collapsed by default
+window.mcToggleYearly = function() {
+    _mcYearlyCollapsed = !_mcYearlyCollapsed;
+    var body = document.getElementById('mcYearlyBody');
+    var icon = document.getElementById('mcYearlyIcon');
+    if (body) body.style.display = _mcYearlyCollapsed ? 'none' : '';
+    if (icon) {
+        icon.textContent = _mcYearlyCollapsed ? '▶' : '▼';
+        icon.style.transform = _mcYearlyCollapsed ? '' : 'rotate(0deg)';
+    }
+};
+
+function mcRenderYearlySummary() {
+    if (!_mcYearlyData || !_mcYearlyData.sessions || _mcYearlyData.sessions.length === 0) return '';
+    var yd = _mcYearlyData;
+    var yearSessions = yd.sessions;
+    var yearCommits = yd.allCommitments;
+    if (yearCommits.length === 0) return '';
+
+    // Helper
+    function fmtPct(v) { var r = Math.round(v * 10) / 10; return r.toString().replace('.', ','); }
+
+    // Build session → month_num map
+    var sessMonthMap = {};
+    for (var si = 0; si < yearSessions.length; si++) {
+        sessMonthMap[yearSessions[si].id] = yearSessions[si].month_num;
+    }
+
+    // ===== INDIVIDUALS =====
+    // Group: person → month → session → pcts
+    var personYr = {};
+    for (var ci = 0; ci < yearCommits.length; ci++) {
+        var c = yearCommits[ci];
+        if (c.team_dept_id) continue; // skip team-own
+        var uid = c.user_id;
+        var monthNum = sessMonthMap[c.session_id];
+        if (!personYr[uid]) personYr[uid] = { name: c.user_name, role: c.user_role, months: {} };
+        if (!personYr[uid].months[monthNum]) personYr[uid].months[monthNum] = {};
+        if (!personYr[uid].months[monthNum][c.session_id]) personYr[uid].months[monthNum][c.session_id] = { sum: 0, count: 0 };
+        personYr[uid].months[monthNum][c.session_id].sum += (c.completion_pct || 0);
+        personYr[uid].months[monthNum][c.session_id].count++;
+    }
+
+    var personYrArr = Object.keys(personYr).map(function(uid) {
+        var p = personYr[uid];
+        var monthKeys = Object.keys(p.months);
+        var monthAvgs = [];
+        for (var mi = 0; mi < monthKeys.length; mi++) {
+            var sessions = p.months[monthKeys[mi]];
+            var sessKeys = Object.keys(sessions);
+            var sessAvgSum = 0;
+            for (var sk = 0; sk < sessKeys.length; sk++) {
+                var sp = sessions[sessKeys[sk]];
+                sessAvgSum += (sp.sum / sp.count);
+            }
+            monthAvgs.push(sessAvgSum / sessKeys.length);
+        }
+        var yearPct = monthAvgs.length > 0 ? monthAvgs.reduce(function(a, b) { return a + b; }, 0) / monthAvgs.length : 0;
+        yearPct = Math.round(yearPct * 10) / 10;
+        return { name: p.name, role: p.role, yearPct: yearPct, monthCount: monthAvgs.length };
+    }).sort(function(a, b) { return b.yearPct - a.yearPct; });
+
+    // ===== TEAMS =====
+    var teamYr = {};
+    for (var ci2 = 0; ci2 < yearCommits.length; ci2++) {
+        var c2 = yearCommits[ci2];
+        if (!c2.team_dept_id) continue; // only team-own
+        var tid = c2.team_dept_id;
+        var mNum = sessMonthMap[c2.session_id];
+        if (!teamYr[tid]) teamYr[tid] = { months: {} };
+        if (!teamYr[tid].months[mNum]) teamYr[tid].months[mNum] = {};
+        if (!teamYr[tid].months[mNum][c2.session_id]) teamYr[tid].months[mNum][c2.session_id] = { sum: 0, count: 0 };
+        teamYr[tid].months[mNum][c2.session_id].sum += (c2.completion_pct || 0);
+        teamYr[tid].months[mNum][c2.session_id].count++;
+    }
+
+    var teamYrArr = [];
+    if (_mcTeams && _mcTeams.length > 0) {
+        for (var ti = 0; ti < _mcTeams.length; ti++) {
+            var team = _mcTeams[ti];
+            if (!team.members || team.members.length === 0) continue;
+            var td = teamYr[team.id];
+            if (!td) { teamYrArr.push({ name: team.name, members: team.members.length, yearPct: 0, monthCount: 0 }); continue; }
+            var tMonthKeys = Object.keys(td.months);
+            var tMonthAvgs = [];
+            for (var tmi = 0; tmi < tMonthKeys.length; tmi++) {
+                var tSessions = td.months[tMonthKeys[tmi]];
+                var tSessKeys = Object.keys(tSessions);
+                var tSessSum = 0;
+                for (var tsk = 0; tsk < tSessKeys.length; tsk++) {
+                    var tsp = tSessions[tSessKeys[tsk]];
+                    tSessSum += (tsp.sum / tsp.count);
+                }
+                tMonthAvgs.push(tSessSum / tSessKeys.length);
+            }
+            var tYearPct = tMonthAvgs.length > 0 ? tMonthAvgs.reduce(function(a, b) { return a + b; }, 0) / tMonthAvgs.length : 0;
+            tYearPct = Math.round(tYearPct * 10) / 10;
+            teamYrArr.push({ name: team.name, members: team.members.length, yearPct: tYearPct, monthCount: tMonthAvgs.length });
+        }
+        teamYrArr.sort(function(a, b) { return b.yearPct - a.yearPct; });
+    }
+
+    // Render
+    var h = '';
+    h += '<div style="margin-top:16px;padding:16px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:14px;border:1px solid #f59e0b;border-left:5px solid #d97706">';
+
+    // Header (collapsible)
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="mcToggleYearly()">';
+    h += '<div style="display:flex;align-items:center;gap:8px">';
+    h += '<span id="mcYearlyIcon" style="font-size:14px;transition:transform .3s;color:#d97706">' + (_mcYearlyCollapsed ? '▶' : '▼') + '</span>';
+    h += '<span style="font-size:15px;font-weight:900;color:#92400e">🏆 Tổng Kết Năm ' + yd.year + '</span>';
+    h += '<span style="font-size:11px;font-weight:500;color:#b45309;background:#fde68a;padding:2px 8px;border-radius:8px">' + personYrArr.length + ' cá nhân · ' + teamYrArr.length + ' team</span>';
+    h += '</div>';
+    h += '<span style="font-size:11px;color:#92400e;font-weight:600">Tháng 1 → 12</span>';
+    h += '</div>';
+
+    // Body (collapsible)
+    h += '<div id="mcYearlyBody" style="' + (_mcYearlyCollapsed ? 'display:none' : '') + ';margin-top:14px">';
+
+    // --- Individuals ---
+    h += '<div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:8px;display:flex;align-items:center;gap:6px">👤 Cá Nhân — Trung Bình Năm</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:16px">';
+    for (var pi = 0; pi < personYrArr.length; pi++) {
+        var p = personYrArr[pi];
+        var pDisp = fmtPct(p.yearPct);
+        var pColor = p.yearPct >= 80 ? '#059669' : (p.yearPct >= 50 ? '#d97706' : '#dc2626');
+        var pGrad = p.yearPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (p.yearPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+        var roleIcon = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao') ? '👔' : (p.role === 'truong_phong' ? '🏷️' : '👤');
+        var roleText = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao') ? 'Quản Lý' : (p.role === 'truong_phong' ? 'Trưởng Phòng' : 'Nhân Viên');
+
+        h += '<div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid #fde68a;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(217,119,6,.12)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+        h += '<div style="display:flex;align-items:center;gap:6px">';
+        h += '<span style="font-size:16px">' + roleIcon + '</span>';
+        h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + p.name + '</div>';
+        h += '<div style="font-size:10px;color:#94a3b8;font-weight:500">' + roleText + '</div></div>';
+        h += '</div>';
+        h += '<div style="font-size:18px;font-weight:900;color:' + pColor + '">' + pDisp + '%</div>';
+        h += '</div>';
+        h += '<div style="height:6px;background:#fef3c7;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+        h += '<div style="height:100%;width:' + Math.min(p.yearPct, 100) + '%;background:' + pGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+        h += '</div>';
+        h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#92400e;font-weight:600">';
+        h += '<span>TB ' + p.monthCount + ' tháng</span>';
+        h += '<span>Năm ' + yd.year + '</span>';
+        h += '</div></div>';
+    }
+    h += '</div>';
+
+    // --- Teams ---
+    if (teamYrArr.length > 0) {
+        h += '<div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:8px;display:flex;align-items:center;gap:6px">🏠 Team — Trung Bình Năm</div>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+        for (var tii = 0; tii < teamYrArr.length; tii++) {
+            var t = teamYrArr[tii];
+            var tDisp = fmtPct(t.yearPct);
+            var tColor = t.yearPct >= 80 ? '#059669' : (t.yearPct >= 50 ? '#d97706' : '#dc2626');
+            var tGrad = t.yearPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (t.yearPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+
+            h += '<div style="background:linear-gradient(135deg,#fffbeb,#fff7ed);border-radius:10px;padding:12px 14px;border:1px solid #f59e0b;border-left:4px solid #d97706;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(217,119,6,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+            h += '<div style="display:flex;align-items:center;gap:6px">';
+            h += '<span style="font-size:16px">🏠</span>';
+            h += '<div><div style="font-size:13px;font-weight:800;color:#78350f">' + t.name + '</div>';
+            h += '<div style="font-size:10px;color:#b45309;font-weight:500">' + t.members + ' thành viên</div></div>';
+            h += '</div>';
+            h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tDisp + '%</div>';
+            h += '</div>';
+            h += '<div style="height:6px;background:#fde68a;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+            h += '<div style="height:100%;width:' + Math.min(t.yearPct, 100) + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+            h += '</div>';
+            h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#92400e;font-weight:600">';
+            h += '<span>TB ' + t.monthCount + ' tháng</span>';
+            h += '<span>Năm ' + yd.year + '</span>';
+            h += '</div></div>';
+        }
+        h += '</div>';
+    }
+
+    h += '</div></div>';
+    return h;
+}
 
 // Toggle individual session accordion
 window.mcToggleSession = function(sessionId) {
