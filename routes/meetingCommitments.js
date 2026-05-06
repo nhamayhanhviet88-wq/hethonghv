@@ -301,6 +301,36 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { teams };
     });
 
+    // ===== GET all sessions for a month (for accordion view) =====
+    fastify.get('/api/meeting-commitments/monthly', { preHandler: [authenticate] }, async (request, reply) => {
+        const now = new Date();
+        const month = parseInt(request.query.month) || (now.getMonth() + 1);
+        const year = parseInt(request.query.year) || now.getFullYear();
+
+        const sessions = await db.all(
+            `SELECT * FROM meeting_sessions
+             WHERE EXTRACT(MONTH FROM meeting_date) = $1 AND EXTRACT(YEAR FROM meeting_date) = $2
+             ORDER BY meeting_date ASC, created_at ASC`,
+            [month, year]
+        );
+
+        if (sessions.length === 0) return { sessions: [], allCommitments: [] };
+
+        const sessionIds = sessions.map(s => s.id);
+        const ph = sessionIds.map((_, i) => `$${i + 1}`).join(',');
+        const allCommitments = await db.all(`
+            SELECT mc.*, u.full_name AS user_name, u.role AS user_role,
+                   d.name AS dept_name, d.id AS dept_id
+            FROM meeting_commitments mc
+            JOIN users u ON mc.user_id = u.id
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE mc.session_id IN (${ph})
+            ORDER BY d.name, u.full_name, mc.stt
+        `, sessionIds);
+
+        return { sessions, allCommitments };
+    });
+
     // ===== GET latest session for embed =====
     fastify.get('/api/meeting-commitments/latest', { preHandler: [authenticate] }, async (request, reply) => {
         const session = await db.get('SELECT * FROM meeting_sessions ORDER BY meeting_date DESC, created_at DESC LIMIT 1');

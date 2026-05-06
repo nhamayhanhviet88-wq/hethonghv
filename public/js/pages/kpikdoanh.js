@@ -682,9 +682,12 @@ function kpiRenderTeamCompare(el, data, advData) {
 
 
 // ===== MEETING COMMITMENTS EMBED =====
-var _mcSession = null;
-var _mcCommitments = [];
+var _mcSession = null;       // kept for edit/review compatibility (currently active session)
+var _mcSessions = [];        // all sessions in current month
+var _mcAllCommitments = [];  // all commitments across all monthly sessions
+var _mcCommitments = [];     // commitments for active session (backward compat)
 var _mcTeams = [];
+var _mcCollapsed = false;    // main section collapsed
 
 async function kpiLoadMeetingCommit() {
     var el = document.getElementById('kpiMeetingCommit');
@@ -692,9 +695,18 @@ async function kpiLoadMeetingCommit() {
     try {
         var empData = await apiCall('/api/meeting-commitments/employees');
         _mcTeams = empData.teams || [];
-        var latestData = await apiCall('/api/meeting-commitments/latest');
-        _mcSession = latestData.session;
-        _mcCommitments = latestData.commitments || [];
+        var now = new Date();
+        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + (now.getMonth() + 1) + '&year=' + now.getFullYear());
+        _mcSessions = monthlyData.sessions || [];
+        _mcAllCommitments = monthlyData.allCommitments || [];
+        // Set active session to latest (last in array since sorted ASC)
+        if (_mcSessions.length > 0) {
+            _mcSession = _mcSessions[_mcSessions.length - 1];
+            _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
+        } else {
+            _mcSession = null;
+            _mcCommitments = [];
+        }
         kpiRenderMeetingCommit(el);
     } catch(e) {
         console.error('Meeting commit error:', e);
@@ -705,12 +717,17 @@ async function kpiLoadMeetingCommit() {
 function kpiRenderMeetingCommit(el) {
     var isGD = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc';
     var h = '<div class="kpi-mc-section">';
-    h += '<div class="kpi-mc-header"><div>📝 Cam Kết Cuộc Họp';
-    if (_mcSession) {
-        var d = new Date(_mcSession.meeting_date);
-        h += ' <span style="font-size:13px;font-weight:500;color:#92400e;margin-left:8px">— ' + _mcSession.title + ' (' + d.toLocaleDateString('vi-VN') + ')</span>';
-    }
-    h += '</div><div style="display:flex;gap:8px">';
+
+    // Header with title + collapse toggle
+    h += '<div class="kpi-mc-header">';
+    h += '<div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="mcToggleSection()">';
+    h += '<span id="mcCollapseIcon" style="font-size:16px;transition:transform .3s">' + (_mcCollapsed ? '▶' : '▼') + '</span>';
+    h += '📝 Cam Kết Cuộc Họp : KPI P.Kinh Doanh';
+    var now = new Date();
+    var monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    h += ' <span style="font-size:13px;font-weight:500;color:#6366f1;margin-left:4px">— ' + monthNames[now.getMonth() + 1] + '/' + now.getFullYear() + ' (' + _mcSessions.length + ' cuộc họp)</span>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:8px">';
     if (isGD) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcCreateSession()">➕ Tạo Cuộc Họp</button>';
         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates()" title="Setup câu hỏi cam kết mẫu">⚙️ Câu Hỏi Mẫu</button>';
@@ -718,97 +735,152 @@ function kpiRenderMeetingCommit(el) {
     h += '<a href="/camketcuochop" class="kpi-mc-btn kpi-mc-btn-ghost" style="text-decoration:none">📋 Xem Lịch Sử</a>';
     h += '</div></div>';
 
-    if (!_mcSession) {
+    // Collapsible body
+    h += '<div id="mcSectionBody" style="' + (_mcCollapsed ? 'display:none' : '') + '">';
+
+    if (_mcSessions.length === 0) {
         h += '<div style="padding:40px;text-align:center;color:#6b7280"><div style="font-size:40px;margin-bottom:12px">📭</div>';
-        h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào</div>';
+        h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào trong tháng này</div>';
         h += '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bấm "➕ Tạo Cuộc Họp" để bắt đầu</div></div>';
-        h += '</div>';
-        el.innerHTML = h;
-        return;
-    }
+    } else {
+        // Render each session as accordion (newest last = expanded)
+        for (var si = 0; si < _mcSessions.length; si++) {
+            var sess = _mcSessions[si];
+            var stt = si + 1;
+            var isNewest = (si === _mcSessions.length - 1);
+            var sessDate = new Date(sess.meeting_date);
+            var sessCommits = _mcAllCommitments.filter(function(c) { return c.session_id === sess.id; });
+            var totalDone = sessCommits.filter(function(c) { return c.is_completed; }).length;
 
-    for (var ti = 0; ti < _mcTeams.length; ti++) {
-        var team = _mcTeams[ti];
-        if (!team.members || team.members.length === 0) continue;
-        h += '<div class="kpi-mc-team">';
-        h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
+            h += '<div class="kpi-mc-session-block" style="margin-bottom:12px;border:1px solid ' + (isNewest ? '#c7d2fe' : '#e2e8f0') + ';border-radius:12px;overflow:hidden;background:' + (isNewest ? '#fafbff' : '#fff') + '">';
 
-        for (var mi = 0; mi < team.members.length; mi++) {
-            var emp = team.members[mi];
-            var empCommits = _mcCommitments.filter(function(c) { return c.user_id === emp.id; });
-            var totalItems = empCommits.length;
-            var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
-            var avgPct = totalItems > 0 ? Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems) : 0;
-
-            var roleLabel = '';
-            if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
-            else if (emp.role === 'truong_phong') roleLabel = 'Trưởng Phòng';
-
-            h += '<div class="kpi-mc-emp">';
-            h += '<div><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
-            if (roleLabel) h += '<span class="kpi-mc-emp-role">(' + roleLabel + ')</span>';
+            // Session header (clickable)
+            h += '<div class="kpi-mc-session-head" onclick="mcToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + (isNewest ? 'linear-gradient(135deg,#eef2ff,#e0e7ff)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)') + ';border-bottom:1px solid ' + (isNewest ? '#c7d2fe' : '#e2e8f0') + '">';
+            h += '<div style="display:flex;align-items:center;gap:10px">';
+            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:#6366f1">' + (isNewest ? '▼' : '▶') + '</span>';
+            h += '<span style="font-size:14px;font-weight:800;color:' + (isNewest ? '#4338ca' : '#475569') + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
+            h += '<span style="font-size:12px;font-weight:500;color:#64748b">— ' + sess.title + ' (' + sessDate.toLocaleDateString('vi-VN') + ')</span>';
             h += '</div>';
-            h += '<div class="kpi-mc-emp-actions">';
-
-            var isSelf = typeof currentUser !== 'undefined' && currentUser && currentUser.id === emp.id;
-            var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
-            var empRole = emp.role || 'nhan_vien';
-
-            // Permission hierarchy: who can edit/view whom
-            var canEdit = false; // can Review + Edit
-            var canView = false; // can View only (read-only)
-            if (isGD) {
-                canEdit = true;
-            } else if ((myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') && (empRole === 'truong_phong' || empRole === 'nhan_vien' || empRole === 'thu_viec')) {
-                canEdit = true;
-            } else if (myRole === 'truong_phong' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
-                canView = true;
-            } else if (myRole === 'nhan_vien' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
-                canView = true;
+            h += '<div style="display:flex;align-items:center;gap:8px">';
+            if (sessCommits.length > 0) {
+                var pctAll = Math.round(sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length);
+                h += '<span class="kpi-mc-badge ' + (totalDone === sessCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + totalDone + '/' + sessCommits.length + ' — ' + pctAll + '%</span>';
             }
+            if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#4338ca;color:#fff;font-weight:700">Mới nhất</span>';
+            h += '</div></div>';
 
-            if (totalItems > 0) {
-                if (doneItems === totalItems) {
-                    h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
-                } else {
-                    h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
-                }
-                var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
+            // Session body (expandable)
+            h += '<div id="mcSessBody_' + sess.id + '" style="' + (isNewest ? '' : 'display:none') + '">';
 
-                if (isGD) {
-                    // GĐ: always full Review + Edit
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
-                } else if (canEdit && !isSelf) {
-                    // QL: can review if not yet reviewed, view-only if already reviewed
-                    if (!anyReviewed) {
-                        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
-                    } else {
-                        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+            // Render teams for this session
+            for (var ti = 0; ti < _mcTeams.length; ti++) {
+                var team = _mcTeams[ti];
+                if (!team.members || team.members.length === 0) continue;
+                h += '<div class="kpi-mc-team">';
+                h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
+
+                for (var mi = 0; mi < team.members.length; mi++) {
+                    var emp = team.members[mi];
+                    var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id; });
+                    var totalItems = empCommits.length;
+                    var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
+                    var avgPct = totalItems > 0 ? Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems) : 0;
+
+                    var roleLabel = '';
+                    if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
+                    else if (emp.role === 'truong_phong') roleLabel = 'Trưởng Phòng';
+
+                    h += '<div class="kpi-mc-emp">';
+                    h += '<div><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
+                    if (roleLabel) h += '<span class="kpi-mc-emp-role">(' + roleLabel + ')</span>';
+                    h += '</div>';
+                    h += '<div class="kpi-mc-emp-actions">';
+
+                    var isSelf = typeof currentUser !== 'undefined' && currentUser && currentUser.id === emp.id;
+                    var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+                    var empRole = emp.role || 'nhan_vien';
+
+                    var canEdit = false;
+                    var canView = false;
+                    if (isGD) {
+                        canEdit = true;
+                    } else if ((myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') && (empRole === 'truong_phong' || empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                        canEdit = true;
+                    } else if (myRole === 'truong_phong' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                        canView = true;
+                    } else if (myRole === 'nhan_vien' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                        canView = true;
                     }
-                } else if (isSelf && !anyReviewed) {
-                    // Self: not yet reviewed → can self-assess
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Tự đánh giá</button>';
-                } else if (isSelf && anyReviewed) {
-                    // Self: already reviewed → view only
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem đánh giá</button>';
-                } else if (canView && !isSelf) {
-                    // TP / NV: view-only for others
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+
+                    if (totalItems > 0) {
+                        if (doneItems === totalItems) {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
+                        } else {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
+                        }
+                        var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
+
+                        if (isGD) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                        } else if (canEdit && !isSelf) {
+                            if (!anyReviewed) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            } else {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            }
+                        } else if (isSelf && !anyReviewed) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Tự đánh giá</button>';
+                        } else if (isSelf && anyReviewed) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem đánh giá</button>';
+                        } else if (canView && !isSelf) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                        }
+                    } else {
+                        h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                        if (isGD || canEdit || isSelf) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
+                        }
+                    }
+                    h += '</div></div>';
                 }
-            } else {
-                h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                if (isGD || canEdit || isSelf) {
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
-                }
+                h += '</div>';
             }
             h += '</div></div>';
         }
-        h += '</div>';
     }
-    h += '</div>';
+
+    h += '</div></div>';
     el.innerHTML = h;
 }
+
+// Toggle main section collapse
+window.mcToggleSection = function() {
+    _mcCollapsed = !_mcCollapsed;
+    var body = document.getElementById('mcSectionBody');
+    var icon = document.getElementById('mcCollapseIcon');
+    if (body) body.style.display = _mcCollapsed ? 'none' : '';
+    if (icon) icon.textContent = _mcCollapsed ? '▶' : '▼';
+};
+
+// Toggle individual session accordion
+window.mcToggleSession = function(sessionId) {
+    var body = document.getElementById('mcSessBody_' + sessionId);
+    var icon = document.getElementById('mcSessIcon_' + sessionId);
+    if (!body) return;
+    var isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? '' : 'none';
+    if (icon) icon.textContent = isHidden ? '▼' : '▶';
+};
+
+// Switch active session context (for review/edit buttons)
+window.mcSwitchSession = function(sessionId) {
+    var sess = _mcSessions.find(function(s) { return s.id === sessionId; });
+    if (sess) {
+        _mcSession = sess;
+        _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === sessionId; });
+    }
+};
 
 // Create session popup
 window.mcCreateSession = function() {
