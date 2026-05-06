@@ -551,7 +551,7 @@ async function kpiLoadDashboard() {
 }
 
 function kpiTrend(cur, prev) {
-    if (prev == null || prev === 0) return cur > 0 ? '<span style="color:#10b981;font-size:10px;font-weight:700">🆕</span>' : '';
+    if (prev == null || prev === 0) return cur > 0 ? '<span style="color:#fff;font-size:10px;font-weight:700;background:#10b981;padding:1px 6px;border-radius:4px">Mới</span>' : '';
     var diff = cur - prev;
     if (diff === 0) return '<span style="color:#94a3b8;font-size:10px">→0%</span>';
     var pct = Math.round(100 * diff / prev);
