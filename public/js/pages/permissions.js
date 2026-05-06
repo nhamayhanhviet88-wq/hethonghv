@@ -4,6 +4,7 @@ const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
+    { key: 'kpi_kdoanh', label: 'KPI P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'tim_kiem_kh', label: 'Tìm Kiếm Khách Hàng', perms: ['view'], section: 'TỔNG QUAN' },
 
     // ===== CÔNG VIỆC NV KINH DOANH =====
