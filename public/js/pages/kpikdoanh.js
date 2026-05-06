@@ -623,16 +623,48 @@ function kpiRenderLeaderboard(el, data) {
     el.innerHTML = h;
 }
 
+var _tcSort = 'revenue';
+window._tcAdvData = null;
+window._tcMainData = null;
+
+window.kpiTcSort = function(metric) {
+    _tcSort = metric;
+    var el = document.getElementById('kpiTeamCompare');
+    if (el && window._tcAdvData) kpiRenderTeamCompare(el, window._tcMainData, window._tcAdvData);
+};
+
 function kpiRenderTeamCompare(el, data, advData) {
     var teams = advData && advData.teamComparison;
     if (!teams || teams.length === 0) { el.innerHTML = ''; return; }
+    window._tcAdvData = advData;
+    window._tcMainData = data;
+
+    // Sort teams by selected metric
+    var sorted = [].concat(teams);
+    if (_tcSort === 'revenue') sorted.sort(function(a,b){return (b.revenue||0)-(a.revenue||0);});
+    else if (_tcSort === 'orders') sorted.sort(function(a,b){return (b.total_orders||0)-(a.total_orders||0);});
+    else if (_tcSort === 'affiliate') sorted.sort(function(a,b){return (b.affiliate_new||0)-(a.affiliate_new||0);});
+    else if (_tcSort === 'retention') sorted.sort(function(a,b){return (b.rate||0)-(a.rate||0);});
+
+    var tabs = [
+        {key:'revenue',icon:'💰',label:'Doanh Số'},
+        {key:'orders',icon:'📦',label:'Đơn Hàng'},
+        {key:'affiliate',icon:'🤝',label:'TK Affiliate'},
+        {key:'retention',icon:'🔁',label:'KH Cũ Quay Lại'}
+    ];
 
     var h = '<div class="kpi-lb-section">';
     h += '<div class="kpi-lb-header">📊 So Sánh Team</div>';
+    h += '<div class="kpi-lb-tabs">';
+    for (var ti = 0; ti < tabs.length; ti++) {
+        var t = tabs[ti];
+        h += '<button class="kpi-lb-tab ' + (_tcSort === t.key ? 'active' : '') + '" onclick="kpiTcSort(\'' + t.key + '\')">' + t.icon + ' ' + t.label + '</button>';
+    }
+    h += '</div>';
     h += '<div class="kpi-tc-grid">';
 
-    for (var i = 0; i < teams.length; i++) {
-        var team = teams[i];
+    for (var i = 0; i < sorted.length; i++) {
+        var team = sorted[i];
         var prev = team.prev || {};
         var hb = team.total_orders > 0;
         h += '<div class="kpi-tc-card"' + (hb ? ' style="border-color:#f59e0b;border-width:2px"' : '') + '>';
@@ -645,9 +677,9 @@ function kpiRenderTeamCompare(el, data, advData) {
         h += '</div></div>';
     }
     h += '</div></div>';
-    h += '</div></div>';
     el.innerHTML = h;
 }
+
 
 // ===== MEETING COMMITMENTS EMBED =====
 var _mcSession = null;
