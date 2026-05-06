@@ -890,8 +890,8 @@ function mcRenderItemEdit(stt, item) {
         h += '</div>';
         if (hasRevenue) {
             h += '<div style="display:flex;align-items:center;gap:8px">';
-            h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:</span>';
-            h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+            h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:' + reqStar + '</span>';
+            h += '<input class="kpi-mc-input mc-revenue mc-required-num" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
             h += '</div>';
         }
     } else {
@@ -957,6 +957,20 @@ window.mcSaveCommitments = async function(userId) {
             hasError = true;
         } else {
             field.style.boxShadow = '';
+        }
+    }
+    // Validate required number fields (must be > 0)
+    var requiredNums = document.querySelectorAll('#mcItemsList .mc-required-num');
+    for (var n = 0; n < requiredNums.length; n++) {
+        var numField = requiredNums[n];
+        numField.style.borderColor = '';
+        var numVal = parseFloat(numField.value) || 0;
+        if (numVal <= 0) {
+            numField.style.borderColor = '#ef4444';
+            numField.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+            hasError = true;
+        } else {
+            numField.style.boxShadow = '';
         }
     }
     if (hasError) {
