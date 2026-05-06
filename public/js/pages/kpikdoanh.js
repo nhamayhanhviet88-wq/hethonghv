@@ -862,20 +862,23 @@ window.mcEditUser = async function(userId, userName) {
 
 function mcRenderItemEdit(stt, item) {
     var isTemplate = item.isTemplate;
+    var isSelfAdd = item.isSelfAdd;
     var hasRevenue = item.hasRevenue;
     var question = item.question || item.content || '';
     var answer = item.answer || '';
     var revenue = item.target_revenue || 0;
 
-    var h = '<div class="kpi-mc-item" data-mc-item data-is-tpl="' + (isTemplate ? '1' : '0') + '">';
+    var dataType = isTemplate ? 'tpl' : 'self';
+    var h = '<div class="kpi-mc-item" data-mc-item data-type="' + dataType + '">';
     h += '<div class="kpi-mc-item-head">';
     h += '<div class="kpi-mc-item-stt">' + stt + '</div>';
     h += '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + '</div>';
-    h += '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>';
+    if (!isTemplate) {
+        h += '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>';
+    }
     h += '</div>';
 
     if (isTemplate) {
-        // Template: question is read-only label
         h += '<div style="padding:10px 14px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;margin-bottom:10px;border-left:3px solid #4338ca">';
         h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi</div>';
         h += '<div style="font-size:13px;font-weight:600;color:#1e293b;line-height:1.5" class="mc-question">' + question + '</div>';
@@ -891,9 +894,18 @@ function mcRenderItemEdit(stt, item) {
             h += '</div>';
         }
     } else {
-        // Free-form: editable content
-        h += '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + question + '</textarea>';
-        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu (VD: 50000000)" value="' + revenue + '">';
+        h += '<div style="margin-bottom:10px">';
+        h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi / Nội dung</div>';
+        h += '<textarea class="kpi-mc-input mc-question-edit" rows="2" placeholder="VD: Mục tiêu bạn đặt ra cho giai đoạn tới?" style="resize:vertical;border-color:#c7d2fe">' + question + '</textarea>';
+        h += '</div>';
+        h += '<div style="margin-bottom:8px">';
+        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết</div>';
+        h += '<textarea class="kpi-mc-input mc-answer" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '</div>';
+        h += '<div style="display:flex;align-items:center;gap:8px">';
+        h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:</span>';
+        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="0 nếu không có" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+        h += '</div>';
     }
 
     h += '</div>';
@@ -903,7 +915,7 @@ function mcRenderItemEdit(stt, item) {
 window.mcAddItem = function() {
     var list = document.getElementById('mcItemsList');
     var count = list.querySelectorAll('[data-mc-item]').length;
-    list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, { content: '', target_revenue: 0 }));
+    list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, { isSelfAdd: true, content: '', answer: '', target_revenue: 0 }));
 };
 
 window.mcReindex = function() {
@@ -919,18 +931,20 @@ window.mcSaveCommitments = async function(userId) {
     var items = [];
     for (var i = 0; i < itemEls.length; i++) {
         var el = itemEls[i];
-        var isTpl = el.getAttribute('data-is-tpl') === '1';
+        var dataType = el.getAttribute('data-type');
         var content, revenue;
 
-        if (isTpl) {
+        if (dataType === 'tpl') {
             var question = el.querySelector('.mc-question') ? el.querySelector('.mc-question').textContent : '';
-            var answerEl = el.querySelector('.mc-answer');
-            var answer = answerEl ? answerEl.value.trim() : '';
+            var answer = el.querySelector('.mc-answer') ? el.querySelector('.mc-answer').value.trim() : '';
             content = '❓ ' + question + '\n✅ ' + answer;
             var revEl = el.querySelector('.mc-revenue');
             revenue = revEl ? parseFloat(revEl.value) || 0 : 0;
         } else {
-            content = el.querySelector('.mc-content').value.trim();
+            var qEdit = el.querySelector('.mc-question-edit');
+            var q2 = qEdit ? qEdit.value.trim() : '';
+            var a2 = el.querySelector('.mc-answer') ? el.querySelector('.mc-answer').value.trim() : '';
+            content = q2 ? ('❓ ' + q2 + '\n✅ ' + a2) : a2;
             revenue = parseFloat(el.querySelector('.mc-revenue').value) || 0;
         }
 
