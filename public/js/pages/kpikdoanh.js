@@ -743,6 +743,56 @@ function kpiRenderMeetingCommit(el) {
         h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào trong tháng này</div>';
         h += '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bấm "➕ Tạo Cuộc Họp" để bắt đầu</div></div>';
     } else {
+        // ===== MONTHLY SUMMARY CARDS =====
+        h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff">';
+        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px">📊 Tổng Kết Cam Kết Tháng';
+        var mNow = new Date();
+        h += ' <span style="font-size:12px;font-weight:500;color:#6366f1">' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
+        // Build per-person aggregates
+        var personMap = {};
+        for (var ai = 0; ai < _mcAllCommitments.length; ai++) {
+            var ac = _mcAllCommitments[ai];
+            if (!personMap[ac.user_id]) {
+                personMap[ac.user_id] = { name: ac.user_name, role: ac.user_role, total: 0, done: 0, sumPct: 0 };
+            }
+            personMap[ac.user_id].total++;
+            if (ac.is_completed) personMap[ac.user_id].done++;
+            personMap[ac.user_id].sumPct += (ac.completion_pct || 0);
+        }
+        var personArr = Object.keys(personMap).map(function(uid) {
+            var p = personMap[uid];
+            p.avgPct = p.total > 0 ? Math.round(p.sumPct / p.total) : 0;
+            return p;
+        }).sort(function(a, b) { return b.avgPct - a.avgPct; });
+
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+        for (var pi = 0; pi < personArr.length; pi++) {
+            var p = personArr[pi];
+            var pColor = p.avgPct >= 80 ? '#059669' : (p.avgPct >= 50 ? '#d97706' : '#dc2626');
+            var pBg = p.avgPct >= 80 ? '#dcfce7' : (p.avgPct >= 50 ? '#fef3c7' : '#fee2e2');
+            var pGrad = p.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (p.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+            var roleIcon = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao') ? '👔' : (p.role === 'truong_phong' ? '🏷️' : '👤');
+            var roleText = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao') ? 'Quản Lý' : (p.role === 'truong_phong' ? 'Trưởng Phòng' : 'Nhân Viên');
+
+            h += '<div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid ' + pBg + ';transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.08)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+            h += '<div style="display:flex;align-items:center;gap:6px">';
+            h += '<span style="font-size:16px">' + roleIcon + '</span>';
+            h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + p.name + '</div>';
+            h += '<div style="font-size:10px;color:#94a3b8;font-weight:500">' + roleText + '</div></div>';
+            h += '</div>';
+            h += '<div style="font-size:18px;font-weight:900;color:' + pColor + '">' + p.avgPct + '%</div>';
+            h += '</div>';
+            // Progress bar
+            h += '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+            h += '<div style="height:100%;width:' + p.avgPct + '%;background:' + pGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+            h += '</div>';
+            h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;font-weight:600">';
+            h += '<span>Hoàn thành: ' + p.done + '/' + p.total + '</span>';
+            h += '<span>' + _mcSessions.length + ' cuộc họp</span>';
+            h += '</div></div>';
+        }
+        h += '</div></div>';
         // Render each session as accordion (newest last = expanded)
         for (var si = 0; si < _mcSessions.length; si++) {
             var sess = _mcSessions[si];
@@ -776,8 +826,21 @@ function kpiRenderMeetingCommit(el) {
             for (var ti = 0; ti < _mcTeams.length; ti++) {
                 var team = _mcTeams[ti];
                 if (!team.members || team.members.length === 0) continue;
+                var teamCommits = sessCommits.filter(function(c) {
+                    var memberIds = team.members.map(function(m) { return m.id; });
+                    return memberIds.indexOf(c.user_id) >= 0;
+                });
+                var teamDone = teamCommits.filter(function(c) { return c.is_completed; }).length;
+                var teamPct = teamCommits.length > 0 ? Math.round(teamCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamCommits.length) : 0;
+                var teamBadgeClass = teamDone === teamCommits.length && teamCommits.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
+
                 h += '<div class="kpi-mc-team">';
-                h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
+                h += '<div class="kpi-mc-team-name" style="display:flex;align-items:center;justify-content:space-between">';
+                h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
+                if (teamCommits.length > 0) {
+                    h += '<span class="kpi-mc-badge ' + teamBadgeClass + '" style="font-size:11px">' + teamDone + '/' + teamCommits.length + ' — ' + teamPct + '%</span>';
+                }
+                h += '</div>';
 
                 for (var mi = 0; mi < team.members.length; mi++) {
                     var emp = team.members[mi];
