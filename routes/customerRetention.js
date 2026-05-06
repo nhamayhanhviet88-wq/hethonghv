@@ -788,6 +788,8 @@ module.exports = async function(fastify) {
         const pStart = userIds.length + 1;
         const pEnd = userIds.length + 2;
 
+        console.log('[ADV-API] period:', period, '| current.start:', current.start, '| current.end:', current.end, '| startDate:', startDate, '| endDate:', endDate);
+
         // === 1. LEADERBOARD: Top NV by revenue, orders, retention ===
         const leaderRows = await db.all(`
             WITH completed AS (
@@ -1121,7 +1123,7 @@ module.exports = async function(fastify) {
             teamComparison,
             conversionMap: conversionMapAdv,
             kpiMap: kpiMapAdv,
-            period: { type: period, label: current.label }
+            period: { type: period, label: current.label, start: current.start, end: current.end }
         };
     });
 };

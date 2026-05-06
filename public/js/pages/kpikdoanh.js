@@ -756,6 +756,11 @@ function kpiRenderLeaderboard(el, data) {
 
     var h = '<div class="kpi-lb-section">';
     h += '<div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>';
+    // Show active period info
+    var periodInfo = data && data.period;
+    if (periodInfo && periodInfo.start) {
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + periodInfo.start + ' → ' + periodInfo.end + ' (' + (periodInfo.label || '') + ')</div>';
+    }
 
     // === FILTER BAR ROW 1 ===
     h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
