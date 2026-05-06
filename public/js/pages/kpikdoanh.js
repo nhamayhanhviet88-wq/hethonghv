@@ -133,7 +133,7 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155}
             .kpi-mc-emp-role{font-size:11px;color:#94a3b8;margin-left:8px}
             .kpi-mc-emp-actions{display:flex;gap:6px;align-items:center}
-            .kpi-mc-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700}
+            .kpi-mc-badge{font-size:13px;padding:5px 14px;border-radius:20px;font-weight:700}
             .kpi-mc-badge-done{background:#dcfce7;color:#166534}
             .kpi-mc-badge-pending{background:#fef3c7;color:#92400e}
             .kpi-mc-badge-none{background:#f1f5f9;color:#6b7280}
