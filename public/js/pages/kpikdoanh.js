@@ -839,7 +839,7 @@ window.mcEditUser = async function(userId, userName) {
         + '<div class="kpi-mc-modal-body"><div id="mcItemsList">';
 
     for (var i = 0; i < items.length; i++) {
-        h += mcRenderItemEdit(i + 1, items[i].content, items[i].target_revenue, items[i].isTemplate);
+        h += mcRenderItemEdit(i + 1, items[i]);
     }
 
     h += '</div>'
@@ -853,23 +853,50 @@ window.mcEditUser = async function(userId, userName) {
     document.body.appendChild(overlay);
 };
 
-function mcRenderItemEdit(stt, content, revenue, isTemplate) {
-    var tplBadge = isTemplate ? '<span style="font-size:10px;background:#dbeafe;color:#2563eb;padding:1px 6px;border-radius:4px;margin-left:6px">Mẫu</span>' : '';
-    return '<div class="kpi-mc-item" data-mc-item>'
-        + '<div class="kpi-mc-item-head">'
-        + '<div class="kpi-mc-item-stt">' + stt + '</div>'
-        + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + tplBadge + '</div>'
-        + '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>'
-        + '</div>'
-        + '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + (content || '') + '</textarea>'
-        + '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu doanh số (VD: 50000000)" value="' + (revenue || 0) + '">'
-        + '</div>';
+function mcRenderItemEdit(stt, item) {
+    var isTemplate = item.isTemplate;
+    var hasRevenue = item.hasRevenue;
+    var question = item.question || item.content || '';
+    var answer = item.answer || '';
+    var revenue = item.target_revenue || 0;
+
+    var h = '<div class="kpi-mc-item" data-mc-item data-is-tpl="' + (isTemplate ? '1' : '0') + '">';
+    h += '<div class="kpi-mc-item-head">';
+    h += '<div class="kpi-mc-item-stt">' + stt + '</div>';
+    h += '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + stt + '</div>';
+    h += '<button class="kpi-mc-remove" onclick="this.closest(\'[data-mc-item]\').remove();mcReindex()">✕</button>';
+    h += '</div>';
+
+    if (isTemplate) {
+        // Template: question is read-only label
+        h += '<div style="padding:10px 14px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;margin-bottom:10px;border-left:3px solid #4338ca">';
+        h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi</div>';
+        h += '<div style="font-size:13px;font-weight:600;color:#1e293b;line-height:1.5" class="mc-question">' + question + '</div>';
+        h += '</div>';
+        h += '<div style="margin-bottom:8px">';
+        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết</div>';
+        h += '<textarea class="kpi-mc-input mc-answer" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '</div>';
+        if (hasRevenue) {
+            h += '<div style="display:flex;align-items:center;gap:8px">';
+            h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu doanh số:</span>';
+            h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+            h += '</div>';
+        }
+    } else {
+        // Free-form: editable content
+        h += '<textarea class="kpi-mc-input mc-content" rows="2" placeholder="Nội dung cam kết..." style="margin-bottom:8px;resize:vertical">' + question + '</textarea>';
+        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="Mục tiêu doanh số (VD: 50000000)" value="' + revenue + '">';
+    }
+
+    h += '</div>';
+    return h;
 }
 
 window.mcAddItem = function() {
     var list = document.getElementById('mcItemsList');
     var count = list.querySelectorAll('[data-mc-item]').length;
-    list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, '', 0));
+    list.insertAdjacentHTML('beforeend', mcRenderItemEdit(count + 1, { content: '', target_revenue: 0 }));
 };
 
 window.mcReindex = function() {
@@ -877,8 +904,6 @@ window.mcReindex = function() {
     for (var i = 0; i < items.length; i++) {
         var stt = items[i].querySelector('.kpi-mc-item-stt');
         if (stt) stt.textContent = i + 1;
-        var head = items[i].querySelector('.kpi-mc-item-head div:nth-child(2)');
-        if (head) head.textContent = 'Cam kết #' + (i + 1);
     }
 };
 
@@ -886,8 +911,22 @@ window.mcSaveCommitments = async function(userId) {
     var itemEls = document.querySelectorAll('#mcItemsList [data-mc-item]');
     var items = [];
     for (var i = 0; i < itemEls.length; i++) {
-        var content = itemEls[i].querySelector('.mc-content').value.trim();
-        var revenue = parseFloat(itemEls[i].querySelector('.mc-revenue').value) || 0;
+        var el = itemEls[i];
+        var isTpl = el.getAttribute('data-is-tpl') === '1';
+        var content, revenue;
+
+        if (isTpl) {
+            var question = el.querySelector('.mc-question') ? el.querySelector('.mc-question').textContent : '';
+            var answerEl = el.querySelector('.mc-answer');
+            var answer = answerEl ? answerEl.value.trim() : '';
+            content = '❓ ' + question + '\n✅ ' + answer;
+            var revEl = el.querySelector('.mc-revenue');
+            revenue = revEl ? parseFloat(revEl.value) || 0 : 0;
+        } else {
+            content = el.querySelector('.mc-content').value.trim();
+            revenue = parseFloat(el.querySelector('.mc-revenue').value) || 0;
+        }
+
         if (content) items.push({ content: content, target_revenue: revenue });
     }
     if (items.length === 0) return alert('Cần ít nhất 1 cam kết');
