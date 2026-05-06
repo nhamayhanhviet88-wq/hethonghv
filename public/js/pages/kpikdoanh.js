@@ -792,6 +792,8 @@ function kpiRenderMeetingCommit(el) {
         h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào trong tháng này</div>';
         h += '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bấm "➕ Tạo Cuộc Họp" để bắt đầu</div></div>';
     } else {
+        // Helper: format % with 1 decimal, Vietnamese comma
+        function mcFmtPct(v) { var r = Math.round(v * 10) / 10; return r.toString().replace('.', ','); }
         // ===== MONTHLY SUMMARY CARDS =====
         h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff">';
         h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px">📊 Tổng Kết Cam Kết Tháng';
@@ -824,7 +826,7 @@ function kpiRenderMeetingCommit(el) {
                     var sp = p.sessionPcts[sessKeys[sk]];
                     sessAvgSum += (sp.sum / sp.count);
                 }
-                p.avgPct = Math.round(sessAvgSum / sessKeys.length);
+                p.avgPct = Math.round((sessAvgSum / sessKeys.length) * 10) / 10;
             } else {
                 p.avgPct = 0;
             }
@@ -835,6 +837,7 @@ function kpiRenderMeetingCommit(el) {
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
         for (var pi = 0; pi < personArr.length; pi++) {
             var p = personArr[pi];
+            var pPctDisplay = mcFmtPct(p.avgPct);
             var pColor = p.avgPct >= 80 ? '#059669' : (p.avgPct >= 50 ? '#d97706' : '#dc2626');
             var pBg = p.avgPct >= 80 ? '#dcfce7' : (p.avgPct >= 50 ? '#fef3c7' : '#fee2e2');
             var pGrad = p.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (p.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
@@ -848,7 +851,7 @@ function kpiRenderMeetingCommit(el) {
             h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + p.name + '</div>';
             h += '<div style="font-size:10px;color:#94a3b8;font-weight:500">' + roleText + '</div></div>';
             h += '</div>';
-            h += '<div style="font-size:18px;font-weight:900;color:' + pColor + '">' + p.avgPct + '%</div>';
+            h += '<div style="font-size:18px;font-weight:900;color:' + pColor + '">' + pPctDisplay + '%</div>';
             h += '</div>';
             // Progress bar
             h += '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:6px">';
@@ -863,9 +866,8 @@ function kpiRenderMeetingCommit(el) {
 
         // ===== TEAM SUMMARY CARDS (team-own commits only, per-session averaging) =====
         if (_mcTeams && _mcTeams.length > 0) {
-            h += '<div style="margin-top:16px">';
-            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
-            h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            // Pre-calculate team data and sort by avgPct desc
+            var teamSummaryArr = [];
             for (var tsi = 0; tsi < _mcTeams.length; tsi++) {
                 var tteam = _mcTeams[tsi];
                 if (!tteam.members || tteam.members.length === 0) continue;
@@ -890,28 +892,38 @@ function kpiRenderMeetingCommit(el) {
                         var ts = tSessionMap[tSessKeys[tsk]];
                         tSessSum += (ts.sum / ts.count);
                     }
-                    tAvgPct = Math.round(tSessSum / tSessKeys.length);
+                    tAvgPct = Math.round((tSessSum / tSessKeys.length) * 10) / 10;
                 }
+                teamSummaryArr.push({ team: tteam, total: tTotal, done: tDone, avgPct: tAvgPct, sessCount: tSessKeys.length });
+            }
+            // Sort teams by highest % first
+            teamSummaryArr.sort(function(a, b) { return b.avgPct - a.avgPct; });
 
-                var tColor = tAvgPct >= 80 ? '#059669' : (tAvgPct >= 50 ? '#d97706' : '#dc2626');
-                var tGrad = tAvgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (tAvgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+            h += '<div style="margin-top:16px">';
+            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
+            h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            for (var tsi2 = 0; tsi2 < teamSummaryArr.length; tsi2++) {
+                var ts2 = teamSummaryArr[tsi2];
+                var tPctDisplay = mcFmtPct(ts2.avgPct);
+                var tColor = ts2.avgPct >= 80 ? '#059669' : (ts2.avgPct >= 50 ? '#d97706' : '#dc2626');
+                var tGrad = ts2.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (ts2.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
 
                 h += '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:10px;padding:12px 14px;border:1px solid #c4b5fd;border-left:4px solid #8b5cf6;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(139,92,246,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
                 h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
                 h += '<span style="font-size:16px">🏠</span>';
-                h += '<div><div style="font-size:13px;font-weight:800;color:#4c1d95">' + tteam.name + '</div>';
-                h += '<div style="font-size:10px;color:#7c3aed;font-weight:500">' + tteam.members.length + ' thành viên</div></div>';
+                h += '<div><div style="font-size:13px;font-weight:800;color:#4c1d95">' + ts2.team.name + '</div>';
+                h += '<div style="font-size:10px;color:#7c3aed;font-weight:500">' + ts2.team.members.length + ' thành viên</div></div>';
                 h += '</div>';
-                h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tAvgPct + '%</div>';
+                h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tPctDisplay + '%</div>';
                 h += '</div>';
                 // Progress bar
                 h += '<div style="height:6px;background:#ddd6fe;border-radius:3px;overflow:hidden;margin-bottom:6px">';
-                h += '<div style="height:100%;width:' + tAvgPct + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+                h += '<div style="height:100%;width:' + ts2.avgPct + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
                 h += '</div>';
                 h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;font-weight:600">';
-                h += '<span>Hoàn thành: ' + tDone + '/' + tTotal + '</span>';
-                h += '<span>' + tSessKeys.length + ' cuộc họp</span>';
+                h += '<span>Hoàn thành: ' + ts2.done + '/' + ts2.total + '</span>';
+                h += '<span>' + ts2.sessCount + ' cuộc họp</span>';
                 h += '</div></div>';
             }
             h += '</div></div>';
