@@ -8,6 +8,19 @@ const { authenticate } = require('../middleware/auth');
 
 async function meetingCommitmentsRoutes(fastify, options) {
 
+    // Role hierarchy helper: can requester manage target user?
+    const EDIT_ROLES = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao'];
+    async function canManageUser(requester, targetUserId) {
+        if (requester.role === 'giam_doc') return true;
+        if (requester.id === targetUserId) return true; // self
+        if (EDIT_ROLES.includes(requester.role)) {
+            // QL can manage truong_phong + nhan_vien + thu_viec
+            const target = await db.get('SELECT role FROM users WHERE id = $1', [targetUserId]);
+            if (target && ['truong_phong', 'nhan_vien', 'thu_viec'].includes(target.role)) return true;
+        }
+        return false;
+    }
+
     // ===== GET commitment templates for a page (MUST be before parametric routes) =====
     fastify.get('/api/meeting-commitments/templates', { preHandler: [authenticate] }, async (request, reply) => {
         const { page } = request.query;
@@ -151,12 +164,12 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true };
     });
 
-    // ===== ADD commitments for a user (GĐ or self) =====
+    // ===== ADD commitments for a user (role hierarchy) =====
     fastify.post('/api/meeting-commitments', { preHandler: [authenticate] }, async (request, reply) => {
         const targetUserId = parseInt(request.body?.user_id);
-        const isSelf = targetUserId === request.user.id;
-        if (request.user.role !== 'giam_doc' && !isSelf) {
-            return reply.code(403).send({ error: 'Bạn chỉ được ghi cam kết cho chính mình' });
+        const allowed = await canManageUser(request.user, targetUserId);
+        if (!allowed) {
+            return reply.code(403).send({ error: 'Bạn không có quyền ghi cam kết cho người này' });
         }
 
         const { session_id, user_id, items } = request.body || {};
@@ -179,13 +192,13 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true, count: items.length };
     });
 
-    // ===== REVIEW/UPDATE commitment (GĐ or self) =====
+    // ===== REVIEW/UPDATE commitment (role hierarchy) =====
     fastify.put('/api/meeting-commitments/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        // Check if this commitment belongs to the current user
         const commitment = await db.get('SELECT user_id FROM meeting_commitments WHERE id = $1', [request.params.id]);
-        const isSelf = commitment && commitment.user_id === request.user.id;
-        if (request.user.role !== 'giam_doc' && !isSelf) {
-            return reply.code(403).send({ error: 'Bạn chỉ được review cam kết của chính mình' });
+        if (!commitment) return reply.code(404).send({ error: 'Không tìm thấy cam kết' });
+        const allowed = await canManageUser(request.user, commitment.user_id);
+        if (!allowed) {
+            return reply.code(403).send({ error: 'Bạn không có quyền review cam kết này' });
         }
 
         const { is_completed, completion_pct, review_note } = request.body || {};
@@ -202,12 +215,13 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { success: true };
     });
 
-    // ===== BATCH REVIEW (GĐ or self) =====
+    // ===== BATCH REVIEW (role hierarchy) =====
     fastify.put('/api/meeting-commitments/batch-review', { preHandler: [authenticate] }, async (request, reply) => {
         const isDirector = request.user.role === 'giam_doc';
+        const isManager = ['quan_ly', 'quan_ly_cap_cao'].includes(request.user.role);
 
-        if (!isDirector) {
-            // Verify all review items belong to the current user
+        if (!isDirector && !isManager) {
+            // For non-managers, verify all items belong to the current user
             const { reviews } = request.body || {};
             if (Array.isArray(reviews) && reviews.length > 0) {
                 const ids = reviews.map(r => r.id);

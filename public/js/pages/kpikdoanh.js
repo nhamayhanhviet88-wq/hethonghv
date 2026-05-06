@@ -751,6 +751,21 @@ function kpiRenderMeetingCommit(el) {
             h += '<div class="kpi-mc-emp-actions">';
 
             var isSelf = typeof currentUser !== 'undefined' && currentUser && currentUser.id === emp.id;
+            var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+            var empRole = emp.role || 'nhan_vien';
+
+            // Permission hierarchy: who can edit/view whom
+            var canEdit = false; // can Review + Edit
+            var canView = false; // can View only (read-only)
+            if (isGD) {
+                canEdit = true;
+            } else if ((myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') && (empRole === 'truong_phong' || empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                canEdit = true;
+            } else if (myRole === 'truong_phong' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                canView = true;
+            } else if (myRole === 'nhan_vien' && (empRole === 'nhan_vien' || empRole === 'thu_viec')) {
+                canView = true;
+            }
 
             if (totalItems > 0) {
                 if (doneItems === totalItems) {
@@ -759,19 +774,24 @@ function kpiRenderMeetingCommit(el) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
                 }
                 var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
-                if (isGD) {
+
+                if (canEdit) {
+                    // GĐ / QL: full review + edit
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                 } else if (isSelf && !anyReviewed) {
+                    // Self: not yet reviewed → can self-assess
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Tự đánh giá</button>';
                 } else if (isSelf && anyReviewed) {
+                    // Self: already reviewed → view only
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem đánh giá</button>';
-                }
-                if (isGD) {
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                } else if (canView && !isSelf) {
+                    // TP / NV: view-only for others
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
                 }
             } else {
                 h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                if (isGD || isSelf) {
+                if (canEdit || isSelf) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
                 }
             }
