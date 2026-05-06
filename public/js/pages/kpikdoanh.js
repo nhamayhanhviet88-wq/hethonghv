@@ -128,10 +128,12 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-btn-ghost:hover{background:rgba(99,102,241,.15)}
             .kpi-mc-team{padding:16px 24px;border-bottom:1px solid #f1f5f9;background:linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff);border-left:4px solid #8b5cf6;margin:8px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(139,92,246,.08)}
             .kpi-mc-team-name{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#ede9fe,#ddd6fe);border-radius:8px}
-            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s;background:#fff}
-            .kpi-mc-emp:hover{background:#f8fafc}
-            .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-            .kpi-mc-emp-role{font-size:11px;color:#94a3b8;margin-left:8px}
+            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:10px;margin:3px 0;transition:all .2s;background:#fff;border-bottom:1px solid #f1f5f9}
+            .kpi-mc-emp-odd{background:#f8fafc}
+            .kpi-mc-emp:hover{background:#eef2ff;box-shadow:0 2px 8px rgba(99,102,241,.1);transform:translateX(2px)}
+            .kpi-mc-emp-name{font-size:14px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .kpi-mc-emp-role{font-size:11px;color:#7c3aed;margin-left:8px;font-weight:600}
+            .kpi-mc-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;text-transform:uppercase}
             .kpi-mc-emp-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
             .kpi-mc-badge{font-size:13px;padding:5px 14px;border-radius:20px;font-weight:700;white-space:nowrap;min-width:120px;text-align:center}
             .kpi-mc-badge-done{background:#dcfce7;color:#166534}
@@ -920,10 +922,16 @@ function kpiRenderMeetingCommit(el) {
                     if (emp.role === 'quan_ly' || emp.role === 'quan_ly_cap_cao') roleLabel = 'Quản Lý';
                     else if (emp.role === 'truong_phong') roleLabel = 'Trưởng Phòng';
 
-                    h += '<div class="kpi-mc-emp">';
-                    h += '<div><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
-                    if (roleLabel) h += '<span class="kpi-mc-emp-role">(' + roleLabel + ')</span>';
-                    h += '</div>';
+                    var empRowClass = 'kpi-mc-emp' + (mi % 2 === 1 ? ' kpi-mc-emp-odd' : '');
+                    var avatarColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
+                    var avatarBg = avatarColors[(emp.full_name || '').charCodeAt(0) % avatarColors.length];
+                    var avatarChar = (emp.full_name || '?').charAt(0);
+                    h += '<div class="' + empRowClass + '">';
+                    h += '<div style="display:flex;align-items:center;gap:10px;min-width:0">';
+                    h += '<div class="kpi-mc-avatar" style="background:' + avatarBg + '">' + avatarChar + '</div>';
+                    h += '<div style="min-width:0"><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
+                    if (roleLabel) h += '<span class="kpi-mc-emp-role">' + roleLabel + '</span>';
+                    h += '</div></div>';
                     h += '<div class="kpi-mc-emp-actions">';
 
                     var isSelf = typeof currentUser !== 'undefined' && currentUser && currentUser.id === emp.id;
