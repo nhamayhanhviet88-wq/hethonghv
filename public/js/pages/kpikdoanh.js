@@ -121,19 +121,19 @@ async function renderKpikdoanhPage(container) {
             /* === MEETING COMMITMENTS === */
             .kpi-mc-section{background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-top:28px}
             .kpi-mc-header{padding:18px 24px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid rgba(234,179,8,.2);color:#78350f;background:linear-gradient(90deg,#fefce8,#fef9c3,#fef08a,#fef9c3,#fefce8);background-size:200% 100%;animation:kpiShimmer 4s ease-in-out infinite}
-            .kpi-mc-btn{padding:8px 16px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+            .kpi-mc-btn{padding:8px 16px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
             .kpi-mc-btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,.3)}
             .kpi-mc-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,70,229,.4)}
             .kpi-mc-btn-ghost{background:rgba(99,102,241,.08);color:#4338ca}
             .kpi-mc-btn-ghost:hover{background:rgba(99,102,241,.15)}
             .kpi-mc-team{padding:16px 24px;border-bottom:1px solid #f1f5f9}
             .kpi-mc-team-name{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#f8fafc,#f1f5f9);border-radius:8px}
-            .kpi-mc-emp{display:grid;grid-template-columns:1fr auto;align-items:center;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s}
+            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s}
             .kpi-mc-emp:hover{background:#f8fafc}
-            .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155}
+            .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
             .kpi-mc-emp-role{font-size:11px;color:#94a3b8;margin-left:8px}
-            .kpi-mc-emp-actions{display:grid;grid-template-columns:130px 90px 36px;gap:4px;align-items:center;justify-items:end}
-            .kpi-mc-badge{font-size:13px;padding:5px 14px;border-radius:20px;font-weight:700}
+            .kpi-mc-emp-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+            .kpi-mc-badge{font-size:13px;padding:5px 14px;border-radius:20px;font-weight:700;white-space:nowrap;min-width:120px;text-align:center}
             .kpi-mc-badge-done{background:#dcfce7;color:#166534}
             .kpi-mc-badge-pending{background:#fef3c7;color:#92400e}
             .kpi-mc-badge-none{background:#f1f5f9;color:#6b7280}
@@ -942,7 +942,6 @@ function kpiRenderMeetingCommit(el) {
                     }
 
                     if (totalItems > 0) {
-                        // Cell 1: Badge
                         if (doneItems === totalItems) {
                             h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
                         } else {
@@ -950,9 +949,9 @@ function kpiRenderMeetingCommit(el) {
                         }
                         var anyReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
 
-                        // Cell 2: Review/View button
                         if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                         } else if (canEdit && !isSelf) {
                             if (!anyReviewed) {
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
@@ -965,27 +964,12 @@ function kpiRenderMeetingCommit(el) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
                         } else if (canView && !isSelf) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
-                        } else {
-                            h += '<span></span>';
-                        }
-
-                        // Cell 3: Edit button (GĐ only)
-                        if (isGD) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
-                        } else {
-                            h += '<span></span>';
                         }
                     } else {
-                        // Cell 1: No commit badge
                         h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
-                        // Cell 2: Ghi button or empty
                         if (isGD || canEdit || isSelf) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Ghi</button>';
-                        } else {
-                            h += '<span></span>';
                         }
-                        // Cell 3: empty
-                        h += '<span></span>';
                     }
                     h += '</div></div>';
                 }
