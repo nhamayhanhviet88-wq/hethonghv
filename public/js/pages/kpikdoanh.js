@@ -758,8 +758,9 @@ function kpiRenderMeetingCommit(el) {
                 } else {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
                 }
-                if (isGD || isSelf) {
-                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                var alreadyReviewed = empCommits.some(function(c) { return c.reviewed_by && c.reviewed_by !== emp.id; });
+                if (isGD || (isSelf && !alreadyReviewed)) {
+                    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">' + (isSelf ? '📝 Tự đánh giá' : '✅ Review') + '</button>';
                 }
                 if (isGD) {
                     h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
