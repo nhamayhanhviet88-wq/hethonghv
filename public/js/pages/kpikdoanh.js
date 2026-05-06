@@ -1169,63 +1169,76 @@ window.mcReviewTeam = function(deptId, teamName, readOnly) {
 
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
-    var h = '<div class="kpi-mc-modal">';
-    h += '<div class="kpi-mc-modal-head"><div>🏠 Review Team: ' + teamName + '</div>';
-    h += '<button class="kpi-mc-remove" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">✕</button></div>';
-    h += '<div class="kpi-mc-modal-body">';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var modalTitle = readOnly ? '👁️ Xem Đánh Giá Team — ' + teamName : '✅ Review Team — ' + teamName;
+    var h = '<div class="kpi-mc-modal">'
+        + '<div class="kpi-mc-modal-head"><h3>' + modalTitle + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+        + '<div class="kpi-mc-modal-body">';
 
     for (var i = 0; i < teamCommits.length; i++) {
         var c = teamCommits[i];
         var hasTarget = c.target_revenue > 0;
+
+        // Parse content
         var contentHtml = '';
         if (c.content.indexOf('❓') >= 0 && c.content.indexOf('✅') >= 0) {
             var parsed = mcParseContent(c.content);
             contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;border-left:3px solid #4338ca;margin-bottom:8px">';
             contentHtml += '<div style="font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">📋 Câu hỏi</div>';
-            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b">' + parsed.question + '</div></div>';
+            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b">' + parsed.question + '</div>';
+            contentHtml += '</div>';
             contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:8px;border-left:3px solid #059669;margin-bottom:8px">';
             contentHtml += '<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">✍️ Câu trả lời</div>';
-            contentHtml += '<div style="font-size:13px;color:#1e293b;white-space:pre-line">' + parsed.answer + '</div></div>';
+            contentHtml += '<div style="font-size:13px;color:#1e293b;white-space:pre-line">' + parsed.answer + '</div>';
+            contentHtml += '</div>';
         } else {
-            contentHtml = '<div style="font-size:13px;color:#1e293b;margin-bottom:8px;white-space:pre-line">' + c.content + '</div>';
+            contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:8px;white-space:pre-line">' + c.content + '</div>';
         }
 
-        h += '<div style="padding:12px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;background:#fafbff">';
-        h += '<div style="font-size:12px;font-weight:800;color:#4338ca;margin-bottom:8px">Cam kết #' + (i+1) + '</div>';
-        h += contentHtml;
+        // Target display
         if (hasTarget) {
-            h += '<div style="font-size:12px;color:#b45309;font-weight:700;margin-bottom:8px">💰 Mục tiêu: ' + (c.target_revenue || 0).toLocaleString('vi-VN') + '</div>';
+            contentHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:8px;border-left:3px solid #f59e0b;margin-bottom:10px">';
+            contentHtml += '<span style="font-size:13px;font-weight:700;color:#b45309">🎯 Mục tiêu:</span>';
+            contentHtml += '<span style="font-size:16px;font-weight:800;color:#d97706">' + Number(c.target_revenue).toLocaleString('vi-VN') + '</span>';
+            contentHtml += '</div>';
         }
-        h += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">';
-        h += '<span style="font-size:11px;font-weight:700;color:#6366f1">📊 Hoàn thành (%):</span>';
-        h += '<input type="range" min="0" max="100" value="' + (c.completion_pct || 0) + '" class="mc-review-pct" data-id="' + c.id + '" style="flex:1" ' + (readOnly ? 'disabled' : '') + '>';
-        h += '<span class="mc-review-pct-val" style="font-size:13px;font-weight:800;color:#4338ca;min-width:40px;text-align:right">' + (c.completion_pct || 0) + '%</span>';
-        h += '</div>';
-        h += '<div><span style="font-size:11px;font-weight:700;color:#059669;display:block;margin-bottom:3px">📝 Ghi chú đánh giá:</span>';
-        h += '<textarea class="kpi-mc-input mc-review-note" data-id="' + c.id + '" rows="2" style="resize:vertical" ' + (readOnly ? 'disabled' : '') + '>' + (c.review_note || '') + '</textarea></div>';
+
+        h += '<div class="kpi-mc-item" data-review-id="' + c.id + '" data-has-target="' + (hasTarget ? '1' : '0') + '" data-target="' + (c.target_revenue || 0) + '">'
+            + '<div class="kpi-mc-item-head"><div class="kpi-mc-item-stt">' + (i + 1) + '</div>'
+            + '<div style="flex:1;font-weight:700;font-size:13px;color:#1e293b">Cam kết #' + (i + 1) + '</div></div>'
+            + contentHtml;
+
+        if (hasTarget) {
+            var currentPct = c.completion_pct || 0;
+            var currentActual = hasTarget && currentPct > 0 ? Math.round(c.target_revenue * currentPct / 100) : '';
+            h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+            h += '<span style="font-size:12px;font-weight:700;color:#7c3aed;white-space:nowrap">📊 Đã đạt:</span>';
+            h += '<input class="kpi-mc-input rv-actual" type="number" placeholder="Nhập số liệu hoàn thành..." value="' + currentActual + '" style="flex:1;border-color:#c4b5fd;font-weight:700" oninput="mcCalcPct(this)"' + (readOnly ? ' disabled' : '') + '>';
+            h += '<span class="rv-pct-display" style="font-size:14px;font-weight:800;color:#4338ca;min-width:50px;text-align:right">' + currentPct + '%</span>';
+            h += '</div>';
+            h += '<input type="hidden" class="rv-pct" value="' + currentPct + '">';
+        } else {
+            h += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">';
+            h += '<span style="font-size:12px;font-weight:700;color:#374151;white-space:nowrap">📊 Tiến độ:</span>';
+            h += '<div style="flex:1"><input type="range" class="rv-pct" min="0" max="100" value="' + (c.completion_pct || 0) + '" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+\'%\'"' + (readOnly ? ' disabled' : '') + '><span style="font-size:12px;font-weight:700;color:#4338ca">' + (c.completion_pct || 0) + '%</span></div>';
+            h += '</div>';
+        }
+
+        h += '<input class="kpi-mc-input rv-note" placeholder="Ghi chú review..." value="' + (c.review_note || '') + '" style="margin-top:4px"' + (readOnly ? ' disabled' : '') + '>';
         h += '</div>';
     }
 
-    h += '</div>';
-    if (!readOnly) {
-        h += '<div class="kpi-mc-modal-foot">';
+    h += '</div><div class="kpi-mc-modal-foot">';
+    if (readOnly) {
         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button>';
-        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveBatchReview()">💾 Lưu Đánh Giá</button>';
-        h += '</div>';
     } else {
-        h += '<div class="kpi-mc-modal-foot"><button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Đóng</button></div>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>';
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveReview()">💾 Lưu Review</button>';
     }
-    h += '</div>';
+    h += '</div></div>';
     overlay.innerHTML = h;
     document.body.appendChild(overlay);
-
-    // Bind range sliders
-    var sliders = overlay.querySelectorAll('.mc-review-pct');
-    for (var s = 0; s < sliders.length; s++) {
-        sliders[s].addEventListener('input', function() {
-            this.nextElementSibling.textContent = this.value + '%';
-        });
-    }
 };
 
 // Create session popup
