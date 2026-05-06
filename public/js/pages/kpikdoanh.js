@@ -836,13 +836,43 @@ window.mcSaveSession = async function() {
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
+// Parse combined content (❓ question \n ✅ answer) into { question, answer }
+function mcParseContent(content) {
+    if (!content) return { question: '', answer: '' };
+    if (content.indexOf('❓') >= 0 && content.indexOf('✅') >= 0) {
+        var parts = content.split('\n');
+        var questionLines = [];
+        var answerLines = [];
+        var mode = '';
+        for (var p = 0; p < parts.length; p++) {
+            var line = parts[p].trim();
+            if (line.indexOf('❓') === 0) {
+                mode = 'q';
+                questionLines.push(line.substring(2).trim());
+            } else if (line.indexOf('✅') === 0) {
+                mode = 'a';
+                answerLines.push(line.substring(2).trim());
+            } else if (mode === 'q') {
+                questionLines.push(line);
+            } else if (mode === 'a') {
+                answerLines.push(line);
+            }
+        }
+        return { question: questionLines.join('\n'), answer: answerLines.join('\n') };
+    }
+    return { question: content, answer: '' };
+}
+
 // Edit/Add commitments for a user — auto-fill from templates if no existing commitments
 window.mcEditUser = async function(userId, userName) {
     var existing = _mcCommitments.filter(function(c) { return c.user_id === userId; });
     var items;
 
     if (existing.length > 0) {
-        items = existing.map(function(c) { return { content: c.content, target_revenue: c.target_revenue }; });
+        items = existing.map(function(c) {
+            var parsed = mcParseContent(c.content);
+            return { question: parsed.question, answer: parsed.answer, content: c.content, target_revenue: c.target_revenue, hasRevenue: c.target_revenue > 0 };
+        });
     } else {
         // Try to load templates for this page
         try {
@@ -1056,15 +1086,12 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
         var c = userCommits[i];
         var hasTarget = c.target_revenue > 0;
 
-        // Parse content: split ❓ question and ✅ answer
+        // Parse content: split ❓ question and ✅ answer (multi-line safe)
         var contentHtml = '';
         if (c.content.indexOf('❓') >= 0 && c.content.indexOf('✅') >= 0) {
-            var parts = c.content.split('\n');
-            var questionLine = '', answerLine = '';
-            for (var p = 0; p < parts.length; p++) {
-                if (parts[p].trim().indexOf('❓') === 0) questionLine = parts[p].trim().substring(2).trim();
-                if (parts[p].trim().indexOf('✅') === 0) answerLine = parts[p].trim().substring(2).trim();
-            }
+            var parsed = mcParseContent(c.content);
+            var questionLine = parsed.question;
+            var answerLine = parsed.answer;
             contentHtml += '<div style="padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:8px;border-left:3px solid #4338ca;margin-bottom:8px">';
             contentHtml += '<div style="font-size:10px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">📋 Câu hỏi</div>';
             contentHtml += '<div style="font-size:13px;font-weight:600;color:#1e293b">' + questionLine + '</div>';
