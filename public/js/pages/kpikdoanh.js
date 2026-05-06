@@ -198,9 +198,8 @@ async function renderKpikdoanhPage(container) {
             <div id="kpiMeetingCommit"></div>
         </div>
     `;
-    await kpiLoadData();
-    kpiLoadDashboard();
-    kpiLoadMeetingCommit();
+    // Fire ALL APIs in parallel for maximum speed
+    kpiLoadAll();
 }
 
 function kpiNavMonth(dir) {
@@ -237,21 +236,66 @@ function kpiSignFmtFull(n) {
     return n > 0 ? '-' + str : '+' + str;
 }
 
+async function kpiLoadAll() {
+    var lbl = document.getElementById('kpiMonthLabel');
+    var content = document.getElementById('kpiContent');
+    if (lbl) { var p=_kpi.month.split('-').map(Number); lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; }
+    if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải...</div>';
+
+    var now = new Date();
+    try {
+        var results = await Promise.all([
+            apiCall('/api/reports/kpi-kdoanh?month=' + _kpi.month),
+            apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
+            apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month),
+            apiCall('/api/meeting-commitments/employees'),
+            apiCall('/api/meeting-commitments/monthly?month=' + (now.getMonth()+1) + '&year=' + now.getFullYear())
+        ]);
+
+        _kpi.data = results[0];
+        kpiRenderSummary(results[0]);
+        kpiRenderContent(results[0]);
+
+        var lbEl = document.getElementById('kpiLeaderboard');
+        var tcEl = document.getElementById('kpiTeamCompare');
+        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, results[2]); kpiRenderTeamCompare(tcEl, results[1], results[2]); }
+
+        _mcTeams = results[3].teams || [];
+        _mcSessions = results[4].sessions || [];
+        _mcAllCommitments = results[4].allCommitments || [];
+        if (_mcSessions.length > 0) {
+            _mcSession = _mcSessions[_mcSessions.length - 1];
+            _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
+        } else { _mcSession = null; _mcCommitments = []; }
+        var mcEl = document.getElementById('kpiMeetingCommit');
+        if (mcEl) kpiRenderMeetingCommit(mcEl);
+    } catch(e) {
+        console.error('KPI load error:', e);
+        if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ' + (e.message||'') + '</div>';
+    }
+}
+
 async function kpiLoadData() {
-    const lbl = document.getElementById('kpiMonthLabel');
-    const content = document.getElementById('kpiContent');
-    if (lbl) { const [y,m]=_kpi.month.split('-').map(Number); lbl.textContent = `Tháng ${m}/${y}`; }
+    var lbl = document.getElementById('kpiMonthLabel');
+    var content = document.getElementById('kpiContent');
+    if (lbl) { var p=_kpi.month.split('-').map(Number); lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; }
     if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải...</div>';
 
     try {
-        const data = await apiCall(`/api/reports/kpi-kdoanh?month=${_kpi.month}`);
-        _kpi.data = data;
-        kpiRenderSummary(data);
-        kpiRenderContent(data);
+        var results = await Promise.all([
+            apiCall('/api/reports/kpi-kdoanh?month=' + _kpi.month),
+            apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
+            apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month)
+        ]);
+        _kpi.data = results[0];
+        kpiRenderSummary(results[0]);
+        kpiRenderContent(results[0]);
+        var lbEl = document.getElementById('kpiLeaderboard');
+        var tcEl = document.getElementById('kpiTeamCompare');
+        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, results[2]); kpiRenderTeamCompare(tcEl, results[1], results[2]); }
     } catch(e) {
-        if(content) content.innerHTML = `<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ${e.message}</div>`;
+        if(content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ' + (e.message||'') + '</div>';
     }
-    kpiLoadDashboard();
 }
 
 function kpiRenderSummary(data) {
