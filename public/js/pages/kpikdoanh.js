@@ -128,7 +128,7 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-btn-ghost:hover{background:rgba(99,102,241,.15)}
             .kpi-mc-team{padding:16px 24px;border-bottom:1px solid #f1f5f9;background:linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff);border-left:4px solid #8b5cf6;margin:8px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(139,92,246,.08)}
             .kpi-mc-team-name{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#ede9fe,#ddd6fe);border-radius:8px}
-            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s}
+            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px;margin:4px 0;transition:background .2s;background:#fff}
             .kpi-mc-emp:hover{background:#f8fafc}
             .kpi-mc-emp-name{font-size:13px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
             .kpi-mc-emp-role{font-size:11px;color:#94a3b8;margin-left:8px}
