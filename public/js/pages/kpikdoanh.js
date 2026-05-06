@@ -739,6 +739,7 @@ var _mcCommitments = [];     // commitments for active session (backward compat)
 var _mcTeams = [];
 var _mcCollapsed = false;    // main section collapsed
 var _mcYearlyData = null;    // yearly summary data
+var _mcMonthlyCollapsed = false; // monthly summary collapsed (default open)
 
 async function kpiLoadMeetingCommit() {
     var el = document.getElementById('kpiMeetingCommit');
@@ -799,11 +800,19 @@ function kpiRenderMeetingCommit(el) {
     } else {
         // Helper: format % with 1 decimal, Vietnamese comma
         function mcFmtPct(v) { var r = Math.round(v * 10) / 10; return r.toString().replace('.', ','); }
-        // ===== MONTHLY SUMMARY CARDS =====
-        h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff">';
-        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px">📊 Tổng Kết Cam Kết Tháng';
+        // ===== MONTHLY SUMMARY CARDS (collapsible) =====
         var mNow = new Date();
-        h += ' <span style="font-size:12px;font-weight:500;color:#6366f1">' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
+        h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff;border-left:5px solid #6366f1">';
+        // Collapsible header
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="mcToggleMonthly()">';
+        h += '<div style="display:flex;align-items:center;gap:8px">';
+        h += '<span id="mcMonthlyIcon" style="font-size:14px;transition:transform .3s;color:#6366f1">' + (_mcMonthlyCollapsed ? '▶' : '▼') + '</span>';
+        h += '<span style="font-size:15px;font-weight:900;color:#1e293b">📊 Tổng Kết Cam Kết Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span>';
+        h += '<span style="font-size:11px;font-weight:500;color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:8px">' + _mcSessions.length + ' cuộc họp</span>';
+        h += '</div>';
+        h += '</div>';
+        // Collapsible body
+        h += '<div id="mcMonthlyBody" style="' + (_mcMonthlyCollapsed ? 'display:none' : '') + ';margin-top:14px">';
         // Build per-person aggregates (per-session averaging)
         var personMap = {};
         for (var ai = 0; ai < _mcAllCommitments.length; ai++) {
@@ -934,7 +943,8 @@ function kpiRenderMeetingCommit(el) {
             h += '</div></div>';
         }
 
-        h += '</div>';
+        h += '</div>'; // close mcMonthlyBody
+        h += '</div>'; // close monthly container
 
         // ===== YEARLY SUMMARY (collapsible, gold theme) =====
         h += mcRenderYearlySummary();
@@ -1094,6 +1104,15 @@ window.mcToggleSection = function() {
     var icon = document.getElementById('mcCollapseIcon');
     if (body) body.style.display = _mcCollapsed ? 'none' : '';
     if (icon) icon.textContent = _mcCollapsed ? '▶' : '▼';
+};
+
+// Toggle monthly summary collapse
+window.mcToggleMonthly = function() {
+    _mcMonthlyCollapsed = !_mcMonthlyCollapsed;
+    var body = document.getElementById('mcMonthlyBody');
+    var icon = document.getElementById('mcMonthlyIcon');
+    if (body) body.style.display = _mcMonthlyCollapsed ? 'none' : '';
+    if (icon) icon.textContent = _mcMonthlyCollapsed ? '▶' : '▼';
 };
 
 // ===== YEARLY SUMMARY RENDER =====
