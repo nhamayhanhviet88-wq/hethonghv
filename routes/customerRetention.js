@@ -10,9 +10,29 @@ const { authenticate } = require('../middleware/auth');
 module.exports = async function(fastify) {
 
     // ===== Helper: Parse period params into date ranges =====
-    function parsePeriod(period, dateStr) {
+    function parsePeriod(period, dateStr, opts) {
         let current = {}, previous = {};
         const now = new Date();
+
+        // Custom date range: startDate & endDate passed directly
+        if (period === 'custom' && opts && opts.startDate && opts.endDate) {
+            current.start = opts.startDate;
+            // endDate is inclusive — add 1 day for the < comparison
+            const endD = new Date(opts.endDate + 'T00:00:00');
+            endD.setDate(endD.getDate() + 1);
+            current.end = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,'0')}-${String(endD.getDate()).padStart(2,'0')}`;
+            current.label = `${opts.startDate} → ${opts.endDate}`;
+
+            // Previous = same duration before startDate
+            const startD = new Date(opts.startDate + 'T00:00:00');
+            const durationMs = endD.getTime() - startD.getTime();
+            const prevEnd = new Date(startD);
+            const prevStart = new Date(startD.getTime() - durationMs);
+            previous.start = `${prevStart.getFullYear()}-${String(prevStart.getMonth()+1).padStart(2,'0')}-${String(prevStart.getDate()).padStart(2,'0')}`;
+            previous.end = current.start;
+            previous.label = `prev`;
+            return { current, previous, type: 'custom' };
+        }
 
         if (period === 'day') {
             let dateObj;
@@ -746,8 +766,8 @@ module.exports = async function(fastify) {
 
     // ===== Dashboard Advanced API: Leaderboard, Alerts, Conversion, Cancel, Processing Time, Top Customers =====
     fastify.get('/api/reports/customer-retention/advanced', { preHandler: [authenticate] }, async (request, reply) => {
-        const { period = 'month', date } = request.query;
-        const { current, previous } = parsePeriod(period, date);
+        const { period = 'month', date, startDate, endDate } = request.query;
+        const { current, previous } = parsePeriod(period, date, { startDate, endDate });
 
         // Get KD hierarchy
         const allDepts = await db.all(
