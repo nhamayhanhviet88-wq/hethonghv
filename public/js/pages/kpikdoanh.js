@@ -610,17 +610,16 @@ function kpiTrend(cur, prev) {
 }
 
 // === Leaderboard filter state ===
-var _kpiLbFilter = 'month'; // default: tháng này (synced with KPI month)
+var _kpiLbFilter = 'this_month'; // default: tháng này
 var _kpiLbCustomStart = '';
 var _kpiLbCustomEnd = '';
+var _kpiLbMonth = ''; // for CHỌN THÁNG picker
 
 function kpiLbBuildUrl() {
     var base = '/api/reports/customer-retention/advanced';
     var now = new Date();
     var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
-    if (_kpiLbFilter === 'month') {
-        return base + '?period=month&date=' + _kpi.month;
-    } else if (_kpiLbFilter === 'today') {
+    if (_kpiLbFilter === 'today') {
         return base + '?period=day&date=' + fmtD(now);
     } else if (_kpiLbFilter === 'yesterday') {
         var yd = new Date(now); yd.setDate(yd.getDate() - 1);
@@ -637,10 +636,25 @@ function kpiLbBuildUrl() {
         return base + '?period=month&date=' + lmStr;
     } else if (_kpiLbFilter === 'all') {
         return base + '?period=year&date=' + now.getFullYear();
+    } else if (_kpiLbFilter === 'stage1' || _kpiLbFilter === 'stage2' || _kpiLbFilter === 'stage3') {
+        var refMonth = _kpiLbMonth || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        var parts = refMonth.split('-').map(Number);
+        var y = parts[0], m = parts[1];
+        var dim = new Date(y, m, 0).getDate();
+        var sd, ed;
+        if (_kpiLbFilter === 'stage1') { sd = '01'; ed = '10'; }
+        else if (_kpiLbFilter === 'stage2') { sd = '11'; ed = '20'; }
+        else { sd = '21'; ed = String(dim); }
+        var startDate = y + '-' + String(m).padStart(2,'0') + '-' + sd;
+        var endDate = y + '-' + String(m).padStart(2,'0') + '-' + ed;
+        return base + '?period=custom&startDate=' + startDate + '&endDate=' + endDate;
+    } else if (_kpiLbFilter === 'pick_month' && _kpiLbMonth) {
+        return base + '?period=month&date=' + _kpiLbMonth;
     } else if (_kpiLbFilter === 'custom' && _kpiLbCustomStart && _kpiLbCustomEnd) {
         return base + '?period=custom&startDate=' + _kpiLbCustomStart + '&endDate=' + _kpiLbCustomEnd;
     }
-    return base + '?period=month&date=' + _kpi.month;
+    var fallback = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    return base + '?period=month&date=' + fallback;
 }
 
 window.kpiLbSetFilter = async function(filter) {
@@ -661,6 +675,13 @@ window.kpiLbApplyCustom = async function() {
     _kpiLbCustomStart = sd.value;
     _kpiLbCustomEnd = ed.value;
     _kpiLbFilter = 'custom';
+    await kpiLbRefetch();
+};
+
+window.kpiLbPickMonth = async function(val) {
+    if (!val) return;
+    _kpiLbMonth = val;
+    _kpiLbFilter = 'pick_month';
     await kpiLbRefetch();
 };
 
@@ -716,26 +737,31 @@ function kpiRenderLeaderboard(el, data) {
         { key: 'retention', icon: '🔁', label: 'KH Cũ Quay Lại' }
     ];
 
-    // Filter presets
-    var filterPresets = [
+    // Filter presets — row 1: quick time filters
+    var filterRow1 = [
         { key: 'today', icon: '📅', label: 'Hôm nay' },
         { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
         { key: '7days', icon: '📅', label: '7 ngày' },
         { key: 'this_month', icon: '📅', label: 'Tháng này' },
         { key: 'last_month', icon: '📅', label: 'Tháng trước' },
-        { key: 'month', icon: '📅', label: 'Theo KPI' },
         { key: 'all', icon: '📅', label: 'Tất cả' },
         { key: 'custom', icon: '📅', label: 'Tùy chọn' }
+    ];
+    // Filter presets — row 2: stages
+    var filterRow2 = [
+        { key: 'stage1', icon: '🔥', label: 'GĐ 1 (1-10)' },
+        { key: 'stage2', icon: '⚡', label: 'GĐ 2 (11-20)' },
+        { key: 'stage3', icon: '🎯', label: 'GĐ 3 (21-31)' }
     ];
 
     var h = '<div class="kpi-lb-section">';
     h += '<div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>';
 
-    // === FILTER BAR ===
-    h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:12px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
+    // === FILTER BAR ROW 1 ===
+    h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
     h += '<span style="font-size:12px;font-weight:700;color:#475569;margin-right:4px">📊</span>';
-    for (var fi = 0; fi < filterPresets.length; fi++) {
-        var fp = filterPresets[fi];
+    for (var fi = 0; fi < filterRow1.length; fi++) {
+        var fp = filterRow1[fi];
         var isActive = _kpiLbFilter === fp.key;
         var btnStyle = isActive
             ? 'background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;box-shadow:0 2px 8px rgba(67,56,202,.3)'
@@ -743,6 +769,25 @@ function kpiRenderLeaderboard(el, data) {
         h += '<button onclick="kpiLbSetFilter(\'' + fp.key + '\')" style="' + btnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap">';
         h += fp.icon + ' ' + fp.label + '</button>';
     }
+    h += '</div>';
+
+    // === FILTER BAR ROW 2: Stages + Month Picker ===
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:8px 24px;background:#fefce8;border-bottom:1px solid #fde68a;flex-wrap:wrap">';
+    for (var si = 0; si < filterRow2.length; si++) {
+        var sp = filterRow2[si];
+        var isStageActive = _kpiLbFilter === sp.key;
+        var sBtnStyle = isStageActive
+            ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none;box-shadow:0 2px 8px rgba(217,119,6,.3)'
+            : 'background:#fff;color:#78350f;border:1px solid #fcd34d';
+        h += '<button onclick="kpiLbSetFilter(\'' + sp.key + '\')" style="' + sBtnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += sp.icon + ' ' + sp.label + '</button>';
+    }
+    // Separator
+    h += '<span style="width:1px;height:24px;background:#d1d5db;margin:0 6px"></span>';
+    // Month picker
+    var isMonthPickActive = _kpiLbFilter === 'pick_month';
+    h += '<span style="font-size:12px;font-weight:700;color:#78350f">📆 CHỌN THÁNG</span>';
+    h += '<input type="month" id="kpiLbMonthPicker" value="' + (_kpiLbMonth || '') + '" onchange="kpiLbPickMonth(this.value)" style="padding:5px 10px;border:1px solid ' + (isMonthPickActive ? '#4338ca' : '#d1d5db') + ';border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:' + (isMonthPickActive ? '#eef2ff' : '#fff') + '">';
     h += '</div>';
 
     // Custom date pickers (shown only when custom is active)
