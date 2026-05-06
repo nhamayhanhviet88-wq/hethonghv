@@ -137,6 +137,8 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-badge-done{background:#dcfce7;color:#166534}
             .kpi-mc-badge-pending{background:#fef3c7;color:#92400e}
             .kpi-mc-badge-none{background:#f1f5f9;color:#6b7280}
+            .kpi-mc-badge-team{font-size:14px;padding:6px 16px;font-weight:800;min-width:130px;background:linear-gradient(135deg,#7c3aed,#a855f7,#c084fc,#a855f7,#7c3aed);background-size:300% 100%;color:#fff;border-radius:22px;box-shadow:0 2px 10px rgba(124,58,237,.35);animation:kpiTeamShimmer 3s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.15)}
+            @keyframes kpiTeamShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
             .kpi-mc-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
             .kpi-mc-modal{background:#fff;border-radius:20px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:kpiMcSlideUp .3s ease}
             @keyframes kpiMcSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -888,7 +890,7 @@ function kpiRenderMeetingCommit(el) {
                 h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
                 if (allTeamScope.length > 0) {
-                    h += '<span class="kpi-mc-badge ' + teamBadgeClass + '" style="font-size:11px">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
+                    h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
                 }
                 // Team Ghi/Review buttons (GĐ + QL only)
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
