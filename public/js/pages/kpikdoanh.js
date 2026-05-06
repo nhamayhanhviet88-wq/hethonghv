@@ -976,7 +976,7 @@ function kpiRenderMeetingCommit(el) {
             // Session header (clickable)
             h += '<div class="kpi-mc-session-head" onclick="mcToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + pal.headerBg + ';border-bottom:1px solid ' + pal.border + '">';
             h += '<div style="display:flex;align-items:center;gap:10px">';
-            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">' + (isNewest ? '▼' : '▶') + '</span>';
+            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">▼</span>';
             h += '<span style="font-size:14px;font-weight:800;color:' + pal.text + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
             h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDate.toLocaleDateString('vi-VN') + ')</span>';
             h += '</div>';
@@ -989,7 +989,7 @@ function kpiRenderMeetingCommit(el) {
             h += '</div></div>';
 
             // Session body (expandable)
-            h += '<div id="mcSessBody_' + sess.id + '" style="' + (isNewest ? '' : 'display:none') + '">';
+            h += '<div id="mcSessBody_' + sess.id + '">';
 
             // Render teams for this session
             var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
