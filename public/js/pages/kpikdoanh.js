@@ -867,6 +867,7 @@ function mcRenderItemEdit(stt, item) {
     var question = item.question || item.content || '';
     var answer = item.answer || '';
     var revenue = item.target_revenue || 0;
+    var reqStar = '<span style="color:#ef4444;font-weight:900;margin-left:2px">*</span>';
 
     var dataType = isTemplate ? 'tpl' : 'self';
     var h = '<div class="kpi-mc-item" data-mc-item data-type="' + dataType + '">';
@@ -884,8 +885,8 @@ function mcRenderItemEdit(stt, item) {
         h += '<div style="font-size:13px;font-weight:600;color:#1e293b;line-height:1.5" class="mc-question">' + question + '</div>';
         h += '</div>';
         h += '<div style="margin-bottom:8px">';
-        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết</div>';
-        h += '<textarea class="kpi-mc-input mc-answer" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết' + reqStar + '</div>';
+        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
         h += '</div>';
         if (hasRevenue) {
             h += '<div style="display:flex;align-items:center;gap:8px">';
@@ -894,23 +895,40 @@ function mcRenderItemEdit(stt, item) {
             h += '</div>';
         }
     } else {
+        // Self-add: editable question (required) + answer (required) + optional target
         h += '<div style="margin-bottom:10px">';
-        h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi / Nội dung</div>';
-        h += '<textarea class="kpi-mc-input mc-question-edit" rows="2" placeholder="VD: Mục tiêu bạn đặt ra cho giai đoạn tới?" style="resize:vertical;border-color:#c7d2fe">' + question + '</textarea>';
+        h += '<div style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📋 Câu hỏi / Nội dung' + reqStar + '</div>';
+        h += '<textarea class="kpi-mc-input mc-question-edit mc-required" rows="2" placeholder="VD: Mục tiêu bạn đặt ra cho giai đoạn tới?" style="resize:vertical;border-color:#c7d2fe">' + question + '</textarea>';
         h += '</div>';
         h += '<div style="margin-bottom:8px">';
-        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết</div>';
-        h += '<textarea class="kpi-mc-input mc-answer" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
+        h += '<div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">✍️ Câu trả lời / Cam kết' + reqStar + '</div>';
+        h += '<textarea class="kpi-mc-input mc-answer mc-required" rows="2" placeholder="Nhập câu trả lời, cam kết cụ thể..." style="resize:vertical;border-color:#d1fae5">' + answer + '</textarea>';
         h += '</div>';
-        h += '<div style="display:flex;align-items:center;gap:8px">';
+        // Checkbox toggle for target
+        var showTarget = revenue > 0;
+        h += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#b45309;cursor:pointer;margin-bottom:6px">';
+        h += '<input type="checkbox" class="mc-has-target-chk" onchange="mcToggleTarget(this)" ' + (showTarget ? 'checked' : '') + '> 💰 Có mục tiêu';
+        h += '</label>';
+        h += '<div class="mc-target-wrap" style="display:' + (showTarget ? 'flex' : 'none') + ';align-items:center;gap:8px">';
         h += '<span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap">💰 Mục tiêu:</span>';
-        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="0 nếu không có" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
+        h += '<input class="kpi-mc-input mc-revenue" type="number" placeholder="VD: 50000000" value="' + revenue + '" style="flex:1;border-color:#fde68a">';
         h += '</div>';
     }
 
     h += '</div>';
     return h;
 }
+
+window.mcToggleTarget = function(chk) {
+    var wrap = chk.closest('[data-mc-item]').querySelector('.mc-target-wrap');
+    if (wrap) {
+        wrap.style.display = chk.checked ? 'flex' : 'none';
+        if (!chk.checked) {
+            var revInput = wrap.querySelector('.mc-revenue');
+            if (revInput) revInput.value = 0;
+        }
+    }
+};
 
 window.mcAddItem = function() {
     var list = document.getElementById('mcItemsList');
@@ -927,6 +945,24 @@ window.mcReindex = function() {
 };
 
 window.mcSaveCommitments = async function(userId) {
+    // Validate required fields
+    var requiredEls = document.querySelectorAll('#mcItemsList .mc-required');
+    var hasError = false;
+    for (var r = 0; r < requiredEls.length; r++) {
+        var field = requiredEls[r];
+        field.style.borderColor = '';
+        if (!field.value.trim()) {
+            field.style.borderColor = '#ef4444';
+            field.style.boxShadow = '0 0 0 3px rgba(239,68,68,.15)';
+            hasError = true;
+        } else {
+            field.style.boxShadow = '';
+        }
+    }
+    if (hasError) {
+        return alert('⚠️ Vui lòng điền đầy đủ các trường bắt buộc (*)');
+    }
+
     var itemEls = document.querySelectorAll('#mcItemsList [data-mc-item]');
     var items = [];
     for (var i = 0; i < itemEls.length; i++) {
@@ -945,7 +981,8 @@ window.mcSaveCommitments = async function(userId) {
             var q2 = qEdit ? qEdit.value.trim() : '';
             var a2 = el.querySelector('.mc-answer') ? el.querySelector('.mc-answer').value.trim() : '';
             content = q2 ? ('❓ ' + q2 + '\n✅ ' + a2) : a2;
-            revenue = parseFloat(el.querySelector('.mc-revenue').value) || 0;
+            var revEl2 = el.querySelector('.mc-revenue');
+            revenue = revEl2 ? parseFloat(revEl2.value) || 0 : 0;
         }
 
         if (content) items.push({ content: content, target_revenue: revenue });
