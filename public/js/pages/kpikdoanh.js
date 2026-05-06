@@ -267,6 +267,8 @@ async function kpiLoadAll() {
         _mcTeams = results[3].teams || [];
         _mcSessions = results[4].sessions || [];
         _mcAllCommitments = results[4].allCommitments || [];
+        // Load yearly data
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
             _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
@@ -749,8 +751,7 @@ async function kpiLoadMeetingCommit() {
         _mcSessions = monthlyData.sessions || [];
         _mcAllCommitments = monthlyData.allCommitments || [];
         // Load yearly data
-        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { console.error('[Yearly] API error:', e); _mcYearlyData = null; }
-        console.log('[Yearly] Data loaded:', _mcYearlyData ? { sessions: (_mcYearlyData.sessions||[]).length, commits: (_mcYearlyData.allCommitments||[]).length } : 'null');
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { _mcYearlyData = null; }
         // Set active session to latest (last in array since sorted ASC)
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
