@@ -1055,7 +1055,7 @@ window.mcReviewUser = async function(userId, userName) {
         if (hasTarget) {
             contentHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:8px;border-left:3px solid #f59e0b;margin-bottom:10px">';
             contentHtml += '<span style="font-size:13px;font-weight:700;color:#b45309">🎯 Mục tiêu:</span>';
-            contentHtml += '<span style="font-size:16px;font-weight:800;color:#d97706">' + Number(c.target_revenue).toLocaleString('vi-VN') + ' VNĐ</span>';
+            contentHtml += '<span style="font-size:16px;font-weight:800;color:#d97706">' + Number(c.target_revenue).toLocaleString('vi-VN') + '</span>';
             contentHtml += '</div>';
         }
 
