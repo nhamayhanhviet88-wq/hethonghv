@@ -886,16 +886,12 @@ function kpiRenderMeetingCommit(el) {
                 var teamBadgeClass = teamDone === allTeamScope.length && allTeamScope.length > 0 ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending';
 
                 h += '<div class="kpi-mc-team">';
-                h += '<div class="kpi-mc-team-name">🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></div>';
-
-                // Team actions row — same structure as employee rows for alignment
-                h += '<div class="kpi-mc-emp" style="background:linear-gradient(90deg,#faf5ff,#f3e8ff);border:1px solid #e9d5ff;border-radius:10px;margin:4px 0">';
-                h += '<div><span class="kpi-mc-emp-name" style="color:#7c3aed;font-weight:800">📊 Cam Kết Team</span></div>';
-                h += '<div class="kpi-mc-emp-actions">';
+                h += '<div class="kpi-mc-team-name" style="justify-content:space-between">';
+                h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:#94a3b8;font-weight:500">(' + team.members.length + ' người)</span></span>';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
                 if (allTeamScope.length > 0) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + allTeamScope.length + ' — ' + teamPct + '%</span>';
                 }
-                // Team Ghi/Review buttons (GĐ + QL only)
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
                     if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
