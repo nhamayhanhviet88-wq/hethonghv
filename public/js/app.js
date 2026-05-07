@@ -306,7 +306,7 @@ async function _commitLoad() {
             if (question) h += '<div style="font-size:11px;color:#6366f1;font-weight:700;margin-bottom:3px">❓ ' + question + '</div>';
             h += '<div style="font-size:12px;color:#1e293b;font-weight:600">' + statusIcon + ' ' + (answer || c.content || '') + '</div>';
             if (c.target_revenue > 0) {
-                h += '<div style="font-size:11px;color:#059669;font-weight:600;margin-top:3px">💰 Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + 'đ</div>';
+                h += '<div style="font-size:11px;color:#059669;font-weight:600;margin-top:3px">💰 Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + '</div>';
             }
             h += '</div>';
             h += '<div style="text-align:center;min-width:44px">';
