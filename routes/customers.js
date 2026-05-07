@@ -295,6 +295,60 @@ async function customersRoutes(fastify, options) {
                 }
             }
         }
+
+        // ★ Batch calculate next_aff_rate: % hoa hồng cho đơn tiếp theo
+        try {
+            const custIds = customers.map(c => c.id).filter(Boolean);
+            const refIds = [...new Set(customers.map(c => c.referrer_id).filter(Boolean))];
+
+            if (custIds.length > 0) {
+                // 1. KH đã có đơn completed (first-order done)
+                const completedRows = await db.all(
+                    `SELECT DISTINCT customer_id FROM order_codes WHERE customer_id IN (${custIds.map(() => '?').join(',')}) AND status = 'completed'`, custIds
+                );
+                const completedSet = new Set(completedRows.map(r => r.customer_id));
+
+                // 2. KH đã tạo TK affiliate cho chính mình (self-order)
+                const selfRows = await db.all(
+                    `SELECT source_customer_id FROM users WHERE source_customer_id IN (${custIds.map(() => '?').join(',')}) AND status = 'active'`, custIds
+                );
+                const selfOrderSet = new Set(selfRows.map(r => r.source_customer_id));
+
+                // 3. Referrer có affiliate cha không (referrer.source_customer_id → customer.referrer_id)
+                const parentMap = {}; // referrer_user_id → hasParent
+                if (refIds.length > 0) {
+                    const refRows = await db.all(
+                        `SELECT u.id as ref_id, u.source_customer_id, c2.referrer_id as parent_ref_id
+                         FROM users u
+                         LEFT JOIN customers c2 ON c2.id = u.source_customer_id
+                         WHERE u.id IN (${refIds.map(() => '?').join(',')})`, refIds
+                    );
+                    for (const r of refRows) {
+                        parentMap[r.ref_id] = !!(r.source_customer_id && r.parent_ref_id);
+                    }
+                }
+
+                // Gắn next_aff_rate cho từng KH
+                for (const c of customers) {
+                    if (!c.referrer_id) {
+                        c.next_aff_rate = 0;
+                    } else if (selfOrderSet.has(c.id)) {
+                        // Self-order: lifetime 10%
+                        c.next_aff_rate = 10;
+                    } else if (completedSet.has(c.id)) {
+                        // First order done + no self-order → 0%
+                        c.next_aff_rate = 0;
+                    } else {
+                        // First order chưa done → check parent
+                        c.next_aff_rate = parentMap[c.referrer_id] ? 15 : 10;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[next_aff_rate] Error:', e.message);
+            // Fallback: don't break API
+        }
+
         return { customers };
     });
 
