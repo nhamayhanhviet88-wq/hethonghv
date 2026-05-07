@@ -567,10 +567,24 @@ async function affiliateRoutes(fastify) {
                     }
                 }
             }
-            // ★ KH gốc: ghi đè revenue bằng doanh thu qualifying (chỉ đơn SAU ngày tạo TK)
+            // ★ KH gốc: ghi đè revenue
+            // - completedRevenueMap = doanh thu đơn HOÀN THÀNH SAU ngày tạo TK (tính hoa hồng)
+            // - totalRevenueMap = doanh thu TẤT CẢ đơn non-cancelled SAU ngày tạo TK (hiển thị cột Doanh Thu)
             if (selfCustId) {
                 completedRevenueMap[selfCustId] = _selfQualifyingRev;
-                totalRevenueMap[selfCustId] = _selfQualifyingRev;
+                // ★ Query riêng: tổng doanh thu TẤT CẢ đơn (bao gồm đang xử lý) SAU ngày tạo TK
+                if (selfCreatedAt) {
+                    const selfTotalRow = await db.get(`
+                        SELECT COALESCE(SUM(oi.total), 0) as total
+                        FROM order_items oi
+                        LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
+                        WHERE oi.customer_id = ? AND (oc.status IS NULL OR oc.status != 'cancelled')
+                        AND oc.created_at >= ?
+                    `, [selfCustId, selfCreatedAt.toISOString()]);
+                    totalRevenueMap[selfCustId] = selfTotalRow?.total || 0;
+                } else {
+                    // Không có ngày tạo TK → giữ nguyên totalRevenueMap (tất cả đơn)
+                }
             }
             // ★ FIRST-ORDER-ONLY: Ghi đè doanh thu HOÀN THÀNH cho KH frozen (chỉ tính đơn đầu tiên)
             // VD: CTV-VTA0012 (100tr) hoàn thành → completedRevenue = 100tr, không cộng CTV-VTA0013 (50tr)
