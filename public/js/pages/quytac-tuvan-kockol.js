@@ -707,7 +707,7 @@ function _qtKRenderSectionAccordion(sec) {
                     ${_qtKIsGD ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${sec.max_appointment_days > 0 ? '#f59e0b20' : '#64748b20'};color:${sec.max_appointment_days > 0 ? '#f59e0b' : '#94a3b8'};cursor:pointer;border:1px solid ${sec.max_appointment_days > 0 ? '#f59e0b40' : '#64748b30'};margin-left:4px;" onclick="event.stopPropagation();_qtKEditMaxDays('${sec.key}',${sec.max_appointment_days || 0})" title="Giới hạn ngày hẹn tối đa">📅 ${sec.max_appointment_days > 0 ? sec.max_appointment_days + ' ngày' : 'Không giới hạn'}</span>` : (sec.max_appointment_days > 0 ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#f59e0b20;color:#f59e0b;">📅 ${sec.max_appointment_days} ngày</span>` : '')}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    ${_qtKIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtKShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtKDeleteSection('${sec.key}')" title="Xóa loại">🗑️</button>` : ''}
+                    ${_qtKIsGD ? `<button class="qt-flow-edit-btn" onclick="event.stopPropagation();_qtKShowEditRulesModal('${sec.key}')">✏️ Sửa</button><button class="qt-flow-edit-btn" style="background:#ef4444;padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtKDeleteSection('${sec.key}')" title="Xóa loại">🗑️</button><button class="qt-flow-edit-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:4px 8px;min-width:0;" onclick="event.stopPropagation();_qtKShowMergeModal('${sec.key}')" title="Gom thêm nút vào loại này">➕</button>` : ''}
                     <span class="qt-flow-chevron">▼</span>
                 </div>
             </div>
@@ -1563,6 +1563,121 @@ async function _qtKAddRuleGroup() {
 
     // Auto-open Sửa modal for the first/leader item
     setTimeout(() => _qtKShowEditRulesModal(selected[0]), 300);
+}
+
+// ========== MERGE INTO EXISTING GROUP ==========
+function _qtKShowMergeModal(sectionKey) {
+    const sec = _qtKSections.find(s => s.key === sectionKey);
+    if (!sec) return;
+    const isGroup = !!sec.section_group;
+    const groupKeys = isGroup ? _qtKGetGroupKeys(sec.section_group) : [sec.key];
+    const tp = _qtKAllTypes.find(x => x.key === sec.key);
+    const currentLabel = (isGroup && sec.section_group_label) ? sec.section_group_label : (tp ? tp.label : sec.key);
+
+    const SYSTEM_KEYS = ['cap_cuu_sep', 'huy'];
+    const sectionKeys = new Set(_qtKSections.map(s => s.key));
+    const groupMemberKeys = new Set(_qtKGroupMembers.map(m => m.key));
+    const available = _qtKAllTypes.filter(t =>
+        t.is_active &&
+        !sectionKeys.has(t.key) &&
+        !groupMemberKeys.has(t.key) &&
+        !groupKeys.includes(t.key) &&
+        !SYSTEM_KEYS.includes(t.key)
+    );
+
+    if (available.length === 0) {
+        return showToast('✅ Không còn nút nào để gom thêm!', 'success');
+    }
+
+    let listHTML = available.map(t => `
+        <div class="qt-rule-item" data-key="${t.key}" style="cursor:pointer;" onclick="this.querySelector('input[type=checkbox]').click()">
+            <input type="checkbox" class="qt-ri-check" onclick="event.stopPropagation()">
+            <div class="qt-ri-info">
+                <span class="qt-ri-icon">${t.icon}</span>
+                <span class="qt-ri-label">${t.label}</span>
+            </div>
+            <span style="font-size:10px;color:#94a3b8;">${t.key}</span>
+        </div>
+    `).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+        <div class="qt-modal">
+            <h3>➕ Gom thêm nút vào: ${currentLabel}</h3>
+            <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Hiện tại: <b>${groupKeys.length} nút</b> — Chọn nút để gom thêm vào nhóm này.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">
+                ${groupKeys.map(k => { const mt = _qtKAllTypes.find(x => x.key === k); return mt ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${mt.color}20;color:${mt.color};font-weight:700;border:1px solid ${mt.color}30;">${mt.icon} ${mt.label}</span>` : ''; }).join('')}
+            </div>
+            <div class="qt-rule-list" id="qtMergeList" style="max-height:280px;overflow-y:auto;">${listHTML}</div>
+            ${!isGroup ? `
+            <div style="margin-top:12px;padding:10px;background:#f0f9ff;border:2px solid #3b82f6;border-radius:10px;">
+                <label style="font-size:13px;font-weight:600;color:#1e40af;">🔗 Tên loại nhóm (bắt buộc):</label>
+                <input type="text" id="qtMergeGroupName" placeholder="VD: Tư Vấn Khách" value="${currentLabel}" style="width:100%;padding:8px 12px;font-size:14px;font-weight:600;border:1px solid #93c5fd;border-radius:8px;margin-top:4px;">
+            </div>` : ''}
+            <div id="qtMergePreview" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
+            <div class="qt-actions">
+                <button class="qt-btn qt-btn-secondary" onclick="this.closest('.qt-modal-overlay').remove()">Hủy</button>
+                <button class="qt-btn qt-btn-primary" onclick="_qtKMergeIntoGroup('${sectionKey}')">➕ Gom vào nhóm</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const updatePreview = () => {
+        const checked = overlay.querySelectorAll('#qtMergeList .qt-ri-check:checked').length;
+        const el = document.getElementById('qtMergePreview');
+        if (el) el.innerHTML = checked > 0 ? `⚡ Sau khi gom: <b>${groupKeys.length + checked} nút</b>` : '';
+    };
+    overlay.querySelectorAll('.qt-ri-check').forEach(cb => cb.addEventListener('change', updatePreview));
+}
+
+async function _qtKMergeIntoGroup(sectionKey) {
+    const sec = _qtKSections.find(s => s.key === sectionKey);
+    if (!sec) return;
+
+    const items = document.querySelectorAll('#qtMergeList .qt-rule-item');
+    const selected = [];
+    items.forEach(item => {
+        if (item.querySelector('.qt-ri-check').checked) selected.push(item.dataset.key);
+    });
+    if (selected.length === 0) return showToast('❌ Chọn ít nhất 1 nút!', 'error');
+
+    const isGroup = !!sec.section_group;
+    let groupId = sec.section_group;
+    const leaderKey = sec.key;
+
+    if (!isGroup) {
+        const groupName = (document.getElementById('qtMergeGroupName')?.value || '').trim();
+        if (!groupName) return showToast('❌ Nhập tên loại nhóm!', 'error');
+        groupId = `grp_${Date.now()}`;
+        await apiCall(`/api/consult-types/${leaderKey}`, 'PATCH', {
+            section_group: groupId,
+            section_group_label: groupName
+        });
+    }
+
+    const leaderRules = _qtKAllRules[leaderKey] || [];
+
+    for (const key of selected) {
+        await apiCall(`/api/consult-types/${key}`, 'PATCH', {
+            section_group: groupId,
+            section_group_label: null
+        });
+        await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'koc_tiktok' });
+        if (leaderRules.length > 0) {
+            await apiCall(`/api/consult-flow-rules/${key}`, 'PUT', {
+                rules: leaderRules.map(r => ({ to_type_key: r.to_type_key, is_default: r.is_default, delay_days: r.delay_days, sort_order: r.sort_order })),
+                crm_menu: 'koc_tiktok'
+            });
+        }
+    }
+
+    document.querySelector('.qt-modal-overlay')?.remove();
+    showToast(`✅ Đã gom ${selected.length} nút vào nhóm!`, 'success');
+    await _qtKLoadData();
+    _qtKSwitchTab('rules');
 }
 
 // ========== HELPERS ==========
