@@ -111,8 +111,20 @@ async function affiliateAccountRoutes(fastify, options) {
         }
 
         // Block: customer pending CTV/Affiliate conversion
-        const pendingConv = await db.get("SELECT id FROM crm_conversion_requests WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
-        if (pendingConv) return reply.code(400).send({ error: 'KH đang chờ duyệt chuyển CTV/Affiliate' });
+        // ★ SMART: Nếu KH đã ở CRM đích → tự động close request cũ thay vì block
+        const pendingConv = await db.get("SELECT id, to_crm_type FROM crm_conversion_requests WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
+        if (pendingConv) {
+            if (customer.crm_type === pendingConv.to_crm_type) {
+                // KH đã ở CRM đích rồi → auto-close request cũ bị kẹt
+                await db.run(
+                    "UPDATE crm_conversion_requests SET status = 'approved', approved_by = ?, processed_at = NOW() WHERE id = ?",
+                    [user.id, pendingConv.id]
+                );
+                console.log(`[AffAccount] Auto-closed stale pending conversion #${pendingConv.id} — customer ${customer_id} already at ${customer.crm_type}`);
+            } else {
+                return reply.code(400).send({ error: 'KH đang chờ duyệt chuyển CRM — vui lòng đợi duyệt xong trước' });
+            }
+        }
 
         // Block: only NV assigned or Manager can request
         const user = request.user;

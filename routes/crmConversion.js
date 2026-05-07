@@ -55,20 +55,28 @@ async function crmConversionRoutes(fastify, options) {
         if (legacyPending.length > 0) console.log(`[Migration] Cleaned up ${legacyPending.length} legacy pending non-CTV request(s)`);
     } catch(e) { console.error('[Migration] Legacy cleanup error:', e.message); }
 
-    // ========== MIGRATION: Auto-reject ALL remaining pending CTV requests ==========
-    // Feature "Chuyển CRM sang CTV" đã bỏ → dọn hết orphaned pending records
+    // ========== MIGRATION: Auto-close stale pending requests ==========
+    // Nếu KH đã ở CRM đích rồi → auto-approve (ghost request, không cần giữ pending)
     try {
-        const orphanedPending = await db.all(
-            "SELECT id, customer_id FROM crm_conversion_requests WHERE status = 'pending'"
+        const stalePending = await db.all(
+            `SELECT r.id, r.customer_id, r.to_crm_type, c.crm_type as current_crm_type
+             FROM crm_conversion_requests r
+             LEFT JOIN customers c ON r.customer_id = c.id
+             WHERE r.status = 'pending'`
         );
-        for (const req of orphanedPending) {
-            await db.run(
-                "UPDATE crm_conversion_requests SET status = 'rejected', reject_reason = 'Chức năng chuyển CRM đã bỏ — tự động hủy', processed_at = NOW() WHERE id = ?",
-                [req.id]
-            );
+        let autoClosedCount = 0;
+        for (const req of stalePending) {
+            if (req.current_crm_type === req.to_crm_type) {
+                // KH đã ở CRM đích → auto-approve (ghost)
+                await db.run(
+                    "UPDATE crm_conversion_requests SET status = 'approved', processed_at = NOW() WHERE id = ?",
+                    [req.id]
+                );
+                autoClosedCount++;
+            }
         }
-        if (orphanedPending.length > 0) console.log(`[Migration] Auto-rejected ${orphanedPending.length} orphaned pending CTV request(s) — feature deprecated`);
-    } catch(e) { console.error('[Migration] Orphaned CTV cleanup error:', e.message); }
+        if (autoClosedCount > 0) console.log(`[Migration] Auto-closed ${autoClosedCount} stale pending request(s) — customer already at target CRM`);
+    } catch(e) { console.error('[Migration] Stale pending cleanup error:', e.message); }
 
     // ========== MIGRATION: Fix log_type for affiliate account creation logs ==========
     // Old code logged 'chuyen_doi_crm' when creating affiliate accounts — wrong semantic
