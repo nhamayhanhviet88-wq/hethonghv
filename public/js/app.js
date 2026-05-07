@@ -349,8 +349,11 @@ function _showCommitPopup(forceShow) {
     if (document.getElementById('commitPopupOverlay')) return;
 
     var data = _commitData;
-    var commits = data.commitments;
+    // Only show latest 4 commitments
+    var allCommits = data.commitments;
+    var commits = allCommits.slice(-4);
     var sessionTitle = data.sessionTitle || '';
+    var meetingDate = data.session && data.session.meeting_date ? new Date(data.session.meeting_date).toLocaleDateString('vi-VN', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' }) : '';
 
     // Build commitment cards
     var cardsHtml = '';
@@ -383,7 +386,10 @@ function _showCommitPopup(forceShow) {
         }
         cardsHtml += '<div style="font-size:13px;color:#1e293b;font-weight:600;line-height:1.5">' + statusIcon + ' ' + (answer || c.content || '') + '</div>';
         if (c.target_revenue > 0) {
-            cardsHtml += '<div style="font-size:11px;color:#059669;font-weight:700;margin-top:4px">💰 Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + '</div>';
+            cardsHtml += '<div style="margin-top:5px;display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);padding:4px 12px;border-radius:8px;border:1px solid #6ee7b7">';
+            cardsHtml += '<span style="font-size:12px">💰</span>';
+            cardsHtml += '<span style="font-size:14px;font-weight:900;color:#059669">Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + '</span>';
+            cardsHtml += '</div>';
         }
         // Progress bar
         cardsHtml += '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">';
@@ -406,9 +412,10 @@ function _showCommitPopup(forceShow) {
         + '<div style="position:relative;z-index:1">'
         + '<div style="font-size:48px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3))">📋</div>'
         + '<div style="font-size:22px;font-weight:900;color:white;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,0.2)">CAM KẾT CỦA BẠN</div>'
-        + '<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:6px;font-weight:600">' + sessionTitle + '</div>'
+        + '<div style="font-size:14px;color:#fbbf24;margin-top:8px;font-weight:800;letter-spacing:0.5px">' + sessionTitle + '</div>'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;font-weight:500">📅 ' + meetingDate + '</div>'
         + '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:20px;font-size:12px;color:rgba(255,255,255,0.95);font-weight:700;backdrop-filter:blur(4px)">'
-        + '📌 ' + commits.length + ' cam kết tháng này</div>'
+        + '📌 ' + commits.length + ' cam kết mới nhất</div>'
         + '</div></div>'
         // Body (scrollable)
         + '<div style="flex:1;overflow-y:auto;padding:20px 24px">' + cardsHtml + '</div>'
