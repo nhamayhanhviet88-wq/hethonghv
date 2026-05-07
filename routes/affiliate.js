@@ -385,6 +385,13 @@ async function affiliateRoutes(fastify) {
             crmFilterClause = ` AND (c.crm_type = 'nhu_cau' OR (c.crm_type = 'ctv_hoa_hong' AND c.id IN (
                 SELECT customer_id FROM crm_conversion_requests WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status IN ('approved', 'pending')
             )))`;
+        } else if (crm_filter === 'ctv_hoa_hong') {
+            // ★ Tab Affiliate: CHỈ hiện KH "born as" ctv_hoa_hong
+            // LOẠI KH chuyển từ nhu_cau (vì họ thuộc tab Khách)
+            crmFilterClause = ` AND c.crm_type = 'ctv_hoa_hong' AND c.id NOT IN (
+                SELECT customer_id FROM crm_conversion_requests
+                WHERE from_crm_type = 'nhu_cau' AND to_crm_type = 'ctv_hoa_hong' AND status = 'approved'
+            )`;
         } else if (crm_filter) {
             crmFilterClause = ` AND c.crm_type = ?`;
         }
@@ -396,7 +403,7 @@ async function affiliateRoutes(fastify) {
             FROM customers c
             WHERE (c.referrer_id IN (${ph})${crmFilterClause})${showSelf ? ' OR c.id = ?' : ''}`;
         const custParams = [...allIds];
-        if (crm_filter && crm_filter !== 'nhu_cau') {
+        if (crm_filter && crm_filter !== 'nhu_cau' && crm_filter !== 'ctv_hoa_hong') {
             custParams.push(crm_filter);
         }
         if (showSelf) custParams.push(selfCustId);
