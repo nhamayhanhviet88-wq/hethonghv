@@ -586,16 +586,16 @@ async function affiliateRoutes(fastify) {
                     // Không có ngày tạo TK → giữ nguyên totalRevenueMap (tất cả đơn)
                 }
             }
-            // ★ FIRST-ORDER-ONLY: Ghi đè doanh thu HOÀN THÀNH cho KH frozen (chỉ tính đơn đầu tiên)
-            // VD: CTV-VTA0012 (100tr) hoàn thành → completedRevenue = 100tr, không cộng CTV-VTA0013 (50tr)
-            // ★ CHỈ ghi đè completedRevenueMap (tính hoa hồng), GIỮ NGUYÊN totalRevenueMap (hiển thị cột Doanh Thu)
-            // → Affiliate vẫn thấy doanh thu từ đơn đang xử lý (VD: AFF-VUY0004)
+            // ★ FIRST-ORDER-ONLY: Ghi đè doanh thu cho KH frozen (chỉ tính đơn đầu tiên)
+            // VD: vietkh2 có AFF-VUY0007(25M) + AFF-VUY0008(10M) → chỉ hiện 25M
+            // ★ Ghi đè CẢ completedRevenueMap VÀ totalRevenueMap cho non-self
+            // ★ Self-customer MIỄN TRỪ: thấy tất cả đơn, doanh thu đầy đủ
             if (_fooCutoff) {
                 for (const custId of filteredIds) {
-                    if (custId === selfCustId) continue; // Self đã xử lý ở trên
+                    if (custId === selfCustId) continue; // Self đã xử lý ở trên — MIỄN TRỪ FOO
                     if (_fooQualifyingRevMap.hasOwnProperty(custId)) {
                         completedRevenueMap[custId] = _fooQualifyingRevMap[custId];
-                        // ★ KHÔNG ghi đè totalRevenueMap — giữ nguyên tổng doanh thu (bao gồm đơn đang xử lý)
+                        totalRevenueMap[custId] = _fooQualifyingRevMap[custId];
                     }
                 }
             }
