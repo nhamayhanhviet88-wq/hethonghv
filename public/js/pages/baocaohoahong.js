@@ -6,7 +6,8 @@ let CONSULT_TYPES_HH = {};
 const CONSULT_TYPES_FALLBACK = {
     khong_xu_ly: { icon: '⚠️', label: 'Không Xử Lý', color: '#f59e0b', textColor: 'white' },
     chuyen_doi_crm: { icon: '🔀', label: 'Chuyển Đổi CRM', color: '#6366f1', textColor: 'white' },
-    tao_tk_affiliate: { icon: '🔑', label: 'Đã Tạo TK Affiliate', color: '#8b5cf6', textColor: 'white' }
+    tao_tk_affiliate: { icon: '🔑', label: 'Đã Tạo TK Affiliate', color: '#8b5cf6', textColor: 'white' },
+    _hoan_thanh_don: { icon: '✅', label: 'Hoàn Thành Đơn', color: '#10b981', textColor: 'white' }
 };
 
 async function hhLoadConsultTypes() {
@@ -97,6 +98,18 @@ async function hhViewOrders(customerId, customerName) {
             } catch(e2) { /* fallback: show all */ }
         }
 
+        // ★ FIRST-ORDER-ONLY: Khi KH đã frozen (đơn đầu hoàn thành), chỉ hiện đơn đầu tiên
+        // Đơn lần 2 trở đi (VD: CTV-VTA0013 sau khi CTV-VTA0012 hoàn thành) sẽ bị ẩn
+        if (!isSelfCustomer && hhItem && hhItem.is_first_order_frozen) {
+            // Tìm đơn completed đầu tiên (sắp xếp theo id tăng dần = đơn cũ nhất)
+            const sortedByIdAsc = [...codes].sort((a, b) => a.id - b.id);
+            const firstCompleted = sortedByIdAsc.find(c => c.status === 'completed');
+            if (firstCompleted) {
+                // Chỉ giữ lại đơn completed đầu tiên, ẩn tất cả đơn tạo sau nó
+                codes = codes.filter(c => c.id <= firstCompleted.id);
+            }
+        }
+
         if (codes.length === 0) {
             document.getElementById('hhOrderPopupBody').innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;">Chưa có đơn hàng nào</div>';
             return;
@@ -176,7 +189,19 @@ async function hhShowCustomerPopup(customerId) {
         const logData = await fetch('/api/customers/' + customerId + '/consult-logs', {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
         }).then(r => r.json());
-        const logs = logData.logs || [];
+        let logs = logData.logs || [];
+
+        // ★ FIRST-ORDER-ONLY: Filter logs when customer is frozen
+        if (hhItem && hhItem.is_first_order_frozen && hhItem.last_contact_date) {
+            const frozenDate = new Date(hhItem.last_contact_date);
+            // Only show logs up to and including the frozen date (order completion)
+            logs = logs.filter(l => new Date(l.created_at) <= frozenDate);
+            // Add a virtual "completed" log at the end if not already present
+            const hasCompletionLog = logs.some(l => l.log_type === '_hoan_thanh_don');
+            if (!hasCompletionLog) {
+                logs.unshift({ log_type: '_hoan_thanh_don', content: 'Đơn hàng đã hoàn thành — không còn cập nhật', created_at: hhItem.last_contact_date, logged_by_name: 'Hệ thống' });
+            }
+        }
 
         // Show all logs (including khong_xu_ly)
         const visibleLogs = logs;

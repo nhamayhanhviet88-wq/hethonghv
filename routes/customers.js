@@ -376,11 +376,31 @@ async function customersRoutes(fastify, options) {
             if (grandTotal > 0) {
                 const ctv = await db.get('SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [customer.referrer_id]);
                 if (ctv && ctv.percentage) {
-                    const commission = Math.round(grandTotal * ctv.percentage / 100);
-                    await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, customer.referrer_id]);
-                    const tgMsg = `💰 <b>Hoa Hồng</b>\nCTV: ${ctv.full_name}\nKhách: ${customer.customer_name}\nDoanh số: ${grandTotal.toLocaleString('vi-VN')} VNĐ\nChiết khấu: ${ctv.percentage}%\nHoa hồng: <b>${commission.toLocaleString('vi-VN')} VNĐ</b>`;
-                    const globalId = process.env.TELEGRAM_GROUP_ID;
-                    if (globalId) sendTelegramMessage(globalId, tgMsg);
+                    // ★ FIRST-ORDER-ONLY: check if this customer already has a prior non-cancelled order
+                    let _fooSkipComm = false;
+                    try {
+                        const _fooCfg = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
+                        if (_fooCfg?.value) {
+                            const _fooCutoff = new Date(_fooCfg.value);
+                            if (new Date() >= _fooCutoff) {
+                                // Check if self-order (exempt)
+                                const isSelfCust = ctv.source_customer_id && ctv.source_customer_id === custId;
+                                if (!isSelfCust) {
+                                    // Count non-cancelled orders. If > 1, this is a repeat customer
+                                    const orderCount = await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'", [custId]);
+                                    if (orderCount && orderCount.cnt > 1) _fooSkipComm = true;
+                                }
+                            }
+                        }
+                    } catch(e) { /* fallback: allow commission */ }
+
+                    if (!_fooSkipComm) {
+                        const commission = Math.round(grandTotal * ctv.percentage / 100);
+                        await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, customer.referrer_id]);
+                        const tgMsg = `💰 <b>Hoa Hồng</b>\nCTV: ${ctv.full_name}\nKhách: ${customer.customer_name}\nDoanh số: ${grandTotal.toLocaleString('vi-VN')} VNĐ\nChiết khấu: ${ctv.percentage}%\nHoa hồng: <b>${commission.toLocaleString('vi-VN')} VNĐ</b>`;
+                        const globalId = process.env.TELEGRAM_GROUP_ID;
+                        if (globalId) sendTelegramMessage(globalId, tgMsg);
+                    }
                 }
             }
         }
@@ -582,8 +602,23 @@ async function customersRoutes(fastify, options) {
         if (order.referrer_id && grandTotal?.t) {
             const referrer = await db.get('SELECT u.*, ct.percentage FROM users u LEFT JOIN commission_tiers ct ON u.commission_tier_id = ct.id WHERE u.id = ?', [order.referrer_id]);
             if (referrer?.percentage) {
-                const commission = Math.round(grandTotal.t * referrer.percentage / 100);
-                await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, referrer.id]);
+                // ★ FIRST-ORDER-ONLY: check if this is a repeat order
+                let _fooSkipComm2 = false;
+                try {
+                    const _fooCfg2 = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
+                    if (_fooCfg2?.value && new Date() >= new Date(_fooCfg2.value)) {
+                        const isSelfCust2 = referrer.source_customer_id && referrer.source_customer_id === order.customer_id;
+                        if (!isSelfCust2) {
+                            const orderCount2 = await db.get("SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id = ? AND status != 'cancelled'", [order.customer_id]);
+                            if (orderCount2 && orderCount2.cnt > 1) _fooSkipComm2 = true;
+                        }
+                    }
+                } catch(e) { /* fallback: allow */ }
+
+                if (!_fooSkipComm2) {
+                    const commission = Math.round(grandTotal.t * referrer.percentage / 100);
+                    await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, referrer.id]);
+                }
             }
         }
         // Check if this is the latest order → move customer to sau_ban_hang

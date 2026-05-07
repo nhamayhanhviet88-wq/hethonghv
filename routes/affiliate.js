@@ -52,6 +52,31 @@ function _excludeBornAsAffiliateIndirect(customers, userId, affConvMap, selfCust
     });
 }
 
+// ★ FIRST-ORDER-ONLY: Lấy ID đơn đầu tiên (non-cancelled) per customer
+// Trả về Map { customerId: firstOrderId }
+async function _getFirstOrderMap(db, customerIds) {
+    if (!customerIds || customerIds.length === 0) return {};
+    const ph = customerIds.map(() => '?').join(',');
+    const rows = await db.all(`
+        SELECT DISTINCT ON (customer_id) customer_id, id as first_order_id
+        FROM order_codes
+        WHERE customer_id IN (${ph}) AND status != 'cancelled'
+        ORDER BY customer_id, created_at ASC
+    `, customerIds);
+    const map = {};
+    rows.forEach(r => { map[r.customer_id] = r.first_order_id; });
+    return map;
+}
+
+// ★ FIRST-ORDER-ONLY: Load cutoff date from app_config
+let _fooCutoffCache = undefined; // undefined = not loaded, null = no cutoff
+async function _getCommissionCutoffDate(db) {
+    if (_fooCutoffCache !== undefined) return _fooCutoffCache;
+    const row = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
+    _fooCutoffCache = row?.value ? new Date(row.value) : null;
+    return _fooCutoffCache;
+}
+
 // Helper: parse period_type + value into dateFrom/dateTo
 function _parsePeriodDateRange(periodType, value) {
     let dateFrom = null, dateTo = null;
@@ -97,6 +122,16 @@ function _parsePeriodDateRange(periodType, value) {
 
 async function affiliateRoutes(fastify) {
     const db = require('../db/pool');
+
+    // ★ MIGRATION: FIRST-ORDER-ONLY cutoff date
+    try {
+        await db.run(`INSERT INTO app_config (key, value) VALUES ('commission_first_order_cutoff', '2026-05-07') ON CONFLICT(key) DO NOTHING`);
+    } catch(e) { /* already exists */ }
+
+    // ★ MIGRATION: Index for first-order lookup performance
+    try {
+        await db.run(`CREATE INDEX IF NOT EXISTS idx_oc_customer_created ON order_codes(customer_id, created_at)`);
+    } catch(e) { /* already exists */ }
 
     fastify.get('/api/affiliate/org-tree', { preHandler: [authenticate] }, async (request, reply) => {
         const { from, to } = request.query;
@@ -411,10 +446,27 @@ async function affiliateRoutes(fastify) {
         let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
         let _nhuCauPreRevMap = {}; // Doanh thu pre-conversion cho trang Khách
         let _selfQualifyingRev = 0; // ★ Doanh thu self-customer chỉ từ đơn SAU ngày tạo TK
+        // ★ FIRST-ORDER-ONLY: Load cutoff + first order map
+        const _fooCutoff = await _getCommissionCutoffDate(db);
+        const _fooFirstMap = await _getFirstOrderMap(db, filteredIds);
+
+        // ★ FIRST-ORDER-ONLY: Batch-fetch first COMPLETED order per customer (for status freeze)
+        let _fooFirstCompletedMap = {}; // { customerId: { id, created_at } }
+        if (_fooCutoff && filteredIds.length > 0) {
+            const _fcPh = filteredIds.map(() => '?').join(',');
+            const _fcRows = await db.all(`
+                SELECT DISTINCT ON (customer_id) customer_id, id, created_at
+                FROM order_codes
+                WHERE customer_id IN (${_fcPh}) AND status = 'completed'
+                ORDER BY customer_id, created_at ASC
+            `, filteredIds);
+            _fcRows.forEach(r => { _fooFirstCompletedMap[r.customer_id] = r; });
+        }
+
         if (filteredIds.length > 0) {
             const cphOrd2 = filteredIds.map(() => '?').join(',');
             const allOrders = await db.all(`
-                SELECT oc.customer_id, oc.created_at as order_date,
+                SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cphOrd2}) AND oc.status = 'completed'
@@ -426,6 +478,14 @@ async function affiliateRoutes(fastify) {
                 // ★ Đơn tự mua TRƯỚC khi tạo TK Affiliate → bỏ qua
                 if (isSelf && selfCreatedAt && new Date(o.order_date) < selfCreatedAt) return;
                 const isDirect = isSelf || (cust && cust.referrer_id === user.id);
+                // ★ FIRST-ORDER-ONLY: Sau cutoff, chỉ đơn đầu tiên mới có commission
+                const _fooIsAfterCutoff = _fooCutoff && new Date(o.order_date) >= _fooCutoff;
+                if (_fooIsAfterCutoff && _fooFirstMap[o.customer_id] !== o.order_id) {
+                    // Đơn lặp: self-order exempt cho bản thân, nhưng skip cho parent view
+                    if (!isSelf) return; // Không phải self → 0%
+                    // isSelf + repeat + afterCutoff → bản thân vẫn hưởng directRate
+                    // (tiếp tục xuống dưới, rate = directRate vì isSelf)
+                }
                 const convDate = affConvMap[o.customer_id] || null;
                 
                 const isPreConversion = convDate && new Date(o.order_date) < new Date(convDate);
@@ -556,6 +616,20 @@ async function affiliateRoutes(fastify) {
                 }
             }
 
+            // ★ FIRST-ORDER-ONLY: Đóng băng hiển thị khi KH đã có đơn hoàn thành
+            // Sau cutoff: KH có completed order → freeze status = "hoàn thành đơn"
+            let isFirstOrderFrozen = false;
+            if (!isSelf && _fooCutoff && completedRevenue > 0) {
+                const _fooCompletedOrder = _fooFirstCompletedMap[c.id];
+                if (_fooCompletedOrder && new Date(_fooCompletedOrder.created_at) >= _fooCutoff) {
+                    isFirstOrderFrozen = true;
+                    // Override status → "hoàn thành đơn"
+                    frozenLog = { log_type: '_hoan_thanh_don', content: 'Đơn hàng đã hoàn thành', created_at: _fooCompletedOrder.created_at };
+                    frozenContactDate = _fooCompletedOrder.created_at;
+                    frozenAppointmentDate = null; // Không hiện ngày hẹn sau khi hoàn thành
+                }
+            }
+
             return {
                 ...c,
                 phone: displayPhone,
@@ -567,6 +641,7 @@ async function affiliateRoutes(fastify) {
                 commission,
                 is_converted_to_affiliate: isConverted,
                 is_silently_frozen: isSilentlyFrozen,
+                is_first_order_frozen: isFirstOrderFrozen,
                 referrer_name: isSelf ? 'Đơn Của Tôi' : (isDirect ? 'Trực tiếp' : (childAffiliates.find(a => a.id === c.referrer_id)?.full_name || 'Con')),
                 last_log_type: frozenLog?.log_type || null,
                 last_log_content: frozenLog?.content || null,
@@ -602,6 +677,9 @@ async function affiliateRoutes(fastify) {
                 const isSelfOrder = selfCustId && r.customer_id === selfCustId;
                 // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua (INDEPENDENT of convDate)
                 if (isSelfOrder && selfCreatedAt && new Date(r.created_at) < selfCreatedAt) return;
+                // ★ FIRST-ORDER-ONLY: Sau cutoff, chỉ đếm đơn đầu tiên (self exempt)
+                const _fooIsAfterCutoff2 = _fooCutoff && new Date(r.created_at) >= _fooCutoff;
+                if (_fooIsAfterCutoff2 && _fooFirstMap[r.customer_id] !== r.id && !isSelfOrder) return;
                 
                 if (convDate) {
                     const isPreConversion = new Date(r.created_at) < new Date(convDate);
@@ -704,6 +782,10 @@ async function affiliateRoutes(fastify) {
         const filteredIds2 = filteredCust2.map(c => c.id);
         const cph = filteredIds2.map(() => '?').join(',');
 
+        // ★ FIRST-ORDER-ONLY: Load cutoff + first order map
+        const _fooCutoff3 = await _getCommissionCutoffDate(db);
+        const _fooFirstMap3 = await _getFirstOrderMap(db, filteredIds2);
+
         // Get all non-cancelled orders with revenue
         const orders = await db.all(`
             SELECT oc.id as order_id, oc.order_code, oc.status, oc.created_at,
@@ -726,6 +808,10 @@ async function affiliateRoutes(fastify) {
                 const isSelfOrd = selfCustId2 && o.customer_id === selfCustId2;
                 if (isSelfOrd && selfCreatedAt2 && new Date(o.created_at) < selfCreatedAt2) return false;
 
+                // ★ FIRST-ORDER-ONLY: Sau cutoff, lọc đơn lặp (self exempt)
+                const _fooAC3 = _fooCutoff3 && new Date(o.created_at) >= _fooCutoff3;
+                if (_fooAC3 && _fooFirstMap3[o.customer_id] !== o.order_id && !isSelfOrd) return false;
+
                 const convDate = affConvMap2[o.customer_id] || null;
                 if (!convDate) return true;
                 
@@ -746,7 +832,15 @@ async function affiliateRoutes(fastify) {
             const isSelf = selfCustId2 && o.customer_id === selfCustId2;
             const isDirect = isSelf || cust.referrer_id === user.id;
             const convDate = affConvMap2[o.customer_id] || null;
-            const rate = isSelf ? directRate : _calcOrderRate(isDirect, directRate, parentRate, o.created_at, convDate, cust?.crm_type);
+            // ★ FIRST-ORDER-ONLY: Zero rate cho đơn lặp sau cutoff (self exempt cho bản thân)
+            const _fooAC3b = _fooCutoff3 && new Date(o.created_at) >= _fooCutoff3;
+            const _fooIsRepeat3 = _fooAC3b && _fooFirstMap3[o.customer_id] !== o.order_id;
+            let rate;
+            if (_fooIsRepeat3) {
+                rate = isSelf ? directRate : 0; // Self vẫn hưởng, non-self đã bị filter ở trên
+            } else {
+                rate = isSelf ? directRate : _calcOrderRate(isDirect, directRate, parentRate, o.created_at, convDate, cust?.crm_type);
+            }
             const revenue = Number(o.revenue) || 0;
             const commission = o.status === 'completed' ? Math.round(revenue * rate) : 0;
             const referrerName = isSelf
@@ -819,10 +913,14 @@ async function affiliateRoutes(fastify) {
         const filteredIdsB = filteredCustB.map(c => c.id);
 
         let totalCommission = 0;
+        // ★ FIRST-ORDER-ONLY: Load cutoff + first order map for balance
+        const _fooCutoff4 = await _getCommissionCutoffDate(db);
+        const _fooFirstMap4 = await _getFirstOrderMap(db, filteredIdsB);
+
         if (filteredIdsB.length > 0) {
             const cph = filteredIdsB.map(() => '?').join(',');
             const orderRows = await db.all(`
-                SELECT oc.customer_id, oc.created_at as order_date,
+                SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
@@ -833,6 +931,9 @@ async function affiliateRoutes(fastify) {
                 const isSelfB = selfCustIdB && r.customer_id === selfCustIdB;
                 // ★ Đơn tự mua TRƯỚC khi tạo TK → bỏ qua
                 if (isSelfB && selfCreatedAtB && new Date(r.order_date) < selfCreatedAtB) return;
+                // ★ FIRST-ORDER-ONLY: Sau cutoff, chỉ đơn đầu tiên (self exempt cho bản thân)
+                const _fooAC4 = _fooCutoff4 && new Date(r.order_date) >= _fooCutoff4;
+                if (_fooAC4 && _fooFirstMap4[r.customer_id] !== r.order_id && !isSelfB) return;
                 const isDirect = isSelfB || (cust && cust.referrer_id === user.id);
                 const convDate = affConvMapB[r.customer_id] || null;
                 // ★ Silent Freeze: KH gián tiếp đã chuyển affiliate → chỉ tính đơn TRƯỚC chuyển
@@ -901,6 +1002,9 @@ async function affiliateRoutes(fastify) {
 
             const results = [];
             let filteredCommission = 0;
+            // ★ FIRST-ORDER-ONLY: Load cutoff once
+            const _fooCutoff5 = await _getCommissionCutoffDate(db);
+
             for (const aff of affiliates) {
                 const tier = aff.commission_tier_id ? tierMap[aff.commission_tier_id] : null;
                 const directRate = tier ? (tier.percentage || 10) / 100 : 0.10;
@@ -922,9 +1026,12 @@ async function affiliateRoutes(fastify) {
                 const filteredIdsS = filteredCustS.map(c => c.id);
                 if (filteredIdsS.length > 0) {
                     const cph = filteredIdsS.map(() => '?').join(',');
+                    // ★ FIRST-ORDER-ONLY: firstOrderMap per affiliate
+                    const _fooFirstMap5 = await _getFirstOrderMap(db, filteredIdsS);
+
                     // All-time commission — per-order
                     const orderRowsS = await db.all(`
-                        SELECT oc.customer_id, oc.created_at as order_date,
+                        SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                                COALESCE(SUM(oi.total), 0) as revenue
                         FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                         WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
@@ -934,6 +1041,9 @@ async function affiliateRoutes(fastify) {
                         const cust = filteredCustS.find(c => c.id === r.customer_id);
                         const isDirect = cust && cust.referrer_id === aff.id;
                         const convDate = affConvMapS[r.customer_id] || null;
+                        // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff
+                        const _fooAC5 = _fooCutoff5 && new Date(r.order_date) >= _fooCutoff5;
+                        if (_fooAC5 && _fooFirstMap5[r.customer_id] !== r.order_id) return;
                         const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
                         totalCommission += Math.round(Number(r.revenue) * rate);
                     });
@@ -941,7 +1051,7 @@ async function affiliateRoutes(fastify) {
                     // Filtered commission by date — per-order
                     if (dateFrom && dateTo) {
                         const filteredRowsS = await db.all(`
-                            SELECT oc.customer_id, oc.created_at as order_date,
+                            SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                                    COALESCE(SUM(oi.total), 0) as revenue
                             FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                             WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
@@ -952,6 +1062,9 @@ async function affiliateRoutes(fastify) {
                             const cust = filteredCustS.find(c => c.id === r.customer_id);
                             const isDirect = cust && cust.referrer_id === aff.id;
                             const convDate = affConvMapS[r.customer_id] || null;
+                            // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff
+                            const _fooAC5b = _fooCutoff5 && new Date(r.order_date) >= _fooCutoff5;
+                            if (_fooAC5b && _fooFirstMap5[r.customer_id] !== r.order_id) return;
                             const rate = _calcOrderRate(isDirect, directRate, parentRate, r.order_date, convDate, cust?.crm_type);
                             affFilteredCommission += Math.round(Number(r.revenue) * rate);
                         });
@@ -1020,6 +1133,9 @@ async function affiliateRoutes(fastify) {
 
             if (filteredIdsA.length > 0) {
                 const cph = filteredIdsA.map(() => '?').join(',');
+                // ★ FIRST-ORDER-ONLY: Load cutoff + first order map
+                const _fooCutoff6 = await _getCommissionCutoffDate(db);
+                const _fooFirstMap6 = await _getFirstOrderMap(db, filteredIdsA);
                 const rows = await db.all(`
                     SELECT oc.id, oc.order_code, oc.customer_id, oc.status, oc.created_at,
                            COALESCE(SUM(oi.total), 0) as revenue
@@ -1032,6 +1148,9 @@ async function affiliateRoutes(fastify) {
                     const cust = filteredCustA.find(c => c.id === r.customer_id);
                     const isDirect = cust && cust.referrer_id === aff.id;
                     const convDate = affConvMapA[r.customer_id] || null;
+                    // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff
+                    const _fooAC6 = _fooCutoff6 && new Date(r.created_at) >= _fooCutoff6;
+                    if (_fooAC6 && _fooFirstMap6[r.customer_id] !== r.id) return;
                     const rate = _calcOrderRate(isDirect, directRate, parentRate, r.created_at, convDate, cust?.crm_type);
                     const nvName = cust?.assigned_to_id ? (nvMap[cust.assigned_to_id] || '—') : '—';
                     orders.push({
@@ -2191,12 +2310,25 @@ async function affiliateRoutes(fastify) {
 
         const alerts = [];
 
+        // ★ FIRST-ORDER-ONLY: Load cutoff + first order map
+        const _fooCutoff7 = await _getCommissionCutoffDate(db);
+        const _fooFirstMap7 = await _getFirstOrderMap(db, custIds);
+
         for (const order of orders) {
             const cust = custMap[order.customer_id];
             if (!cust) continue;
 
             const revenue = Number(order.revenue);
             if (revenue <= 0) continue;
+
+            // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff (no commission = no cap issue)
+            const _fooAC7 = _fooCutoff7 && new Date(order.created_at) >= _fooCutoff7;
+            const _fooIsFirst7 = _fooFirstMap7[order.customer_id] === order.id;
+            if (_fooAC7 && !_fooIsFirst7) {
+                // Check if self-order only — self still gets commission so still check cap
+                const selfAffCheck = affBySourceCustId[order.customer_id];
+                if (!selfAffCheck) continue; // No self-affiliate = no commission = skip
+            }
 
             let totalCommPercent = 0;
             const commDetails = [];

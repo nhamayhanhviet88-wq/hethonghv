@@ -109,7 +109,7 @@ function _hdsdCommissionHTML() {
                 '<div class="hdsd-comm-icon">🎯</div>' +
                 '<div class="hdsd-comm-label">Giới thiệu khách hàng</div>' +
                 '<div class="hdsd-comm-rate" data-countup="10">10<span style="font-size:.5em">%</span></div>' +
-                '<div class="hdsd-comm-desc">Hưởng trực tiếp từ mỗi đơn hàng</div>' +
+                '<div class="hdsd-comm-desc">Hưởng trực tiếp từ đơn hàng đầu tiên của khách</div>' +
             '</div>' +
             '<div class="hdsd-comm-card hdsd-comm-navy hdsd-animate hdsd-animate-delay-2">' +
                 '<div class="hdsd-comm-icon">🤝</div>' +
@@ -123,12 +123,11 @@ function _hdsdCommissionHTML() {
             '<p style="font-size:13px;color:#92400e;margin-bottom:16px">Giả sử anh/chị giới thiệu 1 công ty đặt đồng phục <strong>50.000.000đ</strong>. Đồng thời, Affiliate trong hệ thống của anh/chị cũng giới thiệu 1 khách hàng chốt đơn <strong>30.000.000đ</strong> với HV:</p>' +
             '<div class="hdsd-example-row"><span class="hdsd-example-label">🎯 Đơn anh/chị trực tiếp giới thiệu: 50.000.000đ × 10%</span><span class="hdsd-example-val">= 5.000.000đ</span></div>' +
             '<div class="hdsd-example-row"><span class="hdsd-example-label">🤝 Affiliate trong hệ thống chốt đơn 30.000.000đ → họ được 10%, anh/chị hưởng thêm 5%</span><span class="hdsd-example-val">= 1.500.000đ</span></div>' +
-            '<div class="hdsd-example-row"><span class="hdsd-example-label">🔄 Khách cũ quay lại mua tiếp: 20.000.000đ × 10%</span><span class="hdsd-example-val">= 2.000.000đ</span></div>' +
-            '<div class="hdsd-example-total">💰 Tổng thu nhập của anh/chị: 8.500.000đ</div>' +
+            '<div class="hdsd-example-total">💰 Tổng thu nhập của anh/chị: 6.500.000đ</div>' +
             '<p style="font-size:12px;color:#b8901c;margin-top:12px;text-align:center;font-style:italic">Càng nhiều Affiliate trong hệ thống = càng nhiều nguồn thu 5% thụ động — nhân rộng lợi nhuận không giới hạn!</p>' +
         '</div>' +
         '<div class="hdsd-comm-banner hdsd-animate">' +
-            '💎 <strong>ĐẶC QUYỀN VƯỢT TRỘI:</strong> Khách hàng quay lại mua tiếp — anh/chị <strong>VẪN nhận hoa hồng</strong> như lần đầu. Không giới hạn số lần!' +
+            '💎 <strong>ĐẶC QUYỀN VƯỢT TRỘI:</strong> Anh/chị tự mua hàng cho chính mình cũng được hưởng <strong>chiết khấu 10%</strong> — không giới hạn số lần!' +
         '</div>' +
     '</section>';
 }
@@ -201,13 +200,6 @@ function _hdsdMindmapHTML() {
                                 '<div class="mm-result-rate"><span class="mm-rate-num">10</span><span class="mm-rate-pct">%</span></div>' +
                                 '<div class="mm-result-desc">Chiết khấu cho chính Anh/Chị</div>' +
                             '</div>' +
-                            '<div class="mm-arrow-down mm-arrow-gold">▼</div>' +
-                            // Repeat benefit
-                            '<div class="mm-repeat-node mm-repeat-gold">' +
-                                '<div class="mm-repeat-icon">🔄</div>' +
-                                '<div class="mm-repeat-text">Khách đặt lại nhiều lần</div>' +
-                                '<div class="mm-repeat-highlight">VẪN được 10% cho Anh/Chị</div>' +
-                            '</div>' +
                         '</div>' +
                     '</div>' +
 
@@ -257,13 +249,7 @@ function _hdsdMindmapHTML() {
                                     '</div>' +
                                 '</div>' +
                             '</div>' +
-                            '<div class="mm-arrow-down mm-arrow-cyan">▼</div>' +
-                            // Repeat benefit
-                            '<div class="mm-repeat-node mm-repeat-cyan">' +
-                                '<div class="mm-repeat-icon">🔄</div>' +
-                                '<div class="mm-repeat-text">Khách đặt lại nhiều lần</div>' +
-                                '<div class="mm-repeat-highlight">VẪN được 5% cho Anh/Chị</div>' +
-                            '</div>' +
+                            // Note: Repeat benefit removed (first-order-only policy)
                         '</div>' +
                     '</div>' +
 
@@ -276,8 +262,8 @@ function _hdsdMindmapHTML() {
                 '<div class="mm-adv-title">🏆 THẾ MẠNH VƯỢT TRỘI</div>' +
                 '<div class="mm-adv-grid">' +
                     '<div class="mm-adv-card">' +
-                        '<div class="mm-adv-icon">🔄</div>' +
-                        '<div class="mm-adv-text">Khách đặt lại nhiều lần<br><strong>vẫn được chiết khấu</strong></div>' +
+                        '<div class="mm-adv-icon">💰</div>' +
+                        '<div class="mm-adv-text">Tự mua hàng cũng được<br><strong>chiết khấu 10%</strong></div>' +
                     '</div>' +
                     '<div class="mm-adv-card">' +
                         '<div class="mm-adv-icon">💳</div>' +
@@ -513,7 +499,7 @@ function _hdsdFeaturesHTML() {
                     '<tr><td><strong>✅ Không cần nghiệp vụ</strong></td><td>HV lo từ A–Z: tư vấn, thiết kế, sản xuất, giao hàng</td></tr>' +
                     '<tr><td><strong>✅ Minh bạch 100%</strong></td><td>Real-time mọi đơn hàng — theo dõi trực tiếp trên hệ thống</td></tr>' +
                     '<tr><td><strong>✅ Hoa hồng cao</strong></td><td>10% từ KH trực tiếp + 5% từ KH của Affiliate trong hệ thống — cao hơn thị trường</td></tr>' +
-                    '<tr><td><strong>✅ Thu nhập trọn đời</strong></td><td>Khách quay lại — hoa hồng nhận tiếp, không giới hạn</td></tr>' +
+                    '<tr><td><strong>✅ Tự mua cũng được hưởng</strong></td><td>Anh/chị tự đặt đơn — vẫn nhận 10% chiết khấu, không giới hạn số lần</td></tr>' +
                     '<tr><td><strong>✅ Xây hệ thống riêng</strong></td><td>Affiliate trong hệ thống chốt đơn → họ được 10%, anh/chị hưởng thêm 5% — nhân rộng lợi nhuận</td></tr>' +
                     '<tr><td><strong>✅ Rút tiền linh hoạt</strong></td><td>Có bill xác nhận, tối thiểu 100.000đ, bất cứ lúc nào</td></tr>' +
                     '<tr><td><strong>✅ Hỗ trợ tận tâm</strong></td><td>Đội ngũ chăm sóc đối tác 24/7 — giải đáp mọi thắc mắc</td></tr>' +
@@ -533,7 +519,7 @@ function _hdsdCtaHTML() {
             '<div class="hdsd-section-tag hdsd-section-tag-dark hdsd-animate" style="border:1px solid rgba(250,210,76,.25)">🎯 LỜI KẾT</div>' +
             '<h2 class="hdsd-section-title hdsd-animate" style="color:#fff">Bắt Đầu Hành Trình Của Bạn</h2>' +
             '<p class="hdsd-cta-text hdsd-animate">Trong thời đại biến động, thu nhập thụ động là chìa khóa tự do tài chính. Đồng Phục HV mang đến cơ hội đó — <strong style="color:#fad24c">không vốn, không giới hạn, không rủi ro.</strong></p>' +
-            '<blockquote class="hdsd-quote-final hdsd-animate">"Điều quý giá nhất tại HV không phải 10% hay 5% hoa hồng — mà là quyền lợi <strong>NHẬN HOA HỒNG TRỌN ĐỜI</strong> từ mọi lần khách quay lại. Đây chính là tài sản dài hạn mà anh/chị xây dựng cho chính mình."</blockquote>' +
+            '<blockquote class="hdsd-quote-final hdsd-animate">"Điều quý giá nhất tại HV không phải 10% hay 5% hoa hồng — mà là quyền lợi <strong>HƯỞNG CHIẾT KHẤU TỪ CHÍNH ĐƠN HÀNG CỦA MÌNH</strong> và xây dựng hệ thống Affiliate riêng. Đây chính là tài sản dài hạn mà anh/chị tạo nên cho chính mình."</blockquote>' +
             '<p class="hdsd-cta-closing hdsd-animate">Hãy bắt đầu ngay hôm nay — Đồng Phục HV luôn đồng hành! 🚀</p>' +
             '<div class="hdsd-cta-actions hdsd-animate">' +
                 '<a class="hdsd-btn-outline" href="/bao-cao-hoa-hong-hv" onclick="event.preventDefault();window.location.href=\'/bao-cao-hoa-hong-hv\';">📊 Xem Báo Cáo</a>' +
