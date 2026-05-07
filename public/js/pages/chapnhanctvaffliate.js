@@ -746,7 +746,7 @@ async function openAffiliateAccountPopup(customerId) {
     if (check.hasAccount) { showToast(`⚠️ KH đã có TK Affiliate: ${check.account.username}`, 'error'); return; }
     if (check.hasPending) { showToast('⚠️ KH đã có yêu cầu đang chờ duyệt!', 'error'); return; }
 
-    // ★ STATUS GATE: Chỉ cho tạo TK Affiliate khi trạng thái nút là "Nhắn Tin"
+    // ★ STATUS GATE: CHỈ cho tạo TK Affiliate khi trạng thái nút là "💬 Nhắn Tin"
     // Tránh xung đột luồng đơn hàng & hoa hồng
     try {
         const logData = await apiCall(`/api/customers/${customerId}/consult-logs`);
@@ -754,24 +754,14 @@ async function openAffiliateAccountPopup(customerId) {
         const lastLog = logs.length > 0 ? logs[0] : null;
         const lastLogType = lastLog ? lastLog.log_type : null;
 
-        // Các trạng thái nằm trong luồng đơn hàng → CHẶN
-        const BLOCKED_STATUSES = [
-            'gui_stk_coc', 'giuc_coc', 'dat_coc', 'chot_don', 'dang_san_xuat',
-            'hoan_thanh', 'sau_ban_hang', 'cap_cuu_sep', 'hoan_thanh_cap_cuu',
-            'huy_coc', 'huy', 'tuong_tac_ket_noi', 'gui_ct_kh_cu',
-            'tao_tk_affiliate', 'chuyen_doi_crm', 'khong_xu_ly'
-        ];
-
-        // Tất cả các type liên quan đến consult (có thể có type mới từ settings)
-        const SAFE_STATUSES = [
-            'nhan_tin', 'goi_dien', 'gap_truc_tiep', 'gui_bao_gia', 'gui_mau',
-            'thiet_ke', 'bao_sua', 'lam_quen_tuong_tac', 'giam_gia'
-        ];
-
-        // Nếu có log cuối cùng VÀ log đó nằm trong danh sách bị chặn → cảnh báo
-        if (lastLogType && BLOCKED_STATUSES.includes(lastLogType)) {
+        // ★ WHITELIST: CHỈ cho phép khi trạng thái cuối cùng là "nhan_tin"
+        if (lastLogType !== 'nhan_tin') {
             // Tìm label hiển thị cho trạng thái hiện tại
             const ALL_STATUS_LABELS = {
+                lam_quen_tuong_tac: '👋 Làm Quen Tương Tác', goi_dien: '📞 Gọi Điện',
+                nhan_tin: '💬 Nhắn Tin', gap_truc_tiep: '🤝 Gặp Trực Tiếp',
+                gui_bao_gia: '📄 Gửi Báo Giá', gui_mau: '👔 Gửi Mẫu',
+                thiet_ke: '🎨 Thiết Kế', bao_sua: '🔧 Sửa Thiết Kế',
                 gui_stk_coc: '🏦 Gửi STK Cọc', giuc_coc: '⏰ Giục Cọc',
                 dat_coc: '💵 Đặt Cọc', chot_don: '✅ Chốt Đơn',
                 dang_san_xuat: '🏭 Đang Sản Xuất', hoan_thanh: '🏆 Hoàn Thành Đơn',
@@ -779,9 +769,12 @@ async function openAffiliateAccountPopup(customerId) {
                 hoan_thanh_cap_cuu: '🏥 Hoàn Thành Cấp Cứu', huy_coc: '🚫 Hủy Cọc',
                 huy: '❌ Hủy Khách', tuong_tac_ket_noi: '🔗 Tương Tác Kết Nối Lại',
                 gui_ct_kh_cu: '🎟️ Gửi CT KH Cũ', tao_tk_affiliate: '🔑 Đã Tạo TK Affiliate',
-                chuyen_doi_crm: '🔄 Chuyển Đổi CRM', khong_xu_ly: '⚠️ Không Xử Lý'
+                chuyen_doi_crm: '🔄 Chuyển Đổi CRM', khong_xu_ly: '⚠️ Không Xử Lý',
+                giam_gia: '🎁 Giảm Giá', tu_van_lai: '🔄 Tư Vấn Lại'
             };
-            const currentLabel = ALL_STATUS_LABELS[lastLogType] || lastLogType;
+            const currentLabel = lastLogType
+                ? (ALL_STATUS_LABELS[lastLogType] || lastLogType)
+                : '📋 Chưa tư vấn (Chưa có lịch sử)';
 
             // Hiển thị popup cảnh báo đẹp
             const warnOverlay = document.createElement('div');
@@ -800,14 +793,13 @@ async function openAffiliateAccountPopup(customerId) {
                         </div>
                         <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:14px;padding:18px;margin-bottom:18px;">
                             <div style="font-size:13px;color:#1e40af;font-weight:600;line-height:1.7;">
-                                📌 Khách hàng đang ở <b>giữa luồng đơn hàng</b>.<br>
-                                Tạo TK Affiliate lúc này sẽ gây <b>xung đột hoa hồng</b> và <b>hỏng luồng đơn hàng</b>.<br><br>
-                                ✅ Vui lòng đưa khách về trạng thái <b style="color:#7c3aed;">💬 Nhắn Tin</b> trước khi tạo TK Affiliate.
+                                📌 Chỉ được tạo TK Affiliate khi nút tư vấn đang ở trạng thái <b style="color:#7c3aed;">💬 Nhắn Tin</b>.<br><br>
+                                Tạo TK Affiliate ở trạng thái khác sẽ gây <b>xung đột hoa hồng</b> và <b>hỏng luồng đơn hàng</b>.
                             </div>
                         </div>
                         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:18px;">
                             <div style="font-size:12px;color:#166534;font-weight:600;">
-                                💡 <b>Luồng đúng:</b> Hoàn thành đơn → Sau bán hàng → Kết nối lại → ... → <b style="color:#7c3aed;">Nhắn Tin</b> → 🔑 Tạo TK Affiliate
+                                ✅ Vui lòng tư vấn khách hàng qua các bước cho đến khi nút hiển thị <b style="color:#7c3aed;">💬 Nhắn Tin</b>, sau đó mới ấn 🔑 để tạo TK Affiliate.
                             </div>
                         </div>
                         <div style="text-align:center;">
@@ -820,12 +812,11 @@ async function openAffiliateAccountPopup(customerId) {
             document.body.appendChild(warnOverlay);
             return;
         }
-
-        // Nếu có log nhưng KHÔNG nằm trong safe list VÀ KHÔNG nằm trong blocked list → cho phép (an toàn)
-        // Nếu chưa có log nào → cho phép (KH mới)
     } catch(e) {
         console.warn('[AffGate] Error checking status:', e);
-        // Nếu lỗi fetch logs → vẫn cho tiếp tục, backend sẽ chặn
+        // Nếu lỗi fetch logs → chặn luôn vì không xác minh được trạng thái
+        showToast('⚠️ Không thể kiểm tra trạng thái khách hàng. Vui lòng thử lại.', 'error');
+        return;
     }
 
     // Fetch all data in parallel
