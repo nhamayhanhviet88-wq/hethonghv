@@ -3,31 +3,16 @@ const pool = new Pool({ connectionString: 'postgresql://adminhv:hvadmin2026@192.
 
 async function run() {
     try {
-        // Check column type
-        const colType = await pool.query(`
-            SELECT column_name, data_type, is_nullable 
-            FROM information_schema.columns 
-            WHERE table_name = 'order_codes' AND column_name = 'created_at'
-        `);
-        console.log('order_codes.created_at type:', JSON.stringify(colType.rows[0]));
+        // Check conversion records for customer vietkh2 (id=121)
+        const conv = await pool.query("SELECT * FROM crm_conversion_requests WHERE customer_id = 121 ORDER BY created_at DESC");
+        console.log('Conversion records for vietkh2 (customer 121):');
+        conv.rows.forEach(r => console.log(JSON.stringify(r)));
 
-        const userColType = await pool.query(`
-            SELECT column_name, data_type, is_nullable 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'created_at'
-        `);
-        console.log('users.created_at type:', JSON.stringify(userColType.rows[0]));
-
-        // Raw values
-        const raw = await pool.query("SELECT created_at, created_at AT TIME ZONE 'UTC' as utc FROM order_codes WHERE customer_id = 120 ORDER BY created_at");
-        console.log('\nRaw order_codes.created_at for customer 120:');
-        raw.rows.forEach(r => console.log(`  local: ${r.created_at} | utc: ${r.utc}`));
-
-        const userRaw = await pool.query("SELECT created_at, created_at AT TIME ZONE 'UTC' as utc FROM users WHERE id = 41");
-        console.log('\nRaw users.created_at for vietkh1:', userRaw.rows[0]);
-    } catch(e) {
-        console.error(e);
-    }
+        // Check for customer vietkh1 (id=120)
+        const conv2 = await pool.query("SELECT * FROM crm_conversion_requests WHERE customer_id = 120 ORDER BY created_at DESC");
+        console.log('\nConversion records for vietkh1 (customer 120):');
+        conv2.rows.forEach(r => console.log(JSON.stringify(r)));
+    } catch(e) { console.error(e.message); }
     pool.end();
 }
 run();

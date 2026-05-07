@@ -2219,7 +2219,9 @@ async function affiliateRoutes(fastify) {
             };
         }
 
-        // Lấy tất cả con affiliate (managed_by_user_id = userId)
+        // Lấy tất cả con affiliate (assigned_to_user_id = userId)
+        // ★ CHỈ hiện con có source_crm_type = 'ctv_hoa_hong' (KH từ trang Affiliate)
+        // ★ LOẠI con mà KH gốc được CHUYỂN từ nhu_cau → ctv_hoa_hong (vốn là Khách, không phải Affiliate)
         const children = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
                    ct.name as tier_name, ct.percentage as tier_percentage
@@ -2227,6 +2229,14 @@ async function affiliateRoutes(fastify) {
             LEFT JOIN commission_tiers ct ON ct.id = u.commission_tier_id
             WHERE u.assigned_to_user_id = ?
             AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+            AND u.source_crm_type = 'ctv_hoa_hong'
+            AND NOT EXISTS (
+                SELECT 1 FROM crm_conversion_requests ccr
+                WHERE ccr.customer_id = u.source_customer_id
+                AND ccr.from_crm_type = 'nhu_cau'
+                AND ccr.to_crm_type = 'ctv_hoa_hong'
+                AND ccr.status = 'approved'
+            )
             ORDER BY u.created_at DESC
         `, [userId]);
 
