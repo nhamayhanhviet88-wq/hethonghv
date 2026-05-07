@@ -364,6 +364,8 @@ async function affiliateRoutes(fastify) {
         }
         // ★ Mốc thời gian tạo TK Affiliate — đơn tự mua chỉ tính SAU ngày này
         const selfCreatedAt = freshUser?.created_at ? new Date(freshUser.created_at) : null;
+        // ★ Raw DB value cho SQL filter — KHÔNG dùng toISOString() vì DB là timestamp WITHOUT timezone
+        const selfCreatedAtRaw = freshUser?.created_at || null;
 
         // Get child affiliate IDs (★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách")
         const childAffiliates = await _getFilteredChildIds(db, user.id, true);
@@ -419,7 +421,7 @@ async function affiliateRoutes(fastify) {
             const compRevParams = [...customerIds];
             if (selfCreatedAt) {
                 compRevQuery += ` AND oc.created_at >= ?`;
-                compRevParams.push(selfCreatedAt.toISOString());
+                compRevParams.push(selfCreatedAtRaw);
             }
             compRevQuery += ` GROUP BY oc.customer_id`;
             const revenueRows = await db.all(compRevQuery, compRevParams);
@@ -441,7 +443,7 @@ async function affiliateRoutes(fastify) {
             const totalRevParams = [...customerIds];
             if (selfCreatedAt) {
                 totalRevQuery += ` AND oc.created_at >= ?`;
-                totalRevParams.push(selfCreatedAt.toISOString());
+                totalRevParams.push(selfCreatedAtRaw);
             }
             totalRevQuery += ` GROUP BY oi.customer_id`;
             const totalRows = await db.all(totalRevQuery, totalRevParams);
@@ -502,7 +504,7 @@ async function affiliateRoutes(fastify) {
             const commParams = [...filteredIds];
             if (selfCreatedAt) {
                 commQuery += ` AND oc.created_at >= ?`;
-                commParams.push(selfCreatedAt.toISOString());
+                commParams.push(selfCreatedAtRaw);
             }
             commQuery += ` GROUP BY oc.id, oc.customer_id, oc.created_at`;
             const allOrders = await db.all(commQuery, commParams);
@@ -598,7 +600,7 @@ async function affiliateRoutes(fastify) {
                         LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
                         WHERE oi.customer_id = ? AND (oc.status IS NULL OR oc.status != 'cancelled')
                         AND oc.created_at >= ?
-                    `, [selfCustId, selfCreatedAt.toISOString()]);
+                    `, [selfCustId, selfCreatedAtRaw]);
                     totalRevenueMap[selfCustId] = selfTotalRow?.total || 0;
                 } else {
                     // Không có ngày tạo TK → giữ nguyên totalRevenueMap (tất cả đơn)
@@ -801,6 +803,7 @@ async function affiliateRoutes(fastify) {
             if (fb2?.customer_id) selfCustId2 = fb2.customer_id;
         }
         const selfCreatedAt2 = freshUser?.created_at ? new Date(freshUser.created_at) : null;
+        const selfCreatedAt2Raw = freshUser?.created_at || null;
 
         // Get child affiliates (★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách")
         const childAffiliates = await _getFilteredChildIds(db, user.id, true);
@@ -866,7 +869,7 @@ async function affiliateRoutes(fastify) {
         const ordParams = [...filteredIds2];
         if (selfCreatedAt2) {
             ordQuery += ` AND oc.created_at >= ?`;
-            ordParams.push(selfCreatedAt2.toISOString());
+            ordParams.push(selfCreatedAt2Raw);
         }
         ordQuery += ` GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oi.customer_id
             ORDER BY oc.created_at DESC`;
@@ -962,6 +965,7 @@ async function affiliateRoutes(fastify) {
             if (fbB?.customer_id) selfCustIdB = fbB.customer_id;
         }
         const selfCreatedAtB = freshUser?.created_at ? new Date(freshUser.created_at) : null;
+        const selfCreatedAtBRaw = freshUser?.created_at || null;
 
         // Get child affiliates
         // ★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách"
@@ -1000,7 +1004,7 @@ async function affiliateRoutes(fastify) {
             const balParams = [...filteredIdsB];
             if (selfCreatedAtB) {
                 balQuery += ` AND oc.created_at >= ?`;
-                balParams.push(selfCreatedAtB.toISOString());
+                balParams.push(selfCreatedAtBRaw);
             }
             balQuery += ` GROUP BY oc.id, oc.customer_id, oc.created_at`;
             const orderRows = await db.all(balQuery, balParams);
