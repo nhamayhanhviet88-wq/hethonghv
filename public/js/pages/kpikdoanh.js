@@ -246,14 +246,15 @@ async function kpiLoadAll() {
     if (lbl) { var p=_kpi.month.split('-').map(Number); lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; }
     if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải...</div>';
 
-    var now = new Date();
+    var kpiMonthParts = _kpi.month.split('-').map(Number);
+    var kpiYear = kpiMonthParts[0], kpiMo = kpiMonthParts[1];
     try {
         var results = await Promise.all([
             apiCall('/api/reports/kpi-kdoanh?month=' + _kpi.month),
             apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
             apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month),
             apiCall('/api/meeting-commitments/employees'),
-            apiCall('/api/meeting-commitments/monthly?month=' + (now.getMonth()+1) + '&year=' + now.getFullYear())
+            apiCall('/api/meeting-commitments/monthly?month=' + kpiMo + '&year=' + kpiYear)
         ]);
 
         _kpi.data = results[0];
@@ -268,7 +269,7 @@ async function kpiLoadAll() {
         _mcSessions = results[4].sessions || [];
         _mcAllCommitments = results[4].allCommitments || [];
         // Load yearly data
-        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { _mcYearlyData = null; }
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiYear); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
             _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
@@ -287,11 +288,15 @@ async function kpiLoadData() {
     if (lbl) { var p=_kpi.month.split('-').map(Number); lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; }
     if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải...</div>';
 
+    var kpiParts2 = _kpi.month.split('-').map(Number);
+    var kpiY2 = kpiParts2[0], kpiM2 = kpiParts2[1];
     try {
         var results = await Promise.all([
             apiCall('/api/reports/kpi-kdoanh?month=' + _kpi.month),
             apiCall('/api/reports/customer-retention?period=month&date=' + _kpi.month),
-            apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month)
+            apiCall('/api/reports/customer-retention/advanced?period=month&date=' + _kpi.month),
+            apiCall('/api/meeting-commitments/employees'),
+            apiCall('/api/meeting-commitments/monthly?month=' + kpiM2 + '&year=' + kpiY2)
         ]);
         _kpi.data = results[0];
         kpiRenderSummary(results[0]);
@@ -299,6 +304,18 @@ async function kpiLoadData() {
         var lbEl = document.getElementById('kpiLeaderboard');
         var tcEl = document.getElementById('kpiTeamCompare');
         if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, results[2]); kpiRenderTeamCompare(tcEl, results[1], results[2]); }
+
+        // Reload meeting commitments for the selected month
+        _mcTeams = results[3].teams || [];
+        _mcSessions = results[4].sessions || [];
+        _mcAllCommitments = results[4].allCommitments || [];
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiY2); } catch(e) { _mcYearlyData = null; }
+        if (_mcSessions.length > 0) {
+            _mcSession = _mcSessions[_mcSessions.length - 1];
+            _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
+        } else { _mcSession = null; _mcCommitments = []; }
+        var mcEl = document.getElementById('kpiMeetingCommit');
+        if (mcEl) kpiRenderMeetingCommit(mcEl);
     } catch(e) {
         if(content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ' + (e.message||'') + '</div>';
     }
@@ -1112,12 +1129,13 @@ async function kpiLoadMeetingCommit() {
     try {
         var empData = await apiCall('/api/meeting-commitments/employees');
         _mcTeams = empData.teams || [];
-        var now = new Date();
-        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + (now.getMonth() + 1) + '&year=' + now.getFullYear());
+        var mcParts = _kpi.month.split('-').map(Number);
+        var mcYear = mcParts[0], mcMo = mcParts[1];
+        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + mcMo + '&year=' + mcYear);
         _mcSessions = monthlyData.sessions || [];
         _mcAllCommitments = monthlyData.allCommitments || [];
         // Load yearly data
-        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + now.getFullYear()); } catch(e) { _mcYearlyData = null; }
+        try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + mcYear); } catch(e) { _mcYearlyData = null; }
         // Set active session to latest (last in array since sorted ASC)
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
