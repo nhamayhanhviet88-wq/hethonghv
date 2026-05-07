@@ -369,6 +369,38 @@ async function meetingCommitmentsRoutes(fastify, options) {
         return { session, commitments };
     });
 
+    // ===== GET current user's latest commitments (for topbar button) =====
+    fastify.get('/api/meeting-commitments/my-latest', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+
+        // Get the latest session of the current month
+        const session = await db.get(
+            `SELECT * FROM meeting_sessions
+             WHERE EXTRACT(MONTH FROM meeting_date) = $1 AND EXTRACT(YEAR FROM meeting_date) = $2
+             ORDER BY meeting_date DESC, created_at DESC LIMIT 1`,
+            [month, year]
+        );
+        if (!session) return { session: null, commitments: [], sessionTitle: null };
+
+        // Get this user's commitments from that session
+        const commitments = await db.all(`
+            SELECT mc.*, d.name AS dept_name
+            FROM meeting_commitments mc
+            LEFT JOIN departments d ON mc.department_id = d.id
+            WHERE mc.session_id = $1 AND mc.user_id = $2
+            ORDER BY mc.stt
+        `, [session.id, userId]);
+
+        return {
+            session: { id: session.id, title: session.title, meeting_date: session.meeting_date },
+            commitments,
+            sessionTitle: session.title
+        };
+    });
+
     // ===== YEARLY SUMMARY =====
     fastify.get('/api/meeting-commitments/yearly-summary', { preHandler: [authenticate] }, async (request, reply) => {
         const year = parseInt(request.query.year) || new Date().getFullYear();

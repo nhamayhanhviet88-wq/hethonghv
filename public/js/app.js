@@ -217,7 +217,112 @@ document.addEventListener('DOMContentLoaded', async () => {
         _ctvPollBadge();
         setInterval(_ctvPollBadge, 30000);
     }
+
+    // ★ Commitment topbar button — load for non-affiliate accounts
+    const COMMIT_BLOCK_ROLES = ['tkaffiliate', 'hoa_hong'];
+    if (currentUser && !COMMIT_BLOCK_ROLES.includes(currentUser.role)) {
+        setTimeout(_commitLoad, 1200);
+    } else {
+        // Hide button for affiliate users
+        var commitWrap = document.getElementById('commitBtnWrap');
+        if (commitWrap) commitWrap.style.display = 'none';
+    }
 });
+
+// ========== COMMITMENT TOPBAR BUTTON ==========
+var _commitOpen = false;
+var _commitData = null;
+
+function _commitToggle() {
+    var dd = document.getElementById('commitDropdown');
+    if (!dd) return;
+    _commitOpen = !_commitOpen;
+    dd.style.display = _commitOpen ? 'block' : 'none';
+    if (_commitOpen && !_commitData) _commitLoad();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    var wrap = document.getElementById('commitBtnWrap');
+    if (wrap && _commitOpen && !wrap.contains(e.target)) {
+        _commitOpen = false;
+        var dd = document.getElementById('commitDropdown');
+        if (dd) dd.style.display = 'none';
+    }
+});
+
+async function _commitLoad() {
+    var content = document.getElementById('commitDropdownContent');
+    var badge = document.getElementById('commitBadge');
+    if (!content) return;
+    try {
+        var data = await apiCall('/api/meeting-commitments/my-latest');
+        _commitData = data;
+
+        if (!data.session || !data.commitments || data.commitments.length === 0) {
+            content.innerHTML = '<div style="text-align:center;padding:28px 16px">'
+                + '<div style="font-size:40px;margin-bottom:10px">📋</div>'
+                + '<div style="font-size:14px;font-weight:700;color:#374151">Chưa có cam kết</div>'
+                + '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bạn chưa có cam kết trong tháng này</div>'
+                + '</div>';
+            if (badge) badge.style.display = 'none';
+            return;
+        }
+
+        // Show badge count
+        if (badge) {
+            badge.textContent = data.commitments.length;
+            badge.style.display = 'inline-block';
+        }
+
+        var h = '';
+        // Header
+        h += '<div style="padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border-radius:12px 12px 0 0;margin:-16px -16px 12px">';
+        h += '<div style="font-size:14px;font-weight:800">📋 CAM KẾT CỦA TÔI</div>';
+        h += '<div style="font-size:11px;opacity:0.85;margin-top:2px">' + (data.sessionTitle || '') + '</div>';
+        h += '</div>';
+
+        // Commitments list
+        for (var i = 0; i < data.commitments.length; i++) {
+            var c = data.commitments[i];
+            var pct = c.completion_pct || 0;
+            var isDone = c.is_completed;
+            var barColor = isDone ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+            var statusIcon = isDone ? '✅' : '⏳';
+
+            // Parse content (❓ question + ✅ answer)
+            var lines = (c.content || '').split('\n');
+            var question = '', answer = '';
+            for (var li = 0; li < lines.length; li++) {
+                var ln = lines[li].trim();
+                if (ln.indexOf('❓') === 0) question = ln.substring(2).trim();
+                else if (ln.indexOf('✅') === 0) answer = ln.substring(2).trim();
+                else if (!question && !answer) answer = ln;
+            }
+
+            h += '<div style="padding:10px 12px;background:#f8fafc;border-radius:10px;margin-bottom:8px;border-left:3px solid ' + barColor + '">';
+            h += '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">';
+            h += '<div style="flex:1">';
+            if (question) h += '<div style="font-size:11px;color:#6366f1;font-weight:700;margin-bottom:3px">❓ ' + question + '</div>';
+            h += '<div style="font-size:12px;color:#1e293b;font-weight:600">' + statusIcon + ' ' + (answer || c.content || '') + '</div>';
+            if (c.target_revenue > 0) {
+                h += '<div style="font-size:11px;color:#059669;font-weight:600;margin-top:3px">💰 Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + 'đ</div>';
+            }
+            h += '</div>';
+            h += '<div style="text-align:center;min-width:44px">';
+            h += '<div style="font-size:16px;font-weight:900;color:' + barColor + '">' + pct + '%</div>';
+            h += '</div></div>';
+            // Progress bar
+            h += '<div style="margin-top:6px;background:#e5e7eb;border-radius:4px;height:4px;overflow:hidden">';
+            h += '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width .3s"></div>';
+            h += '</div></div>';
+        }
+
+        content.innerHTML = h;
+    } catch(e) {
+        content.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px">⚠️ Lỗi tải cam kết</div>';
+    }
+}
 
 // ========== WITHDRAWAL PENDING POLLING (GĐ/TRINH) ==========
 async function wdPollPending() {
