@@ -650,8 +650,9 @@ async function affiliateRoutes(fastify) {
 
             // ★ FIRST-ORDER-ONLY: Đóng băng hiển thị khi KH đã có đơn hoàn thành
             // Sau cutoff: KH có completed order → freeze status = "hoàn thành đơn"
+            // ★ Dùng _fooFirstCompletedMap (không phụ thuộc conversion date split) thay vì completedRevenue
             let isFirstOrderFrozen = false;
-            if (!isSelf && _fooCutoff && completedRevenue > 0) {
+            if (!isSelf && _fooCutoff) {
                 const _fooCompletedOrder = _fooFirstCompletedMap[c.id];
                 if (_fooCompletedOrder && new Date(_fooCompletedOrder.created_at) >= _fooCutoff) {
                     isFirstOrderFrozen = true;
