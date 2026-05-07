@@ -708,6 +708,8 @@ async function affiliateRoutes(fastify) {
 
             return {
                 ...c,
+                // ★ KH chuyển từ nhu_cau → ctv_hoa_hong: trả crm_type = 'nhu_cau' để frontend phân loại đúng tab Khách
+                crm_type: isConverted ? 'nhu_cau' : c.crm_type,
                 phone: displayPhone,
                 is_direct: isDirect,
                 is_self: isSelf,
