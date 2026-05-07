@@ -404,35 +404,47 @@ async function affiliateRoutes(fastify) {
         console.log(`[Commission API] Found ${customers.length} customers (selfCustId=${selfCustId || 'NONE'}, found_self=${selfCustId ? customers.some(c => c.id === selfCustId) : 'N/A'}). CRM types: ${[...new Set(customers.map(c => c.crm_type))].join(', ')}`);
 
         // Get completed order revenue per customer
+        // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate (TK mới = doanh thu 0)
         const customerIds = customers.map(c => c.id);
         let completedRevenueMap = {};
         if (customerIds.length > 0) {
             const cph2 = customerIds.map(() => '?').join(',');
-            const revenueRows = await db.all(`
+            let compRevQuery = `
                 SELECT oc.customer_id,
                        COALESCE(SUM(oi.total), 0) as completed_revenue
                 FROM order_codes oc
                 LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 WHERE oc.customer_id IN (${cph2})
-                AND oc.status = 'completed'
-                GROUP BY oc.customer_id
-            `, customerIds);
+                AND oc.status = 'completed'`;
+            const compRevParams = [...customerIds];
+            if (selfCreatedAt) {
+                compRevQuery += ` AND oc.created_at >= ?`;
+                compRevParams.push(selfCreatedAt.toISOString());
+            }
+            compRevQuery += ` GROUP BY oc.customer_id`;
+            const revenueRows = await db.all(compRevQuery, compRevParams);
             revenueRows.forEach(r => { completedRevenueMap[r.customer_id] = r.completed_revenue; });
         }
 
         // Get total revenue (all orders) per customer for display
+        // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate
         let totalRevenueMap = {};
         if (customerIds.length > 0) {
             const cph3 = customerIds.map(() => '?').join(',');
-            const totalRows = await db.all(`
+            let totalRevQuery = `
                 SELECT oi.customer_id,
                        COALESCE(SUM(oi.total), 0) as total_revenue
                 FROM order_items oi
                 LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
                 WHERE oi.customer_id IN (${cph3})
-                AND (oc.status IS NULL OR oc.status != 'cancelled')
-                GROUP BY oi.customer_id
-            `, customerIds);
+                AND (oc.status IS NULL OR oc.status != 'cancelled')`;
+            const totalRevParams = [...customerIds];
+            if (selfCreatedAt) {
+                totalRevQuery += ` AND oc.created_at >= ?`;
+                totalRevParams.push(selfCreatedAt.toISOString());
+            }
+            totalRevQuery += ` GROUP BY oi.customer_id`;
+            const totalRows = await db.all(totalRevQuery, totalRevParams);
             totalRows.forEach(r => { totalRevenueMap[r.customer_id] = r.total_revenue; });
         }
 
@@ -481,13 +493,19 @@ async function affiliateRoutes(fastify) {
 
         if (filteredIds.length > 0) {
             const cphOrd2 = filteredIds.map(() => '?').join(',');
-            const allOrders = await db.all(`
+            // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate
+            let commQuery = `
                 SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE oc.customer_id IN (${cphOrd2}) AND oc.status = 'completed'
-                GROUP BY oc.id, oc.customer_id, oc.created_at
-            `, filteredIds);
+                WHERE oc.customer_id IN (${cphOrd2}) AND oc.status = 'completed'`;
+            const commParams = [...filteredIds];
+            if (selfCreatedAt) {
+                commQuery += ` AND oc.created_at >= ?`;
+                commParams.push(selfCreatedAt.toISOString());
+            }
+            commQuery += ` GROUP BY oc.id, oc.customer_id, oc.created_at`;
+            const allOrders = await db.all(commQuery, commParams);
             allOrders.forEach(o => {
                 const cust = filteredCustomers.find(c => c.id === o.customer_id);
                 const isSelf = selfCustId && o.customer_id === selfCustId;
@@ -837,16 +855,22 @@ async function affiliateRoutes(fastify) {
         const _fooFirstMap3 = await _getFirstOrderMap(db, filteredIds2);
 
         // Get all non-cancelled orders with revenue
-        const orders = await db.all(`
+        // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate
+        let ordQuery = `
             SELECT oc.id as order_id, oc.order_code, oc.status, oc.created_at,
                    oi.customer_id, COALESCE(SUM(oi.total), 0) as revenue
             FROM order_items oi
             LEFT JOIN order_codes oc ON oi.order_code_id = oc.id
             WHERE oi.customer_id IN (${cph})
-            AND (oc.status IS NULL OR oc.status != 'cancelled')
-            GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oi.customer_id
-            ORDER BY oc.created_at DESC
-        `, filteredIds2);
+            AND (oc.status IS NULL OR oc.status != 'cancelled')`;
+        const ordParams = [...filteredIds2];
+        if (selfCreatedAt2) {
+            ordQuery += ` AND oc.created_at >= ?`;
+            ordParams.push(selfCreatedAt2.toISOString());
+        }
+        ordQuery += ` GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oi.customer_id
+            ORDER BY oc.created_at DESC`;
+        const orders = await db.all(ordQuery, ordParams);
 
         // Build customer map and referrer name map
         const custMap = {};
@@ -967,13 +991,19 @@ async function affiliateRoutes(fastify) {
 
         if (filteredIdsB.length > 0) {
             const cph = filteredIdsB.map(() => '?').join(',');
-            const orderRows = await db.all(`
+            // ★ CHỈ tính đơn SAU ngày tạo TK Affiliate
+            let balQuery = `
                 SELECT oc.id as order_id, oc.customer_id, oc.created_at as order_date,
                        COALESCE(SUM(oi.total), 0) as revenue
                 FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
-                GROUP BY oc.id, oc.customer_id, oc.created_at
-            `, filteredIdsB);
+                WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'`;
+            const balParams = [...filteredIdsB];
+            if (selfCreatedAtB) {
+                balQuery += ` AND oc.created_at >= ?`;
+                balParams.push(selfCreatedAtB.toISOString());
+            }
+            balQuery += ` GROUP BY oc.id, oc.customer_id, oc.created_at`;
+            const orderRows = await db.all(balQuery, balParams);
             orderRows.forEach(r => {
                 const cust = filteredCustB.find(c => c.id === r.customer_id);
                 const isSelfB = selfCustIdB && r.customer_id === selfCustIdB;
