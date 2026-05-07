@@ -1654,7 +1654,8 @@ async function _qtAMergeIntoGroup(sectionKey) {
         groupId = `grp_${Date.now()}`;
         await apiCall(`/api/consult-types/${leaderKey}`, 'PATCH', {
             section_group: groupId,
-            section_group_label: groupName
+            section_group_label: groupName,
+            crm_menu: 'affiliate'
         });
     }
 
@@ -1663,7 +1664,8 @@ async function _qtAMergeIntoGroup(sectionKey) {
     for (const key of selected) {
         await apiCall(`/api/consult-types/${key}`, 'PATCH', {
             section_group: groupId,
-            section_group_label: null
+            section_group_label: null,
+            crm_menu: 'affiliate'
         });
         await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'affiliate' });
         if (leaderRules.length > 0) {

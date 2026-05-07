@@ -1658,7 +1658,8 @@ async function _qtCMergeIntoGroup(sectionKey) {
         // Set leader as group member with label
         await apiCall(`/api/consult-types/${leaderKey}`, 'PATCH', {
             section_group: groupId,
-            section_group_label: groupName
+            section_group_label: groupName,
+            crm_menu: 'ctv'
         });
     }
 
@@ -1670,7 +1671,8 @@ async function _qtCMergeIntoGroup(sectionKey) {
         // Set group membership (section_order = 0 = member)
         await apiCall(`/api/consult-types/${key}`, 'PATCH', {
             section_group: groupId,
-            section_group_label: null
+            section_group_label: null,
+            crm_menu: 'ctv'
         });
         await apiCall(`/api/consult-types/${key}/section-order`, 'PATCH', { section_order: 0, crm_menu: 'ctv' });
         // Copy leader's flow rules
