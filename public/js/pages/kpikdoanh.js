@@ -1868,7 +1868,7 @@ window.mcCreateSession = function() {
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
     var mcParts = _kpi.month.split('-').map(Number);
-    var mcAutoTitle = 'KINH DOANH - THÁNG ' + mcParts[1] + '/' + mcParts[0];
+    var mcAutoTitle = 'PHÒNG KINH DOANH - THÁNG ' + mcParts[1] + '/' + mcParts[0];
     overlay.innerHTML = '<div class="kpi-mc-modal">'
         + '<div class="kpi-mc-modal-head"><h3>➕ Tạo Cuộc Họp Mới</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
         + '<div class="kpi-mc-modal-body">'
