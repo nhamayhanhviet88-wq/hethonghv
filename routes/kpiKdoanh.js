@@ -414,4 +414,140 @@ module.exports = async function(fastify) {
             }
         };
     });
+
+    // ===== GET /api/reports/kpi-achievement — yearly achievement summary =====
+    fastify.get('/api/reports/kpi-achievement', { preHandler: [authenticate] }, async (request, reply) => {
+        const year = parseInt(request.query.year) || new Date().getFullYear();
+
+        // 1. Get KD department tree
+        const allDepts = await db.all(
+            "SELECT id, name, parent_id, head_user_id FROM departments WHERE (id = 1 OR parent_id = 1) AND status = 'active' ORDER BY display_order, id"
+        );
+        const rootDept = allDepts.find(d => d.id === 1) || allDepts[0];
+        const childDepts = allDepts.filter(d => d.parent_id === rootDept?.id);
+        const allDeptIds = allDepts.map(d => d.id);
+        if (allDeptIds.length === 0) return { users: [], teams: [], year };
+
+        // 2. Get all active users in KD
+        const kdPh = allDeptIds.map((_, i) => `$${i + 1}`).join(',');
+        const users = await db.all(
+            `SELECT u.id, u.full_name, u.role, u.department_id, u.username
+             FROM users u WHERE u.department_id IN (${kdPh}) AND u.status = 'active' AND u.role != 'giam_doc'`,
+            allDeptIds
+        );
+
+        // 3. Get ALL kpi_targets for this year (monthly)
+        const targets = await db.all(
+            `SELECT target_type, target_id, metric, period_value, target_value
+             FROM kpi_targets WHERE period_type = 'month' AND period_value LIKE $1`,
+            [`T%/${year}`]
+        );
+        // Build target map: "user_<id>_T<m>/<year>" -> value
+        const targetMap = {};
+        targets.forEach(t => {
+            targetMap[`${t.target_type}_${t.target_id}_${t.period_value}`] = parseFloat(t.target_value);
+        });
+
+        // 4. Get monthly revenue per user for the year
+        const empIds = users.map(u => u.id);
+        if (empIds.length === 0) return { users: [], teams: [], year };
+
+        const empPh = empIds.map((_, i) => `$${i + 1}`).join(',');
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year + 1}-01-01`;
+
+        const monthlyRevRows = await db.all(`
+            SELECT
+                c.assigned_to_id AS uid,
+                EXTRACT(MONTH FROM oc.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS mo,
+                COALESCE(SUM(oi_sum.revenue), 0) AS revenue
+            FROM order_codes oc
+            JOIN customers c ON oc.customer_id = c.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
+            ) oi_sum ON true
+            WHERE c.assigned_to_id IN (${empPh})
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
+              AND oc.created_at >= $${empIds.length + 1}::timestamp
+              AND oc.created_at < $${empIds.length + 2}::timestamp
+            GROUP BY c.assigned_to_id, mo
+        `, [...empIds, yearStart, yearEnd]);
+
+        // Build revenue map: uid -> { 1: rev, 2: rev, ... }
+        const revMap = {};
+        monthlyRevRows.forEach(r => {
+            if (!revMap[r.uid]) revMap[r.uid] = {};
+            revMap[r.uid][r.mo] = parseFloat(r.revenue);
+        });
+
+        // 5. Build per-user monthly breakdown
+        const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() + 1 : 12;
+        const userResults = users.map(u => {
+            const months = {};
+            let yearTarget = 0, yearActual = 0, monthsAchieved = 0, monthsWithTarget = 0;
+            for (let m = 1; m <= currentMonth; m++) {
+                const periodKey = `T${m}/${year}`;
+                const target = targetMap[`user_${u.id}_${periodKey}`] || 0;
+                const actual = (revMap[u.id] && revMap[u.id][m]) || 0;
+                const rate = target > 0 ? Math.round(1000 * actual / target) / 10 : (actual > 0 ? 999 : 0);
+                const missing = target - actual;
+                const exceeded = actual > target ? actual - target : 0;
+                const exceededPct = target > 0 ? Math.round(1000 * exceeded / target) / 10 : 0;
+                months[m] = { target, actual, rate, missing, exceeded, exceeded_pct: exceededPct };
+                yearTarget += target;
+                yearActual += actual;
+                if (target > 0) { monthsWithTarget++; if (actual >= target) monthsAchieved++; }
+            }
+            const yearRate = yearTarget > 0 ? Math.round(1000 * yearActual / yearTarget) / 10 : 0;
+            const yearMissing = yearTarget - yearActual;
+            const yearExceeded = yearActual > yearTarget ? yearActual - yearTarget : 0;
+            const yearExceededPct = yearTarget > 0 ? Math.round(1000 * yearExceeded / yearTarget) / 10 : 0;
+            return {
+                user_id: u.id, username: u.username, full_name: u.full_name, role: u.role, department_id: u.department_id,
+                months,
+                yearly: { target: yearTarget, actual: yearActual, rate: yearRate, missing: yearMissing, exceeded: yearExceeded, exceeded_pct: yearExceededPct, months_achieved: monthsAchieved, months_total: monthsWithTarget }
+            };
+        });
+
+        // 6. Build per-team aggregates
+        const teamList = [];
+        // Manager group
+        const mgrUsers = userResults.filter(u => ['quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        const rootNonMgr = userResults.filter(u => u.department_id === rootDept.id && !['quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+        const qlGroup = [...mgrUsers, ...rootNonMgr];
+        if (qlGroup.length > 0) teamList.push(buildTeamAgg('QUẢN LÝ', rootDept.id, qlGroup, currentMonth));
+
+        for (const dept of childDepts) {
+            const deptUsers = userResults.filter(u => u.department_id === dept.id && !mgrUsers.find(m => m.user_id === u.user_id));
+            if (deptUsers.length > 0) teamList.push(buildTeamAgg(dept.name, dept.id, deptUsers, currentMonth));
+        }
+
+        return { users: userResults, teams: teamList, year, current_month: currentMonth };
+    });
+
+    function buildTeamAgg(name, deptId, members, currentMonth) {
+        const months = {};
+        let yearTarget = 0, yearActual = 0, monthsAchieved = 0, monthsWithTarget = 0;
+        for (let m = 1; m <= currentMonth; m++) {
+            let mTarget = 0, mActual = 0;
+            members.forEach(u => { if (u.months[m]) { mTarget += u.months[m].target; mActual += u.months[m].actual; } });
+            const rate = mTarget > 0 ? Math.round(1000 * mActual / mTarget) / 10 : 0;
+            const missing = mTarget - mActual;
+            const exceeded = mActual > mTarget ? mActual - mTarget : 0;
+            const exceededPct = mTarget > 0 ? Math.round(1000 * exceeded / mTarget) / 10 : 0;
+            months[m] = { target: mTarget, actual: mActual, rate, missing, exceeded, exceeded_pct: exceededPct };
+            yearTarget += mTarget; yearActual += mActual;
+            if (mTarget > 0) { monthsWithTarget++; if (mActual >= mTarget) monthsAchieved++; }
+        }
+        const yearRate = yearTarget > 0 ? Math.round(1000 * yearActual / yearTarget) / 10 : 0;
+        return {
+            dept_id: deptId, dept_name: name, member_count: members.length,
+            months,
+            yearly: { target: yearTarget, actual: yearActual, rate: yearRate, missing: yearTarget - yearActual,
+                exceeded: yearActual > yearTarget ? yearActual - yearTarget : 0,
+                exceeded_pct: yearTarget > 0 ? Math.round(1000 * Math.max(0, yearActual - yearTarget) / yearTarget) / 10 : 0,
+                months_achieved: monthsAchieved, months_total: monthsWithTarget }
+        };
+    }
 };

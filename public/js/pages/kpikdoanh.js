@@ -199,6 +199,7 @@ async function renderKpikdoanhPage(container) {
             <div id="kpiContent"><div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải dữ liệu...</div></div>
             <div id="kpiLeaderboard"></div>
             <div id="kpiTeamCompare"></div>
+            <div id="kpiAchievement"></div>
             <div id="kpiMeetingCommit"></div>
         </div>
     `;
@@ -276,6 +277,8 @@ async function kpiLoadAll() {
         } else { _mcSession = null; _mcCommitments = []; }
         var mcEl = document.getElementById('kpiMeetingCommit');
         if (mcEl) kpiRenderMeetingCommit(mcEl);
+        // Load achievement tracker
+        kpiLoadAchievement(kpiYear, kpiMo);
     } catch(e) {
         console.error('KPI load error:', e);
         if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ' + (e.message||'') + '</div>';
@@ -316,6 +319,7 @@ async function kpiLoadData() {
         } else { _mcSession = null; _mcCommitments = []; }
         var mcEl = document.getElementById('kpiMeetingCommit');
         if (mcEl) kpiRenderMeetingCommit(mcEl);
+        kpiLoadAchievement(kpiY2, kpiM2);
     } catch(e) {
         if(content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">❌ Lỗi: ' + (e.message||'') + '</div>';
     }
@@ -2490,4 +2494,244 @@ window.odGoPage = function(p) {
     // Scroll table to top
     var wrap = document.getElementById('odTableWrap');
     if (wrap) wrap.scrollTop = 0;
+};
+
+// ========== KPI ACHIEVEMENT TRACKER ==========
+var _kpiAchData = null;
+var _kpiAchTab = 'month'; // 'month' or 'year'
+var _kpiAchCollapsed = false;
+var _kpiAchFilterMonth = null; // current filter month
+
+async function kpiLoadAchievement(year, month) {
+    var el = document.getElementById('kpiAchievement');
+    if (!el) return;
+    _kpiAchFilterMonth = month;
+    try {
+        _kpiAchData = await apiCall('/api/reports/kpi-achievement?year=' + year);
+        kpiRenderAchievement(el);
+    } catch(e) {
+        el.innerHTML = '';
+    }
+}
+
+function kpiRenderAchievement(el) {
+    if (!_kpiAchData || !_kpiAchData.users) { el.innerHTML = ''; return; }
+    var data = _kpiAchData;
+    var mo = _kpiAchFilterMonth || data.current_month;
+    var year = data.year;
+
+    function fmtMoney(v) {
+        if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1).replace('.0', '') + ' tỷ';
+        if (Math.abs(v) >= 1e6) return Math.round(v / 1e6).toLocaleString('vi-VN') + ' tr';
+        return Math.round(v).toLocaleString('vi-VN');
+    }
+    function rateColor(rate) {
+        if (rate >= 100) return '#059669';
+        if (rate >= 80) return '#d97706';
+        return '#dc2626';
+    }
+    function rateBg(rate) {
+        if (rate >= 100) return '#dcfce7';
+        if (rate >= 80) return '#fef3c7';
+        return '#fee2e2';
+    }
+    function diffBadge(missing, rate) {
+        if (missing <= 0) return '<span style="color:#059669;font-weight:800;font-size:12px">+' + fmtMoney(Math.abs(missing)) + '</span>';
+        return '<span style="color:#dc2626;font-weight:800;font-size:12px">-' + fmtMoney(missing) + '</span>';
+    }
+    function pctBadge(rate) {
+        var c = rateColor(rate);
+        var bg = rateBg(rate);
+        return '<span style="display:inline-block;padding:3px 10px;border-radius:8px;font-weight:900;font-size:13px;background:' + bg + ';color:' + c + '">' + rate + '%</span>';
+    }
+    function exceededBadge(rate) {
+        if (rate >= 100) {
+            var over = Math.round((rate - 100) * 10) / 10;
+            return '<span style="color:#059669;font-weight:800;font-size:12px">+' + over + '%</span>';
+        }
+        var under = Math.round((100 - rate) * 10) / 10;
+        return '<span style="color:#dc2626;font-weight:800;font-size:12px">-' + under + '%</span>';
+    }
+    function roleIcon(role) {
+        if (role === 'quan_ly' || role === 'quan_ly_cap_cao') return '👔';
+        if (role === 'truong_phong') return '🏷️';
+        return '👤';
+    }
+    function roleName(role) {
+        if (role === 'quan_ly' || role === 'quan_ly_cap_cao') return 'Quản Lý';
+        if (role === 'truong_phong') return 'Trưởng Phòng';
+        return 'Nhân Viên';
+    }
+
+    var h = '<div style="margin-top:20px;border:2px solid #e0e7ff;border-radius:16px;overflow:hidden;background:#fafbff">';
+    // Header
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#4338ca,#6366f1);color:white;cursor:pointer" onclick="_kpiAchToggle()">';
+    h += '<div style="display:flex;align-items:center;gap:10px">';
+    h += '<span id="kpiAchIcon" style="font-size:14px;transition:transform .3s">' + (_kpiAchCollapsed ? '▶' : '▼') + '</span>';
+    h += '<span style="font-size:16px;font-weight:900;letter-spacing:0.5px">📊 THEO DÕI KPI CÁ NHÂN & TEAM</span>';
+    h += '<span style="font-size:12px;opacity:0.8;font-weight:500">— Năm ' + year + '</span>';
+    h += '</div>';
+    // Tabs
+    h += '<div style="display:flex;gap:4px" onclick="event.stopPropagation()">';
+    h += '<button onclick="_kpiAchSwitchTab(\'month\')" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;' + (_kpiAchTab === 'month' ? 'background:white;color:#4338ca' : 'background:rgba(255,255,255,0.2);color:white') + '">📅 Tháng ' + mo + '</button>';
+    h += '<button onclick="_kpiAchSwitchTab(\'year\')" style="padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;' + (_kpiAchTab === 'year' ? 'background:white;color:#4338ca' : 'background:rgba(255,255,255,0.2);color:white') + '">📆 Cả Năm</button>';
+    h += '</div></div>';
+
+    // Body
+    h += '<div id="kpiAchBody" style="' + (_kpiAchCollapsed ? 'display:none' : '') + ';padding:16px 20px">';
+
+    if (_kpiAchTab === 'month') {
+        // === MONTHLY VIEW ===
+        // Individual table
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">👤 CÁ NHÂN — Tháng ' + mo + '/' + year + '</div>';
+        h += '<div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0">';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        h += '<thead><tr style="background:#f1f5f9">';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">STT</th>';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">Nhân viên</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">KPI Target</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">Đã Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">Còn Thiếu / Vượt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">% Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#475569;border-bottom:2px solid #e2e8f0">Vượt Mốc</th>';
+        h += '</tr></thead><tbody>';
+
+        var sortedUsers = data.users.slice().sort(function(a, b) {
+            var rateA = a.months[mo] ? a.months[mo].rate : 0;
+            var rateB = b.months[mo] ? b.months[mo].rate : 0;
+            return rateB - rateA;
+        });
+        for (var i = 0; i < sortedUsers.length; i++) {
+            var u = sortedUsers[i];
+            var md = u.months[mo] || { target:0, actual:0, rate:0, missing:0 };
+            var rowBg = md.rate >= 100 ? '#f0fdf4' : (i % 2 === 0 ? 'white' : '#fafbff');
+            h += '<tr style="background:' + rowBg + ';transition:background .2s" onmouseenter="this.style.background=\'#eef2ff\'" onmouseleave="this.style.background=\'' + rowBg + '\'">';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#94a3b8;font-weight:700">' + (i+1) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(u.role) + ' <span style="font-weight:700;color:#1e293b">' + u.full_name + '</span><span style="font-size:10px;color:#94a3b8">' + roleName(u.role) + '</span></div></td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(md.target) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800;color:' + rateColor(md.rate) + '">' + fmtMoney(md.actual) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right">' + diffBadge(md.missing, md.rate) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">' + pctBadge(md.rate) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">' + exceededBadge(md.rate) + '</td>';
+            h += '</tr>';
+        }
+        h += '</tbody></table></div></div>';
+
+        // Team table
+        h += '<div>';
+        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏢 TEAM — Tháng ' + mo + '/' + year + '</div>';
+        h += '<div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0">';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        h += '<thead><tr style="background:#fef3c7">';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">Team</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">Thành viên</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">KPI Target</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">Đã Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">Còn Thiếu / Vượt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">% Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fcd34d">Vượt Mốc</th>';
+        h += '</tr></thead><tbody>';
+        for (var ti = 0; ti < data.teams.length; ti++) {
+            var t = data.teams[ti];
+            var td = t.months[mo] || { target:0, actual:0, rate:0, missing:0 };
+            var trBg = td.rate >= 100 ? '#f0fdf4' : (ti % 2 === 0 ? '#fffbeb' : 'white');
+            h += '<tr style="background:' + trBg + '">';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;font-weight:800;color:#1e293b">🏢 ' + t.dept_name + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:700;color:#6b7280">' + t.member_count + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:700;color:#475569">' + fmtMoney(td.target) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:800;color:' + rateColor(td.rate) + '">' + fmtMoney(td.actual) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right">' + diffBadge(td.missing, td.rate) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center">' + pctBadge(td.rate) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center">' + exceededBadge(td.rate) + '</td>';
+            h += '</tr>';
+        }
+        h += '</tbody></table></div></div>';
+
+    } else {
+        // === YEARLY VIEW ===
+        // Individual yearly
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">👤 CÁ NHÂN — Năm ' + year + '</div>';
+        h += '<div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0">';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        h += '<thead><tr style="background:linear-gradient(135deg,#eef2ff,#e0e7ff)">';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">STT</th>';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Nhân viên</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Tổng KPI</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Tổng Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Tổng Thiếu / Vượt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">% Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Vượt Mốc</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#3730a3;border-bottom:2px solid #c7d2fe">Tỉ Lệ Đạt</th>';
+        h += '</tr></thead><tbody>';
+        var sortedYearly = data.users.slice().sort(function(a, b) { return b.yearly.rate - a.yearly.rate; });
+        for (var yi = 0; yi < sortedYearly.length; yi++) {
+            var uy = sortedYearly[yi];
+            var yy = uy.yearly;
+            var rowBgY = yy.rate >= 100 ? '#f0fdf4' : (yi % 2 === 0 ? 'white' : '#fafbff');
+            var ratioColor = yy.months_achieved === yy.months_total && yy.months_total > 0 ? '#059669' : '#dc2626';
+            h += '<tr style="background:' + rowBgY + '">';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#94a3b8;font-weight:700">' + (yi+1) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:6px">' + roleIcon(uy.role) + ' <span style="font-weight:700;color:#1e293b">' + uy.full_name + '</span></div></td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;color:#475569">' + fmtMoney(yy.target) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:800;color:' + rateColor(yy.rate) + '">' + fmtMoney(yy.actual) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right">' + diffBadge(yy.missing, yy.rate) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">' + pctBadge(yy.rate) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">' + exceededBadge(yy.rate) + '</td>';
+            h += '<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center"><span style="display:inline-block;padding:4px 12px;border-radius:10px;font-weight:900;font-size:13px;background:' + (yy.months_achieved === yy.months_total && yy.months_total > 0 ? '#dcfce7' : '#fee2e2') + ';color:' + ratioColor + '">' + yy.months_achieved + '/' + yy.months_total + '</span></td>';
+            h += '</tr>';
+        }
+        h += '</tbody></table></div></div>';
+
+        // Team yearly
+        h += '<div>';
+        h += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏢 TEAM — Năm ' + year + '</div>';
+        h += '<div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0">';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+        h += '<thead><tr style="background:linear-gradient(135deg,#fef3c7,#fde68a)">';
+        h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Team</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Thành viên</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Tổng KPI</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Tổng Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:right;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Tổng Thiếu / Vượt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">% Đạt</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Vượt Mốc</th>';
+        h += '<th style="padding:10px 12px;text-align:center;font-weight:700;color:#78350f;border-bottom:2px solid #fbbf24">Tỉ Lệ Đạt</th>';
+        h += '</tr></thead><tbody>';
+        for (var tyi = 0; tyi < data.teams.length; tyi++) {
+            var tt = data.teams[tyi];
+            var tyy = tt.yearly;
+            var trBgY = tyy.rate >= 100 ? '#f0fdf4' : (tyi % 2 === 0 ? '#fffbeb' : 'white');
+            var tRatioColor = tyy.months_achieved === tyy.months_total && tyy.months_total > 0 ? '#059669' : '#dc2626';
+            h += '<tr style="background:' + trBgY + '">';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;font-weight:800;color:#1e293b">🏢 ' + tt.dept_name + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:700;color:#6b7280">' + tt.member_count + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:700;color:#475569">' + fmtMoney(tyy.target) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right;font-weight:800;color:' + rateColor(tyy.rate) + '">' + fmtMoney(tyy.actual) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:right">' + diffBadge(tyy.missing, tyy.rate) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center">' + pctBadge(tyy.rate) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center">' + exceededBadge(tyy.rate) + '</td>';
+            h += '<td style="padding:12px;border-bottom:1px solid #fef3c7;text-align:center"><span style="display:inline-block;padding:4px 12px;border-radius:10px;font-weight:900;font-size:13px;background:' + (tyy.months_achieved === tyy.months_total && tyy.months_total > 0 ? '#dcfce7' : '#fee2e2') + ';color:' + tRatioColor + '">' + tyy.months_achieved + '/' + tyy.months_total + '</span></td>';
+            h += '</tr>';
+        }
+        h += '</tbody></table></div></div>';
+    }
+
+    h += '</div></div>';
+    el.innerHTML = h;
+}
+
+window._kpiAchToggle = function() {
+    _kpiAchCollapsed = !_kpiAchCollapsed;
+    var body = document.getElementById('kpiAchBody');
+    var icon = document.getElementById('kpiAchIcon');
+    if (body) body.style.display = _kpiAchCollapsed ? 'none' : '';
+    if (icon) icon.textContent = _kpiAchCollapsed ? '▶' : '▼';
+};
+
+window._kpiAchSwitchTab = function(tab) {
+    _kpiAchTab = tab;
+    var el = document.getElementById('kpiAchievement');
+    if (el) kpiRenderAchievement(el);
 };
