@@ -372,7 +372,7 @@ function _hvRenderTable(items) {
             var srcBadge = item._src==='affiliate' 
                 ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#ede9fe;color:#7c3aed;font-weight:600;">AFF</span>'
                 : '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#dbeafe;color:#2563eb;font-weight:600;">KH</span>';
-            var keyIcon = (window._hvAffApprovedIds||[]).includes(item.id) ? '🔑' : ((window._hvAffLockedIds||[]).includes(item.id) ? '🔒' : '');
+            var keyIcon = item.is_converted_to_affiliate ? '' : ((window._hvAffApprovedIds||[]).includes(item.id) ? '🔑' : ((window._hvAffLockedIds||[]).includes(item.id) ? '🔒' : ''));
             var refLabel = item.is_self ? '<span style="color:#f59e0b;font-weight:600;">🏠 Đơn Của Tôi</span>' : (item.is_direct ? '<span style="color:#10b981;font-weight:600;">🎯 Trực tiếp</span>' : '<span style="color:#8b5cf6;font-weight:600;">👥 '+(item.referrer_name||'-')+'</span>');
             return '<tr style="border-bottom:1px solid #f1f5f9;">' +
                 '<td style="padding:8px 6px;text-align:center;font-size:12px;color:#64748b;">' + idx + '</td>' +
