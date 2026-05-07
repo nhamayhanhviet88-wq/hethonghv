@@ -1122,6 +1122,7 @@ var _mcTeams = [];
 var _mcCollapsed = false;    // main section collapsed
 var _mcYearlyData = null;    // yearly summary data
 var _mcMonthlyCollapsed = false; // monthly summary collapsed (default open)
+var _mcActiveSessionId = null; // track which session is currently expanded
 
 async function kpiLoadMeetingCommit() {
     var el = document.getElementById('kpiMeetingCommit');
@@ -1492,6 +1493,13 @@ function kpiRenderMeetingCommit(el) {
 
     h += '</div></div>';
     el.innerHTML = h;
+
+    // Auto-expand the active session (preserve state after reload)
+    if (_mcActiveSessionId) {
+        var activeBody = document.getElementById('mcSessBody_' + _mcActiveSessionId);
+        var activeIcon = document.getElementById('mcSessIcon_' + _mcActiveSessionId);
+        if (activeBody) { activeBody.style.display = ''; if (activeIcon) activeIcon.textContent = '\u25BC'; }
+    }
 }
 
 // Toggle main section collapse
@@ -1704,6 +1712,8 @@ window.mcToggleSession = function(sessionId) {
     var isHidden = body.style.display === 'none';
     body.style.display = isHidden ? '' : 'none';
     if (icon) icon.textContent = isHidden ? '▼' : '▶';
+    // Track active session
+    _mcActiveSessionId = isHidden ? sessionId : null;
 };
 
 // Switch active session context (for review/edit buttons)
@@ -1712,6 +1722,7 @@ window.mcSwitchSession = function(sessionId) {
     if (sess) {
         _mcSession = sess;
         _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === sessionId; });
+        _mcActiveSessionId = sessionId; // Track active session
     }
 };
 
