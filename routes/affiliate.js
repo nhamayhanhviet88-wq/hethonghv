@@ -446,6 +446,7 @@ async function affiliateRoutes(fastify) {
         let _affPostRevMap = {}; // Doanh thu post-conversion cho trang Affiliate
         let _nhuCauPreRevMap = {}; // Doanh thu pre-conversion cho trang Khách
         let _selfQualifyingRev = 0; // ★ Doanh thu self-customer chỉ từ đơn SAU ngày tạo TK
+        let _fooQualifyingRevMap = {}; // ★ FIRST-ORDER-ONLY: Doanh thu chỉ từ đơn qualifying (đơn đầu tiên)
         // ★ FIRST-ORDER-ONLY: Load cutoff + first order map
         const _fooCutoff = await _getCommissionCutoffDate(db);
         const _fooFirstMap = await _getFirstOrderMap(db, filteredIds);
@@ -514,6 +515,11 @@ async function affiliateRoutes(fastify) {
                 perOrderCommMap[o.customer_id].commission += Math.round(Number(o.revenue) * rate);
                 // ★ Track doanh thu qualifying cho self-customer
                 if (isSelf) _selfQualifyingRev += Number(o.revenue);
+                // ★ FIRST-ORDER-ONLY: Track doanh thu qualifying (chỉ từ đơn đầu tiên)
+                if (!isSelf) {
+                    if (!_fooQualifyingRevMap[o.customer_id]) _fooQualifyingRevMap[o.customer_id] = 0;
+                    _fooQualifyingRevMap[o.customer_id] += Number(o.revenue);
+                }
                 
                 // ★ Track doanh thu theo trang
                 if (crm_filter === 'ctv_hoa_hong') {
@@ -550,6 +556,17 @@ async function affiliateRoutes(fastify) {
             if (selfCustId) {
                 completedRevenueMap[selfCustId] = _selfQualifyingRev;
                 totalRevenueMap[selfCustId] = _selfQualifyingRev;
+            }
+            // ★ FIRST-ORDER-ONLY: Ghi đè doanh thu cho KH frozen (chỉ tính đơn đầu tiên)
+            // VD: CTV-VTA0012 (100tr) hoàn thành → doanh thu = 100tr, không cộng CTV-VTA0013 (50tr)
+            if (_fooCutoff) {
+                for (const custId of filteredIds) {
+                    if (custId === selfCustId) continue; // Self đã xử lý ở trên
+                    if (_fooQualifyingRevMap.hasOwnProperty(custId)) {
+                        completedRevenueMap[custId] = _fooQualifyingRevMap[custId];
+                        totalRevenueMap[custId] = _fooQualifyingRevMap[custId];
+                    }
+                }
             }
         }
 
