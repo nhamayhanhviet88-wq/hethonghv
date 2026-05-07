@@ -322,6 +322,17 @@ function _affGetCategory(c, stats) {
         const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
         consultedToday = (logStr === todayStr);
     }
+    // ★ Ngoại lệ: tao_tk_affiliate hôm nay + ngày hẹn tương lai → coi như đã xử lý
+    // NV đã tạo TK + đặt hẹn ngày mai → xong việc hôm nay
+    if (!consultedToday && s.lastLog && s.lastLog.log_type === 'tao_tk_affiliate' && s.lastLog.created_at) {
+        const tkLogDate = new Date(s.lastLog.created_at);
+        const tkLogStr = tkLogDate.getFullYear() + '-' + String(tkLogDate.getMonth()+1).padStart(2,'0') + '-' + String(tkLogDate.getDate()).padStart(2,'0');
+        if (tkLogStr === todayStr && c.appointment_date) {
+            const apptStr2 = new Date(c.appointment_date);
+            const apptDateStr = apptStr2.getFullYear() + '-' + String(apptStr2.getMonth()+1).padStart(2,'0') + '-' + String(apptStr2.getDate()).padStart(2,'0');
+            if (apptDateStr > todayStr) consultedToday = true;
+        }
+    }
 
     // Priority 2: Đã xử lý hôm nay
     if (consultedToday) return 'da_xu_ly';
