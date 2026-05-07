@@ -842,6 +842,96 @@ var _tcSort = 'revenue';
 window._tcAdvData = null;
 window._tcMainData = null;
 
+// === Team Compare filter state (independent from BXH) ===
+var _kpiTcFilter = 'this_month';
+var _kpiTcCustomStart = '';
+var _kpiTcCustomEnd = '';
+var _kpiTcMonth = '';
+
+function kpiTcBuildUrl() {
+    var base = '/api/reports/customer-retention/advanced';
+    var now = new Date();
+    var fmtD = function(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+    if (_kpiTcFilter === 'today') {
+        return base + '?period=day&date=' + fmtD(now);
+    } else if (_kpiTcFilter === 'yesterday') {
+        var yd = new Date(now); yd.setDate(yd.getDate() - 1);
+        return base + '?period=day&date=' + fmtD(yd);
+    } else if (_kpiTcFilter === '7days') {
+        var s7 = new Date(now); s7.setDate(s7.getDate() - 6);
+        return base + '?period=custom&startDate=' + fmtD(s7) + '&endDate=' + fmtD(now);
+    } else if (_kpiTcFilter === 'this_month') {
+        var tm = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+        return base + '?period=month&date=' + tm;
+    } else if (_kpiTcFilter === 'last_month') {
+        var lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        var lmStr = lm.getFullYear() + '-' + String(lm.getMonth()+1).padStart(2,'0');
+        return base + '?period=month&date=' + lmStr;
+    } else if (_kpiTcFilter === 'all') {
+        return base + '?period=year&date=' + now.getFullYear();
+    } else if (_kpiTcFilter === 'stage1' || _kpiTcFilter === 'stage2' || _kpiTcFilter === 'stage3') {
+        var refMonth = _kpiTcMonth || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+        var parts = refMonth.split('-').map(Number);
+        var y = parts[0], m = parts[1];
+        var dim = new Date(y, m, 0).getDate();
+        var sd, ed;
+        if (_kpiTcFilter === 'stage1') { sd = '01'; ed = '10'; }
+        else if (_kpiTcFilter === 'stage2') { sd = '11'; ed = '20'; }
+        else { sd = '21'; ed = String(dim); }
+        return base + '?period=custom&startDate=' + y + '-' + String(m).padStart(2,'0') + '-' + sd + '&endDate=' + y + '-' + String(m).padStart(2,'0') + '-' + ed;
+    } else if (_kpiTcFilter === 'pick_month' && _kpiTcMonth) {
+        return base + '?period=month&date=' + _kpiTcMonth;
+    } else if (_kpiTcFilter === 'custom' && _kpiTcCustomStart && _kpiTcCustomEnd) {
+        return base + '?period=custom&startDate=' + _kpiTcCustomStart + '&endDate=' + _kpiTcCustomEnd;
+    }
+    var fallback = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    return base + '?period=month&date=' + fallback;
+}
+
+window.kpiTcSetFilter = async function(filter) {
+    _kpiTcFilter = filter;
+    if (filter === 'custom') {
+        var tcEl = document.getElementById('kpiTeamCompare');
+        if (tcEl && window._tcAdvData) kpiRenderTeamCompare(tcEl, window._tcMainData, window._tcAdvData);
+        return;
+    }
+    await kpiTcRefetch();
+};
+
+window.kpiTcApplyCustom = async function() {
+    var sd = document.getElementById('kpiTcStartDate');
+    var ed = document.getElementById('kpiTcEndDate');
+    if (!sd || !ed || !sd.value || !ed.value) { alert('Vui lòng chọn ngày bắt đầu và kết thúc'); return; }
+    _kpiTcCustomStart = sd.value;
+    _kpiTcCustomEnd = ed.value;
+    _kpiTcFilter = 'custom';
+    await kpiTcRefetch();
+};
+
+window.kpiTcPickMonth = async function(val) {
+    if (!val) return;
+    _kpiTcMonth = val;
+    _kpiTcFilter = 'pick_month';
+    await kpiTcRefetch();
+};
+
+async function kpiTcRefetch() {
+    var tcEl = document.getElementById('kpiTeamCompare');
+    if (!tcEl) return;
+    tcEl.innerHTML = '<div class="kpi-lb-section"><div class="kpi-lb-header">📊 So Sánh Team</div><div style="padding:40px;text-align:center;color:#9ca3af">⏳ Đang tải...</div></div>';
+    try {
+        var url = kpiTcBuildUrl();
+        var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpi.month;
+        var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
+        var advData = results[0];
+        var mainData = results[1];
+        kpiRenderTeamCompare(tcEl, mainData, advData);
+    } catch(e) {
+        console.error('TC refetch error:', e);
+        tcEl.innerHTML = '<div class="kpi-lb-section"><div style="padding:20px;color:#ef4444;text-align:center">⚠️ Lỗi: ' + (e.message||'') + '</div></div>';
+    }
+}
+
 window.kpiTcSort = function(metric) {
     _tcSort = metric;
     var el = document.getElementById('kpiTeamCompare');
@@ -868,8 +958,75 @@ function kpiRenderTeamCompare(el, data, advData) {
         {key:'retention',icon:'🔁',label:'KH Cũ Quay Lại'}
     ];
 
+    // Filter presets — row 1
+    var tcFilterRow1 = [
+        { key: 'today', icon: '📅', label: 'Hôm nay' },
+        { key: 'yesterday', icon: '📅', label: 'Hôm qua' },
+        { key: '7days', icon: '📅', label: '7 ngày' },
+        { key: 'this_month', icon: '📅', label: 'Tháng này' },
+        { key: 'last_month', icon: '📅', label: 'Tháng trước' },
+        { key: 'all', icon: '📅', label: 'Tất cả' },
+        { key: 'custom', icon: '📅', label: 'Tùy chọn' }
+    ];
+    // Filter presets — row 2: stages
+    var tcFilterRow2 = [
+        { key: 'stage1', icon: '🔥', label: 'GĐ 1 (1-10)' },
+        { key: 'stage2', icon: '⚡', label: 'GĐ 2 (11-20)' },
+        { key: 'stage3', icon: '🎯', label: 'GĐ 3 (21-31)' }
+    ];
+
     var h = '<div class="kpi-lb-section">';
     h += '<div class="kpi-lb-header">📊 So Sánh Team</div>';
+
+    // Show active period info
+    var tcPeriodInfo = advData && advData.period;
+    if (tcPeriodInfo && tcPeriodInfo.start) {
+        h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + tcPeriodInfo.start + ' → ' + tcPeriodInfo.end + ' (' + (tcPeriodInfo.label || '') + ')</div>';
+    }
+
+    // === FILTER BAR ROW 1 ===
+    h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
+    h += '<span style="font-size:12px;font-weight:700;color:#475569;margin-right:4px">📊</span>';
+    for (var fi = 0; fi < tcFilterRow1.length; fi++) {
+        var fp = tcFilterRow1[fi];
+        var isActive = _kpiTcFilter === fp.key;
+        var btnStyle = isActive
+            ? 'background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;box-shadow:0 2px 8px rgba(67,56,202,.3)'
+            : 'background:#fff;color:#374151;border:1px solid #d1d5db';
+        h += '<button onclick="kpiTcSetFilter(\'' + fp.key + '\')" style="' + btnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += fp.icon + ' ' + fp.label + '</button>';
+    }
+    h += '</div>';
+
+    // === FILTER BAR ROW 2: Stages + Month Picker ===
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:8px 24px;background:#fefce8;border-bottom:1px solid #fde68a;flex-wrap:wrap">';
+    for (var si = 0; si < tcFilterRow2.length; si++) {
+        var sp = tcFilterRow2[si];
+        var isStageActive = _kpiTcFilter === sp.key;
+        var sBtnStyle = isStageActive
+            ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:none;box-shadow:0 2px 8px rgba(217,119,6,.3)'
+            : 'background:#fff;color:#78350f;border:1px solid #fcd34d';
+        h += '<button onclick="kpiTcSetFilter(\'' + sp.key + '\')" style="' + sBtnStyle + ';padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">';
+        h += sp.icon + ' ' + sp.label + '</button>';
+    }
+    h += '<span style="width:1px;height:24px;background:#d1d5db;margin:0 6px"></span>';
+    var isTcMonthActive = _kpiTcFilter === 'pick_month';
+    h += '<span style="font-size:12px;font-weight:700;color:#78350f">📆 CHỌN THÁNG</span>';
+    h += '<input type="month" id="kpiTcMonthPicker" value="' + (_kpiTcMonth || '') + '" onchange="kpiTcPickMonth(this.value)" style="padding:5px 10px;border:1px solid ' + (isTcMonthActive ? '#4338ca' : '#d1d5db') + ';border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:' + (isTcMonthActive ? '#eef2ff' : '#fff') + '">';
+    h += '</div>';
+
+    // Custom date pickers
+    if (_kpiTcFilter === 'custom') {
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 24px;background:#eef2ff;border-bottom:1px solid #c7d2fe;flex-wrap:wrap">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Từ:</span>';
+        h += '<input type="date" id="kpiTcStartDate" value="' + (_kpiTcCustomStart || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<span style="font-size:12px;font-weight:600;color:#4338ca">Đến:</span>';
+        h += '<input type="date" id="kpiTcEndDate" value="' + (_kpiTcCustomEnd || '') + '" style="padding:6px 10px;border:1px solid #c7d2fe;border-radius:8px;font-size:12px">';
+        h += '<button onclick="kpiTcApplyCustom()" style="padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer">🔍 Áp dụng</button>';
+        h += '</div>';
+    }
+
+    // === SORT TABS ===
     h += '<div class="kpi-lb-tabs">';
     for (var ti = 0; ti < tabs.length; ti++) {
         var t = tabs[ti];
