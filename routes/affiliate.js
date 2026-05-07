@@ -728,11 +728,8 @@ async function affiliateRoutes(fastify) {
             };
         }));
 
-        // ★ CẮT DÂY RỐN: Trang Affiliate → ẩn KH frozen (đã hoàn thành đơn đầu)
-        // KH frozen ở trang Affiliate = vô ích, gây loạn. Giữ lịch sử ở trang Khách.
-        const finalItems = (crm_filter === 'ctv_hoa_hong')
-            ? items.filter(item => !item.is_first_order_frozen)
-            : items;
+        // ★ Giữ tất cả KH — KH đã hoàn thành đơn vẫn hiện với status "Hoàn Thành Đơn"
+        const finalItems = items;
 
         // Tính tổng commission sau khi resolve tất cả
         finalItems.forEach(item => { totalCommission += item.commission; });
