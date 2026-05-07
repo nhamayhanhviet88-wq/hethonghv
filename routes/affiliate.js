@@ -52,6 +52,26 @@ function _excludeBornAsAffiliateIndirect(customers, userId, affConvMap, selfCust
     });
 }
 
+// ★ CẮT DÂY RỐN: Lấy child affiliates nhưng LOẠI BỎ affiliate "tốt nghiệp từ Khách"
+// Quy tắc: Nếu affiliate con có source_customer_id được chuyển từ nhu_cau → LOẠI
+// → Affiliate cha chỉ giữ lịch sử 10% đơn đầu ở trang Khách, không được 5% từ cháu
+async function _getFilteredChildIds(db, userId, needFullName) {
+    const fields = needFullName ? 'u.id, u.full_name' : 'u.id';
+    const rows = await db.all(`
+        SELECT ${fields} FROM users u
+        WHERE u.assigned_to_user_id = ?
+        AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+        AND NOT EXISTS (
+            SELECT 1 FROM crm_conversion_requests ccr
+            WHERE ccr.customer_id = u.source_customer_id
+            AND ccr.from_crm_type = 'nhu_cau'
+            AND ccr.to_crm_type = 'ctv_hoa_hong'
+            AND ccr.status IN ('approved', 'pending')
+        )
+    `, [userId]);
+    return rows;
+}
+
 // ★ FIRST-ORDER-ONLY: Lấy ID đơn đầu tiên (non-cancelled) per customer
 // Trả về Map { customerId: firstOrderId }
 async function _getFirstOrderMap(db, customerIds) {
@@ -345,13 +365,8 @@ async function affiliateRoutes(fastify) {
         // ★ Mốc thời gian tạo TK Affiliate — đơn tự mua chỉ tính SAU ngày này
         const selfCreatedAt = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
-        // Get child affiliate IDs via assigned_to_user_id (Gán cho TK Affiliate nào?)
-        const childAffiliates = await db.all(
-            `SELECT id, full_name FROM users
-             WHERE assigned_to_user_id = ?
-             AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`,
-            [user.id]
-        );
+        // Get child affiliate IDs (★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách")
+        const childAffiliates = await _getFilteredChildIds(db, user.id, true);
         const childIds = childAffiliates.map(a => a.id);
         // ★ Trang Affiliate (ctv_hoa_hong): chỉ hiển thị khách TRỰC TIẾP, không gộp con
         // → Affiliate cha không thấy/hưởng hoa hồng khách affiliate của con
@@ -667,14 +682,20 @@ async function affiliateRoutes(fastify) {
             };
         }));
 
+        // ★ CẮT DÂY RỐN: Trang Affiliate → ẩn KH frozen (đã hoàn thành đơn đầu)
+        // KH frozen ở trang Affiliate = vô ích, gây loạn. Giữ lịch sử ở trang Khách.
+        const finalItems = (crm_filter === 'ctv_hoa_hong')
+            ? items.filter(item => !item.is_first_order_frozen)
+            : items;
+
         // Tính tổng commission sau khi resolve tất cả
-        items.forEach(item => { totalCommission += item.commission; });
+        finalItems.forEach(item => { totalCommission += item.commission; });
 
         // Sort by last_contact_date DESC (most recent first)
-        items.sort((a, b) => new Date(b.last_contact_date) - new Date(a.last_contact_date));
+        finalItems.sort((a, b) => new Date(b.last_contact_date) - new Date(a.last_contact_date));
 
         // Build referrer names list for filter dropdown
-        const referrerNames = [...new Set(items.map(i => i.referrer_name))];
+        const referrerNames = [...new Set(finalItems.map(i => i.referrer_name))];
 
         // Count orders per customer + total (date-aware for converted customers)
         let orderCountMap = {};
@@ -715,11 +736,11 @@ async function affiliateRoutes(fastify) {
             });
         }
 
-        items.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
+        finalItems.forEach(item => { item.order_count = orderCountMap[item.id] || 0; });
 
         // Include filter diagnostic in response
         const crmTypesFound = [...new Set(customers.map(c => c.crm_type))];
-        return { success: true, items, totalCommission, referrerNames, totalOrders, crm_filter_applied: crm_filter || null, crm_types_found: crmTypesFound, selfCreatedAt: selfCreatedAt?.toISOString() || null };
+        return { success: true, items: finalItems, totalCommission, referrerNames, totalOrders, crm_filter_applied: crm_filter || null, crm_types_found: crmTypesFound, selfCreatedAt: selfCreatedAt?.toISOString() || null };
     });
 
     // All orders popup — single API for "Tổng Đơn Đặt Hàng" detail
@@ -746,13 +767,8 @@ async function affiliateRoutes(fastify) {
         }
         const selfCreatedAt2 = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
-        // Get child affiliates
-        const childAffiliates = await db.all(
-            `SELECT id, full_name FROM users
-             WHERE assigned_to_user_id = ?
-             AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`,
-            [user.id]
-        );
+        // Get child affiliates (★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách")
+        const childAffiliates = await _getFilteredChildIds(db, user.id, true);
         const childIds = childAffiliates.map(a => a.id);
         // ★ Trang Affiliate: chỉ hiển thị đơn của khách TRỰC TIẾP
         const allIds = (crm_filter === 'ctv_hoa_hong') ? [user.id] : [user.id, ...childIds];
@@ -907,10 +923,8 @@ async function affiliateRoutes(fastify) {
         const selfCreatedAtB = freshUser?.created_at ? new Date(freshUser.created_at) : null;
 
         // Get child affiliates
-        const childAffiliates = await db.all(
-            `SELECT id FROM users WHERE assigned_to_user_id = ? AND role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')`,
-            [user.id]
-        );
+        // ★ CẮT DÂY RỐN: loại affiliate "tốt nghiệp từ Khách"
+        const childAffiliates = await _getFilteredChildIds(db, user.id, false);
         const childIds = childAffiliates.map(a => a.id);
         const allIds = [user.id, ...childIds];
         const ph = allIds.map(() => '?').join(',');
