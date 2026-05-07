@@ -112,6 +112,7 @@ async function affiliateAccountRoutes(fastify, options) {
 
         // Block: customer pending CTV/Affiliate conversion
         // ★ SMART: Nếu KH đã ở CRM đích → tự động close request cũ thay vì block
+        const user = request.user;
         const pendingConv = await db.get("SELECT id, to_crm_type FROM crm_conversion_requests WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
         if (pendingConv) {
             if (customer.crm_type === pendingConv.to_crm_type) {
@@ -127,7 +128,6 @@ async function affiliateAccountRoutes(fastify, options) {
         }
 
         // Block: only NV assigned or Manager can request
-        const user = request.user;
         const isManager = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(user.role);
         if (!isManager && customer.assigned_to_id !== user.id) {
             return reply.code(403).send({ error: 'Bạn chỉ có thể xin TK cho khách mà bạn phụ trách' });
