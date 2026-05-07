@@ -93,6 +93,28 @@ async function affiliateAccountRoutes(fastify, options) {
         // Block: customer cancelled
         if (customer.cancel_approved === 1) return reply.code(400).send({ error: 'Không thể xin TK cho khách đã bị hủy' });
 
+        // ★ STATUS GATE: Chặn tạo TK Affiliate khi khách đang ở giữa luồng đơn hàng
+        // Tránh xung đột hoa hồng & hỏng luồng đơn hàng
+        const BLOCKED_STATUSES = [
+            'gui_stk_coc', 'giuc_coc', 'dat_coc', 'chot_don', 'dang_san_xuat',
+            'hoan_thanh', 'sau_ban_hang', 'cap_cuu_sep', 'hoan_thanh_cap_cuu',
+            'huy_coc', 'huy', 'tuong_tac_ket_noi', 'gui_ct_kh_cu',
+            'tao_tk_affiliate', 'chuyen_doi_crm', 'khong_xu_ly'
+        ];
+        try {
+            const lastLog = await db.get(
+                'SELECT log_type FROM consultation_logs WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1',
+                [Number(customer_id)]
+            );
+            if (lastLog && BLOCKED_STATUSES.includes(lastLog.log_type)) {
+                return reply.code(400).send({
+                    error: `Không thể tạo TK Affiliate — Khách đang ở trạng thái "${lastLog.log_type}". Vui lòng đưa khách về trạng thái "Nhắn Tin" trước.`
+                });
+            }
+        } catch(e) {
+            console.warn('[AffAccount] Error checking status gate:', e);
+        }
+
         // Block: customer pending CTV/Affiliate conversion
         const pendingConv = await db.get("SELECT id FROM crm_conversion_requests WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
         if (pendingConv) return reply.code(400).send({ error: 'KH đang chờ duyệt chuyển CTV/Affiliate' });

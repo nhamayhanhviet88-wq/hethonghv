@@ -746,6 +746,88 @@ async function openAffiliateAccountPopup(customerId) {
     if (check.hasAccount) { showToast(`⚠️ KH đã có TK Affiliate: ${check.account.username}`, 'error'); return; }
     if (check.hasPending) { showToast('⚠️ KH đã có yêu cầu đang chờ duyệt!', 'error'); return; }
 
+    // ★ STATUS GATE: Chỉ cho tạo TK Affiliate khi trạng thái nút là "Nhắn Tin"
+    // Tránh xung đột luồng đơn hàng & hoa hồng
+    try {
+        const logData = await apiCall(`/api/customers/${customerId}/consult-logs`);
+        const logs = logData.logs || [];
+        const lastLog = logs.length > 0 ? logs[0] : null;
+        const lastLogType = lastLog ? lastLog.log_type : null;
+
+        // Các trạng thái nằm trong luồng đơn hàng → CHẶN
+        const BLOCKED_STATUSES = [
+            'gui_stk_coc', 'giuc_coc', 'dat_coc', 'chot_don', 'dang_san_xuat',
+            'hoan_thanh', 'sau_ban_hang', 'cap_cuu_sep', 'hoan_thanh_cap_cuu',
+            'huy_coc', 'huy', 'tuong_tac_ket_noi', 'gui_ct_kh_cu',
+            'tao_tk_affiliate', 'chuyen_doi_crm', 'khong_xu_ly'
+        ];
+
+        // Tất cả các type liên quan đến consult (có thể có type mới từ settings)
+        const SAFE_STATUSES = [
+            'nhan_tin', 'goi_dien', 'gap_truc_tiep', 'gui_bao_gia', 'gui_mau',
+            'thiet_ke', 'bao_sua', 'lam_quen_tuong_tac', 'giam_gia'
+        ];
+
+        // Nếu có log cuối cùng VÀ log đó nằm trong danh sách bị chặn → cảnh báo
+        if (lastLogType && BLOCKED_STATUSES.includes(lastLogType)) {
+            // Tìm label hiển thị cho trạng thái hiện tại
+            const ALL_STATUS_LABELS = {
+                gui_stk_coc: '🏦 Gửi STK Cọc', giuc_coc: '⏰ Giục Cọc',
+                dat_coc: '💵 Đặt Cọc', chot_don: '✅ Chốt Đơn',
+                dang_san_xuat: '🏭 Đang Sản Xuất', hoan_thanh: '🏆 Hoàn Thành Đơn',
+                sau_ban_hang: '📦 Chăm Sóc Sau Bán', cap_cuu_sep: '🚨 Cấp Cứu Sếp',
+                hoan_thanh_cap_cuu: '🏥 Hoàn Thành Cấp Cứu', huy_coc: '🚫 Hủy Cọc',
+                huy: '❌ Hủy Khách', tuong_tac_ket_noi: '🔗 Tương Tác Kết Nối Lại',
+                gui_ct_kh_cu: '🎟️ Gửi CT KH Cũ', tao_tk_affiliate: '🔑 Đã Tạo TK Affiliate',
+                chuyen_doi_crm: '🔄 Chuyển Đổi CRM', khong_xu_ly: '⚠️ Không Xử Lý'
+            };
+            const currentLabel = ALL_STATUS_LABELS[lastLogType] || lastLogType;
+
+            // Hiển thị popup cảnh báo đẹp
+            const warnOverlay = document.createElement('div');
+            warnOverlay.id = 'affStatusGateOverlay';
+            warnOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;';
+            warnOverlay.innerHTML = `
+                <div style="background:white;border-radius:20px;width:480px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.35);overflow:hidden;animation:emPopBounce .4s ease;">
+                    <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:28px 24px;text-align:center;">
+                        <div style="font-size:48px;margin-bottom:8px;">⚠️</div>
+                        <div style="color:white;font-size:18px;font-weight:800;">Không Thể Tạo TK Affiliate</div>
+                    </div>
+                    <div style="padding:28px;">
+                        <div style="background:#fef2f2;border:2px solid #fecaca;border-radius:14px;padding:18px;margin-bottom:18px;">
+                            <div style="font-size:12px;color:#991b1b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Trạng thái hiện tại</div>
+                            <div style="font-size:18px;font-weight:800;color:#dc2626;">${currentLabel}</div>
+                        </div>
+                        <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:14px;padding:18px;margin-bottom:18px;">
+                            <div style="font-size:13px;color:#1e40af;font-weight:600;line-height:1.7;">
+                                📌 Khách hàng đang ở <b>giữa luồng đơn hàng</b>.<br>
+                                Tạo TK Affiliate lúc này sẽ gây <b>xung đột hoa hồng</b> và <b>hỏng luồng đơn hàng</b>.<br><br>
+                                ✅ Vui lòng đưa khách về trạng thái <b style="color:#7c3aed;">💬 Nhắn Tin</b> trước khi tạo TK Affiliate.
+                            </div>
+                        </div>
+                        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:18px;">
+                            <div style="font-size:12px;color:#166534;font-weight:600;">
+                                💡 <b>Luồng đúng:</b> Hoàn thành đơn → Sau bán hàng → Kết nối lại → ... → <b style="color:#7c3aed;">Nhắn Tin</b> → 🔑 Tạo TK Affiliate
+                            </div>
+                        </div>
+                        <div style="text-align:center;">
+                            <button onclick="document.getElementById('affStatusGateOverlay').remove()" style="padding:12px 36px;border:none;border-radius:12px;background:linear-gradient(135deg,#122546,#1e3a5f);color:#fad24c;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;font-family:inherit;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(18,37,70,.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">✓ Đã Hiểu</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            warnOverlay.addEventListener('click', e => { if (e.target === warnOverlay) warnOverlay.remove(); });
+            document.body.appendChild(warnOverlay);
+            return;
+        }
+
+        // Nếu có log nhưng KHÔNG nằm trong safe list VÀ KHÔNG nằm trong blocked list → cho phép (an toàn)
+        // Nếu chưa có log nào → cho phép (KH mới)
+    } catch(e) {
+        console.warn('[AffGate] Error checking status:', e);
+        // Nếu lỗi fetch logs → vẫn cho tiếp tục, backend sẽ chặn
+    }
+
     // Fetch all data in parallel
     const [custRes, tiers, staffList, deptData] = await Promise.all([
         apiCall(`/api/customers/${customerId}`),
