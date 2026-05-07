@@ -574,6 +574,24 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const logTypes = await db.all('SELECT DISTINCT log_type FROM consultation_logs WHERE customer_id = ?', [customerId]);
         const doneTypes = logTypes.map(l => l.log_type);
         if (log_type === 'chot_don' && !doneTypes.includes('dat_coc')) return reply.code(400).send({ error: 'Phải Đặt Cọc trước khi Chốt Đơn!' });
+
+        // ★ Backend Validate: Tổng đơn >= Đã cọc
+        if (log_type === 'chot_don') {
+            const depRow = await db.get(`SELECT COALESCE(SUM(deposit_amount), 0) as total_dep FROM consultation_logs WHERE customer_id = ? AND log_type = 'dat_coc'`, [customerId]);
+            const totalDeposit = depRow?.total_dep || 0;
+            if (totalDeposit > 0) {
+                const activeOrder = await db.get("SELECT id FROM order_codes WHERE customer_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1", [customerId]);
+                const orderCodeId = activeOrder?.id || null;
+                const itemsRow = orderCodeId
+                    ? await db.get('SELECT COALESCE(SUM(total), 0) as t FROM order_items WHERE customer_id = ? AND order_code_id = ?', [customerId, orderCodeId])
+                    : await db.get('SELECT COALESCE(SUM(total), 0) as t FROM order_items WHERE customer_id = ?', [customerId]);
+                const orderTotal = itemsRow?.t || 0;
+                if (orderTotal < totalDeposit) {
+                    return reply.code(400).send({ error: `Tổng đơn (${orderTotal.toLocaleString('vi-VN')} VNĐ) nhỏ hơn số tiền đã cọc (${totalDeposit.toLocaleString('vi-VN')} VNĐ). Vui lòng kiểm tra lại!` });
+                }
+            }
+        }
+
         if (log_type === 'hoan_thanh' && !doneTypes.includes('chot_don')) return reply.code(400).send({ error: 'Phải Chốt Đơn trước khi Hoàn Thành!' });
         if (log_type === 'sau_ban_hang' && !doneTypes.includes('hoan_thanh')) return reply.code(400).send({ error: 'Phải Hoàn Thành Đơn trước khi Sau Bán Hàng!' });
 

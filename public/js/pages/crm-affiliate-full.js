@@ -1786,6 +1786,15 @@ async function _affSubmitConsultLog(customerId) {
         }
         if (items.length === 0) { showToast('Vui lòng nhập sản phẩm hợp lệ!', 'error'); _affEnableSubmitBtn(); return; }
 
+        // ★ Validate: Tổng đơn >= Đã cọc
+        const orderTotal = items.reduce((s, i) => s + (i.quantity * i.unit_price), 0);
+        const depositAmount = window._currentDepositAmount || 0;
+        if (depositAmount > 0 && orderTotal < depositAmount) {
+            showToast(`❌ Tổng đơn (${formatCurrency(orderTotal)} VNĐ) nhỏ hơn số tiền đã cọc (${formatCurrency(depositAmount)} VNĐ). Vui lòng kiểm tra lại đơn hàng!`, 'error');
+            _affEnableSubmitBtn();
+            return;
+        }
+
         try {
             // Generate order code FIRST so items link to new order
             const orderCodeEl = document.getElementById('consultOrderCode');
