@@ -755,12 +755,18 @@ function kpiRenderLeaderboard(el, data) {
     ];
 
     var h = '<div class="kpi-lb-section">';
-    h += '<div class="kpi-lb-header">🏆 Bảng Xếp Hạng Nhân Viên</div>';
+    h += '<div class="kpi-lb-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="kpiToggleLb()">';
+    h += '<span>🏆 Bảng Xếp Hạng Nhân Viên</span>';
+    h += '<span style="font-size:18px;transition:transform .3s;transform:rotate(' + (_kpiLbCollapsed ? '-90deg' : '0') + ')">' + (_kpiLbCollapsed ? '▶' : '▼') + '</span>';
+    h += '</div>';
     // Show active period info
     var periodInfo = data && data.period;
     if (periodInfo && periodInfo.start) {
         h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + periodInfo.start + ' → ' + periodInfo.end + ' (' + (periodInfo.label || '') + ')</div>';
     }
+
+    // Collapsible content wrapper
+    h += '<div id="kpiLbBody" style="' + (_kpiLbCollapsed ? 'display:none' : '') + '">';
 
     // === FILTER BAR ROW 1 ===
     h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
@@ -834,9 +840,38 @@ function kpiRenderLeaderboard(el, data) {
         h += '<div class="kpi-lb-val" style="color:#c2410c">' + (emp.rate || 0) + '%<div>' + kpiTrend(emp.rate || 0, prev.rate || 0) + '</div></div>';
         h += '</div>';
     }
-    h += '</div></div>';
+    h += '</div>';
+    h += '</div>'; // close kpiLbBody
+    h += '</div>'; // close kpi-lb-section
     el.innerHTML = h;
 }
+
+// === Collapse state ===
+var _kpiLbCollapsed = false;
+var _kpiTcCollapsed = false;
+
+window.kpiToggleLb = function() {
+    _kpiLbCollapsed = !_kpiLbCollapsed;
+    var body = document.getElementById('kpiLbBody');
+    if (body) body.style.display = _kpiLbCollapsed ? 'none' : '';
+    // Update arrow
+    var el = document.getElementById('kpiLeaderboard');
+    if (el) {
+        var hdr = el.querySelector('.kpi-lb-header span:last-child');
+        if (hdr) { hdr.style.transform = 'rotate(' + (_kpiLbCollapsed ? '-90deg' : '0') + ')'; hdr.textContent = _kpiLbCollapsed ? '▶' : '▼'; }
+    }
+};
+
+window.kpiToggleTc = function() {
+    _kpiTcCollapsed = !_kpiTcCollapsed;
+    var body = document.getElementById('kpiTcBody');
+    if (body) body.style.display = _kpiTcCollapsed ? 'none' : '';
+    var el = document.getElementById('kpiTeamCompare');
+    if (el) {
+        var hdr = el.querySelector('.kpi-lb-header span:last-child');
+        if (hdr) { hdr.style.transform = 'rotate(' + (_kpiTcCollapsed ? '-90deg' : '0') + ')'; hdr.textContent = _kpiTcCollapsed ? '▶' : '▼'; }
+    }
+};
 
 var _tcSort = 'revenue';
 window._tcAdvData = null;
@@ -976,13 +1011,19 @@ function kpiRenderTeamCompare(el, data, advData) {
     ];
 
     var h = '<div class="kpi-lb-section">';
-    h += '<div class="kpi-lb-header">📊 So Sánh Team</div>';
+    h += '<div class="kpi-lb-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="kpiToggleTc()">';
+    h += '<span>📊 So Sánh Team</span>';
+    h += '<span style="font-size:18px;transition:transform .3s;transform:rotate(' + (_kpiTcCollapsed ? '-90deg' : '0') + ')">' + (_kpiTcCollapsed ? '▶' : '▼') + '</span>';
+    h += '</div>';
 
     // Show active period info
     var tcPeriodInfo = advData && advData.period;
     if (tcPeriodInfo && tcPeriodInfo.start) {
         h += '<div style="padding:4px 24px;font-size:11px;color:#6366f1;font-weight:600;background:#eef2ff">📌 Dữ liệu: ' + tcPeriodInfo.start + ' → ' + tcPeriodInfo.end + ' (' + (tcPeriodInfo.label || '') + ')</div>';
     }
+
+    // Collapsible content wrapper
+    h += '<div id="kpiTcBody" style="' + (_kpiTcCollapsed ? 'display:none' : '') + '">';
 
     // === FILTER BAR ROW 1 ===
     h += '<div class="kpi-lb-filter-bar" style="display:flex;align-items:center;gap:6px;padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;flex-wrap:wrap">';
@@ -1048,7 +1089,9 @@ function kpiRenderTeamCompare(el, data, advData) {
         h += '<div class="kpi-tc-stat"><div class="kpi-tc-stat-val" style="color:#059669">' + (team.affiliate_new || 0) + '</div><div class="kpi-tc-stat-label">🤝 TẠO TK AFF</div><div style="margin-top:4px">' + kpiTrend(team.affiliate_new || 0, prev.affiliate_new || 0) + '</div></div>';
         h += '</div></div>';
     }
-    h += '</div></div>';
+    h += '</div>';
+    h += '</div>'; // close kpiTcBody
+    h += '</div>'; // close kpi-lb-section
     el.innerHTML = h;
 }
 
