@@ -278,10 +278,12 @@ async function _commitLoad() {
         }
 
         var h = '';
+        var ddMeetingDate = data.session && data.session.meeting_date ? new Date(data.session.meeting_date).toLocaleDateString('vi-VN', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' }) : '';
         // Header
         h += '<div style="padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border-radius:12px 12px 0 0;margin:-16px -16px 12px">';
         h += '<div style="font-size:14px;font-weight:800">📋 CAM KẾT CỦA TÔI</div>';
-        h += '<div style="font-size:11px;opacity:0.85;margin-top:2px">' + (data.sessionTitle || '') + '</div>';
+        h += '<div style="font-size:12px;color:#fbbf24;font-weight:700;margin-top:3px">' + (data.sessionTitle || '') + '</div>';
+        h += '<div style="font-size:10px;opacity:0.75;margin-top:2px">📅 ' + ddMeetingDate + '</div>';
         h += '</div>';
 
         // Commitments list
