@@ -277,6 +277,18 @@ async function loadEmergencyPopupSettings() {
                 </div>
             </div>
 
+            <!-- CAM KẾT CUỘC HỌP POPUP -->
+            <div style="margin-bottom:28px;padding:20px;background:rgba(124,58,237,0.04);border:1px solid #c4b5fd;border-radius:12px;">
+                <h4 style="margin-bottom:12px;color:#7c3aed;">📋 Pop-up Cam Kết Cuộc Họp</h4>
+                <p style="font-size:12px;color:#64748b;margin-bottom:16px;">
+                    Sau đăng nhập <strong>1 phút</strong>, hệ thống sẽ hiện popup cam kết mới nhất cho nhân viên.<br>
+                    Chỉ hiện <strong>1 lần/session</strong> mỗi cuộc họp. Cuộc họp mới → popup hiện lại.
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn" onclick="_showCommitPopup(true)" style="width:auto;font-size:12px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;">👁️ Xem Thử Popup</button>
+                </div>
+            </div>
+
             <div style="padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;font-size:12px;color:#0369a1;">
                 <strong>📌 Lưu ý:</strong> Mỗi pop-up chỉ hiện <strong>1 lần/ngày</strong> mỗi khung giờ. Nhấn <strong>"Xem Thử"</strong> để xem trước giao diện.
             </div>

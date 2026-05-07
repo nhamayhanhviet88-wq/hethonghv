@@ -222,6 +222,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const COMMIT_BLOCK_ROLES = ['tkaffiliate', 'hoa_hong'];
     if (currentUser && !COMMIT_BLOCK_ROLES.includes(currentUser.role)) {
         setTimeout(_commitLoad, 1200);
+        // ★ Commitment popup — show after 60s if user has unseen commitments
+        setTimeout(_commitPopupCheck, 60000);
     } else {
         // Hide button for affiliate users
         var commitWrap = document.getElementById('commitBtnWrap');
@@ -321,6 +323,119 @@ async function _commitLoad() {
         content.innerHTML = h;
     } catch(e) {
         content.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:12px">⚠️ Lỗi tải cam kết</div>';
+    }
+}
+
+// ========== COMMITMENT POPUP (auto after 60s) ==========
+async function _commitPopupCheck() {
+    try {
+        // Make sure data is loaded
+        if (!_commitData) {
+            _commitData = await apiCall('/api/meeting-commitments/my-latest');
+        }
+        if (!_commitData || !_commitData.session || !_commitData.commitments || _commitData.commitments.length === 0) return;
+        // Check if already seen this session
+        var seenKey = 'commitPopupSeen_' + _commitData.session.id;
+        if (sessionStorage.getItem(seenKey)) return;
+        _showCommitPopup();
+    } catch(e) { /* silent */ }
+}
+
+function _showCommitPopup(forceShow) {
+    if (!_commitData || !_commitData.commitments || _commitData.commitments.length === 0) {
+        if (forceShow) { alert('Bạn chưa có cam kết trong tháng này'); }
+        return;
+    }
+    if (document.getElementById('commitPopupOverlay')) return;
+
+    var data = _commitData;
+    var commits = data.commitments;
+    var sessionTitle = data.sessionTitle || '';
+
+    // Build commitment cards
+    var cardsHtml = '';
+    for (var i = 0; i < commits.length; i++) {
+        var c = commits[i];
+        var pct = c.completion_pct || 0;
+        var isDone = c.is_completed;
+        var barColor = isDone ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        var statusIcon = isDone ? '✅' : '⏳';
+        var bgGlow = isDone ? 'rgba(16,185,129,0.08)' : 'rgba(124,58,237,0.04)';
+
+        // Parse content
+        var lines = (c.content || '').split('\n');
+        var question = '', answer = '';
+        for (var li = 0; li < lines.length; li++) {
+            var ln = lines[li].trim();
+            if (ln.indexOf('❓') === 0) question = ln.substring(2).trim();
+            else if (ln.indexOf('✅') === 0) answer = ln.substring(2).trim();
+            else if (!question && !answer) answer = ln;
+        }
+
+        cardsHtml += '<div style="padding:16px 18px;background:' + bgGlow + ';border-radius:14px;border:1.5px solid rgba(124,58,237,0.12);margin-bottom:10px;transition:all .2s"'
+            + ' onmouseover="this.style.transform=\'translateX(4px)\';this.style.borderColor=\'rgba(124,58,237,0.3)\'" onmouseout="this.style.transform=\'none\';this.style.borderColor=\'rgba(124,58,237,0.12)\'">';
+        cardsHtml += '<div style="display:flex;align-items:start;gap:12px">';
+        // Number circle
+        cardsHtml += '<div style="flex-shrink:0;width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:14px;box-shadow:0 3px 10px rgba(124,58,237,0.3)">' + (i+1) + '</div>';
+        cardsHtml += '<div style="flex:1;min-width:0">';
+        if (question) {
+            cardsHtml += '<div style="font-size:12px;color:#6366f1;font-weight:700;margin-bottom:4px;line-height:1.4">' + question + '</div>';
+        }
+        cardsHtml += '<div style="font-size:13px;color:#1e293b;font-weight:600;line-height:1.5">' + statusIcon + ' ' + (answer || c.content || '') + '</div>';
+        if (c.target_revenue > 0) {
+            cardsHtml += '<div style="font-size:11px;color:#059669;font-weight:700;margin-top:4px">💰 Target: ' + Number(c.target_revenue).toLocaleString('vi-VN') + '</div>';
+        }
+        // Progress bar
+        cardsHtml += '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">';
+        cardsHtml += '<div style="flex:1;background:#e5e7eb;border-radius:6px;height:6px;overflow:hidden">';
+        cardsHtml += '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:6px;transition:width .5s ease"></div>';
+        cardsHtml += '</div>';
+        cardsHtml += '<span style="font-size:13px;font-weight:900;color:' + barColor + ';min-width:40px;text-align:right">' + pct + '%</span>';
+        cardsHtml += '</div>';
+        cardsHtml += '</div></div></div>';
+    }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'commitPopupOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99997;display:flex;align-items:center;justify-content:center;padding:20px;animation:_cpFadeIn .4s ease';
+
+    overlay.innerHTML = '<div style="background:white;border-radius:24px;max-width:520px;width:100%;max-height:85vh;overflow:hidden;box-shadow:0 30px 80px rgba(124,58,237,0.35);animation:_cpBounce .5s ease;display:flex;flex-direction:column">'
+        // Header
+        + '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9,#4c1d95);padding:28px 28px 22px;text-align:center;position:relative;overflow:hidden">'
+        + '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 20% 50%,rgba(255,255,255,0.1),transparent 50%),radial-gradient(circle at 80% 20%,rgba(255,255,255,0.08),transparent 40%)"></div>'
+        + '<div style="position:relative;z-index:1">'
+        + '<div style="font-size:48px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3))">📋</div>'
+        + '<div style="font-size:22px;font-weight:900;color:white;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,0.2)">CAM KẾT CỦA BẠN</div>'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:6px;font-weight:600">' + sessionTitle + '</div>'
+        + '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:20px;font-size:12px;color:rgba(255,255,255,0.95);font-weight:700;backdrop-filter:blur(4px)">'
+        + '📌 ' + commits.length + ' cam kết tháng này</div>'
+        + '</div></div>'
+        // Body (scrollable)
+        + '<div style="flex:1;overflow-y:auto;padding:20px 24px">' + cardsHtml + '</div>'
+        // Footer
+        + '<div style="padding:16px 24px 20px;border-top:1px solid #f1f5f9;text-align:center;background:linear-gradient(180deg,#faf5ff,white)">'
+        + '<button onclick="_commitPopupDismiss()" style="padding:14px 48px;border:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 6px 24px rgba(124,58,237,0.35);text-transform:uppercase;letter-spacing:1.5px;transition:all .2s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 30px rgba(124,58,237,0.5)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 6px 24px rgba(124,58,237,0.35)\'">'
+        + '✅ ĐÃ XEM</button>'
+        + '<div style="margin-top:8px;font-size:11px;color:#9ca3af">Hãy nỗ lực hoàn thành cam kết! 💪</div>'
+        + '</div></div>';
+
+    // Inject animations
+    if (!document.getElementById('_cpPopupStyles')) {
+        var st = document.createElement('style');
+        st.id = '_cpPopupStyles';
+        st.textContent = '@keyframes _cpFadeIn{from{opacity:0}to{opacity:1}}@keyframes _cpBounce{0%{transform:scale(.8) translateY(30px);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1) translateY(0);opacity:1}}';
+        document.head.appendChild(st);
+    }
+
+    document.body.appendChild(overlay);
+}
+
+function _commitPopupDismiss() {
+    var overlay = document.getElementById('commitPopupOverlay');
+    if (overlay) overlay.remove();
+    // Mark as seen for this session
+    if (_commitData && _commitData.session) {
+        sessionStorage.setItem('commitPopupSeen_' + _commitData.session.id, '1');
     }
 }
 
