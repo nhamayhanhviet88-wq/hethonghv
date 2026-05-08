@@ -254,6 +254,10 @@ let CONSULT_TYPES = {
     gui_ct_kh_cu: { label: 'Gửi Chương Trình KH Cũ', icon: '🎟️', color: '#7c3aed' },
     khong_xu_ly: { label: 'Không Xử Lý', icon: '⚠️', color: '#ef4444', textColor: 'white' },
     tao_tk_affiliate: { label: 'Đã Tạo TK Affiliate', icon: '🔑', color: '#8b5cf6', textColor: 'white' },
+    huy_don_tra_coc: { label: 'Hủy Đơn Trả Cọc', icon: '🚫', color: '#7c3aed', textColor: 'white' },
+    da_huy_don_tra_coc: { label: 'Đã Hủy Đơn Trả Cọc', icon: '🚫', color: '#991b1b', textColor: 'white' },
+    cho_duyet_huy_don: { label: 'Chờ Duyệt Hủy Đơn', icon: '⏳', color: '#9333ea', textColor: 'white' },
+    gui_lai_so: { label: 'Gửi Lại Số', icon: '🔄', color: '#d97706', textColor: 'white' },
 };
 
 // Merge dynamic types from consult_type_configs API into CONSULT_TYPES
@@ -476,7 +480,7 @@ function _crmGetCategory(c, stats) {
 
     // Check if consulted today (exclude system logs like CRM conversion & affiliate account creation)
     let consultedToday = false;
-    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate') {
+    if (s.lastLog && s.lastLog.created_at && s.lastLog.log_type !== 'chuyen_doi_crm' && s.lastLog.log_type !== 'tao_tk_affiliate' && s.lastLog.log_type !== 'gui_lai_so') {
         const logDate = new Date(s.lastLog.created_at);
         const logStr = logDate.getFullYear() + '-' + String(logDate.getMonth()+1).padStart(2,'0') + '-' + String(logDate.getDate()).padStart(2,'0');
         consultedToday = (logStr === todayStr);
@@ -1179,7 +1183,7 @@ async function openConsultModal(customerId) {
     } else if (orderStatus === 'hoan_thanh') {
         allowedTypes = _getFlowRuleTypes('hoan_thanh') || allTypes.filter(([k]) => ['sau_ban_hang'].includes(k));
     } else if (orderStatus === 'chot_don') {
-        allowedTypes = _getFlowRuleTypes('chot_don') || allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep'].includes(k));
+        allowedTypes = _getFlowRuleTypes('chot_don') || allTypes.filter(([k]) => ['dang_san_xuat','hoan_thanh','cap_cuu_sep','huy_don_tra_coc'].includes(k));
     } else if (orderStatus === 'dat_coc') {
         allowedTypes = _getFlowRuleTypes('dat_coc') || allTypes.filter(([k]) => ['chot_don','cap_cuu_sep','huy_coc'].includes(k));
     } else if (orderStatus === 'gui_stk_coc') {
@@ -1494,7 +1498,7 @@ function onConsultTypeChange() {
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
     // Image required: hide * for exempt types (these don't need screenshots)
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc', 'huy_don_tra_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
@@ -1578,7 +1582,7 @@ function onConsultTypeChange() {
     // Hủy Đơn Trả Cọc flow — content (lý do) only, no image/appointment
     if (type === 'huy_don_tra_coc') {
         if (contentGroup) contentGroup.style.display = 'block';
-        if (imageGroup) imageGroup.style.display = 'none';
+        if (imageGroup) imageGroup.style.display = 'block';
         if (appointmentGroup) appointmentGroup.style.display = 'none';
         if (nextTypeGroup) nextTypeGroup.style.display = 'none';
         // Relabel
@@ -1914,7 +1918,13 @@ async function submitConsultLog(customerId) {
     if (log_type === 'huy_don_tra_coc') {
         const reason = document.getElementById('consultContent')?.value;
         if (!reason) { showToast('Vui lòng nhập lý do hủy đơn trả cọc!', 'error'); enableSubmitBtn(); return; }
+        if (!window._consultImageBlob) { showToast('Vui lòng chụp/dán hình ảnh minh chứng!', 'error'); enableSubmitBtn(); return; }
         try {
+            const formData = new FormData();
+            formData.append('log_type', 'huy_don_tra_coc');
+            formData.append('content', `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`);
+            formData.append('image', window._consultImageBlob, 'cancel_order_proof.png');
+            await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await apiCall(`/api/customers/${customerId}/cancel-order`, 'POST', { reason });
             if (data.success) { showToast('🚫 ' + data.message); closeModal(); loadCrmNhuCauData(); }
             else { showToast(data.error || 'Lỗi!', 'error'); enableSubmitBtn(); }
@@ -2050,7 +2060,7 @@ async function submitConsultLog(customerId) {
 
     // ========== Normal consultation flow ==========
     if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); enableSubmitBtn(); return; }
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc', 'huy_don_tra_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); enableSubmitBtn(); return;
     }

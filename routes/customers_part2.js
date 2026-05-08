@@ -12,6 +12,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
+        // Block if pending cancel-order request
+        if (customer.order_status === 'cho_duyet_huy_don') {
+            return reply.code(400).send({ error: 'Khách đang chờ duyệt hủy đơn trả cọc. Không thể hủy khách.' });
+        }
+
         // Helper: next working day (skip CN + lễ + nghỉ phép NV)
         const getNextBizDay = async () => getNextWorkingDay(new Date(), customer.assigned_to_id);
 
@@ -94,11 +99,6 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // Only allow cancel-order when status is chot_don (or dang_san_xuat)
         if (!['chot_don'].includes(customer.order_status)) {
             return reply.code(400).send({ error: 'Chỉ có thể hủy đơn trả cọc khi đã Chốt Đơn.' });
-        }
-
-        // Block if already pending a cancel request
-        if (customer.order_status === 'cho_duyet_huy' || customer.order_status === 'cho_duyet_huy_don') {
-            return reply.code(400).send({ error: 'Đã có yêu cầu hủy đang chờ duyệt.' });
         }
 
         // Helper: send cancel-order request (pending)

@@ -359,14 +359,88 @@
                     if (isNV || isAffiliate) {
                         document.getElementById('mReceiver').value = receiverUsers[0]?.id || currentUser.id;
                     }
+                } else if (data.error === 'duplicate_customer' && data.duplicate) {
+                    // ★ SĐT trùng KH → Hiện popup Gửi Lại
+                    _mShowDuplicatePopup(data.duplicate, body.notes);
                 } else {
-                    mToast(data.error || 'Lỗi', 'error');
+                    mToast(data.error || data.message || 'Lỗi', 'error');
                 }
             } catch(err) {
                 mToast('Lỗi kết nối', 'error');
             }
             btn.disabled = false; btn.textContent = '📱 CHUYỂN SỐ';
         });
+    }
+
+    // ========== POPUP GỬI LẠI SỐ TRÙNG (MOBILE) ==========
+    function _mShowDuplicatePopup(dup, formNotes) {
+        document.getElementById('mDupOverlay')?.remove();
+        const CRM_LABELS = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL' };
+        const STATUS_LABELS = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
+
+        const overlay = document.createElement('div');
+        overlay.id = 'mDupOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:mSlideIn .3s ease;';
+        overlay.innerHTML = `
+            <div style="background:#1e293b;border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;overflow-y:auto;border:1px solid rgba(255,255,255,0.1);">
+                <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:16px 20px;border-radius:20px 20px 0 0;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:24px;">⚠️</span>
+                    <div>
+                        <div style="font-size:15px;font-weight:800;color:white;">SĐT ĐÃ TỒN TẠI</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.8);">KH đang được quản lý bởi NV khác</div>
+                    </div>
+                </div>
+                <div style="padding:16px 20px;">
+                    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;">
+                        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;">
+                            <span style="color:#fbbf24;font-weight:700;">👤</span><span style="color:#e2e8f0;font-weight:700;">${dup.customer_name || 'N/A'}</span>
+                            <span style="color:#fbbf24;font-weight:700;">📱</span><span style="color:#e2e8f0;">${dup.phone || 'N/A'}</span>
+                            <span style="color:#fbbf24;font-weight:700;">🏷️</span><span style="color:#e2e8f0;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
+                            <span style="color:#fbbf24;font-weight:700;">👨‍💼</span><span style="color:#e2e8f0;">${dup.assigned_to_name || 'N/A'}</span>
+                            <span style="color:#fbbf24;font-weight:700;">📊</span><span style="color:#e2e8f0;">${STATUS_LABELS[dup.order_status] || dup.order_status || 'N/A'}</span>
+                            <span style="color:#fbbf24;font-weight:700;">🏷️</span><span style="color:#a78bfa;font-weight:800;">${dup.current_code || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <textarea id="mDupNotes" rows="2" placeholder="Ghi chú (tùy chọn)..." style="width:100%;border:2px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;background:rgba(255,255,255,0.06);color:#e2e8f0;resize:none;">${formNotes || ''}</textarea>
+                    </div>
+                    <div style="margin-top:12px;font-size:11px;color:#94a3b8;line-height:1.5;padding:10px;background:rgba(16,185,129,0.1);border-radius:8px;border:1px solid rgba(16,185,129,0.2);">
+                        ✅ Gửi lại sẽ: Cấp <b style="color:#fbbf24;">Mã mới</b> hôm nay • Đẩy vào <b style="color:#f87171;">🔥 Phải Xử Lý</b> • Gửi <b>Telegram</b>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:16px;">
+                        <button onclick="document.getElementById('mDupOverlay').remove()" style="flex:1;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#e2e8f0;font-weight:700;font-size:15px;cursor:pointer;">
+                            ❌ Bỏ Qua
+                        </button>
+                        <button id="mDupResendBtn" onclick="_mConfirmResend(${dup.id})" style="flex:1;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4);">
+                            ✅ Gửi Lại
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+    }
+
+    async function _mConfirmResend(customerId) {
+        const notes = document.getElementById('mDupNotes')?.value?.trim() || '';
+        const btn = document.getElementById('mDupResendBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+
+        try {
+            const data = await apiCall('/api/customers/resend', 'POST', { customer_id: customerId, notes });
+            if (data.success) {
+                mToast(data.message || '✅ Đã gửi lại!');
+                document.getElementById('mDupOverlay')?.remove();
+                document.getElementById('mForm')?.reset();
+            } else {
+                mToast(data.error || 'Lỗi', 'error');
+                if (btn) { btn.disabled = false; btn.textContent = '✅ Gửi Lại'; }
+            }
+        } catch (err) {
+            mToast('Lỗi kết nối', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '✅ Gửi Lại'; }
+        }
     }
 
     function _mToggleReq() {

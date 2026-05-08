@@ -768,7 +768,7 @@ async function openAffiliateAccountPopup(customerId) {
                 sau_ban_hang: '📦 Chăm Sóc Sau Bán', cap_cuu_sep: '🚨 Cấp Cứu Sếp',
                 hoan_thanh_cap_cuu: '🏥 Hoàn Thành Cấp Cứu', huy_coc: '🚫 Hủy Cọc',
                 huy: '❌ Hủy Khách', tuong_tac_ket_noi: '🔗 Tương Tác Kết Nối Lại',
-                gui_ct_kh_cu: '🎟️ Gửi CT KH Cũ', tao_tk_affiliate: '🔑 Đã Tạo TK Affiliate',
+                gui_ct_kh_cu: '🎟️ Gửi CT KH Cũ', tao_tk_affiliate: '🔑 Đã Tạo TK Affiliate', gui_lai_so: '🔄 Gửi Lại Số',
                 chuyen_doi_crm: '🔄 Chuyển Đổi CRM', khong_xu_ly: '⚠️ Không Xử Lý',
                 giam_gia: '🎁 Giảm Giá', tu_van_lai: '🔄 Tư Vấn Lại'
             };

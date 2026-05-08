@@ -814,7 +814,47 @@ async function submitCancelAction(id, approve) {
 // ========== DUYỆT HỦY ĐƠN TRẢ CỌC ==========
 async function approveCancelOrder(id, approve) {
     const action = approve ? 'DUYỆT HỦY ĐƠN' : 'TỪ CHỐI HỦY ĐƠN';
+
+    // Fetch NV's cancel-order report (latest huy_don_tra_coc log with image)
+    let reportHTML = '';
+    try {
+        const logData = await apiCall(`/api/customers/${id}/consult`);
+        const cancelLog = (logData.logs || []).find(l => l.log_type === 'huy_don_tra_coc' && l.image_path);
+        // Fallback: get any huy_don_tra_coc log even without image
+        const cancelLogAny = cancelLog || (logData.logs || []).find(l => l.log_type === 'huy_don_tra_coc');
+        if (cancelLogAny) {
+            const nvName = cancelLogAny.logged_by_name || 'N/A';
+            const logDate = cancelLogAny.created_at ? new Date(cancelLogAny.created_at).toLocaleString('vi-VN') : '';
+            const logContent = (cancelLogAny.content || '').replace(/\\n/g, '\n');
+            const imgSrc = cancelLogAny.image_path ? cancelLogAny.image_path.replace(/^\/?/, '/') : '';
+            reportHTML = `
+            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="font-size:16px;">📋</span>
+                    <span style="color:#fbbf24;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Báo Cáo Nhân Viên</span>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <span style="background:#1e40af;color:#dbeafe;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">👤 ${nvName}</span>
+                    <span style="background:#374151;color:#d1d5db;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">📅 ${logDate}</span>
+                </div>
+                <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:10px;margin-bottom:8px;">
+                    <div style="color:#e2e8f0;font-size:13px;white-space:pre-line;line-height:1.5;">${logContent}</div>
+                </div>
+                ${imgSrc ? `
+                <div style="margin-top:8px;">
+                    <div style="color:#94a3b8;font-size:11px;font-weight:600;margin-bottom:6px;">🖼️ Hình ảnh minh chứng <span style="color:#64748b;">(click để phóng to)</span></div>
+                    <img src="${imgSrc}" alt="Minh chứng hủy đơn" 
+                        style="max-width:100%;max-height:200px;border-radius:8px;border:2px solid #334155;cursor:pointer;transition:transform 0.2s;"
+                        onclick="window.open('${imgSrc}','_blank')"
+                        onmouseover="this.style.transform='scale(1.02)';this.style.borderColor='#fbbf24'"
+                        onmouseout="this.style.transform='scale(1)';this.style.borderColor='#334155'" />
+                </div>` : '<div style="color:#ef4444;font-size:11px;font-style:italic;">⚠️ Không có hình ảnh minh chứng</div>'}
+            </div>`;
+        }
+    } catch(e) { console.warn('Could not fetch cancel report:', e); }
+
     const bodyHTML = `
+        ${reportHTML}
         <div class="form-group">
             <label>Lý Do ${action} <span style="color:var(--danger)">*</span></label>
             <textarea id="cancelOrderManagerReason" class="form-control" rows="3" placeholder="Nhập lý do ${action.toLowerCase()}..."></textarea>

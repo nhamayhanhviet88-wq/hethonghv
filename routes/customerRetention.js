@@ -186,6 +186,7 @@ module.exports = async function(fastify) {
                         ) oi_sum ON true
                         WHERE c.phone IS NOT NULL AND c.phone != ''
                           AND COALESCE(c.cancel_approved, 0) != 1
+                          AND COALESCE(oc.status, 'active') != 'cancelled'
                           AND EXISTS (
                               SELECT 1 FROM consultation_logs cl
                               WHERE cl.customer_id = oc.customer_id
@@ -564,6 +565,7 @@ module.exports = async function(fastify) {
                 ) oi_sum ON true
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND EXISTS (
                       SELECT 1 FROM consultation_logs cl
                       WHERE cl.customer_id = oc.customer_id
@@ -691,6 +693,7 @@ module.exports = async function(fastify) {
                 ) oi_sum ON true
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   ${employeeFilter}
                   AND EXISTS (
                       SELECT 1 FROM consultation_logs cl
@@ -801,6 +804,7 @@ module.exports = async function(fastify) {
                 WHERE c.assigned_to_id IN (${ph})
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
             ),
@@ -874,6 +878,7 @@ module.exports = async function(fastify) {
                 WHERE c.assigned_to_id IN (${ph})
                   AND c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
             ),
@@ -983,6 +988,7 @@ module.exports = async function(fastify) {
             JOIN customers c ON oc.customer_id = c.id
             WHERE c.assigned_to_id IN (${ph})
               AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(oc.status, 'active') != 'cancelled'
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
         `, [...userIds, current.start, current.end]);
@@ -1012,6 +1018,7 @@ module.exports = async function(fastify) {
             WHERE c.assigned_to_id IN (${ph})
               AND c.phone IS NOT NULL AND c.phone != ''
               AND COALESCE(c.cancel_approved, 0) != 1
+              AND COALESCE(oc.status, 'active') != 'cancelled'
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
             GROUP BY c.id, c.customer_name, c.phone, c.assigned_to_id

@@ -7,6 +7,7 @@ const CONSULT_TYPES_FALLBACK = {
     khong_xu_ly: { icon: '⚠️', label: 'Không Xử Lý', color: '#f59e0b', textColor: 'white' },
     chuyen_doi_crm: { icon: '🔀', label: 'Chuyển Đổi CRM', color: '#6366f1', textColor: 'white' },
     tao_tk_affiliate: { icon: '🔑', label: 'Đã Tạo TK Affiliate', color: '#8b5cf6', textColor: 'white' },
+    gui_lai_so: { icon: '🔄', label: 'Gửi Lại Số', color: '#d97706', textColor: 'white' },
     _hoan_thanh_don: { icon: '✅', label: 'Hoàn Thành Đơn', color: '#10b981', textColor: 'white' }
 };
 

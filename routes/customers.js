@@ -62,8 +62,21 @@ async function customersRoutes(fastify, options) {
 
         // Check phone uniqueness across system (only if phone provided)
         if (phone) {
-            const phoneError = await checkPhoneDuplicate(phone);
-            if (phoneError) return reply.code(400).send({ error: phoneError });
+            const dupResult = await checkPhoneDuplicate(phone, {}, { returnDetails: true });
+            if (dupResult) {
+                if (dupResult.type === 'user') {
+                    // SĐT trùng NV → chặn cứng
+                    return reply.code(400).send({ error: dupResult.error });
+                }
+                if (dupResult.type === 'customer') {
+                    // SĐT trùng KH → trả về thông tin để frontend hiện popup
+                    return reply.code(409).send({
+                        error: 'duplicate_customer',
+                        message: dupResult.error,
+                        duplicate: dupResult.customer
+                    });
+                }
+            }
         }
 
         // Auto-lookup source_id from source_name if source_id not provided
@@ -179,6 +192,72 @@ async function customersRoutes(fastify, options) {
         } catch(e) { console.error('[Customers] Auto-update partner_outreach error:', e.message); }
 
         return { success: true, id: result.lastInsertRowid, dailyNum, message: 'Chuyển số thành công!' };
+    });
+
+    // ========== GỬI LẠI SỐ TRÙNG — Cập nhật KH đã tồn tại vào "Phải Xử Lý Hôm Nay" ==========
+    fastify.post('/api/customers/resend', { preHandler: [authenticate] }, async (request, reply) => {
+        const { customer_id, notes } = request.body || {};
+        if (!customer_id) return reply.code(400).send({ error: 'Thiếu customer_id' });
+
+        const customer = await db.get(
+            `SELECT c.*, u.full_name as assigned_to_name, u.telegram_group_id as assigned_telegram
+             FROM customers c LEFT JOIN users u ON u.id = c.assigned_to_id
+             WHERE c.id = ?`, [Number(customer_id)]
+        );
+        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+
+        // ★ Luôn dùng ngày HÔM NAY (bỏ qua cutoff)
+        const effectiveDate = getVNToday();
+        const [_y, _m, _d] = effectiveDate.split('-').map(Number);
+
+        // Tính daily_order_number mới cho Sale hôm nay
+        const maxNum = await db.get(
+            "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
+            [effectiveDate, customer.assigned_to_id]
+        );
+        const dailyNum = (maxNum?.mx || 0) + 1;
+        const newCode = `${dailyNum}-${_d}-${_m}`;
+
+        // Cập nhật KH: effective_date + daily_order_number mới
+        await db.run(
+            `UPDATE customers SET effective_date = ?, daily_order_number = ?, updated_at = NOW() WHERE id = ?`,
+            [effectiveDate, dailyNum, Number(customer_id)]
+        );
+
+        // Ghi consultation log: gui_lai_so
+        const logNote = notes && notes.trim()
+            ? `📱 KH được gửi lại bởi ${request.user.full_name} — ${notes.trim()}`
+            : `📱 KH được gửi lại bởi ${request.user.full_name}`;
+        await db.run(
+            `INSERT INTO consultation_logs (customer_id, log_type, notes, logged_by, created_at)
+             VALUES (?, 'gui_lai_so', ?, ?, NOW())`,
+            [Number(customer_id), logNote, request.user.id]
+        );
+
+        // Gửi Telegram
+        const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
+        const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
+            `📱 <b>${newCode}</b> : ${customer.customer_name} - ${customer.phone}\n` +
+            `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +
+            `👨‍💼 NV: ${customer.assigned_to_name || 'N/A'}\n` +
+            `📝 Bởi: ${request.user.full_name}\n` +
+            `🔥 <b>PHẢI XỬ LÝ HÔM NAY!</b>` +
+            (notes && notes.trim() ? `\n💬 ${notes.trim()}` : '');
+
+        const targetIds = [];
+        if (customer.assigned_telegram) targetIds.push(customer.assigned_telegram);
+        const globalId = process.env.TELEGRAM_GROUP_ID;
+        if (globalId) targetIds.push(globalId);
+        broadcastTelegram(targetIds, tgMessage);
+
+        console.log(`[RESEND] Customer #${customer_id} resent by ${request.user.username} → code: ${newCode}, effective: ${effectiveDate}`);
+
+        return {
+            success: true,
+            new_code: newCode,
+            effective_date: effectiveDate,
+            message: `✅ Đã gửi lại! Mã mới: ${newCode} — Phải Xử Lý Hôm Nay!`
+        };
     });
 
     fastify.get('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {

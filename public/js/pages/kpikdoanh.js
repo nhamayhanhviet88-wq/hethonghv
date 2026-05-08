@@ -219,19 +219,28 @@ function kpiPickMonth(v) { if(!v)return; _kpi.month=v; kpiLoadData(); }
 
 function kpiFmt(n) {
     if (n == null || isNaN(n)) return '-';
-    if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
-    if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
+    if (Math.abs(n) >= 1e6) {
+        var tr = n / 1e6;
+        var formatted = tr.toFixed(1).replace(/\.0$/, '');
+        var parts = formatted.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.') + ' tr';
+    }
     return n.toLocaleString('vi-VN');
 }
 function kpiFmtFull(n) { return n != null ? n.toLocaleString('vi-VN') : '-'; }
 // Format "còn thiếu" with +/- sign: positive missing = còn thiếu (-), negative = đã vượt (+)
 function kpiSignFmt(n) {
     if (n == null || isNaN(n) || n === 0) return '0';
-    const abs = Math.abs(n);
-    let str;
-    if (abs >= 1e9) str = (abs/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
-    else if (abs >= 1e6) str = (abs/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
-    else str = abs.toLocaleString('vi-VN');
+    var abs = Math.abs(n);
+    var str;
+    if (abs >= 1e6) {
+        var tr = abs / 1e6;
+        var formatted = tr.toFixed(1).replace(/\.0$/, '');
+        var parts = formatted.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        str = parts.join('.') + ' tr';
+    } else str = abs.toLocaleString('vi-VN');
     return n > 0 ? '-' + str : '+' + str; // missing > 0 = còn thiếu (-)  |  missing < 0 = đã vượt (+)
 }
 function kpiSignFmtFull(n) {
@@ -594,8 +603,13 @@ async function kpiSaveTargets(periodLabel) {
 var _kpiDashSort = 'revenue'; // default sort
 function kpiDashFmtVND(n) {
     if (!n) return '0';
-    if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + ' tỷ';
-    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr';
+    if (n >= 1e6) {
+        var tr = n / 1e6;
+        var formatted = tr.toFixed(1).replace(/\.0$/, '');
+        var parts = formatted.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.') + ' tr';
+    }
     if (n >= 1e3) return Math.round(n / 1e3) + 'k';
     return n.toLocaleString('vi-VN');
 }
@@ -2521,8 +2535,13 @@ function kpiRenderAchievement(el) {
     var year = data.year;
 
     function fmtMoney(v) {
-        if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1).replace('.0', '') + ' tỷ';
-        if (Math.abs(v) >= 1e6) return Math.round(v / 1e6).toLocaleString('vi-VN') + ' tr';
+        if (Math.abs(v) >= 1e6) {
+            var tr = v / 1e6;
+            var formatted = tr.toFixed(1).replace(/\.0$/, '');
+            var parts = formatted.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return parts.join('.') + ' tr';
+        }
         return Math.round(v).toLocaleString('vi-VN');
     }
     function rateColor(rate) {

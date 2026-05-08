@@ -441,8 +441,15 @@ function crProgressColor(rate) {
 
 function crFormatVND(num) {
     if (!num) return '0';
-    if (num >= 1e9) return (num / 1e9).toFixed(1).replace(/\.0$/, '') + ' tỷ';
-    if (num >= 1e6) return (num / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr';
+    if (num >= 1e6) {
+        const tr = num / 1e6;
+        // Show 1 decimal for precision, use comma separator for thousands
+        const formatted = tr.toFixed(1).replace(/\.0$/, '');
+        // Add comma for thousands: 1234.5 → 1,234.5
+        const parts = formatted.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.') + ' tr';
+    }
     if (num >= 1e3) return Math.round(num / 1e3) + 'k';
     return num.toLocaleString('vi-VN');
 }

@@ -1571,3 +1571,22 @@ UPDATE consult_type_configs SET rule_phase = 'huy_capuu' WHERE key = 'huy' AND r
 ALTER TABLE customers ALTER COLUMN phone DROP NOT NULL;
 -- Add facebook_link column if not exists
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS facebook_link TEXT;
+
+-- ========== LUỒNG HỦY ĐƠN TRẢ CỌC ==========
+-- 3 trạng thái mới cho workflow hủy đơn (tách biệt với hủy khách)
+DO $$ BEGIN
+    INSERT INTO consult_type_configs (key, label, icon, color, text_color, sort_order, stage, rule_phase) VALUES
+        ('huy_don_tra_coc', 'Hủy Đơn Trả Cọc', '🚫', '#7c3aed', 'white', 26, 'capuu', 'huy_capuu'),
+        ('da_huy_don_tra_coc', 'Đã Hủy Đơn Trả Cọc', '🚫', '#991b1b', 'white', 27, 'capuu', 'huy_capuu'),
+        ('cho_duyet_huy_don', 'Chờ Duyệt Hủy Đơn', '⏳', '#9333ea', 'white', 28, 'capuu', 'huy_capuu');
+EXCEPTION WHEN unique_violation THEN NULL;
+END $$;
+
+-- Flow rule: chot_don → huy_don_tra_coc
+INSERT INTO consult_flow_rules (from_status, to_type_key, is_default, sort_order) VALUES
+    ('chot_don', 'huy_don_tra_coc', false, 4)
+ON CONFLICT (from_status, to_type_key) DO NOTHING;
+
+-- Cleanup legacy huy_don key (replaced by huy_don_tra_coc)
+DELETE FROM consult_type_configs WHERE key = 'huy_don';
+UPDATE consult_flow_rules SET to_type_key = 'huy_don_tra_coc' WHERE to_type_key = 'huy_don';

@@ -331,25 +331,12 @@ async function renderChuyenSoPage(container) {
             const data = await apiCall('/api/customers', 'POST', body);
             if (data.success) {
                 showToast('✅ Chuyển số thành công!');
-                e.target.reset();
-                // Hide affiliate row after reset
-                document.getElementById('csoAffiliateRow').style.display = 'none';
-                document.getElementById('csoAffiliateCrm').value = '';
-                document.getElementById('csoJobTitleRow').style.display = 'none';
-                document.getElementById('csoJobTitle').innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
-                if (document.getElementById('csoFacebook')) document.getElementById('csoFacebook').value = '';
-                // Reset Công Việc back to default
-                const cvd = document.getElementById('csoCongViecDisplay');
-                if (cvd) { cvd.value = 'Mặc Định'; cvd.style.color = '#122546'; cvd.style.background = '#f1f5f9'; cvd.style.borderColor = ''; }
-                const cvh = document.getElementById('csoCongViec'); if (cvh) cvh.value = 'Mặc Định';
-                // Reset Lĩnh Vực back to default
-                const lv = document.getElementById('csoLinhVuc');
-                if (lv) { lv.value = 'Mặc Định'; lv.style.color = '#122546'; lv.style.background = '#f1f5f9'; lv.style.borderColor = ''; }
-                // Clear smart search
-                const ss = document.getElementById('csoSmartSearch'); if (ss) ss.value = '';
-                const sr = document.getElementById('csoSearchResults'); if (sr) { sr.style.display = 'none'; sr.innerHTML = ''; }
+                _csoResetForm(e.target);
+            } else if (data.error === 'duplicate_customer' && data.duplicate) {
+                // ★ SĐT trùng KH → Hiện popup Gửi Lại
+                _csoShowDuplicatePopup(data.duplicate, body.notes);
             } else {
-                showToast(data.error, 'error');
+                showToast(data.error || data.message || 'Lỗi', 'error');
             }
         } catch (err) {
             showToast('Lỗi kết nối', 'error');
@@ -702,4 +689,129 @@ function _csoSelectResult(el) {
         // Scroll to form
         document.getElementById('chuyenSoForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch(e) { console.error('[CSO] Select result error:', e); }
+}
+
+// ========== RESET FORM SAU KHI CHUYỂN SỐ THÀNH CÔNG ==========
+function _csoResetForm(form) {
+    if (form) form.reset();
+    // Hide affiliate row after reset
+    const affRow = document.getElementById('csoAffiliateRow');
+    if (affRow) affRow.style.display = 'none';
+    const affCrm = document.getElementById('csoAffiliateCrm');
+    if (affCrm) affCrm.value = '';
+    const jobRow = document.getElementById('csoJobTitleRow');
+    if (jobRow) jobRow.style.display = 'none';
+    const jobSel = document.getElementById('csoJobTitle');
+    if (jobSel) jobSel.innerHTML = '<option value="">-- Chọn Lĩnh Vực --</option>';
+    const fbEl = document.getElementById('csoFacebook');
+    if (fbEl) fbEl.value = '';
+    // Reset Công Việc back to default
+    const cvd = document.getElementById('csoCongViecDisplay');
+    if (cvd) { cvd.value = 'Mặc Định'; cvd.style.color = '#122546'; cvd.style.background = '#f1f5f9'; cvd.style.borderColor = ''; }
+    const cvh = document.getElementById('csoCongViec'); if (cvh) cvh.value = 'Mặc Định';
+    // Reset Lĩnh Vực back to default
+    const lv = document.getElementById('csoLinhVuc');
+    if (lv) { lv.value = 'Mặc Định'; lv.style.color = '#122546'; lv.style.background = '#f1f5f9'; lv.style.borderColor = ''; }
+    // Unlock name field (may have been locked by partner outreach auto-fill)
+    const nameEl = document.getElementById('csoName');
+    if (nameEl) { nameEl.readOnly = false; nameEl.style.background = ''; nameEl.style.color = ''; nameEl.style.fontWeight = ''; nameEl.style.cursor = ''; nameEl.style.borderColor = ''; }
+    // Clear smart search
+    const ss = document.getElementById('csoSmartSearch'); if (ss) ss.value = '';
+    const sr = document.getElementById('csoSearchResults'); if (sr) { sr.style.display = 'none'; sr.innerHTML = ''; }
+}
+
+// ========== POPUP GỬI LẠI SỐ TRÙNG ==========
+function _csoShowDuplicatePopup(dup, formNotes) {
+    // Remove existing popup
+    document.getElementById('csoDupOverlay')?.remove();
+
+    const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
+    const STATUS_LABELS = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'csoDupOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;animation:_csoDupFadeIn 0.25s ease;';
+    overlay.innerHTML = `
+        <style>
+            @keyframes _csoDupFadeIn { from { opacity:0; } to { opacity:1; } }
+            @keyframes _csoDupSlideUp { from { transform:translateY(30px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+        </style>
+        <div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;box-shadow:0 25px 80px rgba(0,0,0,0.3);overflow:hidden;animation:_csoDupSlideUp 0.3s ease;">
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 24px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:28px;">⚠️</span>
+                <div>
+                    <div style="font-size:16px;font-weight:800;color:white;">SĐT ĐÃ TỒN TẠI TRONG HỆ THỐNG</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Khách hàng này đang được quản lý bởi nhân viên</div>
+                </div>
+            </div>
+            <div style="padding:20px 24px;">
+                <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:16px;">
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;">
+                        <span style="color:#92400e;font-weight:700;">👤 KH:</span>
+                        <span style="color:#1e293b;font-weight:700;">${dup.customer_name || 'N/A'}</span>
+                        <span style="color:#92400e;font-weight:700;">📱 SĐT:</span>
+                        <span style="color:#1e293b;font-weight:600;">${dup.phone || 'N/A'}</span>
+                        <span style="color:#92400e;font-weight:700;">🏷️ CRM:</span>
+                        <span style="color:#1e293b;font-weight:600;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
+                        <span style="color:#92400e;font-weight:700;">👨‍💼 NV:</span>
+                        <span style="color:#1e293b;font-weight:600;">${dup.assigned_to_name || 'N/A'}${dup.dept_name ? ' — ' + dup.dept_name : ''}</span>
+                        <span style="color:#92400e;font-weight:700;">📊 TT:</span>
+                        <span style="color:#1e293b;font-weight:600;">${STATUS_LABELS[dup.order_status] || dup.order_status || 'N/A'}</span>
+                        <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
+                        <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
+                    </div>
+                </div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">💬 Ghi chú kèm theo (tùy chọn)</div>
+                    <textarea id="csoDupNotes" rows="2" placeholder="VD: KH gọi lại muốn tư vấn thêm..." style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;resize:vertical;">${formNotes || ''}</textarea>
+                </div>
+                <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+                    <strong style="color:#15803d;">✅ Xác Nhận Gửi Lại</strong> sẽ:
+                    <br>• Cấp <strong>Mã KH mới</strong> cho hôm nay
+                    <br>• Đẩy vào <strong style="color:#dc2626;">🔥 Phải Xử Lý Hôm Nay</strong> cho NV quản lý
+                    <br>• Gửi <strong>Telegram</strong> thông báo cho NV
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button onclick="document.getElementById('csoDupOverlay').remove()" style="padding:10px 24px;border-radius:10px;border:1.5px solid #d1d5db;background:#f9fafb;color:#374151;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='#f9fafb'">
+                        ❌ Bỏ Qua
+                    </button>
+                    <button onclick="_csoConfirmResend(${dup.id})" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
+                        ✅ Xác Nhận Gửi Lại
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Close on overlay click (not popup itself)
+    overlay.addEventListener('click', (ev) => {
+        if (ev.target === overlay) overlay.remove();
+    });
+}
+
+// ========== XÁC NHẬN GỬI LẠI — Gọi API /api/customers/resend ==========
+async function _csoConfirmResend(customerId) {
+    const notesEl = document.getElementById('csoDupNotes');
+    const notes = notesEl ? notesEl.value.trim() : '';
+
+    // Disable button
+    const btn = document.querySelector('#csoDupOverlay button:last-child');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+    try {
+        const data = await apiCall('/api/customers/resend', 'POST', { customer_id: customerId, notes });
+        if (data.success) {
+            showToast(data.message || '✅ Đã gửi lại thành công!');
+            document.getElementById('csoDupOverlay')?.remove();
+            // Reset form
+            _csoResetForm(document.getElementById('chuyenSoForm'));
+        } else {
+            showToast(data.error || 'Lỗi gửi lại', 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '✅ Xác Nhận Gửi Lại'; }
+        }
+    } catch (err) {
+        showToast('Lỗi kết nối', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '✅ Xác Nhận Gửi Lại'; }
+    }
 }
