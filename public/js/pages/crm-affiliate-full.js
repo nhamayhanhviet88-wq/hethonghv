@@ -1306,7 +1306,7 @@ function _affOnConsultTypeChange() {
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
     // Image required
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'sau_ban_hang', 'huy', 'huy_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
@@ -1368,6 +1368,7 @@ function _affOnConsultTypeChange() {
 
     // Hoàn Thành Đơn flow - content + appointment
     if (type === 'hoan_thanh') {
+        if (imageGroup) imageGroup.style.display = 'none';
         if (appointmentGroup) appointmentGroup.style.display = 'block';
     }
 
@@ -1834,7 +1835,7 @@ async function _affSubmitConsultLog(customerId) {
 
     // ========== Normal consultation flow ==========
     if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _affEnableSubmitBtn(); return; }
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _affEnableSubmitBtn(); return;
     }

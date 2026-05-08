@@ -1493,7 +1493,7 @@ function onConsultTypeChange() {
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
     // Image required: hide * for exempt types (these don't need screenshots)
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'sau_ban_hang', 'huy', 'huy_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
@@ -2024,7 +2024,7 @@ async function submitConsultLog(customerId) {
 
     // ========== Normal consultation flow ==========
     if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); enableSubmitBtn(); return; }
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'sau_ban_hang', 'huy', 'huy_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
     if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); enableSubmitBtn(); return;
     }

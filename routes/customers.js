@@ -308,11 +308,14 @@ async function customersRoutes(fastify, options) {
                 );
                 const completedSet = new Set(completedRows.map(r => r.customer_id));
 
-                // 2. KH đã tạo TK affiliate cho chính mình (self-order)
+                // 2. KH đã tạo TK affiliate → map customer_id → affiliate_user_id
                 const selfRows = await db.all(
-                    `SELECT source_customer_id FROM users WHERE source_customer_id IN (${custIds.map(() => '?').join(',')}) AND status = 'active'`, custIds
+                    `SELECT id, source_customer_id FROM users WHERE source_customer_id IN (${custIds.map(() => '?').join(',')}) AND status = 'active'`, custIds
                 );
-                const selfOrderSet = new Set(selfRows.map(r => r.source_customer_id));
+                const selfAffMap = {}; // customer_id → affiliate user_id
+                for (const r of selfRows) {
+                    selfAffMap[r.source_customer_id] = r.id;
+                }
 
                 // 3. Referrer có affiliate cha không (referrer.source_customer_id → customer.referrer_id)
                 const parentMap = {}; // referrer_user_id → hasParent
@@ -330,17 +333,21 @@ async function customersRoutes(fastify, options) {
 
                 // Gắn next_aff_rate cho từng KH
                 for (const c of customers) {
-                    if (selfOrderSet.has(c.id)) {
-                        // ★ Self-order (KH đã tạo TK affiliate): lifetime 10%
+                    const ownAffId = selfAffMap[c.id]; // TK affiliate của chính KH
+                    const isSelfReferrer = ownAffId && c.referrer_id === ownAffId;
+                    const hasOwnAffNoRef = ownAffId && !c.referrer_id;
+
+                    if (isSelfReferrer || hasOwnAffNoRef) {
+                        // ★ Self-order: referrer chính là TK mình, HOẶC có TK nhưng không có referrer ngoài → 10% lifetime
                         c.next_aff_rate = 10;
                     } else if (!c.referrer_id) {
-                        // Không có người giới thiệu + không có TK affiliate → 0%
+                        // Không có referrer + không có TK affiliate → 0%
                         c.next_aff_rate = 0;
                     } else if (completedSet.has(c.id)) {
-                        // First order done + no self-order → 0%
+                        // Referrer ngoài + first-order-only done → 0%
                         c.next_aff_rate = 0;
                     } else {
-                        // First order chưa done → check parent
+                        // Referrer ngoài + chưa completed → check parent
                         c.next_aff_rate = parentMap[c.referrer_id] ? 15 : 10;
                     }
                 }
