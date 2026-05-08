@@ -34,7 +34,9 @@ const STATUS_LABELS = {
     chot_don: { text: 'Chốt Đơn', class: 'status-closed' },
     san_xuat: { text: 'Sản Xuất', class: 'status-production' },
     giao_hang: { text: 'Giao Hàng', class: 'status-shipping' },
-    hoan_thanh: { text: 'Hoàn Thành', class: 'status-done' }
+    hoan_thanh: { text: 'Hoàn Thành', class: 'status-done' },
+    cho_duyet_huy_don: { text: '⏳ Chờ Duyệt Hủy Đơn', class: 'status-pending' },
+    da_huy_don_tra_coc: { text: '🚫 Đã Hủy Đơn', class: 'status-cancelled' }
 };
 
 const CRM_LABELS = {

@@ -541,7 +541,7 @@ async function renderCancelPage(container) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-                <h3>📋 Hủy Khách Hàng</h3>
+                <h3>📋 Hủy Khách Hàng & Hủy Đơn Trả Cọc</h3>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="btn btn-sm cancel-filter-btn active" data-filter="all" onclick="cancelFilterChange('all')" style="font-size:12px;font-weight:700;">Tất cả</button>
                     <button class="btn btn-sm cancel-filter-btn" data-filter="pending" onclick="cancelFilterChange('pending')" style="font-size:12px;font-weight:700;background:#f59e0b;color:#fff;border:1px solid #d97706;">⏳ Chờ Duyệt</button>
@@ -582,18 +582,32 @@ async function cancelLoadList() {
     else if (_cancelFilter === 'approved') url += '&cancel_approved=1';
     else if (_cancelFilter === 'rejected') url += '&cancel_approved=-1';
 
+    // Also fetch cancel-order requests (cho_duyet_huy_don)
+    let cancelOrderCustomers = [];
+    try {
+        const coData = await apiCall('/api/customers?order_status=cho_duyet_huy_don');
+        cancelOrderCustomers = (coData.customers || []).map(c => ({ ...c, _isCancelOrder: true }));
+    } catch(e) {}
+
     const data = await apiCall(url);
     const area = document.getElementById('cancelList');
 
-    if (!data.customers || data.customers.length === 0) {
+    // Merge cancel-order customers into the list (avoid duplicates)
+    const existingIds = new Set((data.customers || []).map(c => c.id));
+    const merged = [...(data.customers || [])];
+    cancelOrderCustomers.forEach(c => {
+        if (!existingIds.has(c.id)) merged.push(c);
+    });
+
+    if (merged.length === 0) {
         area.innerHTML = `<div class="empty-state"><div class="icon">✅</div><h3>Không có yêu cầu hủy nào</h3></div>`;
         return;
     }
 
     // Split by status
-    let pending = data.customers.filter(c => c.cancel_approved === 0);
-    const approved = data.customers.filter(c => c.cancel_approved === 1);
-    const rejected = data.customers.filter(c => c.cancel_approved === -1);
+    let pending = merged.filter(c => c.cancel_approved === 0 || c._isCancelOrder);
+    const approved = merged.filter(c => c.cancel_approved === 1 && !c._isCancelOrder);
+    const rejected = merged.filter(c => c.cancel_approved === -1 && !c._isCancelOrder);
 
     // Sort pending by urgency: oldest request first = least remaining time = most urgent
     pending.sort((a, b) => {
@@ -657,7 +671,7 @@ async function cancelLoadList() {
         }
 
         const statusBadge = isPending
-            ? '<span style="background:#f59e0b;color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">⏳ Chờ Duyệt</span>'
+            ? `<span style="background:${c._isCancelOrder || c.order_status === 'cho_duyet_huy_don' ? '#7c3aed' : '#f59e0b'};color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">⏳ ${c._isCancelOrder || c.order_status === 'cho_duyet_huy_don' ? 'Hủy Đơn' : 'Chờ Duyệt'}</span>`
             : isApproved
             ? '<span style="background:#16a34a;color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅ Đã Duyệt</span>'
             : '<span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">❌ Từ Chối</span>';
@@ -675,10 +689,16 @@ async function cancelLoadList() {
             <td>${statusBadge}</td>
             <td>
                 ${isPending ? (() => {
+                    const isCancelOrder = c._isCancelOrder || c.order_status === 'cho_duyet_huy_don';
                     // ★ QL không được tự duyệt yêu cầu của chính mình
                     const isSelfRequest = currentUser.role === 'quan_ly' && Number(c.cancel_requested_by) === Number(currentUser.id);
                     if (isSelfRequest) {
                         return `<span style="font-size:11px;color:#f59e0b;font-weight:600;">⏳ Chờ GĐ/QLCC duyệt</span>`;
+                    }
+                    if (isCancelOrder) {
+                        return `
+                        <button class="btn btn-sm" onclick="approveCancelOrder(${c.id}, true)" style="background:var(--success);color:white;font-size:11px;padding:4px 10px;">✅ Duyệt Hủy Đơn</button>
+                        <button class="btn btn-sm" onclick="approveCancelOrder(${c.id}, false)" style="background:var(--danger);color:white;font-size:11px;padding:4px 10px;">❌ Từ chối</button>`;
                     }
                     return `
                     <button class="btn btn-sm" onclick="approveCancel(${c.id}, true)" style="background:var(--success);color:white;font-size:11px;padding:4px 10px;">✅ Duyệt</button>
@@ -782,6 +802,42 @@ async function submitCancelAction(id, approve) {
     if (!manager_note) { showToast('Vui lòng nhập lý do!', 'error'); return; }
 
     const data = await apiCall(`/api/customers/${id}/approve-cancel`, 'POST', { approve, manager_note });
+    if (data.success) {
+        showToast('✅ ' + data.message);
+        closeModal();
+        cancelLoadList();
+    } else {
+        showToast(data.error, 'error');
+    }
+}
+
+// ========== DUYỆT HỦY ĐƠN TRẢ CỌC ==========
+async function approveCancelOrder(id, approve) {
+    const action = approve ? 'DUYỆT HỦY ĐƠN' : 'TỪ CHỐI HỦY ĐƠN';
+    const bodyHTML = `
+        <div class="form-group">
+            <label>Lý Do ${action} <span style="color:var(--danger)">*</span></label>
+            <textarea id="cancelOrderManagerReason" class="form-control" rows="3" placeholder="Nhập lý do ${action.toLowerCase()}..."></textarea>
+        </div>
+        <div style="padding:10px;background:rgba(${approve ? '124,58,237' : '220,38,38'},0.15);border-radius:6px;border:1px solid rgba(${approve ? '124,58,237' : '220,38,38'},0.3);font-size:12px;color:${approve ? '#c4b5fd' : '#fca5a5'};">
+            ${approve ? '✅ Đơn hàng sẽ bị hủy. Khách quay về chăm sóc lại với ngày hẹn ngày làm việc kế tiếp.' : '❌ Đơn hàng tiếp tục sản xuất. Khách quay về Chốt Đơn với ngày hẹn ngày làm việc kế tiếp.'}
+        </div>
+    `;
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn" onclick="submitCancelOrderAction(${id}, ${approve})" 
+            style="width:auto;background:${approve ? '#7c3aed' : 'var(--danger)'};color:white;">
+            ${action}
+        </button>
+    `;
+    openModal(`🚫 ${action} Trả Cọc`, bodyHTML, footerHTML);
+}
+
+async function submitCancelOrderAction(id, approve) {
+    const manager_note = document.getElementById('cancelOrderManagerReason')?.value;
+    if (!manager_note) { showToast('Vui lòng nhập lý do!', 'error'); return; }
+
+    const data = await apiCall(`/api/customers/${id}/approve-cancel-order`, 'POST', { approve, manager_note });
     if (data.success) {
         showToast('✅ ' + data.message);
         closeModal();

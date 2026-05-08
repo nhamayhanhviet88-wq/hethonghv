@@ -306,8 +306,9 @@ function _kockolFilterByCat(cat) {
 
 
 function _kockolGetCategory(c, stats) {
-    // Priority 0.5: Chờ Duyệt Hủy (NV đã ấn hủy, chờ sếp)
+    // Priority 0.5: Chờ Duyệt Hủy or Chờ Duyệt Hủy Đơn (NV đã ấn hủy, chờ sếp)
     if (c.cancel_requested === 1 && c.cancel_approved === 0) return 'da_xu_ly';
+    if (c.order_status === 'cho_duyet_huy_don') return 'da_xu_ly';
 
     // Priority 1: Hủy khách (sếp đã duyệt)
     if (c.cancel_approved === 1) return 'huy_khach';
@@ -627,7 +628,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
             ${c.readonly || !canDo('crm_koc_kol', 'edit') ? (
                 (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:var(--gray-700);color:var(--gray-400);opacity:0.6;cursor:not-allowed;">
-                    ⏳ Chờ Duyệt Hủy
+                    ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </span>
             ` : (c.cancel_approved === -2) ? `
                 <span style="font-size:11px;padding:4px 8px;border-radius:6px;display:inline-block;background:#dc2626;color:white;opacity:0.6;cursor:not-allowed;">
@@ -643,7 +644,7 @@ function _kockolRenderCustomerRow(c, stats, stt) {
                 </span>
             `) : (c.cancel_requested === 1 && c.cancel_approved === 0) ? `
                 <button class="btn btn-sm" disabled style="font-size:11px;padding:4px 8px;background:var(--gray-700);color:var(--gray-400);cursor:not-allowed;">
-                    ⏳ Chờ Duyệt Hủy
+                    ⏳ ${c.order_status === 'cho_duyet_huy_don' ? 'Chờ Duyệt Hủy Đơn' : 'Chờ Duyệt Hủy'}
                 </button>
             ` : (c.cancel_approved === -2) ? `
                 <button class="btn btn-sm consult-btn" onclick="_kockolOpenConsultModal(${c.id})" 
@@ -963,7 +964,7 @@ async function _kockolOpenConsultModal(customerId) {
     // ★ Use last consultation log type (represents actual workflow state)
     const lastLogEntry = consultLogs.length > 0 ? consultLogs[0] : null;
     // Override: special cancel statuses always take priority over last log
-    const OVERRIDE_STATUSES_MODAL = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy'];
+    const OVERRIDE_STATUSES_MODAL = ['tu_van_lai', 'cho_duyet_huy', 'duyet_huy', 'cho_duyet_huy_don', 'da_huy_don_tra_coc'];
     const effectiveStatus = OVERRIDE_STATUSES_MODAL.includes(orderStatus) ? orderStatus : (lastLogEntry ? lastLogEntry.log_type : orderStatus);
     const frTypes = _getFlowRuleTypes(effectiveStatus);
 
@@ -1295,7 +1296,7 @@ function _kockolOnConsultTypeChange() {
     if (nextTypeGroup) nextTypeGroup.style.display = 'none';
 
     // Image required: hide * for specific types
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc', 'huy_don_tra_coc'];
     if (imageReq) imageReq.style.display = imageExemptTypes.includes(type) ? 'none' : 'inline';
 
     // HỦY flow
@@ -1372,6 +1373,18 @@ function _kockolOnConsultTypeChange() {
         if (contentArea) contentArea.placeholder = 'Nhập lý do hủy cọc...';
         const apptLabel = appointmentGroup?.querySelector('label');
         if (apptLabel) apptLabel.innerHTML = 'Ngày Hẹn Làm Việc <span style="color:var(--danger)">*</span>';
+    }
+
+    // Hủy Đơn Trả Cọc flow
+    if (type === 'huy_don_tra_coc') {
+        if (contentGroup) contentGroup.style.display = 'block';
+        if (imageGroup) imageGroup.style.display = 'none';
+        if (appointmentGroup) appointmentGroup.style.display = 'none';
+        if (nextTypeGroup) nextTypeGroup.style.display = 'none';
+        const contentLabel = contentGroup?.querySelector('label');
+        if (contentLabel) contentLabel.innerHTML = 'Lý Do Hủy Đơn Trả Cọc <span style="color:var(--danger)">*</span>';
+        const contentArea = document.getElementById('consultContent');
+        if (contentArea) contentArea.placeholder = 'Nhập lý do hủy đơn trả cọc...';
     }
 }
 
@@ -1696,6 +1709,18 @@ async function _kockolSubmitConsultLog(customerId) {
         return;
     }
 
+    // ========== HỦY ĐƠN TRẢ CỌC flow ==========
+    if (log_type === 'huy_don_tra_coc') {
+        const reason = document.getElementById('consultContent')?.value;
+        if (!reason) { showToast('Vui lòng nhập lý do hủy đơn trả cọc!', 'error'); _kockolEnableSubmitBtn(); return; }
+        try {
+            const data = await apiCall(`/api/customers/${customerId}/cancel-order`, 'POST', { reason });
+            if (data.success) { showToast('🚫 ' + data.message); closeModal(); loadCrmKocKolData(); }
+            else { showToast(data.error || 'Lỗi!', 'error'); _kockolEnableSubmitBtn(); }
+        } catch (err) { showToast('Lỗi kết nối!', 'error'); _kockolEnableSubmitBtn(); }
+        return;
+    }
+
     // ========== Cấp Cứu Sếp flow ==========
     if (log_type === 'cap_cuu_sep') {
         const handler_id = document.getElementById('consultHandler')?.value;
@@ -1824,7 +1849,7 @@ async function _kockolSubmitConsultLog(customerId) {
 
     // ========== Normal consultation flow ==========
     if (!content) { showToast('Vui lòng nhập nội dung tư vấn!', 'error'); _kockolEnableSubmitBtn(); return; }
-    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc'];
+    const imageExemptTypes = ['goi_dien', 'chot_don', 'hoan_thanh', 'khong_xu_ly', 'hoan_thanh_cap_cuu', 'huy', 'huy_coc', 'huy_don_tra_coc'];
     if (!imageExemptTypes.includes(log_type) && !window._consultImageBlob) {
         showToast('Vui lòng dán hình ảnh (Ctrl+V)!', 'error'); _kockolEnableSubmitBtn(); return;
     }

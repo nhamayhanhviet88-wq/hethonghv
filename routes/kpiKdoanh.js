@@ -93,6 +93,7 @@ module.exports = async function(fastify) {
                 WHERE oc.customer_id IN (${custPh})
                   AND oc.created_at >= $${cPS}::timestamp
                   AND oc.created_at < $${cPE}::timestamp
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                 GROUP BY c.assigned_to_id, day_num
                 ORDER BY uid, day_num
             `, [...custIds, monthStart, monthEnd]);
@@ -385,6 +386,7 @@ module.exports = async function(fastify) {
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
               AND oc.created_at >= $2::timestamptz
               AND oc.created_at < $3::timestamptz
+              AND COALESCE(oc.status, 'active') != 'cancelled'
             ORDER BY oc.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
 
@@ -471,6 +473,7 @@ module.exports = async function(fastify) {
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
               AND oc.created_at >= $${empIds.length + 1}::timestamp
               AND oc.created_at < $${empIds.length + 2}::timestamp
+              AND COALESCE(oc.status, 'active') != 'cancelled'
             GROUP BY c.assigned_to_id, mo
         `, [...empIds, yearStart, yearEnd]);
 

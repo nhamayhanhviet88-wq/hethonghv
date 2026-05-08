@@ -83,6 +83,113 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         return reply.code(403).send({ error: 'Không có quyền hủy' });
     });
 
+    // ========== HỦY ĐƠN TRẢ CỌC (Cancel active order after chot_don) ==========
+    fastify.post('/api/customers/:id/cancel-order', { preHandler: [authenticate] }, async (request, reply) => {
+        const { reason } = request.body || {};
+        if (!reason) return reply.code(400).send({ error: 'Vui lòng nhập lý do hủy đơn trả cọc' });
+        const custId = Number(request.params.id);
+        const customer = await db.get('SELECT * FROM customers WHERE id = ?', [custId]);
+        if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
+
+        // Only allow cancel-order when status is chot_don (or dang_san_xuat)
+        if (!['chot_don'].includes(customer.order_status)) {
+            return reply.code(400).send({ error: 'Chỉ có thể hủy đơn trả cọc khi đã Chốt Đơn.' });
+        }
+
+        // Block if already pending a cancel request
+        if (customer.order_status === 'cho_duyet_huy' || customer.order_status === 'cho_duyet_huy_don') {
+            return reply.code(400).send({ error: 'Đã có yêu cầu hủy đang chờ duyệt.' });
+        }
+
+        // Helper: send cancel-order request (pending)
+        const _sendCancelOrderRequest = async (msg) => {
+            await db.run(
+                `UPDATE customers SET cancel_requested = 1, cancel_approved = 0, cancel_reason = $1,
+                 cancel_requested_by = $2, cancel_requested_at = NOW()::text,
+                 cancel_approved_by = NULL, cancel_approved_at = NULL,
+                 order_status = 'cho_duyet_huy_don',
+                 updated_at = NOW() WHERE id = $3`,
+                [reason, request.user.id, custId]
+            );
+            // Log
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
+                [custId, `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`, request.user.id]);
+            // Telegram
+            const tgMsg = `🚫 <b>Yêu cầu HỦY ĐƠN TRẢ CỌC</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            return { success: true, message: msg || 'Yêu cầu hủy đơn trả cọc đã gửi. Chờ duyệt.' };
+        };
+
+        // GĐ/QLCC → still requires approval flow (no direct cancel for orders)
+        // All roles → send request pending approval
+        return _sendCancelOrderRequest('Yêu cầu hủy đơn trả cọc đã gửi. Chờ Giám Đốc/QLCC duyệt.');
+    });
+
+    // ★ DUYỆT HỦY ĐƠN TRẢ CỌC — GĐ/QLCC only
+    fastify.post('/api/customers/:id/approve-cancel-order', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
+        const { approve, manager_note } = request.body || {};
+        const custId = Number(request.params.id);
+        if (!manager_note) return reply.code(400).send({ error: 'Vui lòng nhập lý do!' });
+
+        const customer = await db.get('SELECT * FROM customers WHERE id = $1', [custId]);
+        if (!customer || customer.order_status !== 'cho_duyet_huy_don') {
+            return reply.code(400).send({ error: 'Khách hàng không có yêu cầu hủy đơn trả cọc.' });
+        }
+
+        // QL cannot approve own request
+        if (request.user.role === 'quan_ly') {
+            if (Number(customer.cancel_requested_by) === Number(request.user.id)) {
+                return reply.code(403).send({ error: 'Không thể tự duyệt yêu cầu hủy đơn của chính mình.' });
+            }
+        }
+
+        const nextBizDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
+
+        if (approve) {
+            // ✅ APPROVE: Cancel the order, return customer to nurture flow
+            await db.run(
+                `UPDATE customers SET 
+                 cancel_approved = 0, cancel_requested = 0,
+                 cancel_reason = cancel_reason || $1,
+                 order_status = 'da_huy_don_tra_coc',
+                 appointment_date = $2,
+                 is_pinned = false, pinned_at = NULL,
+                 updated_at = NOW() WHERE id = $3`,
+                [`\n✅ Duyệt hủy đơn: ${manager_note}`, nextBizDay, custId]
+            );
+            // Cancel all active order_codes for this customer
+            await db.run("UPDATE order_codes SET status = 'cancelled' WHERE customer_id = $1 AND status = 'active'", [custId]);
+            // Log
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
+                [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
+            // Telegram
+            const tgMsg = `✅ <b>Đã DUYỆT hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            return { success: true, message: 'Đã duyệt hủy đơn trả cọc. Khách quay về chăm sóc lại.' };
+        } else {
+            // ❌ REJECT: Return to chot_don
+            await db.run(
+                `UPDATE customers SET 
+                 cancel_approved = 0, cancel_requested = 0,
+                 cancel_reason = cancel_reason || $1,
+                 order_status = 'chot_don',
+                 appointment_date = $2,
+                 updated_at = NOW() WHERE id = $3`,
+                [`\n❌ Từ chối hủy đơn: ${manager_note}`, nextBizDay, custId]
+            );
+            // Log
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
+                [custId, `❌ Từ chối hủy đơn trả cọc — ${manager_note}`, request.user.id]);
+            // Telegram
+            const tgMsg = `❌ <b>Từ chối hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
+            const globalId = process.env.TELEGRAM_GROUP_ID;
+            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            return { success: true, message: 'Đã từ chối hủy đơn. Khách tiếp tục sản xuất.' };
+        }
+    });
+
     // ★ GĐ, QLCC duyệt tất cả. QL duyệt được nhưng KHÔNG tự duyệt của mình.
     fastify.post('/api/customers/:id/approve-cancel', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { approve, manager_note } = request.body || {};
@@ -132,24 +239,37 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
     // ========== AUTO-REVERT EXPIRED CANCELS (24h) ==========
     fastify.post('/api/cancel/auto-revert-expired', { preHandler: [authenticate] }, async (request, reply) => {
-        // Find all pending cancel requests older than 24h
+        // Find all pending cancel requests older than 24h (both hủy khách + hủy đơn trả cọc)
         const expired = await db.all(
-            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id FROM customers 
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status FROM customers 
              WHERE cancel_requested = 1 AND cancel_approved = 0 
              AND cancel_requested_at IS NOT NULL 
-             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'`
+             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'
+             AND order_status IN ('cho_duyet_huy', 'cho_duyet_huy_don')`
         );
         if (expired.length === 0) return { success: true, reverted: 0, customers: [] };
 
         for (const c of expired) {
             const nextBizDay = await getNextWorkingDay(new Date(), c.assigned_to_id);
-            await db.run(
-                `UPDATE customers SET cancel_approved = -2,
-                 cancel_reason = cancel_reason || $1,
-                 order_status = 'tu_van_lai', appointment_date = $2,
-                 updated_at = NOW() WHERE id = $3`,
-                ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDay, c.id]
-            );
+            if (c.order_status === 'cho_duyet_huy_don') {
+                // Hủy đơn trả cọc expired → return to chot_don
+                await db.run(
+                    `UPDATE customers SET cancel_approved = 0, cancel_requested = 0,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'chot_don', appointment_date = $2,
+                     updated_at = NOW() WHERE id = $3`,
+                    ['\n⏰ Tự động: Quá 24h không phản hồi hủy đơn', nextBizDay, c.id]
+                );
+            } else {
+                // Hủy khách expired → return to tu_van_lai
+                await db.run(
+                    `UPDATE customers SET cancel_approved = -2,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'tu_van_lai', appointment_date = $2,
+                     updated_at = NOW() WHERE id = $3`,
+                    ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDay, c.id]
+                );
+            }
         }
         return { success: true, reverted: expired.length, customers: expired };
     });
@@ -625,7 +745,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run('UPDATE customers SET appointment_date = ? WHERE id = ?', [nextBizDay, customerId]);
         }
 
-        const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc' };
+        const statusMap = { 'goi_dien': 'dang_tu_van', 'nhan_tin': 'dang_tu_van', 'gap_truc_tiep': 'dang_tu_van', 'gui_bao_gia': 'bao_gia', 'gui_mau': 'dang_tu_van', 'thiet_ke': 'dang_tu_van', 'bao_sua': 'dang_tu_van', 'lam_quen_tuong_tac': 'lam_quen_tuong_tac', 'gui_stk_coc': 'gui_stk_coc', 'giuc_coc': 'gui_stk_coc', 'dat_coc': 'dat_coc', 'chot_don': 'chot_don', 'dang_san_xuat': 'chot_don', 'hoan_thanh': 'hoan_thanh', 'sau_ban_hang': 'sau_ban_hang', 'tuong_tac_ket_noi': 'tuong_tac_ket_noi', 'gui_ct_kh_cu': 'gui_ct_kh_cu', 'giam_gia': 'giam_gia', 'huy_coc': 'huy_coc', 'da_huy_don_tra_coc': 'da_huy_don_tra_coc' };
         if (statusMap[log_type]) {
             await db.run('UPDATE customers SET order_status = ?, updated_at = NOW() WHERE id = ?', [statusMap[log_type], customerId]);
 
