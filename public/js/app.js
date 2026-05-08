@@ -1783,6 +1783,37 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3500);
 }
 
+// ========== GLOBAL: Copy text to clipboard (dùng chung cho tất cả CRM modules) ==========
+function _crmCopyText(text, el, label) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        // Visual feedback: change icon
+        if (el) {
+            const orig = el.textContent;
+            el.textContent = '✅';
+            el.style.color = '#10b981';
+            setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 1500);
+        }
+        if (typeof showToast === 'function') showToast('📋 Đã copy: ' + (label || text));
+    }).catch(() => {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        if (el) {
+            const orig = el.textContent;
+            el.textContent = '✅';
+            el.style.color = '#10b981';
+            setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 1500);
+        }
+        if (typeof showToast === 'function') showToast('📋 Đã copy: ' + (label || text));
+    });
+}
+
 // ========== CHANGE PASSWORD ==========
 function showChangePasswordModal() {
     const bodyHTML = `
