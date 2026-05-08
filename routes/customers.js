@@ -330,11 +330,12 @@ async function customersRoutes(fastify, options) {
 
                 // Gắn next_aff_rate cho từng KH
                 for (const c of customers) {
-                    if (!c.referrer_id) {
-                        c.next_aff_rate = 0;
-                    } else if (selfOrderSet.has(c.id)) {
-                        // Self-order: lifetime 10%
+                    if (selfOrderSet.has(c.id)) {
+                        // ★ Self-order (KH đã tạo TK affiliate): lifetime 10%
                         c.next_aff_rate = 10;
+                    } else if (!c.referrer_id) {
+                        // Không có người giới thiệu + không có TK affiliate → 0%
+                        c.next_aff_rate = 0;
                     } else if (completedSet.has(c.id)) {
                         // First order done + no self-order → 0%
                         c.next_aff_rate = 0;
