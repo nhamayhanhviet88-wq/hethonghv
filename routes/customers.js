@@ -458,7 +458,10 @@ async function customersRoutes(fastify, options) {
         // Để frontend hiển thị countdown chính xác (skip CN, lễ, nghỉ phép) — đồng bộ với cron auto-revert
         try {
             const pendingCancels = customers.filter(c =>
-                c.cancel_requested === 1 && c.cancel_approved === 0 && c.cancel_requested_at
+                c.cancel_requested_at && (
+                    (Number(c.cancel_requested) === 1 && Number(c.cancel_approved) === 0) ||
+                    c.order_status === 'cho_duyet_huy' || c.order_status === 'cho_duyet_huy_don'
+                )
             );
             for (const c of pendingCancels) {
                 const dl = await calculateRealDeadline(c.cancel_requested_at, null, 23);
