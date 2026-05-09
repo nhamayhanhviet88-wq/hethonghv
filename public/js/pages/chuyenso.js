@@ -334,7 +334,7 @@ async function renderChuyenSoPage(container) {
                 _csoResetForm(e.target);
             } else if (data.error === 'duplicate_customer_warning' && data.duplicates) {
                 // ★ SĐT trùng KH → Hiện popup danh sách: chọn Gửi Lại hoặc Tạo Mới
-                _csoShowDuplicatePopup(data.duplicates, body.notes, body);
+                _csoShowDuplicatePopup(data.duplicates, body.notes, body, data.receiver_id);
             } else {
                 showToast(data.error || data.message || 'Lỗi', 'error');
             }
@@ -721,7 +721,7 @@ function _csoResetForm(form) {
 }
 
 // ========== POPUP GỬI LẠI SỐ TRÙNG (MULTI-CARD) ==========
-function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
+function _csoShowDuplicatePopup(dups, formNotes, originalBody, receiverId) {
     // Remove existing popup
     document.getElementById('csoDupOverlay')?.remove();
 
@@ -731,10 +731,16 @@ function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
 
     const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
+    // ★ Kiểm tra NV nhận số đã có KH trùng chưa
+    const receiverHasDup = receiverId && dups.some(d => d.assigned_to_id === receiverId);
+
     // Build cards HTML
-    const cardsHtml = dups.map((dup, idx) => `
-        <div class="_csoDupCard" data-cid="${dup.id}" onclick="_csoDupSelectCard(${dup.id})"
-             style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;">
+    const cardsHtml = dups.map((dup, idx) => {
+        const isSameReceiver = receiverId && dup.assigned_to_id === receiverId;
+        return `
+        <div class="_csoDupCard ${isSameReceiver ? '_receiverMatch' : ''}" data-cid="${dup.id}" onclick="_csoDupSelectCard(${dup.id})"
+             style="background:linear-gradient(135deg,${isSameReceiver ? '#fef2f2,#fee2e2' : '#fffbeb,#fef3c7'});border:2px solid ${isSameReceiver ? '#fca5a5' : '#fcd34d'};border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;">
+            ${isSameReceiver ? '<div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:6px;text-transform:uppercase;">⚠️ NV nhận số đã có KH này</div>' : ''}
             <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;">
                 <span style="color:#92400e;font-weight:700;">👤 KH:</span>
                 <span style="color:#1e293b;font-weight:700;">${dup.customer_name || 'N/A'}</span>
@@ -747,8 +753,23 @@ function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
                 <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
                 <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
+
+    // ★ Nút Tạo KH Mới: ẩn nếu NV nhận số đã có KH trùng
+    const createNewBtnHtml = receiverHasDup
+        ? ''
+        : `<button onclick="_csoForceCreateNew()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
+                🆕 Tạo KH Mới
+            </button>`;
+
+    const createNewInfoHtml = receiverHasDup
+        ? `<div style="font-size:11px;color:#dc2626;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;">
+                <strong>🚫 Không thể Tạo KH Mới</strong> — NV nhận số đã có KH với SĐT này. Chỉ có thể Gửi Lại Số.
+           </div>`
+        : `<div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe;">
+                <strong style="color:#4338ca;">🆕 Tạo KH Mới</strong> — tạo khách hàng mới với UID riêng biệt (dù cùng SĐT)
+           </div>`;
 
     const overlay = document.createElement('div');
     overlay.id = 'csoDupOverlay';
@@ -765,7 +786,7 @@ function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
                 <span style="font-size:28px;">⚠️</span>
                 <div>
                     <div style="font-size:16px;font-weight:800;color:white;">SĐT ĐÃ TỒN TẠI TRONG HỆ THỐNG</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Tìm thấy <strong>${dups.length} khách hàng</strong> trùng SĐT. Chọn KH để <strong>Gửi Lại Số</strong> hoặc <strong>Tạo KH Mới</strong></div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Tìm thấy <strong>${dups.length} khách hàng</strong> trùng SĐT. Chọn KH để <strong>Gửi Lại Số</strong>${receiverHasDup ? '' : ' hoặc <strong>Tạo KH Mới</strong>'}</div>
                 </div>
             </div>
             <div style="padding:20px 24px;overflow-y:auto;flex:1;">
@@ -782,18 +803,14 @@ function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
                     <strong style="color:#15803d;">✅ Gửi Lại Số</strong> — chọn 1 KH ở trên rồi bấm gửi lại
                 </div>
 
-                <!-- Option 2: Tạo KH Mới (UID riêng) -->
-                <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe;">
-                    <strong style="color:#4338ca;">🆕 Tạo KH Mới</strong> — tạo khách hàng mới với UID riêng biệt (dù cùng SĐT)
-                </div>
+                <!-- Option 2: Tạo KH Mới hoặc cảnh báo -->
+                ${createNewInfoHtml}
 
                 <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
                     <button onclick="document.getElementById('csoDupOverlay').remove()" style="padding:10px 20px;border-radius:10px;border:1.5px solid #d1d5db;background:#f9fafb;color:#374151;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='#f9fafb'">
                         ❌ Bỏ Qua
                     </button>
-                    <button onclick="_csoForceCreateNew()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
-                        🆕 Tạo KH Mới
-                    </button>
+                    ${createNewBtnHtml}
                     <button id="csoDupResendBtn" onclick="_csoConfirmResendSelected()" disabled style="padding:10px 20px;border-radius:10px;border:none;background:#9ca3af;color:white;font-weight:800;font-size:13px;cursor:not-allowed;box-shadow:none;transition:all 0.15s;opacity:0.6;">
                         ✅ Chọn KH để Gửi Lại
                     </button>
