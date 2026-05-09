@@ -2289,8 +2289,14 @@ async function _kockolOpenCustomerDetail(customerId) {
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🏷️ Mã KH</div>
                         <div style="font-size:13px;font-weight:800;color:#6d28d9;">${getCustomerCode(c)}</div>
                     </div>
+                    <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">🔑 UID</div>
+                        <div style="font-size:11px;font-weight:600;color:#6366f1;font-family:'Courier New',monospace;word-break:break-all;">${c.customer_uid || '—'}</div>
+                    </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
                         <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">📞 SĐT</div>
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
+                    </div>
                         <div style="font-size:13px;font-weight:600;color:#1e293b;">${c.readonly ? '<span style="color:#94a3b8">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '" style="color:#3b82f6;text-decoration:none;">' + c.phone + '</a>'}</div>
                     </div>
                     <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0;">
