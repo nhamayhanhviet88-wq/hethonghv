@@ -61,22 +61,56 @@ async function customersRoutes(fastify, options) {
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
         if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
 
-        // Check phone: BLOCK if matches internal user, WARNING if matches existing customer
+        // ★ Xác định NV nhận số TRƯỚC khi check phone (cần biết assigned_to_id để check trùng)
+        let actualReceiverId = receiver_id ? Number(receiver_id) : null;
+        let referrerId = null;
+        if (request.user.role === 'hoa_hong') {
+            referrerId = request.user.id;
+            if (request.user.assigned_to_user_id) actualReceiverId = request.user.assigned_to_user_id;
+        } else if (request.user.role === 'tkaffiliate') {
+            referrerId = request.user.id;
+            if (request.user.managed_by_user_id) actualReceiverId = request.user.managed_by_user_id;
+        } else if (affiliate_user_id) {
+            referrerId = Number(affiliate_user_id);
+        }
+
+        // Check phone: phân quyền theo role
         if (phone) {
-            // Hard block: SĐT trùng NV nội bộ
+            // Hard block: SĐT trùng NV nội bộ (tất cả role đều bị block)
             const userError = await checkPhoneUser(phone);
             if (userError) return reply.code(400).send({ error: userError });
 
-            // Soft warning: SĐT trùng KH → popup hỏi (trừ khi force_create = true)
-            if (!force_create) {
-                const custWarning = await checkPhoneCustomerWarning(phone);
-                if (custWarning) {
-                    return reply.code(409).send({
-                        error: 'duplicate_customer_warning',
-                        message: custWarning.warning,
-                        duplicate: custWarning.customer
-                    });
+            // ★ Phân quyền SĐT trùng KH:
+            const isExecutive = ['giam_doc', 'quan_ly_cap_cao'].includes(request.user.role);
+
+            if (isExecutive) {
+                // Giám Đốc / QL Cấp Cao: hiện popup cho TẤT CẢ SĐT trùng (trừ force_create)
+                if (!force_create) {
+                    const custWarning = await checkPhoneCustomerWarning(phone);
+                    if (custWarning) {
+                        return reply.code(409).send({
+                            error: 'duplicate_customer_warning',
+                            message: custWarning.warning,
+                            duplicate: custWarning.customer
+                        });
+                    }
                 }
+            } else {
+                // NV / TP / QL / Affiliate: chỉ block nếu CHÍNH NV nhận số đã có KH này
+                if (actualReceiverId) {
+                    const selfDup = await db.get(
+                        `SELECT c.id, c.customer_name, c.phone, u.full_name as assigned_to_name
+                         FROM customers c LEFT JOIN users u ON u.id = c.assigned_to_id
+                         WHERE c.phone = $1 AND c.assigned_to_id = $2 LIMIT 1`,
+                        [phone, actualReceiverId]
+                    );
+                    if (selfDup) {
+                        return reply.code(400).send({
+                            error: `SĐT ${phone} đã có trong danh sách KH của "${selfDup.assigned_to_name || 'NV'}" — KH "${selfDup.customer_name}". Không thể gửi trùng.`
+                        });
+                    }
+                }
+                // SĐT trùng NV khác → bỏ qua, tạo KH mới tự động
             }
         }
 
@@ -88,18 +122,6 @@ async function customersRoutes(fastify, options) {
         if (!resolvedSourceId && source_name) {
             const srcRow = await db.get('SELECT id FROM settings_sources WHERE UPPER(name) = UPPER($1) LIMIT 1', [source_name.trim()]);
             if (srcRow) resolvedSourceId = srcRow.id;
-        }
-
-        let actualReceiverId = receiver_id ? Number(receiver_id) : null;
-        let referrerId = null;
-        if (request.user.role === 'hoa_hong') {
-            referrerId = request.user.id;
-            if (request.user.assigned_to_user_id) actualReceiverId = request.user.assigned_to_user_id;
-        } else if (request.user.role === 'tkaffiliate') {
-            referrerId = request.user.id;
-            if (request.user.managed_by_user_id) actualReceiverId = request.user.managed_by_user_id;
-        } else if (affiliate_user_id) {
-            referrerId = Number(affiliate_user_id);
         }
 
         // ★ CUTOFF LOGIC — Chuyển số ngoài giờ → gán sang ngày LV kế tiếp
