@@ -1,6 +1,6 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
+const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
 const { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning } = require('../utils/phoneCheck');
 const { maskCustomerData } = require('../utils/dataMasking');
 const { getVNToday } = require('../utils/workingDay');
@@ -202,11 +202,7 @@ async function customersRoutes(fastify, options) {
         const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
         const tgMessage = `📱 <b>${code}</b> : ${customer_name} - ${phone} - ${crmLabels[crm_type] || crm_type} - ${sourceName || 'N/A'} - ${receiverUser?.full_name || 'N/A'} - ${promoName || 'N/A'} - ${industryName || 'N/A'}`;
-        const targetIds = [];
-        if (receiverUser?.telegram_group_id) targetIds.push(receiverUser.telegram_group_id);
-        const globalId = process.env.TELEGRAM_GROUP_ID;
-        if (globalId) targetIds.push(globalId);
-        broadcastTelegram(targetIds, tgMessage);
+        notifyTelegram(actualReceiverId, 'chuyen_so', tgMessage);
 
         // Auto-update partner_outreach_entries: mark as transferred
         try {
@@ -264,11 +260,7 @@ async function customersRoutes(fastify, options) {
             `🔥 <b>PHẢI XỬ LÝ HÔM NAY!</b>` +
             (notes && notes.trim() ? `\n💬 ${notes.trim()}` : '');
 
-        const targetIds = [];
-        if (customer.assigned_telegram) targetIds.push(customer.assigned_telegram);
-        const globalId = process.env.TELEGRAM_GROUP_ID;
-        if (globalId) targetIds.push(globalId);
-        broadcastTelegram(targetIds, tgMessage);
+        notifyTelegram(customer.assigned_to_id, 'gui_lai_so', tgMessage);
 
         console.log(`[RESEND] Customer #${customer_id} resent by ${request.user.username} → code kept: ${originalCode}, appointment: ${today}`);
 
@@ -558,8 +550,7 @@ async function customersRoutes(fastify, options) {
                         const commission = Math.round(grandTotal * ctv.percentage / 100);
                         await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, customer.referrer_id]);
                         const tgMsg = `💰 <b>Hoa Hồng</b>\nCTV: ${ctv.full_name}\nKhách: ${customer.customer_name}\nDoanh số: ${grandTotal.toLocaleString('vi-VN')} VNĐ\nChiết khấu: ${ctv.percentage}%\nHoa hồng: <b>${commission.toLocaleString('vi-VN')} VNĐ</b>`;
-                        const globalId = process.env.TELEGRAM_GROUP_ID;
-                        if (globalId) sendTelegramMessage(globalId, tgMsg);
+                        notifyTelegram(customer.referrer_id, 'chuyen_so', tgMsg);
                     }
                 }
             }
@@ -567,9 +558,8 @@ async function customersRoutes(fastify, options) {
 
         if (customer) {
             const statusLabels = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
-            const receiver = customer.assigned_to_id ? await db.get('SELECT telegram_group_id FROM users WHERE id = ?', [customer.assigned_to_id]) : null;
             const tgMsg = `📝 <b>Cập nhật trạng thái</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nTrạng thái: <b>${statusLabels[order_status]}</b>\nBởi: ${request.user.full_name}`;
-            if (receiver?.telegram_group_id) sendTelegramMessage(receiver.telegram_group_id, tgMsg);
+            notifyTelegram(customer.assigned_to_id, 'chuyen_so', tgMsg);
         }
         return { success: true, message: 'Cập nhật trạng thái thành công' };
     });

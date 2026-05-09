@@ -1,17 +1,57 @@
 // ========== TELEGRAM BOT UTILITY ==========
 const https = require('https');
+const db = require('../db/pool');
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+// ========== EVENT REGISTRY ==========
+// scope: 'global' = 1 Group ID cho tất cả NV (lưu app_config)
+// scope: 'per_staff' = mỗi NV có Group ID riêng (lưu bảng telegram_notifications)
+const TELEGRAM_EVENTS = [
+    // === GLOBAL: Cài 1 Group ID, áp dụng tất cả NV ===
+    { key: 'cap_cuu_sep',      label: '🚨 Cấp Cứu Sếp',        scope: 'global',    icon: '🚨' },
+    { key: 'huy_khach',        label: '❌ Hủy Khách',            scope: 'global',    icon: '❌' },
+    { key: 'huy_don_tra_coc',  label: '🚫 Hủy Đơn Trả Cọc',    scope: 'global',    icon: '🚫' },
+
+    // === PER-STAFF: Mỗi NV cài Group ID riêng ===
+    { key: 'chuyen_so',        label: '📱 Chuyển Số',            scope: 'per_staff', icon: '📱' },
+    { key: 'gui_lai_so',       label: '🔄 Gửi Lại Số',          scope: 'per_staff', icon: '🔄' },
+    // (thêm loại per_staff khác sau...)
+];
+
+// ========== BOT TOKEN CACHE ==========
+let _cachedToken = null;
+let _tokenExpiry = 0;
+const TOKEN_CACHE_MS = 5 * 60 * 1000; // 5 phút
+
+async function getBotToken() {
+    if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken;
+    try {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'telegram_bot_token'");
+        _cachedToken = (row?.value || '').trim() || process.env.TELEGRAM_BOT_TOKEN || '';
+        _tokenExpiry = Date.now() + TOKEN_CACHE_MS;
+    } catch (e) {
+        _cachedToken = process.env.TELEGRAM_BOT_TOKEN || '';
+        _tokenExpiry = Date.now() + 30000; // retry sau 30s nếu lỗi
+    }
+    return _cachedToken;
+}
+
+// Xóa cache khi GĐ cập nhật token mới
+function clearTokenCache() {
+    _cachedToken = null;
+    _tokenExpiry = 0;
+}
 
 /**
  * Send a message to a Telegram chat/group
  * @param {string} chatId - Telegram chat ID or group ID
  * @param {string} message - Message text (supports HTML parse mode)
+ * @param {string} [token] - Optional custom token (otherwise reads from cache)
  * @returns {Promise<boolean>}
  */
-async function sendTelegramMessage(chatId, message) {
-    if (!TELEGRAM_BOT_TOKEN || !chatId) {
-        console.log('[Telegram] Skipped (no token or chatId):', message);
+async function sendTelegramMessage(chatId, message, token) {
+    const botToken = token || await getBotToken();
+    if (!botToken || !chatId) {
+        console.log('[Telegram] Skipped (no token or chatId):', message?.substring(0, 80));
         return false;
     }
 
@@ -25,7 +65,7 @@ async function sendTelegramMessage(chatId, message) {
         const options = {
             hostname: 'api.telegram.org',
             port: 443,
-            path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+            path: `/bot${botToken}/sendMessage`,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -69,4 +109,73 @@ async function broadcastTelegram(chatIds, message) {
     }
 }
 
-module.exports = { sendTelegramMessage, broadcastTelegram };
+/**
+ * ★ SMART NOTIFY — Gửi thông báo theo event type
+ * - Global event → đọc từ app_config (tg_global_xxx)
+ * - Per-staff event → đọc từ telegram_notifications, fallback users.telegram_group_id
+ *
+ * @param {number|null} userId - ID nhân viên liên quan (null cho global-only events)
+ * @param {string} eventType - Key trong TELEGRAM_EVENTS (e.g. 'chuyen_so', 'cap_cuu_sep')
+ * @param {string} message - Nội dung tin nhắn HTML
+ */
+async function notifyTelegram(userId, eventType, message) {
+    const token = await getBotToken();
+    if (!token) return;
+
+    const event = TELEGRAM_EVENTS.find(e => e.key === eventType);
+    if (!event) {
+        console.log('[Telegram] ⚠️ Unknown event type:', eventType);
+        return;
+    }
+
+    const targets = new Set();
+
+    if (event.scope === 'global') {
+        // ★ GLOBAL: đọc từ app_config
+        try {
+            const row = await db.get(
+                "SELECT value FROM app_config WHERE key = $1",
+                [`tg_global_${eventType}`]
+            );
+            if (row?.value?.trim()) targets.add(row.value.trim());
+        } catch (e) {
+            console.log('[Telegram] ⚠️ Global config read error:', e.message);
+        }
+    } else if (event.scope === 'per_staff' && userId) {
+        // ★ PER-STAFF: đọc từ bảng telegram_notifications
+        try {
+            const row = await db.get(
+                'SELECT chat_id FROM telegram_notifications WHERE user_id = $1 AND event_type = $2 AND enabled = true',
+                [userId, eventType]
+            );
+            if (row?.chat_id?.trim()) {
+                targets.add(row.chat_id.trim());
+            } else {
+                // Fallback: cột cũ telegram_group_id
+                const user = await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [userId]);
+                if (user?.telegram_group_id?.trim()) targets.add(user.telegram_group_id.trim());
+            }
+        } catch (e) {
+            console.log('[Telegram] ⚠️ Per-staff config read error:', e.message);
+            // Fallback: cột cũ
+            try {
+                const user = await db.get('SELECT telegram_group_id FROM users WHERE id = $1', [userId]);
+                if (user?.telegram_group_id?.trim()) targets.add(user.telegram_group_id.trim());
+            } catch (e2) { /* ignore */ }
+        }
+    }
+
+    // Gửi (deduplicated)
+    for (const chatId of targets) {
+        await sendTelegramMessage(chatId, message, token);
+    }
+}
+
+module.exports = {
+    TELEGRAM_EVENTS,
+    sendTelegramMessage,
+    broadcastTelegram,
+    notifyTelegram,
+    getBotToken,
+    clearTokenCache
+};

@@ -21,6 +21,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="roles-positions" onclick="switchSettingTab('roles-positions', this)">🏷️ Vai Trò & Vị Trí</div>
                     <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
                     <div class="tab" data-tab="partner-reg-telegram" onclick="switchSettingTab('partner-reg-telegram', this)">📲 Đăng Ký Đối Tác</div>
+                    <div class="tab" data-tab="telegram-notify" onclick="switchSettingTab('telegram-notify', this)">🔔 Telegram Thông Báo</div>
                     <div class="tab" data-tab="master-key" onclick="switchSettingTab('master-key', this)">🔐 Mã Khóa Tổng</div>
                 </div>
                 <div id="settingsContent">
@@ -58,6 +59,8 @@ function switchSettingTab(tab, el) {
         loadTelesaleStatusesSettings();
     } else if (tab === 'partner-reg-telegram') {
         loadPartnerRegTelegramSettings();
+    } else if (tab === 'telegram-notify') {
+        loadTelegramNotifySettings();
     } else if (tab === 'master-key') {
         loadMasterKeySettings();
     } else {
@@ -1289,5 +1292,350 @@ async function deleteMasterKey() {
         await loadMasterKeySettings();
     } else {
         showToast(res.error || 'Lỗi xóa mã khóa', 'error');
+    }
+}
+
+// ========== TELEGRAM NOTIFY SETTINGS (🔔) ==========
+
+let _tgCachedConfig = null; // cache config data for reuse
+
+async function loadTelegramNotifySettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const [configRes, staffRes] = await Promise.all([
+        apiCall('/api/telegram/config'),
+        apiCall('/api/telegram/staff')
+    ]);
+
+    _tgCachedConfig = configRes;
+    const botToken = configRes.bot_token || '';
+    const globalConfigs = configRes.global_configs || {};
+    const events = configRes.events || [];
+    const globalEvents = events.filter(e => e.scope === 'global');
+    const perStaffEvents = events.filter(e => e.scope === 'per_staff');
+    const staff = staffRes.staff || [];
+    const totalPerStaff = staffRes.total_per_staff_events || 0;
+    const isConfigured = !!botToken;
+
+    // ===== Build HTML =====
+    el.innerHTML = `
+        <div style="max-width:900px;">
+            <!-- KHU A: Bot Token -->
+            <div style="margin-bottom:24px;padding:20px;background:linear-gradient(165deg,#f8fafc,#ffffff);border:1.5px solid #e2e8f0;border-radius:16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <span style="font-size:24px;">🤖</span>
+                    <div>
+                        <h4 style="color:#122546;margin:0;font-size:15px;font-weight:800;">Bot Token Telegram</h4>
+                        <p style="margin:2px 0 0;font-size:11px;color:#6b7280;">Token duy nhất dùng cho tất cả thông báo.</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:250px;">
+                        <input type="text" id="tgBotToken" class="form-control"
+                            value="${botToken}"
+                            placeholder="Dán Bot Token từ @BotFather"
+                            style="font-family:monospace;font-size:13px;padding:10px 14px;border-radius:10px;">
+                    </div>
+                    <button class="btn btn-success" onclick="saveTelegramConfig()" style="padding:10px 20px;font-size:12px;font-weight:700;border-radius:10px;">
+                        💾 Lưu
+                    </button>
+                </div>
+                <!-- Status -->
+                <div style="margin-top:12px;padding:10px 14px;border-radius:10px;
+                    background:${isConfigured ? 'linear-gradient(135deg,#ecfdf5,#d1fae5)' : 'linear-gradient(135deg,#fef2f2,#fee2e2)'};
+                    border:1px solid ${isConfigured ? '#6ee7b7' : '#fca5a5'};
+                    font-size:12px;color:${isConfigured ? '#065f46' : '#991b1b'};display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:16px;">${isConfigured ? '✅' : '⚠️'}</span>
+                    ${isConfigured ? 'Bot đã được cấu hình' : 'Chưa có Bot Token — thông báo sẽ không gửi được'}
+                </div>
+            </div>
+
+            <!-- KHU B: Nhóm Chung -->
+            <div style="margin-bottom:24px;padding:20px;background:linear-gradient(165deg,#eff6ff,#f0f9ff);border:1.5px solid #93c5fd;border-radius:16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <span style="font-size:24px;">🌐</span>
+                    <div>
+                        <h4 style="color:#1e40af;margin:0;font-size:15px;font-weight:800;">Nhóm Chung — Áp dụng TẤT CẢ nhân viên</h4>
+                        <p style="margin:2px 0 0;font-size:11px;color:#3b82f6;">Mỗi sự kiện có thể gửi vào nhóm khác nhau, hoặc cùng 1 nhóm.</p>
+                    </div>
+                </div>
+                <div style="border:1.5px solid #bfdbfe;border-radius:12px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;">
+                                <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Sự kiện</th>
+                                <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Group ID</th>
+                                <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;width:80px;">Test</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${globalEvents.map((evt, i) => `
+                            <tr style="border-bottom:1px solid #e5e7eb;background:${i % 2 === 0 ? 'white' : '#f8fafc'};">
+                                <td style="padding:10px 14px;font-weight:600;color:#122546;font-size:13px;">
+                                    ${evt.icon} ${evt.label}
+                                </td>
+                                <td style="padding:8px 14px;">
+                                    <input type="text" id="tgGlobal_${evt.key}" class="form-control"
+                                        value="${globalConfigs[evt.key] || ''}"
+                                        placeholder="-100..."
+                                        style="font-family:monospace;font-size:12px;padding:7px 10px;border-radius:8px;">
+                                </td>
+                                <td style="padding:8px 14px;text-align:center;">
+                                    <button class="btn btn-xs" onclick="testTelegramGroup('tgGlobal_${evt.key}')"
+                                        style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:5px 10px;font-size:11px;cursor:pointer;border-radius:8px;">
+                                        🧪
+                                    </button>
+                                </td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:12px;display:flex;gap:8px;">
+                    <button class="btn btn-success" onclick="saveTelegramConfig()" style="padding:8px 20px;font-size:12px;font-weight:700;border-radius:10px;">
+                        💾 Lưu Tất Cả
+                    </button>
+                </div>
+            </div>
+
+            <!-- KHU C: Nhóm Riêng Từng NV -->
+            <div style="padding:20px;background:linear-gradient(165deg,#fefce8,#fffbeb);border:1.5px solid #fbbf24;border-radius:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:24px;">👤</span>
+                        <div>
+                            <h4 style="color:#92400e;margin:0;font-size:15px;font-weight:800;">Nhóm Riêng — Cài đặt từng nhân viên</h4>
+                            <p style="margin:2px 0 0;font-size:11px;color:#b45309;">Bấm ⚙️ để cài Group ID riêng cho từng loại công việc.</p>
+                        </div>
+                    </div>
+                    ${perStaffEvents.length > 0 ? `
+                    <button class="btn" onclick="tgBulkAssignModal()"
+                        style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:8px 16px;font-size:12px;font-weight:700;border-radius:10px;cursor:pointer;">
+                        📋 Gán Nhanh Tất Cả NV
+                    </button>` : ''}
+                </div>
+
+                <div style="border:1.5px solid #fcd34d;border-radius:12px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:linear-gradient(135deg,#b45309,#d97706);color:white;">
+                                <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Nhân Viên</th>
+                                <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Phòng</th>
+                                <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;">Đã cài</th>
+                                <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;width:90px;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${staff.length === 0 ? '<tr><td colspan="4" style="padding:20px;text-align:center;color:#9ca3af;">Không có nhân viên nào</td></tr>' : ''}
+                            ${staff.map((s, i) => {
+                                const cfgCount = Number(s.configured_count) || 0;
+                                const hasCfg = cfgCount > 0;
+                                return `
+                                <tr style="border-bottom:1px solid #fef3c7;background:${i % 2 === 0 ? 'white' : '#fffbeb'};">
+                                    <td style="padding:10px 14px;">
+                                        <div style="font-weight:700;color:#122546;font-size:13px;">${s.full_name}</div>
+                                        <div style="font-size:10px;color:#9ca3af;">${s.username}</div>
+                                    </td>
+                                    <td style="padding:10px 14px;font-size:12px;color:#6b7280;">${s.department_name || '—'}</td>
+                                    <td style="padding:10px 14px;text-align:center;">
+                                        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;
+                                            background:${hasCfg ? '#d1fae5' : '#f3f4f6'};color:${hasCfg ? '#065f46' : '#9ca3af'};">
+                                            ${cfgCount}/${totalPerStaff}
+                                        </span>
+                                    </td>
+                                    <td style="padding:10px 14px;text-align:center;">
+                                        <button class="btn btn-xs" onclick="tgOpenStaffModal(${s.id})"
+                                            style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:8px;">
+                                            ⚙️ Cài Đặt
+                                        </button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Hướng dẫn -->
+            <div style="margin-top:20px;padding:16px;background:#fffbeb;border:1.5px solid #fbbf24;border-radius:14px;font-size:12px;color:#92400e;">
+                <strong>📌 Hướng dẫn:</strong>
+                <ol style="margin:8px 0 0;padding-left:20px;line-height:2;">
+                    <li>Mở Telegram → tìm <strong>@BotFather</strong> → gửi <code>/newbot</code> → nhận <strong>Bot Token</strong></li>
+                    <li>Thêm bot vào <strong>nhóm Telegram</strong></li>
+                    <li>Lấy <strong>Chat ID</strong>: gửi tin nhắn trong nhóm, mở <code>https://api.telegram.org/bot{TOKEN}/getUpdates</code></li>
+                    <li>Dán Token + Chat ID vào ô trên → <strong>Lưu</strong> → <strong>Test</strong></li>
+                </ol>
+            </div>
+        </div>
+    `;
+}
+
+async function saveTelegramConfig() {
+    const botToken = document.getElementById('tgBotToken')?.value?.trim() || '';
+
+    // Collect global configs
+    const globalConfigs = {};
+    const events = _tgCachedConfig?.events || [];
+    const globalEvents = events.filter(e => e.scope === 'global');
+    for (const evt of globalEvents) {
+        const input = document.getElementById(`tgGlobal_${evt.key}`);
+        if (input) globalConfigs[evt.key] = input.value.trim();
+    }
+
+    const res = await apiCall('/api/telegram/config', 'PUT', {
+        bot_token: botToken,
+        global_configs: globalConfigs
+    });
+
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        await loadTelegramNotifySettings();
+    } else {
+        showToast(res.error || 'Lỗi lưu cấu hình', 'error');
+    }
+}
+
+async function testTelegramGroup(inputId) {
+    const chatId = document.getElementById(inputId)?.value?.trim();
+    if (!chatId) { showToast('Vui lòng nhập Group ID trước', 'error'); return; }
+
+    const botToken = document.getElementById('tgBotToken')?.value?.trim();
+    const res = await apiCall('/api/telegram/test', 'POST', {
+        chat_id: chatId,
+        bot_token: botToken || undefined
+    });
+
+    if (res.success) showToast('✅ ' + res.message);
+    else showToast('❌ ' + (res.error || 'Gửi test thất bại'), 'error');
+}
+
+async function tgOpenStaffModal(userId) {
+    const res = await apiCall(`/api/telegram/staff/${userId}`);
+    if (!res.user) { showToast('Không tìm thấy nhân viên', 'error'); return; }
+
+    const user = res.user;
+    const events = res.events || [];
+    const configs = res.configs || {};
+
+    let bodyHTML = `
+        <div style="margin-bottom:16px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:12px;color:#1e40af;">
+            ℹ️ Chỉ hiện sự kiện <strong>Nhóm Riêng</strong>. Sự kiện <strong>Nhóm Chung</strong> (Cấp Cứu, Hủy Khách...) đã cài ở phần trên.
+        </div>
+        <!-- Gán nhanh tất cả cùng 1 group -->
+        <div style="margin-bottom:16px;padding:12px;background:#fefce8;border:1px solid #fcd34d;border-radius:10px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px;">📋 Gán tất cả cùng 1 nhóm:</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="tgStaffQuickGroup" class="form-control"
+                    placeholder="-100..." style="flex:1;font-family:monospace;font-size:12px;padding:7px 10px;border-radius:8px;">
+                <button class="btn btn-xs" onclick="tgApplyQuickGroup()"
+                    style="background:#d97706;color:white;border:none;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:8px;white-space:nowrap;">
+                    ✅ Áp dụng
+                </button>
+            </div>
+        </div>
+    `;
+
+    for (const evt of events) {
+        const cfg = configs[evt.key] || { chat_id: '', enabled: true };
+        bodyHTML += `
+        <div style="padding:12px;margin-bottom:10px;background:white;border:1.5px solid #e5e7eb;border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-weight:700;color:#122546;font-size:13px;">${evt.icon} ${evt.label}</span>
+                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;color:#6b7280;">
+                    <input type="checkbox" id="tgStaffEn_${evt.key}" ${cfg.enabled ? 'checked' : ''}> Bật
+                </label>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="tgStaffCid_${evt.key}" class="form-control tg-staff-cid"
+                    value="${cfg.chat_id}" placeholder="-100..."
+                    style="flex:1;font-family:monospace;font-size:12px;padding:7px 10px;border-radius:8px;">
+                <button class="btn btn-xs" onclick="testTelegramGroup('tgStaffCid_${evt.key}')"
+                    style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:5px 10px;font-size:11px;cursor:pointer;border-radius:8px;">
+                    🧪
+                </button>
+            </div>
+        </div>`;
+    }
+
+    openModal(`⚙️ Telegram — ${user.full_name}`, bodyHTML, `
+        <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-success" onclick="tgSaveStaffConfig(${userId})">💾 Lưu</button>
+    `);
+}
+
+function tgApplyQuickGroup() {
+    const groupId = document.getElementById('tgStaffQuickGroup')?.value?.trim();
+    if (!groupId) { showToast('Nhập Group ID', 'error'); return; }
+    document.querySelectorAll('.tg-staff-cid').forEach(input => {
+        input.value = groupId;
+    });
+    showToast('✅ Đã gán Group ID cho tất cả sự kiện');
+}
+
+async function tgSaveStaffConfig(userId) {
+    const events = (_tgCachedConfig?.events || []).filter(e => e.scope === 'per_staff');
+    const configs = {};
+
+    for (const evt of events) {
+        const chatId = document.getElementById(`tgStaffCid_${evt.key}`)?.value?.trim() || '';
+        const enabled = document.getElementById(`tgStaffEn_${evt.key}`)?.checked !== false;
+        configs[evt.key] = { chat_id: chatId, enabled };
+    }
+
+    const res = await apiCall(`/api/telegram/staff/${userId}`, 'PUT', { configs });
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        closeModal();
+        await loadTelegramNotifySettings();
+    } else {
+        showToast(res.error || 'Lỗi lưu', 'error');
+    }
+}
+
+function tgBulkAssignModal() {
+    const events = (_tgCachedConfig?.events || []).filter(e => e.scope === 'per_staff');
+    if (events.length === 0) { showToast('Chưa có sự kiện Per-Staff nào', 'error'); return; }
+
+    const evtOptions = events.map(e => `<option value="${e.key}">${e.icon} ${e.label}</option>`).join('');
+
+    openModal('📋 Gán Nhanh Tất Cả NV', `
+        <div style="margin-bottom:16px;">
+            <p style="font-size:12px;color:#6b7280;margin:0 0 16px;">
+                Gán cùng 1 Group ID cho <strong>tất cả nhân viên nội bộ</strong> đang hoạt động.
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:700;font-size:12px;color:#122546;">Loại sự kiện:</label>
+                <select id="tgBulkEvt" class="form-control">${evtOptions}</select>
+            </div>
+            <div class="form-group">
+                <label style="font-weight:700;font-size:12px;color:#122546;">Group ID:</label>
+                <input type="text" id="tgBulkCid" class="form-control"
+                    placeholder="-100..." style="font-family:monospace;">
+            </div>
+        </div>
+    `, `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-success" onclick="tgBulkAssignSave()">📋 Gán Tất Cả</button>
+    `);
+}
+
+async function tgBulkAssignSave() {
+    const eventType = document.getElementById('tgBulkEvt')?.value;
+    const chatId = document.getElementById('tgBulkCid')?.value?.trim();
+    if (!chatId) { showToast('Nhập Group ID', 'error'); return; }
+    if (!confirm(`Gán Group ID "${chatId}" cho TẤT CẢ nhân viên?\n\nSự kiện: ${eventType}`)) return;
+
+    const res = await apiCall('/api/telegram/staff-bulk', 'PUT', {
+        event_type: eventType,
+        chat_id: chatId
+    });
+
+    if (res.success) {
+        showToast('✅ ' + res.message);
+        closeModal();
+        await loadTelegramNotifySettings();
+    } else {
+        showToast(res.error || 'Lỗi gán', 'error');
     }
 }

@@ -1,5 +1,5 @@
 const { authenticate, requireRole } = require('../middleware/auth');
-const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
+const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
 const { getNextWorkingDay, getVNToday } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
 
@@ -28,8 +28,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
             const tgMsg = `❌ <b>NHẮC LẠI YÊU CẦU HỦY KHÁCH</b>\\nKhách: ${customer.customer_name} - ${customer.phone}\\nLý do: ${reason}\\nBởi: ${request.user.full_name}`;
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
         }
 
@@ -44,8 +43,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [reason, request.user.id, custId]
             );
             const tgMsg = `❌ <b>Yêu cầu HỦY khách hàng</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
         };
 
@@ -116,8 +114,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [custId, `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`, request.user.id]);
             // Telegram
             const tgMsg = `🚫 <b>Yêu cầu HỦY ĐƠN TRẢ CỌC</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đơn trả cọc đã gửi. Chờ duyệt.' };
         };
 
@@ -165,8 +162,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
             const tgMsg = `✅ <b>Đã DUYỆT hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã duyệt hủy đơn trả cọc. Khách quay về chăm sóc lại.' };
         } else {
             // ❌ REJECT: Return to chot_don
@@ -184,8 +180,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [custId, `❌ Từ chối hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
             const tgMsg = `❌ <b>Từ chối hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã từ chối hủy đơn. Khách tiếp tục sản xuất.' };
         }
     });
@@ -217,8 +212,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             const linkedUser = await db.get("SELECT id, full_name FROM users WHERE source_customer_id = ? AND status = 'active'", [custId]);
             if (linkedUser) {
                 await db.run("UPDATE users SET status = 'locked', updated_at = NOW() WHERE id = ?", [linkedUser.id]);
-                const globalId = process.env.TELEGRAM_GROUP_ID;
-                if (globalId) sendTelegramMessage(globalId, `🔒 <b>Tài khoản bị khóa tự động</b>\nAffiliate: ${linkedUser.full_name}\nLý do: Khách hàng nguồn bị hủy`);
+                notifyTelegram(null, 'huy_khach', `🔒 <b>Tài khoản bị khóa tự động</b>\nAffiliate: ${linkedUser.full_name}\nLý do: Khách hàng nguồn bị hủy`);
             }
             return { success: true, message: 'Đã duyệt hủy khách hàng.' + (linkedUser ? ` Tài khoản ${linkedUser.full_name} đã bị khóa.` : '') };
         } else {
@@ -346,9 +340,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
             const tgMsg = `🚨 <b>NHẮC LẠI CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
-            if (handler.telegram_group_id) sendTelegramMessage(handler.telegram_group_id, tgMsg);
-            const globalId = process.env.TELEGRAM_GROUP_ID;
-            if (globalId) sendTelegramMessage(globalId, tgMsg);
+            notifyTelegram(null, 'cap_cuu_sep', tgMsg);
             return { success: true, id: pendingEm.id, message: 'Đã nhắc lại cấp cứu sếp!' };
         }
 
@@ -364,9 +356,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
         const tgMsg = `🚨 <b>CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
-        if (handler.telegram_group_id) sendTelegramMessage(handler.telegram_group_id, tgMsg);
-        const globalId = process.env.TELEGRAM_GROUP_ID;
-        if (globalId) sendTelegramMessage(globalId, tgMsg);
+        notifyTelegram(null, 'cap_cuu_sep', tgMsg);
         return { success: true, id: result.lastInsertRowid, message: 'Đã gửi cấp cứu sếp!' };
     });
 
