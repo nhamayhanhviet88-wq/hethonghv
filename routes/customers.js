@@ -1,9 +1,10 @@
 const db = require('../db/pool');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram } = require('../utils/telegram');
-const { checkPhoneDuplicate } = require('../utils/phoneCheck');
+const { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning } = require('../utils/phoneCheck');
 const { maskCustomerData } = require('../utils/dataMasking');
 const { getVNToday } = require('../utils/workingDay');
+const { nanoid } = require('nanoid');
 
 const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
@@ -55,29 +56,32 @@ async function customersRoutes(fastify, options) {
 
     fastify.post('/api/customers', { preHandler: [authenticate] }, async (request, reply) => {
         const { crm_type, customer_name, phone, phone2, source_id, source_name, promotion_id, industry_id,
-                receiver_id, notes, affiliate_user_id, job, facebook_link, cong_viec } = request.body || {};
+                receiver_id, notes, affiliate_user_id, job, facebook_link, cong_viec, force_create } = request.body || {};
         if (!crm_type) return reply.code(400).send({ error: 'Vui lòng chọn CRM' });
         if (!phone && !facebook_link) return reply.code(400).send({ error: 'Vui lòng nhập SĐT hoặc Link Facebook' });
         if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
 
-        // Check phone uniqueness across system (only if phone provided)
+        // Check phone: BLOCK if matches internal user, WARNING if matches existing customer
         if (phone) {
-            const dupResult = await checkPhoneDuplicate(phone, {}, { returnDetails: true });
-            if (dupResult) {
-                if (dupResult.type === 'user') {
-                    // SĐT trùng NV → chặn cứng
-                    return reply.code(400).send({ error: dupResult.error });
-                }
-                if (dupResult.type === 'customer') {
-                    // SĐT trùng KH → trả về thông tin để frontend hiện popup
+            // Hard block: SĐT trùng NV nội bộ
+            const userError = await checkPhoneUser(phone);
+            if (userError) return reply.code(400).send({ error: userError });
+
+            // Soft warning: SĐT trùng KH → popup hỏi (trừ khi force_create = true)
+            if (!force_create) {
+                const custWarning = await checkPhoneCustomerWarning(phone);
+                if (custWarning) {
                     return reply.code(409).send({
-                        error: 'duplicate_customer',
-                        message: dupResult.error,
-                        duplicate: dupResult.customer
+                        error: 'duplicate_customer_warning',
+                        message: custWarning.warning,
+                        duplicate: custWarning.customer
                     });
                 }
             }
         }
+
+        // Generate unique customer UID: K + 19 random chars
+        const customerUid = 'K' + nanoid(19);
 
         // Auto-lookup source_id from source_name if source_id not provided
         let resolvedSourceId = source_id ? Number(source_id) : null;
@@ -157,10 +161,10 @@ async function customersRoutes(fastify, options) {
         const dailyNum = (maxNum?.mx || 0) + 1;
 
         const result = await db.run(
-            `INSERT INTO customers (crm_type, customer_name, phone, phone2, source_id, promotion_id,
+            `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
              industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [crm_type, customer_name || null, phone || null, phone2 || null,
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [customerUid, crm_type, customer_name || null, phone || null, phone2 || null,
              resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
@@ -191,7 +195,7 @@ async function customersRoutes(fastify, options) {
             }
         } catch(e) { console.error('[Customers] Auto-update partner_outreach error:', e.message); }
 
-        return { success: true, id: result.lastInsertRowid, dailyNum, message: 'Chuyển số thành công!' };
+        return { success: true, id: result.lastInsertRowid, dailyNum, customer_uid: customerUid, message: 'Chuyển số thành công!' };
     });
 
     // ========== GỬI LẠI SỐ TRÙNG — Cập nhật KH đã tồn tại vào "Phải Xử Lý Hôm Nay" ==========
@@ -271,7 +275,7 @@ async function customersRoutes(fastify, options) {
         const { crm_type, order_status, assigned_to_id, search, cancel_requested, cancel_approved,
                 year, month, day, employee_id } = request.query;
 
-        let query = `SELECT c.*,
+        let query = `SELECT c.*, c.customer_uid,
             s.name as source_name, p.name as promotion_name, i.name as industry_name,
             r.full_name as receiver_name, a.full_name as assigned_to_name,
             cb.full_name as created_by_name, ref.full_name as referrer_name, COALESCE((SELECT sc.crm_type FROM customers sc WHERE sc.id = ref.source_customer_id), CASE ref.role WHEN 'hoa_hong' THEN 'ctv_hoa_hong' WHEN 'tkaffiliate' THEN 'ctv_hoa_hong' WHEN 'ctv' THEN 'ctv' ELSE ref.source_crm_type END) as referrer_user_crm_type,
@@ -481,10 +485,10 @@ async function customersRoutes(fastify, options) {
         const { crm_type, customer_name, phone, source_id, promotion_id, industry_id,
                 receiver_id, order_status, notes } = request.body || {};
 
-        // Check phone uniqueness across system
+        // Check phone: only block if matches internal user
         if (phone) {
-            const phoneError = await checkPhoneDuplicate(phone, { customerId: Number(request.params.id) });
-            if (phoneError) return reply.code(400).send({ error: phoneError });
+            const userError = await checkPhoneUser(phone, { userId: null });
+            if (userError) return reply.code(400).send({ error: userError });
         }
         await db.run(
             `UPDATE customers SET
@@ -594,10 +598,10 @@ async function customersRoutes(fastify, options) {
         if (customer_name !== undefined) { updates.push('customer_name = ?'); params.push(customer_name); }
         if (phone !== undefined) {
             if (phone && !/^\d{10}$/.test(phone)) return reply.code(400).send({ error: 'Số điện thoại phải đúng 10 chữ số' });
-            // Check phone uniqueness across system
+            // Check phone: only block if matches internal user (UID system allows duplicate customer phones)
             if (phone) {
-                const phoneError = await checkPhoneDuplicate(phone, { customerId: custId });
-                if (phoneError) return reply.code(400).send({ error: phoneError });
+                const userError = await checkPhoneUser(phone);
+                if (userError) return reply.code(400).send({ error: userError });
             }
             updates.push('phone = ?'); params.push(phone);
         }

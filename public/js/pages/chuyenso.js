@@ -332,9 +332,9 @@ async function renderChuyenSoPage(container) {
             if (data.success) {
                 showToast('✅ Chuyển số thành công!');
                 _csoResetForm(e.target);
-            } else if (data.error === 'duplicate_customer' && data.duplicate) {
-                // ★ SĐT trùng KH → Hiện popup Gửi Lại
-                _csoShowDuplicatePopup(data.duplicate, body.notes);
+            } else if (data.error === 'duplicate_customer_warning' && data.duplicate) {
+                // ★ SĐT trùng KH → Hiện popup: Gửi Lại hoặc Tạo Mới
+                _csoShowDuplicatePopup(data.duplicate, body.notes, body);
             } else {
                 showToast(data.error || data.message || 'Lỗi', 'error');
             }
@@ -721,9 +721,12 @@ function _csoResetForm(form) {
 }
 
 // ========== POPUP GỬI LẠI SỐ TRÙNG ==========
-function _csoShowDuplicatePopup(dup, formNotes) {
+function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
     // Remove existing popup
     document.getElementById('csoDupOverlay')?.remove();
+
+    // Store originalBody globally for force_create
+    window._csoDupOriginalBody = originalBody || null;
 
     const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
     const STATUS_LABELS = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
@@ -736,12 +739,12 @@ function _csoShowDuplicatePopup(dup, formNotes) {
             @keyframes _csoDupFadeIn { from { opacity:0; } to { opacity:1; } }
             @keyframes _csoDupSlideUp { from { transform:translateY(30px);opacity:0; } to { transform:translateY(0);opacity:1; } }
         </style>
-        <div style="background:white;border-radius:16px;padding:0;width:480px;max-width:92vw;box-shadow:0 25px 80px rgba(0,0,0,0.3);overflow:hidden;animation:_csoDupSlideUp 0.3s ease;">
+        <div style="background:white;border-radius:16px;padding:0;width:520px;max-width:92vw;box-shadow:0 25px 80px rgba(0,0,0,0.3);overflow:hidden;animation:_csoDupSlideUp 0.3s ease;">
             <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 24px;display:flex;align-items:center;gap:12px;">
                 <span style="font-size:28px;">⚠️</span>
                 <div>
                     <div style="font-size:16px;font-weight:800;color:white;">SĐT ĐÃ TỒN TẠI TRONG HỆ THỐNG</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Khách hàng này đang được quản lý bởi nhân viên</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Bạn có thể <strong>Gửi Lại Số</strong> cho NV cũ hoặc <strong>Tạo KH Mới</strong> (mã UID riêng)</div>
                 </div>
             </div>
             <div style="padding:20px 24px;">
@@ -759,24 +762,33 @@ function _csoShowDuplicatePopup(dup, formNotes) {
                         <span style="color:#1e293b;font-weight:600;">${STATUS_LABELS[dup.order_status] || dup.order_status || 'N/A'}</span>
                         <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
                         <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
+                        ${dup.customer_uid ? `<span style="color:#92400e;font-weight:700;">🔑 UID:</span><span style="color:#6366f1;font-weight:700;font-family:monospace;font-size:12px;">${dup.customer_uid}</span>` : ''}
                     </div>
                 </div>
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
                     <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">💬 Ghi chú kèm theo (tùy chọn)</div>
                     <textarea id="csoDupNotes" rows="2" placeholder="VD: KH gọi lại muốn tư vấn thêm..." style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;resize:vertical;">${formNotes || ''}</textarea>
                 </div>
-                <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
-                    <strong style="color:#15803d;">✅ Xác Nhận Gửi Lại</strong> sẽ:
-                    <br>• Cấp <strong>Mã KH mới</strong> cho hôm nay
-                    <br>• Đẩy vào <strong style="color:#dc2626;">🔥 Phải Xử Lý Hôm Nay</strong> cho NV quản lý
-                    <br>• Gửi <strong>Telegram</strong> thông báo cho NV
+
+                <!-- Option 1: Gửi Lại Số (KH cũ) -->
+                <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+                    <strong style="color:#15803d;">✅ Gửi Lại Số</strong> — cập nhật KH cũ vào Phải Xử Lý Hôm Nay
                 </div>
-                <div style="display:flex;gap:12px;justify-content:flex-end;">
-                    <button onclick="document.getElementById('csoDupOverlay').remove()" style="padding:10px 24px;border-radius:10px;border:1.5px solid #d1d5db;background:#f9fafb;color:#374151;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='#f9fafb'">
+
+                <!-- Option 2: Tạo KH Mới (UID riêng) -->
+                <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:16px;padding:10px 12px;background:#eef2ff;border-radius:8px;border:1px solid #c7d2fe;">
+                    <strong style="color:#4338ca;">🆕 Tạo KH Mới</strong> — tạo khách hàng mới với UID riêng biệt (dù cùng SĐT)
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+                    <button onclick="document.getElementById('csoDupOverlay').remove()" style="padding:10px 20px;border-radius:10px;border:1.5px solid #d1d5db;background:#f9fafb;color:#374151;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='#f9fafb'">
                         ❌ Bỏ Qua
                     </button>
-                    <button onclick="_csoConfirmResend(${dup.id})" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
-                        ✅ Xác Nhận Gửi Lại
+                    <button onclick="_csoForceCreateNew()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
+                        🆕 Tạo KH Mới
+                    </button>
+                    <button onclick="_csoConfirmResend(${dup.id})" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
+                        ✅ Gửi Lại Số
                     </button>
                 </div>
             </div>
@@ -808,10 +820,41 @@ async function _csoConfirmResend(customerId) {
             _csoResetForm(document.getElementById('chuyenSoForm'));
         } else {
             showToast(data.error || 'Lỗi gửi lại', 'error');
-            if (btn) { btn.disabled = false; btn.textContent = '✅ Xác Nhận Gửi Lại'; }
+            if (btn) { btn.disabled = false; btn.textContent = '✅ Gửi Lại Số'; }
         }
     } catch (err) {
         showToast('Lỗi kết nối', 'error');
-        if (btn) { btn.disabled = false; btn.textContent = '✅ Xác Nhận Gửi Lại'; }
+        if (btn) { btn.disabled = false; btn.textContent = '✅ Gửi Lại Số'; }
+    }
+}
+
+// ========== TẠO KH MỚI (force_create) — Bỏ qua cảnh báo trùng SĐT ==========
+async function _csoForceCreateNew() {
+    const body = window._csoDupOriginalBody;
+    if (!body) { showToast('Lỗi: không tìm thấy dữ liệu form', 'error'); return; }
+
+    // Disable button
+    const btns = document.querySelectorAll('#csoDupOverlay button');
+    btns.forEach(b => { b.disabled = true; });
+    const createBtn = [...btns].find(b => b.textContent.includes('Tạo KH'));
+    if (createBtn) createBtn.textContent = '⏳ Đang tạo...';
+
+    try {
+        body.force_create = true; // Bypass duplicate warning
+        const data = await apiCall('/api/customers', 'POST', body);
+        if (data.success) {
+            showToast(`✅ Tạo KH mới thành công! UID: ${data.customer_uid || ''}`);
+            document.getElementById('csoDupOverlay')?.remove();
+            _csoResetForm(document.getElementById('chuyenSoForm'));
+            window._csoDupOriginalBody = null;
+        } else {
+            showToast(data.error || 'Lỗi tạo KH', 'error');
+            btns.forEach(b => { b.disabled = false; });
+            if (createBtn) createBtn.textContent = '🆕 Tạo KH Mới';
+        }
+    } catch (err) {
+        showToast('Lỗi kết nối', 'error');
+        btns.forEach(b => { b.disabled = false; });
+        if (createBtn) createBtn.textContent = '🆕 Tạo KH Mới';
     }
 }

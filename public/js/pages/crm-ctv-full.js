@@ -663,7 +663,7 @@ function _ctvRenderCustomerRow(c, stats, stt) {
         <td style="font-size:12px;">
             ${appointDisplay || '<span style="color:var(--gray-500)">—</span>'}
         </td>
-        <td><strong style="color:#e65100">${getCustomerCode(c)}</strong></td>
+        <td><strong style="color:#e65100">${getCustomerCode(c)}</strong><br>${getCustomerUidBadge(c)}</td>
         <td>
             ${!c.readonly && canDo('crm_ctv', 'edit') ? '<button class="btn btn-sm" onclick="event.stopPropagation();_ctvOpenCustomerInfo(' + c.id + ')" style="font-size:9px;padding:1px 5px;margin-right:4px;background:var(--gray-700);color:var(--gold);" title="Cập nhật thông tin">✏️</button>' : ''}
             ${(() => {
@@ -1901,7 +1901,7 @@ async function _ctvOpenConsultHistory(customerId) {
 
         <div id="tabInfo">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-                <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span></div>
+                <div><strong>Mã:</strong> <span style="color:var(--gold)">${getCustomerCode(c)}</span> ${getCustomerUidBadge(c, {size:'11px'})}</div>
                 <div><strong>Trạng thái:</strong> ${getStatusBadge(c.order_status)}</div>
                 <div><strong>Khách hàng:</strong> ${c.customer_name}</div>
                 <div><strong>SĐT:</strong> ${c.readonly ? '<span style="color:var(--gray-400)">' + (c.phone || '—') + '</span>' : '<a href="tel:' + c.phone + '">' + c.phone + '</a>'}</div>

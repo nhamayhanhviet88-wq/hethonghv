@@ -1590,3 +1590,57 @@ ON CONFLICT (from_status, to_type_key) DO NOTHING;
 -- Cleanup legacy huy_don key (replaced by huy_don_tra_coc)
 DELETE FROM consult_type_configs WHERE key = 'huy_don';
 UPDATE consult_flow_rules SET to_type_key = 'huy_don_tra_coc' WHERE to_type_key = 'huy_don';
+
+-- ========== CUSTOMER UID — Định danh khách hàng bằng mã 20 ký tự ==========
+-- Thêm cột customer_uid (nullable ban đầu để migration an toàn)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_uid TEXT;
+
+-- Tạo hàm generate UID server-side (cho backfill)
+CREATE OR REPLACE FUNCTION generate_customer_uid() RETURNS TEXT AS $$
+DECLARE
+    chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    result TEXT := 'K';
+    i INTEGER;
+BEGIN
+    FOR i IN 1..19 LOOP
+        result := result || substr(chars, floor(random() * 62 + 1)::int, 1);
+    END LOOP;
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Backfill UID cho tất cả KH hiện tại chưa có UID
+DO $$ 
+DECLARE
+    r RECORD;
+    new_uid TEXT;
+    retry_count INTEGER;
+BEGIN
+    FOR r IN SELECT id FROM customers WHERE customer_uid IS NULL LOOP
+        retry_count := 0;
+        LOOP
+            new_uid := generate_customer_uid();
+            BEGIN
+                UPDATE customers SET customer_uid = new_uid WHERE id = r.id;
+                EXIT; -- success
+            EXCEPTION WHEN unique_violation THEN
+                retry_count := retry_count + 1;
+                IF retry_count > 5 THEN RAISE EXCEPTION 'Too many UID collisions'; END IF;
+            END;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- Sau khi backfill xong, set NOT NULL
+DO $$ BEGIN
+    -- Chỉ set NOT NULL nếu không còn row NULL
+    IF NOT EXISTS (SELECT 1 FROM customers WHERE customer_uid IS NULL) OR
+       NOT EXISTS (SELECT 1 FROM customers) THEN
+        ALTER TABLE customers ALTER COLUMN customer_uid SET NOT NULL;
+    END IF;
+END $$;
+
+-- UNIQUE index cho UID
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_uid ON customers(customer_uid);
+-- Index cho phone (tìm kiếm nhanh, không unique)
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
