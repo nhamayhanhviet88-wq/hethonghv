@@ -228,13 +228,13 @@ async function customersRoutes(fastify, options) {
             originalCode = `${customer.daily_order_number}-${d}-${m}-${y}`;
         }
 
-        // Ghi consultation log: gui_lai_so
+        // Ghi consultation log: ghi_chu (thuần thông tin, KHÔNG ảnh hưởng luồng nút tư vấn)
         const logNote = notes && notes.trim()
             ? `📱 KH được gửi lại bởi ${request.user.full_name} — ${notes.trim()}`
             : `📱 KH được gửi lại bởi ${request.user.full_name}`;
         await db.run(
             `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at)
-             VALUES (?, 'gui_lai_so', ?, ?, NOW())`,
+             VALUES (?, 'ghi_chu', ?, ?, NOW())`,
             [Number(customer_id), logNote, request.user.id]
         );
 
