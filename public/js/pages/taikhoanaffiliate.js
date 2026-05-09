@@ -1253,7 +1253,7 @@ async function showTransferAffModal(affId, affName) {
 
     const managers = (staffData.users || [])
         .filter(u => !['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'].includes(u.role))
-        .filter(u => allVisibleDeptIds.size === 0 || allVisibleDeptIds.has(u.department_id));
+        .filter(u => allVisibleDeptIds.has(u.department_id));
 
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`).join('');
 

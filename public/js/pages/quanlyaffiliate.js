@@ -923,13 +923,21 @@ async function affShowDetail(userId) {
 // ========== BÀN GIAO AFFILIATE ==========
 
 async function affOpenTransferModal(empId, empName) {
-    const { employees, affiliates } = _affData;
+    const { employees, affiliates, departments } = _affData;
     const empAffs = affiliates.filter(a => a.managed_by_user_id === empId);
     if (empAffs.length === 0) { showToast('NV này không có affiliate nào', 'error'); return; }
 
-    // Get list of active employees (excluding affiliate roles)
+    // Build set of visible department IDs (from aff_visible_depts + children)
+    const visibleDeptIds = new Set();
+    function addDeptAndChildren(deptId) {
+        visibleDeptIds.add(deptId);
+        (departments || []).filter(d => d.parent_id === deptId).forEach(d => addDeptAndChildren(d.id));
+    }
+    _affVisibleDepts.forEach(id => addDeptAndChildren(id));
+
+    // Get list of active employees — only from visible departments, excluding affiliate roles
     const AFF_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
-    const staffList = employees.filter(e => e.id !== empId && !AFF_ROLES.includes(e.role));
+    const staffList = employees.filter(e => e.id !== empId && !AFF_ROLES.includes(e.role) && visibleDeptIds.has(e.department_id));
 
     // Build dropdown options HTML
     const staffOptions = staffList.map(e => `<option value="${e.id}">${e.full_name} (${e.role === 'truong_phong' ? 'TP' : e.role === 'quan_ly' ? 'QL' : 'NV'})</option>`).join('');
