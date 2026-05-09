@@ -228,15 +228,8 @@ async function customersRoutes(fastify, options) {
             originalCode = `${customer.daily_order_number}-${d}-${m}-${y}`;
         }
 
-        // Ghi consultation log: ghi_chu (thuần thông tin, KHÔNG ảnh hưởng luồng nút tư vấn)
-        const logNote = notes && notes.trim()
-            ? `📱 KH được gửi lại bởi ${request.user.full_name} — ${notes.trim()}`
-            : `📱 KH được gửi lại bởi ${request.user.full_name}`;
-        await db.run(
-            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at)
-             VALUES (?, 'ghi_chu', ?, ?, NOW())`,
-            [Number(customer_id), logNote, request.user.id]
-        );
+        // ★ KHÔNG ghi consultation_log → giữ nguyên "Phải Xử Lý" + nút tư vấn không bị reset
+        // Thông báo gửi lại chỉ qua Telegram
 
         // Gửi Telegram
         const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
