@@ -1234,26 +1234,21 @@ function showSyncConfirmDialog(changes) {
 
 // ========== 1A: SINGLE TRANSFER AFFILIATE ==========
 async function showTransferAffModal(affId, affName) {
-    const [staffData, deptData] = await Promise.all([
+    const [staffData, orgData] = await Promise.all([
         apiCall('/api/users/dropdown'),
-        apiCall('/api/departments')
+        apiCall('/api/affiliate/org-tree')
     ]);
-    const depts = deptData.departments || [];
+    const orgAffiliates = orgData.affiliates || [];
+    const orgEmployees = orgData.employees || [];
 
-    const visibleParentIds = JSON.parse(localStorage.getItem('aff_visible_depts') || '[]');
-    const hiddenChildIds = JSON.parse(localStorage.getItem('aff_hidden_child_depts') || '[]');
-    const allVisibleDeptIds = new Set();
-    visibleParentIds.forEach(pid => {
-        allVisibleDeptIds.add(pid);
-        depts.filter(d => d.parent_id === pid && !hiddenChildIds.includes(d.id)).forEach(cd => {
-            allVisibleDeptIds.add(cd.id);
-            depts.filter(d2 => d2.parent_id === cd.id && !hiddenChildIds.includes(d2.id)).forEach(gcd => allVisibleDeptIds.add(gcd.id));
-        });
-    });
+    // Get department IDs of employees who actually manage affiliates
+    const managerIds = new Set(orgAffiliates.map(a => a.managed_by_user_id).filter(Boolean));
+    const affDeptIds = new Set();
+    orgEmployees.forEach(e => { if (managerIds.has(e.id)) affDeptIds.add(e.department_id); });
 
     const managers = (staffData.users || [])
         .filter(u => !['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'].includes(u.role))
-        .filter(u => allVisibleDeptIds.has(u.department_id));
+        .filter(u => affDeptIds.has(u.department_id));
 
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`).join('');
 
