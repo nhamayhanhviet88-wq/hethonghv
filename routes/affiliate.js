@@ -373,7 +373,7 @@ async function affiliateRoutes(fastify) {
                 "SELECT id, full_name, role, managed_by_user_id FROM users WHERE id = ?",
                 [Number(affiliate_user_id)]
             );
-            if (!affiliate || !AFFILIATE_ROLES.includes(affiliate.role)) {
+            if (!affiliate || !['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(affiliate.role)) {
                 results.push({ affiliate_user_id, error: 'Không phải TK affiliate' });
                 continue;
             }
@@ -387,7 +387,7 @@ async function affiliateRoutes(fastify) {
                 results.push({ affiliate_user_id, error: 'NV nhận không active' });
                 continue;
             }
-            if (AFFILIATE_ROLES.includes(toEmployee.role)) {
+            if (['hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate'].includes(toEmployee.role)) {
                 results.push({ affiliate_user_id, error: 'Không thể chuyển cho TK affiliate' });
                 continue;
             }
@@ -431,21 +431,18 @@ async function affiliateRoutes(fastify) {
         // Telegram notification
         if (successCount > 0) {
             try {
+                const { sendTelegramMessage } = require('../utils/telegram');
                 const toIds = [...new Set(transfers.map(t => t.to_employee_id))];
                 for (const toId of toIds) {
                     const emp = await db.get('SELECT telegram_group_id, full_name FROM users WHERE id = ?', [Number(toId)]);
                     if (emp?.telegram_group_id) {
-                        const affNames = results
-                            .filter(r => r.success && transfers.find(t => t.affiliate_user_id === r.affiliate_user_id)?.to_employee_id === toId)
-                            .map(r => {
-                                const aff = transfers.find(t => t.affiliate_user_id === r.affiliate_user_id);
-                                return r.to_name ? `• ${results.find(x => x.affiliate_user_id === aff?.affiliate_user_id)?.to_name || ''}` : '';
-                            });
-                        const count = results.filter(r => r.success && transfers.find(t => t.affiliate_user_id === r.affiliate_user_id)?.to_employee_id === toId).length;
-                        const { sendTelegramMessage } = require('../utils/telegram');
-                        sendTelegramMessage(emp.telegram_group_id,
-                            `🔄 <b>Bàn Giao Affiliate</b>\nBạn vừa được nhận <b>${count}</b> affiliate mới.\nBởi: ${request.user.full_name}${reason ? '\nLý do: ' + reason : ''}`
-                        );
+                        const transferredAffIds = transfers.filter(t => t.to_employee_id === toId).map(t => t.affiliate_user_id);
+                        const count = results.filter(r => r.success && transferredAffIds.includes(r.affiliate_user_id)).length;
+                        if (count > 0) {
+                            sendTelegramMessage(emp.telegram_group_id,
+                                `🔄 <b>Bàn Giao Affiliate</b>\nBạn vừa được nhận <b>${count}</b> affiliate mới.\nBởi: ${request.user.full_name}${reason ? '\nLý do: ' + reason : ''}`
+                            );
+                        }
                     }
                 }
             } catch (e) { console.error('[Transfer] Telegram error:', e.message); }
