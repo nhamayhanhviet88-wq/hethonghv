@@ -754,15 +754,12 @@ function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
                         <span style="color:#1e293b;font-weight:700;">${dup.customer_name || 'N/A'}</span>
                         <span style="color:#92400e;font-weight:700;">📱 SĐT:</span>
                         <span style="color:#1e293b;font-weight:600;">${dup.phone || 'N/A'}</span>
-                        <span style="color:#92400e;font-weight:700;">🏷️ CRM:</span>
-                        <span style="color:#1e293b;font-weight:600;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
                         <span style="color:#92400e;font-weight:700;">👨‍💼 NV:</span>
                         <span style="color:#1e293b;font-weight:600;">${dup.assigned_to_name || 'N/A'}${dup.dept_name ? ' — ' + dup.dept_name : ''}</span>
-                        <span style="color:#92400e;font-weight:700;">📊 TT:</span>
-                        <span style="color:#1e293b;font-weight:600;">${STATUS_LABELS[dup.order_status] || dup.order_status || 'N/A'}</span>
+                        <span style="color:#92400e;font-weight:700;">🏷️ CRM:</span>
+                        <span style="color:#1e293b;font-weight:600;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
                         <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
                         <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
-                        ${dup.customer_uid ? `<span style="color:#92400e;font-weight:700;">🔑 UID:</span><span style="color:#6366f1;font-weight:700;font-family:monospace;font-size:12px;">${dup.customer_uid}</span>` : ''}
                     </div>
                 </div>
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;">

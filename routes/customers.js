@@ -233,7 +233,7 @@ async function customersRoutes(fastify, options) {
             ? `📱 KH được gửi lại bởi ${request.user.full_name} — ${notes.trim()}`
             : `📱 KH được gửi lại bởi ${request.user.full_name}`;
         await db.run(
-            `INSERT INTO consultation_logs (customer_id, log_type, notes, logged_by, created_at)
+            `INSERT INTO consultation_logs (customer_id, log_type, content, logged_by, created_at)
              VALUES (?, 'gui_lai_so', ?, ?, NOW())`,
             [Number(customer_id), logNote, request.user.id]
         );
