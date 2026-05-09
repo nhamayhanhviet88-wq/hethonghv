@@ -20,12 +20,17 @@ function shortName(fullName) {
 async function checkPhoneUser(phone, exclude = {}) {
     if (!phone) return null;
 
+    // Chỉ hard-block NV nội bộ. Đối tác (hoa_hong, tkaffiliate, ctv) KHÔNG block
+    // vì SĐT CTV/Affiliate thường trùng với KH (đó chính là khách hàng)
+    const internalRoles = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'];
+    const rolePlaceholders = internalRoles.map((_, i) => `$${i + 2}`).join(',');
+
     let userQuery = `SELECT u.id, u.full_name, u.role, m.full_name as manager_name
         FROM users u LEFT JOIN users m ON m.id = u.managed_by_user_id
-        WHERE u.phone = ?`;
-    const userParams = [phone];
+        WHERE u.phone = $1 AND u.role IN (${rolePlaceholders})`;
+    const userParams = [phone, ...internalRoles];
     if (exclude.userId) {
-        userQuery += ' AND u.id != ?';
+        userQuery += ` AND u.id != $${userParams.length + 1}`;
         userParams.push(Number(exclude.userId));
     }
     const existingUser = await db.get(userQuery, userParams);
@@ -53,10 +58,10 @@ async function checkPhoneCustomerWarning(phone, exclude = {}) {
         FROM customers c 
         LEFT JOIN users u ON u.id = c.assigned_to_id
         LEFT JOIN departments d ON d.id = u.department_id
-        WHERE c.phone = ?`;
+        WHERE c.phone = $1`;
     const custParams = [phone];
     if (exclude.customerId) {
-        custQuery += ' AND c.id != ?';
+        custQuery += ' AND c.id != $2';
         custParams.push(Number(exclude.customerId));
     }
     const existingCust = await db.get(custQuery, custParams);
