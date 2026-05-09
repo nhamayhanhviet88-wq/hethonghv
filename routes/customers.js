@@ -210,23 +210,23 @@ async function customersRoutes(fastify, options) {
         );
         if (!customer) return reply.code(404).send({ error: 'Không tìm thấy khách hàng' });
 
-        // ★ Luôn dùng ngày HÔM NAY (bỏ qua cutoff)
-        const effectiveDate = getVNToday();
-        const [_y, _m, _d] = effectiveDate.split('-').map(Number);
+        // ★ Chỉ set appointment_date = hôm nay → KH lên "Phải Xử Lý Hôm Nay"
+        // KHÔNG đổi effective_date + daily_order_number → giữ nguyên mã KH gốc
+        const today = getVNToday();
 
-        // Tính daily_order_number mới cho Sale hôm nay
-        const maxNum = await db.get(
-            "SELECT COALESCE(MAX(daily_order_number), 0) as mx FROM customers WHERE effective_date = ?::date AND assigned_to_id = ?",
-            [effectiveDate, customer.assigned_to_id]
-        );
-        const dailyNum = (maxNum?.mx || 0) + 1;
-        const newCode = `${dailyNum}-${_d}-${_m}`;
-
-        // Cập nhật KH: effective_date + daily_order_number mới
         await db.run(
-            `UPDATE customers SET effective_date = ?, daily_order_number = ?, updated_at = NOW() WHERE id = ?`,
-            [effectiveDate, dailyNum, Number(customer_id)]
+            `UPDATE customers SET appointment_date = ?, updated_at = NOW() WHERE id = ?`,
+            [today, Number(customer_id)]
         );
+
+        // Tính mã KH gốc (giữ nguyên, không đổi)
+        let originalCode = '';
+        if (customer.daily_order_number && customer.effective_date) {
+            const ed = new Date(customer.effective_date);
+            const d = ed.getDate(), m = ed.getMonth() + 1;
+            const y = 'Y' + String(ed.getFullYear()).slice(-2);
+            originalCode = `${customer.daily_order_number}-${d}-${m}-${y}`;
+        }
 
         // Ghi consultation log: gui_lai_so
         const logNote = notes && notes.trim()
@@ -241,7 +241,7 @@ async function customersRoutes(fastify, options) {
         // Gửi Telegram
         const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
         const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
-            `📱 <b>${newCode}</b> : ${customer.customer_name} - ${customer.phone}\n` +
+            `📱 <b>${originalCode || 'N/A'}</b> : ${customer.customer_name} - ${customer.phone}\n` +
             `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +
             `👨‍💼 NV: ${customer.assigned_to_name || 'N/A'}\n` +
             `📝 Bởi: ${request.user.full_name}\n` +
@@ -254,13 +254,12 @@ async function customersRoutes(fastify, options) {
         if (globalId) targetIds.push(globalId);
         broadcastTelegram(targetIds, tgMessage);
 
-        console.log(`[RESEND] Customer #${customer_id} resent by ${request.user.username} → code: ${newCode}, effective: ${effectiveDate}`);
+        console.log(`[RESEND] Customer #${customer_id} resent by ${request.user.username} → code kept: ${originalCode}, appointment: ${today}`);
 
         return {
             success: true,
-            new_code: newCode,
-            effective_date: effectiveDate,
-            message: `✅ Đã gửi lại! Mã mới: ${newCode} — Phải Xử Lý Hôm Nay!`
+            original_code: originalCode,
+            message: `✅ Đã gửi lại! Mã ${originalCode} — Phải Xử Lý Hôm Nay!`
         };
     });
 
