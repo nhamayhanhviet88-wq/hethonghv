@@ -237,16 +237,26 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         }
     });
 
-    // ========== AUTO-REVERT EXPIRED CANCELS (24h) ==========
+    // ========== AUTO-REVERT EXPIRED CANCELS (smart deadline) ==========
     fastify.post('/api/cancel/auto-revert-expired', { preHandler: [authenticate] }, async (request, reply) => {
-        // Find all pending cancel requests older than 24h (both hủy khách + hủy đơn trả cọc)
-        const expired = await db.all(
-            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status FROM customers 
+        // Find all pending cancel requests — check smart deadline (23:59 next working day, skip CN + lễ)
+        const pending = await db.all(
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status,
+                    cancel_requested_at
+             FROM customers 
              WHERE cancel_requested = 1 AND cancel_approved = 0 
              AND cancel_requested_at IS NOT NULL 
-             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'
              AND order_status IN ('cho_duyet_huy', 'cho_duyet_huy_don')`
         );
+
+        const now = new Date();
+        const expired = [];
+        for (const c of pending) {
+            const realDeadline = await calculateRealDeadline(c.cancel_requested_at, null, 23);
+            if (now < realDeadline) continue; // Chưa hết hạn
+            expired.push(c);
+        }
+
         if (expired.length === 0) return { success: true, reverted: 0, customers: [] };
 
         for (const c of expired) {
@@ -258,7 +268,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                      cancel_reason = cancel_reason || $1,
                      order_status = 'chot_don', appointment_date = $2,
                      updated_at = NOW() WHERE id = $3`,
-                    ['\n⏰ Tự động: Quá 24h không phản hồi hủy đơn', nextBizDay, c.id]
+                    ['\n⏰ Tự động: Quá hạn không phản hồi hủy đơn', nextBizDay, c.id]
                 );
             } else {
                 // Hủy khách expired → return to tu_van_lai
@@ -267,7 +277,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                      cancel_reason = cancel_reason || $1,
                      order_status = 'tu_van_lai', appointment_date = $2,
                      updated_at = NOW() WHERE id = $3`,
-                    ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDay, c.id]
+                    ['\n⏰ Tự động: Quá hạn không có phản hồi', nextBizDay, c.id]
                 );
             }
         }

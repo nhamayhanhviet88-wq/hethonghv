@@ -861,43 +861,50 @@ async function runDeadlineCheck(forceFullCheck = false) {
         penaltyCount++;
     }
 
-    // ========== 7. AUTO-REVERT HỦY KHÁCH & HỦY ĐƠN TRẢ CỌC QUÁ 24H ==========
-    // ★ FIX: Phân biệt cho_duyet_huy (→ tu_van_lai) vs cho_duyet_huy_don (→ chot_don)
-    // ★ FIX: Dùng getNextWorkingDay timezone-safe thay vì inline logic
+    // ========== 7. AUTO-REVERT HỦY KHÁCH & HỦY ĐƠN TRẢ CỌC — SMART DEADLINE ==========
+    // ★ Deadline: 23:59 ngày làm việc kế tiếp (skip CN + lễ) — giống cấp cứu sếp
+    // ★ Phân biệt cho_duyet_huy (→ tu_van_lai) vs cho_duyet_huy_don (→ chot_don)
     try {
-        const expiredCancels = await db.all(
-            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status FROM customers
+        const pendingCancels = await db.all(
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status,
+                    cancel_requested_at
+             FROM customers
              WHERE cancel_requested = 1 AND cancel_approved = 0
              AND cancel_requested_at IS NOT NULL
-             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'
              AND order_status IN ('cho_duyet_huy', 'cho_duyet_huy_don')`
         );
 
-        if (expiredCancels.length > 0) {
-            for (const c of expiredCancels) {
-                const nextBizDayStr = await _getNextWorkingDay(new Date(), c.assigned_to_id);
+        let revertedCount = 0;
+        for (const c of pendingCancels) {
+            // Smart deadline: 23:59 ngày làm việc kế tiếp (skip CN + lễ)
+            const realDeadline = await calculateRealDeadline(c.cancel_requested_at, null, 23);
+            if (now < realDeadline) continue; // Chưa hết hạn
 
-                if (c.order_status === 'cho_duyet_huy_don') {
-                    // Hủy đơn trả cọc expired → return to chot_don (giữ đơn)
-                    await db.run(
-                        `UPDATE customers SET cancel_approved = 0, cancel_requested = 0,
-                         cancel_reason = cancel_reason || $1,
-                         order_status = 'chot_don', appointment_date = $2,
-                         updated_at = NOW() WHERE id = $3`,
-                        ['\n⏰ Tự động: Quá 24h không phản hồi hủy đơn', nextBizDayStr, c.id]
-                    );
-                } else {
-                    // Hủy khách expired → return to tu_van_lai
-                    await db.run(
-                        `UPDATE customers SET cancel_approved = -2,
-                         cancel_reason = cancel_reason || $1,
-                         order_status = 'tu_van_lai', appointment_date = $2,
-                         updated_at = NOW() WHERE id = $3`,
-                        ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDayStr, c.id]
-                    );
-                }
+            const nextBizDayStr = await _getNextWorkingDay(new Date(), c.assigned_to_id);
+
+            if (c.order_status === 'cho_duyet_huy_don') {
+                // Hủy đơn trả cọc expired → return to chot_don (giữ đơn)
+                await db.run(
+                    `UPDATE customers SET cancel_approved = 0, cancel_requested = 0,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'chot_don', appointment_date = $2,
+                     updated_at = NOW() WHERE id = $3`,
+                    ['\n⏰ Tự động: Quá hạn không phản hồi hủy đơn', nextBizDayStr, c.id]
+                );
+            } else {
+                // Hủy khách expired → return to tu_van_lai
+                await db.run(
+                    `UPDATE customers SET cancel_approved = -2,
+                     cancel_reason = cancel_reason || $1,
+                     order_status = 'tu_van_lai', appointment_date = $2,
+                     updated_at = NOW() WHERE id = $3`,
+                    ['\n⏰ Tự động: Quá hạn không có phản hồi', nextBizDayStr, c.id]
+                );
             }
-            console.log(`  ⏰ [Hủy khách] Auto-revert ${expiredCancels.length} yêu cầu quá 24h`);
+            revertedCount++;
+        }
+        if (revertedCount > 0) {
+            console.log(`  ⏰ [Hủy khách] Auto-revert ${revertedCount} yêu cầu quá hạn`);
         }
     } catch(e) {
         console.error('  ❌ Error auto-reverting cancels:', e.message);
