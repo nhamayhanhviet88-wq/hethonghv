@@ -91,7 +91,7 @@ async function customersRoutes(fastify, options) {
                         return reply.code(409).send({
                             error: 'duplicate_customer_warning',
                             message: custWarning.warning,
-                            duplicate: custWarning.customer
+                            duplicates: custWarning.customers // ★ mảng tất cả KH trùng
                         });
                     }
                 }

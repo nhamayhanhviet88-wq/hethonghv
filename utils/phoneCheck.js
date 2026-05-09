@@ -52,7 +52,7 @@ async function checkPhoneCustomerWarning(phone, exclude = {}) {
     if (!phone) return null;
 
     let custQuery = `SELECT c.id, c.customer_uid, c.customer_name, c.phone, c.crm_type, c.order_status,
-        c.daily_order_number, c.effective_date, c.assigned_to_id,
+        c.daily_order_number, c.effective_date, c.assigned_to_id, c.updated_at,
         u.full_name as assigned_to_name, u.telegram_group_id as assigned_telegram,
         d.name as dept_name
         FROM customers c 
@@ -64,31 +64,36 @@ async function checkPhoneCustomerWarning(phone, exclude = {}) {
         custQuery += ' AND c.id != $2';
         custParams.push(Number(exclude.customerId));
     }
-    const existingCust = await db.get(custQuery, custParams);
-    if (existingCust) {
-        const mgrPart = existingCust.assigned_to_name ? `, quản lý bởi "${shortName(existingCust.assigned_to_name)}"` : '';
-        let currentCode = '';
-        if (existingCust.daily_order_number && existingCust.effective_date) {
-            const ed = new Date(existingCust.effective_date);
-            const d = ed.getDate(), m = ed.getMonth() + 1;
-            const y = String(ed.getFullYear()).slice(-2);
-            currentCode = `${existingCust.daily_order_number}-${d}-${m}-Y${y}`;
-        }
-        return {
-            warning: `SĐT ${phone} đã thuộc về KH "${shortName(existingCust.customer_name)}"${mgrPart}`,
-            customer: {
-                id: existingCust.id,
-                customer_uid: existingCust.customer_uid || '',
-                customer_name: existingCust.customer_name,
-                phone: existingCust.phone,
-                crm_type: existingCust.crm_type,
-                order_status: existingCust.order_status,
-                assigned_to_id: existingCust.assigned_to_id,
-                assigned_to_name: existingCust.assigned_to_name || '',
-                assigned_telegram: existingCust.assigned_telegram || '',
-                dept_name: existingCust.dept_name || '',
-                current_code: currentCode
+    custQuery += ' ORDER BY c.updated_at DESC NULLS LAST';
+
+    const rows = await db.all(custQuery, custParams);
+    if (rows && rows.length > 0) {
+        const customers = rows.map(row => {
+            let currentCode = '';
+            if (row.daily_order_number && row.effective_date) {
+                const ed = new Date(row.effective_date);
+                const d = ed.getDate(), m = ed.getMonth() + 1;
+                const y = String(ed.getFullYear()).slice(-2);
+                currentCode = `${row.daily_order_number}-${d}-${m}-Y${y}`;
             }
+            return {
+                id: row.id,
+                customer_uid: row.customer_uid || '',
+                customer_name: row.customer_name,
+                phone: row.phone,
+                crm_type: row.crm_type,
+                order_status: row.order_status,
+                assigned_to_id: row.assigned_to_id,
+                assigned_to_name: row.assigned_to_name || '',
+                assigned_telegram: row.assigned_telegram || '',
+                dept_name: row.dept_name || '',
+                current_code: currentCode
+            };
+        });
+        const first = customers[0];
+        return {
+            warning: `SĐT ${phone} đã thuộc về ${customers.length} khách hàng trong hệ thống`,
+            customers // ★ mảng tất cả KH trùng
         };
     }
     return null;
@@ -117,7 +122,7 @@ async function checkPhoneDuplicate(phone, exclude = {}, options = {}) {
             return {
                 error: custWarning.warning,
                 type: 'customer',
-                customer: custWarning.customer
+                customer: custWarning.customers[0] || null
             };
         }
         return custWarning.warning;

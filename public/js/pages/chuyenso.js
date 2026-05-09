@@ -332,9 +332,9 @@ async function renderChuyenSoPage(container) {
             if (data.success) {
                 showToast('✅ Chuyển số thành công!');
                 _csoResetForm(e.target);
-            } else if (data.error === 'duplicate_customer_warning' && data.duplicate) {
-                // ★ SĐT trùng KH → Hiện popup: Gửi Lại hoặc Tạo Mới
-                _csoShowDuplicatePopup(data.duplicate, body.notes, body);
+            } else if (data.error === 'duplicate_customer_warning' && data.duplicates) {
+                // ★ SĐT trùng KH → Hiện popup danh sách: chọn Gửi Lại hoặc Tạo Mới
+                _csoShowDuplicatePopup(data.duplicates, body.notes, body);
             } else {
                 showToast(data.error || data.message || 'Lỗi', 'error');
             }
@@ -720,16 +720,35 @@ function _csoResetForm(form) {
     const sr = document.getElementById('csoSearchResults'); if (sr) { sr.style.display = 'none'; sr.innerHTML = ''; }
 }
 
-// ========== POPUP GỬI LẠI SỐ TRÙNG ==========
-function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
+// ========== POPUP GỬI LẠI SỐ TRÙNG (MULTI-CARD) ==========
+function _csoShowDuplicatePopup(dups, formNotes, originalBody) {
     // Remove existing popup
     document.getElementById('csoDupOverlay')?.remove();
 
     // Store originalBody globally for force_create
     window._csoDupOriginalBody = originalBody || null;
+    window._csoDupSelectedId = null; // ★ Chưa chọn KH nào
 
     const CRM_LABELS = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
-    const STATUS_LABELS = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
+
+    // Build cards HTML
+    const cardsHtml = dups.map((dup, idx) => `
+        <div class="_csoDupCard" data-cid="${dup.id}" onclick="_csoDupSelectCard(${dup.id})"
+             style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #fcd34d;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;">
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;">
+                <span style="color:#92400e;font-weight:700;">👤 KH:</span>
+                <span style="color:#1e293b;font-weight:700;">${dup.customer_name || 'N/A'}</span>
+                <span style="color:#92400e;font-weight:700;">📱 SĐT:</span>
+                <span style="color:#1e293b;font-weight:600;">${dup.phone || 'N/A'}</span>
+                <span style="color:#92400e;font-weight:700;">👨‍💼 NV:</span>
+                <span style="color:#1e293b;font-weight:600;">${dup.assigned_to_name || 'N/A'}${dup.dept_name ? ' — ' + dup.dept_name : ''}</span>
+                <span style="color:#92400e;font-weight:700;">🏷️ CRM:</span>
+                <span style="color:#1e293b;font-weight:600;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
+                <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
+                <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
+            </div>
+        </div>
+    `).join('');
 
     const overlay = document.createElement('div');
     overlay.id = 'csoDupOverlay';
@@ -738,30 +757,21 @@ function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
         <style>
             @keyframes _csoDupFadeIn { from { opacity:0; } to { opacity:1; } }
             @keyframes _csoDupSlideUp { from { transform:translateY(30px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+            ._csoDupCard:hover { border-color:#f59e0b !important; transform:translateY(-1px); box-shadow:0 4px 12px rgba(245,158,11,0.2); }
+            ._csoDupCard._selected { border-color:#2563eb !important; background:linear-gradient(135deg,#eff6ff,#dbeafe) !important; box-shadow:0 4px 16px rgba(37,99,235,0.25); }
         </style>
-        <div style="background:white;border-radius:16px;padding:0;width:520px;max-width:92vw;box-shadow:0 25px 80px rgba(0,0,0,0.3);overflow:hidden;animation:_csoDupSlideUp 0.3s ease;">
-            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 24px;display:flex;align-items:center;gap:12px;">
+        <div style="background:white;border-radius:16px;padding:0;width:540px;max-width:92vw;max-height:90vh;box-shadow:0 25px 80px rgba(0,0,0,0.3);overflow:hidden;animation:_csoDupSlideUp 0.3s ease;display:flex;flex-direction:column;">
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 24px;display:flex;align-items:center;gap:12px;flex-shrink:0;">
                 <span style="font-size:28px;">⚠️</span>
                 <div>
                     <div style="font-size:16px;font-weight:800;color:white;">SĐT ĐÃ TỒN TẠI TRONG HỆ THỐNG</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Bạn có thể <strong>Gửi Lại Số</strong> cho NV cũ hoặc <strong>Tạo KH Mới</strong> (mã UID riêng)</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Tìm thấy <strong>${dups.length} khách hàng</strong> trùng SĐT. Chọn KH để <strong>Gửi Lại Số</strong> hoặc <strong>Tạo KH Mới</strong></div>
                 </div>
             </div>
-            <div style="padding:20px 24px;">
-                <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:16px;">
-                    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;">
-                        <span style="color:#92400e;font-weight:700;">👤 KH:</span>
-                        <span style="color:#1e293b;font-weight:700;">${dup.customer_name || 'N/A'}</span>
-                        <span style="color:#92400e;font-weight:700;">📱 SĐT:</span>
-                        <span style="color:#1e293b;font-weight:600;">${dup.phone || 'N/A'}</span>
-                        <span style="color:#92400e;font-weight:700;">👨‍💼 NV:</span>
-                        <span style="color:#1e293b;font-weight:600;">${dup.assigned_to_name || 'N/A'}${dup.dept_name ? ' — ' + dup.dept_name : ''}</span>
-                        <span style="color:#92400e;font-weight:700;">🏷️ CRM:</span>
-                        <span style="color:#1e293b;font-weight:600;">${CRM_LABELS[dup.crm_type] || dup.crm_type || 'N/A'}</span>
-                        <span style="color:#92400e;font-weight:700;">🏷️ Mã:</span>
-                        <span style="color:#6d28d9;font-weight:800;">${dup.current_code || 'N/A'}</span>
-                    </div>
-                </div>
+            <div style="padding:20px 24px;overflow-y:auto;flex:1;">
+                <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">📋 Danh sách KH trùng SĐT (mới nhất lên đầu):</div>
+                ${cardsHtml}
+
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
                     <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">💬 Ghi chú kèm theo (tùy chọn)</div>
                     <textarea id="csoDupNotes" rows="2" placeholder="VD: KH gọi lại muốn tư vấn thêm..." style="width:100%;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;resize:vertical;">${formNotes || ''}</textarea>
@@ -769,7 +779,7 @@ function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
 
                 <!-- Option 1: Gửi Lại Số (KH cũ) -->
                 <div style="font-size:11px;color:#6b7280;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
-                    <strong style="color:#15803d;">✅ Gửi Lại Số</strong> — cập nhật KH cũ vào Phải Xử Lý Hôm Nay
+                    <strong style="color:#15803d;">✅ Gửi Lại Số</strong> — chọn 1 KH ở trên rồi bấm gửi lại
                 </div>
 
                 <!-- Option 2: Tạo KH Mới (UID riêng) -->
@@ -784,8 +794,8 @@ function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
                     <button onclick="_csoForceCreateNew()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
                         🆕 Tạo KH Mới
                     </button>
-                    <button onclick="_csoConfirmResend(${dup.id})" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(245,158,11,0.4);transition:all 0.15s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
-                        ✅ Gửi Lại Số
+                    <button id="csoDupResendBtn" onclick="_csoConfirmResendSelected()" disabled style="padding:10px 20px;border-radius:10px;border:none;background:#9ca3af;color:white;font-weight:800;font-size:13px;cursor:not-allowed;box-shadow:none;transition:all 0.15s;opacity:0.6;">
+                        ✅ Chọn KH để Gửi Lại
                     </button>
                 </div>
             </div>
@@ -797,6 +807,32 @@ function _csoShowDuplicatePopup(dup, formNotes, originalBody) {
     overlay.addEventListener('click', (ev) => {
         if (ev.target === overlay) overlay.remove();
     });
+}
+
+// ★ Chọn card KH
+function _csoDupSelectCard(customerId) {
+    window._csoDupSelectedId = customerId;
+    // Highlight selected
+    document.querySelectorAll('._csoDupCard').forEach(c => c.classList.remove('_selected'));
+    const card = document.querySelector(`._csoDupCard[data-cid="${customerId}"]`);
+    if (card) card.classList.add('_selected');
+    // Enable resend button
+    const btn = document.getElementById('csoDupResendBtn');
+    if (btn) {
+        btn.disabled = false;
+        btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        btn.style.boxShadow = '0 4px 14px rgba(245,158,11,0.4)';
+        btn.textContent = '✅ Gửi Lại Số';
+    }
+}
+
+// ★ Gửi lại với KH đã chọn
+async function _csoConfirmResendSelected() {
+    const customerId = window._csoDupSelectedId;
+    if (!customerId) { showToast('Vui lòng chọn 1 KH để gửi lại', 'error'); return; }
+    await _csoConfirmResend(customerId);
 }
 
 // ========== XÁC NHẬN GỬI LẠI — Gọi API /api/customers/resend ==========
