@@ -219,12 +219,14 @@ async function usersRoutes(fastify, options) {
         // When creating a tkaffiliate user, auto-create a customer with crm_type='affiliate'
         if (role === 'tkaffiliate' && result.lastInsertRowid) {
             try {
+                const { nanoid } = require('nanoid');
                 const newUserId = Number(result.lastInsertRowid);
+                const affUid = 'K' + nanoid(19);
                 const custResult = await db.run(
-                    `INSERT INTO customers (customer_name, phone, address, crm_type, order_status, created_at, updated_at)
-                     VALUES ($1, $2, $3, 'affiliate', 'moi', NOW(), NOW())
+                    `INSERT INTO customers (customer_uid, customer_name, phone, address, crm_type, order_status, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, 'affiliate', 'moi', NOW(), NOW())
                      RETURNING id`,
-                    [full_name || username, phone || '', address || '']
+                    [affUid, full_name || username, phone || '', address || '']
                 );
                 // Link user to new affiliate customer
                 const newCustId = custResult?.rows?.[0]?.id;

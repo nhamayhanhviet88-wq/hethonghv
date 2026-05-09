@@ -1566,11 +1566,14 @@ async function telesaleRoutes(fastify) {
                 const selfSearchSource = await db.get("SELECT id FROM settings_sources WHERE UPPER(name) = 'TỰ TÌM KIẾM TELESALE' LIMIT 1");
                 const selfSearchSourceId = selfSearchSource?.id || null;
 
+                const { nanoid } = require('nanoid');
+                const tsUid = 'K' + nanoid(19);
+
                 // Create customer with appointment_date set to next working day
                 const custRow = await db.get(
-                    `INSERT INTO customers (crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-                    [crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId]
+                    `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, facebook_link, assigned_to_id, receiver_id, daily_order_number, created_by, job, appointment_date, source_id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+                    [tsUid, crmType, customer_name.trim(), normalizedPhone || null, fb_link?.trim() || null, req.user.id, req.user.id, dailyNum, req.user.id, srcName, nextWorkDay, selfSearchSourceId]
                 );
                 const customerId = custRow?.id;
 

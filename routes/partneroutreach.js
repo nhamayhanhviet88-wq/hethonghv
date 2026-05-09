@@ -532,10 +532,12 @@ module.exports = async function (fastify) {
                 const catRow = await db.get('SELECT name FROM partner_outreach_categories WHERE id = $1', [entry.category_id]);
                 if (catRow) catName = catRow.name;
             }
+            const { nanoid } = require('nanoid');
+            const poUid = 'K' + nanoid(19);
             await db.run(
-                `INSERT INTO customers (customer_name, phone, facebook_link, crm_type, assigned_to, source_name, job, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-                [entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, 'Nhắn Tìm Đối Tác', catName]
+                `INSERT INTO customers (customer_uid, customer_name, phone, facebook_link, crm_type, assigned_to, source_name, job, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+                [poUid, entry.partner_name, entry.phone || '', entry.fb_link || '', targetCrmType, req.user.id, 'Nhắn Tìm Đối Tác', catName]
             );
         }
 
