@@ -1140,6 +1140,7 @@ async function showAffDetail(userId) {
 
     openModal('💎 Chi Tiết Affiliate', bodyHTML, `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-primary" onclick="closeModal();showTransferAffModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">🔄 Chuyển Quản Lý</button>
     `);
 }
 
@@ -1233,10 +1234,11 @@ function showSyncConfirmDialog(changes) {
 
 // ========== 1A: SINGLE TRANSFER AFFILIATE ==========
 async function showTransferAffModal(affId, affName) {
-    const staffRes = await fetch('/api/staff-list', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-    const staffList = await staffRes.json();
-    const deptRes = await fetch('/api/departments', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-    const depts = await deptRes.json();
+    const [staffData, deptData] = await Promise.all([
+        apiCall('/api/users/dropdown'),
+        apiCall('/api/departments')
+    ]);
+    const depts = deptData.departments || [];
 
     const visibleParentIds = JSON.parse(localStorage.getItem('aff_visible_depts') || '[]');
     const hiddenChildIds = JSON.parse(localStorage.getItem('aff_hidden_child_depts') || '[]');
@@ -1249,8 +1251,8 @@ async function showTransferAffModal(affId, affName) {
         });
     });
 
-    const managers = (staffList.users || [])
-        .filter(u => !['hoa_hong','ctv','tkaffiliate'].includes(u.role))
+    const managers = (staffData.users || [])
+        .filter(u => !['hoa_hong','ctv','tkaffiliate','nuoi_duong','sinh_vien'].includes(u.role))
         .filter(u => allVisibleDeptIds.size === 0 || allVisibleDeptIds.has(u.department_id));
 
     const options = managers.map(e => `<option value="${e.id}">${e.full_name} (${ROLE_LABELS[e.role] || e.role})</option>`).join('');
@@ -1261,10 +1263,17 @@ async function showTransferAffModal(affId, affName) {
             <option value="">— Chọn nhân viên nhận —</option>
             ${options}
         </select>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;">📝 Lý do (tùy chọn)</label>
+            <input type="text" id="transferReason" class="form-control" placeholder="VD: NV nghỉ việc, tái phân bổ..." style="margin-top:4px;">
+        </div>
+        <div style="padding:10px 14px;background:#fefce8;border-radius:8px;border:1px solid #fde68a;font-size:11px;color:#92400e;">
+            ⚠️ Chỉ thay đổi NV quản lý. Hoa hồng, khách hàng cũ, đơn hàng cũ giữ nguyên.
+        </div>
     `;
     const footerHTML = `
         <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
-        <button class="btn btn-primary" onclick="submitTransferAff(${affId})">🔄 Chuyển</button>
+        <button class="btn btn-primary" onclick="submitTransferAff(${affId})" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">🔄 Xác Nhận Chuyển</button>
     `;
     openModal('🔄 Chuyển Quản Lý Affiliate', bodyHTML, footerHTML);
 }
@@ -1273,22 +1282,19 @@ async function submitTransferAff(affId) {
     const newManagerId = document.getElementById('transferNewManager')?.value;
     if (!newManagerId) { showToast('Chọn nhân viên nhận', 'error'); return; }
 
-    try {
-        const res = await fetch(`/api/users/${affId}/transfer`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-            body: JSON.stringify({ newManagerId: Number(newManagerId), type: 'affiliate' })
-        });
-        const data = await res.json();
-        if (data.success) {
-            closeModal();
-            showToast(data.message, 'success');
-            loadAffAccounts();
-        } else {
-            showToast(data.error || 'Lỗi', 'error');
-        }
-    } catch (e) {
-        showToast('Lỗi kết nối', 'error');
+    const reason = document.getElementById('transferReason')?.value?.trim() || '';
+    if (!confirm('Xác nhận chuyển affiliate này?')) return;
+
+    const data = await apiCall('/api/affiliate/transfer-bulk', 'POST', {
+        transfers: [{ affiliate_user_id: affId, to_employee_id: Number(newManagerId) }],
+        reason
+    });
+    if (data.success) {
+        closeModal();
+        showToast(data.message, 'success');
+        await loadAffAccounts();
+    } else {
+        showToast(data.error || 'Lỗi', 'error');
     }
 }
 
