@@ -17,20 +17,44 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return reply.code(400).send({ error: 'Khách đang chờ duyệt hủy đơn trả cọc. Không thể hủy khách.' });
         }
 
+        // Build mã Hủy Khách (STT-ngày-tháng-Ynăm) — đếm theo ngày
+        const today = getVNToday();
+        const [yy, mm, dd] = today.split('-').map(Number);
+        const yLabel = 'Y' + String(yy).slice(-2);
+
         // Helper: next working day (skip CN + lễ + nghỉ phép NV)
         const getNextBizDay = async () => getNextWorkingDay(new Date(), customer.assigned_to_id);
 
         // REPEAT cancel: auto-reverted (cancel_approved = -2), NV pressing Hủy Khách again
         if (customer.cancel_approved === -2 && customer.cancel_requested === 1) {
+            // Tìm STT gốc: đếm số hủy trong ngày đầu tiên cancel_requested_at
+            const origDateStr = (customer.cancel_requested_at || '').substring(0, 10);
+            const origCancelCount = await db.get(
+                "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy' AND created_at::date = $1::date AND id <= (SELECT MIN(id) FROM consultation_logs WHERE customer_id = $2 AND log_type = 'huy')",
+                [origDateStr || today, custId]
+            );
+            const origSTT = Number(origCancelCount?.cnt) || 1;
+            const [oy, om, od] = (origDateStr || today).split('-').map(Number);
+            const origY = 'Y' + String(oy).slice(-2);
+            const cancelCode = `${origSTT}-${od}-${om}-${origY}`;
+
             const nextBizDay = await getNextBizDay();
             await db.run(`UPDATE customers SET cancel_requested_at = NOW()::text, cancel_approved = 0, order_status = 'cho_duyet_huy', appointment_date = ?, updated_at = NOW() WHERE id = ?`,
                 [nextBizDay, custId]);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
-            const tgMsg = `❌ <b>NHẮC LẠI YÊU CẦU HỦY KHÁCH</b>\\nKhách: ${customer.customer_name} - ${customer.phone}\\nLý do: ${reason}\\nBởi: ${request.user.full_name}`;
+            const tgMsg = `❌ <b>${cancelCode} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
         }
+
+        // Đếm STT hủy khách hôm nay (từ customers.cancel_requested_at — luôn được set)
+        const cancelCount = await db.get(
+            "SELECT COUNT(*) as cnt FROM customers WHERE cancel_requested_at IS NOT NULL AND cancel_requested_at::timestamptz::date = $1::date",
+            [today]
+        );
+        const cancelSTT = Number(cancelCount?.cnt || 0) + 1;
+        const cancelCode = `${cancelSTT}-${dd}-${mm}-${yLabel}`;
 
         // ★ Helper: gửi yêu cầu hủy chờ duyệt
         const _sendCancelRequest = async (msg) => {
@@ -42,7 +66,10 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  updated_at = NOW() WHERE id = ?`,
                 [reason, request.user.id, custId]
             );
-            const tgMsg = `❌ <b>Yêu cầu HỦY khách hàng</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
+            // Log để đếm STT chính xác
+            await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
+                [custId, `❌ Yêu cầu hủy khách: ${reason}`, request.user.id]);
+            const tgMsg = `❌ <b>${cancelCode} : YÊU CẦU HỦY KHÁCH</b> ❌\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
         };
@@ -99,6 +126,17 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             return reply.code(400).send({ error: 'Chỉ có thể hủy đơn trả cọc khi đã Chốt Đơn.' });
         }
 
+        // Build mã Hủy Đơn Trả Cọc (STT-ngày-tháng-Ynăm) — đếm riêng theo ngày
+        const today = getVNToday();
+        const [yy, mm, dd] = today.split('-').map(Number);
+        const yLabel = 'Y' + String(yy).slice(-2);
+        const hdtcCount = await db.get(
+            "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy_don_tra_coc' AND content LIKE '🚫%' AND created_at::date = $1::date",
+            [today]
+        );
+        const hdtcSTT = Number(hdtcCount?.cnt || 0) + 1;
+        const hdtcCode = `${hdtcSTT}-${dd}-${mm}-${yLabel}`;
+
         // Helper: send cancel-order request (pending)
         const _sendCancelOrderRequest = async (msg) => {
             await db.run(
@@ -113,7 +151,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`, request.user.id]);
             // Telegram
-            const tgMsg = `🚫 <b>Yêu cầu HỦY ĐƠN TRẢ CỌC</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nBởi: ${request.user.full_name}`;
+            const tgMsg = `🚫 <b>${hdtcCode} : YÊU CẦU HỦY ĐƠN TRẢ CỌC</b> 🚫\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đơn trả cọc đã gửi. Chờ duyệt.' };
         };
@@ -141,6 +179,30 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
+        // Build mã STT — tìm STT gốc từ lần yêu cầu đầu tiên
+        const today = getVNToday();
+        const [yy, mm, dd] = today.split('-').map(Number);
+        const yLabel = 'Y' + String(yy).slice(-2);
+        const origLog = await db.get(
+            "SELECT id, created_at FROM consultation_logs WHERE customer_id = $1 AND log_type = 'huy_don_tra_coc' ORDER BY id DESC LIMIT 1",
+            [custId]
+        );
+        let hdtcCode = `?-${dd}-${mm}-${yLabel}`;
+        if (origLog) {
+            const origDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(origLog.created_at));
+            const origCnt = await db.get(
+                "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy_don_tra_coc' AND created_at::date = $1::date AND id <= $2",
+                [origDate, origLog.id]
+            );
+            const stt = Number(origCnt?.cnt) || 1;
+            const [oy, om, od] = origDate.split('-').map(Number);
+            hdtcCode = `${stt}-${od}-${om}-Y${String(oy).slice(-2)}`;
+        }
+
+        const cancelRequester = customer.cancel_requested_by ? await db.get('SELECT full_name FROM users WHERE id = ?', [customer.cancel_requested_by]) : null;
+        const reqName = cancelRequester?.full_name || '?';
+        const origReason = (customer.cancel_reason || '(không có)').split('\n')[0].replace(/^🚫\s*(Yêu cầu hủy đơn trả cọc:\s*)?/i, '');
+
         const nextBizDay = await getNextWorkingDay(new Date(), customer.assigned_to_id);
 
         if (approve) {
@@ -161,7 +223,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
-            const tgMsg = `✅ <b>Đã DUYỆT hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
+            const tgMsg = `✅ <b>${hdtcCode} : DUYỆT HỦY ĐƠN TRẢ CỌC</b> ✅\nKhách: <b>${customer.customer_name}</b>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Duyệt Hủy Đơn : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã duyệt hủy đơn trả cọc. Khách quay về chăm sóc lại.' };
         } else {
@@ -179,7 +241,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `❌ Từ chối hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
-            const tgMsg = `❌ <b>Từ chối hủy đơn trả cọc</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nGhi chú: ${manager_note}\nBởi: ${request.user.full_name}`;
+            const tgMsg = `📋 <b>${hdtcCode} : TỪ CHỐI HỦY ĐƠN TRẢ CỌC</b> 📋\nKhách: <b>${customer.customer_name}</b>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Từ Chối Hủy Đơn : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã từ chối hủy đơn. Khách tiếp tục sản xuất.' };
         }
@@ -199,6 +261,26 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
         }
 
+        // Lấy thông tin khách để build STT + thông báo
+        const customer = await db.get('SELECT customer_name, cancel_requested_at, cancel_reason, cancel_requested_by FROM customers WHERE id = ?', [custId]);
+        const custName = customer?.customer_name || '?';
+        const cancelRequester = customer?.cancel_requested_by ? await db.get('SELECT full_name FROM users WHERE id = ?', [customer.cancel_requested_by]) : null;
+        const reqName = cancelRequester?.full_name || '?';
+        const origReason = (customer?.cancel_reason || '(không có)').split('\n')[0].replace(/^❌\s*(Yêu cầu hủy khách:\s*|Nhắc lại hủy khách:\s*)?/i, '');
+
+        // Build mã STT gốc từ ngày cancel_requested_at
+        let cancelCode = '?';
+        if (customer?.cancel_requested_at) {
+            const origDateStr = customer.cancel_requested_at.substring(0, 10);
+            const origCount = await db.get(
+                "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy' AND created_at::date = $1::date AND id <= (SELECT MIN(id) FROM consultation_logs WHERE customer_id = $2 AND log_type = 'huy')",
+                [origDateStr, custId]
+            );
+            const stt = Number(origCount?.cnt) || 1;
+            const [oy, om, od] = origDateStr.split('-').map(Number);
+            cancelCode = `${stt}-${od}-${om}-Y${String(oy).slice(-2)}`;
+        }
+
         if (approve) {
             await db.run(
                 `UPDATE customers SET cancel_approved = 1, cancel_approved_by = ?,
@@ -214,6 +296,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 await db.run("UPDATE users SET status = 'locked', updated_at = NOW() WHERE id = ?", [linkedUser.id]);
                 notifyTelegram(null, 'huy_khach', `🔒 <b>Tài khoản bị khóa tự động</b>\nAffiliate: ${linkedUser.full_name}\nLý do: Khách hàng nguồn bị hủy`);
             }
+
+            // ★ Thông báo DUYỆT HỦY lên Telegram
+            const tgMsg = `✅ <b>${cancelCode} : DUYỆT HỦY KHÁCH</b> ✅\nKhách: <b>${custName}</b>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Duyệt Hủy Khách : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
+            notifyTelegram(null, 'huy_khach', tgMsg);
+
             return { success: true, message: 'Đã duyệt hủy khách hàng.' + (linkedUser ? ` Tài khoản ${linkedUser.full_name} đã bị khóa.` : '') };
         } else {
             // Next working day (skip CN + lễ + nghỉ phép NV)
@@ -227,6 +314,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                  updated_at = NOW() WHERE id = ?`,
                 [request.user.id, `\n❌ Từ chối: ${manager_note}`, nextBizDay, custId]
             );
+
+            // ★ Thông báo TỪ CHỐI HỦY lên Telegram
+            const tgMsg = `📋 <b>${cancelCode} : TỪ CHỐI HỦY KHÁCH</b> 📋\nKhách: <b>${custName}</b>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Từ Chối Hủy Khách : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
+            notifyTelegram(null, 'huy_khach', tgMsg);
+
             return { success: true, message: 'Đã từ chối hủy. Khách hàng chuyển sang Tư Vấn Lại.' };
         }
     });
@@ -326,25 +418,49 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const handler = await db.get('SELECT * FROM users WHERE id = ?', [Number(handler_id)]);
         if (!handler) return reply.code(404).send({ error: 'Không tìm thấy người xử lý' });
 
+        // Build mã Cấp Cứu riêng (STT-ngày-tháng-Ynăm) — đếm theo ngày VN
+        const today = getVNToday();
+        const [yy, mm, dd] = today.split('-').map(Number);
+        const yLabel = 'Y' + String(yy).slice(-2);
+
         // Check if there's already a pending emergency for this customer
-        const pendingEm = await db.get("SELECT id FROM emergencies WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
+        const pendingEm = await db.get("SELECT id, created_at FROM emergencies WHERE customer_id = ? AND status = 'pending'", [Number(customer_id)]);
 
         // Calculate next business day for appointment
         const nextBizDay = await getNextWorkingDay(new Date(), customer_id);
 
         if (pendingEm) {
-            // REPEAT: Don't create new emergency, just log + send Telegram reminder
+            // REPEAT: Tìm STT gốc của emergency này (đếm vị trí trong ngày tạo)
+            const origCount = await db.get(
+                `SELECT COUNT(*) as cnt FROM emergencies 
+                 WHERE created_at::date = (SELECT created_at::date FROM emergencies WHERE id = $1) 
+                 AND id <= $1`,
+                [pendingEm.id]
+            );
+            const origSTT = Number(origCount?.cnt) || 0;
+            // Lấy ngày VN từ created_at gốc
+            const origVNDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(pendingEm.created_at));
+            const [oy, om, od] = origVNDate.split('-').map(Number);
+            const origY = 'Y' + String(oy).slice(-2);
+            const emCode = `${origSTT}-${od}-${om}-${origY}`;
+
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'cap_cuu_sep', ?, ?)`,
                 [Number(customer_id), `🚨 Nhắc lại cấp cứu sếp: ${reason}`, request.user.id]);
-            // Update appointment to next business day
             await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
-            const tgMsg = `🚨 <b>NHẮC LẠI CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
+            const tgMsg = `🚨 <b>${emCode} : NHẮC LẠI CẤP CỨU SẾP</b> 🚨\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'cap_cuu_sep', tgMsg);
             return { success: true, id: pendingEm.id, message: 'Đã nhắc lại cấp cứu sếp!' };
         }
 
-        // FIRST TIME: Create new emergency
+        // FIRST TIME: Đếm số emergency hôm nay → STT mới (PG timezone = VN)
+        const todayCount = await db.get(
+            "SELECT COUNT(*) as cnt FROM emergencies WHERE created_at::date = $1::date",
+            [today]
+        );
+        const emSTT = Number(todayCount?.cnt || 0) + 1;
+        const emCode = `${emSTT}-${dd}-${mm}-${yLabel}`;
+
         const result = await db.run('INSERT INTO emergencies (customer_id, requested_by, reason, handler_id) VALUES (?,?,?,?)',
             [Number(customer_id), request.user.id, reason, Number(handler_id)]);
 
@@ -355,7 +471,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // Auto-set appointment to next business day
         await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
-        const tgMsg = `🚨 <b>CẤP CỨU SẾP</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nLý do: ${reason}\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
+        const tgMsg = `🚨 <b>${emCode} : CẤP CỨU SẾP</b> 🚨\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
         notifyTelegram(null, 'cap_cuu_sep', tgMsg);
         return { success: true, id: result.lastInsertRowid, message: 'Đã gửi cấp cứu sếp!' };
     });
@@ -476,6 +592,8 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const { note, status } = request.body || {};
         const emId = Number(request.params.id);
         const em = await db.get('SELECT * FROM emergencies WHERE id = ?', [emId]);
+        if (!em) return reply.code(404).send({ error: 'Không tìm thấy cấp cứu' });
+
         await db.run(
             `UPDATE emergencies SET status = ?, resolved_by = ?, resolved_note = ?,
              resolved_at = NOW()::text,
@@ -483,11 +601,30 @@ module.exports = function(fastify, db, getManagedDeptIds) {
              WHERE id = ?`,
             [status || 'resolved', request.user.id, note || null, emId]
         );
+
         if (em && em.customer_id) {
-        const nextBizDay = await getNextWorkingDay(new Date(), em.customer_id);
+            const customer = await db.get('SELECT customer_name FROM customers WHERE id = ?', [em.customer_id]);
+            const requester = await db.get('SELECT full_name FROM users WHERE id = ?', [em.requested_by]);
+            const nextBizDay = await getNextWorkingDay(new Date(), em.customer_id);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'hoan_thanh_cap_cuu', ?, ?)`,
                 [em.customer_id, `🏥 Cấp cứu hoàn thành: ${note || ''}`, request.user.id]);
             await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, em.customer_id]);
+
+            // Build STT code for this emergency
+            const origVNDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(em.created_at));
+            const origCount = await db.get(
+                "SELECT COUNT(*) as cnt FROM emergencies WHERE created_at::date = $1::date AND id <= $2",
+                [origVNDate, em.id]
+            );
+            const stt = Number(origCount?.cnt) || 1;
+            const [oy, om, od] = origVNDate.split('-').map(Number);
+            const origY = 'Y' + String(oy).slice(-2);
+            const emCode = `${stt}-${od}-${om}-${origY}`;
+
+            const custName = customer?.customer_name || '?';
+            const reqName = requester?.full_name || '?';
+            const tgMsg = `✅ <b>${emCode} : ĐÃ XỬ LÝ CẤP CỨU SẾP</b> ✅\nKhách: <b>${custName}</b>\n\nNội dung cấp cứu (${reqName}) : ${em.reason || '(không có)'}\n\nTư Vấn của Sếp : ${note || '(không có)'}\n\nXử lý bởi: ${request.user.full_name}`;
+            notifyTelegram(null, 'cap_cuu_sep', tgMsg);
         }
         return { success: true, message: 'Đã xử lý cấp cứu!' };
     });

@@ -116,6 +116,7 @@ async function renderChuyenSoPage(container) {
 
     // Settings button (only GĐ)
     const isGD = currentUser.role === 'giam_doc';
+    const isExecutive = ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role);
     const isAffiliate = currentUser.role === 'tkaffiliate';
     const settingsBtn = isGD
         ? `<button onclick="csoOpenSettings()" class="btn" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:6px 12px;font-size:13px;border-radius:8px;" title="Cài đặt đơn vị nhận số">⚙️ Cài đặt</button>`
@@ -229,7 +230,8 @@ async function renderChuyenSoPage(container) {
                         <div></div>
                     </div>
                     ${!isAffiliate ? `
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div style="display:grid; grid-template-columns: ${isExecutive ? '1fr 1fr' : '1fr'}; gap: 16px;">
+                        ${isExecutive ? `
                         <div class="form-group">
                             <label>Khuyến Mãi</label>
                             <select id="csoPromotion" class="form-control">
@@ -237,6 +239,7 @@ async function renderChuyenSoPage(container) {
                                 ${(promotions.items || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
                             </select>
                         </div>
+                        ` : ''}
                         <div class="form-group">
                             <label>Sản Phẩm</label>
                             <select id="csoIndustry" class="form-control">
@@ -302,6 +305,7 @@ async function renderChuyenSoPage(container) {
             customer_name: document.getElementById('csoName').value,
             phone: document.getElementById('csoPhone').value,
             source_id: document.getElementById('csoSourceAffiliate')?.value || document.getElementById('csoSource')?.value || null,
+            source_name: document.getElementById('csoSourceDisplay')?.value || null,
             promotion_id: document.getElementById('csoPromotion')?.value || null,
             industry_id: document.getElementById('csoIndustry')?.value || null,
             receiver_id: document.getElementById('csoReceiver').value,
@@ -406,6 +410,7 @@ async function renderChuyenSoPage(container) {
             if (sourceDisplay) sourceDisplay.value = sourceName;
             // Find source_id by name
             const found = allSrc.find(s => s.name.toUpperCase() === sourceName.toUpperCase());
+            console.log('[AFF-SOURCE] crmVal:', crmVal, '| sourceName:', sourceName, '| allSrc.length:', allSrc.length, '| found:', found ? `id=${found.id} name=${found.name}` : 'NOT FOUND');
             if (sourceHidden) sourceHidden.value = found ? found.id : '';
             // Always hide Affiliate HV row for affiliate users (they ARE the affiliate)
             const affRow = document.getElementById('csoAffiliateRow');

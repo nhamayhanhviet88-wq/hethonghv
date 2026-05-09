@@ -383,6 +383,10 @@ async function start() {
     const { startDeadlineChecker } = require('./routes/deadline-checker');
     startDeadlineChecker();
 
+    // Start reminder checker cron — nhắc NV xử lý số (mỗi 1 phút)
+    const { startReminderChecker } = require('./routes/reminder-checker');
+    startReminderChecker();
+
     // Sync telesale active members from task templates at startup
     const taskPointRoutes = require('./routes/taskpoints');
     if (taskPointRoutes._syncTelesaleFromTemplates) {

@@ -4,6 +4,7 @@ const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../u
 const { checkPhoneDuplicate, checkPhoneUser, checkPhoneCustomerWarning } = require('../utils/phoneCheck');
 const { maskCustomerData } = require('../utils/dataMasking');
 const { getVNToday } = require('../utils/workingDay');
+const { calculateRealDeadline } = require('./deadline-checker');
 const { nanoid } = require('nanoid');
 
 const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
@@ -124,6 +125,7 @@ async function customersRoutes(fastify, options) {
             const srcRow = await db.get('SELECT id FROM settings_sources WHERE UPPER(name) = UPPER($1) LIMIT 1', [source_name.trim()]);
             if (srcRow) resolvedSourceId = srcRow.id;
         }
+        console.log('[CSO-BACKEND] source_id from body:', source_id, '| source_name:', source_name, '| resolvedSourceId:', resolvedSourceId);
 
         // ★ CUTOFF LOGIC — Chuyển số ngoài giờ → gán sang ngày LV kế tiếp
         const { getVNTimeInfo, getNextWorkingDay: getNextWD, getHolidays: getHols, isUserOnLeave: isLeave } = require('../utils/workingDay');
@@ -201,7 +203,12 @@ async function customersRoutes(fastify, options) {
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
         const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
-        const tgMessage = `📱 <b>${code}</b> : ${customer_name} - ${phone} - ${crmLabels[crm_type] || crm_type} - ${sourceName || 'N/A'} - ${receiverUser?.full_name || 'N/A'} - ${promoName || 'N/A'} - ${industryName || 'N/A'}`;
+        const tgParts = [`📱 <b>${code}</b> : ${customer_name} - ${phone} - ${crmLabels[crm_type] || crm_type}`];
+        if (sourceName) tgParts.push(sourceName);
+        if (receiverUser?.full_name) tgParts.push(receiverUser.full_name);
+        if (promoName) tgParts.push(promoName);
+        if (industryName) tgParts.push(industryName);
+        const tgMessage = tgParts.join(' - ');
         notifyTelegram(actualReceiverId, 'chuyen_so', tgMessage);
 
         // Auto-update partner_outreach_entries: mark as transferred
@@ -253,9 +260,9 @@ async function customersRoutes(fastify, options) {
         // Gửi Telegram
         const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
         const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
-            `📱 <b>${originalCode || 'N/A'}</b> : ${customer.customer_name} - ${customer.phone}\n` +
+            `📱 <b>${originalCode || '?'}</b> : ${customer.customer_name} - ${customer.phone}\n` +
             `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +
-            `👨‍💼 NV: ${customer.assigned_to_name || 'N/A'}\n` +
+            (customer.assigned_to_name ? `👨‍💼 NV: ${customer.assigned_to_name}\n` : '') +
             `📝 Bởi: ${request.user.full_name}\n` +
             `🔥 <b>PHẢI XỬ LÝ HÔM NAY!</b>` +
             (notes && notes.trim() ? `\n💬 ${notes.trim()}` : '');
@@ -445,6 +452,20 @@ async function customersRoutes(fastify, options) {
         } catch (e) {
             console.error('[next_aff_rate] Error:', e.message);
             // Fallback: don't break API
+        }
+
+        // ★ Smart Deadline: Tính cancel_deadline_at cho pending cancel requests
+        // Để frontend hiển thị countdown chính xác (skip CN, lễ, nghỉ phép) — đồng bộ với cron auto-revert
+        try {
+            const pendingCancels = customers.filter(c =>
+                c.cancel_requested === 1 && c.cancel_approved === 0 && c.cancel_requested_at
+            );
+            for (const c of pendingCancels) {
+                const dl = await calculateRealDeadline(c.cancel_requested_at, null, 23);
+                c.cancel_deadline_at = dl.toISOString();
+            }
+        } catch (e) {
+            console.error('[cancel_deadline_at] Error:', e.message);
         }
 
         return { customers };

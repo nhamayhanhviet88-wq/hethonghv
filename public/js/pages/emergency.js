@@ -649,8 +649,12 @@ async function cancelLoadList() {
 
         let countdownHTML = '';
         if (isPending && c.cancel_requested_at) {
-            const reqAt = new Date(c.cancel_requested_at).getTime();
-            const remaining = (reqAt + 24*3600000) - Date.now();
+            // ★ Smart Deadline: dùng cancel_deadline_at từ backend (skip CN, lễ, nghỉ phép)
+            // Fallback: 24h cố định nếu backend chưa trả field mới
+            const deadlineAt = c.cancel_deadline_at
+                ? new Date(c.cancel_deadline_at).getTime()
+                : (new Date(c.cancel_requested_at).getTime() + 24*3600000);
+            const remaining = deadlineAt - Date.now();
             if (remaining > 0) {
                 const hrs = Math.floor(remaining / 3600000);
                 const mins = Math.floor((remaining % 3600000) / 60000);

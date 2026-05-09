@@ -1303,10 +1303,23 @@ async function loadTelegramNotifySettings() {
     const el = document.getElementById('settingsContent');
     el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
 
-    const [configRes, staffRes] = await Promise.all([
+    const [configRes, staffRes, rmWeekday, rmSaturday, rmSunday, rmCapCuu, rmHuyKhach, rmHuyDon, rmChuyenSo] = await Promise.all([
         apiCall('/api/telegram/config'),
-        apiCall('/api/telegram/staff')
+        apiCall('/api/telegram/staff'),
+        apiCall('/api/app-config/reminder_hours_weekday'),
+        apiCall('/api/app-config/reminder_hours_saturday'),
+        apiCall('/api/app-config/reminder_hours_sunday'),
+        apiCall('/api/app-config/reminder_minutes_cap_cuu_sep'),
+        apiCall('/api/app-config/reminder_minutes_huy_khach'),
+        apiCall('/api/app-config/reminder_minutes_huy_don'),
+        apiCall('/api/app-config/reminder_minutes_chuyen_so')
     ]);
+    const _rmMinutes = {
+        cap_cuu_sep: rmCapCuu.value || '10',
+        huy_khach: rmHuyKhach.value || '15',
+        huy_don_tra_coc: rmHuyDon.value || '15',
+        chuyen_so: rmChuyenSo.value || '5'
+    };
 
     _tgCachedConfig = configRes;
     const botToken = configRes.bot_token || '';
@@ -1366,6 +1379,7 @@ async function loadTelegramNotifySettings() {
                             <tr style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;">
                                 <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Sự kiện</th>
                                 <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;">Group ID</th>
+                                <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;width:100px;">⏱ Nhắc (phút)</th>
                                 <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;width:80px;">Test</th>
                             </tr>
                         </thead>
@@ -1380,6 +1394,12 @@ async function loadTelegramNotifySettings() {
                                         value="${globalConfigs[evt.key] || ''}"
                                         placeholder="-100..."
                                         style="font-family:monospace;font-size:12px;padding:7px 10px;border-radius:8px;">
+                                </td>
+                                <td style="padding:8px 14px;text-align:center;">
+                                    <input type="number" id="rmMinutes_${evt.key}" class="form-control"
+                                        value="${_rmMinutes[evt.key] || '10'}"
+                                        min="1" max="60"
+                                        style="width:70px;margin:0 auto;font-size:13px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;">
                                 </td>
                                 <td style="padding:8px 14px;text-align:center;">
                                     <button class="btn btn-xs" onclick="testTelegramGroup('tgGlobal_${evt.key}')"
@@ -1457,6 +1477,85 @@ async function loadTelegramNotifySettings() {
                 </div>
             </div>
 
+            <!-- KHU D: Nhắc Xử Lý Số — Khung Giờ -->
+            <div style="padding:20px;background:linear-gradient(165deg,#f0fdf4,#ecfdf5);border:1.5px solid #34d399;border-radius:16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <span style="font-size:24px;">⏰</span>
+                    <div>
+                        <h4 style="color:#065f46;margin:0;font-size:15px;font-weight:800;">Nhắc Xử Lý Số — Khung Giờ Hoạt Động</h4>
+                        <p style="margin:2px 0 0;font-size:11px;color:#047857;">Bot tự động nhắc NV nếu chưa tư vấn số đã nhận. Cài khung giờ để tránh nhắc ngoài giờ làm.</p>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                    <!-- Weekday -->
+                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
+                        <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:10px;">📅 Thứ 2 → Thứ 6</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="time" id="rmWeekdayFrom" value="${(rmWeekday.value || '08:00-18:15').split('-')[0]}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                            <span style="font-weight:700;color:#065f46;">→</span>
+                            <input type="time" id="rmWeekdayTo" value="${(rmWeekday.value || '08:00-18:15').split('-')[1] || '18:15'}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                        </div>
+                    </div>
+
+                    <!-- Saturday -->
+                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
+                        <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:10px;">📅 Thứ 7</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="time" id="rmSaturdayFrom" value="${(rmSaturday.value || '08:00-17:15').split('-')[0]}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                            <span style="font-weight:700;color:#065f46;">→</span>
+                            <input type="time" id="rmSaturdayTo" value="${(rmSaturday.value || '08:00-17:15').split('-')[1] || '17:15'}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                        </div>
+                    </div>
+
+                    <!-- Sunday -->
+                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                            <div style="font-size:13px;font-weight:700;color:#065f46;">📅 Chủ Nhật</div>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:700;color:${(rmSunday.value || 'off') === 'off' ? '#dc2626' : '#059669'};">
+                                <input type="checkbox" id="rmSundayToggle" ${(rmSunday.value || 'off') !== 'off' ? 'checked' : ''}
+                                    onchange="document.getElementById('rmSundayTimes').style.display = this.checked ? 'flex' : 'none'; this.parentElement.style.color = this.checked ? '#059669' : '#dc2626'; this.parentElement.querySelector('span').textContent = this.checked ? 'BẬT' : 'TẮT';"
+                                    style="width:16px;height:16px;">
+                                <span>${(rmSunday.value || 'off') !== 'off' ? 'BẬT' : 'TẮT'}</span>
+                            </label>
+                        </div>
+                        <div id="rmSundayTimes" style="display:${(rmSunday.value || 'off') !== 'off' ? 'flex' : 'none'};align-items:center;gap:6px;">
+                            <input type="time" id="rmSundayFrom" value="${(rmSunday.value || 'off') !== 'off' ? (rmSunday.value || '').split('-')[0] : '09:00'}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                            <span style="font-weight:700;color:#065f46;">→</span>
+                            <input type="time" id="rmSundayTo" value="${(rmSunday.value || 'off') !== 'off' ? ((rmSunday.value || '').split('-')[1] || '12:00') : '12:00'}" class="form-control"
+                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
+                        </div>
+                        ${(rmSunday.value || 'off') === 'off' ? '<div id="rmSundayOffLabel" style="text-align:center;padding:6px;color:#dc2626;font-weight:700;font-size:12px;">🔴 Không nhắc Chủ Nhật</div>' : ''}
+                    </div>
+                </div>
+
+                <!-- Nhắc Chuyển Số + Gửi Lại Số -->
+                <div style="margin-top:16px;background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                        <div style="font-size:13px;font-weight:700;color:#065f46;">📱🔄 Nhắc Xử Lý Số (Chuyển + Gửi Lại)</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:12px;color:#065f46;font-weight:600;">Sau</span>
+                            <input type="number" id="rmMinutes_chuyen_so" class="form-control"
+                                value="${_rmMinutes.chuyen_so || '5'}"
+                                min="1" max="60"
+                                style="width:70px;font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;">
+                            <span style="font-size:12px;color:#065f46;font-weight:600;">phút</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:12px;display:flex;gap:8px;">
+                    <button class="btn btn-success" onclick="saveReminderHours()" style="padding:8px 20px;font-size:12px;font-weight:700;border-radius:10px;">
+                        💾 Lưu Khung Giờ & Phút Nhắc
+                    </button>
+                </div>
+            </div>
+
             <!-- Hướng dẫn -->
             <div style="margin-top:20px;padding:16px;background:#fffbeb;border:1.5px solid #fbbf24;border-radius:14px;font-size:12px;color:#92400e;">
                 <strong>📌 Hướng dẫn:</strong>
@@ -1483,16 +1582,58 @@ async function saveTelegramConfig() {
         if (input) globalConfigs[evt.key] = input.value.trim();
     }
 
-    const res = await apiCall('/api/telegram/config', 'PUT', {
-        bot_token: botToken,
-        global_configs: globalConfigs
+    // Save reminder minutes from global events table
+    const minuteKeys = ['cap_cuu_sep', 'huy_khach', 'huy_don_tra_coc'];
+    const minutePromises = minuteKeys.map(key => {
+        const el = document.getElementById(`rmMinutes_${key}`);
+        const val = el ? String(Math.max(1, Math.min(60, Number(el.value) || 10))) : null;
+        return val ? apiCall(`/api/app-config/reminder_minutes_${key}`, 'PUT', { value: val }) : Promise.resolve();
     });
 
+    const [res] = await Promise.all([
+        apiCall('/api/telegram/config', 'PUT', {
+            bot_token: botToken,
+            global_configs: globalConfigs
+        }),
+        ...minutePromises
+    ]);
+
     if (res.success) {
-        showToast('✅ ' + res.message);
+        showToast('✅ Đã lưu cấu hình & phút nhắc nhở');
         await loadTelegramNotifySettings();
     } else {
         showToast(res.error || 'Lỗi lưu cấu hình', 'error');
+    }
+}
+
+async function saveReminderHours() {
+    const weekdayFrom = document.getElementById('rmWeekdayFrom')?.value || '08:00';
+    const weekdayTo = document.getElementById('rmWeekdayTo')?.value || '18:15';
+    const saturdayFrom = document.getElementById('rmSaturdayFrom')?.value || '08:00';
+    const saturdayTo = document.getElementById('rmSaturdayTo')?.value || '17:15';
+    const sundayOn = document.getElementById('rmSundayToggle')?.checked;
+    const sundayFrom = document.getElementById('rmSundayFrom')?.value || '09:00';
+    const sundayTo = document.getElementById('rmSundayTo')?.value || '12:00';
+    const sundayVal = sundayOn ? `${sundayFrom}-${sundayTo}` : 'off';
+
+    // Collect reminder minutes from global events + chuyển số
+    const minuteKeys = ['cap_cuu_sep', 'huy_khach', 'huy_don_tra_coc', 'chuyen_so'];
+    const minutePromises = minuteKeys.map(key => {
+        const el = document.getElementById(`rmMinutes_${key}`);
+        const val = el ? String(Math.max(1, Math.min(60, Number(el.value) || 5))) : null;
+        return val ? apiCall(`/api/app-config/reminder_minutes_${key}`, 'PUT', { value: val }) : Promise.resolve();
+    });
+
+    try {
+        await Promise.all([
+            apiCall('/api/app-config/reminder_hours_weekday', 'PUT', { value: `${weekdayFrom}-${weekdayTo}` }),
+            apiCall('/api/app-config/reminder_hours_saturday', 'PUT', { value: `${saturdayFrom}-${saturdayTo}` }),
+            apiCall('/api/app-config/reminder_hours_sunday', 'PUT', { value: sundayVal }),
+            ...minutePromises
+        ]);
+        showToast('✅ Đã lưu khung giờ & phút nhắc nhở');
+    } catch (err) {
+        showToast('Lỗi lưu cấu hình', 'error');
     }
 }
 
