@@ -4,6 +4,7 @@
  * → Khóa tài khoản quản lý + ghi phạt
  */
 const db = require('../db/pool');
+const { getNextWorkingDay: _getNextWorkingDay } = require('../utils/workingDay');
 
 let _holidayCache = null;
 let _holidayCacheTime = 0;
@@ -860,38 +861,41 @@ async function runDeadlineCheck(forceFullCheck = false) {
         penaltyCount++;
     }
 
-    // ========== 7. AUTO-REVERT HỦY KHÁCH QUÁ 24H ==========
-    // Chuyển từ API thủ công sang cron tự động
+    // ========== 7. AUTO-REVERT HỦY KHÁCH & HỦY ĐƠN TRẢ CỌC QUÁ 24H ==========
+    // ★ FIX: Phân biệt cho_duyet_huy (→ tu_van_lai) vs cho_duyet_huy_don (→ chot_don)
+    // ★ FIX: Dùng getNextWorkingDay timezone-safe thay vì inline logic
     try {
         const expiredCancels = await db.all(
-            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id FROM customers
+            `SELECT id, customer_name, phone, cancel_requested_by, assigned_to_id, order_status FROM customers
              WHERE cancel_requested = 1 AND cancel_approved = 0
              AND cancel_requested_at IS NOT NULL
-             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'`
+             AND (NOW() - cancel_requested_at::timestamp) > INTERVAL '24 hours'
+             AND order_status IN ('cho_duyet_huy', 'cho_duyet_huy_don')`
         );
 
         if (expiredCancels.length > 0) {
-            // Tính ngày làm việc tiếp theo (skip CN + lễ + nghỉ phép NV)
             for (const c of expiredCancels) {
-                let nextBizDay = new Date(now);
-                nextBizDay.setDate(nextBizDay.getDate() + 1);
-                let maxIter2 = 30;
-                while (maxIter2-- > 0) {
-                    const ds2 = toDateStr(nextBizDay);
-                    const off2 = await isDayOff(ds2);
-                    const nvLeave = c.assigned_to_id ? await isUserOnLeave(c.assigned_to_id, ds2) : false;
-                    if (!off2 && !nvLeave) break;
-                    nextBizDay.setDate(nextBizDay.getDate() + 1);
-                }
-                const nextBizDayStr = toDateStr(nextBizDay);
+                const nextBizDayStr = await _getNextWorkingDay(new Date(), c.assigned_to_id);
 
-                await db.run(
-                    `UPDATE customers SET cancel_approved = -2,
-                     cancel_reason = cancel_reason || $1,
-                     order_status = 'tu_van_lai', appointment_date = $2,
-                     updated_at = NOW() WHERE id = $3`,
-                    ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDayStr, c.id]
-                );
+                if (c.order_status === 'cho_duyet_huy_don') {
+                    // Hủy đơn trả cọc expired → return to chot_don (giữ đơn)
+                    await db.run(
+                        `UPDATE customers SET cancel_approved = 0, cancel_requested = 0,
+                         cancel_reason = cancel_reason || $1,
+                         order_status = 'chot_don', appointment_date = $2,
+                         updated_at = NOW() WHERE id = $3`,
+                        ['\n⏰ Tự động: Quá 24h không phản hồi hủy đơn', nextBizDayStr, c.id]
+                    );
+                } else {
+                    // Hủy khách expired → return to tu_van_lai
+                    await db.run(
+                        `UPDATE customers SET cancel_approved = -2,
+                         cancel_reason = cancel_reason || $1,
+                         order_status = 'tu_van_lai', appointment_date = $2,
+                         updated_at = NOW() WHERE id = $3`,
+                        ['\n⏰ Tự động: Quá 24h không có phản hồi', nextBizDayStr, c.id]
+                    );
+                }
             }
             console.log(`  ⏰ [Hủy khách] Auto-revert ${expiredCancels.length} yêu cầu quá 24h`);
         }
