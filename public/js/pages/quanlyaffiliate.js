@@ -82,6 +82,7 @@ function renderQuanLyAffiliatePage(container) {
             <h2>🤝 Chỉ Số Affiliate HV</h2>
             <div class="actions">
                 <button class="btn btn-secondary" onclick="affLoadData()">🔄 Tải lại</button>
+                <button class="btn btn-secondary" onclick="affShowTransferHistory()" style="border-color:#93c5fd;color:#2563eb;">📜 Lịch Sử Bàn Giao</button>
                 ${currentUser.role === 'giam_doc' ? '<button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>' : ''}
             </div>
         </div>
@@ -547,7 +548,7 @@ function affRenderTree() {
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(headRevenue)}</span>
-
+                        ${headAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${headEmp.id},'${headEmp.full_name.replace(/'/g, "\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
@@ -602,7 +603,7 @@ function affRenderTree() {
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(empRevenue)}</span>
-
+                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
@@ -917,4 +918,154 @@ async function affShowDetail(userId) {
 
     const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`;
     openModal('👁️ Chi Tiết Affiliate: ' + user.full_name, bodyHTML, footerHTML);
+}
+
+// ========== BÀN GIAO AFFILIATE ==========
+
+async function affOpenTransferModal(empId, empName) {
+    const { employees, affiliates } = _affData;
+    const empAffs = affiliates.filter(a => a.managed_by_user_id === empId);
+    if (empAffs.length === 0) { showToast('NV này không có affiliate nào', 'error'); return; }
+
+    // Get list of active employees (excluding affiliate roles)
+    const AFF_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
+    const staffList = employees.filter(e => e.id !== empId && !AFF_ROLES.includes(e.role));
+
+    // Build dropdown options HTML
+    const staffOptions = staffList.map(e => `<option value="${e.id}">${e.full_name} (${e.role === 'truong_phong' ? 'TP' : e.role === 'quan_ly' ? 'QL' : 'NV'})</option>`).join('');
+
+    let bodyHTML = `
+        <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;">📝 Lý do (tùy chọn)</label>
+            <input type="text" id="affTransferReason" class="form-control" placeholder="VD: NV nghỉ việc, tái phân bổ..." style="margin-top:4px;">
+        </div>
+        <div style="margin-bottom:16px;background:#f0f4ff;padding:12px 16px;border-radius:10px;border:1px solid #c7d2fe;">
+            <label style="font-size:12px;font-weight:700;color:#4338ca;text-transform:uppercase;">⚡ Chọn nhanh NV nhận cho TẤT CẢ</label>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+                <select id="affTransferBulkTarget" class="form-control" style="flex:1;">
+                    <option value="">-- Chọn nhân viên --</option>
+                    ${staffOptions}
+                </select>
+                <button class="btn btn-primary" onclick="affApplyBulkTarget()" style="white-space:nowrap;padding:8px 16px;">📋 Áp dụng</button>
+            </div>
+        </div>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:8px;font-weight:600;">Chọn affiliate cần chuyển:</div>
+        <div id="affTransferList" style="max-height:350px;overflow-y:auto;">
+    `;
+
+    empAffs.forEach(aff => {
+        const isLocked = aff.status === 'locked';
+        bodyHTML += `
+        <div class="aff-transfer-item" data-aff-id="${aff.id}" style="padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;background:white;transition:all .2s;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <input type="checkbox" id="affTr_${aff.id}" checked style="width:18px;height:18px;accent-color:#4338ca;cursor:pointer;">
+                <label for="affTr_${aff.id}" style="font-weight:600;color:#1e3a5f;font-size:13px;cursor:pointer;flex:1;">
+                    ${aff.full_name} ${isLocked ? '🔒' : ''}
+                </label>
+                <span style="font-size:11px;color:#6b7280;">👥${aff.total_customers} · 📦${aff.total_orders} · 💰${affFormatMoney(aff.total_revenue)}</span>
+            </div>
+            <div style="padding-left:28px;">
+                <select class="form-control aff-transfer-target" data-aff-id="${aff.id}" style="font-size:12px;padding:6px 10px;">
+                    <option value="">-- Chọn NV nhận --</option>
+                    ${staffOptions}
+                </select>
+            </div>
+        </div>`;
+    });
+
+    bodyHTML += `</div>
+        <div style="margin-top:12px;padding:10px 14px;background:#fefce8;border-radius:8px;border:1px solid #fde68a;font-size:11px;color:#92400e;">
+            ⚠️ Chỉ affiliate được ☑ và có NV nhận sẽ bị chuyển. Affiliate không chọn vẫn ở ${empName}.
+        </div>
+    `;
+
+    const footerHTML = `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="affConfirmTransfer(${empId})" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">✅ Xác Nhận Bàn Giao</button>
+    `;
+    openModal('🔄 Bàn Giao Affiliate — ' + empName, bodyHTML, footerHTML);
+}
+
+function affApplyBulkTarget() {
+    const targetId = document.getElementById('affTransferBulkTarget')?.value;
+    if (!targetId) { showToast('Chọn NV nhận trước', 'error'); return; }
+    document.querySelectorAll('.aff-transfer-target').forEach(sel => {
+        sel.value = targetId;
+    });
+    showToast('✅ Đã áp dụng cho tất cả');
+}
+
+async function affConfirmTransfer(fromEmpId) {
+    const reason = document.getElementById('affTransferReason')?.value?.trim() || '';
+    const transfers = [];
+
+    document.querySelectorAll('.aff-transfer-item').forEach(item => {
+        const affId = Number(item.dataset.affId);
+        const checkbox = item.querySelector('input[type=checkbox]');
+        const select = item.querySelector('.aff-transfer-target');
+        if (checkbox?.checked && select?.value) {
+            transfers.push({ affiliate_user_id: affId, to_employee_id: Number(select.value) });
+        }
+    });
+
+    if (transfers.length === 0) {
+        showToast('Chọn ít nhất 1 affiliate và NV nhận', 'error');
+        return;
+    }
+
+    if (!confirm(`Xác nhận bàn giao ${transfers.length} affiliate?`)) return;
+
+    const data = await apiCall('/api/affiliate/transfer-bulk', 'POST', { transfers, reason });
+    if (data.success) {
+        showToast(data.message, 'success');
+        closeModal();
+        await affLoadData();
+    } else {
+        showToast('❌ ' + (data.error || 'Lỗi'), 'error');
+    }
+}
+
+// ===== LỊCH SỬ BÀN GIAO =====
+
+async function affShowTransferHistory() {
+    const data = await apiCall('/api/affiliate/transfer-logs?limit=50');
+    const logs = data.logs || [];
+
+    let bodyHTML = '';
+    if (logs.length === 0) {
+        bodyHTML = '<div style="padding:30px;text-align:center;color:#9ca3af;">Chưa có lịch sử bàn giao nào</div>';
+    } else {
+        bodyHTML = `
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Ngày</th>
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Affiliate</th>
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Từ NV</th>
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Sang NV</th>
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Lý do</th>
+                        <th style="padding:10px 12px;text-align:left;font-weight:700;color:#4338ca;border-bottom:2px solid #e0e7ff;">Bởi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${logs.map(log => `
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:10px 12px;white-space:nowrap;">${new Date(log.transferred_at).toLocaleDateString('vi-VN')} ${new Date(log.transferred_at).toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'})}</td>
+                            <td style="padding:10px 12px;font-weight:600;color:#1e3a5f;">${log.affiliate_name || '#' + log.affiliate_user_id}</td>
+                            <td style="padding:10px 12px;"><span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${log.from_employee_name || '—'}</span></td>
+                            <td style="padding:10px 12px;"><span style="background:#ecfdf5;color:#059669;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${log.to_employee_name || '—'}</span></td>
+                            <td style="padding:10px 12px;color:#6b7280;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${log.reason || '—'}</td>
+                            <td style="padding:10px 12px;font-size:11px;color:#6b7280;">${log.transferred_by_name || '—'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:12px;text-align:center;font-size:11px;color:#9ca3af;">Hiện ${logs.length} / ${data.total || logs.length} bản ghi</div>
+        `;
+    }
+
+    const footerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>`;
+    openModal('📜 Lịch Sử Bàn Giao Affiliate', bodyHTML, footerHTML);
 }

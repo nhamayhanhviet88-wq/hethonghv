@@ -331,6 +331,155 @@ async function affiliateRoutes(fastify) {
         return { affiliates };
     });
 
+    // ========== BÀN GIAO AFFILIATE ==========
+
+    // Auto-create transfer logs table
+    (async () => {
+        try {
+            await db.run(`
+                CREATE TABLE IF NOT EXISTS affiliate_transfer_logs (
+                    id SERIAL PRIMARY KEY,
+                    affiliate_user_id INTEGER NOT NULL,
+                    affiliate_name TEXT,
+                    from_employee_id INTEGER NOT NULL,
+                    from_employee_name TEXT,
+                    to_employee_id INTEGER NOT NULL,
+                    to_employee_name TEXT,
+                    transferred_by INTEGER NOT NULL,
+                    transferred_by_name TEXT,
+                    reason TEXT,
+                    transferred_at TIMESTAMP DEFAULT NOW()
+                )
+            `);
+        } catch (e) { /* table exists */ }
+    })();
+
+    // POST /api/affiliate/transfer-bulk — Bàn giao chọn lọc affiliate
+    fastify.post('/api/affiliate/transfer-bulk', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly')] }, async (request, reply) => {
+        const { transfers, reason } = request.body || {};
+        if (!transfers || !Array.isArray(transfers) || transfers.length === 0) {
+            return reply.code(400).send({ error: 'Không có affiliate nào để chuyển' });
+        }
+
+        let successCount = 0;
+        const results = [];
+
+        for (const t of transfers) {
+            const { affiliate_user_id, to_employee_id } = t;
+            if (!affiliate_user_id || !to_employee_id) continue;
+
+            // Validate affiliate
+            const affiliate = await db.get(
+                "SELECT id, full_name, role, managed_by_user_id FROM users WHERE id = ?",
+                [Number(affiliate_user_id)]
+            );
+            if (!affiliate || !AFFILIATE_ROLES.includes(affiliate.role)) {
+                results.push({ affiliate_user_id, error: 'Không phải TK affiliate' });
+                continue;
+            }
+
+            // Validate NV nhận
+            const toEmployee = await db.get(
+                "SELECT id, full_name, department_id, role, status FROM users WHERE id = ?",
+                [Number(to_employee_id)]
+            );
+            if (!toEmployee || toEmployee.status !== 'active') {
+                results.push({ affiliate_user_id, error: 'NV nhận không active' });
+                continue;
+            }
+            if (AFFILIATE_ROLES.includes(toEmployee.role)) {
+                results.push({ affiliate_user_id, error: 'Không thể chuyển cho TK affiliate' });
+                continue;
+            }
+
+            // Không cho chuyển cho chính NV đang quản lý
+            if (affiliate.managed_by_user_id === Number(to_employee_id)) {
+                results.push({ affiliate_user_id, error: 'Affiliate đã thuộc NV này' });
+                continue;
+            }
+
+            // Lấy tên NV cũ
+            const fromEmployee = affiliate.managed_by_user_id
+                ? await db.get("SELECT id, full_name FROM users WHERE id = ?", [affiliate.managed_by_user_id])
+                : null;
+
+            // UPDATE affiliate
+            await db.run(
+                'UPDATE users SET managed_by_user_id = ?, department_id = ?, updated_at = NOW() WHERE id = ?',
+                [Number(to_employee_id), toEmployee.department_id, Number(affiliate_user_id)]
+            );
+
+            // INSERT log
+            await db.run(
+                `INSERT INTO affiliate_transfer_logs
+                 (affiliate_user_id, affiliate_name, from_employee_id, from_employee_name,
+                  to_employee_id, to_employee_name, transferred_by, transferred_by_name, reason)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                [
+                    Number(affiliate_user_id), affiliate.full_name,
+                    fromEmployee?.id || 0, fromEmployee?.full_name || '(Chưa gán)',
+                    Number(to_employee_id), toEmployee.full_name,
+                    request.user.id, request.user.full_name,
+                    reason || null
+                ]
+            );
+
+            successCount++;
+            results.push({ affiliate_user_id, success: true, to_name: toEmployee.full_name });
+        }
+
+        // Telegram notification
+        if (successCount > 0) {
+            try {
+                const toIds = [...new Set(transfers.map(t => t.to_employee_id))];
+                for (const toId of toIds) {
+                    const emp = await db.get('SELECT telegram_group_id, full_name FROM users WHERE id = ?', [Number(toId)]);
+                    if (emp?.telegram_group_id) {
+                        const affNames = results
+                            .filter(r => r.success && transfers.find(t => t.affiliate_user_id === r.affiliate_user_id)?.to_employee_id === toId)
+                            .map(r => {
+                                const aff = transfers.find(t => t.affiliate_user_id === r.affiliate_user_id);
+                                return r.to_name ? `• ${results.find(x => x.affiliate_user_id === aff?.affiliate_user_id)?.to_name || ''}` : '';
+                            });
+                        const count = results.filter(r => r.success && transfers.find(t => t.affiliate_user_id === r.affiliate_user_id)?.to_employee_id === toId).length;
+                        const { sendTelegramMessage } = require('../utils/telegram');
+                        sendTelegramMessage(emp.telegram_group_id,
+                            `🔄 <b>Bàn Giao Affiliate</b>\nBạn vừa được nhận <b>${count}</b> affiliate mới.\nBởi: ${request.user.full_name}${reason ? '\nLý do: ' + reason : ''}`
+                        );
+                    }
+                }
+            } catch (e) { console.error('[Transfer] Telegram error:', e.message); }
+        }
+
+        console.log(`🔄 [TRANSFER] ${request.user.username} transferred ${successCount} affiliates. Reason: ${reason || 'N/A'}`);
+
+        return {
+            success: true,
+            message: `✅ Đã bàn giao ${successCount} affiliate thành công`,
+            successCount,
+            results
+        };
+    });
+
+    // GET /api/affiliate/transfer-logs — Lịch sử bàn giao
+    fastify.get('/api/affiliate/transfer-logs', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly')] }, async (request, reply) => {
+        const { page = 1, limit = 30 } = request.query;
+        const offset = (Number(page) - 1) * Number(limit);
+
+        const total = await db.get('SELECT COUNT(*) as cnt FROM affiliate_transfer_logs');
+        const logs = await db.all(
+            `SELECT * FROM affiliate_transfer_logs ORDER BY transferred_at DESC LIMIT $1 OFFSET $2`,
+            [Number(limit), offset]
+        );
+
+        return {
+            logs,
+            total: total?.cnt || 0,
+            page: Number(page),
+            limit: Number(limit)
+        };
+    });
+
     // Commission report for affiliate users
     fastify.get('/api/affiliate/commission', { preHandler: [authenticate] }, async (request, reply) => {
         const user = request.user;
