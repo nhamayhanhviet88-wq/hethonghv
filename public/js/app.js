@@ -1907,13 +1907,9 @@ function getCustomerCode(customer) {
     return `${customer.daily_order_number || 0}-${d.getDate()}-${d.getMonth() + 1}-${yearSuffix}`;
 }
 
-// Build UID badge: compact display with copy button
+// Build UID badge: ẩn trên giao diện (UID chỉ dùng nội bộ hệ thống)
 function getCustomerUidBadge(customer, opts) {
-    const uid = customer.customer_uid || '';
-    if (!uid) return '';
-    const short = uid.length > 8 ? uid.substring(0, 4) + '…' + uid.substring(uid.length - 4) : uid;
-    const size = (opts && opts.size) || '10px';
-    return `<span title="${uid}" style="font-family:monospace;font-size:${size};color:#6366f1;background:rgba(99,102,241,0.08);padding:1px 6px;border-radius:4px;cursor:pointer;border:1px solid rgba(99,102,241,0.15);white-space:nowrap;" onclick="event.stopPropagation();_crmCopyText('${uid}',this,'UID')">${short} 📋</span>`;
+    return '';
 }
 
 // ========== SIDEBAR TOGGLE ==========

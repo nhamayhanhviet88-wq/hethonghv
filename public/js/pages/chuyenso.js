@@ -893,7 +893,7 @@ async function _csoForceCreateNew() {
         body.force_create = true; // Bypass duplicate warning
         const data = await apiCall('/api/customers', 'POST', body);
         if (data.success) {
-            showToast(`✅ Tạo KH mới thành công! UID: ${data.customer_uid || ''}`);
+            showToast('✅ Tạo KH mới thành công!');
             document.getElementById('csoDupOverlay')?.remove();
             _csoResetForm(document.getElementById('chuyenSoForm'));
             window._csoDupOriginalBody = null;
