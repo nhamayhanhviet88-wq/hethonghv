@@ -287,9 +287,30 @@ module.exports = async function(fastify) {
             // Find child depts this manager heads
             const mgrChildDepts = childDepts.filter(d => d.head_user_id === mgr.id);
 
-            // If manager doesn't head any child depts, check if they head the root
+            // If manager doesn't head any child depts AND doesn't head root dept
+            // BUT belongs to root dept (department_id = rootDept.id) → show with personal stats only
             if (mgrChildDepts.length === 0 && rootDept.head_user_id !== mgr.id) {
-                // This manager has no departments — skip or put in unassigned
+                // Manager in root dept but not heading any sub-team → show personal stats
+                if (mgr.department_id === rootDept.id) {
+                    const mgrPersonalCur = calcGroup([mgr.id], currentMap);
+                    const mgrPersonalPrev = calcGroup([mgr.id], previousMap);
+                    groups.push({
+                        type: 'manager',
+                        user_id: mgr.id,
+                        name: mgr.full_name,
+                        dept_name: rootDept.name,
+                        role: mgr.role,
+                        current: mgrPersonalCur,
+                        previous: mgrPersonalPrev,
+                        trend: calcTrend(mgrPersonalCur, mgrPersonalPrev),
+                        personal: {
+                            current: mgrPersonalCur,
+                            previous: mgrPersonalPrev,
+                            trend: calcTrend(mgrPersonalCur, mgrPersonalPrev)
+                        },
+                        teams: []
+                    });
+                }
                 continue;
             }
 
