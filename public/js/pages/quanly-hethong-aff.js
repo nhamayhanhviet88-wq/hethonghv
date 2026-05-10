@@ -72,7 +72,7 @@ function _aff_dateFilterHtml() {
 
 async function renderQuanLyHTAffPage(container) {
     _affSysSearch = '';
-    const isGD = currentUser.role === 'giam_doc';
+    const isGD = currentUser.role !== 'tkaffiliate';
     if (isGD) {
         container.innerHTML = `<div style="display:flex;height:calc(100vh - 120px);gap:0;">
             <div id="affSidebar" style="width:280px;min-width:280px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;border-radius:12px 0 0 12px;">
@@ -100,7 +100,7 @@ async function renderQuanLyHTAffPage(container) {
 }
 
 function _affRenderTabs() {
-    if (currentUser.role !== 'giam_doc') return '';
+    if (currentUser.role === 'tkaffiliate') return '';
     return `<div style="display:flex;gap:4px;margin-bottom:20px;background:#f1f5f9;border-radius:12px;padding:4px;">
         <button onclick="_affSwitchTab('list')" style="flex:1;padding:10px 20px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;${_affSysTab==='list'?'background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;box-shadow:0 2px 8px rgba(37,99,235,0.3);':'background:transparent;color:#64748b;'}">📋 Danh Sách Affiliate</button>
         <button onclick="_affSwitchTab('org')" style="flex:1;padding:10px 20px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;${_affSysTab==='org'?'background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:white;box-shadow:0 2px 8px rgba(109,40,217,0.3);':'background:transparent;color:#64748b;'}">🏢 Theo Tổ Chức</button>
@@ -123,7 +123,7 @@ function _affStatBar(stats, dark) {
 async function _affSysLoad() {
     const area = document.getElementById('affSysArea'); if (!area) return;
     try {
-        const isGD = currentUser.role === 'giam_doc';
+        const isGD = currentUser.role !== 'tkaffiliate';
         const dr = _aff_getDateRange();
         let apiUrl = '/api/affiliate/my-system';
         if (isGD) {

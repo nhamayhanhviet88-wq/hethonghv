@@ -2110,7 +2110,7 @@ async function affiliateRoutes(fastify) {
     });
 
     // ========== THỐNG KÊ AFFILIATE THEO TỔ CHỨC (cho GĐ) ==========
-    fastify.get('/api/affiliate/org-stats', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/org-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const { from, to } = request.query;
 
         // 1. Lấy tất cả affiliate + NV quản lý + phòng ban
@@ -2295,12 +2295,12 @@ async function affiliateRoutes(fastify) {
     });
 
     // ========== QUẢN LÝ HỆ THỐNG AFFILIATE (cho tkaffiliate xem con) ==========
-    fastify.get('/api/affiliate/my-system', { preHandler: [authenticate, requireRole('tkaffiliate', 'giam_doc')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/my-system', { preHandler: [authenticate, requireRole('tkaffiliate', 'giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const userId = request.user.id;
 
 
         // ★ GOD VIEW: Giám Đốc xem toàn bộ hệ thống affiliate
-        if (request.user.role === 'giam_doc') {
+        if (request.user.role !== 'tkaffiliate') {
             const { managerId, from, to } = request.query;
 
             // Build dynamic WHERE clause
