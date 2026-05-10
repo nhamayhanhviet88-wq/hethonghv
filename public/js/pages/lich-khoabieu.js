@@ -1507,7 +1507,8 @@ function _kbRenderGrid() {
 
         const monDate2 = new Date(_kbWeekStart);
         _kbLockTasks.forEach(lt => {
-            html += `<tr data-kb-task-name="${lt.task_name.replace(/"/g,'&quot;')}">`;
+            html += `<tr data-kb-task-name="${lt.task_name.replace(/"/g,'&quot;')}">`;
+
             // Time slot column
             html += `<td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;background:#fafbfc;vertical-align:top;">
                 <div style="background:linear-gradient(135deg,#991b1b,#dc2626);border-radius:10px;padding:8px 12px;text-align:center;box-shadow:0 2px 8px rgba(153,27,27,0.2);min-width:70px;">
@@ -1547,26 +1548,6 @@ function _kbRenderGrid() {
                 } else if (lt.recurrence_type === 'weekly') {
                     const wDays = (lt.recurrence_value || '').split(',').map(Number);
                     applies = wDays.includes(dayOfWeek);
-                    // ROLLING: "Setup Spam Zalo" — if past recurrence day + not completed, show on working days
-                    if (!applies && lt.task_name && (/setup.*spam.*zalo/i.test(lt.task_name) || /thông.*báo.*gr.*zalo/i.test(lt.task_name)) && dateStr <= todayStr && dayOfWeek >= 1 && dayOfWeek <= 6) {
-                        // Check if any recurrence day THIS week or BEFORE is uncompleted
-                        const wStart = new Date(_kbWeekStart);
-                        for (let rd = 0; rd < 7; rd++) {
-                            const rDate = new Date(wStart); rDate.setDate(wStart.getDate() + rd);
-                            const rDow = rDate.getDay();
-                            const rStr = _kbDateStr(rDate);
-                            // Ngay recurrence phai: (1) nam trong wDays, (2) truoc ngay dang xet, (3) da qua (<= today)
-                            if (wDays.includes(rDow) && rStr < dateStr && rStr <= todayStr) {
-                                const rKey = `${lt.id}_${rStr}`;
-                                const rComp = _kbLockCompletions[rKey];
-                                const rReal = (rComp && rComp.status === 'expired' && (!rComp.content || rComp.content.trim() === '' || /^Phạt chồng:/.test(rComp.content)) && !rComp.proof_url) ? null : rComp;
-                                if (!rReal || (rReal.status !== 'approved' && rReal.status !== 'pending')) {
-                                    applies = true; lt._isRolled = true; lt._rolledFromDate = rStr;
-                                    break;
-                                }
-                            }
-                        }
-                    }
                 } else if (lt.recurrence_type === 'monthly') {
                     const mDates = (lt.recurrence_value || '').split(',').map(Number);
                     const lastDay = new Date(colDate.getFullYear(), colDate.getMonth() + 1, 0).getDate();
