@@ -792,9 +792,9 @@ async function showEditAccountModal(userId) {
             </div>
             <div class="form-group">
                 <label>Vai trò</label>
-                <select id="editRole" class="form-control" onchange="onEditRoleChange()">
-                    ${editRoleOptionsHTML}
-                </select>
+                <input type="text" class="form-control" value="${ROLE_LABELS[user.role] || user.role}" disabled style="font-weight:700;background:#f8fafc;">
+                <input type="hidden" id="editRole" value="${user.role}">
+                ${!['giam_doc','hoa_hong','ctv','tkaffiliate'].includes(user.role) ? '<div style="font-size:11px;color:#7c3aed;margin-top:4px;font-weight:600;">💡 Dùng nút ⬆️⬇️ trong bảng để thăng/giáng chức</div>' : ''}
             </div>
         </div>
         <div class="form-row">

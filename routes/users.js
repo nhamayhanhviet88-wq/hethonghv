@@ -824,6 +824,12 @@ async function usersRoutes(fastify, options) {
         // Manager roles that need department head assignment
         const MANAGER_ROLES = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'];
         const isNewManager = MANAGER_ROLES.includes(new_role);
+
+        // ★ Validate: manager roles MUST have a department
+        if (isNewManager && !targetDeptId) {
+            return reply.code(400).send({ error: 'Vai trò quản lý bắt buộc phải chọn đơn vị quản lý' });
+        }
+
         const wasManager = MANAGER_ROLES.includes(oldRole);
 
         // ① Update role + increment token_version (force re-login)
