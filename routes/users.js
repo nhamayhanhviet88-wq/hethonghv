@@ -34,6 +34,7 @@ async function usersRoutes(fastify, options) {
 
         if (role) { query += ` AND u.role = ?`; params.push(role); }
         if (status) { query += ` AND u.status = ?`; params.push(status); }
+        else { query += ` AND u.status != 'deleted'`; }
 
         query += ' ORDER BY u.created_at DESC';
         const users = await db.all(query, params);
@@ -373,10 +374,10 @@ async function usersRoutes(fastify, options) {
         return { success: true, message: 'Đổi mật khẩu thành công' };
     });
 
-    // Xóa tài khoản
+    // Xóa tài khoản (Smart Delete)
     fastify.delete('/api/users/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const id = Number(request.params.id);
-        const target = await db.get('SELECT role FROM users WHERE id = ?', [id]);
+        const target = await db.get('SELECT id, role, full_name FROM users WHERE id = ?', [id]);
         if (!target) {
             return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
         }
@@ -384,9 +385,37 @@ async function usersRoutes(fastify, options) {
             return reply.code(403).send({ error: 'Không thể xóa tài khoản Giám Đốc' });
         }
 
-        await db.run('DELETE FROM team_members WHERE user_id = ?', [id]);
-        await db.run('DELETE FROM users WHERE id = ?', [id]);
-        return { success: true, message: 'Xóa tài khoản thành công' };
+        // Check foreign key dependencies
+        const referralCount = await db.get('SELECT COUNT(*) as cnt FROM customers WHERE referrer_id = ?', [id]);
+        const childAffCount = await db.get('SELECT COUNT(*) as cnt FROM users WHERE assigned_to_user_id = ?', [id]);
+        const managedCount = await db.get('SELECT COUNT(*) as cnt FROM users WHERE managed_by_user_id = ?', [id]);
+
+        const hasReferrals = (referralCount?.cnt || 0) > 0;
+        const hasChildren = (childAffCount?.cnt || 0) > 0;
+        const hasManaged = (managedCount?.cnt || 0) > 0;
+
+        if (!hasReferrals && !hasChildren && !hasManaged) {
+            // ★ XÓA CỨNG — không có dữ liệu liên kết
+            await db.run('DELETE FROM team_members WHERE user_id = ?', [id]);
+            await db.run('DELETE FROM department_history WHERE user_id = ?', [id]);
+            await db.run('DELETE FROM user_force_approvals WHERE user_id = ?', [id]);
+            await db.run('DELETE FROM users WHERE id = ?', [id]);
+            console.log(`🗑️ [HARD DELETE] User #${id} (${target.full_name}) — no dependencies`);
+            return { success: true, message: `Đã xóa hoàn toàn tài khoản "${target.full_name}"`, deleteType: 'hard' };
+        } else {
+            // ★ XÓA MỀM — có dữ liệu liên kết, bảo toàn integrity
+            await db.run("UPDATE users SET status = 'deleted', updated_at = NOW() WHERE id = ?", [id]);
+            const reasons = [];
+            if (hasReferrals) reasons.push(`${referralCount.cnt} KH giới thiệu`);
+            if (hasChildren) reasons.push(`${childAffCount.cnt} affiliate con`);
+            if (hasManaged) reasons.push(`${managedCount.cnt} TK quản lý`);
+            console.log(`🔴 [SOFT DELETE] User #${id} (${target.full_name}) — deps: ${reasons.join(', ')}`);
+            return {
+                success: true,
+                message: `Đã vô hiệu hóa tài khoản "${target.full_name}". Dữ liệu được giữ lại (${reasons.join(', ')}).`,
+                deleteType: 'soft'
+            };
+        }
     });
 
     // Upload CCCD

@@ -73,6 +73,7 @@ async function loadAffAccounts() {
 
     // Frontend filters
     if (statusFilter) affiliates = affiliates.filter(u => u.status === statusFilter);
+    else affiliates = affiliates.filter(u => u.status !== 'deleted');
     if (crmFilter) affiliates = affiliates.filter(u => u.source_crm_type === crmFilter);
     if (searchQ) {
         affiliates = affiliates.filter(u =>
@@ -1168,11 +1169,15 @@ async function affUnlock(userId, name) {
 }
 
 async function affDelete(userId, name) {
-    const confirm = window.confirm(`Bạn có chắc muốn XÓA tài khoản "${name}"? Hành động này không thể hoàn tác!`);
+    const confirm = window.confirm(`Bạn có chắc muốn XÓA tài khoản "${name}"?\n\n• Nếu TK không có KH/affiliate liên kết → Xóa hoàn toàn\n• Nếu TK có dữ liệu → Vô hiệu hóa (giữ lại lịch sử)`);
     if (!confirm) return;
     const data = await apiCall(`/api/users/${userId}`, 'DELETE');
     if (data.success) {
-        showToast('Xóa tài khoản thành công!');
+        if (data.deleteType === 'soft') {
+            showToast(`🔴 ${data.message}`, 'warning');
+        } else {
+            showToast(`🗑️ ${data.message}`);
+        }
         await loadAffAccounts();
     } else {
         showToast(data.error, 'error');
