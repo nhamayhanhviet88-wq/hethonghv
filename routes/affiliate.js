@@ -282,7 +282,7 @@ async function affiliateRoutes(fastify) {
     });
 
     // ★ DETAIL-STATS: Paginated detail data for stat card modals
-    fastify.get('/api/affiliate/detail-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong')] }, async (request, reply) => {
+    fastify.get('/api/affiliate/detail-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien', 'part_time')] }, async (request, reply) => {
         const { type, from, to, page = 1, limit = 25 } = request.query;
         const offset = (Number(page) - 1) * Number(limit);
         const user = request.user;
