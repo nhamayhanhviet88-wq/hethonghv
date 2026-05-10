@@ -306,8 +306,14 @@ function _affAutoPopulateDepts() {
         getAllChildIds(myDeptId).forEach(id => allowed.add(id));
         _affScopeFilter = { allowedDeptIds: allowed, allowedEmpIds: null };
     } else if (role === 'truong_phong') {
-        // TP: see only their team (dept + children)
-        _affScopeFilter = { allowedDeptIds: new Set(getAllChildIds(myDeptId)), allowedEmpIds: null };
+        // TP: see only their team (dept + children), exclude managers above them
+        const myDeptIds = new Set(getAllChildIds(myDeptId));
+        _affScopeFilter = {
+            allowedDeptIds: myDeptIds,
+            allowedEmpIds: null,
+            // ★ TP cannot see quan_ly / quan_ly_cap_cao roles
+            blockedRoles: new Set(['quan_ly', 'quan_ly_cap_cao'])
+        };
     } else {
         // NV: see only themselves
         _affScopeFilter = { allowedDeptIds: new Set([myDeptId]), allowedEmpIds: new Set([currentUser.id]) };
@@ -487,6 +493,7 @@ function affRenderTree() {
         if (_affScopeFilter) {
             if (_affScopeFilter.allowedDeptIds && !_affScopeFilter.allowedDeptIds.has(deptId)) return [];
             if (_affScopeFilter.allowedEmpIds) emps = emps.filter(e => _affScopeFilter.allowedEmpIds.has(e.id));
+            if (_affScopeFilter.blockedRoles) emps = emps.filter(e => !_affScopeFilter.blockedRoles.has(e.role));
         }
         return emps;
     };
@@ -543,6 +550,8 @@ function affRenderTree() {
             let headEmp = headId ? (allEmps.find(e => e.id === headId) || employees.find(e => e.id === headId)) : null;
             // Scope filter: hide head if not in allowed employees
             if (headEmp && _affScopeFilter && _affScopeFilter.allowedEmpIds && !_affScopeFilter.allowedEmpIds.has(headEmp.id)) headEmp = null;
+            // ★ Scope filter: hide head if role is blocked (TP cannot see QL)
+            if (headEmp && _affScopeFilter && _affScopeFilter.blockedRoles && _affScopeFilter.blockedRoles.has(headEmp.role)) headEmp = null;
 
             // ★ Phân loại: managers cấp phòng (hiện ngang hàng head) vs nhân viên thường
             const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao', 'truong_phong'];
