@@ -319,6 +319,17 @@ async function affiliateRoutes(fastify) {
             affFilterParams.push(user.id);
         }
 
+        // ★ Phone masking helper: show first 2 + last 2 digits
+        function maskPhone(phone) {
+            if (!phone) return '-';
+            const clean = phone.replace(/\D/g, '');
+            if (clean.length <= 4) return '****';
+            return clean.substring(0, 2) + '*'.repeat(clean.length - 4) + clean.substring(clean.length - 2);
+        }
+        // ★ Check if current user directly manages the affiliate
+        const isDirectManager = (managerId) => managerId === user.id;
+        const isGD = user.role === 'giam_doc';
+
         if (type === 'affiliates') {
             // List all affiliates with employee info
             const countQ = `SELECT COUNT(*) as total FROM users u WHERE ${affIdFilter}`;
@@ -326,6 +337,7 @@ async function affiliateRoutes(fastify) {
 
             const dataQ = `
                 SELECT u.id, u.full_name, u.phone, u.username, u.status, u.created_at, u.source_crm_type,
+                       u.managed_by_user_id,
                        mgr.full_name as manager_name, mgr.id as manager_id,
                        COALESCE((SELECT SUM(oi.total) FROM customers c JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed' LEFT JOIN order_items oi ON oi.order_code_id = oc.id WHERE c.referrer_id = u.id ${from ? 'AND oc.created_at >= ?' : ''} ${to ? 'AND oc.created_at <= ?' : ''}), 0) as total_revenue
                 FROM users u
@@ -338,6 +350,13 @@ async function affiliateRoutes(fastify) {
             if (to) dataParams.push(to + ' 23:59:59');
             dataParams.push(...affFilterParams, Number(limit), offset);
             const rows = await db.all(dataQ, dataParams);
+
+            // Apply phone masking: GĐ sees all, others see masked unless direct manager
+            rows.forEach(r => {
+                if (!isGD && !isDirectManager(r.managed_by_user_id)) {
+                    r.phone = maskPhone(r.phone);
+                }
+            });
 
             return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
         }
@@ -361,6 +380,7 @@ async function affiliateRoutes(fastify) {
                 SELECT c.id, c.customer_name, c.phone, c.crm_type, c.order_status, c.created_at,
                        c.referrer_id,
                        aff.full_name as affiliate_name,
+                       aff.managed_by_user_id as aff_manager_id,
                        emp.full_name as employee_name, emp.id as employee_id,
                        COALESCE((SELECT SUM(oi.total) FROM order_codes oc JOIN order_items oi ON oi.order_code_id = oc.id WHERE oc.customer_id = c.id AND oc.status = 'completed'), 0) as customer_revenue
                 FROM customers c
@@ -370,6 +390,13 @@ async function affiliateRoutes(fastify) {
                 ORDER BY c.created_at DESC
                 LIMIT ? OFFSET ?`;
             const rows = await db.all(dataQ, [...affIds, ...dateParams, Number(limit), offset]);
+
+            // Apply phone masking: GĐ sees all, others see masked unless direct manager
+            rows.forEach(r => {
+                if (!isGD && !isDirectManager(r.aff_manager_id)) {
+                    r.phone = maskPhone(r.phone);
+                }
+            });
 
             return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
         }
