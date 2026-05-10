@@ -438,20 +438,6 @@ function affRenderStats() {
             <div class="sub">Tổng doanh thu</div>
         </div>
     `;
-    // CRM breakdown row
-    const oldBreakdown = document.getElementById('affCrmBreakdown');
-    if (oldBreakdown) oldBreakdown.remove();
-    el.insertAdjacentHTML('afterend', `
-        <div id="affCrmBreakdown" style="display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap;">
-            ${CRM_TYPES.map(c => `
-                <div style="flex:1;min-width:140px;background:${c.bg};border-radius:14px;padding:16px 20px;border:1px solid ${c.color}22;text-align:center;transition:transform .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-                    <div style="font-size:24px;margin-bottom:4px;">${c.icon}</div>
-                    <div style="font-size:11px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:.5px;">CRM ${c.label}</div>
-                    <div style="font-size:28px;font-weight:800;color:${c.color};margin-top:4px;">${crmCounts[c.key]}</div>
-                </div>
-            `).join('')}
-        </div>
-    `);
 }
 
 function affRenderTree() {
