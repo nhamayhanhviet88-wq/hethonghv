@@ -233,9 +233,7 @@ function renderPermOrgTree() {
                         + '</div>';
                 }
             }
-            // Render child departments
-            children.forEach(function(c) { renderDept(c, level + 1); });
-            // Render other members (exclude head)
+            // Render other members FIRST (exclude head) — so they appear under parent dept, not after child teams
             members.forEach(function(u) {
                 if (headUser && u.id === headUser.id) return; // skip head, already rendered
                 var isUserMatch = isSearching && matchedUserIds.has(u.id);
@@ -253,6 +251,8 @@ function renderPermOrgTree() {
                     + ' <span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:8px;margin-left:4px;">' + uRoleBadge + '</span>'
                     + '</div>';
             });
+            // Render child departments AFTER members
+            children.forEach(function(c) { renderDept(c, level + 1); });
         }
     }
 
