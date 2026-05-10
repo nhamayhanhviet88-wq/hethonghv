@@ -833,6 +833,7 @@ async function crShowDetail(userId, empName) {
             return;
         }
 
+        window._crDetailOwnerUserId = userId;
         window._crDetailOrders = data.orders || [];
         window._crDetailFilter = 'all';
 
@@ -896,7 +897,7 @@ function crRenderDetailTable(orders) {
             <td>${typeLabel}</td>
             <td style="font-size:12px;color:#4338ca;font-weight:700;">${o.order_code || '-'}</td>
             <td style="font-weight:600;">${o.customer_name || '-'}</td>
-            <td style="font-family:monospace;font-size:12px;">${o.phone || '-'}</td>
+            <td style="font-family:monospace;font-size:12px;">${_maskPhone(o.phone, window._crDetailOwnerUserId)}</td>
             <td style="font-weight:700;color:#0369a1;font-size:12px;">${o.revenue ? crFormatVND(o.revenue) : '0'}</td>
             <td style="font-size:12px;">${dateStr}</td>
             <td style="text-align:center;font-weight:700;color:${o.order_number === 1 ? '#059669' : '#c2410c'};">${o.order_number}</td>
@@ -1398,7 +1399,7 @@ function crRenderTopCustomers(topCust) {
         return '<tr>'
             + '<td style="text-align:center;">' + medal + '</td>'
             + '<td style="font-weight:700;">' + (r.name || 'KH') + '</td>'
-            + '<td>' + (r.phone || '-') + '</td>'
+            + '<td>' + _maskPhone(r.phone, r.assigned_to_id) + '</td>'
             + '<td style="text-align:center;font-weight:700;">' + r.orders + '</td>'
             + '<td style="text-align:right;font-weight:800;color:#0369a1;">' + crFormatVND(r.revenue) + '</td>'
             + '<td style="color:#6b7280;">' + r.employee + '</td>'

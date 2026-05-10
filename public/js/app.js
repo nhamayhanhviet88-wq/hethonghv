@@ -1821,6 +1821,21 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3500);
 }
 
+// ========== GLOBAL: Mask phone number for privacy ==========
+// GĐ + QLCC → always full. Owner → full. Others → 09******94
+function _maskPhone(phone, ownerId) {
+    if (!phone || phone.length < 4) return phone || '—';
+    if (typeof currentUser !== 'undefined' && currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role)) return phone;
+    if (ownerId && typeof currentUser !== 'undefined' && currentUser && currentUser.id === ownerId) return phone;
+    return phone.substring(0, 2) + '*'.repeat(phone.length - 4) + phone.substring(phone.length - 2);
+}
+function _isPhoneMasked(phone, ownerId) {
+    if (!phone || phone.length < 4) return true;
+    if (typeof currentUser !== 'undefined' && currentUser && ['giam_doc', 'quan_ly_cap_cao'].includes(currentUser.role)) return false;
+    if (ownerId && typeof currentUser !== 'undefined' && currentUser && currentUser.id === ownerId) return false;
+    return true;
+}
+
 // ========== GLOBAL: Copy text to clipboard (dùng chung cho tất cả CRM modules) ==========
 function _crmCopyText(text, el, label) {
     if (!text) return;

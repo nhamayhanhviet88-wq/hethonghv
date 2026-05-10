@@ -390,13 +390,13 @@ module.exports = async function(fastify) {
             ORDER BY oc.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
 
-        // Mask phone if not authorized
+        // Mask phone if not authorized — also allow QLCC to see all
+        const { maskPhone: _kpiMaskPhone } = require('../utils/dataMasking');
         const maskedOrders = orders.map(o => {
-            const phone = o.customer_phone || '';
-            if (isDirector || isOwner) {
+            if (isDirector || isOwner || request.user.role === 'quan_ly_cap_cao') {
                 return o;
             } else {
-                return { ...o, customer_phone: phone.length > 4 ? phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4) : '****' };
+                return { ...o, customer_phone: _kpiMaskPhone(o.customer_phone) };
             }
         });
 

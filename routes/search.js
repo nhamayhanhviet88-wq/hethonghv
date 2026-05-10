@@ -19,7 +19,7 @@ async function searchRoutes(fastify, options) {
         let crmQuery = `
             SELECT c.id, c.crm_type, c.customer_name, c.phone, c.phone2, c.facebook_link,
                    c.order_status, c.created_at, c.address, c.province, c.cong_viec,
-                   c.appointment_date,
+                   c.appointment_date, c.assigned_to_id,
                    u.full_name as created_by_name, u.username as created_by_username,
                    asgn.full_name as assigned_to_name,
                    (SELECT COUNT(*) FROM consultation_logs cl WHERE cl.customer_id = c.id) as consult_count,
@@ -37,8 +37,8 @@ async function searchRoutes(fastify, options) {
         crmQuery += ` ORDER BY c.created_at DESC LIMIT 50`;
         const crm = await db.all(crmQuery, crmParams);
 
-        // Mask sensitive data for QL/TP viewing subordinate customers
-        if (['quan_ly', 'truong_phong'].includes(role)) {
+        // Mask sensitive data for non-owner customers (NV/QL/TP only see own KH full data)
+        if (!isFullAccess) {
             for (const c of crm) {
                 if (c.assigned_to_id !== userId) {
                     maskCustomerData(c);
@@ -81,8 +81,8 @@ async function searchRoutes(fastify, options) {
         ordQuery += ` ORDER BY oc.created_at DESC LIMIT 50`;
         const orders = await db.all(ordQuery, ordParams);
 
-        // Mask phone in order results for QL/TP
-        if (['quan_ly', 'truong_phong'].includes(role)) {
+        // Mask phone in order results for non-owner
+        if (!isFullAccess) {
             for (const o of orders) {
                 if (o.user_id !== userId) {
                     maskCustomerData(o);

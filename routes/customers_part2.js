@@ -534,7 +534,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const { status } = request.query;
         let query = `SELECT e.*,
             u.full_name as requested_by_name, u.role as requested_by_role,
-            c.customer_name, c.phone as customer_phone,
+            c.customer_name, c.phone as customer_phone, c.assigned_to_id as customer_assigned_to,
             ru.full_name as resolved_by_name,
             hu.full_name as handler_name,
             htu.full_name as handover_to_name
@@ -583,6 +583,15 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                     const dl = await calculateRealDeadline(em.created_at, handlerId, 12);
                     em.deadline_at = dl.toISOString();
                 } catch(e) { em.deadline_at = null; }
+            }
+        }
+        // Mask customer_phone for non-owner viewers
+        if (!['giam_doc', 'quan_ly_cap_cao'].includes(user.role)) {
+            const { maskPhone } = require('../utils/dataMasking');
+            for (const em of emergencies) {
+                if (em.customer_assigned_to !== user.id && em.customer_phone) {
+                    em.customer_phone = maskPhone(em.customer_phone);
+                }
             }
         }
         return { emergencies };

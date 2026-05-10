@@ -4,8 +4,8 @@
  */
 
 function maskPhone(phone) {
-    if (!phone || phone.length < 5) return phone;
-    return phone.substring(0, 3) + '*'.repeat(phone.length - 5) + phone.substring(phone.length - 2);
+    if (!phone || phone.length < 4) return phone;
+    return phone.substring(0, 2) + '*'.repeat(phone.length - 4) + phone.substring(phone.length - 2);
 }
 
 function maskLink(link) {

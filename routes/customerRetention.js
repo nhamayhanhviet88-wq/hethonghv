@@ -1154,7 +1154,7 @@ module.exports = async function(fastify) {
             processing: { avg_days: parseFloat(avgTimeRow?.avg_days || 0) },
             topCustomers: topCust.map(r => {
                 const emp = users.find(u => u.id === r.assigned_to_id);
-                return { name: r.customer_name, phone: r.phone, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
+                return { name: r.customer_name, phone: r.phone, assigned_to_id: r.assigned_to_id, orders: parseInt(r.order_count), revenue: parseFloat(r.total_revenue), employee: emp?.full_name || '?' };
             }),
             teamComparison,
             conversionMap: conversionMapAdv,
