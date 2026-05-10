@@ -1,4 +1,4 @@
-﻿// ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
+// ========== BÀN GIAO CV ĐIỂM — Task Point Templates ==========
 const DAY_NAMES = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 function _tpLinkify(t) { return t ? String(t).replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" style="color:#2563eb;text-decoration:underline;word-break:break-all;" onclick="event.stopPropagation()">$1</a>') : ''; }
 let _tpTasks = [];
@@ -659,18 +659,22 @@ function _tpRenderGrid() {
     const uniqueNames = [...new Set(_tpTasks.map(t => t.task_name))];
     uniqueNames.forEach(name => _tpGetTaskColor(name));
 
-    // Group tasks by day (past days: only snapshots; today+future: templates)
+    // Group tasks by day (past days: prefer snapshots, fallback to templates; today+future: templates only)
     const _gridToday = new Date(); _gridToday.setHours(0,0,0,0);
     const _gridMonDate = _tpCurrentWeekStart ? new Date(_tpCurrentWeekStart) : new Date();
     const byDay = {};
     for (let d = 1; d <= 7; d++) {
         const colDate = new Date(_gridMonDate); colDate.setDate(_gridMonDate.getDate() + d - 1); colDate.setHours(0,0,0,0);
         const isPast = colDate < _gridToday;
-        byDay[d] = _tpTasks.filter(t => {
-            if (t.day_of_week !== d) return false;
-            if (isPast) return !!t._fromSnapshot; // past: only snapshot tasks
-            return !t._fromSnapshot; // today/future: only template tasks
-        });
+        if (isPast) {
+            // Past days: use snapshots if available, otherwise fallback to templates
+            const snapTasks = _tpTasks.filter(t => t.day_of_week === d && t._fromSnapshot);
+            const tmplTasks = _tpTasks.filter(t => t.day_of_week === d && !t._fromSnapshot);
+            byDay[d] = snapTasks.length > 0 ? snapTasks : tmplTasks;
+        } else {
+            // Today/future: only template tasks
+            byDay[d] = _tpTasks.filter(t => t.day_of_week === d && !t._fromSnapshot);
+        }
     }
 
     // Collect all unique time slots and sort (include both template and snapshot tasks)
@@ -678,9 +682,13 @@ function _tpRenderGrid() {
     _tpTasks.forEach(t => {
         const colDate = new Date(_gridMonDate); colDate.setDate(_gridMonDate.getDate() + t.day_of_week - 1); colDate.setHours(0,0,0,0);
         const isPast = colDate < _gridToday;
-        if (isPast && !t._fromSnapshot) return; // skip template tasks for past days
-        if (!isPast && t._fromSnapshot) return; // skip snapshot tasks for future days
-        allSlots.add(t.time_start + '|' + t.time_end);
+        if (isPast) {
+            // For past days: include if it's a snapshot, OR if no snapshot exists for this day (fallback)
+            const hasSnapsForDay = _tpTasks.some(s => s.day_of_week === t.day_of_week && s._fromSnapshot);
+            if (t._fromSnapshot || !hasSnapsForDay) allSlots.add(t.time_start + '|' + t.time_end);
+        } else {
+            if (!t._fromSnapshot) allSlots.add(t.time_start + '|' + t.time_end);
+        }
     });
     _tpExemptedTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
