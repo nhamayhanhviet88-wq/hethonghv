@@ -241,14 +241,19 @@ function renderPermOrgTree() {
                 var isUserSel = _permSelected.type === 'user' && _permSelected.id === u.id;
                 var uNameEsc = _escName(u.full_name);
                 var uRoleBadge = ROLE_BADGES[u.role] || u.role;
+                var isLeader = ['quan_ly', 'quan_ly_cap_cao'].includes(u.role);
+                var uColor = isLeader ? '#d97706' : '#6b7280';
+                var uWeight = isLeader ? 'font-weight:600;' : '';
+                var badgeBg = isLeader ? '#fef3c7' : '#f3f4f6';
+                var badgeColor = isLeader ? '#92400e' : '#6b7280';
                 html += '<div class="perm-org-item" data-type="user" data-id="' + u.id + '"'
                     + ' onclick="selectPermTarget(\'user\',' + u.id + ',\'' + uNameEsc + '\')"'
-                    + ' style="padding:6px 14px;padding-left:' + (14 + indent + 24) + 'px;cursor:pointer;font-size:12px;color:#6b7280;'
+                    + ' style="padding:6px 14px;padding-left:' + (14 + indent + 24) + 'px;cursor:pointer;font-size:12px;color:' + uColor + ';' + uWeight
                     + (isUserSel ? 'background:#eef2ff;border-right:3px solid #6366f1;' : '')
                     + (isUserMatch ? 'background:#fef9c3;' : '') + '">'
                     + ' &#128100; ' + u.full_name
                     + (u.username ? ' <span style="font-size:10px;color:#94a3b8;margin-left:2px;">(' + u.username + ')</span>' : '')
-                    + ' <span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:8px;margin-left:4px;">' + uRoleBadge + '</span>'
+                    + ' <span style="font-size:10px;background:' + badgeBg + ';color:' + badgeColor + ';padding:1px 6px;border-radius:8px;margin-left:4px;">' + uRoleBadge + '</span>'
                     + '</div>';
             });
             // Render child departments AFTER members
