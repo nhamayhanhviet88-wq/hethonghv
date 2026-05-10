@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone TEXT,
     address TEXT,
     role TEXT NOT NULL,
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'resigned', 'locked')),
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'resigned', 'locked', 'deleted', 'probation_locked')),
     contract_info TEXT,
     start_date TEXT,
     id_card_front TEXT,
