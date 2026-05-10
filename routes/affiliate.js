@@ -2474,6 +2474,16 @@ async function affiliateRoutes(fastify) {
                 return clean.substring(0, 2) + '*'.repeat(clean.length - 4) + clean.substring(clean.length - 2);
             }
 
+            // ★ Shared helper: get recursive child dept IDs
+            const _allDepts = (role !== 'giam_doc' && role !== 'nhan_vien' && role !== 'part_time')
+                ? await db.all('SELECT id, parent_id, head_user_id FROM departments') : [];
+            const _getChildDepts = (pid) => {
+                const ids = new Set();
+                const walk = (p) => { ids.add(p); _allDepts.filter(d => d.parent_id === p).forEach(d => walk(d.id)); };
+                walk(pid);
+                return ids;
+            };
+
             // ★ SCOPE: determine which manager IDs this user can view
             let allowedManagerIds = null; // null = see all (giám đốc)
             if (role === 'giam_doc') {
@@ -2483,11 +2493,12 @@ async function affiliateRoutes(fastify) {
                 // QL sees affiliates managed by TP + NV under their depts
                 const myDeptId = request.user.department_id;
                 if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
-                // Get all child dept IDs
-                const allDepts = await db.all('SELECT id, parent_id FROM departments');
-                const childIds = new Set();
-                function getChildren(pid) { childIds.add(pid); allDepts.filter(d => d.parent_id === pid).forEach(d => getChildren(d.id)); }
-                getChildren(myDeptId);
+                // Get all child dept IDs including depts this QL heads
+                const childIds = _getChildDepts(myDeptId);
+                // Also add depts where this user is head_user_id
+                _allDepts.filter(d => d.head_user_id === userId).forEach(d => {
+                    _getChildDepts(d.id).forEach(id => childIds.add(id));
+                });
                 // Get users in those depts (TP, NV, etc.) who can manage affiliates
                 const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, [...childIds]);
                 allowedManagerIds = new Set(mgrUsers.map(u => u.id));
@@ -2495,10 +2506,7 @@ async function affiliateRoutes(fastify) {
                 // TP sees only affiliates managed by NV in their team + themselves
                 const myDeptId = request.user.department_id;
                 if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
-                const allDepts = await db.all('SELECT id, parent_id FROM departments');
-                const childIds = new Set();
-                function getChildren(pid) { childIds.add(pid); allDepts.filter(d => d.parent_id === pid).forEach(d => getChildren(d.id)); }
-                getChildren(myDeptId);
+                const childIds = _getChildDepts(myDeptId);
                 // Get NV + themselves (exclude QL above)
                 const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao')`, [...childIds]);
                 allowedManagerIds = new Set(mgrUsers.map(u => u.id));
