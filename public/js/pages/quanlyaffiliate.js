@@ -48,11 +48,11 @@ function renderQuanLyAffiliatePage(container) {
             .dept-row .dept-name { font-weight:800; color:#122546; font-size:16px; }
             .dept-row .dept-stats { display:flex; gap:12px; font-size:12px; color:#6b7280; align-items:center; }
             .dept-row .badge { background:#e0e7ff; color:#4338ca; padding:4px 14px; border-radius:12px; font-size:12px; font-weight:700; }
-            .dept-row.root { background:linear-gradient(135deg,#0f172a,#1e3a5f); }
-            .dept-row.root .dept-name { color:#fad24c; font-size:17px; }
-            .dept-row.root .dept-stats { color:rgba(255,255,255,.7); }
-            .dept-row.root .badge { background:rgba(250,210,76,.2); color:#fad24c; }
-            .dept-row.root:hover { background:linear-gradient(135deg,#1a2744,#24476e); }
+            .dept-row.root { background:linear-gradient(135deg,#0a2e28,#0f3d35,#134d42); border-radius:12px 12px 0 0; }
+            .dept-row.root .dept-name { color:#ffffff; font-size:17px; }
+            .dept-row.root .dept-stats { color:rgba(255,255,255,.85); }
+            .dept-row.root .badge { background:rgba(255,255,255,.15); color:#5eead4; }
+            .dept-row.root:hover { background:linear-gradient(135deg,#0f3d35,#166553); }
             .child-dept { padding-left:28px; border-left:3px solid #e0e7ff; margin-left:20px; }
             .child-dept .dept-row { background:#fafbfc; }
             .child-dept .dept-row:hover { background:#f0f4ff; }
@@ -670,7 +670,7 @@ function affRenderTree() {
     const rootDepts = allVisibleDepts.filter(d => !d.parent_id || !allVisibleDepts.find(x => x.id === d.parent_id));
     // Auto-expand top-level visible depts on first load
     rootDepts.forEach(d => { if (_affExpandedDepts[d.id] === undefined) _affExpandedDepts[d.id] = true; });
-    rootDepts.forEach(d => renderDeptBlock(d, !d.parent_id));
+    rootDepts.forEach(d => renderDeptBlock(d, true));
 
     container.innerHTML = html || `<div style="padding:30px;text-align:center;color:#6b7280;">Không có dữ liệu</div>`;
 }
