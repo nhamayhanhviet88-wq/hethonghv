@@ -26,6 +26,7 @@ const PERM_FEATURES = [
     { key: 'crm_ctv', label: 'Chăm Sóc CTV', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
     { key: 'crm_affiliate', label: 'Chăm Sóc Affiliate', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
     { key: 'crm_koc_kol', label: 'Chăm Sóc KOL/KOC Tiktok', perms: ['view','create','edit','delete'], section: 'KINH DOANH CHĂM SÓC' },
+    { key: 'chap_nhan_ctv_aff', label: 'Chấp Nhận CTV / Affiliate', perms: ['view','edit'], section: 'KINH DOANH CHĂM SÓC' },
     { key: 'huy_khach', label: 'Hủy Khách Hàng', perms: ['view','delete'], section: 'KINH DOANH CHĂM SÓC' },
 
     // ===== CÔNG VIỆC HẰNG NGÀY =====
