@@ -2465,6 +2465,10 @@ async function affiliateRoutes(fastify) {
         if (request.user.role !== 'tkaffiliate') {
             const { managerId, from, to } = request.query;
             const role = request.user.role;
+            // ★ department_id is NOT in the JWT token — fetch from DB
+            const _currentUserFull = await db.get('SELECT department_id FROM users WHERE id = ?', [userId]);
+            const myDepartmentId = _currentUserFull ? _currentUserFull.department_id : null;
+            console.log('[my-system DEBUG]', { userId, role, dept: myDepartmentId, managerId, from, to });
 
             // ★ Phone masking helper: show first 2 + last 2 digits
             function maskPhone(phone) {
@@ -2491,10 +2495,9 @@ async function affiliateRoutes(fastify) {
                 allowedManagerIds = null;
             } else if (role === 'quan_ly' || role === 'quan_ly_cap_cao') {
                 // QL sees affiliates managed by TP + NV under their depts
-                const myDeptId = request.user.department_id;
-                if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                if (!myDepartmentId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
                 // Get all child dept IDs including depts this QL heads
-                const childIds = _getChildDepts(myDeptId);
+                const childIds = _getChildDepts(myDepartmentId);
                 // Also add depts where this user is head_user_id
                 _allDepts.filter(d => d.head_user_id === userId).forEach(d => {
                     _getChildDepts(d.id).forEach(id => childIds.add(id));
@@ -2504,9 +2507,8 @@ async function affiliateRoutes(fastify) {
                 allowedManagerIds = new Set(mgrUsers.map(u => u.id));
             } else if (role === 'truong_phong') {
                 // TP sees only affiliates managed by NV in their team + themselves
-                const myDeptId = request.user.department_id;
-                if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
-                const childIds = _getChildDepts(myDeptId);
+                if (!myDepartmentId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                const childIds = _getChildDepts(myDepartmentId);
                 // Get NV + themselves (exclude QL above)
                 const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao')`, [...childIds]);
                 allowedManagerIds = new Set(mgrUsers.map(u => u.id));
@@ -2543,6 +2545,8 @@ async function affiliateRoutes(fastify) {
             if (from) { whereClauses.push("u.created_at >= ?"); whereParams.push(from + ' 00:00:00'); }
             if (to) { whereClauses.push("u.created_at <= ?"); whereParams.push(to + ' 23:59:59'); }
 
+            console.log('[my-system DEBUG] WHERE:', whereClauses.join(' AND '), 'PARAMS:', whereParams, 'allowedMgrs:', allowedManagerIds ? [...allowedManagerIds] : 'ALL');
+
             const children = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
                        u.managed_by_user_id,
@@ -2557,6 +2561,7 @@ async function affiliateRoutes(fastify) {
                 ORDER BY u.created_at DESC
             `, whereParams);
 
+            console.log('[my-system DEBUG] Found', children.length, 'children');
             const allIds = children.map(c => c.id);
             let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
 
