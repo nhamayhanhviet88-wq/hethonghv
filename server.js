@@ -176,6 +176,22 @@ async function start() {
         )`);
     } catch(e) { /* exists */ }
 
+    // Migration: Promotion Engine — token versioning + audit log
+    try { await db.exec('ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 0'); } catch(e) { /* exists */ }
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS promotion_log (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            old_role TEXT NOT NULL,
+            new_role TEXT NOT NULL,
+            direction TEXT NOT NULL CHECK (direction IN ('promote', 'demote')),
+            department_id INTEGER REFERENCES departments(id),
+            notes TEXT,
+            promoted_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW()
+        )`);
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

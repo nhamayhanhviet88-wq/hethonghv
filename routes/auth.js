@@ -12,7 +12,7 @@ async function authRoutes(fastify, options) {
         }
 
         const user = await db.get(
-            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at FROM users WHERE username = ?',
+            'SELECT id, username, password_hash, full_name, role, status, order_code_prefix, department_id, department_joined_at, token_version FROM users WHERE username = ?',
             [username]
         );
 
@@ -94,7 +94,7 @@ async function authRoutes(fastify, options) {
         }
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, full_name: user.full_name, role: user.role },
+            { id: user.id, username: user.username, full_name: user.full_name, role: user.role, tv: user.token_version || 0 },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );

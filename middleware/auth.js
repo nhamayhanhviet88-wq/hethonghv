@@ -17,10 +17,17 @@ async function authenticate(request, reply) {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         // Check if user is still active in DB
-        const user = await db.get('SELECT status, access_blocked FROM users WHERE id = ?', [decoded.id]);
+        const user = await db.get('SELECT status, access_blocked, token_version FROM users WHERE id = ?', [decoded.id]);
         if (!user || user.status !== 'active') {
             reply.clearCookie('token');
             reply.code(401).send({ error: 'Tài khoản đã bị khóa' });
+            return;
+        }
+
+        // ★ Token version check — force re-login after promotion/demotion
+        if (typeof decoded.tv === 'number' && user.token_version !== decoded.tv) {
+            reply.clearCookie('token');
+            reply.code(401).send({ error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' });
             return;
         }
 

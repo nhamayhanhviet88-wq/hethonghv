@@ -773,6 +773,175 @@ async function usersRoutes(fastify, options) {
         console.log(`🔒 Force tasks cập nhật cho user #${userId}: ${tasks.length} CV bởi ${request.user.username}`);
         return { success: true, count: tasks.length };
     });
+
+    // ========== PROMOTION ENGINE — Thăng / Giáng Chức ==========
+
+    const PROMO_ROLE_LEVEL = {
+        part_time: 0, thu_viec: 0, nhan_vien: 1, truong_phong: 2,
+        quan_ly: 3, quan_ly_cap_cao: 4, giam_doc: 5
+    };
+    const PROMO_ROLE_LABELS = {
+        part_time: 'Part Time', thu_viec: 'Thử Việc', nhan_vien: 'Nhân Viên',
+        truong_phong: 'Trưởng Phòng', quan_ly: 'Quản Lý',
+        quan_ly_cap_cao: 'Quản Lý Cấp Cao', giam_doc: 'Giám Đốc'
+    };
+
+    // POST /api/users/:id/promote — Atomic promotion/demotion
+    fastify.post('/api/users/:id/promote', {
+        preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao')]
+    }, async (request, reply) => {
+        const userId = Number(request.params.id);
+        const { new_role, department_id, notes } = request.body || {};
+
+        if (!new_role) return reply.code(400).send({ error: 'Chưa chọn vai trò mới' });
+
+        // Fetch current user
+        const user = await db.get(
+            'SELECT id, full_name, role, department_id, telegram_group_id, token_version FROM users WHERE id = $1',
+            [userId]
+        );
+        if (!user) return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
+
+        const oldRole = user.role;
+        if (oldRole === new_role) return reply.code(400).send({ error: 'Vai trò mới giống vai trò hiện tại' });
+
+        // Cannot promote to or demote from giam_doc
+        if (oldRole === 'giam_doc' || new_role === 'giam_doc') {
+            return reply.code(403).send({ error: 'Không thể thay đổi vai trò Giám Đốc' });
+        }
+
+        // Requester must have higher level than BOTH old and new role
+        const requesterLevel = PROMO_ROLE_LEVEL[request.user.role] || 0;
+        const oldLevel = PROMO_ROLE_LEVEL[oldRole] || 0;
+        const newLevel = PROMO_ROLE_LEVEL[new_role] || 0;
+        if (requesterLevel <= oldLevel || requesterLevel <= newLevel) {
+            return reply.code(403).send({ error: 'Bạn không đủ quyền để thay đổi vai trò này' });
+        }
+
+        const direction = newLevel > oldLevel ? 'promote' : 'demote';
+        const targetDeptId = department_id ? Number(department_id) : user.department_id;
+
+        // Manager roles that need department head assignment
+        const MANAGER_ROLES = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'];
+        const isNewManager = MANAGER_ROLES.includes(new_role);
+        const wasManager = MANAGER_ROLES.includes(oldRole);
+
+        // ① Update role + increment token_version (force re-login)
+        const newTokenVersion = (user.token_version || 0) + 1;
+        await db.run(
+            `UPDATE users SET role = $1, token_version = $2, updated_at = NOW() WHERE id = $3`,
+            [new_role, newTokenVersion, userId]
+        );
+
+        // ② Update department head if becoming manager
+        if (isNewManager && targetDeptId) {
+            // Set this user as head of target department
+            await db.run(
+                'UPDATE departments SET head_user_id = $1 WHERE id = $2',
+                [userId, targetDeptId]
+            );
+
+            // ③ Sync task_approvers — add this user as approver for the department
+            const existingApprover = await db.get(
+                'SELECT id FROM task_approvers WHERE user_id = $1 AND department_id = $2',
+                [userId, targetDeptId]
+            );
+            if (!existingApprover) {
+                await db.run(
+                    'INSERT INTO task_approvers (user_id, department_id) VALUES ($1, $2)',
+                    [userId, targetDeptId]
+                );
+            }
+        }
+
+        // ④ If demoted from manager role → remove as department head (only for dept they were heading)
+        if (wasManager && !isNewManager) {
+            await db.run(
+                'UPDATE departments SET head_user_id = NULL WHERE head_user_id = $1',
+                [userId]
+            );
+            // Remove from task_approvers
+            await db.run(
+                'DELETE FROM task_approvers WHERE user_id = $1',
+                [userId]
+            );
+        }
+
+        // ⑤ Sync permissions — copy department permissions to user for new role
+        if (targetDeptId) {
+            const deptPerms = await db.all(
+                'SELECT feature, can_view, can_create, can_edit, can_delete FROM permissions WHERE target_type = $1 AND target_id = $2',
+                ['department', targetDeptId]
+            );
+            if (deptPerms.length > 0) {
+                // Delete old user perms and re-apply from dept
+                await db.run(
+                    'DELETE FROM permissions WHERE target_type = $1 AND target_id = $2',
+                    ['user', userId]
+                );
+                for (const p of deptPerms) {
+                    const cv = p.can_view || 0, cc = p.can_create || 0, ce = p.can_edit || 0, cd = p.can_delete || 0;
+                    if (cv !== 0 || cc !== 0 || ce !== 0 || cd !== 0) {
+                        await db.run(
+                            'INSERT INTO permissions (target_type, target_id, feature, can_view, can_create, can_edit, can_delete) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                            ['user', userId, p.feature, cv, cc, ce, cd]
+                        );
+                    }
+                }
+            }
+        }
+
+        // ⑥ Audit log
+        await db.run(
+            `INSERT INTO promotion_log (user_id, old_role, new_role, direction, department_id, notes, promoted_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [userId, oldRole, new_role, direction, targetDeptId || null, notes || null, request.user.id]
+        );
+
+        // ⑦ Telegram notification
+        const dirLabel = direction === 'promote' ? '⬆️ THĂNG CHỨC' : '⬇️ GIÁNG CHỨC';
+        const oldLabel = PROMO_ROLE_LABELS[oldRole] || oldRole;
+        const newLabel = PROMO_ROLE_LABELS[new_role] || new_role;
+
+        if (user.telegram_group_id) {
+            sendTelegramMessage(user.telegram_group_id,
+                `${dirLabel}\n\n` +
+                `👤 <b>${user.full_name}</b>\n` +
+                `📋 ${oldLabel} → <b>${newLabel}</b>\n` +
+                `${notes ? `📝 Lý do: ${notes}\n` : ''}` +
+                `\n👔 Quyết định bởi: <b>${request.user.full_name || request.user.username}</b>\n` +
+                `📅 ${new Date().toLocaleDateString('vi-VN')}`
+            );
+        }
+
+        const emoji = direction === 'promote' ? '⬆️' : '⬇️';
+        console.log(`${emoji} [PROMOTION] ${user.full_name}: ${oldRole} → ${new_role} by ${request.user.username}`);
+
+        return {
+            success: true,
+            message: `${emoji} Đã ${direction === 'promote' ? 'thăng chức' : 'giáng chức'} ${user.full_name}: ${oldLabel} → ${newLabel}`,
+            direction,
+            old_role: oldRole,
+            new_role
+        };
+    });
+
+    // GET /api/users/:id/promotion-history — Lịch sử thăng/giáng chức
+    fastify.get('/api/users/:id/promotion-history', {
+        preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly')]
+    }, async (request, reply) => {
+        const userId = Number(request.params.id);
+        const logs = await db.all(
+            `SELECT pl.*, u.full_name as promoted_by_name, d.name as department_name
+             FROM promotion_log pl
+             LEFT JOIN users u ON pl.promoted_by = u.id
+             LEFT JOIN departments d ON pl.department_id = d.id
+             WHERE pl.user_id = $1
+             ORDER BY pl.created_at DESC`,
+            [userId]
+        );
+        return { logs };
+    });
 }
 
 module.exports = usersRoutes;

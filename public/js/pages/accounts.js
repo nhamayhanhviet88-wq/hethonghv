@@ -167,6 +167,9 @@ async function loadAccounts() {
             <td style="text-align:center;">
                 <div class="d-flex align-center gap-10" style="justify-content:center;">
                     <button class="btn btn-xs btn-secondary" onclick="showEditAccountModal(${user.id})" title="Sửa">✏️</button>
+                    ${user.status === 'active' && user.role !== 'giam_doc' && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role)
+                        ? '<button class="btn btn-xs" onclick="showPromotionModal(' + user.id + ')" title="Thăng / Giáng chức" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:8px;font-size:11px;padding:4px 8px;">⬆️⬇️</button>'
+                        : ''}
 
                     ${user.status === 'locked' 
                         ? (currentUser.role === 'giam_doc' 
@@ -1710,5 +1713,224 @@ async function submitProbationUnlock(userId) {
         }
     } catch(e) {
         showToast('Lỗi kết nối', 'error');
+    }
+}
+
+// ========== PROMOTION ENGINE — Thăng / Giáng Chức ==========
+
+const _PROMO_ROLE_LEVEL = {
+    part_time: 0, thu_viec: 0, nhan_vien: 1, truong_phong: 2,
+    quan_ly: 3, quan_ly_cap_cao: 4, giam_doc: 5
+};
+
+var _promoCurrentRole = '';
+
+async function showPromotionModal(userId) {
+    var userData, deptData, historyData;
+    try {
+        [userData, deptData, historyData] = await Promise.all([
+            apiCall('/api/users/' + userId),
+            apiCall('/api/departments'),
+            apiCall('/api/users/' + userId + '/promotion-history')
+        ]);
+    } catch(e) { showToast('Lỗi tải dữ liệu', 'error'); return; }
+
+    var user = userData.user;
+    if (!user) { showToast('Không tìm thấy tài khoản', 'error'); return; }
+
+    _promoCurrentRole = user.role;
+    var depts = deptData.departments || [];
+    var logs = historyData.logs || [];
+    var currentLevel = _PROMO_ROLE_LEVEL[user.role] || 0;
+    var requesterLevel = _PROMO_ROLE_LEVEL[currentUser.role] || 0;
+
+    // Build role options
+    var PROMO_ROLES = [
+        { slug: 'part_time', name: 'Part Time', level: 0 },
+        { slug: 'thu_viec', name: 'Thử Việc', level: 0 },
+        { slug: 'nhan_vien', name: 'Nhân Viên', level: 1 },
+        { slug: 'truong_phong', name: 'Trưởng Phòng', level: 2 },
+        { slug: 'quan_ly', name: 'Quản Lý', level: 3 },
+        { slug: 'quan_ly_cap_cao', name: 'Quản Lý Cấp Cao', level: 4 },
+    ];
+    var roleOptions = PROMO_ROLES
+        .filter(function(r) { return r.slug !== user.role && r.level < requesterLevel; })
+        .map(function(r) {
+            var arrow = r.level > currentLevel ? '⬆️' : '⬇️';
+            return '<option value="' + r.slug + '" data-level="' + r.level + '">' + arrow + ' ' + r.name + '</option>';
+        }).join('');
+
+    var deptOptionsHTML = buildAccDeptOptions(depts, user.department_id);
+
+    // History rows
+    var historyHTML = logs.length === 0
+        ? '<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;">Chưa có lịch sử thăng/giáng chức</div>'
+        : logs.map(function(l) {
+            var d = new Date(l.created_at);
+            var dateStr = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+            var icon = l.direction === 'promote' ? '⬆️' : '⬇️';
+            var bgColor = l.direction === 'promote' ? '#ecfdf5' : '#fef2f2';
+            var borderColor = l.direction === 'promote' ? '#10b981' : '#ef4444';
+            return '<div style="padding:8px 12px;background:' + bgColor + ';border-left:3px solid ' + borderColor + ';border-radius:0 8px 8px 0;margin-bottom:6px;font-size:12px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                + '<span>' + icon + ' <b>' + (ROLE_LABELS[l.old_role] || l.old_role) + '</b> → <b>' + (ROLE_LABELS[l.new_role] || l.new_role) + '</b></span>'
+                + '<span style="color:#6b7280;font-size:11px;">' + dateStr + '</span>'
+                + '</div>'
+                + (l.notes ? '<div style="color:#6b7280;font-size:11px;margin-top:2px;">📝 ' + l.notes + '</div>' : '')
+                + '<div style="color:#9ca3af;font-size:10px;margin-top:2px;">👔 ' + (l.promoted_by_name || '—') + (l.department_name ? ' • 🏢 ' + l.department_name : '') + '</div>'
+                + '</div>';
+        }).join('');
+
+    var currentRoleBadge = (function() {
+        var rc = {
+            giam_doc:['#fef3c7','#92400e'], quan_ly_cap_cao:['#fff7ed','#c2410c'],
+            quan_ly:['#dbeafe','#1e40af'], truong_phong:['#d1fae5','#065f46'],
+            nhan_vien:['#e0f2fe','#0c4a6e'], thu_viec:['#f3e8ff','#7c3aed'],
+            part_time:['#f0fdf4','#15803d']
+        };
+        var c = rc[user.role] || ['#e5e7eb','#374151'];
+        return '<span style="background:' + c[0] + ';color:' + c[1] + ';padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;">' + (ROLE_LABELS[user.role] || user.role) + '</span>';
+    })();
+
+    var bodyHTML = ''
+        + '<div style="margin:-10px -10px 0;">'
+        + '<div style="background:linear-gradient(135deg,#7c3aed,#6d28d9,#4c1d95);padding:24px;border-radius:12px 12px 0 0;text-align:center;color:white;position:relative;overflow:hidden;">'
+        + '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 20% 50%,rgba(255,255,255,0.1),transparent 50%),radial-gradient(circle at 80% 20%,rgba(255,255,255,0.08),transparent 40%);"></div>'
+        + '<div style="position:relative;z-index:1;">'
+        + '<div style="font-size:44px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3));">⬆️⬇️</div>'
+        + '<div style="font-size:20px;font-weight:900;letter-spacing:1px;">THĂNG / GIÁNG CHỨC</div>'
+        + '<div style="font-size:14px;margin-top:8px;opacity:0.9;font-weight:600;">👤 ' + user.full_name + '</div>'
+        + '<div style="margin-top:8px;">' + currentRoleBadge + '</div>'
+        + '</div></div>'
+        + '<div style="padding:20px;">'
+        + '<div class="form-group" style="margin-bottom:14px;">'
+        + '<label style="font-weight:700;font-size:13px;color:#0f172a;display:block;margin-bottom:6px;">🎯 Vai trò mới <span style="color:#ef4444;">*</span></label>'
+        + '<select id="promoNewRole" class="form-control" onchange="_promoRolePreview()" style="font-weight:600;">'
+        + '<option value="">— Chọn vai trò —</option>'
+        + roleOptions
+        + '</select>'
+        + '<div id="promoPreview" style="margin-top:8px;"></div>'
+        + '</div>'
+        + '<div class="form-group" id="promoDeptGroup" style="margin-bottom:14px;">'
+        + '<label style="font-weight:700;font-size:13px;color:#0f172a;display:block;margin-bottom:6px;">🏢 Đơn vị quản lý</label>'
+        + '<select id="promoDept" class="form-control">'
+        + '<option value="">— Giữ nguyên —</option>'
+        + deptOptionsHTML
+        + '</select>'
+        + '<div style="font-size:11px;color:#6b7280;margin-top:4px;">⚠️ Nếu thăng lên Trưởng Phòng/Quản Lý, chọn đơn vị sẽ quản lý</div>'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:14px;">'
+        + '<label style="font-weight:700;font-size:13px;color:#0f172a;display:block;margin-bottom:6px;">📝 Ghi chú / Lý do</label>'
+        + '<textarea id="promoNotes" class="form-control" rows="2" placeholder="VD: KPI tốt 3 tháng liên tiếp" style="resize:vertical;"></textarea>'
+        + '</div>'
+        + '<div id="promoChecklist" style="display:none;margin-top:16px;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">'
+        + '<div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:10px;">📋 Checklist thực hiện:</div>'
+        + '<div id="promoChecklistItems"></div>'
+        + '</div>'
+        + '<div style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:16px;">'
+        + '<div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:10px;">📜 Lịch sử thăng/giáng chức</div>'
+        + '<div style="max-height:180px;overflow-y:auto;">' + historyHTML + '</div>'
+        + '</div>'
+        + '</div></div>';
+
+    var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Hủy</button>'
+        + '<button class="btn" id="promoSubmitBtn" onclick="submitPromotion(' + userId + ')" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;font-weight:700;" disabled>⬆️ Xác Nhận</button>';
+
+    openModal('', bodyHTML, footerHTML);
+}
+
+function _promoRolePreview() {
+    var sel = document.getElementById('promoNewRole');
+    var preview = document.getElementById('promoPreview');
+    var checklist = document.getElementById('promoChecklist');
+    var checklistItems = document.getElementById('promoChecklistItems');
+    var submitBtn = document.getElementById('promoSubmitBtn');
+    var deptGroup = document.getElementById('promoDeptGroup');
+
+    if (!sel || !sel.value) {
+        if (preview) preview.innerHTML = '';
+        if (checklist) checklist.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    var newRole = sel.value;
+    var option = sel.options[sel.selectedIndex];
+    var newLevel = Number(option.dataset.level || 0);
+    var currentLevel = _PROMO_ROLE_LEVEL[_promoCurrentRole] || 0;
+    var isPromote = newLevel > currentLevel;
+
+    var MANAGER_ROLES = ['truong_phong', 'quan_ly', 'quan_ly_cap_cao'];
+    var isNewManager = MANAGER_ROLES.includes(newRole);
+
+    if (deptGroup) deptGroup.style.display = isNewManager ? 'block' : 'none';
+
+    var dirColor = isPromote ? '#10b981' : '#ef4444';
+    var dirBg = isPromote ? '#ecfdf5' : '#fef2f2';
+    var dirIcon = isPromote ? '⬆️' : '⬇️';
+    var dirText = isPromote ? 'THĂNG CHỨC' : 'GIÁNG CHỨC';
+
+    preview.innerHTML = '<div style="background:' + dirBg + ';border:1.5px solid ' + dirColor + ';border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">'
+        + '<span style="font-size:24px;">' + dirIcon + '</span>'
+        + '<div><div style="font-weight:800;color:' + dirColor + ';font-size:13px;">' + dirText + '</div>'
+        + '<div style="font-size:12px;color:#374151;">→ ' + (ROLE_LABELS[newRole] || newRole) + '</div></div></div>';
+
+    // Build checklist
+    var items = [
+        { icon: '✅', text: 'Đổi vai trò → <b>' + (ROLE_LABELS[newRole] || newRole) + '</b>' },
+        { icon: '🔄', text: 'Force đăng nhập lại (token mới)' },
+        { icon: '🔐', text: 'Cập nhật phân quyền theo phòng ban' },
+        { icon: '📋', text: 'Ghi log lịch sử thăng/giáng chức' },
+        { icon: '📱', text: 'Gửi thông báo Telegram' },
+    ];
+    if (isNewManager) {
+        items.splice(2, 0, { icon: '🏢', text: 'Gán quản lý đơn vị (head_user_id)' });
+        items.splice(3, 0, { icon: '📝', text: 'Sync người duyệt công việc (task_approvers)' });
+    }
+
+    checklistItems.innerHTML = items.map(function(it) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:#374151;">'
+            + '<span style="font-size:14px;">' + it.icon + '</span>'
+            + '<span>' + it.text + '</span></div>';
+    }).join('');
+    checklist.style.display = 'block';
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = dirIcon + ' Xác Nhận ' + dirText;
+        submitBtn.style.background = 'linear-gradient(135deg, ' + dirColor + ', ' + dirColor + 'cc)';
+    }
+}
+
+async function submitPromotion(userId) {
+    var newRole = document.getElementById('promoNewRole') ? document.getElementById('promoNewRole').value : '';
+    if (!newRole) { showToast('Vui lòng chọn vai trò mới', 'error'); return; }
+
+    var deptId = document.getElementById('promoDept') ? document.getElementById('promoDept').value : '';
+    var notes = document.getElementById('promoNotes') ? document.getElementById('promoNotes').value : '';
+
+    var roleName = ROLE_LABELS[newRole] || newRole;
+    if (!confirm('Xác nhận thay đổi vai trò thành "' + roleName + '"?\n\nUser sẽ bị buộc đăng nhập lại.')) return;
+
+    var submitBtn = document.getElementById('promoSubmitBtn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ Đang xử lý...'; }
+
+    try {
+        var data = await apiCall('/api/users/' + userId + '/promote', 'POST', {
+            new_role: newRole,
+            department_id: deptId || null,
+            notes: notes
+        });
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeModal();
+            await loadAccounts();
+        } else {
+            showToast(data.error || 'Lỗi', 'error');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '⬆️ Xác Nhận'; }
+        }
+    } catch(e) {
+        showToast('Lỗi kết nối', 'error');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '⬆️ Xác Nhận'; }
     }
 }
