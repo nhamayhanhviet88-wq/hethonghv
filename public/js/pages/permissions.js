@@ -63,6 +63,7 @@ const PERM_FEATURES = [
 
     // ===== QUẢN LÝ AFFILIATE =====
     { key: 'tk_affiliate', label: 'Tài Khoản Affiliate', perms: ['view','edit'], section: 'QUẢN LÝ AFFILIATE' },
+    { key: 'ql_he_thong_aff', label: 'QL Hệ Thống Affiliate', perms: ['view','edit'], section: 'QUẢN LÝ AFFILIATE' },
     { key: 'chi_so_affiliate', label: 'Chỉ Số Affiliate HV', perms: ['view'], section: 'QUẢN LÝ AFFILIATE' },
     { key: 'duyet_rut_tien', label: 'Duyệt Rút Tiền', perms: ['view','edit'], section: 'QUẢN LÝ AFFILIATE' },
 

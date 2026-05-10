@@ -840,7 +840,7 @@ async function renderLichKhoaBieuPage(container) {
                     ${deptListHtml}
                 </div>
             </div>`;
-        } catch(e) {}
+        } catch(e) { console.error('[KB Sidebar Error]', e); }
     }
 
     const isGD = currentUser.role === 'giam_doc';

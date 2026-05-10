@@ -550,8 +550,12 @@ async function taskScheduleRoutes(fastify, options) {
             // Get departments from task_approvers + their child sub-teams
             const assigned = await db.all('SELECT department_id FROM task_approvers WHERE user_id = $1', [user.id]);
             const allDeptIds = new Set(assigned.map(a => a.department_id));
-            // Also include own department
-            if (user.department_id) allDeptIds.add(user.department_id);
+            // Also include own department (fetch from DB since JWT doesn't contain department_id)
+            const dbUser = await db.get('SELECT department_id FROM users WHERE id = $1', [user.id]);
+            if (dbUser && dbUser.department_id) allDeptIds.add(dbUser.department_id);
+            // Also include departments where user is head_user_id (align with getManagedDeptIds)
+            const headDepts = await db.all("SELECT id FROM departments WHERE head_user_id = $1 AND status = 'active'", [user.id]);
+            headDepts.forEach(d => allDeptIds.add(d.id));
             // Recursive: include ALL descendant departments (children, grandchildren, etc.)
             let toExpand = [...allDeptIds];
             while (toExpand.length > 0) {
@@ -571,9 +575,9 @@ async function taskScheduleRoutes(fastify, options) {
                 members = await db.all(
                     `SELECT u.id, u.full_name, u.role, d.name as dept_name, u.department_id
                      FROM users u LEFT JOIN departments d ON u.department_id = d.id
-                     WHERE u.department_id IN (${ph}) AND u.status = 'active' AND u.id != $${ids.length + 1}
+                     WHERE u.department_id IN (${ph}) AND u.status = 'active'
                      ORDER BY d.name, u.full_name`,
-                    [...ids, user.id]
+                    ids
                 );
             }
         }
