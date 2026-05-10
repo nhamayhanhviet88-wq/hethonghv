@@ -281,6 +281,141 @@ async function affiliateRoutes(fastify) {
         return { departments, employees, affiliates };
     });
 
+    // ★ DETAIL-STATS: Paginated detail data for stat card modals
+    fastify.get('/api/affiliate/detail-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong')] }, async (request, reply) => {
+        const { type, from, to, page = 1, limit = 25 } = request.query;
+        const offset = (Number(page) - 1) * Number(limit);
+        const user = request.user;
+
+        // Build affiliate IDs filter (same scope as org-tree)
+        const dbUser = await db.get('SELECT id, role, department_id FROM users WHERE id = ?', [user.id]);
+        let affIdFilter = '';
+        const affFilterParams = [];
+
+        if (user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao') {
+            // See all
+            affIdFilter = `u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id IS NOT NULL`;
+        } else if (user.role === 'quan_ly') {
+            const managedDeptIds = [];
+            async function collectDepts(parentId) {
+                managedDeptIds.push(parentId);
+                const children = await db.all('SELECT id FROM departments WHERE parent_id = ?', [parentId]);
+                for (const c of children) await collectDepts(c.id);
+            }
+            const headDepts = await db.all('SELECT id FROM departments WHERE head_user_id = ?', [user.id]);
+            for (const d of headDepts) await collectDepts(d.id);
+            if (dbUser && dbUser.department_id) await collectDepts(dbUser.department_id);
+            const uniqueDepts = [...new Set(managedDeptIds)];
+            if (uniqueDepts.length > 0) {
+                const ph = uniqueDepts.map(() => '?').join(',');
+                affIdFilter = `u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id IN (SELECT id FROM users WHERE department_id IN (${ph}) OR id = ?)`;
+                affFilterParams.push(...uniqueDepts, user.id);
+            } else {
+                affIdFilter = `u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id = ?`;
+                affFilterParams.push(user.id);
+            }
+        } else {
+            affIdFilter = `u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id = ?`;
+            affFilterParams.push(user.id);
+        }
+
+        if (type === 'affiliates') {
+            // List all affiliates with employee info
+            const countQ = `SELECT COUNT(*) as total FROM users u WHERE ${affIdFilter}`;
+            const countR = await db.get(countQ, affFilterParams);
+
+            const dataQ = `
+                SELECT u.id, u.full_name, u.phone, u.username, u.status, u.created_at, u.source_crm_type,
+                       mgr.full_name as manager_name, mgr.id as manager_id,
+                       COALESCE((SELECT SUM(oi.total) FROM customers c JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed' LEFT JOIN order_items oi ON oi.order_code_id = oc.id WHERE c.referrer_id = u.id ${from ? 'AND oc.created_at >= ?' : ''} ${to ? 'AND oc.created_at <= ?' : ''}), 0) as total_revenue
+                FROM users u
+                LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
+                WHERE ${affIdFilter}
+                ORDER BY u.created_at DESC
+                LIMIT ? OFFSET ?`;
+            const dataParams = [];
+            if (from) dataParams.push(from);
+            if (to) dataParams.push(to + ' 23:59:59');
+            dataParams.push(...affFilterParams, Number(limit), offset);
+            const rows = await db.all(dataQ, dataParams);
+
+            return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
+        }
+
+        if (type === 'customers') {
+            // All referred customers
+            const affIdsQ = `SELECT u.id FROM users u WHERE ${affIdFilter}`;
+            const affIds = (await db.all(affIdsQ, affFilterParams)).map(r => r.id);
+            if (affIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
+
+            const ph = affIds.map(() => '?').join(',');
+            let dateFilter = '';
+            const dateParams = [];
+            if (from) { dateFilter += ' AND c.created_at >= ?'; dateParams.push(from); }
+            if (to) { dateFilter += ' AND c.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
+
+            const countQ = `SELECT COUNT(*) as total FROM customers c WHERE c.referrer_id IN (${ph}) ${dateFilter}`;
+            const countR = await db.get(countQ, [...affIds, ...dateParams]);
+
+            const dataQ = `
+                SELECT c.id, c.customer_name, c.phone, c.crm_type, c.order_status, c.created_at,
+                       c.referrer_id,
+                       aff.full_name as affiliate_name,
+                       emp.full_name as employee_name, emp.id as employee_id,
+                       COALESCE((SELECT SUM(oi.total) FROM order_codes oc JOIN order_items oi ON oi.order_code_id = oc.id WHERE oc.customer_id = c.id AND oc.status = 'completed'), 0) as customer_revenue
+                FROM customers c
+                LEFT JOIN users aff ON aff.id = c.referrer_id
+                LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
+                WHERE c.referrer_id IN (${ph}) ${dateFilter}
+                ORDER BY c.created_at DESC
+                LIMIT ? OFFSET ?`;
+            const rows = await db.all(dataQ, [...affIds, ...dateParams, Number(limit), offset]);
+
+            return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
+        }
+
+        if (type === 'orders' || type === 'revenue') {
+            // All completed orders from affiliate-referred customers
+            const affIdsQ = `SELECT u.id FROM users u WHERE ${affIdFilter}`;
+            const affIds = (await db.all(affIdsQ, affFilterParams)).map(r => r.id);
+            if (affIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
+
+            const ph = affIds.map(() => '?').join(',');
+            let dateFilter = '';
+            const dateParams = [];
+            if (from) { dateFilter += ' AND oc.created_at >= ?'; dateParams.push(from); }
+            if (to) { dateFilter += ' AND oc.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
+
+            const countQ = `
+                SELECT COUNT(DISTINCT oc.id) as total
+                FROM customers c
+                JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed'
+                WHERE c.referrer_id IN (${ph}) ${dateFilter}`;
+            const countR = await db.get(countQ, [...affIds, ...dateParams]);
+
+            const dataQ = `
+                SELECT oc.id, oc.order_code, oc.created_at as order_date, oc.status,
+                       c.customer_name, c.id as customer_id,
+                       aff.full_name as affiliate_name, aff.id as affiliate_id,
+                       emp.full_name as employee_name, emp.id as employee_id,
+                       COALESCE(SUM(oi.total), 0) as order_revenue
+                FROM customers c
+                JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed'
+                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                LEFT JOIN users aff ON aff.id = c.referrer_id
+                LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
+                WHERE c.referrer_id IN (${ph}) ${dateFilter}
+                GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, c.customer_name, c.id, aff.full_name, aff.id, emp.full_name, emp.id
+                ORDER BY oc.created_at DESC
+                LIMIT ? OFFSET ?`;
+            const rows = await db.all(dataQ, [...affIds, ...dateParams, Number(limit), offset]);
+
+            return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
+        }
+
+        return { error: 'Invalid type. Use: affiliates, customers, orders, revenue' };
+    });
+
     fastify.get('/api/affiliate/customers-for-assign', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao')] }, async (request, reply) => {
         const { q, employee_id } = request.query;
         if (!employee_id) return { customers: [] };

@@ -36,11 +36,31 @@ function renderQuanLyAffiliatePage(container) {
             .aff-filter-label { font-size:11px; color:#6b7280; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
             .aff-filter-sep { width:1px; height:36px; background:#d1d5db; margin:0 4px; align-self:flex-end; margin-bottom:4px; }
             .stats-row { display:flex; gap:18px; margin-bottom:28px; flex-wrap:wrap; }
-            .stat-card { background:white; border-radius:16px; padding:24px 28px; flex:1; min-width:200px; border:1px solid #e5e7eb; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform .2s,box-shadow .2s; }
+            .stat-card { background:white; border-radius:16px; padding:24px 28px; flex:1; min-width:200px; border:1px solid #e5e7eb; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:transform .2s,box-shadow .2s; cursor:pointer; position:relative; }
             .stat-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+            .stat-card::after { content:'Xem chi tiết →'; position:absolute; bottom:8px; right:14px; font-size:10px; color:#9ca3af; opacity:0; transition:opacity .2s; font-weight:600; }
+            .stat-card:hover::after { opacity:1; }
             .stat-card .label { font-size:12px; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
             .stat-card .value { font-size:32px; font-weight:800; color:#122546; margin-top:6px; line-height:1.1; }
             .stat-card .sub { font-size:11px; color:#9ca3af; margin-top:4px; font-weight:500; }
+            /* Stat Detail Modal */
+            .aff-stat-modal-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;animation:affFadeIn .2s; }
+            @keyframes affFadeIn { from{opacity:0} to{opacity:1} }
+            .aff-stat-modal { background:white;border-radius:16px;width:90%;max-width:960px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+            .aff-stat-modal-header { padding:20px 28px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-radius:16px 16px 0 0; }
+            .aff-stat-modal-header h3 { margin:0;font-size:18px;font-weight:800; }
+            .aff-stat-modal-close { background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .2s; }
+            .aff-stat-modal-close:hover { background:rgba(255,255,255,.3); }
+            .aff-stat-modal-body { overflow-y:auto;padding:0;flex:1; }
+            .aff-stat-modal-body table { width:100%;border-collapse:collapse; }
+            .aff-stat-modal-body th { background:#f8fafc;padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;border-bottom:2px solid #e5e7eb; }
+            .aff-stat-modal-body td { padding:12px 16px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151; }
+            .aff-stat-modal-body tr:hover td { background:#f0f9ff; }
+            .aff-stat-modal-footer { padding:16px 28px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-radius:0 0 16px 16px; }
+            .aff-stat-page-btn { padding:8px 16px;border-radius:10px;border:1px solid #d1d5db;background:white;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;color:#374151; }
+            .aff-stat-page-btn:hover { background:#e0e7ff;border-color:#818cf8;color:#4338ca; }
+            .aff-stat-page-btn:disabled { opacity:.4;cursor:not-allowed; }
+            .aff-stat-page-btn.active { background:linear-gradient(135deg,#4338ca,#6366f1);color:white;border-color:#4338ca; }
             .tree-container { background:white; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
             .dept-row { padding:18px 24px; border-bottom:1px solid #f3f4f6; cursor:pointer; transition:background .15s; display:flex; align-items:center; justify-content:space-between; }
             .dept-row:hover { background:#f8fafc; }
@@ -397,22 +417,22 @@ function affRenderStats() {
     const el = document.getElementById('affStatsRow');
     if (!el) return;
     el.innerHTML = `
-        <div class="stat-card" style="border-left:4px solid #4338ca;">
+        <div class="stat-card" style="border-left:4px solid #4338ca;" onclick="affShowStatModal('affiliates')">
             <div class="label">👥 Tổng Affiliate</div>
             <div class="value">${totalAffs}</div>
             <div class="sub">${lockedCount ? '🔒 ' + lockedCount + ' đã khóa' : 'Đang hoạt động'}</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #059669;">
+        <div class="stat-card" style="border-left:4px solid #059669;" onclick="affShowStatModal('customers')">
             <div class="label">📋 Khách Giới Thiệu</div>
             <div class="value">${totalCustomers}</div>
             <div class="sub">Từ tất cả affiliate</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #2563eb;">
+        <div class="stat-card" style="border-left:4px solid #2563eb;" onclick="affShowStatModal('orders')">
             <div class="label">📦 Đơn Hàng</div>
             <div class="value">${totalOrders}</div>
             <div class="sub">Đã hoàn thành</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid #f59e0b;">
+        <div class="stat-card" style="border-left:4px solid #f59e0b;" onclick="affShowStatModal('revenue')">
             <div class="label">💰 Doanh Thu</div>
             <div class="value">${affFormatMoney(totalRevenue)}</div>
             <div class="sub">Tổng doanh thu</div>
@@ -677,6 +697,165 @@ function affRenderTree() {
 
 function affToggleDept(id) { _affExpandedDepts[id] = !_affExpandedDepts[id]; affRenderTree(); }
 function affToggleEmp(id) { _affExpandedEmps[id] = !_affExpandedEmps[id]; affRenderTree(); }
+
+// ★ STAT DETAIL MODAL
+async function affShowStatModal(type, page = 1) {
+    const TITLES = {
+        affiliates: '👥 Danh Sách Tổng Affiliate',
+        customers: '📋 Danh Sách Khách Giới Thiệu',
+        orders: '📦 Danh Sách Đơn Hàng',
+        revenue: '💰 Danh Sách Doanh Thu'
+    };
+
+    // Remove existing modal
+    const existing = document.getElementById('affStatModalOverlay');
+    if (existing && page === 1) existing.remove();
+
+    // Show loading
+    let overlay = document.getElementById('affStatModalOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'affStatModalOverlay';
+        overlay.className = 'aff-stat-modal-overlay';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+        <div class="aff-stat-modal">
+            <div class="aff-stat-modal-header">
+                <h3>${TITLES[type] || type}</h3>
+                <button class="aff-stat-modal-close" onclick="document.getElementById('affStatModalOverlay').remove()">✕</button>
+            </div>
+            <div class="aff-stat-modal-body" style="padding:40px;text-align:center;color:#6b7280;">
+                <div style="font-size:28px;margin-bottom:8px;">⏳</div>
+                Đang tải dữ liệu...
+            </div>
+        </div>`;
+
+    try {
+        const params = new URLSearchParams({ type, page, limit: 25 });
+        if (_affDateFrom) params.set('from', _affDateFrom);
+        if (_affDateTo) params.set('to', _affDateTo);
+
+        const res = await fetch(`/api/affiliate/detail-stats?${params}`, {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Lỗi tải dữ liệu');
+
+        const { total, data, limit } = result;
+        const totalPages = Math.ceil(total / limit);
+        const currentPage = Number(result.page);
+
+        // Build table based on type
+        let tableHead = '';
+        let tableBody = '';
+
+        if (type === 'affiliates') {
+            tableHead = `<tr><th>#</th><th>Tên Affiliate</th><th>Tài khoản</th><th>NV Quản Lý</th><th>CRM</th><th>Doanh Số</th><th>Ngày Tạo TK</th><th>Trạng Thái</th></tr>`;
+            const CRM_MAP = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', koc_tiktok: 'KOC TikTok' };
+            data.forEach((r, i) => {
+                const idx = (currentPage - 1) * limit + i + 1;
+                const statusBadge = r.status === 'active'
+                    ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">✅ Hoạt động</span>'
+                    : '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">🔒 Khóa</span>';
+                tableBody += `<tr>
+                    <td>${idx}</td>
+                    <td style="font-weight:700;color:#1e3a5f;">${r.full_name}</td>
+                    <td style="color:#6b7280;">${r.username || '-'}</td>
+                    <td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.manager_name || '-'}</span></td>
+                    <td>${CRM_MAP[r.source_crm_type] || r.source_crm_type || '-'}</td>
+                    <td style="font-weight:700;color:#059669;">${affFormatMoney(r.total_revenue || 0)}</td>
+                    <td>${r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '-'}</td>
+                    <td>${statusBadge}</td>
+                </tr>`;
+            });
+        } else if (type === 'customers') {
+            tableHead = `<tr><th>#</th><th>Tên Khách</th><th>SĐT</th><th>Affiliate GT</th><th>NV Chăm Sóc</th><th>Doanh Số</th><th>Ngày Giới Thiệu</th><th>Trạng Thái</th></tr>`;
+            const STATUS_MAP = { dang_tu_van:'Đang tư vấn', bao_gia:'Báo giá', gui_stk_coc:'Gửi STK cọc', dat_coc:'Đặt cọc', chot_don:'Chốt đơn', sau_ban_hang:'Sau bán hàng', san_xuat:'Sản xuất', giao_hang:'Giao hàng', hoan_thanh:'Hoàn thành', duyet_huy:'Duyệt hủy' };
+            data.forEach((r, i) => {
+                const idx = (currentPage - 1) * limit + i + 1;
+                const stLabel = STATUS_MAP[r.order_status] || r.order_status || '-';
+                const stColor = r.order_status === 'hoan_thanh' ? '#059669' : r.order_status === 'duyet_huy' ? '#dc2626' : '#6b7280';
+                tableBody += `<tr>
+                    <td>${idx}</td>
+                    <td style="font-weight:700;color:#1e3a5f;">${r.customer_name}</td>
+                    <td>${r.phone || '-'}</td>
+                    <td><span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.affiliate_name || '-'}</span></td>
+                    <td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.employee_name || '-'}</span></td>
+                    <td style="font-weight:700;color:#059669;">${affFormatMoney(r.customer_revenue || 0)}</td>
+                    <td>${r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '-'}</td>
+                    <td><span style="color:${stColor};font-size:11px;font-weight:600;">${stLabel}</span></td>
+                </tr>`;
+            });
+        } else if (type === 'orders' || type === 'revenue') {
+            tableHead = `<tr><th>#</th><th>Mã Đơn</th><th>Tên Khách</th><th>NV Chăm Sóc</th><th>Affiliate</th><th>Doanh Số</th><th>Thời Gian</th></tr>`;
+            data.forEach((r, i) => {
+                const idx = (currentPage - 1) * limit + i + 1;
+                tableBody += `<tr>
+                    <td>${idx}</td>
+                    <td style="font-weight:700;color:#2563eb;">${r.order_code || '-'}</td>
+                    <td style="font-weight:600;">${r.customer_name || '-'}</td>
+                    <td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.employee_name || '-'}</span></td>
+                    <td><span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.affiliate_name || '-'}</span></td>
+                    <td style="font-weight:700;color:#059669;">${affFormatMoney(r.order_revenue || 0)}</td>
+                    <td>${r.order_date ? new Date(r.order_date).toLocaleDateString('vi-VN') : '-'}</td>
+                </tr>`;
+            });
+        }
+
+        // Empty state
+        if (data.length === 0) {
+            tableBody = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Không có dữ liệu</td></tr>`;
+        }
+
+        // Pagination buttons
+        let pageButtons = '';
+        for (let p = 1; p <= totalPages; p++) {
+            pageButtons += `<button class="aff-stat-page-btn ${p === currentPage ? 'active' : ''}" onclick="affShowStatModal('${type}',${p})">${p}</button> `;
+        }
+
+        overlay.innerHTML = `
+            <div class="aff-stat-modal">
+                <div class="aff-stat-modal-header">
+                    <h3>${TITLES[type]}</h3>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:13px;opacity:.8;">${total} kết quả</span>
+                        <button class="aff-stat-modal-close" onclick="document.getElementById('affStatModalOverlay').remove()">✕</button>
+                    </div>
+                </div>
+                <div class="aff-stat-modal-body">
+                    <table>
+                        <thead>${tableHead}</thead>
+                        <tbody>${tableBody}</tbody>
+                    </table>
+                </div>
+                ${totalPages > 1 ? `
+                <div class="aff-stat-modal-footer">
+                    <div style="font-size:12px;color:#6b7280;">Trang ${currentPage}/${totalPages} · ${total} kết quả</div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button class="aff-stat-page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="affShowStatModal('${type}',${currentPage - 1})">← Trước</button>
+                        ${pageButtons}
+                        <button class="aff-stat-page-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="affShowStatModal('${type}',${currentPage + 1})">Sau →</button>
+                    </div>
+                </div>` : ''}
+            </div>`;
+
+    } catch (err) {
+        console.error('Detail stats error:', err);
+        overlay.innerHTML = `
+            <div class="aff-stat-modal">
+                <div class="aff-stat-modal-header">
+                    <h3>${TITLES[type]}</h3>
+                    <button class="aff-stat-modal-close" onclick="document.getElementById('affStatModalOverlay').remove()">✕</button>
+                </div>
+                <div class="aff-stat-modal-body" style="padding:40px;text-align:center;color:#dc2626;">
+                    <div style="font-size:28px;margin-bottom:8px;">❌</div>
+                    Lỗi: ${err.message}
+                </div>
+            </div>`;
+    }
+}
 
 function affRemoveDept(id) {
     _affVisibleDepts = _affVisibleDepts.filter(d => d !== id);
