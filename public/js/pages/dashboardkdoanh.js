@@ -587,6 +587,8 @@ function crRenderGroups(data) {
 
             // Render other managers in same dept (not head but same role)
             if (group.otherManagers && group.otherManagers.length > 0) {
+                // ★ Sort managers by revenue DESC
+                group.otherManagers.sort(function(a, b) { return (b.current?.revenue || 0) - (a.current?.revenue || 0) || (b.current?.total || 0) - (a.current?.total || 0); });
                 group.otherManagers.forEach(function(om) {
                     var omc = om.current || {};
                     var omEscName = (om.name || '').replace(/'/g, "\\'");
@@ -609,6 +611,9 @@ function crRenderGroups(data) {
                         + '</div>';
                 });
             }
+
+            // ★ Sort teams by revenue DESC
+            group.teams.sort((a, b) => (b.current?.revenue || 0) - (a.current?.revenue || 0) || (b.current?.total || 0) - (a.current?.total || 0));
 
             group.teams.forEach((team, ti) => {
                 const teamKey = `${gi}-${ti}`;
@@ -635,6 +640,9 @@ function crRenderGroups(data) {
                     </div>`;
 
                 if (teamExpanded && team.employees) {
+                    // ★ Sort employees by revenue DESC
+                    team.employees.sort((a, b) => (b.current?.revenue || 0) - (a.current?.revenue || 0) || (b.current?.total || 0) - (a.current?.total || 0));
+
                     team.employees.forEach(emp => {
                         const ec = emp.current || {};
                         const isTop = emp.user_id === topEmpId && topRate > 0;
