@@ -256,14 +256,9 @@ function _affAutoPopulateDepts() {
         const rootId = fallback.parent_id || fallback.id;
         _affVisibleDepts = [rootId];
     } else {
-        // Tìm root (HỆ THỐNG) chứa PHÒNG KINH DOANH
-        const rootId = kdDept.parent_id;
-        _affVisibleDepts = [rootId];
-        // ★ Ẩn tất cả phòng ban không phải KINH DOANH (KẾ TOÁN, HÀNH CHÍNH, etc.)
-        const kdIds = new Set(getAllChildIds(kdDept.id));
-        kdIds.add(kdDept.id);
-        const siblingsToHide = depts.filter(d => d.parent_id === rootId && d.id !== kdDept.id);
-        _affHiddenChildDepts = siblingsToHide.map(d => d.id);
+        // ★ Set PHÒNG KINH DOANH as root — skip HỆ THỐNG parent
+        _affVisibleDepts = [kdDept.id];
+        _affHiddenChildDepts = [];
     }
     localStorage.setItem('aff_visible_depts', JSON.stringify(_affVisibleDepts));
     localStorage.setItem('aff_hidden_child_depts', JSON.stringify(_affHiddenChildDepts));
