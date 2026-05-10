@@ -167,7 +167,7 @@ async function loadAffAccounts() {
         const bg = depth <= 3 ? 'background:#faf5ff;' : 'background:#f5f0ff;';
 
         const statusIcon = aff.status === 'locked' ? '🔒 ' : '✅ ';
-        return `<tr class="aff-row" data-group="${gid}" data-scope-parent="${spid}" data-user-id="${aff.id}" data-depth="${depth}" style="${bg}${depth > 1 ? 'display:none;' : ''}">
+        return `<tr class="aff-row" data-group="${gid}" data-scope-parent="${spid}" data-user-id="${aff.id}" data-depth="${depth}" style="${bg}display:none;">
             <td style="padding-left:${pad}px;">${arrow}<span style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);color:#fad24c;padding:5px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid rgba(250,210,76,0.4);transition:all 0.2s;box-shadow:0 1px 4px rgba(30,58,95,0.3);" onclick="showAffDetail(${aff.id})" onmouseover="this.style.borderColor='#fad24c';this.style.boxShadow='0 3px 12px rgba(250,210,76,0.3)'" onmouseout="this.style.borderColor='rgba(250,210,76,0.4)';this.style.boxShadow='0 1px 4px rgba(30,58,95,0.3)'">${aff.full_name}</span>${badge}</td>
             <td>${aff.username}</td>
             <td><span class="role-badge role-${aff.role}">${ROLE_LABELS[aff.role] || aff.role}</span></td>
@@ -237,54 +237,146 @@ async function loadAffAccounts() {
 
     let html = '';
 
-    // Group employees by their department_id → show department name as header
-    // Collect all unique department IDs from employees who have affiliates
-    const empDeptGroups = {}; // deptId → [employee, ...]
-    employees.forEach(emp => {
-        if (!affByEmp[emp.id] || affByEmp[emp.id].length === 0) return;
-        const did = emp.department_id || 0;
-        if (!empDeptGroups[did]) empDeptGroups[did] = [];
-        empDeptGroups[did].push(emp);
-    });
+    // ★ Find PHÒNG KINH DOANH dept
+    const kdDept = departments.find(d => d.name && d.name.toUpperCase().includes('KINH DOANH') && d.parent_id);
+    const kdId = kdDept ? kdDept.id : null;
 
-    // Sort department IDs: real departments first, then 0 (unassigned)
-    const sortedDeptIds = Object.keys(empDeptGroups).map(Number).sort((a, b) => {
-        if (a === 0) return 1;
-        if (b === 0) return -1;
-        const nameA = deptById[a]?.name || '';
-        const nameB = deptById[b]?.name || '';
-        return nameA.localeCompare(nameB);
-    });
+    // Helper: get all dept IDs under a parent (recursive)
+    function getAllChildDeptIds(parentId) {
+        const ids = [];
+        departments.filter(d => d.parent_id === parentId).forEach(d => {
+            ids.push(d.id);
+            ids.push(...getAllChildDeptIds(d.id));
+        });
+        return ids;
+    }
 
-    sortedDeptIds.forEach(deptId => {
-        const deptEmps = empDeptGroups[deptId];
-        const dept = deptById[deptId];
-        const deptName = dept ? dept.name : 'Chưa phân đơn vị';
-        const gid = 'dept' + deptId;
+    const kdChildDepts = kdId ? departments.filter(d => d.parent_id === kdId) : [];
+    const kdAllDeptIds = kdId ? [kdId, ...getAllChildDeptIds(kdId)] : [];
+    const kdAllEmps = employees.filter(e => kdAllDeptIds.includes(e.department_id));
 
-        // Department header
-        html += `<tr class="aff-dept-header" data-group="${gid}" style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;cursor:pointer;">
-            <td colspan="11" style="padding:14px 16px;font-weight:700;font-size:15px;">
+    const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];
+    const kdRootEmps = kdId ? employees.filter(e => e.department_id === kdId) : [];
+    const kdHead = kdDept && kdDept.head_user_id ? employees.find(e => e.id === kdDept.head_user_id) : null;
+    const kdManagers = kdRootEmps.filter(e => MGR_ROLES.includes(e.role) && (!kdHead || e.id !== kdHead.id));
+
+    const totalKdAffs = kdAllEmps.reduce((sum, emp) => sum + (affByEmp[emp.id] || []).length, 0);
+    const gidKd = 'dept_kd';
+    const ROLE_LABEL_MAP = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
+    const allMgrIds = new Set();
+
+    // PHÒNG KINH DOANH header
+    html += `<tr class="aff-dept-header" data-group="${gidKd}" style="background:linear-gradient(135deg,#0a2e28,#0f3d35,#134d42);color:#fff;cursor:pointer;">
+        <td colspan="11" style="padding:14px 16px;font-weight:700;font-size:15px;">
+            <span class="dept-toggle" style="margin-right:8px;font-size:14px;">▼</span>
+            🏢 ${kdDept ? kdDept.name : 'PHÒNG KINH DOANH'}
+            <span style="background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:12px;font-size:11px;margin-left:8px;">${totalKdAffs} affiliate</span>
+        </td>
+    </tr>`;
+
+    // ★ Render managers (gold style)
+    function renderMgrEmpRow(emp, icon) {
+        const emAffs = affByEmp[emp.id] || [];
+        allMgrIds.add(emp.id);
+        placedEmpIds.add(emp.id);
+        html += `<tr class="aff-row aff-emp-row" data-group="${gidKd}" data-depth="0" data-emp-id="${emp.id}" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);border-left:4px solid #f59e0b;cursor:pointer;">
+            <td colspan="11" style="padding:10px 16px 10px 20px;font-weight:700;font-size:14px;color:#92400e;">
+                ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#d97706;">▶</span>' : '<span style="margin-right:6px;font-size:13px;color:#d4d4d8;">▶</span>'}
+                ${icon} ${emp.full_name}
+                <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px;">${ROLE_LABEL_MAP[emp.role] || emp.role}</span>
+                <span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px;">${emAffs.length} affiliate</span>
+            </td>
+        </tr>`;
+        if (emAffs.length > 0) html += renderEmpAffiliates(emp.id, 1, gidKd);
+    }
+
+    if (kdHead) renderMgrEmpRow(kdHead, '👑');
+    kdManagers.forEach(emp => renderMgrEmpRow(emp, '👑'));
+
+    // ★ Render TEAM departments
+    kdChildDepts.forEach(teamDept => {
+        const teamEmps = employees.filter(e => e.department_id === teamDept.id);
+        const teamHead = teamDept.head_user_id ? employees.find(e => e.id === teamDept.head_user_id) : null;
+        const teamTotalAffs = teamEmps.reduce((sum, emp) => sum + (affByEmp[emp.id] || []).length, 0);
+        const teamGid = 'team_' + teamDept.id;
+
+        html += `<tr class="aff-dept-header aff-team-header" data-group="${teamGid}" data-parent-group="${gidKd}" data-depth="0" style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;cursor:pointer;">
+            <td colspan="11" style="padding:12px 16px 12px 28px;font-weight:700;font-size:14px;">
                 <span class="dept-toggle" style="margin-right:8px;font-size:14px;">▼</span>
-                📁 ${deptName}
-                <span style="background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:12px;font-size:11px;margin-left:8px;">${deptEmps.reduce((sum, emp) => sum + (affByEmp[emp.id] || []).length, 0)} affiliate</span>
+                <span style="color:#ef4444;">◆</span> ${teamDept.name}
+                <span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">${teamTotalAffs} affiliate</span>
             </td>
         </tr>`;
 
-        // Employees under this department
-        deptEmps.forEach(emp => {
+        if (teamHead) {
+            const emAffs = affByEmp[teamHead.id] || [];
+            placedEmpIds.add(teamHead.id);
+            html += `<tr class="aff-row aff-emp-row" data-group="${teamGid}" data-depth="0" data-emp-id="${teamHead.id}" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);border-left:4px solid #f59e0b;cursor:pointer;">
+                <td colspan="11" style="padding:10px 16px 10px 40px;font-weight:700;font-size:13px;color:#92400e;">
+                    ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#d97706;">▶</span>' : '<span style="margin-right:6px;font-size:13px;color:#d4d4d8;">▶</span>'}
+                    ⭐ ${teamHead.full_name}
+                    <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px;">${ROLE_LABEL_MAP[teamHead.role] || teamHead.role}</span>
+                    <span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px;">${emAffs.length} affiliate</span>
+                </td>
+            </tr>`;
+            if (emAffs.length > 0) html += renderEmpAffiliates(teamHead.id, 1, teamGid);
+        }
+
+        const teamRegulars = teamEmps.filter(e => !teamHead || e.id !== teamHead.id);
+        teamRegulars.forEach(emp => {
             const emAffs = affByEmp[emp.id] || [];
             placedEmpIds.add(emp.id);
-            html += `<tr class="aff-row aff-emp-row" data-group="${gid}" data-depth="0" data-emp-id="${emp.id}" style="background:#f0f9ff;cursor:pointer;">
-                <td colspan="11" style="padding:10px 16px 10px 20px;font-weight:600;font-size:13px;">
-                    ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#3b82f6;">▼</span>' : ''}
-                    👤 ${emp.full_name} <span style="color:#6b7280;font-weight:400;font-size:11px;">(${ROLE_LABELS[emp.role] || emp.role})</span>
+            html += `<tr class="aff-row aff-emp-row" data-group="${teamGid}" data-depth="0" data-emp-id="${emp.id}" style="background:#f0f9ff;cursor:pointer;">
+                <td colspan="11" style="padding:10px 16px 10px 40px;font-weight:600;font-size:13px;">
+                    ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#3b82f6;">▶</span>' : '<span style="margin-right:6px;font-size:13px;color:#d4d4d8;">▶</span>'}
+                    👤 ${emp.full_name} <span style="color:#6b7280;font-weight:400;font-size:11px;">(${ROLE_LABEL_MAP[emp.role] || emp.role})</span>
                     <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px;">${emAffs.length} affiliate</span>
                 </td>
             </tr>`;
-            if (emAffs.length > 0) html += renderEmpAffiliates(emp.id, 1, gid);
+            if (emAffs.length > 0) html += renderEmpAffiliates(emp.id, 1, teamGid);
         });
     });
+
+    // ★ Unplaced employees in KD root
+    const unplacedKdEmps = kdRootEmps.filter(e => !placedEmpIds.has(e.id) && !allMgrIds.has(e.id));
+    unplacedKdEmps.forEach(emp => {
+        const emAffs = affByEmp[emp.id] || [];
+        placedEmpIds.add(emp.id);
+        html += `<tr class="aff-row aff-emp-row" data-group="${gidKd}" data-depth="0" data-emp-id="${emp.id}" style="background:#f0f9ff;cursor:pointer;">
+            <td colspan="11" style="padding:10px 16px 10px 20px;font-weight:600;font-size:13px;">
+                ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#3b82f6;">▶</span>' : '<span style="margin-right:6px;font-size:13px;color:#d4d4d8;">▶</span>'}
+                👤 ${emp.full_name} <span style="color:#6b7280;font-weight:400;font-size:11px;">(${ROLE_LABEL_MAP[emp.role] || emp.role})</span>
+                <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px;">${emAffs.length} affiliate</span>
+            </td>
+        </tr>`;
+        if (emAffs.length > 0) html += renderEmpAffiliates(emp.id, 1, gidKd);
+    });
+
+    // ★ Employees outside KD with affiliates (fallback)
+    const outsideEmps = employees.filter(e => !placedEmpIds.has(e.id) && affByEmp[e.id] && affByEmp[e.id].length > 0);
+    if (outsideEmps.length > 0) {
+        const gidOther = 'dept_other';
+        const otherTotalAffs = outsideEmps.reduce((sum, emp) => sum + (affByEmp[emp.id] || []).length, 0);
+        html += `<tr class="aff-dept-header" data-group="${gidOther}" style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;cursor:pointer;">
+            <td colspan="11" style="padding:14px 16px;font-weight:700;font-size:15px;">
+                <span class="dept-toggle" style="margin-right:8px;font-size:14px;">▼</span>
+                📁 Khác
+                <span style="background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:12px;font-size:11px;margin-left:8px;">${otherTotalAffs} affiliate</span>
+            </td>
+        </tr>`;
+        outsideEmps.forEach(emp => {
+            const emAffs = affByEmp[emp.id] || [];
+            placedEmpIds.add(emp.id);
+            html += `<tr class="aff-row aff-emp-row" data-group="${gidOther}" data-depth="0" data-emp-id="${emp.id}" style="background:#f0f9ff;cursor:pointer;">
+                <td colspan="11" style="padding:10px 16px 10px 20px;font-weight:600;font-size:13px;">
+                    ${emAffs.length > 0 ? '<span class="emp-toggle" style="margin-right:6px;font-size:13px;color:#3b82f6;">▶</span>' : ''}
+                    👤 ${emp.full_name} <span style="color:#6b7280;font-weight:400;font-size:11px;">(${ROLE_LABEL_MAP[emp.role] || emp.role})</span>
+                    <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px;">${emAffs.length} affiliate</span>
+                </td>
+            </tr>`;
+            if (emAffs.length > 0) html += renderEmpAffiliates(emp.id, 1, gidOther);
+        });
+    }
 
     tbody.innerHTML = html;
 
