@@ -157,21 +157,24 @@ function renderQuanLyAffiliatePage(container) {
     // Reset expand states so default view is applied fresh
     _affExpandedDepts = {};
     _affExpandedEmps = {};
-    // Default: "Tất cả" — no date filter so ALL affiliates are shown
-    _affDateFrom = '';
-    _affDateTo = '';
-    _affActivePreset = 'all';
+    // Default: tháng hiện tại
+    const _now = new Date();
+    const _y = _now.getFullYear();
+    const _m = String(_now.getMonth() + 1).padStart(2, '0');
+    _affDateFrom = `${_y}-${_m}-01`;
+    // Last day of current month
+    const _lastDay = new Date(_y, _now.getMonth() + 1, 0).getDate();
+    _affDateTo = `${_y}-${_m}-${String(_lastDay).padStart(2, '0')}`;
+    _affActivePreset = '1m';
     setTimeout(() => {
         const mp = document.getElementById('affMonthPicker');
-        if (mp) mp.value = '';
+        if (mp) mp.value = `${_y}-${_m}`;
         const fromEl = document.getElementById('affDateFrom');
         const toEl = document.getElementById('affDateTo');
-        if (fromEl) fromEl.value = '';
-        if (toEl) toEl.value = '';
-        // Highlight "Tất cả" button
-        document.querySelectorAll('.aff-preset-btn').forEach(b => {
-            b.classList.toggle('active', b.textContent.trim() === 'Tất cả');
-        });
+        if (fromEl) fromEl.value = _affDateFrom;
+        if (toEl) toEl.value = _affDateTo;
+        // Highlight "1 Tháng" button — none highlighted, month picker active instead
+        document.querySelectorAll('.aff-preset-btn').forEach(b => b.classList.remove('active'));
     }, 0);
     affLoadData();
 }
