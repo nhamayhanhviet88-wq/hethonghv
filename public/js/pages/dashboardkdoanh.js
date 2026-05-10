@@ -585,6 +585,31 @@ function crRenderGroups(data) {
                     + '</div>';
             }
 
+            // Render other managers in same dept (not head but same role)
+            if (group.otherManagers && group.otherManagers.length > 0) {
+                group.otherManagers.forEach(function(om) {
+                    var omc = om.current || {};
+                    var omEscName = (om.name || '').replace(/'/g, "\\'");
+                    html += '<div class="cr-emp" onclick="crShowDetail(' + om.user_id + ',\'' + omEscName + '\')"  style="background:#f3f4f6;border-left:3px solid #9ca3af;margin:4px 8px;border-radius:10px;">'
+                        + '<div class="cr-emp-name">'
+                        + '<span class="cr-role-badge" style="background:#6b7280;color:white;">QL</span> '
+                        + (om.name || '') + ' <span style="font-size:11px;color:#6b7280;">(c\u00e1 nh\u00e2n)</span> '
+                        + convBadge(om.user_id)
+                        + '</div>'
+                        + '<div class="cr-emp-stats">'
+                        + '<span class="cr-stat-cell" style="font-weight:800;color:#1e1b4b;">' + (omc.total || 0) + '</span>'
+                        + '<span class="cr-stat-cell" style="color:#059669;">' + (omc.new || 0) + ' \u0111.m\u1edbi</span>'
+                        + '<span class="cr-stat-cell" style="color:#c2410c;">' + (omc.returning || 0) + ' \u0111.c\u0169</span>'
+                        + '<div class="cr-progress-wrap"><div class="cr-progress-bar" style="width:' + Math.min(omc.rate || 0, 100) + '%;background:' + crProgressColor(omc.rate || 0) + ';"></div></div>'
+                        + '<span class="cr-stat-cell" style="font-weight:800;color:#7c3aed;">' + (omc.rate || 0) + '%</span>'
+                        + '<span class="cr-stat-cell">' + crTrendMini(om.trend?.rate) + '</span>'
+                        + '<span class="cr-stat-cell" style="font-weight:700;color:#0369a1;font-size:10px;">' + crFormatVND(omc.revenue || 0) + '</span>'
+                        + '<span class="cr-stat-cell">' + crTrendMini(om.trend?.revenue_pct) + '</span>'
+                        + '</div>'
+                        + '</div>';
+                });
+            }
+
             group.teams.forEach((team, ti) => {
                 const teamKey = `${gi}-${ti}`;
                 const teamExpanded = _cr.expandedTeam.has(teamKey);

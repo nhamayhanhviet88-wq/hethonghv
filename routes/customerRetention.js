@@ -282,33 +282,25 @@ module.exports = async function(fastify) {
         // OR: the child dept doesn't have a specific head and falls under the root managed by this manager
         const groups = [];
         const processedDeptIds = new Set();
+        const _otherManagers = []; // Non-head managers in root dept
 
         for (const mgr of managers) {
             // Find child depts this manager heads
             const mgrChildDepts = childDepts.filter(d => d.head_user_id === mgr.id);
 
             // If manager doesn't head any child depts AND doesn't head root dept
-            // BUT belongs to root dept (department_id = rootDept.id) → show with personal stats only
+            // BUT belongs to root dept → collect to inject into root manager's group later
             if (mgrChildDepts.length === 0 && rootDept.head_user_id !== mgr.id) {
-                // Manager in root dept but not heading any sub-team → show personal stats
                 if (mgr.department_id === rootDept.id) {
                     const mgrPersonalCur = calcGroup([mgr.id], currentMap);
                     const mgrPersonalPrev = calcGroup([mgr.id], previousMap);
-                    groups.push({
-                        type: 'manager',
+                    _otherManagers.push({
                         user_id: mgr.id,
                         name: mgr.full_name,
-                        dept_name: rootDept.name,
                         role: mgr.role,
                         current: mgrPersonalCur,
                         previous: mgrPersonalPrev,
-                        trend: calcTrend(mgrPersonalCur, mgrPersonalPrev),
-                        personal: {
-                            current: mgrPersonalCur,
-                            previous: mgrPersonalPrev,
-                            trend: calcTrend(mgrPersonalCur, mgrPersonalPrev)
-                        },
-                        teams: []
+                        trend: calcTrend(mgrPersonalCur, mgrPersonalPrev)
                     });
                 }
                 continue;
@@ -399,6 +391,22 @@ module.exports = async function(fastify) {
                 },
                 teams: teamsArr
             });
+        }
+
+        // Inject otherManagers into root manager's group and recalc totals
+        if (_otherManagers.length > 0) {
+            const rootGroup = groups.find(g => g.type === 'manager' && g.user_id === rootDept.head_user_id);
+            if (rootGroup) {
+                rootGroup.otherManagers = _otherManagers;
+                // Recalc root group totals to include other managers' stats
+                const otherMgrIds = _otherManagers.map(m => m.user_id);
+                const allIds = [];
+                rootGroup.teams.forEach(t => t.employees.forEach(e => allIds.push(e.user_id)));
+                allIds.push(rootGroup.user_id, ...otherMgrIds);
+                rootGroup.current = calcGroup(allIds, currentMap);
+                rootGroup.previous = calcGroup(allIds, previousMap);
+                rootGroup.trend = calcTrend(rootGroup.current, rootGroup.previous);
+            }
         }
 
         // Handle child depts not assigned to any manager
