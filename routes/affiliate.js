@@ -2461,19 +2461,83 @@ async function affiliateRoutes(fastify) {
         const userId = request.user.id;
 
 
-        // ★ GOD VIEW: Giám Đốc xem toàn bộ hệ thống affiliate
+        // ★ STAFF VIEW: role-based scope filtering + phone masking
         if (request.user.role !== 'tkaffiliate') {
             const { managerId, from, to } = request.query;
+            const role = request.user.role;
+
+            // ★ Phone masking helper: show first 2 + last 2 digits
+            function maskPhone(phone) {
+                if (!phone) return '-';
+                const clean = phone.replace(/\D/g, '');
+                if (clean.length <= 4) return '****';
+                return clean.substring(0, 2) + '*'.repeat(clean.length - 4) + clean.substring(clean.length - 2);
+            }
+
+            // ★ SCOPE: determine which manager IDs this user can view
+            let allowedManagerIds = null; // null = see all (giám đốc)
+            if (role === 'giam_doc') {
+                // GĐ sees everything
+                allowedManagerIds = null;
+            } else if (role === 'quan_ly' || role === 'quan_ly_cap_cao') {
+                // QL sees affiliates managed by TP + NV under their depts
+                const myDeptId = request.user.department_id;
+                if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                // Get all child dept IDs
+                const allDepts = await db.all('SELECT id, parent_id FROM departments');
+                const childIds = new Set();
+                function getChildren(pid) { childIds.add(pid); allDepts.filter(d => d.parent_id === pid).forEach(d => getChildren(d.id)); }
+                getChildren(myDeptId);
+                // Get users in those depts (TP, NV, etc.) who can manage affiliates
+                const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, [...childIds]);
+                allowedManagerIds = new Set(mgrUsers.map(u => u.id));
+            } else if (role === 'truong_phong') {
+                // TP sees only affiliates managed by NV in their team + themselves
+                const myDeptId = request.user.department_id;
+                if (!myDeptId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                const allDepts = await db.all('SELECT id, parent_id FROM departments');
+                const childIds = new Set();
+                function getChildren(pid) { childIds.add(pid); allDepts.filter(d => d.parent_id === pid).forEach(d => getChildren(d.id)); }
+                getChildren(myDeptId);
+                // Get NV + themselves (exclude QL above)
+                const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao')`, [...childIds]);
+                allowedManagerIds = new Set(mgrUsers.map(u => u.id));
+            } else {
+                // NV: only see their own managed affiliates
+                allowedManagerIds = new Set([userId]);
+            }
 
             // Build dynamic WHERE clause
             let whereClauses = ["u.role = 'tkaffiliate'"];
             let whereParams = [];
-            if (managerId) { whereClauses.push("u.managed_by_user_id = ?"); whereParams.push(Number(managerId)); }
+
+            // Apply scope: if not GĐ, restrict by allowed manager IDs
+            if (allowedManagerIds !== null) {
+                if (allowedManagerIds.size === 0) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                // If managerId is specified and user has access to it, use it
+                if (managerId && allowedManagerIds.has(Number(managerId))) {
+                    whereClauses.push("u.managed_by_user_id = ?");
+                    whereParams.push(Number(managerId));
+                } else if (managerId && !allowedManagerIds.has(Number(managerId))) {
+                    // User trying to see someone they don't have access to
+                    return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
+                } else {
+                    // No specific manager selected — show all in scope
+                    const mgrArr = [...allowedManagerIds];
+                    whereClauses.push(`u.managed_by_user_id IN (${mgrArr.map(() => '?').join(',')})`);
+                    whereParams.push(...mgrArr);
+                }
+            } else if (managerId) {
+                whereClauses.push("u.managed_by_user_id = ?");
+                whereParams.push(Number(managerId));
+            }
+
             if (from) { whereClauses.push("u.created_at >= ?"); whereParams.push(from + ' 00:00:00'); }
             if (to) { whereClauses.push("u.created_at <= ?"); whereParams.push(to + ' 23:59:59'); }
 
             const children = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
+                       u.managed_by_user_id,
                        ct.name as tier_name, ct.percentage as tier_percentage,
                        p.full_name as parent_affiliate_name,
                        mgr.full_name as manager_name
@@ -2523,6 +2587,15 @@ async function affiliateRoutes(fastify) {
                     totalCustomers += cs.total_customers;
                     totalRevenue += child.total_revenue;
                     closedCount += cs.closed_count;
+                });
+            }
+
+            // ★ Phone masking: GĐ sees all, others see masked unless direct manager
+            if (role !== 'giam_doc') {
+                children.forEach(child => {
+                    if (child.managed_by_user_id !== userId) {
+                        child.phone = maskPhone(child.phone);
+                    }
                 });
             }
 

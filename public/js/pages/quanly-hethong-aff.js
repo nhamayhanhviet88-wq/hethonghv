@@ -352,12 +352,41 @@ function _aff_renderSidebar() {
     if (!list) return;
     const ROLE_BADGE = { truong_phong:'TP', quan_ly:'QL', quan_ly_cap_cao:'QL', giam_doc:'GĐ' };
     const ROLE_BG = { truong_phong:'#059669', quan_ly:'#2563eb', quan_ly_cap_cao:'#7c3aed', giam_doc:'#dc2626' };
-    // "Tổng Phòng KD" button
+    const myRole = currentUser.role;
+    const myDeptId = currentUser.department_id;
+
+    // ★ SCOPE: determine which users are visible in sidebar
+    let allowedUserIds = null; // null = see all
+    if (myRole === 'giam_doc') {
+        allowedUserIds = null;
+    } else if (myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
+        // QL sees TP + NV under their dept tree
+        const childDeptIds = new Set();
+        function getChildDepts(pid) { childDeptIds.add(pid); _aff_allDepts.filter(d => d.parent_id === pid).forEach(d => getChildDepts(d.id)); }
+        if (myDeptId) getChildDepts(myDeptId);
+        const AFF_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien'];
+        allowedUserIds = new Set(_aff_allUsers.filter(u => childDeptIds.has(u.department_id) && !AFF_ROLES.includes(u.role)).map(u => u.id));
+    } else if (myRole === 'truong_phong') {
+        // TP sees only NV + themselves in their team (no QL)
+        const childDeptIds = new Set();
+        function getChildDepts(pid) { childDeptIds.add(pid); _aff_allDepts.filter(d => d.parent_id === pid).forEach(d => getChildDepts(d.id)); }
+        if (myDeptId) getChildDepts(myDeptId);
+        const BLOCKED_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao'];
+        allowedUserIds = new Set(_aff_allUsers.filter(u => childDeptIds.has(u.department_id) && !BLOCKED_ROLES.includes(u.role)).map(u => u.id));
+    } else {
+        // NV only sees themselves
+        allowedUserIds = new Set([currentUser.id]);
+    }
+
+    // "Tổng Phòng KD" button — only for GĐ/QL
     const isAll = !_aff_selectedMgrId;
-    let html = `<div onclick="_aff_selectMgr(null,'Tổng Phòng KD')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAll?'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);':'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
-        <span style="font-size:20px;">📊</span>
-        <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
-    </div>`;
+    let html = '';
+    if (myRole === 'giam_doc' || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
+        html += `<div onclick="_aff_selectMgr(null,'Tổng Phòng KD')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAll?'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);':'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
+            <span style="font-size:20px;">📊</span>
+            <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
+        </div>`;
+    }
     // Build department tree — only PHÒNG KINH DOANH
     const deptMap = {}; _aff_allDepts.forEach(d => { deptMap[d.id] = d; });
     const kdDept = _aff_allDepts.find(d => d.name && d.name.toUpperCase().includes('KINH DOANH') && (!d.parent_id || (deptMap[d.parent_id] && deptMap[d.parent_id].name && deptMap[d.parent_id].name.startsWith('HỆ THỐNG'))));
@@ -366,7 +395,11 @@ function _aff_renderSidebar() {
     const allKdIds = new Set([kdDept.id, ...kdChildIds]);
     // Filter users in KD tree, exclude affiliate roles
     const AFF_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien'];
-    const kdUsers = _aff_allUsers.filter(u => allKdIds.has(u.department_id) && !AFF_ROLES.includes(u.role));
+    let kdUsers = _aff_allUsers.filter(u => allKdIds.has(u.department_id) && !AFF_ROLES.includes(u.role));
+    // ★ Apply scope filter
+    if (allowedUserIds !== null) {
+        kdUsers = kdUsers.filter(u => allowedUserIds.has(u.id));
+    }
     // Group: phong-level managers vs team members
     const phongManagers = kdUsers.filter(u => u.department_id === kdDept.id);
     const teamGroups = {};
@@ -374,6 +407,14 @@ function _aff_renderSidebar() {
     kdUsers.filter(u => u.department_id !== kdDept.id && kdChildIds.has(u.department_id)).forEach(u => {
         if (teamGroups[u.department_id]) teamGroups[u.department_id].users.push(u);
     });
+
+    // ★ Filter out empty teams for non-GĐ
+    const visibleTeams = Object.entries(teamGroups).filter(([id, team]) => {
+        if (myRole === 'giam_doc') return true;
+        if (allowedUserIds === null) return true;
+        return team.users.length > 0;
+    });
+
     // Header
     html += `<div style="padding:6px 8px;background:linear-gradient(135deg,#1e3a5f,#122546);border-radius:10px;margin-bottom:4px;">
         <span style="font-size:11px;font-weight:800;color:#93c5fd;">📁 PHÒNG KINH DOANH</span>
@@ -383,7 +424,7 @@ function _aff_renderSidebar() {
     phongManagers.sort((a,b) => sortPriority(a.role)-sortPriority(b.role));
     phongManagers.forEach(u => { html += _aff_userCard(u, 12, ROLE_BADGE, ROLE_BG); });
     // Teams
-    Object.values(teamGroups).forEach(team => {
+    visibleTeams.forEach(([id, team]) => {
         html += `<div style="padding:3px 8px 3px 16px;margin-bottom:2px;">
             <span style="font-size:10px;font-weight:700;color:#64748b;">└ ${team.name}${team.users.length===0?' <span style="color:#9ca3af;font-size:9px;">(trống)</span>':''}</span>
         </div>`;
