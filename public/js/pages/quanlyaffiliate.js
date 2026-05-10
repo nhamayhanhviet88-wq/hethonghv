@@ -539,34 +539,40 @@ function affRenderTree() {
             let headEmp = headId ? (allEmps.find(e => e.id === headId) || employees.find(e => e.id === headId)) : null;
             // Scope filter: hide head if not in allowed employees
             if (headEmp && _affScopeFilter && _affScopeFilter.allowedEmpIds && !_affScopeFilter.allowedEmpIds.has(headEmp.id)) headEmp = null;
-            if (headEmp) {
-                const headAffs = affsOf(headEmp.id);
-                const headRevenue = headAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
-                if (_affExpandedEmps[headEmp.id] === undefined) _affExpandedEmps[headEmp.id] = true;
-                const isHeadExpanded = _affExpandedEmps[headEmp.id] === true;
-                const headIcon = !dept.parent_id ? '👑' : '⭐';
-                const ROLE_LABEL = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
+
+            // ★ Phân loại: managers cấp phòng (hiện ngang hàng head) vs nhân viên thường
+            const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao', 'truong_phong'];
+            const phongManagers = allEmps.filter(e => (!headEmp || e.id !== headEmp.id) && MGR_ROLES.includes(e.role));
+            const regularEmps = allEmps.filter(e => (!headEmp || e.id !== headEmp.id) && !MGR_ROLES.includes(e.role));
+
+            const ROLE_LABEL = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
+
+            // Helper: render a manager row with gold style
+            function renderMgrRow(emp, icon) {
+                const empAffs = affsOf(emp.id);
+                const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = true;
+                const isEmpExpanded = _affExpandedEmps[emp.id] === true;
 
                 html += `
-                <div class="emp-row" onclick="affToggleEmp(${headEmp.id})" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);border-left:4px solid #f59e0b;">
+                <div class="emp-row" onclick="affToggleEmp(${emp.id})" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);border-left:4px solid #f59e0b;">
                     <div class="emp-info">
-                        <span class="expand-icon ${isHeadExpanded ? 'open' : ''}">▶</span>
-                        <span class="emp-name" style="color:#92400e;font-weight:800;font-size:16px;">${headIcon} ${headEmp.full_name}</span>
-                        <span style="background:#fef3c7;color:#92400e;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL[headEmp.role] || headEmp.role}</span>
-                        <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${headAffs.length} affiliate</span>
-
+                        <span class="expand-icon ${isEmpExpanded ? 'open' : ''}">▶</span>
+                        <span class="emp-name" style="color:#92400e;font-weight:800;font-size:16px;">${icon} ${emp.full_name}</span>
+                        <span style="background:#fef3c7;color:#92400e;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL[emp.role] || emp.role}</span>
+                        <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${empAffs.length} affiliate</span>
                     </div>
                     <div class="emp-stats">
-                        <span>💰 ${affFormatMoney(headRevenue)}</span>
-                        ${headAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${headEmp.id},'${headEmp.full_name.replace(/'/g, "\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
+                        <span>💰 ${affFormatMoney(empRevenue)}</span>
+                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
-                if (isHeadExpanded) {
-                    if (headAffs.length === 0) {
+                if (isEmpExpanded) {
+                    if (empAffs.length === 0) {
                         html += `<div class="no-affiliate">— Chưa có affiliate —</div>`;
                     } else {
-                         headAffs.forEach(aff => {
+                        empAffs.forEach(aff => {
                             const isLocked = aff.status === 'locked';
                             html += `
                             <div class="aff-row" ${isLocked ? 'style="opacity:0.6;"' : ''}>
@@ -588,32 +594,40 @@ function affRenderTree() {
                 }
             }
 
-            // Render child departments
+            // 1. Render HEAD user
+            if (headEmp) {
+                const headIcon = !dept.parent_id ? '👑' : '⭐';
+                renderMgrRow(headEmp, headIcon);
+            }
+
+            // 2. ★ Render other MANAGERS at phòng level (ngang hàng head, TRƯỚC teams)
+            phongManagers.forEach(emp => renderMgrRow(emp, '👑'));
+
+            // 3. Render child departments (teams)
             if (children.length > 0) {
                 html += '<div class="child-dept">';
                 children.forEach(c => renderDeptBlock(c, false));
                 html += '</div>';
             }
-            // Render remaining employees (exclude head)
-            allEmps.forEach(emp => {
-                if (headEmp && emp.id === headEmp.id) return; // skip head
+
+            // 4. Render remaining regular employees (AFTER teams)
+            regularEmps.forEach(emp => {
                 const empAffs = affsOf(emp.id);
                 const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
                 if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = true;
                 const isEmpExpanded = _affExpandedEmps[emp.id] === true;
-                const ROLE_LABEL2 = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time' };
 
                 html += `
                 <div class="emp-row" onclick="affToggleEmp(${emp.id})">
                     <div class="emp-info">
                         <span class="expand-icon ${isEmpExpanded ? 'open' : ''}">▶</span>
                         <span class="emp-name">👤 ${emp.full_name}</span>
-                        <span style="background:#f3f4f6;color:#6b7280;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL2[emp.role] || emp.role}</span>
+                        <span style="background:#f3f4f6;color:#6b7280;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${ROLE_LABEL[emp.role] || emp.role}</span>
                         <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${empAffs.length} affiliate</span>
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(empRevenue)}</span>
-                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
+                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
