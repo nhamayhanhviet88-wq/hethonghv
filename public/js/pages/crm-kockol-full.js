@@ -1721,7 +1721,7 @@ async function _kockolSubmitConsultLog(customerId) {
         try {
             const formData = new FormData();
             formData.append('log_type', 'huy_don_tra_coc');
-            formData.append('content', `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`);
+            formData.append('content', `📷 Minh chứng hủy đơn: ${reason}`);
             formData.append('image', window._consultImageBlob, 'cancel_order_proof.png');
             await fetch(`/api/customers/${customerId}/consult`, { method: 'POST', body: formData });
             const data = await apiCall(`/api/customers/${customerId}/cancel-order`, 'POST', { reason });

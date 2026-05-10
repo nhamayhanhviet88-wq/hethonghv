@@ -119,6 +119,44 @@ const MENU_CONFIG = [
 // ========== INIT ==========
 var _isDoitacDomain = window.location.hostname.indexOf('dongphuchv.net') !== -1;
 
+// ========== GLOBAL AUTOCOMPLETE PROTECTION ==========
+// Prevents browser from suggesting previously entered customer data (names, phones, addresses)
+// Uses MutationObserver to catch dynamically rendered inputs (modals, CRM forms, etc.)
+(function() {
+    function _killAutocomplete(root) {
+        const inputs = (root || document).querySelectorAll('input[type="text"]:not([autocomplete="one-time-code"]):not([data-ac-ok])');
+        inputs.forEach(inp => {
+            // Skip disabled/readonly/hidden inputs
+            if (inp.disabled || inp.readOnly || inp.type === 'hidden') return;
+            inp.setAttribute('autocomplete', 'one-time-code');
+            inp.setAttribute('data-ac-ok', '1');
+        });
+        // Also protect textareas and tel/email inputs
+        const extras = (root || document).querySelectorAll('textarea:not([data-ac-ok]), input[type="tel"]:not([data-ac-ok]), input[type="email"]:not([data-ac-ok])');
+        extras.forEach(inp => {
+            if (inp.disabled || inp.readOnly) return;
+            inp.setAttribute('autocomplete', 'one-time-code');
+            inp.setAttribute('data-ac-ok', '1');
+        });
+        // Protect forms
+        const forms = (root || document).querySelectorAll('form:not([autocomplete])');
+        forms.forEach(f => f.setAttribute('autocomplete', 'off'));
+    }
+    // Run on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => _killAutocomplete());
+    } else {
+        _killAutocomplete();
+    }
+    // Watch for dynamically added inputs (CRM modals, popups, etc.)
+    const _acObserver = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            if (m.addedNodes.length) _killAutocomplete();
+        }
+    });
+    _acObserver.observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
     setupEventListeners();

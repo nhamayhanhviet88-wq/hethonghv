@@ -264,6 +264,11 @@ async function lockTaskRoutes(fastify, options) {
         const { task_name, task_content, guide_link, input_requirements, output_requirements,
                 recurrence_type, recurrence_value, requires_approval, penalty_amount, max_redo_count, min_quantity } = request.body || {};
 
+        // ① Lấy giá trị cũ TRƯỚC khi update — để detect thay đổi recurrence
+        const oldTask = await db.get('SELECT recurrence_value, recurrence_type FROM lock_tasks WHERE id=$1', [taskId]);
+        const oldRecValue = (oldTask?.recurrence_value || '').trim();
+        const newRecValue = (recurrence_value || '').trim();
+
         await db.run(
             `UPDATE lock_tasks SET task_name=$1, task_content=$2, guide_link=$3, input_requirements=$4,
              output_requirements=$5, recurrence_type=$6, recurrence_value=$7, requires_approval=$8, penalty_amount=$9, max_redo_count=$10, min_quantity=$11
@@ -271,6 +276,30 @@ async function lockTaskRoutes(fastify, options) {
             [task_name, task_content, guide_link, input_requirements, output_requirements,
              recurrence_type, recurrence_value, requires_approval || false, penalty_amount || 50000, max_redo_count || 3, min_quantity || 1, taskId]
         );
+
+        // ② Clean up stale completions khi recurrence_value thay đổi (weekly)
+        // Chỉ xóa record "ma" (auto-generated expired, không có nội dung thật từ NV)
+        if (oldRecValue !== newRecValue && (oldTask?.recurrence_type === 'weekly' || recurrence_type === 'weekly')) {
+            const oldDays = new Set(oldRecValue.split(',').map(Number).filter(n => !isNaN(n)));
+            const newDays = new Set(newRecValue.split(',').map(Number).filter(n => !isNaN(n)));
+            const removedDays = [...oldDays].filter(d => !newDays.has(d));
+
+            if (removedDays.length > 0) {
+                // Xóa completion auto-gen (expired, không có nội dung/proof thật) cho các ngày bị bỏ
+                // QUAN TRỌNG: Giữ nguyên báo cáo NV đã nộp thật (có content hoặc proof_url)
+                const dayPlaceholders = removedDays.map((_, i) => `$${i + 2}`).join(',');
+                await db.run(
+                    `DELETE FROM lock_task_completions
+                     WHERE lock_task_id = $1
+                     AND status = 'expired'
+                     AND (content IS NULL OR content = '' OR content LIKE 'Phạt chồng:%')
+                     AND proof_url IS NULL
+                     AND EXTRACT(DOW FROM completion_date) IN (${dayPlaceholders})`,
+                    [taskId, ...removedDays]
+                );
+                fastify.log.info(`[LockTask] Cleaned stale completions for task ${taskId}: removed days [${removedDays}], old="${oldRecValue}" → new="${newRecValue}"`);
+            }
+        }
 
         // Update assignments if provided
         if (request.body.user_ids) {

@@ -30,15 +30,36 @@ const DEFAULT_MINUTES = {
     huy_don: 15
 };
 
-function parseTimeRange(value) {
-    if (!value || value.trim().toLowerCase() === 'off') return null;
+/**
+ * Parse time slots — supports both formats:
+ *   OLD: "08:00-18:15" → [{ start: 480, end: 1095 }]
+ *   NEW: [{"start":"08:00","end":"11:30"},{"start":"13:30","end":"17:30"}]
+ *   OFF: "off" or null → []
+ */
+function parseTimeSlots(value) {
+    if (!value || value.trim().toLowerCase() === 'off') return [];
+
+    // Try JSON array first (new format)
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+            return parsed.map(slot => {
+                const [sh, sm] = (slot.start || '00:00').split(':').map(Number);
+                const [eh, em] = (slot.end || '23:59').split(':').map(Number);
+                if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+                return { start: sh * 60 + sm, end: eh * 60 + em };
+            }).filter(Boolean);
+        }
+    } catch (e) { /* not JSON, try old format */ }
+
+    // Old format: "HH:MM-HH:MM"
     const parts = value.trim().split('-');
-    if (parts.length !== 2) return null;
+    if (parts.length !== 2) return [];
     const [startStr, endStr] = parts;
     const [sh, sm] = startStr.split(':').map(Number);
     const [eh, em] = endStr.split(':').map(Number);
-    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
-    return { start: sh * 60 + sm, end: eh * 60 + em };
+    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return [];
+    return [{ start: sh * 60 + sm, end: eh * 60 + em }];
 }
 
 async function isWithinReminderHours() {
@@ -57,9 +78,10 @@ async function isWithinReminderHours() {
         if (row?.value) value = row.value;
     } catch (e) { /* use default */ }
 
-    const range = parseTimeRange(value);
-    if (!range) return false;
-    return currentMinutes >= range.start && currentMinutes <= range.end;
+    const slots = parseTimeSlots(value);
+    if (slots.length === 0) return false;
+    // Check if current time is within ANY active slot
+    return slots.some(slot => currentMinutes >= slot.start && currentMinutes <= slot.end);
 }
 
 /**
@@ -106,9 +128,11 @@ async function checkChuyenSo(today, mins) {
         FROM customers c
         LEFT JOIN users u ON u.id = c.assigned_to_id
         WHERE (
-            (c.effective_date = $1 AND c.created_at::date = $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
+            (c.effective_date = $1::date AND c.created_at::date = $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
             OR
-            (c.appointment_date = $1 AND c.updated_at <= NOW() - INTERVAL '${interval}')
+            (c.appointment_date::date = $1::date AND c.updated_at <= NOW() - INTERVAL '${interval}')
+            OR
+            (c.created_at::date = $1::date AND c.effective_date != $1::date AND c.created_at <= NOW() - INTERVAL '${interval}')
         )
         AND NOT EXISTS (
             SELECT 1 FROM consultation_logs cl
@@ -143,7 +167,7 @@ async function checkChuyenSo(today, mins) {
             const icon = isResend ? '🔄' : '📱';
             const code = buildCode(row);
             const crmLabel = crmLabels[row.crm_type] || row.crm_type;
-            return `${icon} <b>${code}</b> : ${row.customer_name || '?'} - ${crmLabel}${isResend ? ' (Gửi Lại)' : ''}`;
+            return `${icon} <b>${code}</b> : <code>${row.customer_name || '?'}</code> - ${crmLabel}${isResend ? ' (Gửi Lại)' : ''}`;
         });
 
         const msg = `⏰ <b>NHẮC XỬ LÝ SỐ</b>\n\n` +
@@ -212,7 +236,7 @@ async function checkCapCuuSep(today, mins) {
             );
             const stt = Number(origCount?.cnt) || 1;
             const code = `${stt}-${dd}-${mm}-Y${String(yy).slice(-2)}`;
-            lines.push(`🚨 <b>${code}</b> : ${em.customer_name || '?'} — ${em.requester_name || '?'}`);
+            lines.push(`🚨 <b>${code}</b> : <code>${em.customer_name || '?'}</code> — ${em.requester_name || '?'}`);
         }
 
         const label = roleLabels[role] || role.toUpperCase();
@@ -249,7 +273,7 @@ async function checkHuyKhach(today, mins) {
     if (now - lastTime < cooldownMs) return;
 
     const lines = pending.map((c, i) => {
-        return `❌ <b>${i + 1}.</b> ${c.customer_name || '?'} — ${c.requester_name || '?'}`;
+        return `❌ <b>${i + 1}.</b> <code>${c.customer_name || '?'}</code> — ${c.requester_name || '?'}`;
     });
 
     const msg = `⏰ <b>NHẮC DUYỆT HỦY KHÁCH</b>\n\n` +
@@ -284,7 +308,7 @@ async function checkHuyDon(today, mins) {
     if (now - lastTime < cooldownMs) return;
 
     const lines = pending.map((c, i) => {
-        return `🚫 <b>${i + 1}.</b> ${c.customer_name || '?'} — ${c.requester_name || '?'}`;
+        return `🚫 <b>${i + 1}.</b> <code>${c.customer_name || '?'}</code> — ${c.requester_name || '?'}`;
     });
 
     const msg = `⏰ <b>NHẮC DUYỆT HỦY ĐƠN TRẢ CỌC</b>\n\n` +

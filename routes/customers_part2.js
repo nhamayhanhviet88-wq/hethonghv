@@ -43,7 +43,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [nextBizDay, custId]);
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Nhắc lại hủy khách: ${reason}`, request.user.id]);
-            const tgMsg = `❌ <b>${cancelCode} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
+            const tgMsg = `❌ <b>${cancelCode} : NHẮC LẠI HỦY KHÁCH</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: 'Đã nhắc lại yêu cầu hủy khách!' };
         }
@@ -69,7 +69,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             // Log để đếm STT chính xác
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES (?, 'huy', ?, ?)`,
                 [custId, `❌ Yêu cầu hủy khách: ${reason}`, request.user.id]);
-            const tgMsg = `❌ <b>${cancelCode} : YÊU CẦU HỦY KHÁCH</b> ❌\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
+            const tgMsg = `❌ <b>${cancelCode} : YÊU CẦU HỦY KHÁCH</b> ❌\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đã được gửi. Chờ duyệt.' };
         };
@@ -123,7 +123,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
         // Only allow cancel-order when status is chot_don (or dang_san_xuat)
         if (!['chot_don'].includes(customer.order_status)) {
-            return reply.code(400).send({ error: 'Chỉ có thể hủy đơn trả cọc khi đã Chốt Đơn.' });
+            return reply.code(400).send({ error: customer.order_status === 'cho_duyet_huy_don' ? 'Đã gửi yêu cầu hủy đơn rồi. Đang chờ duyệt.' : 'Chỉ có thể hủy đơn trả cọc khi đã Chốt Đơn.' });
         }
 
         // Build mã Hủy Đơn Trả Cọc (STT-ngày-tháng-Ynăm) — đếm riêng theo ngày
@@ -151,7 +151,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `🚫 Yêu cầu hủy đơn trả cọc: ${reason}`, request.user.id]);
             // Telegram
-            const tgMsg = `🚫 <b>${hdtcCode} : YÊU CẦU HỦY ĐƠN TRẢ CỌC</b> 🚫\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
+            const tgMsg = `🚫 <b>${hdtcCode} : YÊU CẦU HỦY ĐƠN TRẢ CỌC</b> 🚫\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: msg || 'Yêu cầu hủy đơn trả cọc đã gửi. Chờ duyệt.' };
         };
@@ -184,14 +184,14 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const [yy, mm, dd] = today.split('-').map(Number);
         const yLabel = 'Y' + String(yy).slice(-2);
         const origLog = await db.get(
-            "SELECT id, created_at FROM consultation_logs WHERE customer_id = $1 AND log_type = 'huy_don_tra_coc' ORDER BY id DESC LIMIT 1",
+            "SELECT id, created_at FROM consultation_logs WHERE customer_id = $1 AND log_type = 'huy_don_tra_coc' AND content LIKE '🚫%' ORDER BY id DESC LIMIT 1",
             [custId]
         );
         let hdtcCode = `?-${dd}-${mm}-${yLabel}`;
         if (origLog) {
             const origDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(origLog.created_at));
             const origCnt = await db.get(
-                "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy_don_tra_coc' AND created_at::date = $1::date AND id <= $2",
+                "SELECT COUNT(*) as cnt FROM consultation_logs WHERE log_type = 'huy_don_tra_coc' AND content LIKE '🚫%' AND created_at::date = $1::date AND id <= $2",
                 [origDate, origLog.id]
             );
             const stt = Number(origCnt?.cnt) || 1;
@@ -223,7 +223,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `✅ Duyệt hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
-            const tgMsg = `✅ <b>${hdtcCode} : DUYỆT HỦY ĐƠN TRẢ CỌC</b> ✅\nKhách: <b>${customer.customer_name}</b>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Duyệt Hủy Đơn : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
+            const tgMsg = `✅ <b>${hdtcCode} : DUYỆT HỦY ĐƠN TRẢ CỌC</b> ✅\nKhách: <code>${customer.customer_name}</code>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Duyệt Hủy Đơn : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã duyệt hủy đơn trả cọc. Khách quay về chăm sóc lại.' };
         } else {
@@ -241,7 +241,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, logged_by) VALUES ($1, 'huy_don_tra_coc', $2, $3)`,
                 [custId, `❌ Từ chối hủy đơn trả cọc — ${manager_note}`, request.user.id]);
             // Telegram
-            const tgMsg = `📋 <b>${hdtcCode} : TỪ CHỐI HỦY ĐƠN TRẢ CỌC</b> 📋\nKhách: <b>${customer.customer_name}</b>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Từ Chối Hủy Đơn : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
+            const tgMsg = `📋 <b>${hdtcCode} : TỪ CHỐI HỦY ĐƠN TRẢ CỌC</b> 📋\nKhách: <code>${customer.customer_name}</code>\n\nNội dung (${reqName}) Hủy Đơn : ${origReason}\n\nSếp Từ Chối Hủy Đơn : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_don_tra_coc', tgMsg);
             return { success: true, message: 'Đã từ chối hủy đơn. Khách tiếp tục sản xuất.' };
         }
@@ -298,7 +298,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             }
 
             // ★ Thông báo DUYỆT HỦY lên Telegram
-            const tgMsg = `✅ <b>${cancelCode} : DUYỆT HỦY KHÁCH</b> ✅\nKhách: <b>${custName}</b>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Duyệt Hủy Khách : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
+            const tgMsg = `✅ <b>${cancelCode} : DUYỆT HỦY KHÁCH</b> ✅\nKhách: <code>${custName}</code>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Duyệt Hủy Khách : <b>${manager_note}</b>\n\nDuyệt bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
 
             return { success: true, message: 'Đã duyệt hủy khách hàng.' + (linkedUser ? ` Tài khoản ${linkedUser.full_name} đã bị khóa.` : '') };
@@ -316,7 +316,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
             );
 
             // ★ Thông báo TỪ CHỐI HỦY lên Telegram
-            const tgMsg = `📋 <b>${cancelCode} : TỪ CHỐI HỦY KHÁCH</b> 📋\nKhách: <b>${custName}</b>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Từ Chối Hủy Khách : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
+            const tgMsg = `📋 <b>${cancelCode} : TỪ CHỐI HỦY KHÁCH</b> 📋\nKhách: <code>${custName}</code>\n\nNội dung (${reqName}) Hủy : ${origReason}\n\nSếp Từ Chối Hủy Khách : <b>${manager_note}</b>\n\nTừ chối bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'huy_khach', tgMsg);
 
             return { success: true, message: 'Đã từ chối hủy. Khách hàng chuyển sang Tư Vấn Lại.' };
@@ -448,7 +448,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 [Number(customer_id), `🚨 Nhắc lại cấp cứu sếp: ${reason}`, request.user.id]);
             await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
-            const tgMsg = `🚨 <b>${emCode} : NHẮC LẠI CẤP CỨU SẾP</b> 🚨\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
+            const tgMsg = `🚨 <b>${emCode} : NHẮC LẠI CẤP CỨU SẾP</b> 🚨\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
             notifyTelegram(null, 'cap_cuu_sep', tgMsg);
             return { success: true, id: pendingEm.id, message: 'Đã nhắc lại cấp cứu sếp!' };
         }
@@ -471,7 +471,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         // Auto-set appointment to next business day
         await db.run(`UPDATE customers SET appointment_date = ? WHERE id = ?`, [nextBizDay, Number(customer_id)]);
 
-        const tgMsg = `🚨 <b>${emCode} : CẤP CỨU SẾP</b> 🚨\n\nKhách: <b>${customer.customer_name}</b>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
+        const tgMsg = `🚨 <b>${emCode} : CẤP CỨU SẾP</b> 🚨\n\nKhách: <code>${customer.customer_name}</code>\nLý do: ${reason}\n\nGửi cho: ${handler.full_name}\nBởi: ${request.user.full_name}`;
         notifyTelegram(null, 'cap_cuu_sep', tgMsg);
         return { success: true, id: result.lastInsertRowid, message: 'Đã gửi cấp cứu sếp!' };
     });
@@ -623,7 +623,7 @@ module.exports = function(fastify, db, getManagedDeptIds) {
 
             const custName = customer?.customer_name || '?';
             const reqName = requester?.full_name || '?';
-            const tgMsg = `✅ <b>${emCode} : ĐÃ XỬ LÝ CẤP CỨU SẾP</b> ✅\nKhách: <b>${custName}</b>\n\nNội dung cấp cứu (${reqName}) : ${em.reason || '(không có)'}\n\nTư Vấn của Sếp : ${note || '(không có)'}\n\nXử lý bởi: ${request.user.full_name}`;
+            const tgMsg = `✅ <b>${emCode} : ĐÃ XỬ LÝ CẤP CỨU SẾP</b> ✅\nKhách: <code>${custName}</code>\n\nNội dung cấp cứu (${reqName}) : ${em.reason || '(không có)'}\n\nTư Vấn của Sếp : ${note || '(không có)'}\n\nXử lý bởi: ${request.user.full_name}`;
             notifyTelegram(null, 'cap_cuu_sep', tgMsg);
         }
         return { success: true, message: 'Đã xử lý cấp cứu!' };
@@ -856,6 +856,35 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         const next_consult_type = fields.next_consult_type || null;
         await db.run(`INSERT INTO consultation_logs (customer_id, log_type, content, image_path, logged_by, deposit_amount, next_consult_type) VALUES (?,?,?,?,?,?,?)`,
             [customerId, log_type, content || null, imagePath, request.user.id, deposit_amount, next_consult_type]);
+
+        // ★ Thông báo ĐÃ XỬ LÝ SỐ — lần tư vấn đầu cho số chuyển/gửi lại hôm nay
+        if (log_type !== 'khong_xu_ly' && customer.assigned_to_id) {
+            try {
+                const vnToday = getVNToday();
+                const createdToday = customer.created_at && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(customer.created_at)) === vnToday;
+                const isTransferToday = customer.effective_date === vnToday || customer.appointment_date === vnToday || createdToday;
+                if (isTransferToday) {
+                    // Đếm log thật kể từ lần chuyển/gửi lại (khớp logic reminder-checker)
+                    const prevCount = await db.get(
+                        `SELECT COUNT(*) as cnt FROM consultation_logs
+                         WHERE customer_id = $1 AND log_type NOT IN ('khong_xu_ly')
+                         AND created_at >= LEAST($2::timestamp, COALESCE($3::timestamp, $2::timestamp)) - INTERVAL '1 minute'`,
+                        [customerId, customer.created_at, customer.updated_at]
+                    );
+                    if (Number(prevCount?.cnt || 0) === 1) {
+                        const _crmL = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOL/KOC Tiktok' };
+                        const _conL = { goi_dien: 'Gọi Điện', nhan_tin: 'Nhắn Tin', gap_truc_tiep: 'Gặp Trực Tiếp', gui_bao_gia: 'Gửi Báo Giá', gui_mau: 'Gửi Mẫu', thiet_ke: 'Thiết Kế', bao_sua: 'Báo Sửa', lam_quen_tuong_tac: 'Làm Quen', gui_stk_coc: 'Gửi STK Cọc', giuc_coc: 'Giục Cọc', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', sau_ban_hang: 'Sau Bán Hàng', hoan_thanh: 'Hoàn Thành', tuong_tac_ket_noi: 'Tương Tác', gui_ct_kh_cu: 'CT KH Cũ', giam_gia: 'Giảm Giá', cap_cuu_sep: 'Cấp Cứu Sếp', huy: 'Hủy KH', huy_don_tra_coc: 'Hủy Đơn TC' };
+                        let custCode = '?';
+                        if (customer.daily_order_number && customer.effective_date) {
+                            const ed = new Date(customer.effective_date);
+                            custCode = `${customer.daily_order_number}-${ed.getDate()}-${ed.getMonth()+1}-Y${String(ed.getFullYear()).slice(-2)}`;
+                        }
+                        const tgMsg = `✅ <b>ĐÃ XỬ LÝ SỐ</b> : ${custCode} : <code>${customer.customer_name}</code> - CRM: ${_crmL[customer.crm_type] || customer.crm_type} - Tư vấn: ${_conL[log_type] || log_type}`;
+                        notifyTelegram(customer.assigned_to_id, 'chuyen_so', tgMsg);
+                    }
+                }
+            } catch (e) { console.error('[ĐÃ XỬ LÝ SỐ]', e.message); }
+        }
 
         if (fields.birthday) await db.run('UPDATE customers SET birthday = ? WHERE id = ?', [fields.birthday, customerId]);
         if (fields.address) await db.run('UPDATE customers SET address = ? WHERE id = ?', [fields.address, customerId]);

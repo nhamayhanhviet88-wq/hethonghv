@@ -129,7 +129,7 @@ async function renderChuyenSoPage(container) {
             </div>
             <div class="card-body" style="padding:16px 20px;">
                 <div style="display:flex;gap:10px;align-items:center;">
-                    <input type="text" id="csoSmartSearch" class="form-control" placeholder="Nhập Tên KH, SĐT hoặc Link để tìm công việc..." style="flex:1;font-size:14px;border:2px solid #c7d2fe;border-radius:10px;padding:10px 14px;">
+                    <input type="text" id="csoSmartSearch" class="form-control" placeholder="Nhập Tên KH, SĐT hoặc Link để tìm công việc..." style="flex:1;font-size:14px;border:2px solid #c7d2fe;border-radius:10px;padding:10px 14px;" autocomplete="one-time-code">
                     <button type="button" id="csoSearchBtn" class="btn" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:10px;white-space:nowrap;font-weight:600;" onclick="_csoDoSearch()">🔍 Tìm</button>
                 </div>
                 <small style="color:#6b7280;font-size:11px;margin-top:4px;display:block;">Tìm nhanh theo Tên KH, SĐT hoặc Link xem đã nằm trong công việc nào → chọn để auto-fill</small>
@@ -142,7 +142,7 @@ async function renderChuyenSoPage(container) {
                 ${settingsBtn}
             </div>
             <div class="card-body">
-                <form id="chuyenSoForm" style="max-width: 700px;">
+                <form id="chuyenSoForm" style="max-width: 700px;" autocomplete="off">
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>CRM <span style="color:var(--danger)">*</span></label>
@@ -214,17 +214,17 @@ async function renderChuyenSoPage(container) {
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>Tên Khách Hàng <span style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng" required>
+                            <input type="text" id="csoName" class="form-control" placeholder="Nhập tên khách hàng" required autocomplete="one-time-code">
                         </div>
                         <div class="form-group">
                             <label>Số Điện Thoại <span id="csoPhoneStar" style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" oninput="_csoToggleRequired()">
+                            <input type="text" id="csoPhone" class="form-control" placeholder="Nhập SĐT" oninput="_csoToggleRequired()" autocomplete="one-time-code">
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label>🔗 Link Khách Hàng <span id="csoFbStar" style="color:var(--danger)">*</span></label>
-                            <input type="text" id="csoFacebook" class="form-control" placeholder="https://facebook.com, instagram.com, tiktok.com..." oninput="_csoToggleRequired()">
+                            <input type="text" id="csoFacebook" class="form-control" placeholder="https://facebook.com, instagram.com, tiktok.com..." oninput="_csoToggleRequired()" autocomplete="one-time-code">
                             <small id="csoFbHint" style="color:#6b7280;font-size:10px;">Nhập SĐT hoặc Link MXH (ít nhất 1)</small>
                         </div>
                         <div></div>

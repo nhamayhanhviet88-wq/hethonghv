@@ -1483,55 +1483,14 @@ async function loadTelegramNotifySettings() {
                     <span style="font-size:24px;">⏰</span>
                     <div>
                         <h4 style="color:#065f46;margin:0;font-size:15px;font-weight:800;">Nhắc Xử Lý Số — Khung Giờ Hoạt Động</h4>
-                        <p style="margin:2px 0 0;font-size:11px;color:#047857;">Bot tự động nhắc NV nếu chưa tư vấn số đã nhận. Cài khung giờ để tránh nhắc ngoài giờ làm.</p>
+                        <p style="margin:2px 0 0;font-size:11px;color:#047857;">Thêm nhiều khung giờ để chỉ nhắc trong giờ làm, bỏ qua giờ nghỉ trưa/nghỉ giữa buổi.</p>
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-                    <!-- Weekday -->
-                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
-                        <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:10px;">📅 Thứ 2 → Thứ 6</div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="time" id="rmWeekdayFrom" value="${(rmWeekday.value || '08:00-18:15').split('-')[0]}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                            <span style="font-weight:700;color:#065f46;">→</span>
-                            <input type="time" id="rmWeekdayTo" value="${(rmWeekday.value || '08:00-18:15').split('-')[1] || '18:15'}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                        </div>
-                    </div>
-
-                    <!-- Saturday -->
-                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
-                        <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:10px;">📅 Thứ 7</div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="time" id="rmSaturdayFrom" value="${(rmSaturday.value || '08:00-17:15').split('-')[0]}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                            <span style="font-weight:700;color:#065f46;">→</span>
-                            <input type="time" id="rmSaturdayTo" value="${(rmSaturday.value || '08:00-17:15').split('-')[1] || '17:15'}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                        </div>
-                    </div>
-
-                    <!-- Sunday -->
-                    <div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                            <div style="font-size:13px;font-weight:700;color:#065f46;">📅 Chủ Nhật</div>
-                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:700;color:${(rmSunday.value || 'off') === 'off' ? '#dc2626' : '#059669'};">
-                                <input type="checkbox" id="rmSundayToggle" ${(rmSunday.value || 'off') !== 'off' ? 'checked' : ''}
-                                    onchange="document.getElementById('rmSundayTimes').style.display = this.checked ? 'flex' : 'none'; this.parentElement.style.color = this.checked ? '#059669' : '#dc2626'; this.parentElement.querySelector('span').textContent = this.checked ? 'BẬT' : 'TẮT';"
-                                    style="width:16px;height:16px;">
-                                <span>${(rmSunday.value || 'off') !== 'off' ? 'BẬT' : 'TẮT'}</span>
-                            </label>
-                        </div>
-                        <div id="rmSundayTimes" style="display:${(rmSunday.value || 'off') !== 'off' ? 'flex' : 'none'};align-items:center;gap:6px;">
-                            <input type="time" id="rmSundayFrom" value="${(rmSunday.value || 'off') !== 'off' ? (rmSunday.value || '').split('-')[0] : '09:00'}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                            <span style="font-weight:700;color:#065f46;">→</span>
-                            <input type="time" id="rmSundayTo" value="${(rmSunday.value || 'off') !== 'off' ? ((rmSunday.value || '').split('-')[1] || '12:00') : '12:00'}" class="form-control"
-                                style="font-size:14px;font-weight:700;text-align:center;padding:6px;border-radius:8px;border:1.5px solid #34d399;flex:1;">
-                        </div>
-                        ${(rmSunday.value || 'off') === 'off' ? '<div id="rmSundayOffLabel" style="text-align:center;padding:6px;color:#dc2626;font-weight:700;font-size:12px;">🔴 Không nhắc Chủ Nhật</div>' : ''}
-                    </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;" id="rmSlotsGrid">
+                    ${_rmBuildDayCard('weekday', '📅 Thứ 2 → Thứ 6', rmWeekday.value, '08:00-18:15')}
+                    ${_rmBuildDayCard('saturday', '📅 Thứ 7', rmSaturday.value, '08:00-17:15')}
+                    ${_rmBuildDayCard('sunday', '📅 Chủ Nhật', rmSunday.value, 'off', true)}
                 </div>
 
                 <!-- Nhắc Chuyển Số + Gửi Lại Số -->
@@ -1584,10 +1543,12 @@ async function saveTelegramConfig() {
 
     // Save reminder minutes from global events table
     const minuteKeys = ['cap_cuu_sep', 'huy_khach', 'huy_don_tra_coc'];
+    const _rmKeyMap = { huy_don_tra_coc: 'huy_don' }; // input key → DB key
     const minutePromises = minuteKeys.map(key => {
         const el = document.getElementById(`rmMinutes_${key}`);
+        const dbKey = _rmKeyMap[key] || key;
         const val = el ? String(Math.max(1, Math.min(60, Number(el.value) || 10))) : null;
-        return val ? apiCall(`/api/app-config/reminder_minutes_${key}`, 'PUT', { value: val }) : Promise.resolve();
+        return val ? apiCall(`/api/app-config/reminder_minutes_${dbKey}`, 'PUT', { value: val }) : Promise.resolve();
     });
 
     const [res] = await Promise.all([
@@ -1606,28 +1567,166 @@ async function saveTelegramConfig() {
     }
 }
 
-async function saveReminderHours() {
-    const weekdayFrom = document.getElementById('rmWeekdayFrom')?.value || '08:00';
-    const weekdayTo = document.getElementById('rmWeekdayTo')?.value || '18:15';
-    const saturdayFrom = document.getElementById('rmSaturdayFrom')?.value || '08:00';
-    const saturdayTo = document.getElementById('rmSaturdayTo')?.value || '17:15';
-    const sundayOn = document.getElementById('rmSundayToggle')?.checked;
-    const sundayFrom = document.getElementById('rmSundayFrom')?.value || '09:00';
-    const sundayTo = document.getElementById('rmSundayTo')?.value || '12:00';
-    const sundayVal = sundayOn ? `${sundayFrom}-${sundayTo}` : 'off';
+// ========== MULTI-SLOT SCHEDULE HELPERS ==========
 
-    // Collect reminder minutes from global events + chuyển số
+/** Parse config value → array of {start, end} strings. Handles old "HH:MM-HH:MM" and new JSON array */
+function _rmParseSlots(value, defaultVal) {
+    const raw = value || defaultVal;
+    if (!raw || raw === 'off') return [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+    } catch(e) {}
+    // Old format: "HH:MM-HH:MM"
+    const parts = raw.split('-');
+    if (parts.length === 2) return [{ start: parts[0], end: parts[1] }];
+    return [];
+}
+
+/** Build a day card with multiple time slots */
+function _rmBuildDayCard(dayKey, label, value, defaultVal, hasSundayToggle) {
+    const isOff = hasSundayToggle && (!value || value === 'off');
+    const slots = _rmParseSlots(value, defaultVal);
+
+    let slotsHtml = '';
+    if (hasSundayToggle) {
+        slotsHtml += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:700;color:#065f46;">${label}</div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:700;color:${isOff ? '#dc2626' : '#059669'};">
+                <input type="checkbox" class="rmDayToggle" data-day="${dayKey}" ${!isOff ? 'checked' : ''}
+                    onchange="_rmToggleSunday(this)"
+                    style="width:16px;height:16px;">
+                <span>${isOff ? 'TẮT' : 'BẬT'}</span>
+            </label>
+        </div>`;
+    } else {
+        slotsHtml += `<div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:8px;">${label}</div>`;
+    }
+
+    slotsHtml += `<div class="rmSlotsContainer" data-day="${dayKey}" style="${isOff ? 'display:none;' : ''}">`;
+
+    const slotsToRender = slots.length > 0 ? slots : [{ start: '08:00', end: '18:00' }];
+    slotsToRender.forEach((slot, i) => {
+        slotsHtml += _rmSlotRow(dayKey, slot.start, slot.end, slotsToRender.length > 1);
+    });
+
+    slotsHtml += `</div>`;
+    slotsHtml += `<div class="rmAddBtnWrap" data-day="${dayKey}" style="${isOff ? 'display:none;' : ''}margin-top:8px;text-align:center;">
+        <button type="button" onclick="_rmAddSlot('${dayKey}')"
+            style="background:none;border:1.5px dashed #34d399;color:#059669;font-size:11px;font-weight:700;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all .2s;"
+            onmouseover="this.style.background='#ecfdf5'" onmouseout="this.style.background='none'">
+            ➕ Thêm khung giờ
+        </button>
+    </div>`;
+
+    if (isOff) {
+        slotsHtml += `<div class="rmOffLabel" data-day="${dayKey}" style="text-align:center;padding:6px;color:#dc2626;font-weight:700;font-size:12px;">🔴 Không nhắc Chủ Nhật</div>`;
+    }
+
+    return `<div style="background:white;border:1.5px solid #a7f3d0;border-radius:12px;padding:14px;">${slotsHtml}</div>`;
+}
+
+/** Build a single slot row HTML */
+function _rmSlotRow(dayKey, startVal, endVal, canRemove) {
+    return `<div class="rmSlotRow" style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+        <input type="time" value="${startVal}" class="form-control rmSlotStart"
+            style="font-size:13px;font-weight:700;text-align:center;padding:5px;border-radius:8px;border:1.5px solid #34d399;flex:1;min-width:0;">
+        <span style="font-weight:700;color:#065f46;font-size:12px;">→</span>
+        <input type="time" value="${endVal}" class="form-control rmSlotEnd"
+            style="font-size:13px;font-weight:700;text-align:center;padding:5px;border-radius:8px;border:1.5px solid #34d399;flex:1;min-width:0;">
+        <button type="button" onclick="_rmRemoveSlot(this)" title="Xóa khung giờ"
+            style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;opacity:${canRemove ? '1' : '0.3'};pointer-events:${canRemove ? 'auto' : 'none'};"
+            >✕</button>
+    </div>`;
+}
+
+/** Add a new slot to a day */
+function _rmAddSlot(dayKey) {
+    const container = document.querySelector(`.rmSlotsContainer[data-day="${dayKey}"]`);
+    if (!container) return;
+    const rows = container.querySelectorAll('.rmSlotRow');
+    // Default: 13:00-17:00 for new afternoon slot
+    const div = document.createElement('div');
+    div.innerHTML = _rmSlotRow(dayKey, '13:00', '17:00', true);
+    container.appendChild(div.firstElementChild);
+    // Enable all remove buttons now that there are multiple
+    _rmUpdateRemoveButtons(container);
+}
+
+/** Remove a slot row */
+function _rmRemoveSlot(btn) {
+    const row = btn.closest('.rmSlotRow');
+    const container = row.closest('.rmSlotsContainer');
+    if (container.querySelectorAll('.rmSlotRow').length <= 1) return; // keep at least 1
+    row.remove();
+    _rmUpdateRemoveButtons(container);
+}
+
+/** Update remove button visibility based on slot count */
+function _rmUpdateRemoveButtons(container) {
+    const rows = container.querySelectorAll('.rmSlotRow');
+    const canRemove = rows.length > 1;
+    rows.forEach(row => {
+        const btn = row.querySelector('button');
+        if (btn) {
+            btn.style.opacity = canRemove ? '1' : '0.3';
+            btn.style.pointerEvents = canRemove ? 'auto' : 'none';
+        }
+    });
+}
+
+/** Toggle Sunday on/off */
+function _rmToggleSunday(checkbox) {
+    const dayKey = checkbox.dataset.day;
+    const isOn = checkbox.checked;
+    const container = document.querySelector(`.rmSlotsContainer[data-day="${dayKey}"]`);
+    const addBtn = document.querySelector(`.rmAddBtnWrap[data-day="${dayKey}"]`);
+    const offLabel = document.querySelector(`.rmOffLabel[data-day="${dayKey}"]`);
+    if (container) container.style.display = isOn ? '' : 'none';
+    if (addBtn) addBtn.style.display = isOn ? '' : 'none';
+    if (offLabel) offLabel.style.display = isOn ? 'none' : '';
+    const label = checkbox.parentElement;
+    label.style.color = isOn ? '#059669' : '#dc2626';
+    label.querySelector('span').textContent = isOn ? 'BẬT' : 'TẮT';
+}
+
+/** Collect slots from a day container → JSON array string */
+function _rmCollectSlots(dayKey) {
+    const container = document.querySelector(`.rmSlotsContainer[data-day="${dayKey}"]`);
+    if (!container) return '[]';
+    const rows = container.querySelectorAll('.rmSlotRow');
+    const slots = [];
+    rows.forEach(row => {
+        const start = row.querySelector('.rmSlotStart')?.value;
+        const end = row.querySelector('.rmSlotEnd')?.value;
+        if (start && end) slots.push({ start, end });
+    });
+    return JSON.stringify(slots);
+}
+
+async function saveReminderHours() {
+    // Collect multi-slot data as JSON arrays
+    const weekdaySlots = _rmCollectSlots('weekday');
+    const saturdaySlots = _rmCollectSlots('saturday');
+
+    // Sunday: check toggle
+    const sundayToggle = document.querySelector('.rmDayToggle[data-day="sunday"]');
+    const sundayVal = sundayToggle?.checked ? _rmCollectSlots('sunday') : 'off';
+
+    // Collect reminder minutes
     const minuteKeys = ['cap_cuu_sep', 'huy_khach', 'huy_don_tra_coc', 'chuyen_so'];
+    const _rmKeyMap2 = { huy_don_tra_coc: 'huy_don' }; // input key → DB key
     const minutePromises = minuteKeys.map(key => {
         const el = document.getElementById(`rmMinutes_${key}`);
+        const dbKey = _rmKeyMap2[key] || key;
         const val = el ? String(Math.max(1, Math.min(60, Number(el.value) || 5))) : null;
-        return val ? apiCall(`/api/app-config/reminder_minutes_${key}`, 'PUT', { value: val }) : Promise.resolve();
+        return val ? apiCall(`/api/app-config/reminder_minutes_${dbKey}`, 'PUT', { value: val }) : Promise.resolve();
     });
 
     try {
         await Promise.all([
-            apiCall('/api/app-config/reminder_hours_weekday', 'PUT', { value: `${weekdayFrom}-${weekdayTo}` }),
-            apiCall('/api/app-config/reminder_hours_saturday', 'PUT', { value: `${saturdayFrom}-${saturdayTo}` }),
+            apiCall('/api/app-config/reminder_hours_weekday', 'PUT', { value: weekdaySlots }),
+            apiCall('/api/app-config/reminder_hours_saturday', 'PUT', { value: saturdaySlots }),
             apiCall('/api/app-config/reminder_hours_sunday', 'PUT', { value: sundayVal }),
             ...minutePromises
         ]);

@@ -1553,9 +1553,10 @@ function _kbRenderGrid() {
                         const wStart = new Date(_kbWeekStart);
                         for (let rd = 0; rd < 7; rd++) {
                             const rDate = new Date(wStart); rDate.setDate(wStart.getDate() + rd);
-                            const rDow = rDate.getDay() === 0 ? 7 : rDate.getDay();
+                            const rDow = rDate.getDay();
                             const rStr = _kbDateStr(rDate);
-                            if (wDays.includes(rDow) && rStr < dateStr) {
+                            // Ngay recurrence phai: (1) nam trong wDays, (2) truoc ngay dang xet, (3) da qua (<= today)
+                            if (wDays.includes(rDow) && rStr < dateStr && rStr <= todayStr) {
                                 const rKey = `${lt.id}_${rStr}`;
                                 const rComp = _kbLockCompletions[rKey];
                                 const rReal = (rComp && rComp.status === 'expired' && (!rComp.content || rComp.content.trim() === '' || /^Phạt chồng:/.test(rComp.content)) && !rComp.proof_url) ? null : rComp;

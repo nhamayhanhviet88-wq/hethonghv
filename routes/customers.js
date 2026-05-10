@@ -203,7 +203,7 @@ async function customersRoutes(fastify, options) {
         const receiverUser = actualReceiverId ? await db.get('SELECT full_name, telegram_group_id FROM users WHERE id = ?', [actualReceiverId]) : null;
         const crmLabels = { nhu_cau: 'Chăm Sóc KH Nhu Cầu', ctv: 'Chăm Sóc CTV', ctv_hoa_hong: 'Chăm Sóc Affiliate', koc_tiktok: 'Chăm Sóc KOL/KOC Tiktok' };
 
-        const tgParts = [`📱 <b>${code}</b> : ${customer_name} - ${phone} - ${crmLabels[crm_type] || crm_type}`];
+        const tgParts = [`📱 <b>${code}</b> : <code>${customer_name}</code> - ${phone} - ${crmLabels[crm_type] || crm_type}`];
         if (sourceName) tgParts.push(sourceName);
         if (receiverUser?.full_name) tgParts.push(receiverUser.full_name);
         if (promoName) tgParts.push(promoName);
@@ -260,7 +260,7 @@ async function customersRoutes(fastify, options) {
         // Gửi Telegram
         const crmLabels = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate', koc_tiktok: 'KOC/KOL Tiktok' };
         const tgMessage = `🔄 <b>GỬI LẠI SỐ</b>\n` +
-            `📱 <b>${originalCode || '?'}</b> : ${customer.customer_name} - ${customer.phone}\n` +
+            `📱 <b>${originalCode || '?'}</b> : <code>${customer.customer_name}</code> - ${customer.phone}\n` +
             `🏷️ CRM: ${crmLabels[customer.crm_type] || customer.crm_type}\n` +
             (customer.assigned_to_name ? `👨‍💼 NV: ${customer.assigned_to_name}\n` : '') +
             `📝 Bởi: ${request.user.full_name}\n` +
@@ -573,7 +573,7 @@ async function customersRoutes(fastify, options) {
                     if (!_fooSkipComm) {
                         const commission = Math.round(grandTotal * ctv.percentage / 100);
                         await db.run('UPDATE users SET balance = balance + ? WHERE id = ?', [commission, customer.referrer_id]);
-                        const tgMsg = `💰 <b>Hoa Hồng</b>\nCTV: ${ctv.full_name}\nKhách: ${customer.customer_name}\nDoanh số: ${grandTotal.toLocaleString('vi-VN')} VNĐ\nChiết khấu: ${ctv.percentage}%\nHoa hồng: <b>${commission.toLocaleString('vi-VN')} VNĐ</b>`;
+                        const tgMsg = `💰 <b>Hoa Hồng</b>\nCTV: ${ctv.full_name}\nKhách: <code>${customer.customer_name}</code>\nDoanh số: ${grandTotal.toLocaleString('vi-VN')} VNĐ\nChiết khấu: ${ctv.percentage}%\nHoa hồng: <b>${commission.toLocaleString('vi-VN')} VNĐ</b>`;
                         notifyTelegram(customer.referrer_id, 'chuyen_so', tgMsg);
                     }
                 }
@@ -582,7 +582,7 @@ async function customersRoutes(fastify, options) {
 
         if (customer) {
             const statusLabels = { dang_tu_van: 'Đang Tư Vấn', bao_gia: 'Báo Giá', dat_coc: 'Đặt Cọc', chot_don: 'Chốt Đơn', san_xuat: 'Sản Xuất', giao_hang: 'Giao Hàng', hoan_thanh: 'Hoàn Thành' };
-            const tgMsg = `📝 <b>Cập nhật trạng thái</b>\nKhách: ${customer.customer_name} - ${customer.phone}\nTrạng thái: <b>${statusLabels[order_status]}</b>\nBởi: ${request.user.full_name}`;
+            const tgMsg = `📝 <b>Cập nhật trạng thái</b>\nKhách: <code>${customer.customer_name}</code> - ${customer.phone}\nTrạng thái: <b>${statusLabels[order_status]}</b>\nBởi: ${request.user.full_name}`;
             notifyTelegram(customer.assigned_to_id, 'chuyen_so', tgMsg);
         }
         return { success: true, message: 'Cập nhật trạng thái thành công' };
