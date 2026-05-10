@@ -546,7 +546,7 @@ function affRenderTree() {
             function renderMgrRow(emp, icon) {
                 const empAffs = affsOf(emp.id);
                 const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
-                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = true;
+                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = false;
                 const isEmpExpanded = _affExpandedEmps[emp.id] === true;
 
                 html += `
@@ -609,7 +609,7 @@ function affRenderTree() {
             regularEmps.forEach(emp => {
                 const empAffs = affsOf(emp.id);
                 const empRevenue = empAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
-                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = true;
+                if (_affExpandedEmps[emp.id] === undefined) _affExpandedEmps[emp.id] = false;
                 const isEmpExpanded = _affExpandedEmps[emp.id] === true;
 
                 html += `
