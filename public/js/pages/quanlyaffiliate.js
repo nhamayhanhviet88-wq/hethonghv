@@ -245,31 +245,41 @@ function _affAutoPopulateDepts() {
         depts.filter(d => d.parent_id === parentId).forEach(d => ids.push(...getAllChildIds(d.id)));
         return ids;
     }
-    // Helper: find root dept
-    function findRoot(deptId) {
-        let rid = deptId;
-        let cur = depts.find(d => d.id === deptId);
-        while (cur && cur.parent_id) { rid = cur.parent_id; cur = depts.find(d => d.id === cur.parent_id); }
-        return rid;
+
+    // ★ CHỈ hiển thị PHÒNG KINH DOANH — tìm dept "KINH DOANH" cấp phòng
+    const kdDept = depts.find(d => d.name && d.name.toUpperCase().includes('KINH DOANH') && d.parent_id && depts.find(p => p.id === d.parent_id && !p.parent_id));
+    if (!kdDept) {
+        // Fallback: tìm bất kỳ dept nào chứa "KINH DOANH"
+        const fallback = depts.find(d => d.name && d.name.toUpperCase().includes('KINH DOANH'));
+        if (!fallback) { _affVisibleDepts = []; return; }
+        // Use the root that contains KINH DOANH
+        const rootId = fallback.parent_id || fallback.id;
+        _affVisibleDepts = [rootId];
+    } else {
+        // Tìm root (HỆ THỐNG) chứa PHÒNG KINH DOANH
+        const rootId = kdDept.parent_id;
+        _affVisibleDepts = [rootId];
+        // ★ Ẩn tất cả phòng ban không phải KINH DOANH (KẾ TOÁN, HÀNH CHÍNH, etc.)
+        const kdIds = new Set(getAllChildIds(kdDept.id));
+        kdIds.add(kdDept.id);
+        const siblingsToHide = depts.filter(d => d.parent_id === rootId && d.id !== kdDept.id);
+        _affHiddenChildDepts = siblingsToHide.map(d => d.id);
     }
+    localStorage.setItem('aff_visible_depts', JSON.stringify(_affVisibleDepts));
+    localStorage.setItem('aff_hidden_child_depts', JSON.stringify(_affHiddenChildDepts));
 
     if (role === 'giam_doc') {
-        if (_affVisibleDepts.length === 0) {
-            _affVisibleDepts = depts.filter(d => !d.parent_id).map(d => d.id);
-            localStorage.setItem('aff_visible_depts', JSON.stringify(_affVisibleDepts));
-        }
-        return; // no scope filter
+        return; // no scope filter — see all of PHÒNG KINH DOANH
     }
 
     const myDeptId = currentUser.department_id;
     if (!myDeptId) { _affVisibleDepts = []; return; }
 
-    const rootId = findRoot(myDeptId);
-    _affVisibleDepts = [rootId];
-
     if (role === 'quan_ly_cap_cao') {
-        // QLCC: see their root system + all children
-        _affScopeFilter = { allowedDeptIds: new Set(getAllChildIds(rootId)), allowedEmpIds: null };
+        // QLCC: see all KINH DOANH tree
+        if (kdDept) {
+            _affScopeFilter = { allowedDeptIds: new Set(getAllChildIds(kdDept.id)), allowedEmpIds: null };
+        }
     } else if (role === 'quan_ly') {
         // QL: see depts they head + children
         const allowed = new Set();
