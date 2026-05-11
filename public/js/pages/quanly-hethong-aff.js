@@ -150,8 +150,8 @@ async function _affSysLoad() {
         html += `<div class="aff-stat-grid">
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${stats.totalChildren}</div><div class="aff-stat-lbl">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('closed')"><div class="aff-stat-val">${stats.closedCount}</div><div class="aff-stat-lbl">✅ KH Chốt Đơn</div></div></div>`;
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${stats.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
         // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }
@@ -453,10 +453,10 @@ function _aff_userCard(u, indent, ROLE_BADGE, ROLE_BG) {
 const _AFF_DRILL_TITLES = {
     affiliates: '👥 Danh Sách Affiliate',
     customers: '📋 Danh Sách KH Giới Thiệu',
-    orders: '💰 Danh Sách Đơn Hàng',
-    closed: '✅ Danh Sách Đơn Chốt'
+    revenue: '💰 Danh Sách Đơn Hàng (Doanh Số)',
+    orders: '📦 Danh Sách Đơn Hàng'
 };
-const _AFF_DRILL_COLORS = { affiliates: '#6366f1', customers: '#3b82f6', orders: '#d97706', closed: '#059669' };
+const _AFF_DRILL_COLORS = { affiliates: '#6366f1', customers: '#3b82f6', revenue: '#d97706', orders: '#059669' };
 
 async function _affStatDrill(type, page = 1) {
     // Build params
@@ -522,17 +522,18 @@ async function _affStatDrill(type, page = 1) {
             });
             tableHtml += '</tbody></table>';
         } else {
-            // orders / closed
-            const STATUS_LABELS = { pending:'Chờ XL', confirmed:'Đã XN', completed:'Hoàn Thành', cancelled:'Đã Hủy', processing:'Đang XL' };
+            // orders / revenue
+            const _fmtMoney = (v) => { const n = Number(v||0); if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'') + 'tr'; return n.toLocaleString('vi-VN') + 'đ'; };
             tableHtml = `<table class="table" style="font-size:13px;">
-                <thead><tr><th style="width:36px">#</th><th>Mã Đơn</th><th>NV Chăm Sóc</th><th>Affiliate</th><th style="text-align:right">Doanh Số</th><th>Thời Gian</th></tr></thead><tbody>`;
+                <thead><tr><th style="width:36px">#</th><th>MÃ ĐƠN</th><th>TÊN KHÁCH</th><th>NV CHĂM SÓC</th><th>AFFILIATE</th><th style="text-align:right">DOANH SỐ</th><th>THỜI GIAN</th></tr></thead><tbody>`;
             rows.forEach((r, i) => {
                 tableHtml += `<tr>
                     <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
-                    <td style="font-weight:700;color:#1e293b;">${r.order_code||'—'}</td>
+                    <td style="font-weight:800;color:#1e293b;">${r.order_code||'—'}</td>
+                    <td style="color:#374151;">${r.customer_name||'—'}</td>
                     <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
                     <td><span style="padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:700;">${r.affiliate_name||'—'}</span></td>
-                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.revenue||0).toLocaleString('vi-VN')} đ</td>
+                    <td style="text-align:right;font-weight:800;color:#d97706;">${_fmtMoney(r.revenue)}</td>
                     <td style="font-size:12px;color:#6b7280;">${r.created_at?new Date(r.created_at).toLocaleDateString('vi-VN'):'—'}</td>
                 </tr>`;
             });
@@ -542,7 +543,9 @@ async function _affStatDrill(type, page = 1) {
         // Pagination
         let pagHtml = '';
         if (totalPages > 1) {
-            pagHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 24px;border-top:1px solid #e5e7eb;flex-wrap:wrap;">`;
+            pagHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-top:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;">
+                <div style="font-size:12px;color:#6b7280;font-weight:600;">Trang ${page}/${totalPages} · ${total} kết quả</div>
+                <div style="display:flex;align-items:center;gap:6px;">`;
             if (page > 1) pagHtml += `<button onclick="_affStatDrill('${type}',${page-1})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;">← Trước</button>`;
             // Page numbers
             const maxShow = 5;
@@ -557,8 +560,8 @@ async function _affStatDrill(type, page = 1) {
             }
             if (endP < totalPages - 1) pagHtml += `<span style="color:#9ca3af;font-size:12px;">...</span>`;
             if (endP < totalPages) pagHtml += `<button onclick="_affStatDrill('${type}',${totalPages})" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;color:#6b7280;">${totalPages}</button>`;
-            if (page < totalPages) pagHtml += `<button onclick="_affStatDrill('${type}',${page+1})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;">Tiếp →</button>`;
-            pagHtml += `</div>`;
+            if (page < totalPages) pagHtml += `<button onclick="_affStatDrill('${type}',${page+1})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;">Sau →</button>`;
+            pagHtml += `</div></div>`;
         }
 
         const modalBody = overlay.querySelector('div > div:last-child') || overlay.querySelector('div').children[1];
@@ -567,9 +570,11 @@ async function _affStatDrill(type, page = 1) {
             <div style="padding:16px 24px;background:linear-gradient(135deg,${color},${color}dd);color:white;display:flex;align-items:center;justify-content:space-between;">
                 <div>
                     <h3 style="margin:0;font-size:16px;font-weight:800;">${_AFF_DRILL_TITLES[type]}</h3>
-                    <div style="font-size:11px;opacity:0.85;margin-top:2px;">Tổng: ${total} · Trang ${page}/${totalPages||1}</div>
                 </div>
-                <button onclick="document.getElementById('affDrillOverlay').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:10px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:13px;font-weight:600;opacity:0.9;">${total} kết quả</span>
+                    <button onclick="document.getElementById('affDrillOverlay').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:10px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
             </div>
             <div style="flex:1;overflow:auto;padding:0;">
                 ${rows.length > 0 ? tableHtml : '<div style="padding:40px;text-align:center;color:#94a3b8;">Không có dữ liệu</div>'}

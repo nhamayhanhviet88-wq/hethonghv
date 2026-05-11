@@ -2394,8 +2394,8 @@ async function affiliateRoutes(fastify) {
             return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
         }
 
-        // ★ TYPE: orders / closed — all orders from referred customers
-        if (type === 'orders' || type === 'closed') {
+        // ★ TYPE: orders (completed only) / revenue (all orders)
+        if (type === 'orders' || type === 'revenue') {
             const ph = affIds.map(() => '?').join(',');
             // Get all customer IDs referred by affiliates
             const custByRef = await db.all(`SELECT c.id, c.referrer_id FROM customers c WHERE c.referrer_id IN (${ph})`, affIds);
@@ -2407,7 +2407,8 @@ async function affiliateRoutes(fastify) {
 
             let orderWhere = [`oc.customer_id IN (${custIds.map(() => '?').join(',')})`];
             let orderParams = [...custIds];
-            if (type === 'closed') {
+            // 'orders' = only completed; 'revenue' = all orders
+            if (type === 'orders') {
                 orderWhere.push("oc.status = 'completed'");
             }
             if (from) { orderWhere.push("oc.created_at >= ?"); orderParams.push(from + ' 00:00:00'); }
@@ -2755,7 +2756,7 @@ async function affiliateRoutes(fastify) {
 
             console.log('[my-system DEBUG] Found', children.length, 'children');
             const allIds = children.map(c => c.id);
-            let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
+            let totalCustomers = 0, totalRevenue = 0, closedCount = 0, totalOrders = 0;
 
             if (allIds.length > 0) {
                 const ph = allIds.map(() => '?').join(',');
@@ -2793,6 +2794,13 @@ async function affiliateRoutes(fastify) {
                     totalRevenue += child.total_revenue;
                     closedCount += cs.closed_count;
                 });
+
+                // ★ Count total completed orders
+                if (allCustIds.length > 0) {
+                    const cph2 = allCustIds.map(() => '?').join(',');
+                    const orderCountRow = await db.get(`SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id IN (${cph2}) AND status = 'completed'`, allCustIds);
+                    totalOrders = Number(orderCountRow.cnt);
+                }
             }
 
             // ★ Phone masking: GĐ sees all, others see masked unless direct manager
@@ -2807,7 +2815,7 @@ async function affiliateRoutes(fastify) {
             return {
                 success: true, children,
                 selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 },
-                stats: { totalChildren: children.length, totalCustomers, totalRevenue, closedCount }
+                stats: { totalChildren: children.length, totalCustomers, totalRevenue, closedCount, totalOrders }
             };
         }
 
