@@ -2322,8 +2322,7 @@ async function affiliateRoutes(fastify) {
         } else if (managerId) {
             affWhere.push("u.managed_by_user_id = ?"); affParams.push(Number(managerId));
         }
-        if (from) { affWhere.push("u.created_at >= ?"); affParams.push(from + ' 00:00:00'); }
-        if (to) { affWhere.push("u.created_at <= ?"); affParams.push(to + ' 23:59:59'); }
+        // NOTE: from/to NOT applied to affiliate list — only to customer/order stats below
 
         // ★ TYPE: affiliates — list all affiliates with manager name, revenue, date
         if (type === 'affiliates') {
@@ -2735,8 +2734,8 @@ async function affiliateRoutes(fastify) {
                 whereParams.push(Number(managerId));
             }
 
-            if (from) { whereClauses.push("u.created_at >= ?"); whereParams.push(from + ' 00:00:00'); }
-            if (to) { whereClauses.push("u.created_at <= ?"); whereParams.push(to + ' 23:59:59'); }
+            // NOTE: from/to are intentionally NOT applied to affiliate list query.
+            // They only filter stats (customers, orders, revenue) — matching org-tree behavior.
 
             console.log('[my-system DEBUG] WHERE:', whereClauses.join(' AND '), 'PARAMS:', whereParams, 'allowedMgrs:', allowedManagerIds ? [...allowedManagerIds] : 'ALL');
 
