@@ -1804,8 +1804,20 @@ function kpiRenderMeetingCommit(el) {
                 }
                 h += '</div></div>';
 
-                for (var mi = 0; mi < team.members.length; mi++) {
-                    var emp = team.members[mi];
+                // Sort members: managers/leaders first, then regular employees
+                var _mcRolePriority = function(role) {
+                    if (role === 'giam_doc') return 0;
+                    if (role === 'quan_ly_cap_cao') return 1;
+                    if (role === 'quan_ly') return 2;
+                    if (role === 'truong_phong') return 3;
+                    return 10;
+                };
+                var sortedMembers = team.members.slice().sort(function(a, b) {
+                    return _mcRolePriority(a.role) - _mcRolePriority(b.role);
+                });
+
+                for (var mi = 0; mi < sortedMembers.length; mi++) {
+                    var emp = sortedMembers[mi];
                     // ★ NV filtering: only show self in session detail
                     if (_kpiIsNV() && currentUser && emp.id !== currentUser.id) continue;
                     var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id; });
