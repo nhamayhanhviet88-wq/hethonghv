@@ -1318,6 +1318,41 @@ async function handleRoute() {
             currentPage = 'bao-cao-hoa-hong-hv';
             history.replaceState({ page: currentPage }, '', '/bao-cao-hoa-hong-hv');
         }
+    } else if (pathname === 'dashboard' && currentUser) {
+        // ★ Smart Default Page: auto-redirect to first visible menu item
+        // Uses same permission logic as renderSidebar() for consistency
+        var _isDP = window.location.hostname.indexOf('dongphuchv.net') !== -1;
+        var _dpAllowed = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff', 'bao-cao-hoa-hong-hv', 'huong-dan-su-dung'];
+        var _firstVisibleItem = null;
+        for (var _mi = 0; _mi < MENU_CONFIG.length; _mi++) {
+            var _item = MENU_CONFIG[_mi];
+            if (_isDP && _dpAllowed.indexOf(_item.id) === -1) continue;
+            if (_item.strictRoles && !_item.roles.includes(currentUser.role)) continue;
+            if (currentUser.role !== 'giam_doc') {
+                var _pk = _item.permKey;
+                if (_pk) {
+                    if (!userPermissions[_pk] || !userPermissions[_pk].can_view) continue;
+                } else {
+                    if (!_item.roles.includes(currentUser.role)) continue;
+                }
+            }
+            _firstVisibleItem = _item;
+            break;
+        }
+        if (_firstVisibleItem) {
+            currentPage = _firstVisibleItem.id;
+            var _targetPath = _firstVisibleItem.href || ('/' + _firstVisibleItem.id);
+            if (_targetPath !== '/dashboard') {
+                // If item uses href (separate HTML page), do full redirect
+                if (_firstVisibleItem.href) {
+                    window.location.href = _firstVisibleItem.href;
+                    return;
+                }
+                history.replaceState({ page: currentPage }, '', _targetPath);
+            }
+        } else {
+            currentPage = pathname;
+        }
     } else {
         currentPage = pathname;
     }
