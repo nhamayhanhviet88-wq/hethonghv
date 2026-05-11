@@ -1563,6 +1563,8 @@ function kpiRenderMeetingCommit(el) {
             for (var ti = 0; ti < _mcTeams.length; ti++) {
                 var team = _mcTeams[ti];
                 if (!team.members || team.members.length === 0) continue;
+                // ★ NV filtering: only show own team in session detail
+                if (_kpiIsNV() && currentUser && currentUser.department_id && team.id !== currentUser.department_id) continue;
                 var teamCommits = sessCommits.filter(function(c) {
                     var memberIds = team.members.map(function(m) { return m.id; });
                     return memberIds.indexOf(c.user_id) >= 0 && !c.team_dept_id;
@@ -1599,6 +1601,8 @@ function kpiRenderMeetingCommit(el) {
 
                 for (var mi = 0; mi < team.members.length; mi++) {
                     var emp = team.members[mi];
+                    // ★ NV filtering: only show self in session detail
+                    if (_kpiIsNV() && currentUser && emp.id !== currentUser.id) continue;
                     var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id; });
                     var totalItems = empCommits.length;
                     var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
