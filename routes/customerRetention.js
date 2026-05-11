@@ -586,12 +586,14 @@ module.exports = async function(fastify) {
                     c.phone,
                     c.customer_name,
                     c.assigned_to_id,
-                    COALESCE(oi_sum.revenue, 0) AS revenue
+                    COALESCE(oi_sum.revenue, 0) AS revenue,
+                    ref.full_name AS referrer_name
                 FROM order_codes oc
                 JOIN customers c ON oc.customer_id = c.id
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
                 ) oi_sum ON true
+                LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
                 WHERE c.phone IS NOT NULL AND c.phone != ''
                   AND COALESCE(c.cancel_approved, 0) != 1
                   AND COALESCE(oc.status, 'active') != 'cancelled'
@@ -611,6 +613,7 @@ module.exports = async function(fastify) {
                     phone,
                     customer_name,
                     revenue,
+                    referrer_name,
                     ROW_NUMBER() OVER (
                         PARTITION BY phone
                         ORDER BY created_at ASC
@@ -625,6 +628,7 @@ module.exports = async function(fastify) {
                 phone,
                 created_at,
                 revenue,
+                referrer_name,
                 phone_order_number,
                 CASE WHEN phone_order_number = 1 THEN 'new' ELSE 'returning' END AS order_type
             FROM ranked_orders
@@ -649,7 +653,8 @@ module.exports = async function(fastify) {
                 date: r.created_at,
                 revenue: parseFloat(r.revenue || 0),
                 order_number: r.phone_order_number,
-                type: r.order_type
+                type: r.order_type,
+                referrer_name: r.referrer_name || null
             }))
         };
     });

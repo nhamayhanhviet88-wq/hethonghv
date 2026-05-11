@@ -884,6 +884,7 @@ function crRenderDetailTable(orders) {
             <th>SĐT</th>
             <th>Doanh số</th>
             <th>Ngày HT</th>
+            <th>Affiliate</th>
             <th style="width:40px;">Lần</th>
         </tr></thead><tbody>`;
 
@@ -892,6 +893,7 @@ function crRenderDetailTable(orders) {
             ? '<span class="cr-type-new">🆕 Mới</span>'
             : '<span class="cr-type-ret">🔄 Cũ</span>';
         const dateStr = o.date ? new Date(o.date).toLocaleDateString('vi-VN') : '-';
+        const affDisplay = o.referrer_name ? `<span style="color:#8b5cf6;font-weight:600;font-size:11px" title="${o.referrer_name}">🤝 ${o.referrer_name}</span>` : '<span style="color:#9ca3af;font-size:10px">—</span>';
         html += `<tr>
             <td style="color:#9ca3af;font-weight:600;">${i + 1}</td>
             <td>${typeLabel}</td>
@@ -900,6 +902,7 @@ function crRenderDetailTable(orders) {
             <td style="font-family:monospace;font-size:12px;">${_maskPhone(o.phone, window._crDetailOwnerUserId)}</td>
             <td style="font-weight:700;color:#0369a1;font-size:12px;">${o.revenue ? crFormatVND(o.revenue) : '0'}</td>
             <td style="font-size:12px;">${dateStr}</td>
+            <td>${affDisplay}</td>
             <td style="text-align:center;font-weight:700;color:${o.order_number === 1 ? '#059669' : '#c2410c'};">${o.order_number}</td>
         </tr>`;
     });

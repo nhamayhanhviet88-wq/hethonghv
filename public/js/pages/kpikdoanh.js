@@ -2455,7 +2455,7 @@ function odRenderTable() {
     var pageItems = filtered.slice(start, end);
 
     var h = '<table class="kpi-od-table"><thead><tr>'
-        + '<th>#</th><th>Loại</th><th>Mã Đơn</th><th>Khách Hàng</th><th>SĐT</th><th style="text-align:right">Doanh số</th><th>Ngày HT</th><th style="text-align:center">Lần</th>'
+        + '<th>#</th><th>Loại</th><th>Mã Đơn</th><th>Khách Hàng</th><th>SĐT</th><th style="text-align:right">Doanh số</th><th>Ngày HT</th><th>Affiliate</th><th style="text-align:center">Lần</th>'
         + '</tr></thead><tbody>';
 
     for (var i = 0; i < pageItems.length; i++) {
@@ -2466,6 +2466,7 @@ function odRenderTable() {
         var typeLabel = o.customer_type === 'moi' ? '🆕 Mới' : '🔄 Cũ';
         var rev = parseFloat(o.revenue || 0);
         var revStr = rev >= 1e6 ? (rev / 1e6).toFixed(1).replace(/\.0$/, '') + ' tr' : rev.toLocaleString('vi-VN');
+        var affName = o.referrer_name ? '<span style="color:#8b5cf6;font-weight:600;font-size:11px" title="' + o.referrer_name + '">🤝 ' + o.referrer_name + '</span>' : '<span style="color:#94a3b8;font-size:10px">—</span>';
 
         h += '<tr><td>' + (start + i + 1) + '</td>'
             + '<td><span class="kpi-od-type ' + typeClass + '">' + typeLabel + '</span></td>'
@@ -2474,6 +2475,7 @@ function odRenderTable() {
             + '<td style="color:#94a3b8;font-size:11px">' + (o.customer_phone || '') + '</td>'
             + '<td class="kpi-od-revenue" style="text-align:right">' + revStr + '</td>'
             + '<td style="font-size:11px">' + dateStr + '</td>'
+            + '<td>' + affName + '</td>'
             + '<td style="text-align:center;font-weight:700;color:#60a5fa">' + (o.order_count || 1) + '</td>'
             + '</tr>';
     }

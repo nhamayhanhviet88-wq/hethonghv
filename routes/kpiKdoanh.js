@@ -366,6 +366,7 @@ module.exports = async function(fastify) {
                 c.phone AS customer_phone,
                 COALESCE(oi_sum.revenue, 0) AS revenue,
                 oc.created_at,
+                ref.full_name AS referrer_name,
                 (SELECT COUNT(*) FROM order_codes oc2
                  WHERE oc2.customer_id = c.id
                    AND oc2.created_at < oc.created_at) + 1 AS order_count,
@@ -381,6 +382,7 @@ module.exports = async function(fastify) {
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(total), 0) AS revenue FROM order_items WHERE order_code_id = oc.id
             ) oi_sum ON true
+            LEFT JOIN users ref ON ref.id = c.referrer_id AND ref.role = 'tkaffiliate'
             WHERE c.assigned_to_id = $1
               AND COALESCE(c.cancel_approved, 0) != 1
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
