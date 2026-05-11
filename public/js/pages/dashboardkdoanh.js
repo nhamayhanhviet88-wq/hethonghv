@@ -418,8 +418,12 @@ function _crFilterDataForNV(data) {
     if (!myInfo) return data; // fallback: show nothing filtered
 
     // ★ Employee list: only show the current user themselves
+    // Also replace team-level stats with user's own stats
     const filteredTeam = {
         ...myInfo.team,
+        current: { ...myInfo.employee.current },
+        previous: { ...myInfo.employee.previous },
+        trend: { ...(myInfo.employee.trend || {}) },
         employees: (myInfo.team.employees || []).filter(e => e.user_id === currentUser.id)
     };
 
@@ -1044,6 +1048,10 @@ async function crChartLoad() {
                 const myName = myInfo ? myInfo.employee.name : currentUser.full_name;
                 sel.innerHTML = `<option value="emp_${currentUser.id}">👤 ${myName}</option>`;
                 sel.value = `emp_${currentUser.id}`;
+                // Reload chart with correct employee filter (first load was "all")
+                crChartRender(data.data || data.months || []);
+                setTimeout(() => crChartLoad(), 100);
+                return;
             } else {
                 let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
                 if (data.options.teams) {
