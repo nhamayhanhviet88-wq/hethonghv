@@ -416,12 +416,8 @@ function _aff_renderSidebar() {
         const AFF_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien'];
         allowedUserIds = new Set(_aff_allUsers.filter(u => childDeptIds.has(u.department_id) && !AFF_ROLES.includes(u.role)).map(u => u.id));
     } else if (myRole === 'truong_phong') {
-        // TP sees only NV + themselves in their team (no QL)
-        const childDeptIds = new Set();
-        function getChildDepts(pid) { childDeptIds.add(pid); _aff_allDepts.filter(d => d.parent_id === pid).forEach(d => getChildDepts(d.id)); }
-        if (myDeptId) getChildDepts(myDeptId);
-        const BLOCKED_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao'];
-        allowedUserIds = new Set(_aff_allUsers.filter(u => childDeptIds.has(u.department_id) && !BLOCKED_ROLES.includes(u.role)).map(u => u.id));
+        // TP: chỉ thấy chính mình
+        allowedUserIds = new Set([currentUser.id]);
     } else {
         // NV only sees themselves
         allowedUserIds = new Set([currentUser.id]);

@@ -2866,12 +2866,8 @@ async function affiliateRoutes(fastify) {
                 const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, [...childIds]);
                 allowedManagerIds = new Set(mgrUsers.map(u => u.id));
             } else if (role === 'truong_phong') {
-                // TP sees only affiliates managed by NV in their team + themselves
-                if (!myDepartmentId) return { success: true, children: [], selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 }, stats: { totalChildren: 0, totalCustomers: 0, totalRevenue: 0, closedCount: 0 } };
-                const childIds = _getChildDepts(myDepartmentId);
-                // Get NV + themselves (exclude QL above)
-                const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao')`, [...childIds]);
-                allowedManagerIds = new Set(mgrUsers.map(u => u.id));
+                // TP: chỉ thấy affiliate do chính mình quản lý
+                allowedManagerIds = new Set([userId]);
             } else {
                 // NV: only see their own managed affiliates
                 allowedManagerIds = new Set([userId]);
