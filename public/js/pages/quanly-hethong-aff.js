@@ -1,4 +1,10 @@
 // ========== QUẢN LÝ HỆ THỐNG AFFILIATE ==========
+// ★ Helper: hide financial data for non-GD roles
+function _affSysHideFinancials() {
+    if (!currentUser) return false;
+    var r = currentUser.role;
+    return r !== 'giam_doc';
+}
 let _affSysSearch = '';
 let _affSysTab = 'list';
 let _affOrgData = null;
@@ -116,13 +122,14 @@ function _affRenderTabs() {
 async function _affSwitchTab(tab) { _affSysTab = tab; if (tab === 'org') await _affOrgLoad(); else await _affSysLoad(); }
 
 function _affStatBar(stats, dark) {
+    const _hf = _affSysHideFinancials();
     const items = [
-        { icon: '👥', label: 'Affiliate', val: stats.affiliates, c: dark ? '#a5b4fc' : '#6366f1', bg: dark ? 'rgba(165,180,252,0.2)' : '#6366f115' },
-        { icon: '📋', label: 'KH', val: stats.customers, c: dark ? '#93c5fd' : '#3b82f6', bg: dark ? 'rgba(147,197,253,0.2)' : '#3b82f615' },
-        { icon: '💰', label: 'DS', val: Number(stats.revenue).toLocaleString('vi-VN')+'đ', c: dark ? '#fcd34d' : '#d97706', bg: dark ? 'rgba(252,211,77,0.25)' : '#d9770615' },
-        { icon: '✅', label: 'Chốt', val: stats.closed, c: dark ? '#6ee7b7' : '#16a34a', bg: dark ? 'rgba(110,231,183,0.2)' : '#16a34a15' }
+        { icon: '👥', label: 'Affiliate', val: stats.affiliates, c: dark ? '#a5b4fc' : '#6366f1', bg: dark ? 'rgba(165,180,252,0.2)' : '#6366f115', hide: false },
+        { icon: '📋', label: 'KH', val: stats.customers, c: dark ? '#93c5fd' : '#3b82f6', bg: dark ? 'rgba(147,197,253,0.2)' : '#3b82f615', hide: _hf },
+        { icon: '💰', label: 'DS', val: Number(stats.revenue).toLocaleString('vi-VN')+'đ', c: dark ? '#fcd34d' : '#d97706', bg: dark ? 'rgba(252,211,77,0.25)' : '#d9770615', hide: _hf },
+        { icon: '✅', label: 'Chốt', val: stats.closed, c: dark ? '#6ee7b7' : '#16a34a', bg: dark ? 'rgba(110,231,183,0.2)' : '#16a34a15', hide: _hf }
     ];
-    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">${items.map(i => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:${i.bg};color:${i.c};">${i.icon} ${i.val}</span>`).join('')}</div>`;
+    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">${items.filter(i=>!i.hide).map(i => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;background:${i.bg};color:${i.c};">${i.icon} ${i.val}</span>`).join('')}</div>`;
 }
 
 // ==================== TAB 1: DANH SÁCH ====================
@@ -160,11 +167,12 @@ async function _affSysLoad() {
             html += _aff_dateFilterHtml();
         }
         html += _affRenderTabs();
+        const _hfSys = _affSysHideFinancials();
         html += `<div class="aff-stat-grid">
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+            ${!_hfSys ? `<div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div>` : ''}</div>`;
         // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }
@@ -173,15 +181,17 @@ async function _affSysLoad() {
             const RC = { hoa_hong:'#f59e0b', ctv:'#3b82f6', nuoi_duong:'#8b5cf6', sinh_vien:'#10b981', tkaffiliate:'#ec4899' };
             const filtered = _affSysSearch ? children.filter(c => { const q = _affSysSearch.toLowerCase(); return (c.full_name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.parent_affiliate_name||'').toLowerCase().includes(q); }) : children;
             // Desktop table
-            html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>NV Phụ Trách</th><th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
+            const _hfTbl = _affSysHideFinancials();
+            html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>NV Phụ Trách</th><th>Loại</th>${!_hfTbl?'<th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th>':''}<th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
             filtered.forEach((c,i) => {
                 const sb = c.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">🔒</span>';
                 html += `<tr onclick="showAffDetail(${c.id})" style="cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"><td style="font-weight:600;color:#6b7280;">${i+1}</td><td style="font-weight:700;color:#1e293b;">${c.full_name}</td><td style="color:#334155;">${c.phone||'—'}</td>`;
                 if (isGD) html += `<td style="font-size:12px;color:#6366f1;font-weight:600;">${c.parent_affiliate_name||'<span style="color:#9ca3af;">— Gốc —</span>'}</td>`;
                 html += `<td style="font-size:12px;color:#0ea5e9;font-weight:600;">${c.manager_name||'<span style="color:#9ca3af;">—</span>'}</td>`;
-                html += `<td><span style="background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};padding:2px 10px;border-radius:8px;font-size:11px;font-weight:700;">${RL[c.role]||c.role}</span></td>
-                    <td style="text-align:center;font-weight:700;color:#3b82f6;">${c.total_customers}</td><td style="text-align:center;font-weight:700;color:#16a34a;">${c.closed_count}</td>
-                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</td><td style="text-align:center;">${sb}</td>
+                html += `<td><span style="background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};padding:2px 10px;border-radius:8px;font-size:11px;font-weight:700;">${RL[c.role]||c.role}</span></td>`;
+                if (!_hfTbl) html += `<td style="text-align:center;font-weight:700;color:#3b82f6;">${c.total_customers}</td><td style="text-align:center;font-weight:700;color:#16a34a;">${c.closed_count}</td>
+                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</td>`;
+                html += `<td style="text-align:center;">${sb}</td>
                     <td style="font-size:12px;color:#6b7280;">${c.created_at?new Date(c.created_at).toLocaleDateString('vi-VN'):'—'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
@@ -195,8 +205,8 @@ async function _affSysLoad() {
                         <div class="aff-m-ref">📱 ${c.phone||'—'}</div>
                     </div>
                     <div class="aff-m-right">
-                        <div class="aff-m-rev">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</div>
-                        <div class="aff-m-hh">KH: ${c.total_customers} · Chốt: ${c.closed_count}</div>
+                        ${!_hfTbl ? `<div class="aff-m-rev">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</div>
+                        <div class="aff-m-hh">KH: ${c.total_customers} · Chốt: ${c.closed_count}</div>` : ''}
                     </div>
                 </div>`;
             });
@@ -292,11 +302,12 @@ function _affRenderOrg() {
     const cs = window._affOrgCardStats || {};
     const _fmtRev = window._affOrgFmtRev || ((v) => Number(v||0).toLocaleString('vi-VN')+'đ');
 
+    const _hfOrg = _affSysHideFinancials();
     html += `<div class="aff-stat-grid">
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
-        <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+        ${!_hfOrg ? `<div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-        <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div>` : ''}</div>`;
 
     const ROLE_LABELS = { truong_phong:'⭐ Trưởng Phòng', nhan_vien:'👤 Nhân Viên', quan_ly:'🔷 Quản Lý', quan_ly_cap_cao:'💎 QL Cấp Cao', thu_viec:'🔰 Thử Việc' };
     const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];
@@ -375,22 +386,23 @@ function _affRenderEmpAffiliates(emp, indent) {
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Tên Affiliate</th>
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">SĐT</th>
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Aff Cha</th>
-            <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">KH</th>
+            ${!_affSysHideFinancials() ? `<th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">KH</th>
             <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">Chốt</th>
-            <th style="padding:6px 8px;text-align:right;font-weight:800;color:white;">Doanh Số</th>
+            <th style="padding:6px 8px;text-align:right;font-weight:800;color:white;">Doanh Số</th>` : ''}
             <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">TT</th>
         </tr></thead><tbody>`;
+    const _hfEmp = _affSysHideFinancials();
     emp.affiliates.forEach((a, i) => {
         const st = a.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">🔒</span>';
         h += `<tr onclick="showAffDetail(${a.id})" style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
             <td style="padding:5px 8px;color:#94a3b8;">${i+1}</td>
             <td style="padding:5px 8px;font-weight:600;color:#1e293b;">${a.full_name}</td>
             <td style="padding:5px 8px;color:#475569;">${a.phone||'—'}</td>
-            <td style="padding:5px 8px;color:#6366f1;font-weight:600;font-size:11px;">${a.parent_affiliate_name||'<span style="color:#cbd5e1;">— Gốc —</span>'}</td>
-            <td style="padding:5px 8px;text-align:center;font-weight:700;color:#3b82f6;">${a.total_customers}</td>
+            <td style="padding:5px 8px;color:#6366f1;font-weight:600;font-size:11px;">${a.parent_affiliate_name||'<span style="color:#cbd5e1;">— Gốc —</span>'}</td>`;
+        if (!_hfEmp) h += `<td style="padding:5px 8px;text-align:center;font-weight:700;color:#3b82f6;">${a.total_customers}</td>
             <td style="padding:5px 8px;text-align:center;font-weight:700;color:#16a34a;">${a.closed_count}</td>
-            <td style="padding:5px 8px;text-align:right;font-weight:700;color:#d97706;">${Number(a.total_revenue).toLocaleString('vi-VN')} đ</td>
-            <td style="padding:5px 8px;text-align:center;">${st}</td></tr>`;
+            <td style="padding:5px 8px;text-align:right;font-weight:700;color:#d97706;">${Number(a.total_revenue).toLocaleString('vi-VN')} đ</td>`;
+        h += `<td style="padding:5px 8px;text-align:center;">${st}</td></tr>`;
     });
     h += `</tbody></table></div>`;
     return h;
@@ -515,6 +527,8 @@ const _AFF_DRILL_TITLES = {
 const _AFF_DRILL_COLORS = { affiliates: '#6366f1', customers: '#3b82f6', revenue: '#d97706', orders: '#059669' };
 
 async function _affStatDrill(type, page = 1) {
+    // ★ Block restricted roles from financial drill-downs
+    if (_affSysHideFinancials() && type !== 'affiliates') return;
     // Build params
     const dr = _aff_getDateRange();
     const params = [`type=${type}`, `page=${page}`];
@@ -550,15 +564,16 @@ async function _affStatDrill(type, page = 1) {
         let tableHtml = '';
 
         if (type === 'affiliates') {
+            const _hfDrill = _affSysHideFinancials();
             tableHtml = `<table class="table" style="font-size:13px;">
-                <thead><tr><th style="width:36px">#</th><th>Tên Affiliate</th><th>SĐT</th><th>NV Quản Lý</th><th style="text-align:right">Doanh Số</th><th>Ngày Tạo TK</th></tr></thead><tbody>`;
+                <thead><tr><th style="width:36px">#</th><th>Tên Affiliate</th><th>SĐT</th><th>NV Quản Lý</th>${!_hfDrill ? '<th style="text-align:right">Doanh Số</th>' : ''}<th>Ngày Tạo TK</th></tr></thead><tbody>`;
             rows.forEach((r, i) => {
                 tableHtml += `<tr onclick="document.getElementById('affDrillOverlay').style.display='none';showAffDetail(${r.id})" style="cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
                     <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
                     <td style="font-weight:700;color:#1e293b;">${r.full_name}</td>
                     <td style="color:#334155;">${r.phone||'—'}</td>
                     <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
-                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.total_revenue||0).toLocaleString('vi-VN')} đ</td>
+                    ${!_hfDrill ? `<td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.total_revenue||0).toLocaleString('vi-VN')} đ</td>` : ''}
                     <td style="font-size:12px;color:#6b7280;">${r.created_at?new Date(r.created_at).toLocaleDateString('vi-VN'):'—'}</td>
                 </tr>`;
             });
