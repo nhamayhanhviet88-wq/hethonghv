@@ -358,8 +358,10 @@ function _gd_renderSidebar() {
     let filtered = _gd_allUsers.filter(u => {
         if (!_gdKDDeptIds.has(u.department_id)) return false; // Only KD tree
         const isParentDeptManager = _canSeeManagers && _gdMgrRoles.includes(u.role) && u.department_id === 1;
-        if (!_gd_memberIds.has(u.id) && !isParentDeptManager) return false;
-        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager) return false;
+        // ★ Trưởng Phòng luôn hiển thị trong sidebar (dù chưa có trong telesale_active_members)
+        const isTeamLeader = u.role === 'truong_phong';
+        if (!_gd_memberIds.has(u.id) && !isParentDeptManager && !isTeamLeader) return false;
+        if (_gd_visibleUserIds.size > 0 && !_gd_visibleUserIds.has(u.id) && !isParentDeptManager && !isTeamLeader) return false;
         return true;
     });
 
