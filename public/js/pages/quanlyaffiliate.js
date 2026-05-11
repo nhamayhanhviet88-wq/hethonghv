@@ -306,14 +306,8 @@ function _affAutoPopulateDepts() {
         getAllChildIds(myDeptId).forEach(id => allowed.add(id));
         _affScopeFilter = { allowedDeptIds: allowed, allowedEmpIds: null };
     } else if (role === 'truong_phong') {
-        // TP: see only their team (dept + children), exclude managers above them
-        const myDeptIds = new Set(getAllChildIds(myDeptId));
-        _affScopeFilter = {
-            allowedDeptIds: myDeptIds,
-            allowedEmpIds: null,
-            // ★ TP cannot see quan_ly / quan_ly_cap_cao roles
-            blockedRoles: new Set(['quan_ly', 'quan_ly_cap_cao'])
-        };
+        // TP: chỉ thấy chính mình (giống NV)
+        _affScopeFilter = { allowedDeptIds: new Set([myDeptId]), allowedEmpIds: new Set([currentUser.id]) };
     } else {
         // NV: see only themselves
         _affScopeFilter = { allowedDeptIds: new Set([myDeptId]), allowedEmpIds: new Set([currentUser.id]) };
