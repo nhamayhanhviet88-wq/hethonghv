@@ -2514,7 +2514,7 @@ async function affiliateRoutes(fastify) {
         // 1. Lấy tất cả affiliate + NV quản lý + phòng ban
         const affiliates = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
-                   u.managed_by_user_id,
+                   u.managed_by_user_id, u.source_customer_id,
                    mgr.full_name as manager_name, mgr.role as manager_role, mgr.department_id as manager_dept_id,
                    p.full_name as parent_affiliate_name
             FROM users u
