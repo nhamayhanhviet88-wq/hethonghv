@@ -423,18 +423,13 @@ function affRenderStats() {
     const el = document.getElementById('affStatsRow');
     if (!el) return;
 
-    // ★ Quản Lý: only show affiliate count, hide revenue/customers/orders
-    const _isQL = currentUser && (currentUser.role === 'quan_ly' || currentUser.role === 'quan_ly_cap_cao');
-    const _isTPorNV = currentUser && (currentUser.role === 'truong_phong' || currentUser.role === 'nhan_vien' || currentUser.role === 'thu_viec' || currentUser.role === 'part_time');
-    const _hideFinancials = _isQL || _isTPorNV;
-
+    // ★ Stat cards luôn hiện (data đã scope về chính mình)
     el.innerHTML = `
         <div class="stat-card" style="border-left:4px solid #4338ca;" onclick="affShowStatModal('affiliates')">
             <div class="label">👥 Tổng Affiliate</div>
             <div class="value">${scopedAffCount}</div>
             <div class="sub">Đang hoạt động</div>
         </div>
-        ${!_hideFinancials ? `
         <div class="stat-card" style="border-left:4px solid #059669;" onclick="affShowStatModal('customers')">
             <div class="label">📋 Khách Giới Thiệu</div>
             <div class="value">${scopedAffCustomers}</div>
@@ -450,7 +445,6 @@ function affRenderStats() {
             <div class="value">${_fmtRev(scopedAffRevenue)}</div>
             <div class="sub">Tổng doanh thu</div>
         </div>
-        ` : ''}
     `;
 }
 
