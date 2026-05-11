@@ -188,7 +188,7 @@ async function loadAffAccounts() {
                 <div class="d-flex align-center gap-10" style="justify-content:center;">
                     <button class="btn btn-xs btn-secondary" onclick="showEditAffModal(${aff.id})" title="Sửa">✏️</button>
 
-                    <button class="btn btn-xs" onclick="showTransferAffModal(${aff.id}, '${aff.full_name.replace(/'/g, "\\\\'")}')" title="Chuyển quản lý" style="background:#dbeafe;color:#1e40af;">🔄</button>
+                    ${currentUser.role === 'giam_doc' ? `<button class="btn btn-xs" onclick="showTransferAffModal(${aff.id}, '${aff.full_name.replace(/'/g, "\\\\'")}')" title="Chuyển quản lý" style="background:#dbeafe;color:#1e40af;">🔄</button>` : ''}
 
                     ${currentUser.role === 'giam_doc' ? `<button class="btn btn-xs" onclick="affDelete(${aff.id}, '${aff.full_name}')" title="Xóa" style="background:transparent;color:#ef4444;border:1.5px solid #fca5a5;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.background='#ef4444';this.style.color='#fff';this.style.borderColor='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#ef4444';this.style.borderColor='#fca5a5'">✕</button>` : ''}
                 </div>
@@ -1233,7 +1233,7 @@ async function showAffDetail(userId) {
 
     openModal('💎 Chi Tiết Affiliate', bodyHTML, `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="closeModal();showTransferAffModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;">🔄 CHUYỂN QUẢN LÝ</button>
+        ${currentUser.role === 'giam_doc' ? `<button class="btn btn-primary" onclick="closeModal();showTransferAffModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;">🔄 CHUYỂN QUẢN LÝ</button>` : ''}
     `);
 }
 

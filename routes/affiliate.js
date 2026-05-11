@@ -581,7 +581,7 @@ async function affiliateRoutes(fastify) {
     })();
 
     // POST /api/affiliate/transfer-bulk — Bàn giao chọn lọc affiliate
-    fastify.post('/api/affiliate/transfer-bulk', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly_cap_cao', 'quan_ly')] }, async (request, reply) => {
+    fastify.post('/api/affiliate/transfer-bulk', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         const { transfers, reason } = request.body || {};
         if (!transfers || !Array.isArray(transfers) || transfers.length === 0) {
             return reply.code(400).send({ error: 'Không có affiliate nào để chuyển' });
