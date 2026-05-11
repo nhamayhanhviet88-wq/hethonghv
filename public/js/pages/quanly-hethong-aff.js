@@ -1,9 +1,12 @@
 // ========== QUẢN LÝ HỆ THỐNG AFFILIATE ==========
-// ★ Helper: hide financial data for non-GD roles
+// ★ Helper: hide financial data for non-GD roles (QL can see own data)
 function _affSysHideFinancials() {
     if (!currentUser) return false;
     var r = currentUser.role;
-    return r !== 'giam_doc';
+    if (r === 'giam_doc') return false;
+    // ★ QL viewing own data → show financials
+    if ((r === 'quan_ly' || r === 'quan_ly_cap_cao') && _aff_selectedMgrId === currentUser.id) return false;
+    return true;
 }
 let _affSysSearch = '';
 let _affSysTab = 'list';
