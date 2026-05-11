@@ -408,27 +408,54 @@ function affRenderStats() {
     const cs = _affData.cardStats || {};
     const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
 
+    // ★ Recompute affiliate count from scoped data (same scope as tree rendering)
+    const { departments = [], employees = [], affiliates = [] } = _affData;
+    function _scopedEmpIds() {
+        const allEmpIds = new Set();
+        const deptIsInScope = (deptId) => {
+            if (!_affScopeFilter || !_affScopeFilter.allowedDeptIds) return true;
+            if (_affScopeFilter.allowedDeptIds.has(deptId)) return true;
+            return departments.filter(d => d.parent_id === deptId).some(d => deptIsInScope(d.id));
+        };
+        departments.forEach(d => {
+            if (!deptIsInScope(d.id)) return;
+            let emps = employees.filter(e => e.department_id === d.id);
+            if (_affScopeFilter) {
+                if (_affScopeFilter.allowedDeptIds && !_affScopeFilter.allowedDeptIds.has(d.id)) return;
+                if (_affScopeFilter.allowedEmpIds) emps = emps.filter(e => _affScopeFilter.allowedEmpIds.has(e.id));
+                if (_affScopeFilter.blockedRoles) emps = emps.filter(e => !_affScopeFilter.blockedRoles.has(e.role));
+            }
+            emps.forEach(e => allEmpIds.add(e.id));
+        });
+        return allEmpIds;
+    }
+    const scopedEmpIds = _scopedEmpIds();
+    const scopedAffCount = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).length;
+    const scopedAffRevenue = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_revenue || 0), 0);
+    const scopedAffCustomers = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_customers || 0), 0);
+    const scopedAffOrders = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_orders || 0), 0);
+
     const el = document.getElementById('affStatsRow');
     if (!el) return;
     el.innerHTML = `
         <div class="stat-card" style="border-left:4px solid #4338ca;" onclick="affShowStatModal('affiliates')">
             <div class="label">👥 Tổng Affiliate</div>
-            <div class="value">${cs.newAffiliates||0}</div>
+            <div class="value">${scopedAffCount}</div>
             <div class="sub">Đang hoạt động</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #059669;" onclick="affShowStatModal('customers')">
             <div class="label">📋 Khách Giới Thiệu</div>
-            <div class="value">${cs.totalCustomers||0}</div>
+            <div class="value">${scopedAffCustomers}</div>
             <div class="sub">Từ tất cả affiliate</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #2563eb;" onclick="affShowStatModal('orders')">
             <div class="label">📦 Đơn Hàng</div>
-            <div class="value">${cs.totalOrders||0}</div>
+            <div class="value">${scopedAffOrders}</div>
             <div class="sub">Đã hoàn thành</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #f59e0b;" onclick="affShowStatModal('revenue')">
             <div class="label">💰 Doanh Thu</div>
-            <div class="value">${_fmtRev(cs.totalRevenue)}</div>
+            <div class="value">${_fmtRev(scopedAffRevenue)}</div>
             <div class="sub">Tổng doanh thu</div>
         </div>
     `;
