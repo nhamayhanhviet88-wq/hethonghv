@@ -251,13 +251,16 @@ function _affRenderOrg() {
 
     const ROLE_LABELS = { truong_phong:'⭐ Trưởng Phòng', nhan_vien:'👤 Nhân Viên', quan_ly:'🔷 Quản Lý', quan_ly_cap_cao:'💎 QL Cấp Cao', thu_viec:'🔰 Thử Việc' };
     const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];
+    // ★ NV/TP: chỉ hiện dòng của chính mình
+    const _isLimitedRole = currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong';
+    const _empFilter = (emps) => _isLimitedRole ? emps.filter(e => e.id === currentUser.id) : emps;
 
     _affOrgData.forEach(dept => {
         const dKey = 'dept_' + dept.id;
         const dOpen = _affOrgExpanded.has(dKey);
 
         // ★ Nhân viên cấp phòng (quản lý) — từ API phongEmployees
-        const phongManagers = dept.phongEmployees || [];
+        const phongManagers = _empFilter(dept.phongEmployees || []);
 
         html += `<div style="margin-bottom:12px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(15,23,42,0.12);">
             <div onclick="_affToggleOrg('${dKey}')" style="padding:14px 18px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">
@@ -293,7 +296,7 @@ function _affRenderOrg() {
                 </div>`;
 
                 if (tOpen) {
-                    team.employees.forEach(emp => {
+                    _empFilter(team.employees).forEach(emp => {
                         const eKey = 'emp_' + emp.id;
                         const eOpen = _affOrgExpanded.has(eKey);
                         const roleLabel = ROLE_LABELS[emp.role] || '👤 NV';

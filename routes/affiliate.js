@@ -2523,11 +2523,45 @@ async function affiliateRoutes(fastify) {
         return { success: false, error: 'Invalid type' };
     });
 
-    // ========== THỐNG KÊ AFFILIATE THEO TỔ CHỨC (cho GĐ) ==========
+    // ========== THỐNG KÊ AFFILIATE THEO TỔ CHỨC ==========
     fastify.get('/api/affiliate/org-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const { from, to } = request.query;
+        const user = request.user;
+        const dbUser = await db.get('SELECT department_id FROM users WHERE id = ?', [user.id]);
 
-        // 1. Lấy tất cả affiliate + NV quản lý + phòng ban
+        // 1. Lấy affiliate — ★ SCOPED by role
+        let affWhere = "u.role = 'tkaffiliate' AND u.status IN ('active','locked')";
+        const affParams = [];
+
+        if (user.role === 'nhan_vien' || user.role === 'truong_phong') {
+            // NV/TP: chỉ thấy affiliate do chính mình quản lý
+            affWhere += ' AND u.managed_by_user_id = ?';
+            affParams.push(user.id);
+        } else if (user.role === 'quan_ly') {
+            // QL: thấy affiliate quản lý bởi NV/TP trong phòng ban mình
+            const myDeptId = dbUser ? dbUser.department_id : null;
+            if (myDeptId) {
+                const _allDepts = await db.all('SELECT id, parent_id, head_user_id FROM departments');
+                const childIds = new Set();
+                const walk = (pid) => { childIds.add(pid); _allDepts.filter(d => d.parent_id === pid).forEach(d => walk(d.id)); };
+                walk(myDeptId);
+                _allDepts.filter(d => d.head_user_id === user.id).forEach(d => walk(d.id));
+                const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, [...childIds]);
+                const mgrIds = mgrUsers.map(u => u.id);
+                if (mgrIds.length > 0) {
+                    affWhere += ` AND u.managed_by_user_id IN (${mgrIds.map(() => '?').join(',')})`;
+                    affParams.push(...mgrIds);
+                } else {
+                    affWhere += ' AND u.managed_by_user_id = ?';
+                    affParams.push(user.id);
+                }
+            } else {
+                affWhere += ' AND u.managed_by_user_id = ?';
+                affParams.push(user.id);
+            }
+        }
+        // giam_doc / quan_ly_cap_cao: no filter — see all
+
         const affiliates = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
                    u.managed_by_user_id, u.source_customer_id,
@@ -2536,9 +2570,9 @@ async function affiliateRoutes(fastify) {
             FROM users u
             LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
             LEFT JOIN users p ON p.id = u.assigned_to_user_id
-            WHERE u.role = 'tkaffiliate' AND u.status IN ('active','locked')
+            WHERE ${affWhere}
             ORDER BY u.created_at DESC
-        `);
+        `, affParams);
 
         // 2. Lấy stats KH + doanh số cho mỗi affiliate
         const affIds = affiliates.map(a => a.id);
@@ -2725,14 +2759,17 @@ async function affiliateRoutes(fastify) {
         // ═══ CARD STATS (independent queries — same as my-system) ═══
         let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
 
-        // Card 1: 👥 TK affiliate mới tạo trong kỳ
+        // Card 1: 👥 TK affiliate mới tạo trong kỳ — scoped by affIds
         if (from || to) {
-            let dateFilter = "u.role = 'tkaffiliate' AND u.status IN ('active','locked')";
-            const dateParams = [];
-            if (from) { dateFilter += ' AND u.created_at >= ?'; dateParams.push(from + ' 00:00:00'); }
-            if (to) { dateFilter += ' AND u.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
-            const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${dateFilter}`, dateParams);
-            cardStats.newAffiliates = Number(affCountRow.cnt);
+            if (affIds.length > 0) {
+                const _ph = affIds.map(() => '?').join(',');
+                let _df = '';
+                const _dp = [...affIds];
+                if (from) { _df += ' AND u.created_at >= ?'; _dp.push(from + ' 00:00:00'); }
+                if (to) { _df += ' AND u.created_at <= ?'; _dp.push(to + ' 23:59:59'); }
+                const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE u.id IN (${_ph})${_df}`, _dp);
+                cardStats.newAffiliates = Number(affCountRow.cnt);
+            }
         } else {
             cardStats.newAffiliates = affiliates.length;
         }
