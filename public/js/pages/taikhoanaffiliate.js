@@ -1151,7 +1151,7 @@ async function showAffDetail(userId) {
             <div style="font-size:18px;font-weight:800;color:#fad24c;margin-bottom:4px;">${user.full_name}</div>
             <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:10px;">@${user.username}</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
-                <span class="role-badge role-${user.role}" style="font-size:11px;padding:4px 12px;color:#fff;">${ROLE_LABELS[user.role] || user.role}</span>
+                <span class="role-badge role-${user.role}" style="font-size:11px;padding:4px 12px;${user.role==='tkaffiliate'?'background:linear-gradient(135deg,#fad24c,#e0b82e);color:#0f172a;font-weight:800;border:1px solid #d4a843;':'color:#fff;'}">${ROLE_LABELS[user.role] || user.role}</span>
                 ${statusBadge}
             </div>
         </div>
@@ -1233,7 +1233,7 @@ async function showAffDetail(userId) {
 
     openModal('💎 Chi Tiết Affiliate', bodyHTML, `
         <button class="btn btn-secondary" onclick="closeModal()">Đóng</button>
-        <button class="btn btn-primary" onclick="closeModal();showTransferAffModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">🔄 Chuyển Quản Lý</button>
+        <button class="btn btn-primary" onclick="closeModal();showTransferAffModal(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;">🔄 CHUYỂN QUẢN LÝ</button>
     `);
 }
 
