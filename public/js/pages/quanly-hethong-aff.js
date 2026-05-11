@@ -165,7 +165,7 @@ async function _affSysLoad() {
             html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>NV Phụ Trách</th><th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
             filtered.forEach((c,i) => {
                 const sb = c.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">🔒</span>';
-                html += `<tr><td style="font-weight:600;color:#6b7280;">${i+1}</td><td style="font-weight:700;color:#1e293b;">${c.full_name}</td><td style="color:#334155;">${c.phone||'—'}</td>`;
+                html += `<tr onclick="showAffDetail(${c.id})" style="cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"><td style="font-weight:600;color:#6b7280;">${i+1}</td><td style="font-weight:700;color:#1e293b;">${c.full_name}</td><td style="color:#334155;">${c.phone||'—'}</td>`;
                 if (isGD) html += `<td style="font-size:12px;color:#6366f1;font-weight:600;">${c.parent_affiliate_name||'<span style="color:#9ca3af;">— Gốc —</span>'}</td>`;
                 html += `<td style="font-size:12px;color:#0ea5e9;font-weight:600;">${c.manager_name||'<span style="color:#9ca3af;">—</span>'}</td>`;
                 html += `<td><span style="background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};padding:2px 10px;border-radius:8px;font-size:11px;font-weight:700;">${RL[c.role]||c.role}</span></td>
@@ -178,7 +178,7 @@ async function _affSysLoad() {
             html += `<div class="aff-mobile-list">`;
             filtered.forEach((c) => {
                 const roleBadge = `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};font-weight:700;">${RL[c.role]||c.role}</span>`;
-                html += `<div class="aff-m-card">
+                html += `<div class="aff-m-card" onclick="showAffDetail(${c.id})" style="cursor:pointer;">
                     <div class="aff-m-left">
                         <div class="aff-m-name-row"><span class="aff-m-name">${c.full_name}</span> ${roleBadge}</div>
                         <div class="aff-m-ref">📱 ${c.phone||'—'}</div>
@@ -330,7 +330,7 @@ function _affRenderEmpAffiliates(emp, indent) {
         </tr></thead><tbody>`;
     emp.affiliates.forEach((a, i) => {
         const st = a.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">🔒</span>';
-        h += `<tr style="border-bottom:1px solid #f1f5f9;">
+        h += `<tr onclick="showAffDetail(${a.id})" style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
             <td style="padding:5px 8px;color:#94a3b8;">${i+1}</td>
             <td style="padding:5px 8px;font-weight:600;color:#1e293b;">${a.full_name}</td>
             <td style="padding:5px 8px;color:#475569;">${a.phone||'—'}</td>
@@ -505,7 +505,7 @@ async function _affStatDrill(type, page = 1) {
             tableHtml = `<table class="table" style="font-size:13px;">
                 <thead><tr><th style="width:36px">#</th><th>Tên Affiliate</th><th>SĐT</th><th>NV Quản Lý</th><th style="text-align:right">Doanh Số</th><th>Ngày Tạo TK</th></tr></thead><tbody>`;
             rows.forEach((r, i) => {
-                tableHtml += `<tr>
+                tableHtml += `<tr onclick="document.getElementById('affDrillOverlay').style.display='none';showAffDetail(${r.id})" style="cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
                     <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
                     <td style="font-weight:700;color:#1e293b;">${r.full_name}</td>
                     <td style="color:#334155;">${r.phone||'—'}</td>
