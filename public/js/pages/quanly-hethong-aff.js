@@ -124,8 +124,15 @@ function _affRenderTabs() {
 
 async function _affSwitchTab(tab) { _affSysTab = tab; if (tab === 'org') await _affOrgLoad(); else await _affSysLoad(); }
 
-function _affStatBar(stats, dark) {
-    const _hf = _affSysHideFinancials();
+function _affStatBar(stats, dark, empId) {
+    // empId provided → per-employee check: only show financials for own row
+    // empId undefined → use global sidebar check
+    let _hf;
+    if (empId !== undefined) {
+        _hf = currentUser && currentUser.role !== 'giam_doc' && empId !== currentUser.id;
+    } else {
+        _hf = _affSysHideFinancials();
+    }
     const items = [
         { icon: '👥', label: 'Affiliate', val: stats.affiliates, c: dark ? '#a5b4fc' : '#6366f1', bg: dark ? 'rgba(165,180,252,0.2)' : '#6366f115', hide: false },
         { icon: '📋', label: 'KH', val: stats.customers, c: dark ? '#93c5fd' : '#3b82f6', bg: dark ? 'rgba(147,197,253,0.2)' : '#3b82f615', hide: _hf },
@@ -305,10 +312,11 @@ function _affRenderOrg() {
     const cs = window._affOrgCardStats || {};
     const _fmtRev = window._affOrgFmtRev || ((v) => Number(v||0).toLocaleString('vi-VN')+'đ');
 
-    const _hfOrg = _affSysHideFinancials();
+    // ★ Org view: always hide aggregate financial cards for non-GD
+    const _hfOrgCards = currentUser.role !== 'giam_doc';
     html += `<div class="aff-stat-grid">
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
-        ${!_hfOrg ? `<div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+        ${!_hfOrgCards ? `<div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div>` : ''}</div>`;
 
@@ -328,7 +336,7 @@ function _affRenderOrg() {
         html += `<div style="margin-bottom:12px;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(15,23,42,0.12);">
             <div onclick="_affToggleOrg('${dKey}')" style="padding:14px 18px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">
                 <span style="font-size:18px;">🏢</span>
-                <div style="flex:1;"><div style="font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">${dept.name}</div>${_affStatBar(dept.stats, true)}</div>
+                <div style="flex:1;"><div style="font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">${dept.name}</div>${_affStatBar(dept.stats, true, -1)}</div>
                 <span style="font-size:12px;opacity:0.7;transform:rotate(${dOpen?'0':'-90'}deg);">▼</span>
             </div>`;
 
@@ -342,7 +350,7 @@ function _affRenderOrg() {
                 const roleLabel = ROLE_LABELS[emp.role] || emp.role;
                 html += `<div onclick="_affToggleOrg('${eKey}')" style="padding:12px 18px 12px 24px;background:linear-gradient(135deg,#fef3c7,#fde68a);cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:2px solid #f59e0b;transition:all .15s;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">
                     <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:17px;color:white;flex-shrink:0;font-weight:900;">👑</div>
-                    <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#92400e;display:flex;align-items:center;gap:6px;">${emp.name} <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#f59e0b;color:white;font-weight:700;">${roleLabel}</span> <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#7c3aed;color:white;font-weight:700;">${emp.stats.affiliates} affiliate</span></div>${_affStatBar(emp.stats, false)}</div>
+                    <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#92400e;display:flex;align-items:center;gap:6px;">${emp.name} <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#f59e0b;color:white;font-weight:700;">${roleLabel}</span> <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#7c3aed;color:white;font-weight:700;">${emp.stats.affiliates} affiliate</span></div>${_affStatBar(emp.stats, false, emp.id)}</div>
                     <span style="font-size:10px;color:#92400e;transform:rotate(${eOpen?'0':'-90'}deg);">▼</span>
                 </div>`;
                 if (eOpen) html += _affRenderEmpAffiliates(emp, '40px');
@@ -354,7 +362,7 @@ function _affRenderOrg() {
                 const tOpen = _affOrgExpanded.has(tKey);
                 html += `<div onclick="_affToggleOrg('${tKey}')" style="padding:12px 18px 12px 24px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #c7d2fe;transition:all .15s;" onmouseover="this.style.background='linear-gradient(135deg,#c7d2fe,#a5b4fc)'" onmouseout="this.style.background='linear-gradient(135deg,#e0e7ff,#c7d2fe)'">
                     <span style="font-size:15px;">🏛️</span>
-                    <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#312e81;text-transform:uppercase;">${team.name}</div>${_affStatBar(team.stats, false)}</div>
+                    <div style="flex:1;"><div style="font-size:13px;font-weight:800;color:#312e81;text-transform:uppercase;">${team.name}</div>${_affStatBar(team.stats, false, -1)}</div>
                     <span style="font-size:11px;color:#6366f1;transform:rotate(${tOpen?'0':'-90'}deg);">▼</span>
                 </div>`;
 
@@ -365,7 +373,7 @@ function _affRenderOrg() {
                         const roleLabel = ROLE_LABELS[emp.role] || '👤 NV';
                         html += `<div onclick="_affToggleOrg('${eKey}')" style="padding:10px 18px 10px 44px;background:white;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                             <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">👤</div>
-                            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:6px;">${emp.name} <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-weight:600;">${roleLabel}</span> <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-weight:700;">${emp.stats.affiliates} aff</span></div>${_affStatBar(emp.stats, false)}</div>
+                            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:6px;">${emp.name} <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-weight:600;">${roleLabel}</span> <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-weight:700;">${emp.stats.affiliates} aff</span></div>${_affStatBar(emp.stats, false, emp.id)}</div>
                             <span style="font-size:10px;color:#94a3b8;transform:rotate(${eOpen?'0':'-90'}deg);">▼</span>
                         </div>`;
                         if (eOpen) html += _affRenderEmpAffiliates(emp, '60px');
@@ -389,12 +397,12 @@ function _affRenderEmpAffiliates(emp, indent) {
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Tên Affiliate</th>
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">SĐT</th>
             <th style="padding:6px 8px;text-align:left;font-weight:800;color:white;">Aff Cha</th>
-            ${!_affSysHideFinancials() ? `<th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">KH</th>
+            ${!(currentUser && currentUser.role !== 'giam_doc' && emp.id !== currentUser.id) ? `<th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">KH</th>
             <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">Chốt</th>
             <th style="padding:6px 8px;text-align:right;font-weight:800;color:white;">Doanh Số</th>` : ''}
             <th style="padding:6px 8px;text-align:center;font-weight:800;color:white;">TT</th>
         </tr></thead><tbody>`;
-    const _hfEmp = _affSysHideFinancials();
+    const _hfEmp = currentUser && currentUser.role !== 'giam_doc' && emp.id !== currentUser.id;
     emp.affiliates.forEach((a, i) => {
         const st = a.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;">🔒</span>';
         h += `<tr onclick="showAffDetail(${a.id})" style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
