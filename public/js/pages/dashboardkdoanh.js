@@ -396,6 +396,11 @@ function _crIsRestrictedRole() {
     return typeof currentUser !== 'undefined' && currentUser && ['nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role);
 }
 
+// ★ TP (Trưởng Phòng) Role Check Helper
+function _crIsTPRole() {
+    return typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'truong_phong';
+}
+
 // ★ Find user's team info in the groups data
 function _crFindMyTeam(groups) {
     if (!currentUser) return null;
@@ -408,6 +413,37 @@ function _crFindMyTeam(groups) {
         }
     }
     return null;
+}
+
+// ★ Find team(s) led by TP (by leader_id matching currentUser.id)
+function _crFindTPTeams(groups) {
+    if (!currentUser) return null;
+    const result = { group: null, teams: [], employee: null };
+    for (const group of groups) {
+        if (!group.teams) continue;
+        for (const team of group.teams) {
+            // TP leads the team if they are the leader_id
+            if (team.leader_id === currentUser.id) {
+                result.group = group;
+                result.teams.push(team);
+                // Also find TP's own employee record
+                if (!result.employee && team.employees) {
+                    const found = team.employees.find(e => e.user_id === currentUser.id);
+                    if (found) result.employee = found;
+                }
+            }
+        }
+    }
+    // Fallback: if TP not found as leader, find them as employee
+    if (result.teams.length === 0) {
+        const myInfo = _crFindMyTeam(groups);
+        if (myInfo) {
+            result.group = myInfo.group;
+            result.teams = [myInfo.team];
+            result.employee = myInfo.employee;
+        }
+    }
+    return result.teams.length > 0 ? result : null;
 }
 
 // ★ Filter data for restricted roles (NV/TV) — only show own data
@@ -455,6 +491,77 @@ function _crFilterDataForNV(data) {
     };
 }
 
+// ★ Filter data for TP (Trưởng Phòng) — show own team members + own stats
+function _crFilterDataForTP(data) {
+    if (!_crIsTPRole() || !data.groups) return data;
+
+    const tpInfo = _crFindTPTeams(data.groups);
+    if (!tpInfo) return data;
+
+    // Keep all employees in the TP's team(s) — show full team visibility
+    const filteredTeams = tpInfo.teams.map(team => ({
+        ...team
+        // Keep original team stats and all employees
+    }));
+
+    // Calculate aggregate stats from all TP's teams
+    let totalTotal = 0, totalNew = 0, totalRet = 0, totalRevenue = 0;
+    let prevTotal = 0, prevNew = 0, prevRet = 0, prevRevenue = 0;
+    filteredTeams.forEach(t => {
+        const c = t.current || {};
+        const p = t.previous || {};
+        totalTotal += (c.total || 0);
+        totalNew += (c.new || 0);
+        totalRet += (c.returning || 0);
+        totalRevenue += (c.revenue || 0);
+        prevTotal += (p.total || 0);
+        prevNew += (p.new || 0);
+        prevRet += (p.returning || 0);
+        prevRevenue += (p.revenue || 0);
+    });
+
+    const groupCurrent = {
+        total: totalTotal, new: totalNew, returning: totalRet, revenue: totalRevenue,
+        rate: totalTotal > 0 ? Math.round(1000 * totalRet / totalTotal) / 10 : 0
+    };
+    const groupPrevious = {
+        total: prevTotal, new: prevNew, returning: prevRet, revenue: prevRevenue,
+        rate: prevTotal > 0 ? Math.round(1000 * prevRet / prevTotal) / 10 : 0
+    };
+    const groupTrend = {
+        total: groupCurrent.total - groupPrevious.total,
+        new: groupCurrent.new - groupPrevious.new,
+        returning: groupCurrent.returning - groupPrevious.returning,
+        rate: Math.round(10 * (groupCurrent.rate - groupPrevious.rate)) / 10,
+        revenue: groupCurrent.revenue - groupPrevious.revenue,
+        revenue_pct: groupPrevious.revenue > 0 ? Math.round(1000 * (groupCurrent.revenue - groupPrevious.revenue) / groupPrevious.revenue) / 10 : (groupCurrent.revenue > 0 ? 100 : 0)
+    };
+
+    // Build a single filtered group for the TP
+    const teamNames = filteredTeams.map(t => t.name).join(' + ');
+    const filteredGroup = {
+        ...tpInfo.group,
+        dept_name: teamNames || tpInfo.group.dept_name,
+        current: groupCurrent,
+        previous: groupPrevious,
+        trend: groupTrend,
+        personal: null, // hide parent manager personal stats
+        otherManagers: [], // hide other managers
+        teams: filteredTeams
+    };
+
+    // Summary cards: show team aggregate stats
+    return {
+        ...data,
+        groups: [filteredGroup],
+        summary: {
+            current: groupCurrent,
+            previous: groupPrevious,
+            trend: groupTrend
+        }
+    };
+}
+
 async function crLoadData() {
     _crAdvLoaded = false; // Reset so Tab 2/3 reload with new period
     const groupsEl = document.getElementById('crGroups');
@@ -473,9 +580,10 @@ async function crLoadData() {
             return;
         }
 
-        // ★ Apply NV/TV filtering (keep raw data for advanced lookups)
+        // ★ Apply NV/TV/TP filtering (keep raw data for advanced lookups)
         _cr._rawData = rawData;
-        const data = _crFilterDataForNV(rawData);
+        let data = _crFilterDataForNV(rawData);
+        data = _crFilterDataForTP(data);
         _cr.data = data;
         crRenderCards(data);
         crRenderGroups(data);
@@ -576,8 +684,8 @@ function crRenderGroups(data) {
         data.groups.forEach((g, gi) => {
             _cr.expandedMgr.add(gi);
         });
-        // For restricted roles, auto-expand the team as well
-        if (_crIsRestrictedRole()) {
+        // For restricted roles (NV/TV) or TP, auto-expand teams
+        if (_crIsRestrictedRole() || _crIsTPRole()) {
             data.groups.forEach((g, gi) => {
                 if (g.teams) {
                     g.teams.forEach((t, ti) => {
@@ -1052,6 +1160,31 @@ async function crChartLoad() {
                 crChartRender(data.data || data.months || []);
                 setTimeout(() => crChartLoad(), 100);
                 return;
+            } else if (_crIsTPRole() && currentUser) {
+                // ★ TP: restrict chart dropdown to own team(s) + team members only
+                const rawGroups = (_cr._rawData || _cr.data || {}).groups || [];
+                const tpInfo = _crFindTPTeams(rawGroups);
+                let html = '';
+                if (tpInfo && tpInfo.teams.length > 0) {
+                    tpInfo.teams.forEach(t => {
+                        html += `<optgroup label="👥 ${t.name}">`;
+                        html += `<option value="team_${t.team_id}">📊 Tổng ${t.name}</option>`;
+                        if (t.employees) {
+                            t.employees.forEach(e => {
+                                html += `<option value="emp_${e.user_id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
+                            });
+                        }
+                        html += '</optgroup>';
+                    });
+                } else {
+                    html = `<option value="emp_${currentUser.id}">👤 ${currentUser.full_name}</option>`;
+                }
+                sel.innerHTML = html;
+                sel.value = sel.options[0]?.value || val;
+                // Reload chart with correct filter
+                crChartRender(data.data || data.months || []);
+                setTimeout(() => crChartLoad(), 100);
+                return;
             } else {
                 let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
                 if (data.options.teams) {
@@ -1265,15 +1398,13 @@ async function crLoadAdvanced() {
         _crAdvData = await apiCall(`/api/reports/customer-retention/advanced?period=${_cr.period}&date=${_cr.dateStr}`);
         _crAdvLoaded = true;
 
-        // ★ NV/TV: filter advanced data to only show own team
+        // ★ NV/TV: filter advanced data to only show own data
         if (_crIsRestrictedRole() && (_cr._rawData || _cr.data)) {
             const rawGroups = (_cr._rawData || _cr.data).groups || [];
             const myInfo = _crFindMyTeam(rawGroups);
             if (myInfo && myInfo.team) {
-                const myTeamEmpIds = new Set((myInfo.team.employees || []).map(e => e.user_id));
                 const myTeamId = myInfo.team.team_id;
                 const myTeamName = myInfo.team.name;
-
                 const myUserId = currentUser.id;
 
                 // Filter alerts to only myself
@@ -1305,6 +1436,61 @@ async function crLoadAdvanced() {
                     const filteredConv = {};
                     if (_crAdvData.conversionMap[myUserId]) filteredConv[myUserId] = _crAdvData.conversionMap[myUserId];
                     _crAdvData.conversionMap = filteredConv;
+                }
+            }
+        }
+
+        // ★ TP (Trưởng Phòng): filter advanced data to only show own team's data
+        if (_crIsTPRole() && (_cr._rawData || _cr.data)) {
+            const rawGroups = (_cr._rawData || _cr.data).groups || [];
+            const tpInfo = _crFindTPTeams(rawGroups);
+            if (tpInfo && tpInfo.teams.length > 0) {
+                // Collect all employee IDs from TP's teams
+                const tpTeamEmpIds = new Set();
+                const tpTeamIds = new Set();
+                const tpTeamNames = new Set();
+                tpInfo.teams.forEach(t => {
+                    tpTeamIds.add(t.team_id);
+                    tpTeamNames.add(t.name);
+                    (t.employees || []).forEach(e => tpTeamEmpIds.add(e.user_id));
+                });
+
+                // Filter alerts to only team members
+                if (_crAdvData.alerts) {
+                    _crAdvData.alerts = _crAdvData.alerts.filter(a => tpTeamEmpIds.has(a.user_id));
+                }
+
+                // Filter leaderboard to only team members
+                if (_crAdvData.leaderboard) {
+                    for (const key of Object.keys(_crAdvData.leaderboard)) {
+                        if (Array.isArray(_crAdvData.leaderboard[key])) {
+                            _crAdvData.leaderboard[key] = _crAdvData.leaderboard[key].filter(item => tpTeamEmpIds.has(item.user_id));
+                        }
+                    }
+                }
+
+                // Filter team comparison to only TP's teams
+                if (_crAdvData.teamComparison) {
+                    _crAdvData.teamComparison = _crAdvData.teamComparison.filter(t => tpTeamIds.has(t.team_id) || tpTeamNames.has(t.name));
+                }
+
+                // Filter top customers to only team members' customers
+                if (_crAdvData.topCustomers) {
+                    _crAdvData.topCustomers = _crAdvData.topCustomers.filter(c => tpTeamEmpIds.has(c.assigned_to_id));
+                }
+
+                // Filter conversionMap to only team members
+                if (_crAdvData.conversionMap) {
+                    const filteredConv = {};
+                    tpTeamEmpIds.forEach(uid => {
+                        if (_crAdvData.conversionMap[uid]) filteredConv[uid] = _crAdvData.conversionMap[uid];
+                    });
+                    _crAdvData.conversionMap = filteredConv;
+                }
+
+                // Filter cancel data to only team members
+                if (_crAdvData.cancel) {
+                    _crAdvData.cancel = _crAdvData.cancel.filter(c => tpTeamEmpIds.has(c.user_id));
                 }
             }
         }
