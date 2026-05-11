@@ -1,10 +1,32 @@
 // ========== ACCOUNTS PAGE ==========
 
+var _accPage = 1;
+var _accPageSize = 50;
+var _accDepts = []; // cached departments
+
 async function renderAccountsPage(container) {
+    // Pre-load departments for filter
+    try {
+        var deptData = await apiCall('/api/departments');
+        _accDepts = deptData.departments || [];
+    } catch(e) { _accDepts = []; }
+
+    var deptOptionsHTML = '<option value="">Tất cả Phòng Ban</option>';
+    // Build hierarchical options
+    var deptRoots = _accDepts.filter(function(d) { return !d.parent_id; });
+    function addDeptOpt(dept, level) {
+        var indent = '\u00A0\u00A0\u00A0\u00A0'.repeat(level);
+        var icon = level === 0 ? '🏢' : '📁';
+        deptOptionsHTML += '<option value="' + dept.id + '">' + indent + icon + ' ' + dept.name + '</option>';
+        var children = _accDepts.filter(function(d) { return d.parent_id === dept.id; });
+        children.forEach(function(c) { addDeptOpt(c, level + 1); });
+    }
+    deptRoots.forEach(function(r) { addDeptOpt(r, 0); });
+
     container.innerHTML = `
         <div class="toolbar">
             <div class="toolbar-filters">
-                <select class="form-control" id="filterRole" onchange="loadAccounts()">
+                <select class="form-control" id="filterRole" onchange="_accPage=1;loadAccounts()">
                     <option value="">Tất cả vai trò</option>
                     <option value="quan_ly_cap_cao">Quản Lý Cấp Cao</option>
                     <option value="quan_ly">Quản Lý</option>
@@ -13,20 +35,16 @@ async function renderAccountsPage(container) {
                     <option value="thu_viec">Thử Việc</option>
                     <option value="part_time">Part Time</option>
                 </select>
-                <select class="form-control" id="filterStatus" onchange="loadAccounts()">
+                <select class="form-control" id="filterStatus" onchange="_accPage=1;loadAccounts()">
                     <option value="">Tất cả trạng thái</option>
                     <option value="active">Đang làm</option>
                     <option value="probation_locked">Hết hạn TV</option>
                     <option value="resigned">Nghỉ việc</option>
                 </select>
-                <select class="form-control" id="filterCrm" onchange="loadAccounts()">
-                    <option value="">Tất cả CRM</option>
-                    <option value="nhu_cau">KH Nhu Cầu</option>
-                    <option value="ctv">CTV</option>
-
-                    <option value="koc_tiktok">KOC/KOL Tiktok</option>
+                <select class="form-control" id="filterDept" onchange="_accPage=1;loadAccounts()">
+                    ${deptOptionsHTML}
                 </select>
-                <input type="text" class="form-control" id="filterSearch" placeholder="🔍 Tìm tên, SĐT..." oninput="loadAccounts()" style="min-width:180px;">
+                <input type="text" class="form-control" id="filterSearch" placeholder="🔍 Tìm tên, SĐT..." oninput="_accPage=1;loadAccounts()" style="min-width:180px;">
             </div>
             <button class="btn btn-primary" onclick="showCreateAccountModal()" style="width:auto;">
                 ➕ Thêm Tài Khoản
@@ -37,6 +55,7 @@ async function renderAccountsPage(container) {
                 <table>
                     <thead>
                         <tr>
+                            <th style="width:50px;text-align:center;">STT</th>
                             <th>Họ tên</th>
                             <th>Tài khoản</th>
                             <th>Vai trò</th>
@@ -52,10 +71,11 @@ async function renderAccountsPage(container) {
                         </tr>
                     </thead>
                     <tbody id="accountsTableBody">
-                        <tr><td colspan="8" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
+                        <tr><td colspan="12" class="text-center text-muted" style="padding:40px;">Đang tải...</td></tr>
                     </tbody>
                 </table>
             </div>
+            <div id="accountsPagination"></div>
         </div>
     `;
     await loadAccounts();
@@ -64,7 +84,7 @@ async function renderAccountsPage(container) {
 async function loadAccounts() {
     const role = document.getElementById('filterRole')?.value || '';
     const status = document.getElementById('filterStatus')?.value || '';
-    const crmFilter = document.getElementById('filterCrm')?.value || '';
+    const deptFilter = document.getElementById('filterDept')?.value || '';
     const searchQ = (document.getElementById('filterSearch')?.value || '').toLowerCase().trim();
     let url = '/api/users?';
     if (role) url += `role=${role}&`;
@@ -73,9 +93,21 @@ async function loadAccounts() {
     const data = await apiCall(url);
     let users = (data.users || []).filter(u => !['tkaffiliate'].includes(u.role));
 
-    // Client-side CRM filter
-    if (crmFilter) {
-        users = users.filter(u => u.source_crm_type === crmFilter);
+    // Client-side department filter (with parent-child support)
+    if (deptFilter) {
+        var deptId = parseInt(deptFilter);
+        // Collect all child dept IDs recursively
+        var matchDeptIds = new Set([deptId]);
+        function collectChildren(parentId) {
+            _accDepts.forEach(function(d) {
+                if (d.parent_id === parentId && !matchDeptIds.has(d.id)) {
+                    matchDeptIds.add(d.id);
+                    collectChildren(d.id);
+                }
+            });
+        }
+        collectChildren(deptId);
+        users = users.filter(u => matchDeptIds.has(u.department_id));
     }
     // Client-side search filter
     if (searchQ) {
@@ -88,7 +120,9 @@ async function loadAccounts() {
 
     const tbody = document.getElementById('accountsTableBody');
     if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">👥</div><h3>Không tìm thấy tài khoản</h3><p>Thử thay đổi bộ lọc</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">👥</div><h3>Không tìm thấy tài khoản</h3><p>Thử thay đổi bộ lọc</p></div></td></tr>`;
+        var pgEl = document.getElementById('accountsPagination');
+        if (pgEl) pgEl.innerHTML = '';
         return;
     }
     // Sort by role order, then by work days descending
@@ -108,6 +142,53 @@ async function loadAccounts() {
     const activeUsers = filtered.filter(u => u.status === 'active');
     const probLockedUsers = filtered.filter(u => u.status === 'probation_locked');
     const resignedUsers = filtered.filter(u => u.status !== 'active' && u.status !== 'probation_locked');
+
+    // Combine all for pagination (STT is continuous)
+    const allOrdered = [];
+    if (activeUsers.length > 0) allOrdered.push({ type: 'section', label: '✅ Đang Làm', count: activeUsers.length, style: 'background:#ecfdf5;color:#166534;border-bottom:2px solid #10b981;' });
+    activeUsers.forEach(u => allOrdered.push({ type: 'user', user: u }));
+    if (probLockedUsers.length > 0) allOrdered.push({ type: 'section', label: '⏰ Hết Hạn Thử Việc', count: probLockedUsers.length, style: 'background:#faf5ff;color:#7c3aed;border-bottom:2px solid #a855f7;' });
+    probLockedUsers.forEach(u => allOrdered.push({ type: 'user', user: u }));
+    if (resignedUsers.length > 0) allOrdered.push({ type: 'section', label: '🚫 Nghỉ Việc', count: resignedUsers.length, style: 'background:#fef2f2;color:#991b1b;border-bottom:2px solid #ef4444;' + (activeUsers.length > 0 ? 'border-top:2px solid #e5e7eb;' : '') });
+    resignedUsers.forEach(u => allOrdered.push({ type: 'user', user: u }));
+
+    // Count total users (not section headers)
+    const totalUsers = allOrdered.filter(r => r.type === 'user').length;
+    const totalPages = Math.ceil(totalUsers / _accPageSize);
+    if (_accPage > totalPages) _accPage = totalPages;
+    if (_accPage < 1) _accPage = 1;
+
+    // Paginate: we need to handle section headers smartly
+    // Number users globally, then slice by page
+    let userIdx = 0;
+    const pagedRows = [];
+    let lastSectionBeforePage = null;
+    for (let i = 0; i < allOrdered.length; i++) {
+        const row = allOrdered[i];
+        if (row.type === 'section') {
+            // Remember last section header seen
+            lastSectionBeforePage = row;
+            // Check if any user in this section falls in current page
+            let hasUserInPage = false;
+            for (let j = i + 1; j < allOrdered.length && allOrdered[j].type === 'user'; j++) {
+                const uIdx = allOrdered.slice(0, j).filter(r => r.type === 'user').length;
+                if (uIdx >= (_accPage - 1) * _accPageSize && uIdx < _accPage * _accPageSize) {
+                    hasUserInPage = true;
+                    break;
+                }
+            }
+            if (hasUserInPage) pagedRows.push(row);
+        } else {
+            if (userIdx >= (_accPage - 1) * _accPageSize && userIdx < _accPage * _accPageSize) {
+                // If this is first user on page and section header wasn't added yet
+                if (pagedRows.length === 0 && lastSectionBeforePage) {
+                    pagedRows.push(lastSectionBeforePage);
+                }
+                pagedRows.push({ type: 'user', user: row.user, stt: userIdx + 1 });
+            }
+            userIdx++;
+        }
+    }
 
     function calcWorkDays(user) {
         if (!user.start_date) return '-';
@@ -132,9 +213,10 @@ async function loadAccounts() {
         return `${days} ngày`;
     }
 
-    function renderUserRow(user) {
+    function renderUserRow(user, stt) {
         return `
         <tr>
+            <td style="text-align:center;font-weight:700;color:#6b7280;font-size:12px;">${stt}</td>
             <td>${(() => {
                 const rc = {
                     giam_doc:['#fef3c7','#fde68a','#92400e','#fcd34d'], quan_ly_cap_cao:['#fff7ed','#fed7aa','#c2410c','#fdba74'],
@@ -190,23 +272,32 @@ async function loadAccounts() {
     }
 
     let html = '';
-    // Section: Đang Làm
-    if (activeUsers.length > 0) {
-        html += `<tr><td colspan="10" style="background:#ecfdf5;padding:10px 16px;font-weight:700;font-size:13px;color:#166534;border-bottom:2px solid #10b981;">✅ Đang Làm <span style="font-weight:400;color:#6b7280;font-size:12px;">(${activeUsers.length})</span></td></tr>`;
-        html += activeUsers.map(renderUserRow).join('');
-    }
-    // Section: Hết Hạn Thử Việc
-    if (probLockedUsers.length > 0) {
-        html += `<tr><td colspan="10" style="background:#faf5ff;padding:10px 16px;font-weight:700;font-size:13px;color:#7c3aed;border-bottom:2px solid #a855f7;">⏰ Hết Hạn Thử Việc <span style="font-weight:400;color:#6b7280;font-size:12px;">(${probLockedUsers.length})</span></td></tr>`;
-        html += probLockedUsers.map(renderUserRow).join('');
-    }
-    // Section: Nghỉ Việc
-    if (resignedUsers.length > 0) {
-        html += `<tr><td colspan="10" style="background:#fef2f2;padding:10px 16px;font-weight:700;font-size:13px;color:#991b1b;border-bottom:2px solid #ef4444;${activeUsers.length > 0 ? 'border-top:2px solid #e5e7eb;' : ''}">🚫 Nghỉ Việc <span style="font-weight:400;color:#6b7280;font-size:12px;">(${resignedUsers.length})</span></td></tr>`;
-        html += resignedUsers.map(renderUserRow).join('');
+    for (let i = 0; i < pagedRows.length; i++) {
+        const row = pagedRows[i];
+        if (row.type === 'section') {
+            html += `<tr><td colspan="12" style="padding:10px 16px;font-weight:700;font-size:13px;${row.style}">${row.label} <span style="font-weight:400;color:#6b7280;font-size:12px;">(${row.count})</span></td></tr>`;
+        } else {
+            html += renderUserRow(row.user, row.stt);
+        }
     }
 
     tbody.innerHTML = html;
+
+    // Render pagination
+    var pgEl = document.getElementById('accountsPagination');
+    if (pgEl && totalPages > 1) {
+        var pgH = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;background:#f8fafc;">';
+        pgH += '<button onclick="_accPage=1;loadAccounts()" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:12px;font-weight:600;' + (_accPage <= 1 ? 'opacity:.4;pointer-events:none' : '') + '" title="Trang đầu">⏮</button>';
+        pgH += '<button onclick="_accPage--;loadAccounts()" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:12px;font-weight:600;' + (_accPage <= 1 ? 'opacity:.4;pointer-events:none' : '') + '">◀ Trước</button>';
+        pgH += '<span style="font-size:13px;font-weight:700;color:#374151;padding:0 8px;">Trang ' + _accPage + ' / ' + totalPages + '</span>';
+        pgH += '<span style="font-size:11px;color:#6b7280;">(' + totalUsers + ' nhân viên)</span>';
+        pgH += '<button onclick="_accPage++;loadAccounts()" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:12px;font-weight:600;' + (_accPage >= totalPages ? 'opacity:.4;pointer-events:none' : '') + '">Sau ▶</button>';
+        pgH += '<button onclick="_accPage=' + totalPages + ';loadAccounts()" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:12px;font-weight:600;' + (_accPage >= totalPages ? 'opacity:.4;pointer-events:none' : '') + '" title="Trang cuối">⏭</button>';
+        pgH += '</div>';
+        pgEl.innerHTML = pgH;
+    } else if (pgEl) {
+        pgEl.innerHTML = '';
+    }
 }
 
 // Helper: build hierarchical department options for account forms
