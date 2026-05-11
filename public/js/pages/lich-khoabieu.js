@@ -723,7 +723,7 @@ async function renderLichKhoaBieuPage(container) {
                     const isDeptHead = u._is_dept_head;
                     const isApprover = u._isApprover;
                     const isLead = isDeptHead || _kbIsLeader(u.role) || isApprover;
-                    const roleTag = isApprover ? '⭐ Quản Lý' : (isDeptHead ? '⭐ Trưởng phòng' : (_kbRoleLabel[u.role] || u.role));
+                    const roleTag = _kbRoleLabel[u.role] || u.role;
                     const nameStyle = `font-weight:${isLead ? '700' : '500'};`;
                     const roleStyle = `font-size:10px;${isLead ? 'color:#d97706;font-weight:700;' : 'color:#94a3b8;'}`;
                     const _canForce = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role);
