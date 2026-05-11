@@ -283,14 +283,18 @@ async function affiliateRoutes(fastify) {
         // ═══ CARD STATS (independent queries) ═══
         let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
 
-        // Card 1: 👥 TK affiliate mới tạo trong kỳ
+        // Card 1: 👥 TK affiliate mới tạo trong kỳ — MUST respect same scope as affiliates query
         if (from || to) {
-            let dateFilter = '';
-            const dateParams = [];
-            if (from) { dateFilter += ' AND u.created_at >= ?'; dateParams.push(from + ' 00:00:00'); }
-            if (to) { dateFilter += ' AND u.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
-            const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id IS NOT NULL${dateFilter}`, dateParams);
-            cardStats.newAffiliates = Number(affCountRow.cnt);
+            // Filter within already-scoped affiliateIds (respects NV/TP/QL restrictions)
+            if (affiliateIds.length > 0) {
+                const ph = affiliateIds.map(() => '?').join(',');
+                let dateFilter = '';
+                const dateParams = [...affiliateIds];
+                if (from) { dateFilter += ' AND u.created_at >= ?'; dateParams.push(from + ' 00:00:00'); }
+                if (to) { dateFilter += ' AND u.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
+                const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE u.id IN (${ph})${dateFilter}`, dateParams);
+                cardStats.newAffiliates = Number(affCountRow.cnt);
+            }
         } else {
             cardStats.newAffiliates = affiliates.length;
         }
