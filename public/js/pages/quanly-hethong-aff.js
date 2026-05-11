@@ -135,7 +135,9 @@ async function _affSysLoad() {
         }
         const data = await apiCall(apiUrl);
         if (!data.success) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>Lỗi</h3></div>`; return; }
-        const { children, selfStats, stats } = data;
+        const { children, selfStats, stats, cardStats } = data;
+        const cs = cardStats || {};
+        const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
         let html = '';
         if (isGD) {
             html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -148,10 +150,10 @@ async function _affSysLoad() {
         }
         html += _affRenderTabs();
         html += `<div class="aff-stat-grid">
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${stats.totalChildren}</div><div class="aff-stat-lbl">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${stats.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
         // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }

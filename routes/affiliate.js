@@ -278,7 +278,57 @@ async function affiliateRoutes(fastify) {
             a.total_revenue = Number(s.total_revenue) || 0;
         });
 
-        return { departments, employees, affiliates };
+        // ═══ CARD STATS (independent queries) ═══
+        let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
+
+        // Card 1: 👥 TK affiliate mới tạo trong kỳ
+        if (from || to) {
+            let dateFilter = '';
+            const dateParams = [];
+            if (from) { dateFilter += ' AND u.created_at >= ?'; dateParams.push(from + ' 00:00:00'); }
+            if (to) { dateFilter += ' AND u.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
+            const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate') AND u.status IN ('active','locked') AND u.managed_by_user_id IS NOT NULL${dateFilter}`, dateParams);
+            cardStats.newAffiliates = Number(affCountRow.cnt);
+        } else {
+            cardStats.newAffiliates = affiliates.length;
+        }
+
+        // Card 2: 📋 KH từ TẤT CẢ affiliate, lọc ngày KH
+        if (affiliateIds.length > 0) {
+            const ph = affiliateIds.map(() => '?').join(',');
+            let custDateFilter = '';
+            const custParams2 = [...affiliateIds];
+            if (from) { custDateFilter += ' AND c.created_at >= ?'; custParams2.push(from + ' 00:00:00'); }
+            if (to) { custDateFilter += ' AND c.created_at <= ?'; custParams2.push(to + ' 23:59:59'); }
+            const custCountRow = await db.get(`SELECT COUNT(*) as cnt FROM customers c WHERE c.referrer_id IN (${ph})${custDateFilter}`, custParams2);
+            cardStats.totalCustomers = Number(custCountRow.cnt);
+        }
+
+        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu (KH giới thiệu + chính affiliate)
+        if (affiliateIds.length > 0) {
+            const ph = affiliateIds.map(() => '?').join(',');
+            const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affiliateIds);
+            const selfCustIds = affiliates.map(a => a.source_customer_id).filter(Boolean);
+            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
+
+            if (allOrderCustIds.length > 0) {
+                const oph = allOrderCustIds.map(() => '?').join(',');
+                let orderDateFilter = '';
+                const orderParams = [...allOrderCustIds];
+                if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
+                if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
+                const orderRow = await db.get(`
+                    SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc
+                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                `, orderParams);
+                cardStats.totalOrders = Number(orderRow.cnt);
+                cardStats.totalRevenue = Number(orderRow.revenue);
+            }
+        }
+
+        return { departments, employees, affiliates, cardStats };
     });
 
     // ★ DETAIL-STATS: Paginated detail data for stat card modals
@@ -2324,19 +2374,23 @@ async function affiliateRoutes(fastify) {
         }
         // NOTE: from/to NOT applied to affiliate list — only to customer/order stats below
 
-        // ★ TYPE: affiliates — list all affiliates with manager name, revenue, date
+        // ★ TYPE: affiliates — TK mới tạo trong kỳ (có filter created_at)
         if (type === 'affiliates') {
-            const totalRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+            let affDateWhere = [...affWhere];
+            let affDateParams = [...affParams];
+            if (from) { affDateWhere.push("u.created_at >= ?"); affDateParams.push(from + ' 00:00:00'); }
+            if (to) { affDateWhere.push("u.created_at <= ?"); affDateParams.push(to + ' 23:59:59'); }
+            const totalRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${affDateWhere.join(' AND ')}`, affDateParams);
             const total = Number(totalRow.cnt);
             const rows = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.created_at, u.managed_by_user_id,
                        mgr.full_name as manager_name
                 FROM users u
                 LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
-                WHERE ${affWhere.join(' AND ')}
+                WHERE ${affDateWhere.join(' AND ')}
                 ORDER BY u.created_at DESC
                 LIMIT ${PAGE_SIZE} OFFSET ${offset}
-            `, affParams);
+            `, affDateParams);
             // Get revenue for each affiliate on this page
             if (rows.length > 0) {
                 const ids = rows.map(r => r.id);
@@ -2356,8 +2410,8 @@ async function affiliateRoutes(fastify) {
             return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
         }
 
-        // Get all affiliate IDs in scope for customer/order queries
-        const allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+        // Get all affiliate IDs in scope (+ source_customer_id for self-orders)
+        const allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id, u.source_customer_id FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
         const affIds = allAffs.map(a => a.id);
         if (affIds.length === 0) return { success: true, rows: [], total: 0 };
 
@@ -2393,23 +2447,25 @@ async function affiliateRoutes(fastify) {
             return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
         }
 
-        // ★ TYPE: orders (completed only) / revenue (all orders)
+        // ★ TYPE: orders / revenue — completed orders from KH giới thiệu + chính affiliate
         if (type === 'orders' || type === 'revenue') {
             const ph = affIds.map(() => '?').join(',');
-            // Get all customer IDs referred by affiliates
+            // Tập KH: KH được giới thiệu + chính affiliate (source_customer_id)
             const custByRef = await db.all(`SELECT c.id, c.referrer_id FROM customers c WHERE c.referrer_id IN (${ph})`, affIds);
-            const custIds = custByRef.map(c => c.id);
-            if (custIds.length === 0) return { success: true, rows: [], total: 0 };
+            const selfCustIds = allAffs.map(a => a.source_customer_id).filter(Boolean);
+            const allCustIdsSet = new Set([...custByRef.map(c => c.id), ...selfCustIds]);
+            const allOrderCustIds = [...allCustIdsSet];
+            if (allOrderCustIds.length === 0) return { success: true, rows: [], total: 0 };
 
             const custRefMap = {};
             custByRef.forEach(c => { custRefMap[c.id] = c.referrer_id; });
+            // Map self-customer to their affiliate
+            allAffs.forEach(a => { if (a.source_customer_id) custRefMap[a.source_customer_id] = a.id; });
 
-            let orderWhere = [`oc.customer_id IN (${custIds.map(() => '?').join(',')})`];
-            let orderParams = [...custIds];
-            // 'orders' = only completed; 'revenue' = all orders
-            if (type === 'orders') {
-                orderWhere.push("oc.status = 'completed'");
-            }
+            let orderWhere = [`oc.customer_id IN (${allOrderCustIds.map(() => '?').join(',')})`];
+            let orderParams = [...allOrderCustIds];
+            // Both types show completed orders only
+            orderWhere.push("oc.status = 'completed'");
             if (from) { orderWhere.push("oc.created_at >= ?"); orderParams.push(from + ' 00:00:00'); }
             if (to) { orderWhere.push("oc.created_at <= ?"); orderParams.push(to + ' 23:59:59'); }
 
@@ -2741,7 +2797,7 @@ async function affiliateRoutes(fastify) {
 
             const children = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
-                       u.managed_by_user_id,
+                       u.managed_by_user_id, u.source_customer_id,
                        ct.name as tier_name, ct.percentage as tier_percentage,
                        p.full_name as parent_affiliate_name,
                        mgr.full_name as manager_name
@@ -2753,10 +2809,10 @@ async function affiliateRoutes(fastify) {
                 ORDER BY u.created_at DESC
             `, whereParams);
 
-            console.log('[my-system DEBUG] Found', children.length, 'children');
             const allIds = children.map(c => c.id);
-            let totalCustomers = 0, totalRevenue = 0, closedCount = 0, totalOrders = 0;
 
+            // ═══ PER-ROW STATS (filtered by date) ═══
+            let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
             if (allIds.length > 0) {
                 const ph = allIds.map(() => '?').join(',');
                 const custRows = await db.all(`
@@ -2793,12 +2849,56 @@ async function affiliateRoutes(fastify) {
                     totalRevenue += child.total_revenue;
                     closedCount += cs.closed_count;
                 });
+            }
 
-                // ★ Count total completed orders
-                if (allCustIds.length > 0) {
-                    const cph2 = allCustIds.map(() => '?').join(',');
-                    const orderCountRow = await db.get(`SELECT COUNT(*) as cnt FROM order_codes WHERE customer_id IN (${cph2}) AND status = 'completed'`, allCustIds);
-                    totalOrders = Number(orderCountRow.cnt);
+            // ═══ CARD STATS (independent queries) ═══
+            let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
+
+            // Card 1: 👥 Tổng Affiliate — TK mới tạo trong kỳ
+            if (from || to) {
+                let affCountWhere = [...whereClauses]; // same scope
+                let affCountParams = [...whereParams];
+                if (from) { affCountWhere.push("u.created_at >= ?"); affCountParams.push(from + ' 00:00:00'); }
+                if (to) { affCountWhere.push("u.created_at <= ?"); affCountParams.push(to + ' 23:59:59'); }
+                const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${affCountWhere.join(' AND ')}`, affCountParams);
+                cardStats.newAffiliates = Number(affCountRow.cnt);
+            } else {
+                cardStats.newAffiliates = children.length;
+            }
+
+            // Card 2: 📋 KH Giới Thiệu — KH từ TẤT CẢ affiliate, lọc ngày KH
+            if (allIds.length > 0) {
+                const ph = allIds.map(() => '?').join(',');
+                let custDateFilter = '';
+                const custParams2 = [...allIds];
+                if (from) { custDateFilter += ' AND c.created_at >= ?'; custParams2.push(from + ' 00:00:00'); }
+                if (to) { custDateFilter += ' AND c.created_at <= ?'; custParams2.push(to + ' 23:59:59'); }
+                const custCountRow = await db.get(`SELECT COUNT(*) as cnt FROM customers c WHERE c.referrer_id IN (${ph})${custDateFilter}`, custParams2);
+                cardStats.totalCustomers = Number(custCountRow.cnt);
+            }
+
+            // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu — từ KH giới thiệu + chính affiliate
+            if (allIds.length > 0) {
+                const ph = allIds.map(() => '?').join(',');
+                // Tập KH: KH được giới thiệu + chính affiliate (source_customer_id)
+                const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, allIds);
+                const selfCustIds = children.map(c => c.source_customer_id).filter(Boolean);
+                const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
+
+                if (allOrderCustIds.length > 0) {
+                    const oph = allOrderCustIds.map(() => '?').join(',');
+                    let orderDateFilter = '';
+                    const orderParams = [...allOrderCustIds];
+                    if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
+                    if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
+                    const orderRow = await db.get(`
+                        SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
+                        FROM order_codes oc
+                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                        WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                    `, orderParams);
+                    cardStats.totalOrders = Number(orderRow.cnt);
+                    cardStats.totalRevenue = Number(orderRow.revenue);
                 }
             }
 
@@ -2814,7 +2914,8 @@ async function affiliateRoutes(fastify) {
             return {
                 success: true, children,
                 selfStats: { total_customers: 0, closed_count: 0, total_revenue: 0 },
-                stats: { totalChildren: children.length, totalCustomers, totalRevenue, closedCount, totalOrders }
+                stats: { totalChildren: children.length, totalCustomers, totalRevenue, closedCount },
+                cardStats
             };
         }
 

@@ -405,45 +405,30 @@ function affGetFilteredAffiliates() {
 }
 
 function affRenderStats() {
-    const affiliates = affGetFilteredAffiliates();
-    const activeAffs = affiliates.filter(a => a.status !== 'locked');
-    const totalAffs = activeAffs.length;
-    const lockedCount = affiliates.filter(a => a.status === 'locked').length;
-    const totalCustomers = affiliates.reduce((s, a) => s + (a.total_customers || 0), 0);
-    const totalOrders = affiliates.reduce((s, a) => s + (a.total_orders || 0), 0);
-    const totalRevenue = affiliates.reduce((s, a) => s + (a.total_revenue || 0), 0);
-
-    // CRM breakdown
-    const CRM_TYPES = [
-        { key: 'nhu_cau', label: 'Nhu Cầu', icon: '🎯', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)' },
-        { key: 'ctv', label: 'CTV', icon: '🤝', color: '#1d4ed8', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)' },
-        { key: 'koc_tiktok', label: 'KOC Tiktok', icon: '🎬', color: '#dc2626', bg: 'linear-gradient(135deg,#fef2f2,#fee2e2)' },
-    ];
-    const crmCounts = {};
-    CRM_TYPES.forEach(c => crmCounts[c.key] = 0);
-    activeAffs.forEach(a => { if (a.source_crm_type && crmCounts[a.source_crm_type] !== undefined) crmCounts[a.source_crm_type]++; });
+    const cs = _affData.cardStats || {};
+    const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
 
     const el = document.getElementById('affStatsRow');
     if (!el) return;
     el.innerHTML = `
         <div class="stat-card" style="border-left:4px solid #4338ca;" onclick="affShowStatModal('affiliates')">
             <div class="label">👥 Tổng Affiliate</div>
-            <div class="value">${totalAffs}</div>
-            <div class="sub">${lockedCount ? '🔒 ' + lockedCount + ' đã khóa' : 'Đang hoạt động'}</div>
+            <div class="value">${cs.newAffiliates||0}</div>
+            <div class="sub">Đang hoạt động</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #059669;" onclick="affShowStatModal('customers')">
             <div class="label">📋 Khách Giới Thiệu</div>
-            <div class="value">${totalCustomers}</div>
+            <div class="value">${cs.totalCustomers||0}</div>
             <div class="sub">Từ tất cả affiliate</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #2563eb;" onclick="affShowStatModal('orders')">
             <div class="label">📦 Đơn Hàng</div>
-            <div class="value">${totalOrders}</div>
+            <div class="value">${cs.totalOrders||0}</div>
             <div class="sub">Đã hoàn thành</div>
         </div>
         <div class="stat-card" style="border-left:4px solid #f59e0b;" onclick="affShowStatModal('revenue')">
             <div class="label">💰 Doanh Thu</div>
-            <div class="value">${affFormatMoney(totalRevenue)}</div>
+            <div class="value">${_fmtRev(cs.totalRevenue)}</div>
             <div class="sub">Tổng doanh thu</div>
         </div>
     `;
