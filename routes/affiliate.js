@@ -250,15 +250,17 @@ async function affiliateRoutes(fastify) {
             const custRows = await db.all(custQuery, custParams);
             custRows.forEach(s => { stats[s.referrer_id] = { total_customers: s.total_customers, total_orders: 0, total_revenue: 0 }; });
 
-            // Count only COMPLETED orders and their revenue
+            // Count orders: chot_don + cancel_approved!=1 + not cancelled
             let orderQuery = `
                 SELECT c.referrer_id,
                        COUNT(DISTINCT oc.id) as total_orders,
                        COALESCE(SUM(oi.total), 0) as total_revenue
                 FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed'
+                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
                 LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE c.referrer_id IN (${placeholders})`;
+                WHERE c.referrer_id IN (${placeholders})
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')`;
             const orderParams = [...affiliateIds];
             if (from) { orderQuery += ` AND oc.created_at >= ?`; orderParams.push(from); }
             if (to) { orderQuery += ` AND oc.created_at <= ?`; orderParams.push(to + ' 23:59:59'); }
@@ -320,8 +322,12 @@ async function affiliateRoutes(fastify) {
                 const orderRow = await db.get(`
                     SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
                     FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
                     LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                    WHERE oc.customer_id IN (${oph})
+                      AND COALESCE(oc.status, 'active') != 'cancelled'
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
                 `, orderParams);
                 cardStats.totalOrders = Number(orderRow.cnt);
                 cardStats.totalRevenue = Number(orderRow.revenue);
@@ -389,7 +395,7 @@ async function affiliateRoutes(fastify) {
                 SELECT u.id, u.full_name, u.phone, u.username, u.status, u.created_at, u.source_crm_type,
                        u.managed_by_user_id,
                        mgr.full_name as manager_name, mgr.id as manager_id,
-                       COALESCE((SELECT SUM(oi.total) FROM customers c JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed' LEFT JOIN order_items oi ON oi.order_code_id = oc.id WHERE c.referrer_id = u.id ${from ? 'AND oc.created_at >= ?' : ''} ${to ? 'AND oc.created_at <= ?' : ''}), 0) as total_revenue
+                       COALESCE((SELECT SUM(oi.total) FROM customers c JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled' LEFT JOIN order_items oi ON oi.order_code_id = oc.id WHERE c.referrer_id = u.id AND COALESCE(c.cancel_approved, 0) != 1 AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${from ? 'AND oc.created_at >= ?' : ''} ${to ? 'AND oc.created_at <= ?' : ''}), 0) as total_revenue
                 FROM users u
                 LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
                 WHERE ${affIdFilter}
@@ -432,7 +438,7 @@ async function affiliateRoutes(fastify) {
                        aff.full_name as affiliate_name,
                        aff.managed_by_user_id as aff_manager_id,
                        emp.full_name as employee_name, emp.id as employee_id,
-                       COALESCE((SELECT SUM(oi.total) FROM order_codes oc JOIN order_items oi ON oi.order_code_id = oc.id WHERE oc.customer_id = c.id AND oc.status = 'completed'), 0) as customer_revenue
+                       COALESCE((SELECT SUM(oi.total) FROM order_codes oc JOIN order_items oi ON oi.order_code_id = oc.id WHERE oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled' AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')), 0) as customer_revenue
                 FROM customers c
                 LEFT JOIN users aff ON aff.id = c.referrer_id
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
@@ -466,8 +472,10 @@ async function affiliateRoutes(fastify) {
             const countQ = `
                 SELECT COUNT(DISTINCT oc.id) as total
                 FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed'
-                WHERE c.referrer_id IN (${ph}) ${dateFilter}`;
+                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
+                WHERE c.referrer_id IN (${ph})
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${dateFilter}`;
             const countR = await db.get(countQ, [...affIds, ...dateParams]);
 
             const dataQ = `
@@ -477,11 +485,13 @@ async function affiliateRoutes(fastify) {
                        emp.full_name as employee_name, emp.id as employee_id,
                        COALESCE(SUM(oi.total), 0) as order_revenue
                 FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND oc.status = 'completed'
+                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
                 LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 LEFT JOIN users aff ON aff.id = c.referrer_id
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
-                WHERE c.referrer_id IN (${ph}) ${dateFilter}
+                WHERE c.referrer_id IN (${ph})
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${dateFilter}
                 GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, c.customer_name, c.id, aff.full_name, aff.id, emp.full_name, emp.id
                 ORDER BY oc.created_at DESC
                 LIMIT ? OFFSET ?`;
@@ -2464,8 +2474,10 @@ async function affiliateRoutes(fastify) {
 
             let orderWhere = [`oc.customer_id IN (${allOrderCustIds.map(() => '?').join(',')})`];
             let orderParams = [...allOrderCustIds];
-            // Both types show completed orders only
-            orderWhere.push("oc.status = 'completed'");
+            // Both types: chot_don + cancel_approved!=1 + not cancelled
+            orderWhere.push("COALESCE(oc.status, 'active') != 'cancelled'");
+            orderWhere.push("EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')");
+            orderWhere.push("EXISTS (SELECT 1 FROM customers _cc WHERE _cc.id = oc.customer_id AND COALESCE(_cc.cancel_approved, 0) != 1)");
             if (from) { orderWhere.push("oc.created_at >= ?"); orderParams.push(from + ' 00:00:00'); }
             if (to) { orderWhere.push("oc.created_at <= ?"); orderParams.push(to + ' 23:59:59'); }
 
@@ -2551,8 +2563,13 @@ async function affiliateRoutes(fastify) {
                 if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
                 const revRows = await db.all(`
                     SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'${revDateFilter}
+                    FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
+                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${cph})
+                      AND COALESCE(oc.status, 'active') != 'cancelled'
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${revDateFilter}
                     GROUP BY oc.customer_id
                 `, revParams);
                 const revenueMap = {};
@@ -2742,8 +2759,13 @@ async function affiliateRoutes(fastify) {
                 if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
                 const orderRow = await db.get(`
                     SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                    FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
+                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${oph})
+                      AND COALESCE(oc.status, 'active') != 'cancelled'
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
                 `, orderParams);
                 cardStats.totalOrders = Number(orderRow.cnt);
                 cardStats.totalRevenue = Number(orderRow.revenue);
@@ -2880,8 +2902,13 @@ async function affiliateRoutes(fastify) {
                     const cph = allCustIds.map(() => '?').join(',');
                     const revRows = await db.all(`
                         SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
-                        FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                        WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
+                        FROM order_codes oc
+                        JOIN customers c ON c.id = oc.customer_id
+                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                        WHERE oc.customer_id IN (${cph})
+                          AND COALESCE(oc.status, 'active') != 'cancelled'
+                          AND COALESCE(c.cancel_approved, 0) != 1
+                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
                         GROUP BY oc.customer_id
                     `, allCustIds);
                     revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
@@ -2943,8 +2970,12 @@ async function affiliateRoutes(fastify) {
                     const orderRow = await db.get(`
                         SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
                         FROM order_codes oc
+                        JOIN customers c ON c.id = oc.customer_id
                         LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                        WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                        WHERE oc.customer_id IN (${oph})
+                          AND COALESCE(oc.status, 'active') != 'cancelled'
+                          AND COALESCE(c.cancel_approved, 0) != 1
+                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
                     `, orderParams);
                     cardStats.totalOrders = Number(orderRow.cnt);
                     cardStats.totalRevenue = Number(orderRow.revenue);
