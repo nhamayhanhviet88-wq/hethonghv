@@ -162,11 +162,12 @@ async function _affSysLoad() {
             const RC = { hoa_hong:'#f59e0b', ctv:'#3b82f6', nuoi_duong:'#8b5cf6', sinh_vien:'#10b981', tkaffiliate:'#ec4899' };
             const filtered = _affSysSearch ? children.filter(c => { const q = _affSysSearch.toLowerCase(); return (c.full_name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.parent_affiliate_name||'').toLowerCase().includes(q); }) : children;
             // Desktop table
-            html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
+            html += `<div class="aff-table-wrap"><table class="table"><thead><tr><th style="width:40px;">#</th><th>Tên</th><th>SĐT</th>${isGD?'<th>Aff Cha</th>':''}<th>NV Phụ Trách</th><th>Loại</th><th style="text-align:center;">KH</th><th style="text-align:center;">Chốt</th><th style="text-align:right;">Doanh Số</th><th style="text-align:center;">TT</th><th>Ngày TG</th></tr></thead><tbody>`;
             filtered.forEach((c,i) => {
                 const sb = c.status==='active'?'<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">✅</span>':'<span style="background:#fef2f2;color:#991b1b;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">🔒</span>';
                 html += `<tr><td style="font-weight:600;color:#6b7280;">${i+1}</td><td style="font-weight:700;color:#1e293b;">${c.full_name}</td><td style="color:#334155;">${c.phone||'—'}</td>`;
                 if (isGD) html += `<td style="font-size:12px;color:#6366f1;font-weight:600;">${c.parent_affiliate_name||'<span style="color:#9ca3af;">— Gốc —</span>'}</td>`;
+                html += `<td style="font-size:12px;color:#0ea5e9;font-weight:600;">${c.manager_name||'<span style="color:#9ca3af;">—</span>'}</td>`;
                 html += `<td><span style="background:${RC[c.role]||'#6b7280'}20;color:${RC[c.role]||'#6b7280'};padding:2px 10px;border-radius:8px;font-size:11px;font-weight:700;">${RL[c.role]||c.role}</span></td>
                     <td style="text-align:center;font-weight:700;color:#3b82f6;">${c.total_customers}</td><td style="text-align:center;font-weight:700;color:#16a34a;">${c.closed_count}</td>
                     <td style="text-align:right;font-weight:700;color:#d97706;">${Number(c.total_revenue).toLocaleString('vi-VN')} đ</td><td style="text-align:center;">${sb}</td>
