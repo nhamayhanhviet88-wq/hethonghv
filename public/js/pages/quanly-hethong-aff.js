@@ -209,6 +209,11 @@ async function _affOrgLoad() {
         if (!data.success) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>Lỗi</h3></div>`; return; }
         // ★ CHỈ giữ PHÒNG KINH DOANH
         _affOrgData = data.departments.filter(d => d.name && d.name.toUpperCase().includes('KINH DOANH'));
+        const _orgCardStats = data.cardStats || {};
+        const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
+        // Store cardStats for rendering
+        window._affOrgCardStats = _orgCardStats;
+        window._affOrgFmtRev = _fmtRev;
         // ★ Auto-expand dept + team (không mở affiliate list của NV)
         _affOrgExpanded.clear();
         _affOrgData.forEach(dept => {
@@ -234,14 +239,14 @@ function _affRenderOrg() {
     </div>`;
     html += _aff_dateFilterHtml();
     html += _affRenderTabs();
-    const grand = { affiliates:0, customers:0, revenue:0, closed:0 };
-    _affOrgData.forEach(d => { grand.affiliates+=d.stats.affiliates; grand.customers+=d.stats.customers; grand.revenue+=d.stats.revenue; grand.closed+=d.stats.closed; });
+    const cs = window._affOrgCardStats || {};
+    const _fmtRev = window._affOrgFmtRev || ((v) => Number(v||0).toLocaleString('vi-VN')+'đ');
 
-    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
-        <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(99,102,241,0.3);"><div style="font-size:28px;font-weight:900;">${grand.affiliates}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">👥 Tổng Affiliate</div></div>
-        <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(59,130,246,0.3);"><div style="font-size:28px;font-weight:900;">${grand.customers}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">📋 Tổng KH Giới Thiệu</div></div>
-        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(245,158,11,0.3);"><div style="font-size:28px;font-weight:900;">${Number(grand.revenue).toLocaleString('vi-VN')} đ</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">💰 Tổng Doanh Số</div></div>
-        <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:20px;color:white;box-shadow:0 4px 20px rgba(16,185,129,0.3);"><div style="font-size:28px;font-weight:900;">${grand.closed}</div><div style="font-size:12px;opacity:0.85;margin-top:4px;">✅ KH Chốt Đơn</div></div></div>`;
+    html += `<div class="aff-stat-grid">
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
 
     const ROLE_LABELS = { truong_phong:'⭐ Trưởng Phòng', nhan_vien:'👤 Nhân Viên', quan_ly:'🔷 Quản Lý', quan_ly_cap_cao:'💎 QL Cấp Cao', thu_viec:'🔰 Thử Việc' };
     const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];

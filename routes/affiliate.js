@@ -2701,7 +2701,56 @@ async function affiliateRoutes(fastify) {
         });
         departments.sort((a, b) => b.stats.revenue - a.stats.revenue);
 
-        return { success: true, departments };
+        // ═══ CARD STATS (independent queries — same as my-system) ═══
+        let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
+
+        // Card 1: 👥 TK affiliate mới tạo trong kỳ
+        if (from || to) {
+            let dateFilter = "u.role = 'tkaffiliate' AND u.status IN ('active','locked')";
+            const dateParams = [];
+            if (from) { dateFilter += ' AND u.created_at >= ?'; dateParams.push(from + ' 00:00:00'); }
+            if (to) { dateFilter += ' AND u.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
+            const affCountRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${dateFilter}`, dateParams);
+            cardStats.newAffiliates = Number(affCountRow.cnt);
+        } else {
+            cardStats.newAffiliates = affiliates.length;
+        }
+
+        // Card 2: 📋 KH Giới Thiệu
+        if (affIds.length > 0) {
+            const ph = affIds.map(() => '?').join(',');
+            let custDateFilter2 = '';
+            const custParams2 = [...affIds];
+            if (from) { custDateFilter2 += ' AND c.created_at >= ?'; custParams2.push(from + ' 00:00:00'); }
+            if (to) { custDateFilter2 += ' AND c.created_at <= ?'; custParams2.push(to + ' 23:59:59'); }
+            const custCountRow = await db.get(`SELECT COUNT(*) as cnt FROM customers c WHERE c.referrer_id IN (${ph})${custDateFilter2}`, custParams2);
+            cardStats.totalCustomers = Number(custCountRow.cnt);
+        }
+
+        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu (KH giới thiệu + chính affiliate)
+        if (affIds.length > 0) {
+            const ph = affIds.map(() => '?').join(',');
+            const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affIds);
+            const selfCustIds = affiliates.map(a => a.source_customer_id).filter(Boolean);
+            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
+
+            if (allOrderCustIds.length > 0) {
+                const oph = allOrderCustIds.map(() => '?').join(',');
+                let orderDateFilter = '';
+                const orderParams = [...allOrderCustIds];
+                if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
+                if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
+                const orderRow = await db.get(`
+                    SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${oph}) AND oc.status = 'completed'${orderDateFilter}
+                `, orderParams);
+                cardStats.totalOrders = Number(orderRow.cnt);
+                cardStats.totalRevenue = Number(orderRow.revenue);
+            }
+        }
+
+        return { success: true, departments, cardStats };
     });
 
     // ========== QUẢN LÝ HỆ THỐNG AFFILIATE (cho tkaffiliate xem con) ==========
