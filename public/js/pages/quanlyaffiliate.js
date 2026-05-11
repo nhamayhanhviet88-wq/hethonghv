@@ -102,7 +102,7 @@ function renderQuanLyAffiliatePage(container) {
             <h2>🤝 Chỉ Số Affiliate HV</h2>
             <div class="actions">
                 <button class="btn btn-secondary" onclick="affLoadData()">🔄 Tải lại</button>
-                <button class="btn btn-secondary" onclick="affShowTransferHistory()" style="border-color:#93c5fd;color:#2563eb;">📜 Lịch Sử Bàn Giao</button>
+                ${currentUser.role === 'giam_doc' ? '<button class="btn btn-secondary" onclick="affShowTransferHistory()" style="border-color:#93c5fd;color:#2563eb;">📜 Lịch Sử Bàn Giao</button>' : ''}
                 ${currentUser.role === 'giam_doc' ? '<button class="btn btn-success" onclick="affOpenAddDeptModal()">➕ Thêm Đơn Vị</button>' : ''}
             </div>
         </div>
@@ -583,7 +583,7 @@ function affRenderTree() {
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(empRevenue)}</span>
-                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
+                        ${empAffs.length > 0 && currentUser.role === 'giam_doc' ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
@@ -646,7 +646,7 @@ function affRenderTree() {
                     </div>
                     <div class="emp-stats">
                         <span>💰 ${affFormatMoney(empRevenue)}</span>
-                        ${empAffs.length > 0 ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
+                        ${empAffs.length > 0 && currentUser.role === 'giam_doc' ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
 
