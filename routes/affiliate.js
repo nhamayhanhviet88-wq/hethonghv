@@ -2374,6 +2374,18 @@ async function affiliateRoutes(fastify) {
             });
         }
 
+        // 5a. ★ Also include managers OUTSIDE KD who manage affiliates (GĐ, QLCC, etc.)
+        //     This ensures total affiliate count matches between tabs
+        if (kdDept) {
+            const inKdTree = new Set([kdDept.id, ...depts.filter(d => d.parent_id === kdDept.id).map(d => d.id)]);
+            Object.values(empMap).forEach(emp => {
+                if (emp.affiliates.length > 0 && !inKdTree.has(emp.dept_id)) {
+                    // Force this manager into KD phong level so their affiliates appear in the org tree
+                    emp.dept_id = kdDept.id;
+                }
+            });
+        }
+
         // 5b. Group employees theo team/phòng ban
         const orgTree = {};
         Object.values(empMap).forEach(emp => {
