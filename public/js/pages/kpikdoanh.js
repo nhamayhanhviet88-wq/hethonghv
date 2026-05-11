@@ -1397,14 +1397,17 @@ function kpiRenderMeetingCommit(el) {
                 p.avgPct = 0;
             }
             p.sessionCount = sessKeys.length;
+            p.uid = parseInt(uid);
             return p;
         }).sort(function(a, b) { return b.avgPct - a.avgPct; });
 
         // ★ NV filtering: only show self
         if (_kpiIsNV() && currentUser) {
-            personArr = personArr.filter(function(p) {
-                return personMap[currentUser.id] && p === personMap[currentUser.id];
-            });
+            personArr = personArr.filter(function(p) { return p.uid === currentUser.id; });
+            // If user has no personal commitments, show placeholder with 0%
+            if (personArr.length === 0) {
+                personArr = [{ uid: currentUser.id, name: currentUser.full_name, role: currentUser.role, total: 0, done: 0, avgPct: 0, sessionCount: 0 }];
+            }
         }
 
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
@@ -1760,14 +1763,16 @@ function mcRenderYearlySummary() {
         }
         var yearPct = monthAvgs.length > 0 ? monthAvgs.reduce(function(a, b) { return a + b; }, 0) / monthAvgs.length : 0;
         yearPct = Math.round(yearPct * 10) / 10;
-        return { name: p.name, role: p.role, yearPct: yearPct, monthCount: monthAvgs.length };
+        return { uid: parseInt(uid), name: p.name, role: p.role, yearPct: yearPct, monthCount: monthAvgs.length };
     }).sort(function(a, b) { return b.yearPct - a.yearPct; });
 
     // ★ NV filtering: only show self in yearly
     if (_kpiIsNV() && currentUser) {
-        personYrArr = personYrArr.filter(function(p) {
-            return personYr[currentUser.id] && p.name === personYr[currentUser.id].name;
-        });
+        personYrArr = personYrArr.filter(function(p) { return p.uid === currentUser.id; });
+        // If user has no yearly data, show placeholder with 0%
+        if (personYrArr.length === 0) {
+            personYrArr = [{ uid: currentUser.id, name: currentUser.full_name, role: currentUser.role, yearPct: 0, monthCount: 0 }];
+        }
     }
 
     // ===== TEAMS =====
