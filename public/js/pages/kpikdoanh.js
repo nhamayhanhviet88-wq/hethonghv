@@ -575,6 +575,10 @@ async function kpiLoadAll() {
         _mcTeams = results[3].teams || [];
         _mcSessions = results[4].sessions || [];
         _mcAllCommitments = results[4].allCommitments || [];
+        // ★ TP: filter _mcTeams to only own team
+        if (_kpiIsTP() && currentUser && currentUser.department_id) {
+            _mcTeams = _mcTeams.filter(function(t) { return t.id === currentUser.department_id; });
+        }
         // Load yearly data
         try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiYear); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
@@ -624,6 +628,10 @@ async function kpiLoadData() {
         _mcTeams = results[3].teams || [];
         _mcSessions = results[4].sessions || [];
         _mcAllCommitments = results[4].allCommitments || [];
+        // ★ TP: filter _mcTeams to only own team
+        if (_kpiIsTP() && currentUser && currentUser.department_id) {
+            _mcTeams = _mcTeams.filter(function(t) { return t.id === currentUser.department_id; });
+        }
         try { _mcYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + kpiY2); } catch(e) { _mcYearlyData = null; }
         if (_mcSessions.length > 0) {
             _mcSession = _mcSessions[_mcSessions.length - 1];
@@ -1451,6 +1459,10 @@ async function kpiLoadMeetingCommit() {
     try {
         var empData = await apiCall('/api/meeting-commitments/employees');
         _mcTeams = empData.teams || [];
+        // ★ TP: filter _mcTeams to only own team
+        if (_kpiIsTP() && currentUser && currentUser.department_id) {
+            _mcTeams = _mcTeams.filter(function(t) { return t.id === currentUser.department_id; });
+        }
         var mcParts = _kpi.month.split('-').map(Number);
         var mcYear = mcParts[0], mcMo = mcParts[1];
         var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + mcMo + '&year=' + mcYear);
@@ -1972,6 +1984,19 @@ function mcRenderYearlySummary() {
         }
     }
 
+    // ★ TP filtering: only show team members in yearly
+    if (_kpiIsTP() && currentUser) {
+        var _tpYrIds = new Set();
+        if (_kpi.data && _kpi.data.teams) {
+            _kpi.data.teams.forEach(function(t) {
+                if (t.employees) t.employees.forEach(function(e) { _tpYrIds.add(e.user_id); });
+            });
+        }
+        if (_tpYrIds.size > 0) {
+            personYrArr = personYrArr.filter(function(p) { return _tpYrIds.has(p.uid); });
+        }
+    }
+
     // ===== TEAMS =====
     var teamYr = {};
     for (var ci2 = 0; ci2 < yearCommits.length; ci2++) {
@@ -2017,6 +2042,14 @@ function mcRenderYearlySummary() {
             var myTeamForYr = _mcTeams.find(function(t) { return t.id === currentUser.department_id; });
             if (myTeamForYr) {
                 teamYrArr = teamYrArr.filter(function(t) { return t.name === myTeamForYr.name; });
+            }
+        }
+
+        // ★ TP filtering: only show own team in yearly
+        if (_kpiIsTP() && currentUser && currentUser.department_id) {
+            var tpTeamForYr = _mcTeams.find(function(t) { return t.id === currentUser.department_id; });
+            if (tpTeamForYr) {
+                teamYrArr = teamYrArr.filter(function(t) { return t.name === tpTeamForYr.name; });
             }
         }
     }
