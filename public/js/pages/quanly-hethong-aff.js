@@ -240,13 +240,14 @@ async function _affOrgLoad() {
                 totalRevenue: s.revenue || 0,
                 totalOrders: s.closed || 0
             };
-            // Override dept + team stats → chỉ hiện chỉ số của mình
+            // Override dept + team stats → chỉ hiện chỉ số của mình + ẩn team không liên quan
             _affOrgData.forEach(dept => {
                 dept.stats = { ...s };
-                (dept.teams || []).forEach(team => {
-                    const hasMe = (team.employees || []).some(e => e.id === currentUser.id);
-                    team.stats = hasMe ? { ...s } : { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
-                });
+                // ★ Chỉ giữ team chứa currentUser, ẩn team khác
+                dept.teams = (dept.teams || []).filter(team =>
+                    (team.employees || []).some(e => e.id === currentUser.id)
+                );
+                dept.teams.forEach(team => { team.stats = { ...s }; });
                 // phongEmployees override
                 dept.phongEmployees = (dept.phongEmployees || []).filter(e => e.id === currentUser.id);
             });
