@@ -561,10 +561,10 @@ async function kpiLoadAll() {
 
         // ★ Apply NV / TP filtering
         var kpiData = _kpiFilterDataTP(_kpiFilterData(results[0]));
+        _kpi.data = kpiData; // Set BEFORE adv filtering so _kpiFilterAdvDataTP can read team members
         var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
         var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[2]));
 
-        _kpi.data = kpiData;
         kpiRenderSummary(kpiData);
         kpiRenderContent(kpiData);
 
@@ -610,10 +610,10 @@ async function kpiLoadData() {
 
         // ★ Apply NV / TP filtering
         var kpiData = _kpiFilterDataTP(_kpiFilterData(results[0]));
+        _kpi.data = kpiData; // Set BEFORE adv filtering so _kpiFilterAdvDataTP can read team members
         var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
         var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[2]));
 
-        _kpi.data = kpiData;
         kpiRenderSummary(kpiData);
         kpiRenderContent(kpiData);
         var lbEl = document.getElementById('kpiLeaderboard');
@@ -2915,6 +2915,24 @@ async function kpiLoadAchievement(year, month) {
                     var myUserData = (rawData.users || []).find(function(u) { return u.user_id === currentUser.id; });
                     return myUserData && t.dept_id === myUserData.department_id;
                 });
+            }
+        }
+        // ★ TP filtering: only show own team members in achievement tracker
+        if (_kpiIsTP() && currentUser && rawData) {
+            // Get team employee IDs from filtered KPI data
+            var tpEmpIds = new Set();
+            var tpDeptIds = new Set();
+            if (_kpi.data && _kpi.data.teams) {
+                _kpi.data.teams.forEach(function(t) {
+                    if (t.dept_id) tpDeptIds.add(t.dept_id);
+                    if (t.employees) t.employees.forEach(function(e) { tpEmpIds.add(e.user_id); });
+                });
+            }
+            if (tpEmpIds.size > 0 && rawData.users) {
+                rawData.users = rawData.users.filter(function(u) { return tpEmpIds.has(u.user_id); });
+            }
+            if (tpDeptIds.size > 0 && rawData.teams) {
+                rawData.teams = rawData.teams.filter(function(t) { return tpDeptIds.has(t.dept_id); });
             }
         }
         _kpiAchData = rawData;
