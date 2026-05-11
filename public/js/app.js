@@ -162,6 +162,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     handleRoute();
 
+    // ★ Remove auth loading overlay (fade out smoothly)
+    var _authOverlay = document.getElementById('authLoadingOverlay');
+    if (_authOverlay) {
+        _authOverlay.style.transition = 'opacity .3s';
+        _authOverlay.style.opacity = '0';
+        setTimeout(function() { _authOverlay.remove(); }, 300);
+    }
+
     // ★ DOITAC PORTAL — skip ALL internal popups & polling for speed
     if (_isDoitacDomain) return;
 
