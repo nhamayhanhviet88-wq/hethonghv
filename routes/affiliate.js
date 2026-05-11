@@ -2271,6 +2271,186 @@ async function affiliateRoutes(fastify) {
         return { success: true };
     });
 
+    // ========== DRILL-DOWN CHI TIẾT STAT CARDS ==========
+    fastify.get('/api/affiliate/stat-detail', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
+        const userId = request.user.id;
+        const role = request.user.role;
+        const { type, managerId, from, to, page = 1 } = request.query;
+        const PAGE_SIZE = 25;
+        const offset = (Number(page) - 1) * PAGE_SIZE;
+
+        // ★ Fetch department_id from DB (not in JWT)
+        const _currentUserFull = await db.get('SELECT department_id FROM users WHERE id = ?', [userId]);
+        const myDepartmentId = _currentUserFull ? _currentUserFull.department_id : null;
+
+        // ★ Build allowed scope (same logic as my-system)
+        let allowedManagerIds = null;
+        if (role === 'giam_doc') {
+            allowedManagerIds = null;
+        } else if (role === 'quan_ly' || role === 'quan_ly_cap_cao') {
+            if (!myDepartmentId) return { success: true, rows: [], total: 0 };
+            const allDepts = await db.all('SELECT id, parent_id, head_user_id FROM departments');
+            const _getChildDepts = (pid) => { const ids = new Set(); const walk = (p) => { ids.add(p); allDepts.filter(d => d.parent_id === p).forEach(d => walk(d.id)); }; walk(pid); return ids; };
+            const childIds = _getChildDepts(myDepartmentId);
+            allDepts.filter(d => d.head_user_id === userId).forEach(d => { _getChildDepts(d.id).forEach(id => childIds.add(id)); });
+            const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien')`, [...childIds]);
+            allowedManagerIds = new Set(mgrUsers.map(u => u.id));
+        } else if (role === 'truong_phong') {
+            if (!myDepartmentId) return { success: true, rows: [], total: 0 };
+            const allDepts = await db.all('SELECT id, parent_id, head_user_id FROM departments');
+            const _getChildDepts = (pid) => { const ids = new Set(); const walk = (p) => { ids.add(p); allDepts.filter(d => d.parent_id === p).forEach(d => walk(d.id)); }; walk(pid); return ids; };
+            const childIds = _getChildDepts(myDepartmentId);
+            const mgrUsers = await db.all(`SELECT id FROM users WHERE department_id IN (${[...childIds].map(() => '?').join(',')}) AND role NOT IN ('tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien','quan_ly','quan_ly_cap_cao')`, [...childIds]);
+            allowedManagerIds = new Set(mgrUsers.map(u => u.id));
+        } else {
+            allowedManagerIds = new Set([userId]);
+        }
+
+        // Build affiliate WHERE
+        let affWhere = ["u.role = 'tkaffiliate'"];
+        let affParams = [];
+        if (allowedManagerIds !== null) {
+            if (managerId && allowedManagerIds.has(Number(managerId))) {
+                affWhere.push("u.managed_by_user_id = ?"); affParams.push(Number(managerId));
+            } else if (!managerId) {
+                const mgrArr = [...allowedManagerIds];
+                if (mgrArr.length === 0) return { success: true, rows: [], total: 0 };
+                affWhere.push(`u.managed_by_user_id IN (${mgrArr.map(() => '?').join(',')})`); affParams.push(...mgrArr);
+            } else {
+                return { success: true, rows: [], total: 0 };
+            }
+        } else if (managerId) {
+            affWhere.push("u.managed_by_user_id = ?"); affParams.push(Number(managerId));
+        }
+        if (from) { affWhere.push("u.created_at >= ?"); affParams.push(from + ' 00:00:00'); }
+        if (to) { affWhere.push("u.created_at <= ?"); affParams.push(to + ' 23:59:59'); }
+
+        // ★ TYPE: affiliates — list all affiliates with manager name, revenue, date
+        if (type === 'affiliates') {
+            const totalRow = await db.get(`SELECT COUNT(*) as cnt FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+            const total = Number(totalRow.cnt);
+            const rows = await db.all(`
+                SELECT u.id, u.full_name, u.phone, u.created_at, u.managed_by_user_id,
+                       mgr.full_name as manager_name
+                FROM users u
+                LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
+                WHERE ${affWhere.join(' AND ')}
+                ORDER BY u.created_at DESC
+                LIMIT ${PAGE_SIZE} OFFSET ${offset}
+            `, affParams);
+            // Get revenue for each affiliate on this page
+            if (rows.length > 0) {
+                const ids = rows.map(r => r.id);
+                const ph = ids.map(() => '?').join(',');
+                const custByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, ids);
+                const custIds = custByRef.map(c => c.id);
+                let revMap = {};
+                if (custIds.length > 0) {
+                    const cph = custIds.map(() => '?').join(',');
+                    const revRows = await db.all(`SELECT oc.customer_id, COALESCE(SUM(oi.total),0) as revenue FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id=oc.id WHERE oc.customer_id IN (${cph}) AND oc.status='completed' GROUP BY oc.customer_id`, custIds);
+                    revRows.forEach(r => { revMap[r.customer_id] = Number(r.revenue); });
+                }
+                const refRev = {};
+                custByRef.forEach(c => { const rev = revMap[c.id] || 0; if (rev > 0) refRev[c.referrer_id] = (refRev[c.referrer_id] || 0) + rev; });
+                rows.forEach(r => { r.total_revenue = refRev[r.id] || 0; });
+            }
+            return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
+        }
+
+        // Get all affiliate IDs in scope for customer/order queries
+        const allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+        const affIds = allAffs.map(a => a.id);
+        if (affIds.length === 0) return { success: true, rows: [], total: 0 };
+
+        // ★ TYPE: customers — all referred customers
+        if (type === 'customers') {
+            const ph = affIds.map(() => '?').join(',');
+            let custWhere = [`c.referrer_id IN (${ph})`];
+            let custParams = [...affIds];
+            if (from) { custWhere.push("c.created_at >= ?"); custParams.push(from + ' 00:00:00'); }
+            if (to) { custWhere.push("c.created_at <= ?"); custParams.push(to + ' 23:59:59'); }
+            const totalRow = await db.get(`SELECT COUNT(*) as cnt FROM customers c WHERE ${custWhere.join(' AND ')}`, custParams);
+            const total = Number(totalRow.cnt);
+            const rows = await db.all(`
+                SELECT c.id, c.customer_name, c.phone, c.created_at, c.order_status,
+                       c.referrer_id, aff.full_name as affiliate_name,
+                       mgr.full_name as manager_name
+                FROM customers c
+                LEFT JOIN users aff ON aff.id = c.referrer_id
+                LEFT JOIN users mgr ON mgr.id = aff.managed_by_user_id
+                WHERE ${custWhere.join(' AND ')}
+                ORDER BY c.created_at DESC
+                LIMIT ${PAGE_SIZE} OFFSET ${offset}
+            `, custParams);
+            // Get revenue per customer
+            if (rows.length > 0) {
+                const cids = rows.map(r => r.id);
+                const cph = cids.map(() => '?').join(',');
+                const revRows = await db.all(`SELECT oc.customer_id, COALESCE(SUM(oi.total),0) as revenue FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id=oc.id WHERE oc.customer_id IN (${cph}) AND oc.status='completed' GROUP BY oc.customer_id`, cids);
+                const revMap = {};
+                revRows.forEach(r => { revMap[r.customer_id] = Number(r.revenue); });
+                rows.forEach(r => { r.total_revenue = revMap[r.id] || 0; });
+            }
+            return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
+        }
+
+        // ★ TYPE: orders / closed — all orders from referred customers
+        if (type === 'orders' || type === 'closed') {
+            const ph = affIds.map(() => '?').join(',');
+            // Get all customer IDs referred by affiliates
+            const custByRef = await db.all(`SELECT c.id, c.referrer_id FROM customers c WHERE c.referrer_id IN (${ph})`, affIds);
+            const custIds = custByRef.map(c => c.id);
+            if (custIds.length === 0) return { success: true, rows: [], total: 0 };
+
+            const custRefMap = {};
+            custByRef.forEach(c => { custRefMap[c.id] = c.referrer_id; });
+
+            let orderWhere = [`oc.customer_id IN (${custIds.map(() => '?').join(',')})`];
+            let orderParams = [...custIds];
+            if (type === 'closed') {
+                orderWhere.push("oc.status = 'completed'");
+            }
+            if (from) { orderWhere.push("oc.created_at >= ?"); orderParams.push(from + ' 00:00:00'); }
+            if (to) { orderWhere.push("oc.created_at <= ?"); orderParams.push(to + ' 23:59:59'); }
+
+            const totalRow = await db.get(`SELECT COUNT(*) as cnt FROM order_codes oc WHERE ${orderWhere.join(' AND ')}`, orderParams);
+            const total = Number(totalRow.cnt);
+            const rows = await db.all(`
+                SELECT oc.id, oc.order_code, oc.created_at, oc.status,
+                       oc.customer_id,
+                       c.customer_name,
+                       COALESCE(SUM(oi.total), 0) as revenue
+                FROM order_codes oc
+                LEFT JOIN customers c ON c.id = oc.customer_id
+                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                WHERE ${orderWhere.join(' AND ')}
+                GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, oc.customer_id, c.customer_name
+                ORDER BY oc.created_at DESC
+                LIMIT ${PAGE_SIZE} OFFSET ${offset}
+            `, orderParams);
+
+            // Attach affiliate name + manager name
+            const affMap = {};
+            allAffs.forEach(a => { affMap[a.id] = a; });
+            const mgrIds = [...new Set(allAffs.map(a => a.managed_by_user_id).filter(Boolean))];
+            let mgrMap = {};
+            if (mgrIds.length > 0) {
+                const mgrRows = await db.all(`SELECT id, full_name FROM users WHERE id IN (${mgrIds.map(() => '?').join(',')})`, mgrIds);
+                mgrRows.forEach(m => { mgrMap[m.id] = m.full_name; });
+            }
+            rows.forEach(r => {
+                const refId = custRefMap[r.customer_id];
+                const aff = refId ? affMap[refId] : null;
+                r.affiliate_name = aff ? aff.full_name : '—';
+                r.manager_name = aff && aff.managed_by_user_id ? (mgrMap[aff.managed_by_user_id] || '—') : '—';
+                r.revenue = Number(r.revenue);
+            });
+            return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
+        }
+
+        return { success: false, error: 'Invalid type' };
+    });
+
     // ========== THỐNG KÊ AFFILIATE THEO TỔ CHỨC (cho GĐ) ==========
     fastify.get('/api/affiliate/org-stats', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const { from, to } = request.query;

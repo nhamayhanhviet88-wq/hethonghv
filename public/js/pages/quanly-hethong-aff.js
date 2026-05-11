@@ -148,10 +148,10 @@ async function _affSysLoad() {
         }
         html += _affRenderTabs();
         html += `<div class="aff-stat-grid">
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);"><div class="aff-stat-val">${stats.totalChildren}</div><div class="aff-stat-lbl">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);"><div class="aff-stat-val">${stats.closedCount}</div><div class="aff-stat-lbl">✅ KH Chốt Đơn</div></div></div>`;
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${stats.totalChildren}</div><div class="aff-stat-lbl">👥 ${isGD?'Tổng Affiliate':'Affiliate Con'}</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${stats.totalCustomers}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${Number(stats.totalRevenue).toLocaleString('vi-VN')} đ</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('closed')"><div class="aff-stat-val">${stats.closedCount}</div><div class="aff-stat-lbl">✅ KH Chốt Đơn</div></div></div>`;
         // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }
@@ -449,13 +449,151 @@ function _aff_userCard(u, indent, ROLE_BADGE, ROLE_BG) {
         + `</div></div>`;
 }
 
+// ==================== DRILL-DOWN STAT CARD MODAL ====================
+const _AFF_DRILL_TITLES = {
+    affiliates: '👥 Danh Sách Affiliate',
+    customers: '📋 Danh Sách KH Giới Thiệu',
+    orders: '💰 Danh Sách Đơn Hàng',
+    closed: '✅ Danh Sách Đơn Chốt'
+};
+const _AFF_DRILL_COLORS = { affiliates: '#6366f1', customers: '#3b82f6', orders: '#d97706', closed: '#059669' };
+
+async function _affStatDrill(type, page = 1) {
+    // Build params
+    const dr = _aff_getDateRange();
+    const params = [`type=${type}`, `page=${page}`];
+    if (_aff_selectedMgrId) params.push(`managerId=${_aff_selectedMgrId}`);
+    if (dr.from) params.push(`from=${dr.from}`);
+    if (dr.to) params.push(`to=${dr.to}`);
+
+    // Show loading overlay
+    let overlay = document.getElementById('affDrillOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'affDrillOverlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = 'none'; };
+
+    const color = _AFF_DRILL_COLORS[type] || '#6366f1';
+    overlay.innerHTML = `<div style="background:white;border-radius:16px;width:95%;max-width:950px;max-height:88vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;">
+        <div style="padding:20px 24px;background:linear-gradient(135deg,${color},${color}dd);color:white;display:flex;align-items:center;justify-content:space-between;">
+            <h3 style="margin:0;font-size:16px;font-weight:800;">${_AFF_DRILL_TITLES[type]}</h3>
+            <button onclick="document.getElementById('affDrillOverlay').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:10px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px;"><div style="font-size:14px;color:#94a3b8;">⏳ Đang tải dữ liệu...</div></div>
+    </div>`;
+
+    try {
+        const data = await apiCall('/api/affiliate/stat-detail?' + params.join('&'));
+        if (!data.success) throw new Error('API error');
+
+        const { rows, total, pageSize } = data;
+        const totalPages = Math.ceil(total / pageSize);
+        let tableHtml = '';
+
+        if (type === 'affiliates') {
+            tableHtml = `<table class="table" style="font-size:13px;">
+                <thead><tr><th style="width:36px">#</th><th>Tên Affiliate</th><th>SĐT</th><th>NV Quản Lý</th><th style="text-align:right">Doanh Số</th><th>Ngày Tạo TK</th></tr></thead><tbody>`;
+            rows.forEach((r, i) => {
+                tableHtml += `<tr>
+                    <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
+                    <td style="font-weight:700;color:#1e293b;">${r.full_name}</td>
+                    <td style="color:#334155;">${r.phone||'—'}</td>
+                    <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
+                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.total_revenue||0).toLocaleString('vi-VN')} đ</td>
+                    <td style="font-size:12px;color:#6b7280;">${r.created_at?new Date(r.created_at).toLocaleDateString('vi-VN'):'—'}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+        } else if (type === 'customers') {
+            tableHtml = `<table class="table" style="font-size:13px;">
+                <thead><tr><th style="width:36px">#</th><th>Tên KH</th><th>Affiliate GT</th><th>NV Quản Lý</th><th style="text-align:right">Doanh Số</th><th>Ngày GT</th></tr></thead><tbody>`;
+            rows.forEach((r, i) => {
+                tableHtml += `<tr>
+                    <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
+                    <td style="font-weight:700;color:#1e293b;">${r.customer_name||'—'}</td>
+                    <td><span style="padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:700;">${r.affiliate_name||'—'}</span></td>
+                    <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
+                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.total_revenue||0).toLocaleString('vi-VN')} đ</td>
+                    <td style="font-size:12px;color:#6b7280;">${r.created_at?new Date(r.created_at).toLocaleDateString('vi-VN'):'—'}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+        } else {
+            // orders / closed
+            const STATUS_LABELS = { pending:'Chờ XL', confirmed:'Đã XN', completed:'Hoàn Thành', cancelled:'Đã Hủy', processing:'Đang XL' };
+            tableHtml = `<table class="table" style="font-size:13px;">
+                <thead><tr><th style="width:36px">#</th><th>Mã Đơn</th><th>NV Chăm Sóc</th><th>Affiliate</th><th style="text-align:right">Doanh Số</th><th>Thời Gian</th></tr></thead><tbody>`;
+            rows.forEach((r, i) => {
+                tableHtml += `<tr>
+                    <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
+                    <td style="font-weight:700;color:#1e293b;">${r.order_code||'—'}</td>
+                    <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
+                    <td><span style="padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:700;">${r.affiliate_name||'—'}</span></td>
+                    <td style="text-align:right;font-weight:700;color:#d97706;">${Number(r.revenue||0).toLocaleString('vi-VN')} đ</td>
+                    <td style="font-size:12px;color:#6b7280;">${r.created_at?new Date(r.created_at).toLocaleDateString('vi-VN'):'—'}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+        }
+
+        // Pagination
+        let pagHtml = '';
+        if (totalPages > 1) {
+            pagHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 24px;border-top:1px solid #e5e7eb;flex-wrap:wrap;">`;
+            if (page > 1) pagHtml += `<button onclick="_affStatDrill('${type}',${page-1})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;">← Trước</button>`;
+            // Page numbers
+            const maxShow = 5;
+            let startP = Math.max(1, page - Math.floor(maxShow/2));
+            let endP = Math.min(totalPages, startP + maxShow - 1);
+            if (endP - startP < maxShow - 1) startP = Math.max(1, endP - maxShow + 1);
+            if (startP > 1) pagHtml += `<button onclick="_affStatDrill('${type}',1)" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;color:#6b7280;">1</button>`;
+            if (startP > 2) pagHtml += `<span style="color:#9ca3af;font-size:12px;">...</span>`;
+            for (let p = startP; p <= endP; p++) {
+                const isActive = p === page;
+                pagHtml += `<button onclick="_affStatDrill('${type}',${p})" style="padding:6px 10px;border:${isActive?'none':'1px solid #d1d5db'};border-radius:8px;background:${isActive?color:'white'};color:${isActive?'white':'#374151'};cursor:pointer;font-size:12px;font-weight:${isActive?'800':'600'};">${p}</button>`;
+            }
+            if (endP < totalPages - 1) pagHtml += `<span style="color:#9ca3af;font-size:12px;">...</span>`;
+            if (endP < totalPages) pagHtml += `<button onclick="_affStatDrill('${type}',${totalPages})" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;color:#6b7280;">${totalPages}</button>`;
+            if (page < totalPages) pagHtml += `<button onclick="_affStatDrill('${type}',${page+1})" style="padding:6px 14px;border:1px solid #d1d5db;border-radius:8px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#374151;">Tiếp →</button>`;
+            pagHtml += `</div>`;
+        }
+
+        const modalBody = overlay.querySelector('div > div:last-child') || overlay.querySelector('div').children[1];
+        // Replace entire modal content
+        overlay.innerHTML = `<div style="background:white;border-radius:16px;width:95%;max-width:950px;max-height:88vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;">
+            <div style="padding:16px 24px;background:linear-gradient(135deg,${color},${color}dd);color:white;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <h3 style="margin:0;font-size:16px;font-weight:800;">${_AFF_DRILL_TITLES[type]}</h3>
+                    <div style="font-size:11px;opacity:0.85;margin-top:2px;">Tổng: ${total} · Trang ${page}/${totalPages||1}</div>
+                </div>
+                <button onclick="document.getElementById('affDrillOverlay').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:10px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div style="flex:1;overflow:auto;padding:0;">
+                ${rows.length > 0 ? tableHtml : '<div style="padding:40px;text-align:center;color:#94a3b8;">Không có dữ liệu</div>'}
+            </div>
+            ${pagHtml}
+        </div>`;
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = 'none'; };
+    } catch (err) {
+        overlay.innerHTML = `<div style="background:white;border-radius:16px;padding:40px;text-align:center;max-width:400px;box-shadow:0 25px 60px rgba(0,0,0,0.3);">
+            <div style="font-size:36px;margin-bottom:12px;">❌</div>
+            <div style="color:#991b1b;font-weight:700;">Lỗi: ${err.message||'Không tải được dữ liệu'}</div>
+            <button onclick="document.getElementById('affDrillOverlay').style.display='none'" style="margin-top:16px;padding:8px 24px;background:#6366f1;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Đóng</button>
+        </div>`;
+    }
+}
+
 // Inject mobile CSS once
 (function(){
     if (document.getElementById('affMobileCss')) return;
     var s = document.createElement('style'); s.id = 'affMobileCss';
     s.textContent = `
         .aff-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
-        .aff-stat-card { border-radius:14px; padding:20px; color:white; box-shadow:0 4px 20px rgba(0,0,0,0.15); }
+        .aff-stat-card { border-radius:14px; padding:20px; color:white; box-shadow:0 4px 20px rgba(0,0,0,0.15); transition:transform 0.15s,box-shadow 0.15s; }
+        .aff-stat-card:hover { transform:translateY(-3px); box-shadow:0 8px 30px rgba(0,0,0,0.25); }
         .aff-stat-val { font-size:28px; font-weight:900; }
         .aff-stat-lbl { font-size:12px; opacity:0.85; margin-top:4px; }
         .aff-mobile-list { display:none; flex-direction:column; gap:8px; }
