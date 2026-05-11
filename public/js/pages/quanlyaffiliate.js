@@ -431,12 +431,19 @@ function affRenderStats() {
 
     const el = document.getElementById('affStatsRow');
     if (!el) return;
+
+    // ★ Quản Lý: only show affiliate count, hide revenue/customers/orders
+    const _isQL = currentUser && (currentUser.role === 'quan_ly' || currentUser.role === 'quan_ly_cap_cao');
+    const _isTPorNV = currentUser && (currentUser.role === 'truong_phong' || currentUser.role === 'nhan_vien' || currentUser.role === 'thu_viec' || currentUser.role === 'part_time');
+    const _hideFinancials = _isQL || _isTPorNV;
+
     el.innerHTML = `
         <div class="stat-card" style="border-left:4px solid #4338ca;" onclick="affShowStatModal('affiliates')">
             <div class="label">👥 Tổng Affiliate</div>
             <div class="value">${scopedAffCount}</div>
             <div class="sub">Đang hoạt động</div>
         </div>
+        ${!_hideFinancials ? `
         <div class="stat-card" style="border-left:4px solid #059669;" onclick="affShowStatModal('customers')">
             <div class="label">📋 Khách Giới Thiệu</div>
             <div class="value">${scopedAffCustomers}</div>
@@ -452,7 +459,15 @@ function affRenderStats() {
             <div class="value">${_fmtRev(scopedAffRevenue)}</div>
             <div class="sub">Tổng doanh thu</div>
         </div>
+        ` : ''}
     `;
+}
+
+// ★ Helper: check if current user should NOT see financial data
+function _affHideFinancials() {
+    if (!currentUser) return false;
+    var r = currentUser.role;
+    return r === 'quan_ly' || r === 'quan_ly_cap_cao' || r === 'truong_phong' || r === 'nhan_vien' || r === 'thu_viec' || r === 'part_time';
 }
 
 function affRenderTree() {
@@ -545,7 +560,7 @@ function affRenderTree() {
             </div>
             <div class="dept-stats">
                 <span style="background:#dbeafe;color:#1e40af;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">👥 ${totalEmpCount} NV</span>
-                <span style="background:#fef3c7;color:#92400e;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">💰 ${affFormatMoney(deptRevenue)}</span>
+                ${!_affHideFinancials() ? `<span style="background:#fef3c7;color:#92400e;padding:5px 14px;border-radius:10px;font-size:14px;font-weight:800;">💰 ${affFormatMoney(deptRevenue)}</span>` : ''}
                 ${currentUser.role === 'giam_doc' ? (_affVisibleDepts.includes(dept.id) ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affRemoveDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Xóa đơn vị">🗑️ Xóa</button>` : (!isRoot ? `<button class="btn-aff-unassign" onclick="event.stopPropagation();affHideChildDept(${dept.id})" style="display:inline-block;margin-left:8px;font-size:12px;padding:4px 12px;" title="Ẩn phòng ban">🗑️ Xóa</button>` : '')) : ''}
             </div>
         </div>`;
@@ -582,7 +597,7 @@ function affRenderTree() {
                         <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${empAffs.length} affiliate</span>
                     </div>
                     <div class="emp-stats">
-                        <span>💰 ${affFormatMoney(empRevenue)}</span>
+                        ${!_affHideFinancials() ? `<span>💰 ${affFormatMoney(empRevenue)}</span>` : ''}
                         ${empAffs.length > 0 && currentUser.role === 'giam_doc' ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
@@ -602,9 +617,9 @@ function affRenderTree() {
                                     ${aff.source_customer_name ? `<span style="font-size:10px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:6px;">📋 ${aff.source_customer_name}</span>` : ''}
                                 </div>
                                 <div class="aff-stats">
-                                    <span>👥 ${aff.total_customers} KH</span>
+                                    ${!_affHideFinancials() ? `<span>👥 ${aff.total_customers} KH</span>
                                     <span>📦 ${aff.total_orders} đơn</span>
-                                    <span>💰 ${affFormatMoney(aff.total_revenue)}</span>
+                                    <span>💰 ${affFormatMoney(aff.total_revenue)}</span>` : ''}
                                     <button class="btn-aff-unassign" onclick="affUnassign(${aff.id})" title="Bỏ gán" style="display:none;">✕</button>
                                 </div>
                             </div>`;
@@ -645,7 +660,7 @@ function affRenderTree() {
                         <span style="background:#e0e7ff;color:#4338ca;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">${empAffs.length} affiliate</span>
                     </div>
                     <div class="emp-stats">
-                        <span>💰 ${affFormatMoney(empRevenue)}</span>
+                        ${!_affHideFinancials() ? `<span>💰 ${affFormatMoney(empRevenue)}</span>` : ''}
                         ${empAffs.length > 0 && currentUser.role === 'giam_doc' ? `<button class="btn-aff-transfer" onclick="event.stopPropagation();affOpenTransferModal(${emp.id},'${emp.full_name.replace(/'/g, "\\\\'")}')" title="Bàn giao affiliate" style="background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-weight:600;transition:all .2s;">🔄 Bàn Giao</button>` : ''}
                     </div>
                 </div>`;
@@ -665,9 +680,9 @@ function affRenderTree() {
                                     ${aff.source_customer_name ? `<span style="font-size:10px;color:#6b7280;background:#f3f4f6;padding:1px 6px;border-radius:6px;">📋 ${aff.source_customer_name}</span>` : ''}
                                 </div>
                                 <div class="aff-stats">
-                                    <span>👥 ${aff.total_customers} KH</span>
+                                    ${!_affHideFinancials() ? `<span>👥 ${aff.total_customers} KH</span>
                                     <span>📦 ${aff.total_orders} đơn</span>
-                                    <span>💰 ${affFormatMoney(aff.total_revenue)}</span>
+                                    <span>💰 ${affFormatMoney(aff.total_revenue)}</span>` : ''}
                                     <button class="btn-aff-unassign" onclick="affUnassign(${aff.id})" title="Bỏ gán" style="display:none;">✕</button>
                                 </div>
                             </div>`;
@@ -710,6 +725,11 @@ async function affShowStatModal(type, page = 1) {
         orders: '📦 Danh Sách Đơn Hàng',
         revenue: '💰 Danh Sách Doanh Thu'
     };
+
+    // ★ Block restricted roles from viewing financial modals
+    if (_affHideFinancials() && type !== 'affiliates') {
+        return;
+    }
 
     // Remove existing modal
     const existing = document.getElementById('affStatModalOverlay');
@@ -756,7 +776,8 @@ async function affShowStatModal(type, page = 1) {
         let tableBody = '';
 
         if (type === 'affiliates') {
-            tableHead = `<tr><th>#</th><th>Tên Affiliate</th><th>Tài khoản</th><th>NV Quản Lý</th><th>CRM</th><th>Doanh Số</th><th>Ngày Tạo TK</th><th>Trạng Thái</th></tr>`;
+            const _hideRevCol = _affHideFinancials();
+            tableHead = `<tr><th>#</th><th>Tên Affiliate</th><th>Tài khoản</th><th>NV Quản Lý</th><th>CRM</th>${!_hideRevCol ? '<th>Doanh Số</th>' : ''}<th>Ngày Tạo TK</th><th>Trạng Thái</th></tr>`;
             const CRM_MAP = { nhu_cau: 'Nhu Cầu', ctv: 'CTV', koc_tiktok: 'KOC TikTok' };
             data.forEach((r, i) => {
                 const idx = (currentPage - 1) * limit + i + 1;
@@ -769,7 +790,7 @@ async function affShowStatModal(type, page = 1) {
                     <td style="color:#6b7280;">${r.username || '-'}</td>
                     <td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.manager_name || '-'}</span></td>
                     <td>${CRM_MAP[r.source_crm_type] || r.source_crm_type || '-'}</td>
-                    <td style="font-weight:700;color:#059669;">${affFormatMoney(r.total_revenue || 0)}</td>
+                    ${!_hideRevCol ? `<td style="font-weight:700;color:#059669;">${affFormatMoney(r.total_revenue || 0)}</td>` : ''}
                     <td>${r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : '-'}</td>
                     <td>${statusBadge}</td>
                 </tr>`;
