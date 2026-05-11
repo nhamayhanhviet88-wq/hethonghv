@@ -215,6 +215,43 @@ async function _affOrgLoad() {
         // Store cardStats for rendering
         window._affOrgCardStats = _orgCardStats;
         window._affOrgFmtRev = _fmtRev;
+
+        // ★ NV/TP: override tất cả stats → chỉ hiện chỉ số cá nhân
+        const _isLimited = currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong';
+        if (_isLimited) {
+            // Tìm employee node của currentUser trong cây
+            let myStats = null;
+            for (const dept of _affOrgData) {
+                // Tìm trong phongEmployees
+                const pe = (dept.phongEmployees || []).find(e => e.id === currentUser.id);
+                if (pe) { myStats = pe.stats; break; }
+                // Tìm trong teams
+                for (const team of (dept.teams || [])) {
+                    const te = (team.employees || []).find(e => e.id === currentUser.id);
+                    if (te) { myStats = te.stats; break; }
+                }
+                if (myStats) break;
+            }
+            const s = myStats || { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
+            // Override cardStats
+            window._affOrgCardStats = {
+                newAffiliates: s.affiliates || 0,
+                totalCustomers: s.customers || 0,
+                totalRevenue: s.revenue || 0,
+                totalOrders: s.closed || 0
+            };
+            // Override dept + team stats → chỉ hiện chỉ số của mình
+            _affOrgData.forEach(dept => {
+                dept.stats = { ...s };
+                (dept.teams || []).forEach(team => {
+                    const hasMe = (team.employees || []).some(e => e.id === currentUser.id);
+                    team.stats = hasMe ? { ...s } : { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
+                });
+                // phongEmployees override
+                dept.phongEmployees = (dept.phongEmployees || []).filter(e => e.id === currentUser.id);
+            });
+        }
+
         // ★ Auto-expand dept + team (không mở affiliate list của NV)
         _affOrgExpanded.clear();
         _affOrgData.forEach(dept => {
