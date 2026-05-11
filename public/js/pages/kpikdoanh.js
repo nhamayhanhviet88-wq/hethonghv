@@ -1400,6 +1400,13 @@ function kpiRenderMeetingCommit(el) {
             return p;
         }).sort(function(a, b) { return b.avgPct - a.avgPct; });
 
+        // ★ NV filtering: only show self
+        if (_kpiIsNV() && currentUser) {
+            personArr = personArr.filter(function(p) {
+                return personMap[currentUser.id] && p === personMap[currentUser.id];
+            });
+        }
+
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
         for (var pi = 0; pi < personArr.length; pi++) {
             var p = personArr[pi];
@@ -1464,6 +1471,11 @@ function kpiRenderMeetingCommit(el) {
             }
             // Sort teams by highest % first
             teamSummaryArr.sort(function(a, b) { return b.avgPct - a.avgPct; });
+
+            // ★ NV filtering: only show own team
+            if (_kpiIsNV() && currentUser && currentUser.department_id) {
+                teamSummaryArr = teamSummaryArr.filter(function(ts) { return ts.team.id === currentUser.department_id; });
+            }
 
             h += '<div style="margin-top:16px">';
             h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏠 Tổng Kết Theo Team <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + (mNow.getMonth()+1) + '/' + mNow.getFullYear() + '</span></div>';
@@ -1751,6 +1763,13 @@ function mcRenderYearlySummary() {
         return { name: p.name, role: p.role, yearPct: yearPct, monthCount: monthAvgs.length };
     }).sort(function(a, b) { return b.yearPct - a.yearPct; });
 
+    // ★ NV filtering: only show self in yearly
+    if (_kpiIsNV() && currentUser) {
+        personYrArr = personYrArr.filter(function(p) {
+            return personYr[currentUser.id] && p.name === personYr[currentUser.id].name;
+        });
+    }
+
     // ===== TEAMS =====
     var teamYr = {};
     for (var ci2 = 0; ci2 < yearCommits.length; ci2++) {
@@ -1789,6 +1808,15 @@ function mcRenderYearlySummary() {
             teamYrArr.push({ name: team.name, members: team.members.length, yearPct: tYearPct, monthCount: tMonthAvgs.length });
         }
         teamYrArr.sort(function(a, b) { return b.yearPct - a.yearPct; });
+
+        // ★ NV filtering: only show own team in yearly
+        if (_kpiIsNV() && currentUser && currentUser.department_id) {
+            // Find team name from _mcTeams
+            var myTeamForYr = _mcTeams.find(function(t) { return t.id === currentUser.department_id; });
+            if (myTeamForYr) {
+                teamYrArr = teamYrArr.filter(function(t) { return t.name === myTeamForYr.name; });
+            }
+        }
     }
 
     // Render
