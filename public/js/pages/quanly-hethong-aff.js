@@ -1,12 +1,9 @@
 // ========== QUẢN LÝ HỆ THỐNG AFFILIATE ==========
-// ★ Helper: hide financial data for non-GD roles (QL can see own data)
+// ★ Roles that are restricted (no financials, self-only view)
+const _AFF_LIMITED_ROLES = ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'];
 function _affSysHideFinancials() {
     if (!currentUser) return false;
-    var r = currentUser.role;
-    if (r === 'giam_doc') return false;
-    // ★ QL viewing own data → show financials
-    if ((r === 'quan_ly' || r === 'quan_ly_cap_cao') && _aff_selectedMgrId === currentUser.id) return false;
-    return true;
+    return _AFF_LIMITED_ROLES.includes(currentUser.role);
 }
 let _affSysSearch = '';
 let _affSysTab = 'list';
@@ -98,8 +95,8 @@ async function renderQuanLyHTAffPage(container) {
             _aff_allUsers = usersRes.users || usersRes || [];
             _aff_allDepts = deptsRes.departments || deptsRes || [];
         } catch(e) { _aff_allUsers = []; _aff_allDepts = []; }
-        // ★ NV/TP: auto-select chính mình, không cho chọn người khác
-        if (currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong') {
+        // ★ NV/TP/QL: auto-select chính mình, không cho chọn người khác
+        if (_AFF_LIMITED_ROLES.includes(currentUser.role)) {
             _aff_selectedMgrId = currentUser.id;
             _aff_selectedMgrName = currentUser.full_name || currentUser.username;
         } else {
@@ -151,8 +148,8 @@ async function _affSysLoad() {
         let apiUrl = '/api/affiliate/my-system';
         if (isGD) {
             const params = [];
-            // ★ NV/TP: luôn force managerId = chính mình
-            if (currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong') {
+            // ★ NV/TP/QL: luôn force managerId = chính mình
+            if (_AFF_LIMITED_ROLES.includes(currentUser.role)) {
                 params.push(`managerId=${currentUser.id}`);
             } else if (_aff_selectedMgrId) {
                 params.push(`managerId=${_aff_selectedMgrId}`);
@@ -247,8 +244,8 @@ async function _affOrgLoad() {
         window._affOrgCardStats = _orgCardStats;
         window._affOrgFmtRev = _fmtRev;
 
-        // ★ NV/TP: override tất cả stats → chỉ hiện chỉ số cá nhân
-        const _isLimited = currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong';
+        // ★ NV/TP/QL: override tất cả stats → chỉ hiện chỉ số cá nhân
+        const _isLimited = _AFF_LIMITED_ROLES.includes(currentUser.role);
         if (_isLimited) {
             // Tìm employee node của currentUser trong cây
             let myStats = null;
@@ -322,8 +319,8 @@ function _affRenderOrg() {
 
     const ROLE_LABELS = { truong_phong:'⭐ Trưởng Phòng', nhan_vien:'👤 Nhân Viên', quan_ly:'🔷 Quản Lý', quan_ly_cap_cao:'💎 QL Cấp Cao', thu_viec:'🔰 Thử Việc' };
     const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];
-    // ★ NV/TP: chỉ hiện dòng của chính mình
-    const _isLimitedRole = currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong';
+    // ★ NV/TP/QL: chỉ hiện dòng của chính mình
+    const _isLimitedRole = _AFF_LIMITED_ROLES.includes(currentUser.role);
     const _empFilter = (emps) => _isLimitedRole ? emps.filter(e => e.id === currentUser.id) : emps;
 
     _affOrgData.forEach(dept => {
@@ -443,12 +440,8 @@ function _aff_renderSidebar() {
     if (myRole === 'giam_doc') {
         allowedUserIds = null;
     } else if (myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
-        // QL sees TP + NV under their dept tree
-        const childDeptIds = new Set();
-        function getChildDepts(pid) { childDeptIds.add(pid); _aff_allDepts.filter(d => d.parent_id === pid).forEach(d => getChildDepts(d.id)); }
-        if (myDeptId) getChildDepts(myDeptId);
-        const AFF_ROLES = ['tkaffiliate','hoa_hong','ctv','nuoi_duong','sinh_vien'];
-        allowedUserIds = new Set(_aff_allUsers.filter(u => childDeptIds.has(u.department_id) && !AFF_ROLES.includes(u.role)).map(u => u.id));
+        // QL: chỉ thấy chính mình (giống TP/NV)
+        allowedUserIds = new Set([currentUser.id]);
     } else if (myRole === 'truong_phong') {
         // TP: chỉ thấy chính mình
         allowedUserIds = new Set([currentUser.id]);
@@ -457,10 +450,10 @@ function _aff_renderSidebar() {
         allowedUserIds = new Set([currentUser.id]);
     }
 
-    // "Tổng Phòng KD" button — only for GĐ/QL
+    // "Tổng Phòng KD" button — only for GĐ
     const isAll = !_aff_selectedMgrId;
     let html = '';
-    if (myRole === 'giam_doc' || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
+    if (myRole === 'giam_doc') {
         html += `<div onclick="_aff_selectMgr(null,'Tổng Phòng KD')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-radius:10px;margin-bottom:8px;transition:all 0.15s;${isAll?'background:linear-gradient(135deg,#f59e0b,#ea580c);color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);':'background:white;border:1.5px solid #e2e8f0;color:#374151;'}">
             <span style="font-size:20px;">📊</span>
             <div style="flex:1;"><div style="font-size:12px;font-weight:800;">Tổng Phòng KD</div><div style="font-size:9px;opacity:0.7;">Xem tổng hợp tất cả NV</div></div>
