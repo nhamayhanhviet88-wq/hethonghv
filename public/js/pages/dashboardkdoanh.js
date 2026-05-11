@@ -391,23 +391,81 @@ function crNavNext() {
     crLoadData();
 }
 
+// ★ NV/TV Role Check Helper
+function _crIsRestrictedRole() {
+    return typeof currentUser !== 'undefined' && currentUser && ['nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role);
+}
+
+// ★ Find user's team info in the groups data
+function _crFindMyTeam(groups) {
+    if (!currentUser) return null;
+    for (const group of groups) {
+        if (!group.teams) continue;
+        for (const team of group.teams) {
+            if (!team.employees) continue;
+            const found = team.employees.find(e => e.user_id === currentUser.id);
+            if (found) return { group, team, employee: found };
+        }
+    }
+    return null;
+}
+
+// ★ Filter data for restricted roles (NV/TV) — only show own team + self
+function _crFilterDataForNV(data) {
+    if (!_crIsRestrictedRole() || !data.groups) return data;
+
+    const myInfo = _crFindMyTeam(data.groups);
+    if (!myInfo) return data; // fallback: show nothing filtered
+
+    // Build filtered groups: only the manager group containing my team, with only my team
+    const filteredGroup = {
+        ...myInfo.group,
+        // Show team name as group header for NV
+        dept_name: myInfo.team.name || myInfo.group.dept_name,
+        // Replace group-level stats with just my team's stats
+        current: { ...myInfo.team.current },
+        previous: { ...myInfo.team.previous },
+        trend: { ...myInfo.team.trend },
+        personal: null, // hide manager personal stats
+        otherManagers: [], // hide other managers
+        teams: [myInfo.team] // only my team
+    };
+
+    // Recalculate summary to only reflect my team
+    const filteredSummary = {
+        current: { ...myInfo.team.current },
+        previous: { ...myInfo.team.previous },
+        trend: { ...myInfo.team.trend }
+    };
+
+    return {
+        ...data,
+        groups: [filteredGroup],
+        summary: filteredSummary
+    };
+}
+
 async function crLoadData() {
     _crAdvLoaded = false; // Reset so Tab 2/3 reload with new period
     const groupsEl = document.getElementById('crGroups');
     if (groupsEl) groupsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">⏳ Đang tải dữ liệu...</div>';
 
     try {
-        const data = await apiCall(`/api/reports/customer-retention?period=${_cr.period}&date=${_cr.dateStr}`);
-        if (data.error) {
-            console.error('API error:', data.error);
-            if (groupsEl) groupsEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">❌ ${data.error}</div>`;
+        const rawData = await apiCall(`/api/reports/customer-retention?period=${_cr.period}&date=${_cr.dateStr}`);
+        if (rawData.error) {
+            console.error('API error:', rawData.error);
+            if (groupsEl) groupsEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">❌ ${rawData.error}</div>`;
             return;
         }
-        if (!data.summary) {
-            console.error('API returned unexpected data:', data);
+        if (!rawData.summary) {
+            console.error('API returned unexpected data:', rawData);
             if (groupsEl) groupsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">❌ Dữ liệu không hợp lệ. Vui lòng thử lại.</div>';
             return;
         }
+
+        // ★ Apply NV/TV filtering (keep raw data for advanced lookups)
+        _cr._rawData = rawData;
+        const data = _crFilterDataForNV(rawData);
         _cr.data = data;
         crRenderCards(data);
         crRenderGroups(data);
@@ -502,11 +560,22 @@ function crRenderGroups(data) {
     const isGD = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc');
 
     // Auto-expand all manager groups on first load (teams stay collapsed)
+    // ★ NV/TV: also auto-expand their team
     if (!_cr._autoExpanded) {
         _cr._autoExpanded = true;
         data.groups.forEach((g, gi) => {
             _cr.expandedMgr.add(gi);
         });
+        // For restricted roles, auto-expand the team as well
+        if (_crIsRestrictedRole()) {
+            data.groups.forEach((g, gi) => {
+                if (g.teams) {
+                    g.teams.forEach((t, ti) => {
+                        _cr.expandedTeam.add(`${gi}-${ti}`);
+                    });
+                }
+            });
+        }
     }
 
     // Find top employee (highest returning rate with at least 1 order)
@@ -961,21 +1030,38 @@ async function crChartLoad() {
         // Populate dropdown on first load (with nested team > employees)
         if (!_crChart.optionsLoaded && data.options) {
             _crChart.optionsLoaded = true;
-            let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
-            if (data.options.teams) {
-                data.options.teams.forEach(t => {
-                    html += `<optgroup label="👥 ${t.name}">`;
-                    html += `<option value="team_${t.id}">📊 Tổng ${t.name}</option>`;
-                    if (t.employees) {
-                        t.employees.forEach(e => {
-                            html += `<option value="emp_${e.id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
+
+            // ★ NV/TV: restrict chart dropdown to own team only
+            if (_crIsRestrictedRole() && (_cr._rawData || _cr.data)) {
+                const rawGroups = (_cr._rawData || _cr.data).groups || [];
+                const myInfo = _crFindMyTeam(rawGroups);
+                if (myInfo && myInfo.team) {
+                    let html = `<option value="team_${myInfo.team.team_id}">📊 ${myInfo.team.name}</option>`;
+                    if (myInfo.team.employees) {
+                        myInfo.team.employees.forEach(e => {
+                            html += `<option value="emp_${e.user_id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
                         });
                     }
-                    html += '</optgroup>';
-                });
+                    sel.innerHTML = html;
+                    sel.value = `team_${myInfo.team.team_id}`;
+                }
+            } else {
+                let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
+                if (data.options.teams) {
+                    data.options.teams.forEach(t => {
+                        html += `<optgroup label="👥 ${t.name}">`;
+                        html += `<option value="team_${t.id}">📊 Tổng ${t.name}</option>`;
+                        if (t.employees) {
+                            t.employees.forEach(e => {
+                                html += `<option value="emp_${e.id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
+                            });
+                        }
+                        html += '</optgroup>';
+                    });
+                }
+                sel.innerHTML = html;
+                sel.value = val;
             }
-            sel.innerHTML = html;
-            sel.value = val;
         }
 
         // Reset legend toggle state
@@ -1171,6 +1257,51 @@ async function crLoadAdvanced() {
     try {
         _crAdvData = await apiCall(`/api/reports/customer-retention/advanced?period=${_cr.period}&date=${_cr.dateStr}`);
         _crAdvLoaded = true;
+
+        // ★ NV/TV: filter advanced data to only show own team
+        if (_crIsRestrictedRole() && (_cr._rawData || _cr.data)) {
+            const rawGroups = (_cr._rawData || _cr.data).groups || [];
+            const myInfo = _crFindMyTeam(rawGroups);
+            if (myInfo && myInfo.team) {
+                const myTeamEmpIds = new Set((myInfo.team.employees || []).map(e => e.user_id));
+                const myTeamId = myInfo.team.team_id;
+                const myTeamName = myInfo.team.name;
+
+                // Filter alerts to only my team
+                if (_crAdvData.alerts) {
+                    _crAdvData.alerts = _crAdvData.alerts.filter(a => a.team === myTeamName || myTeamEmpIds.has(a.user_id));
+                }
+
+                // Filter leaderboard to only my team members
+                if (_crAdvData.leaderboard) {
+                    for (const key of Object.keys(_crAdvData.leaderboard)) {
+                        if (Array.isArray(_crAdvData.leaderboard[key])) {
+                            _crAdvData.leaderboard[key] = _crAdvData.leaderboard[key].filter(item => myTeamEmpIds.has(item.user_id));
+                        }
+                    }
+                }
+
+                // Filter team comparison to only my team
+                if (_crAdvData.teamComparison) {
+                    _crAdvData.teamComparison = _crAdvData.teamComparison.filter(t => t.team_id === myTeamId || t.name === myTeamName);
+                }
+
+                // Filter top customers to only my team's employees
+                if (_crAdvData.topCustomers) {
+                    _crAdvData.topCustomers = _crAdvData.topCustomers.filter(c => myTeamEmpIds.has(c.assigned_to_id));
+                }
+
+                // Filter conversionMap to only my team
+                if (_crAdvData.conversionMap) {
+                    const filteredConv = {};
+                    for (const uid of myTeamEmpIds) {
+                        if (_crAdvData.conversionMap[uid]) filteredConv[uid] = _crAdvData.conversionMap[uid];
+                    }
+                    _crAdvData.conversionMap = filteredConv;
+                }
+            }
+        }
+
         crRenderAlerts(_crAdvData.alerts || []);
         crRenderLeaderboard(_crAdvData);
         crRenderTeamComparison(_crAdvData.teamComparison || []);
