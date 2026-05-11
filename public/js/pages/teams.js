@@ -347,18 +347,26 @@ async function toggleDeptAccordion(deptId) {
             <th style="padding:6px 10px;text-align:center;color:#fad24c;">Sinh nhật</th>
         </tr></thead><tbody>`;
 
-    // Sort: trưởng phòng (head) first, then nhân viên
+    // Sort: dept head first, then by role priority (TP > NV), then alphabetically
+    const _ROLE_SORT = { giam_doc: 0, quan_ly_cap_cao: 1, quan_ly: 2, truong_phong: 3, nhan_vien: 4, thu_viec: 5, part_time: 6, hoa_hong: 7 };
     const sorted = [...members].sort((a, b) => {
         const aHead = dept && dept.head_user_id === a.id ? 0 : 1;
         const bHead = dept && dept.head_user_id === b.id ? 0 : 1;
-        return aHead - bHead;
+        if (aHead !== bHead) return aHead - bHead;
+        const aRole = _ROLE_SORT[a.role] ?? 50;
+        const bRole = _ROLE_SORT[b.role] ?? 50;
+        if (aRole !== bRole) return aRole - bRole;
+        return (a.full_name || '').localeCompare(b.full_name || '', 'vi');
     });
 
     sorted.forEach((m, i) => {
         const isHead = dept && dept.head_user_id === m.id;
+        const isLeaderRole = ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(m.role);
         const ROLE_MAP = { giam_doc: 'Giám Đốc', quan_ly_cap_cao: 'Quản Lý Cấp Cao', quan_ly: 'Quản Lý', truong_phong: 'Trưởng Phòng', nhan_vien: 'Nhân Viên', thu_viec: 'Thử Việc', part_time: 'Part Time', hoa_hong: 'Hoa Hồng' };
         const headBadge = isHead ? ' <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;border:1px solid #f59e0b44;">⭐ Trưởng đơn vị</span>' : '';
-        const roleLabel = `<span style="color:${isHead ? '#d97706' : '#6b7280'};font-weight:${isHead ? '700' : '400'};">${ROLE_MAP[m.role] || m.role}</span>${headBadge}`;
+        const roleColor = isHead ? '#d97706' : isLeaderRole ? '#2563eb' : '#6b7280';
+        const roleFontWeight = isHead || isLeaderRole ? '700' : '400';
+        const roleLabel = `<span style="color:${roleColor};font-weight:${roleFontWeight};">${ROLE_MAP[m.role] || m.role}</span>${headBadge}`;
         const statusBg = m.status === 'active' ? '#10b981' : '#ef4444';
         const statusLabel = m.status === 'active' ? 'Đang làm' : 'Nghỉ việc';
         const birthday = m.birth_date ? new Date(m.birth_date).toLocaleDateString('vi-VN') : '—';
