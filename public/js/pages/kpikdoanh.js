@@ -350,6 +350,13 @@ function _kpiFilterAdvData(advData) {
         filtered.conversionMap = myConv;
     }
 
+    // teamComparison: only my team
+    if (filtered.teamComparison && currentUser.department_id) {
+        filtered.teamComparison = filtered.teamComparison.filter(function(t) {
+            return t.team_id === currentUser.department_id;
+        });
+    }
+
     return filtered;
 }
 
@@ -1136,8 +1143,8 @@ async function kpiTcRefetch() {
         var url = kpiTcBuildUrl();
         var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpi.month;
         var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
-        var advData = results[0];
-        var mainData = results[1];
+        var advData = _kpiFilterAdvData(results[0]);
+        var mainData = _kpiFilterMainData(results[1]);
         kpiRenderTeamCompare(tcEl, mainData, advData);
     } catch(e) {
         console.error('TC refetch error:', e);
