@@ -1549,8 +1549,17 @@ function kpiRenderMeetingCommit(el) {
             h += '</div>';
             h += '<div style="display:flex;align-items:center;gap:8px">';
             if (sessCommits.length > 0) {
-                var pctAll = Math.round(sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length);
-                h += '<span class="kpi-mc-badge ' + (totalDone === sessCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + totalDone + '/' + sessCommits.length + ' — ' + pctAll + '%</span>';
+                // ★ NV: show only own stats in session header badge
+                var _sessBadgeCommits = sessCommits;
+                var _sessBadgeDone = totalDone;
+                if (_kpiIsNV() && currentUser) {
+                    _sessBadgeCommits = sessCommits.filter(function(c) { return c.user_id === currentUser.id && !c.team_dept_id; });
+                    _sessBadgeDone = _sessBadgeCommits.filter(function(c) { return c.is_completed; }).length;
+                }
+                if (_sessBadgeCommits.length > 0) {
+                    var pctAll = Math.round(_sessBadgeCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / _sessBadgeCommits.length);
+                    h += '<span class="kpi-mc-badge ' + (_sessBadgeDone === _sessBadgeCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + _sessBadgeDone + '/' + _sessBadgeCommits.length + ' — ' + pctAll + '%</span>';
+                }
             }
             if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + pal.newestBg + ';color:#fff;font-weight:700">Mới nhất</span>';
             h += '</div></div>';
@@ -1579,7 +1588,7 @@ function kpiRenderMeetingCommit(el) {
                 h += '<div class="kpi-mc-team-name" style="justify-content:space-between;background:' + pal.teamNameBg + ';color:' + pal.teamNameColor + '">';
                 h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:' + pal.teamNameColor + ';opacity:.6;font-weight:500">(' + team.members.length + ' người)</span></span>';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
-                if (teamOwnCommits.length > 0) {
+                if (teamOwnCommits.length > 0 && !_kpiIsNV()) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
