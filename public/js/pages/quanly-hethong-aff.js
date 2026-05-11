@@ -89,8 +89,14 @@ async function renderQuanLyHTAffPage(container) {
             _aff_allUsers = usersRes.users || usersRes || [];
             _aff_allDepts = deptsRes.departments || deptsRes || [];
         } catch(e) { _aff_allUsers = []; _aff_allDepts = []; }
-        _aff_selectedMgrId = null;
-        _aff_selectedMgrName = 'Tổng Phòng KD';
+        // ★ NV/TP: auto-select chính mình, không cho chọn người khác
+        if (currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong') {
+            _aff_selectedMgrId = currentUser.id;
+            _aff_selectedMgrName = currentUser.full_name || currentUser.username;
+        } else {
+            _aff_selectedMgrId = null;
+            _aff_selectedMgrName = 'Tổng Phòng KD';
+        }
         _aff_renderSidebar();
     } else {
         container.innerHTML = `<div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;"><h3 style="margin:0;">📊 Quản Lý Hệ Thống Affiliate</h3></div><div class="card-body" id="affSysArea"><div class="empty-state"><div class="icon">⏳</div><h3>Đang tải...</h3></div></div></div>`;
@@ -128,7 +134,12 @@ async function _affSysLoad() {
         let apiUrl = '/api/affiliate/my-system';
         if (isGD) {
             const params = [];
-            if (_aff_selectedMgrId) params.push(`managerId=${_aff_selectedMgrId}`);
+            // ★ NV/TP: luôn force managerId = chính mình
+            if (currentUser.role === 'nhan_vien' || currentUser.role === 'truong_phong') {
+                params.push(`managerId=${currentUser.id}`);
+            } else if (_aff_selectedMgrId) {
+                params.push(`managerId=${_aff_selectedMgrId}`);
+            }
             if (dr.from) params.push(`from=${dr.from}`);
             if (dr.to) params.push(`to=${dr.to}`);
             if (params.length) apiUrl += '?' + params.join('&');
