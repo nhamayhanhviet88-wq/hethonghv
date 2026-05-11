@@ -2307,7 +2307,7 @@ async function affiliateRoutes(fastify) {
         }
 
         // Build affiliate WHERE
-        let affWhere = ["u.role = 'tkaffiliate'"];
+        let affWhere = ["u.role = 'tkaffiliate'", "u.status IN ('active','locked')"];
         let affParams = [];
         if (allowedManagerIds !== null) {
             if (managerId && allowedManagerIds.has(Number(managerId))) {
@@ -2464,7 +2464,7 @@ async function affiliateRoutes(fastify) {
             FROM users u
             LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
             LEFT JOIN users p ON p.id = u.assigned_to_user_id
-            WHERE u.role = 'tkaffiliate'
+            WHERE u.role = 'tkaffiliate' AND u.status IN ('active','locked')
             ORDER BY u.created_at DESC
         `);
 
@@ -2710,7 +2710,7 @@ async function affiliateRoutes(fastify) {
             }
 
             // Build dynamic WHERE clause
-            let whereClauses = ["u.role = 'tkaffiliate'"];
+            let whereClauses = ["u.role = 'tkaffiliate'", "u.status IN ('active','locked')"];
             let whereParams = [];
 
             // Apply scope: if not GĐ, restrict by allowed manager IDs
