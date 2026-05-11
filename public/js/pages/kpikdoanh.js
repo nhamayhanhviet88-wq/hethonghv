@@ -250,6 +250,138 @@ function kpiSignFmtFull(n) {
     return n > 0 ? '-' + str : '+' + str;
 }
 
+// ★ NV Role Check for KPI page
+function _kpiIsNV() {
+    return typeof currentUser !== 'undefined' && currentUser && ['nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role);
+}
+
+// ★ Find my team and my employee record in KPI data
+function _kpiFindMe(teams) {
+    if (!currentUser || !teams) return null;
+    for (var i = 0; i < teams.length; i++) {
+        var team = teams[i];
+        if (!team.employees) continue;
+        for (var j = 0; j < team.employees.length; j++) {
+            if (team.employees[j].user_id === currentUser.id) {
+                return { team: team, employee: team.employees[j], teamIdx: i };
+            }
+        }
+    }
+    return null;
+}
+
+// ★ Filter KPI data for NV — show only own data, team row shows team stats
+function _kpiFilterData(data) {
+    if (!_kpiIsNV() || !data || !data.teams) return data;
+    var myInfo = _kpiFindMe(data.teams);
+    if (!myInfo) return data;
+
+    var me = myInfo.employee;
+    var myTeam = myInfo.team;
+
+    // Build filtered team: keep team-level stats (for Doanh Thu Theo Ngày) but only my employee row
+    var filteredTeam = {
+        dept_id: myTeam.dept_id,
+        dept_name: myTeam.dept_name,
+        leader_name: myTeam.leader_name,
+        // Team-level stays for team sections
+        target_1: myTeam.target_1,
+        target_120: myTeam.target_120,
+        actual: myTeam.actual,
+        rate_1: myTeam.rate_1,
+        rate_120: myTeam.rate_120,
+        missing_1: myTeam.missing_1,
+        missing_120: myTeam.missing_120,
+        daily: myTeam.daily,
+        stages: myTeam.stages,
+        // Only show ME in employees list
+        employees: [me]
+    };
+
+    // Summary: show MY own stats
+    var myTarget = me.target || 0;
+    var myTarget120 = Math.round(myTarget * 1.2);
+    var myActual = me.actual || 0;
+    var filteredSummary = {
+        target_1: myTarget,
+        target_120: myTarget120,
+        actual: myActual,
+        rate_1: myTarget > 0 ? Math.round(1000 * myActual / myTarget) / 10 : 0,
+        rate_120: myTarget120 > 0 ? Math.round(1000 * myActual / myTarget120) / 10 : 0,
+        missing_1: myTarget - myActual,
+        missing_120: myTarget120 - myActual,
+        stages: data.summary.stages, // keep original for structure
+        daily: me.daily || data.summary.daily
+    };
+
+    return {
+        month: data.month,
+        teams: [filteredTeam],
+        summary: filteredSummary
+    };
+}
+
+// ★ Filter advanced/retention data for NV — leaderboard shows only self, team compare shows own team
+function _kpiFilterAdvData(advData) {
+    if (!_kpiIsNV() || !advData || !currentUser) return advData;
+    var myId = currentUser.id;
+    var filtered = Object.assign({}, advData);
+
+    // Leaderboard: only self
+    if (filtered.leaderboard) {
+        var newLb = {};
+        for (var key in filtered.leaderboard) {
+            if (Array.isArray(filtered.leaderboard[key])) {
+                newLb[key] = filtered.leaderboard[key].filter(function(item) { return item.user_id === myId; });
+            } else {
+                newLb[key] = filtered.leaderboard[key];
+            }
+        }
+        filtered.leaderboard = newLb;
+    }
+    if (filtered.allEmployees) {
+        filtered.allEmployees = filtered.allEmployees.filter(function(e) { return e.user_id === myId; });
+    }
+
+    // conversionMap: only self
+    if (filtered.conversionMap) {
+        var myConv = {};
+        if (filtered.conversionMap[myId]) myConv[myId] = filtered.conversionMap[myId];
+        filtered.conversionMap = myConv;
+    }
+
+    return filtered;
+}
+
+// ★ Filter main retention data for NV — team compare shows own team
+function _kpiFilterMainData(mainData) {
+    if (!_kpiIsNV() || !mainData || !mainData.groups || !currentUser) return mainData;
+
+    // Find my team by user_id in groups > teams > employees
+    var myTeamInfo = null;
+    for (var gi = 0; gi < mainData.groups.length; gi++) {
+        var g = mainData.groups[gi];
+        if (!g.teams) continue;
+        for (var ti = 0; ti < g.teams.length; ti++) {
+            var t = g.teams[ti];
+            if (!t.employees) continue;
+            for (var ei = 0; ei < t.employees.length; ei++) {
+                if (t.employees[ei].user_id === currentUser.id) {
+                    myTeamInfo = { team: t, group: g };
+                    break;
+                }
+            }
+            if (myTeamInfo) break;
+        }
+        if (myTeamInfo) break;
+    }
+
+    if (!myTeamInfo) return mainData;
+    return Object.assign({}, mainData, {
+        groups: [Object.assign({}, myTeamInfo.group, { teams: [myTeamInfo.team] })]
+    });
+}
+
 async function kpiLoadAll() {
     var lbl = document.getElementById('kpiMonthLabel');
     var content = document.getElementById('kpiContent');
@@ -267,13 +399,18 @@ async function kpiLoadAll() {
             apiCall('/api/meeting-commitments/monthly?month=' + kpiMo + '&year=' + kpiYear)
         ]);
 
-        _kpi.data = results[0];
-        kpiRenderSummary(results[0]);
-        kpiRenderContent(results[0]);
+        // ★ Apply NV filtering
+        var kpiData = _kpiFilterData(results[0]);
+        var mainData = _kpiFilterMainData(results[1]);
+        var advData = _kpiFilterAdvData(results[2]);
+
+        _kpi.data = kpiData;
+        kpiRenderSummary(kpiData);
+        kpiRenderContent(kpiData);
 
         var lbEl = document.getElementById('kpiLeaderboard');
         var tcEl = document.getElementById('kpiTeamCompare');
-        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, results[2]); kpiRenderTeamCompare(tcEl, results[1], results[2]); }
+        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, advData); kpiRenderTeamCompare(tcEl, mainData, advData); }
 
         _mcTeams = results[3].teams || [];
         _mcSessions = results[4].sessions || [];
@@ -310,12 +447,18 @@ async function kpiLoadData() {
             apiCall('/api/meeting-commitments/employees'),
             apiCall('/api/meeting-commitments/monthly?month=' + kpiM2 + '&year=' + kpiY2)
         ]);
-        _kpi.data = results[0];
-        kpiRenderSummary(results[0]);
-        kpiRenderContent(results[0]);
+
+        // ★ Apply NV filtering
+        var kpiData = _kpiFilterData(results[0]);
+        var mainData = _kpiFilterMainData(results[1]);
+        var advData = _kpiFilterAdvData(results[2]);
+
+        _kpi.data = kpiData;
+        kpiRenderSummary(kpiData);
+        kpiRenderContent(kpiData);
         var lbEl = document.getElementById('kpiLeaderboard');
         var tcEl = document.getElementById('kpiTeamCompare');
-        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, results[2]); kpiRenderTeamCompare(tcEl, results[1], results[2]); }
+        if (lbEl && tcEl) { kpiRenderLeaderboard(lbEl, advData); kpiRenderTeamCompare(tcEl, mainData, advData); }
 
         // Reload meeting commitments for the selected month
         _mcTeams = results[3].teams || [];
@@ -731,8 +874,8 @@ async function kpiLbRefetch() {
         // Also fetch main retention for team compare
         var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpi.month;
         var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
-        var advData = results[0];
-        var mainData = results[1];
+        var advData = _kpiFilterAdvData(results[0]);
+        var mainData = _kpiFilterMainData(results[1]);
         kpiRenderLeaderboard(lbEl, advData);
         if (tcEl) kpiRenderTeamCompare(tcEl, mainData, advData);
     } catch(e) {
@@ -2523,7 +2666,21 @@ async function kpiLoadAchievement(year, month) {
     if (!el) return;
     _kpiAchFilterMonth = month;
     try {
-        _kpiAchData = await apiCall('/api/reports/kpi-achievement?year=' + year);
+        var rawData = await apiCall('/api/reports/kpi-achievement?year=' + year);
+        // ★ NV filtering: only show self in achievement tracker
+        if (_kpiIsNV() && currentUser && rawData) {
+            if (rawData.users) {
+                rawData.users = rawData.users.filter(function(u) { return u.user_id === currentUser.id; });
+            }
+            if (rawData.teams && currentUser.department_id) {
+                rawData.teams = rawData.teams.filter(function(t) {
+                    // Find team containing me
+                    var myUserData = (rawData.users || []).find(function(u) { return u.user_id === currentUser.id; });
+                    return myUserData && t.dept_id === myUserData.department_id;
+                });
+            }
+        }
+        _kpiAchData = rawData;
         kpiRenderAchievement(el);
     } catch(e) {
         el.innerHTML = '';
