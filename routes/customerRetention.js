@@ -887,16 +887,16 @@ module.exports = async function(fastify) {
             }
         });
 
-        // === 1b. AFFILIATE NEW: Count actual tkaffiliate accounts managed by each employee ===
-        // No date filter — shows total portfolio, consistent with QL Hệ Thống Affiliate
+        // === 1b. AFFILIATE NEW: Count NEW tkaffiliate accounts created in this period ===
         const affRows = await db.all(`
             SELECT u.managed_by_user_id AS uid, COUNT(*) AS aff_new
             FROM users u
             WHERE u.role = 'tkaffiliate'
               AND u.status IN ('active','locked')
               AND u.managed_by_user_id IS NOT NULL
+              AND u.created_at >= $1::timestamp AND u.created_at < $2::timestamp
             GROUP BY u.managed_by_user_id
-        `);
+        `, [current.start, current.end]);
         const affMap = {};
         affRows.forEach(r => { affMap[r.uid] = parseInt(r.aff_new); });
         leaderboard.forEach(l => { l.affiliate_new = affMap[l.user_id] || 0; });
@@ -934,8 +934,9 @@ module.exports = async function(fastify) {
             WHERE u.role = 'tkaffiliate'
               AND u.status IN ('active','locked')
               AND u.managed_by_user_id IS NOT NULL
+              AND u.created_at >= $1::timestamp AND u.created_at < $2::timestamp
             GROUP BY u.managed_by_user_id
-        `);
+        `, [previous.start, previous.end]);
 
         const prevMap = {};
         prevLeaderRows.forEach(r => {
