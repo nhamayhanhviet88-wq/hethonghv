@@ -255,6 +255,11 @@ function _kpiIsNV() {
     return typeof currentUser !== 'undefined' && currentUser && ['nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role);
 }
 
+// ★ TP (Trưởng Phòng) Role Check for KPI page
+function _kpiIsTP() {
+    return typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'truong_phong';
+}
+
 // ★ Find my team and my employee record in KPI data
 function _kpiFindMe(teams) {
     if (!currentUser || !teams) return null;
@@ -268,6 +273,24 @@ function _kpiFindMe(teams) {
         }
     }
     return null;
+}
+
+// ★ Find TP's team(s) in KPI data — TP is the leader_name or matches dept head
+function _kpiFindTPTeams(teams) {
+    if (!currentUser || !teams) return null;
+    var result = [];
+    for (var i = 0; i < teams.length; i++) {
+        var team = teams[i];
+        if (!team.employees) continue;
+        // Check if TP is in this team's employees
+        for (var j = 0; j < team.employees.length; j++) {
+            if (team.employees[j].user_id === currentUser.id) {
+                result.push({ team: team, teamIdx: i });
+                break;
+            }
+        }
+    }
+    return result.length > 0 ? result : null;
 }
 
 // ★ Filter KPI data for NV — show only own data, team row shows team stats
@@ -321,6 +344,54 @@ function _kpiFilterData(data) {
     };
 }
 
+// ★ Filter KPI data for TP — show own team(s) with all employees
+function _kpiFilterDataTP(data) {
+    if (!_kpiIsTP() || !data || !data.teams) return data;
+    var tpTeams = _kpiFindTPTeams(data.teams);
+    if (!tpTeams) return data;
+
+    var filteredTeams = tpTeams.map(function(info) { return info.team; });
+
+    // Recalculate summary from TP's teams only
+    var totalTarget = 0, totalTarget120 = 0, totalActual = 0;
+    var dailyLen = filteredTeams[0] && filteredTeams[0].daily ? filteredTeams[0].daily.length : 31;
+    var totalDaily = new Array(dailyLen).fill(0);
+    var totalStages = { stage1: { target: 0, actual: 0, avg_per_day: 0, missing: 0 }, stage2: { target: 0, actual: 0, avg_per_day: 0, missing: 0 }, stage3: { target: 0, actual: 0, avg_per_day: 0, missing: 0 } };
+
+    filteredTeams.forEach(function(t) {
+        totalTarget += (t.target_1 || 0);
+        totalTarget120 += (t.target_120 || 0);
+        totalActual += (t.actual || 0);
+        if (t.daily) t.daily.forEach(function(v, idx) { totalDaily[idx] += (v || 0); });
+        if (t.stages) {
+            ['stage1','stage2','stage3'].forEach(function(sk) {
+                if (t.stages[sk]) {
+                    totalStages[sk].target += (t.stages[sk].target || 0);
+                    totalStages[sk].actual += (t.stages[sk].actual || 0);
+                    totalStages[sk].avg_per_day += (t.stages[sk].avg_per_day || 0);
+                    totalStages[sk].missing += (t.stages[sk].missing || 0);
+                }
+            });
+        }
+    });
+
+    return {
+        month: data.month,
+        teams: filteredTeams,
+        summary: {
+            target_1: totalTarget,
+            target_120: totalTarget120,
+            actual: totalActual,
+            rate_1: totalTarget > 0 ? Math.round(1000 * totalActual / totalTarget) / 10 : 0,
+            rate_120: totalTarget120 > 0 ? Math.round(1000 * totalActual / totalTarget120) / 10 : 0,
+            missing_1: totalTarget - totalActual,
+            missing_120: totalTarget120 - totalActual,
+            stages: totalStages,
+            daily: totalDaily
+        }
+    };
+}
+
 // ★ Filter advanced/retention data for NV — leaderboard shows only self, team compare shows own team
 function _kpiFilterAdvData(advData) {
     if (!_kpiIsNV() || !advData || !currentUser) return advData;
@@ -360,6 +431,59 @@ function _kpiFilterAdvData(advData) {
     return filtered;
 }
 
+// ★ Filter advanced/retention data for TP — leaderboard shows team members, team compare shows own team(s)
+function _kpiFilterAdvDataTP(advData) {
+    if (!_kpiIsTP() || !advData || !currentUser) return advData;
+    // Get TP's team employee IDs from KPI data
+    var tpTeams = _kpi.data && _kpi.data.teams ? _kpi.data.teams : [];
+    var teamEmpIds = new Set();
+    var teamDeptIds = new Set();
+    tpTeams.forEach(function(t) {
+        if (t.dept_id) teamDeptIds.add(t.dept_id);
+        if (t.employees) t.employees.forEach(function(e) { teamEmpIds.add(e.user_id); });
+    });
+    // If we have no data yet, fallback to department_id
+    if (teamEmpIds.size === 0 && currentUser.department_id) {
+        teamDeptIds.add(currentUser.department_id);
+    }
+
+    var filtered = Object.assign({}, advData);
+
+    // Leaderboard: only team members
+    if (filtered.leaderboard) {
+        var newLb = {};
+        for (var key in filtered.leaderboard) {
+            if (Array.isArray(filtered.leaderboard[key])) {
+                newLb[key] = filtered.leaderboard[key].filter(function(item) { return teamEmpIds.has(item.user_id); });
+            } else {
+                newLb[key] = filtered.leaderboard[key];
+            }
+        }
+        filtered.leaderboard = newLb;
+    }
+    if (filtered.allEmployees) {
+        filtered.allEmployees = filtered.allEmployees.filter(function(e) { return teamEmpIds.has(e.user_id); });
+    }
+
+    // conversionMap: only team members
+    if (filtered.conversionMap) {
+        var filtConv = {};
+        teamEmpIds.forEach(function(uid) {
+            if (filtered.conversionMap[uid]) filtConv[uid] = filtered.conversionMap[uid];
+        });
+        filtered.conversionMap = filtConv;
+    }
+
+    // teamComparison: only own team(s)
+    if (filtered.teamComparison) {
+        filtered.teamComparison = filtered.teamComparison.filter(function(t) {
+            return teamDeptIds.has(t.team_id);
+        });
+    }
+
+    return filtered;
+}
+
 // ★ Filter main retention data for NV — team compare shows own team
 function _kpiFilterMainData(mainData) {
     if (!_kpiIsNV() || !mainData || !mainData.groups || !currentUser) return mainData;
@@ -389,6 +513,35 @@ function _kpiFilterMainData(mainData) {
     });
 }
 
+// ★ Filter main retention data for TP — team compare shows own team(s)
+function _kpiFilterMainDataTP(mainData) {
+    if (!_kpiIsTP() || !mainData || !mainData.groups || !currentUser) return mainData;
+
+    // Find TP's team(s) by user_id in groups > teams > employees
+    var myTeams = [];
+    var myGroup = null;
+    for (var gi = 0; gi < mainData.groups.length; gi++) {
+        var g = mainData.groups[gi];
+        if (!g.teams) continue;
+        for (var ti = 0; ti < g.teams.length; ti++) {
+            var t = g.teams[ti];
+            if (!t.employees) continue;
+            for (var ei = 0; ei < t.employees.length; ei++) {
+                if (t.employees[ei].user_id === currentUser.id) {
+                    myTeams.push(t);
+                    myGroup = g;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!myGroup || myTeams.length === 0) return mainData;
+    return Object.assign({}, mainData, {
+        groups: [Object.assign({}, myGroup, { teams: myTeams })]
+    });
+}
+
 async function kpiLoadAll() {
     var lbl = document.getElementById('kpiMonthLabel');
     var content = document.getElementById('kpiContent');
@@ -406,10 +559,10 @@ async function kpiLoadAll() {
             apiCall('/api/meeting-commitments/monthly?month=' + kpiMo + '&year=' + kpiYear)
         ]);
 
-        // ★ Apply NV filtering
-        var kpiData = _kpiFilterData(results[0]);
-        var mainData = _kpiFilterMainData(results[1]);
-        var advData = _kpiFilterAdvData(results[2]);
+        // ★ Apply NV / TP filtering
+        var kpiData = _kpiFilterDataTP(_kpiFilterData(results[0]));
+        var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
+        var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[2]));
 
         _kpi.data = kpiData;
         kpiRenderSummary(kpiData);
@@ -455,10 +608,10 @@ async function kpiLoadData() {
             apiCall('/api/meeting-commitments/monthly?month=' + kpiM2 + '&year=' + kpiY2)
         ]);
 
-        // ★ Apply NV filtering
-        var kpiData = _kpiFilterData(results[0]);
-        var mainData = _kpiFilterMainData(results[1]);
-        var advData = _kpiFilterAdvData(results[2]);
+        // ★ Apply NV / TP filtering
+        var kpiData = _kpiFilterDataTP(_kpiFilterData(results[0]));
+        var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
+        var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[2]));
 
         _kpi.data = kpiData;
         kpiRenderSummary(kpiData);
@@ -881,8 +1034,8 @@ async function kpiLbRefetch() {
         // Also fetch main retention for team compare
         var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpi.month;
         var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
-        var advData = _kpiFilterAdvData(results[0]);
-        var mainData = _kpiFilterMainData(results[1]);
+        var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[0]));
+        var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
         kpiRenderLeaderboard(lbEl, advData);
         if (tcEl) kpiRenderTeamCompare(tcEl, mainData, advData);
     } catch(e) {
@@ -1143,8 +1296,8 @@ async function kpiTcRefetch() {
         var url = kpiTcBuildUrl();
         var retUrl = '/api/reports/customer-retention?period=month&date=' + _kpi.month;
         var results = await Promise.all([apiCall(url), apiCall(retUrl)]);
-        var advData = _kpiFilterAdvData(results[0]);
-        var mainData = _kpiFilterMainData(results[1]);
+        var advData = _kpiFilterAdvDataTP(_kpiFilterAdvData(results[0]));
+        var mainData = _kpiFilterMainDataTP(_kpiFilterMainData(results[1]));
         kpiRenderTeamCompare(tcEl, mainData, advData);
     } catch(e) {
         console.error('TC refetch error:', e);
@@ -1410,6 +1563,19 @@ function kpiRenderMeetingCommit(el) {
             }
         }
 
+        // ★ TP filtering: only show team members
+        if (_kpiIsTP() && currentUser) {
+            var _tpTeamMemberIds = new Set();
+            if (_kpi.data && _kpi.data.teams) {
+                _kpi.data.teams.forEach(function(t) {
+                    if (t.employees) t.employees.forEach(function(e) { _tpTeamMemberIds.add(e.user_id); });
+                });
+            }
+            if (_tpTeamMemberIds.size > 0) {
+                personArr = personArr.filter(function(p) { return _tpTeamMemberIds.has(p.uid); });
+            }
+        }
+
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
         for (var pi = 0; pi < personArr.length; pi++) {
             var p = personArr[pi];
@@ -1477,6 +1643,11 @@ function kpiRenderMeetingCommit(el) {
 
             // ★ NV filtering: only show own team
             if (_kpiIsNV() && currentUser && currentUser.department_id) {
+                teamSummaryArr = teamSummaryArr.filter(function(ts) { return ts.team.id === currentUser.department_id; });
+            }
+
+            // ★ TP filtering: only show own team(s)
+            if (_kpiIsTP() && currentUser && currentUser.department_id) {
                 teamSummaryArr = teamSummaryArr.filter(function(ts) { return ts.team.id === currentUser.department_id; });
             }
 
@@ -1556,6 +1727,17 @@ function kpiRenderMeetingCommit(el) {
                     _sessBadgeCommits = sessCommits.filter(function(c) { return c.user_id === currentUser.id && !c.team_dept_id; });
                     _sessBadgeDone = _sessBadgeCommits.filter(function(c) { return c.is_completed; }).length;
                 }
+                // ★ TP: show only team members' stats in session header badge
+                if (_kpiIsTP() && currentUser) {
+                    var _tpBadgeIds = new Set();
+                    if (_kpi.data && _kpi.data.teams) {
+                        _kpi.data.teams.forEach(function(t) { if (t.employees) t.employees.forEach(function(e) { _tpBadgeIds.add(e.user_id); }); });
+                    }
+                    if (_tpBadgeIds.size > 0) {
+                        _sessBadgeCommits = sessCommits.filter(function(c) { return _tpBadgeIds.has(c.user_id); });
+                        _sessBadgeDone = _sessBadgeCommits.filter(function(c) { return c.is_completed; }).length;
+                    }
+                }
                 if (_sessBadgeCommits.length > 0) {
                     var pctAll = Math.round(_sessBadgeCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / _sessBadgeCommits.length);
                     h += '<span class="kpi-mc-badge ' + (_sessBadgeDone === _sessBadgeCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + _sessBadgeDone + '/' + _sessBadgeCommits.length + ' — ' + pctAll + '%</span>';
@@ -1574,6 +1756,8 @@ function kpiRenderMeetingCommit(el) {
                 if (!team.members || team.members.length === 0) continue;
                 // ★ NV filtering: only show own team in session detail
                 if (_kpiIsNV() && currentUser && currentUser.department_id && team.id !== currentUser.department_id) continue;
+                // ★ TP filtering: only show own team in session detail
+                if (_kpiIsTP() && currentUser && currentUser.department_id && team.id !== currentUser.department_id) continue;
                 var teamCommits = sessCommits.filter(function(c) {
                     var memberIds = team.members.map(function(m) { return m.id; });
                     return memberIds.indexOf(c.user_id) >= 0 && !c.team_dept_id;
@@ -1588,7 +1772,7 @@ function kpiRenderMeetingCommit(el) {
                 h += '<div class="kpi-mc-team-name" style="justify-content:space-between;background:' + pal.teamNameBg + ';color:' + pal.teamNameColor + '">';
                 h += '<span>🏠 ' + team.name + ' <span style="font-size:11px;color:' + pal.teamNameColor + ';opacity:.6;font-weight:500">(' + team.members.length + ' người)</span></span>';
                 h += '<div style="display:flex;align-items:center;gap:6px">';
-                if (teamOwnCommits.length > 0 && !_kpiIsNV()) {
+                if (teamOwnCommits.length > 0 && !_kpiIsNV() && !_kpiIsTP()) {
                     h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
                 }
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
