@@ -410,32 +410,38 @@ function _crFindMyTeam(groups) {
     return null;
 }
 
-// ★ Filter data for restricted roles (NV/TV) — only show own team + self
+// ★ Filter data for restricted roles (NV/TV) — only show own data
 function _crFilterDataForNV(data) {
     if (!_crIsRestrictedRole() || !data.groups) return data;
 
     const myInfo = _crFindMyTeam(data.groups);
     if (!myInfo) return data; // fallback: show nothing filtered
 
-    // Build filtered groups: only the manager group containing my team, with only my team
+    // ★ Employee list: only show the current user themselves
+    const filteredTeam = {
+        ...myInfo.team,
+        employees: (myInfo.team.employees || []).filter(e => e.user_id === currentUser.id)
+    };
+
+    // Build filtered groups: only my team, only me in the employee list
     const filteredGroup = {
         ...myInfo.group,
         // Show team name as group header for NV
         dept_name: myInfo.team.name || myInfo.group.dept_name,
-        // Replace group-level stats with just my team's stats
-        current: { ...myInfo.team.current },
-        previous: { ...myInfo.team.previous },
-        trend: { ...myInfo.team.trend },
+        // Replace group-level stats with my OWN personal stats
+        current: { ...myInfo.employee.current },
+        previous: { ...myInfo.employee.previous },
+        trend: { ...(myInfo.employee.trend || {}) },
         personal: null, // hide manager personal stats
         otherManagers: [], // hide other managers
-        teams: [myInfo.team] // only my team
+        teams: [filteredTeam] // only my team, only me in it
     };
 
-    // Recalculate summary to only reflect my team
+    // Summary cards: show only MY own stats
     const filteredSummary = {
-        current: { ...myInfo.team.current },
-        previous: { ...myInfo.team.previous },
-        trend: { ...myInfo.team.trend }
+        current: { ...myInfo.employee.current },
+        previous: { ...myInfo.employee.previous },
+        trend: { ...(myInfo.employee.trend || {}) }
     };
 
     return {
@@ -1031,20 +1037,13 @@ async function crChartLoad() {
         if (!_crChart.optionsLoaded && data.options) {
             _crChart.optionsLoaded = true;
 
-            // ★ NV/TV: restrict chart dropdown to own team only
-            if (_crIsRestrictedRole() && (_cr._rawData || _cr.data)) {
-                const rawGroups = (_cr._rawData || _cr.data).groups || [];
+            // ★ NV/TV: restrict chart dropdown to only themselves
+            if (_crIsRestrictedRole() && currentUser) {
+                const rawGroups = (_cr._rawData || _cr.data || {}).groups || [];
                 const myInfo = _crFindMyTeam(rawGroups);
-                if (myInfo && myInfo.team) {
-                    let html = `<option value="team_${myInfo.team.team_id}">📊 ${myInfo.team.name}</option>`;
-                    if (myInfo.team.employees) {
-                        myInfo.team.employees.forEach(e => {
-                            html += `<option value="emp_${e.user_id}">&nbsp;&nbsp;👤 ${e.name}</option>`;
-                        });
-                    }
-                    sel.innerHTML = html;
-                    sel.value = `team_${myInfo.team.team_id}`;
-                }
+                const myName = myInfo ? myInfo.employee.name : currentUser.full_name;
+                sel.innerHTML = `<option value="emp_${currentUser.id}">👤 ${myName}</option>`;
+                sel.value = `emp_${currentUser.id}`;
             } else {
                 let html = '<option value="all">🏢 Tổng P.Kinh Doanh</option>';
                 if (data.options.teams) {
@@ -1267,36 +1266,36 @@ async function crLoadAdvanced() {
                 const myTeamId = myInfo.team.team_id;
                 const myTeamName = myInfo.team.name;
 
-                // Filter alerts to only my team
+                const myUserId = currentUser.id;
+
+                // Filter alerts to only myself
                 if (_crAdvData.alerts) {
-                    _crAdvData.alerts = _crAdvData.alerts.filter(a => a.team === myTeamName || myTeamEmpIds.has(a.user_id));
+                    _crAdvData.alerts = _crAdvData.alerts.filter(a => a.user_id === myUserId);
                 }
 
-                // Filter leaderboard to only my team members
+                // Filter leaderboard to only myself
                 if (_crAdvData.leaderboard) {
                     for (const key of Object.keys(_crAdvData.leaderboard)) {
                         if (Array.isArray(_crAdvData.leaderboard[key])) {
-                            _crAdvData.leaderboard[key] = _crAdvData.leaderboard[key].filter(item => myTeamEmpIds.has(item.user_id));
+                            _crAdvData.leaderboard[key] = _crAdvData.leaderboard[key].filter(item => item.user_id === myUserId);
                         }
                     }
                 }
 
-                // Filter team comparison to only my team
+                // Filter team comparison to only my team (keep team level)
                 if (_crAdvData.teamComparison) {
                     _crAdvData.teamComparison = _crAdvData.teamComparison.filter(t => t.team_id === myTeamId || t.name === myTeamName);
                 }
 
-                // Filter top customers to only my team's employees
+                // Filter top customers to only MY customers
                 if (_crAdvData.topCustomers) {
-                    _crAdvData.topCustomers = _crAdvData.topCustomers.filter(c => myTeamEmpIds.has(c.assigned_to_id));
+                    _crAdvData.topCustomers = _crAdvData.topCustomers.filter(c => c.assigned_to_id === myUserId);
                 }
 
-                // Filter conversionMap to only my team
+                // Filter conversionMap to only myself
                 if (_crAdvData.conversionMap) {
                     const filteredConv = {};
-                    for (const uid of myTeamEmpIds) {
-                        if (_crAdvData.conversionMap[uid]) filteredConv[uid] = _crAdvData.conversionMap[uid];
-                    }
+                    if (_crAdvData.conversionMap[myUserId]) filteredConv[myUserId] = _crAdvData.conversionMap[myUserId];
                     _crAdvData.conversionMap = filteredConv;
                 }
             }
