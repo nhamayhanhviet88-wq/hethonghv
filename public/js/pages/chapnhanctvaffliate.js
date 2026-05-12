@@ -907,7 +907,7 @@ async function openAffiliateAccountPopup(customerId) {
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label>Số điện thoại</label>
+                <label>Số điện thoại <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="reqAffPhone" class="form-control" value="${c.phone || ''}" placeholder="10 chữ số" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
             </div>
             <div class="form-group">
@@ -917,11 +917,11 @@ async function openAffiliateAccountPopup(customerId) {
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label>Địa chỉ</label>
+                <label>Địa chỉ <span style="color:var(--danger)">*</span></label>
                 <input type="text" id="reqAffAddress" class="form-control" value="${c.address || ''}" placeholder="Địa chỉ">
             </div>
             <div class="form-group">
-                <label>Tỉnh / Thành phố</label>
+                <label>Tỉnh / Thành phố <span style="color:var(--danger)">*</span></label>
                 <select id="reqAffProvince" class="form-control">
                     <option value="">— Chọn tỉnh thành —</option>
                     ${provOptions}
@@ -930,10 +930,8 @@ async function openAffiliateAccountPopup(customerId) {
         </div>
         <div class="form-group">
             <label>Đơn vị / Phòng ban</label>
-            <select id="reqAffDepartment" class="form-control">
-                <option value="">— Chọn phòng ban —</option>
-                ${_reqAffDeptOptions(depts)}
-            </select>
+            <input type="text" class="form-control" value="📁 AFFILIATE TOÀN QUỐC" readonly style="background:#e5e7eb;cursor:not-allowed;color:#374151;font-weight:700;">
+            <input type="hidden" id="reqAffDepartment" value="21">
         </div>
         <div>
             <hr style="margin: 15px 0; border-color: var(--gray-200);">
@@ -993,8 +991,13 @@ async function _affAccSubmit(customerId) {
     if (!password || password.length < 4) { showToast('Mật khẩu phải ít nhất 4 ký tự', 'error'); return; }
     if (!reason) { showToast('Vui lòng nhập lý do', 'error'); return; }
 
-    const phone = document.getElementById('reqAffPhone')?.value || '';
-    if (phone && !/^\d{10}$/.test(phone)) { showToast('Số điện thoại phải đúng 10 chữ số', 'error'); return; }
+    const phone = document.getElementById('reqAffPhone')?.value?.trim() || '';
+    if (!phone) { showToast('Vui lòng nhập số điện thoại', 'error'); return; }
+    if (!/^\d{10}$/.test(phone)) { showToast('Số điện thoại phải đúng 10 chữ số', 'error'); return; }
+    const address = document.getElementById('reqAffAddress')?.value?.trim() || '';
+    if (!address) { showToast('Vui lòng nhập địa chỉ', 'error'); return; }
+    const province = document.getElementById('reqAffProvince')?.value || '';
+    if (!province) { showToast('Vui lòng chọn Tỉnh / Thành phố', 'error'); return; }
 
     // Collect all proposed data for complete account creation on approve
     const proposed_data = {

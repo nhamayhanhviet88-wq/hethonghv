@@ -6,8 +6,16 @@
 
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 module.exports = async function(fastify) {
+
+    // ★ Production Mode: build combined filter for all queries in this module
+    async function _getCutoffSQL() {
+        const cutoff = await getProductionCutoff();
+        const testIds = await getTestAccountIds();
+        return buildProductionFilter(cutoff, testIds, 'c.created_at', 'c.created_by');
+    }
 
     // ===== Helper: Parse period params into date ranges =====
     function parsePeriod(period, dateStr, opts) {
@@ -166,6 +174,9 @@ module.exports = async function(fastify) {
             allDeptIds
         );
 
+        // ★ Production Mode: get combined filter for main handler
+        const _pCutoff = await _getCutoffSQL();
+
         // ===== 3. Core Query: count by ORDER_CODES, rank by phone =====
         const buildStatsQuery = (startDate, endDate) => {
             const paramOffset = allDeptIds.length;
@@ -192,6 +203,7 @@ module.exports = async function(fastify) {
                               WHERE cl.customer_id = oc.customer_id
                                 AND cl.log_type = 'chot_don'
                           )
+                          ${_pCutoff}
                     ),
                     ranked_orders AS (
                         SELECT
@@ -447,7 +459,8 @@ module.exports = async function(fastify) {
             groups.push({
                 type: 'unassigned',
                 user_id: null,
-                name: 'Chưa phân Quản Lý',
+                name: rootDept.name || 'PHÒNG KINH DOANH',
+                dept_name: rootDept.name || 'PHÒNG KINH DOANH',
                 role: null,
                 current: uCur,
                 previous: uPrev,
@@ -519,6 +532,7 @@ module.exports = async function(fastify) {
             WHERE assigned_to_id IN (${allKDIds.map((_, i) => `$${i + 1}`).join(',')})
               AND created_at >= $${allKDIds.length + 1}::timestamp
               AND created_at < $${allKDIds.length + 2}::timestamp
+              ${(await _getCutoffSQL()).replace(/c\./g, '')}
             GROUP BY assigned_to_id
         `, [...allKDIds, current.start, current.end]) : [];
 
@@ -575,6 +589,7 @@ module.exports = async function(fastify) {
         if (!user_id) return { error: 'Thiếu user_id' };
 
         const { current } = parsePeriod(period, date);
+        const _pCutoff = await _getCutoffSQL();
 
         const rows = await db.all(`
             WITH completed_orders AS (
@@ -602,6 +617,7 @@ module.exports = async function(fastify) {
                       WHERE cl.customer_id = oc.customer_id
                         AND cl.log_type = 'chot_don'
                   )
+                  ${_pCutoff}
             ),
             ranked_orders AS (
                 SELECT
@@ -663,6 +679,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/reports/customer-retention/chart', { preHandler: [authenticate] }, async (request, reply) => {
         const { year, type = 'all', target_id, chart_period = 'month' } = request.query;
         const yr = parseInt(year) || new Date().getFullYear();
+        const _pCutoff = await _getCutoffSQL();
 
         // Get KD hierarchy for dropdown options
         const allDepts = await db.all(
@@ -734,6 +751,7 @@ module.exports = async function(fastify) {
                       WHERE cl.customer_id = oc.customer_id
                         AND cl.log_type = 'chot_don'
                   )
+                  ${_pCutoff}
             ),
             ranked_orders AS (
                 SELECT
@@ -805,6 +823,7 @@ module.exports = async function(fastify) {
     fastify.get('/api/reports/customer-retention/advanced', { preHandler: [authenticate] }, async (request, reply) => {
         const { period = 'month', date, startDate, endDate } = request.query;
         const { current, previous } = parsePeriod(period, date, { startDate, endDate });
+        const _pCutoff = await _getCutoffSQL();
 
         // Get KD hierarchy
         const allDepts = await db.all(
@@ -841,6 +860,7 @@ module.exports = async function(fastify) {
                   AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                  ${_pCutoff}
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
@@ -915,6 +935,7 @@ module.exports = async function(fastify) {
                   AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
                   AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                  ${_pCutoff}
             ),
             ranked AS (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at) AS pn
@@ -971,6 +992,7 @@ module.exports = async function(fastify) {
             JOIN customers c ON oc.customer_id = c.id
             WHERE c.assigned_to_id IN (${ph})
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+              ${_pCutoff}
             GROUP BY c.assigned_to_id
         `, userIds);
 
@@ -1015,6 +1037,7 @@ module.exports = async function(fastify) {
             SELECT COUNT(DISTINCT c.id) AS cnt FROM customers c
             WHERE c.assigned_to_id IN (${ph})
               AND c.created_at >= $${pStart}::timestamp AND c.created_at < $${pEnd}::timestamp
+              ${_pCutoff}
         `, [...userIds, current.start, current.end]);
 
         const completedCount = await db.get(`
@@ -1025,6 +1048,7 @@ module.exports = async function(fastify) {
               AND COALESCE(oc.status, 'active') != 'cancelled'
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+              ${_pCutoff}
         `, [...userIds, current.start, current.end]);
 
         const assigned = parseInt(assignedCount?.cnt || 0);
@@ -1055,6 +1079,7 @@ module.exports = async function(fastify) {
               AND COALESCE(oc.status, 'active') != 'cancelled'
               AND oc.created_at >= $${pStart}::timestamp AND oc.created_at < $${pEnd}::timestamp
               AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')
+              ${_pCutoff}
             GROUP BY c.id, c.customer_name, c.phone, c.assigned_to_id
             ORDER BY total_revenue DESC
             LIMIT 10

@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { canApproveByRole } = require('../utils/approvalHierarchy');
 const { getVNToday } = require('../utils/workingDay');
+const { findActiveApprover } = require('../utils/findApprover');
 
 async function lockTaskRoutes(fastify, options) {
 
@@ -579,18 +580,9 @@ async function lockTaskRoutes(fastify, options) {
         const task = await db.get('SELECT * FROM lock_tasks WHERE id = $1', [lockTaskId]);
         if (!task) return reply.code(404).send({ error: 'Không tìm thấy CV' });
 
-        // Find manager
+        // Find manager (active only, exclude giam_doc)
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-        let managerId = null;
-        let lookupDeptId = user?.department_id;
-        const visited = new Set();
-        while (lookupDeptId && !visited.has(lookupDeptId)) {
-            visited.add(lookupDeptId);
-            const approver = await db.get('SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1', [lookupDeptId, userId]);
-            if (approver) { managerId = approver.user_id; break; }
-            const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [lookupDeptId]);
-            lookupDeptId = dept ? dept.parent_id : null;
-        }
+        const managerId = await findActiveApprover(userId, user?.department_id);
 
         // Calc deadline
         const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
@@ -782,8 +774,18 @@ async function lockTaskRoutes(fastify, options) {
     fastify.get('/api/lock-tasks/dept-users/:deptId', { preHandler: [authenticate] }, async (request, reply) => {
         const deptId = Number(request.params.deptId);
 
-        // Get all users in dept and sub-depts
+        // Get all users in dept, sub-depts, AND parent HỆ THỐNG dept (for QLCC)
         const deptIds = [deptId];
+
+        // Include parent system dept (HỆ THỐNG) so QLCC is visible
+        const thisDept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [deptId]);
+        if (thisDept && thisDept.parent_id) {
+            const parentDept = await db.get('SELECT id, name FROM departments WHERE id = $1', [thisDept.parent_id]);
+            if (parentDept && parentDept.name && parentDept.name.startsWith('HỆ THỐNG')) {
+                deptIds.push(parentDept.id);
+            }
+        }
+
         const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [deptId]);
         children.forEach(c => deptIds.push(c.id));
         for (const child of children) {

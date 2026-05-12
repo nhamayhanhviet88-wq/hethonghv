@@ -1091,56 +1091,37 @@ async function _lkShowCreateModal(deptId, editTask) {
                     <input id="lkf_redo_max" type="number" value="${t.max_redo_count || 3}" min="1" max="10" style="width:100px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
                 </div>
             </div>
-            <!-- ASSIGN USERS -->
             <div style="margin-bottom:14px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <label style="font-size:11px;font-weight:700;color:#374151;">Gán cho nhân viên *</label>
                     <label style="font-size:10px;color:#6b7280;cursor:pointer;"><input type="checkbox" id="lkf_selectAll" onchange="_lkToggleAll(this.checked)" ${deptUsers.length === assignedIds.length && deptUsers.length > 0 ? 'checked' : ''}> Chọn tất cả</label>
                 </div>
+                <input type="text" id="lkf_userSearch" placeholder="🔍 Tìm nhân viên, phòng, team..." oninput="_lkFilterAssignUsers(this.value)" style="width:100%;padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;box-sizing:border-box;margin-bottom:6px;">
                 <div id="lkf_userList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
                     ${(() => {
-                        // Group users by dept hierarchy
+                        // Group users by dept
+                        const groups = {};
+                        deptUsers.forEach(u => {
+                            const key = u.dept_name || 'Khác';
+                            if (!groups[key]) groups[key] = [];
+                            groups[key].push(u);
+                        });
+                        // Sort: HỆ THỐNG first, then alphabetical
+                        const sortedKeys = Object.keys(groups).sort((a, b) => {
+                            const aSys = a.startsWith('HỆ THỐNG') ? 0 : 1;
+                            const bSys = b.startsWith('HỆ THỐNG') ? 0 : 1;
+                            if (aSys !== bSys) return aSys - bSys;
+                            return a.localeCompare(b);
+                        });
                         let userHtml = '';
-                        if (_lkIsSystemDept) {
-                            // HỆ THỐNG: show QLCC first, then group by PHÒNG → Team
-                            const qlccUsers = deptUsers.filter(u => ['quan_ly'].includes(u.role) || u.department_id === deptId);
-                            const otherUsers = deptUsers.filter(u => !qlccUsers.some(q => q.id === u.id));
-                            if (qlccUsers.length > 0) {
-                                userHtml += `<div style="font-size:10px;font-weight:800;color:#dc2626;text-transform:uppercase;padding:6px 6px 2px;margin-top:2px;border-bottom:2px solid #fecaca;background:#fef2f2;border-radius:4px;">⭐ QUẢN LÝ CẤP CAO</div>`;
-                                qlccUsers.forEach(u => {
-                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#991b1b;font-weight:600;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ⭐ ${u.full_name}</label>`;
-                                });
-                            }
-                            // Group remaining by PHÒNG
-                            const phongGroups = {};
-                            otherUsers.forEach(u => {
-                                const key = u.dept_name || 'Khác';
-                                if (!phongGroups[key]) phongGroups[key] = [];
-                                phongGroups[key].push(u);
+                        sortedKeys.forEach(grp => {
+                            const isSys = grp.startsWith('HỆ THỐNG');
+                            userHtml += '<div class="lkf-group-header" style="font-size:10px;font-weight:800;color:' + (isSys ? '#dc2626' : '#1e3a5f') + ';text-transform:uppercase;padding:6px 6px 2px;margin-top:4px;border-bottom:' + (isSys ? '2px solid #fecaca' : '1px solid #e2e8f0') + ';' + (isSys ? 'background:#fef2f2;border-radius:4px;' : '') + '">' + (isSys ? '🏛️ ' : '🏢 ') + grp + '</div>';
+                            groups[grp].forEach(u => {
+                                const isMgr = ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong'].includes(u.role);
+                                userHtml += '<label class="lkf-user-row" data-name="' + (u.full_name || '').toLowerCase() + '" data-dept="' + (u.dept_name || '').toLowerCase() + '" style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:' + (isMgr ? '#991b1b' : '#374151') + ';' + (isMgr ? 'font-weight:600;' : '') + '" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'"><input type="checkbox" class="lkf-user-cb" value="' + u.id + '" ' + (assignedIds.includes(u.id) ? 'checked' : '') + ' style="width:14px;height:14px;"> ' + (isMgr ? '⭐ ' : '') + u.full_name + '</label>';
                             });
-                            Object.keys(phongGroups).forEach(grp => {
-                                userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:6px;border-bottom:1px solid #e2e8f0;">📂 ${grp}</div>`;
-                                phongGroups[grp].forEach(u => {
-                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ${u.full_name}</label>`;
-                                });
-                            });
-                        } else {
-                            // Normal PHÒNG: group by team
-                            const groups = {};
-                            deptUsers.forEach(u => {
-                                const key = u.dept_name || 'Khác';
-                                if (!groups[key]) groups[key] = [];
-                                groups[key].push(u);
-                            });
-                            Object.keys(groups).forEach(grp => {
-                                if (Object.keys(groups).length > 1) {
-                                    userHtml += `<div style="font-size:10px;font-weight:800;color:#1e3a5f;text-transform:uppercase;padding:6px 6px 2px;margin-top:4px;border-bottom:1px solid #e2e8f0;">🏢 ${grp}</div>`;
-                                }
-                                groups[grp].forEach(u => {
-                                    userHtml += `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;color:#374151;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="lkf-user-cb" value="${u.id}" ${assignedIds.includes(u.id) ? 'checked' : ''} style="width:14px;height:14px;"> ${u.full_name}</label>`;
-                                });
-                            });
-                        }
+                        });
                         return userHtml;
                     })()}
                 </div>
@@ -1155,6 +1136,46 @@ async function _lkShowCreateModal(deptId, editTask) {
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     _lkUpdateRecSummary();
+}
+
+function _lkFilterAssignUsers(q) {
+    const s = q.toLowerCase().trim();
+    const list = document.getElementById('lkf_userList');
+    if (!list) return;
+    // Filter user rows
+    list.querySelectorAll('.lkf-user-row').forEach(row => {
+        if (!s) { row.style.display = ''; return; }
+        const name = row.dataset.name || '';
+        const dept = row.dataset.dept || '';
+        row.style.display = (name.includes(s) || dept.includes(s)) ? '' : 'none';
+    });
+    // Show/hide group headers based on visible children
+    list.querySelectorAll('.lkf-group-header').forEach(header => {
+        if (!s) { header.style.display = ''; return; }
+        let hasVisible = false;
+        let next = header.nextElementSibling;
+        while (next && next.classList.contains('lkf-user-row')) {
+            if (next.style.display !== 'none') hasVisible = true;
+            next = next.nextElementSibling;
+        }
+        // Also show header if dept name matches
+        const headerText = header.textContent.toLowerCase();
+        if (headerText.includes(s)) {
+            header.style.display = '';
+            // Show all children under matching header
+            next = header.nextElementSibling;
+            while (next && next.classList.contains('lkf-user-row')) {
+                next.style.display = '';
+                next = next.nextElementSibling;
+            }
+        } else {
+            header.style.display = hasVisible ? '' : 'none';
+        }
+    });
+}
+
+function _lkToggleAll(checked) {
+    document.querySelectorAll('.lkf-user-cb').forEach(cb => { cb.checked = checked; });
 }
 
 function _lkRecurrenceValueHTML(type, value) {
@@ -1199,7 +1220,7 @@ function _lkRecurrenceValueHTML(type, value) {
     } else if (type === 'once') {
         return `<div>
             <label style="font-size:11px;font-weight:700;color:#374151;display:block;margin-bottom:4px;">Ngày cụ thể</label>
-            <input id="lkf_recval" type="date" value="${value || ''}" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+            <input id="lkf_recval" type="date" value="${value || ''}" min="${new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Ho_Chi_Minh'})}" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;">
         </div>`;
     }
     return '<div style="padding-top:20px;font-size:11px;color:#9ca3af;">Không cần cấu hình thêm</div>';

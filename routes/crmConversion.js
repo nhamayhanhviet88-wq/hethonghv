@@ -584,10 +584,12 @@ async function crmConversionRoutes(fastify, options) {
         return { count: 0 };
     });
 
-    // ========== PENDING CUSTOMER IDS (batch for CRM pages freeze) ==========
-    // Feature "Chuyển CRM" đã bỏ — luôn trả [] để không còn freeze khách
+    // ========== PENDING CUSTOMER IDS (batch for CRM pages — shows ⏳ badge) ==========
     fastify.get('/api/crm-conversion/pending-customers', { preHandler: [authenticate] }, async (request, reply) => {
-        return { customers: [] };
+        const rows = await db.all(
+            "SELECT DISTINCT customer_id as id FROM crm_conversion_requests WHERE status = 'pending'"
+        );
+        return { customers: rows || [] };
     });
 
     // Auto-expire is handled by standalone expireCtvRequests() called from deadline-checker

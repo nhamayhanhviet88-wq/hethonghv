@@ -1,4 +1,5 @@
 const { authenticate, requireRole } = require('../middleware/auth');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 const AFFILIATE_ROLES = ['hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
@@ -244,6 +245,11 @@ async function affiliateRoutes(fastify) {
                 FROM customers c
                 WHERE c.referrer_id IN (${placeholders})`;
             const custParams = [...affiliateIds];
+            // ★ Production Mode: dual filter (cutoff + test accounts)
+            const _cutoff = await getProductionCutoff();
+            const _testIds = await getTestAccountIds();
+            const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
+            if (_prodFilter) custQuery += _prodFilter;
             if (from) { custQuery += ` AND c.created_at >= ?`; custParams.push(from); }
             if (to) { custQuery += ` AND c.created_at <= ?`; custParams.push(to + ' 23:59:59'); }
             custQuery += ` GROUP BY c.referrer_id`;

@@ -116,7 +116,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
                    d.name AS dept_name, d.id AS dept_id,
                    rv.full_name AS reviewed_by_name
             FROM meeting_commitments mc
-            JOIN users u ON mc.user_id = u.id
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
             LEFT JOIN departments d ON u.department_id = d.id
             LEFT JOIN users rv ON mc.reviewed_by = rv.id
             WHERE mc.session_id = $1 ${commitFilter}
@@ -341,7 +341,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
                    COALESCE(d2.name, d.name) AS dept_name, COALESCE(mc.department_id, d.id) AS dept_id,
                    mc.department_id AS team_dept_id
             FROM meeting_commitments mc
-            JOIN users u ON mc.user_id = u.id
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
             LEFT JOIN departments d ON u.department_id = d.id
             LEFT JOIN departments d2 ON mc.department_id = d2.id
             WHERE mc.session_id IN (${ph})
@@ -360,7 +360,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
             SELECT mc.*, u.full_name AS user_name, u.role AS user_role,
                    d.name AS dept_name, d.id AS dept_id
             FROM meeting_commitments mc
-            JOIN users u ON mc.user_id = u.id
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
             LEFT JOIN departments d ON u.department_id = d.id
             WHERE mc.session_id = $1
             ORDER BY d.name, u.full_name, mc.stt
@@ -422,7 +422,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
                    mc.target_revenue, mc.department_id AS team_dept_id,
                    u.full_name AS user_name, u.role AS user_role
             FROM meeting_commitments mc
-            JOIN users u ON mc.user_id = u.id
+            JOIN users u ON mc.user_id = u.id AND u.status = 'active'
             WHERE mc.session_id IN (${ph})
             ORDER BY mc.session_id, u.full_name
         `, sessionIds);

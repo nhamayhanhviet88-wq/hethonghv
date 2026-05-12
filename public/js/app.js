@@ -4,6 +4,18 @@ let currentPage = 'dashboard';
 let userPermissions = {};
 let _configCache = {}; // Cache for app-config values
 
+// ========== VIETNAM TIMEZONE HELPERS ==========
+// Dùng ở mọi nơi trong frontend:
+//   vnNow()           → Date object giờ VN
+//   vnFormat(date)     → "00:35 12/05/2026"
+//   vnISOStr(date)     → "2026-05-12T00:35"
+//   vnDateStr(date)    → "2026-05-12"
+var _VN_TZ = 'Asia/Ho_Chi_Minh';
+function vnNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: _VN_TZ })); }
+function vnFormat(d) { if (!d) return '—'; return new Date(d).toLocaleString('vi-VN', { timeZone: _VN_TZ, day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+function vnISOStr(d) { var vn = new Date((d ? new Date(d) : new Date()).toLocaleString('en-US',{timeZone:_VN_TZ})); return vn.getFullYear()+'-'+String(vn.getMonth()+1).padStart(2,'0')+'-'+String(vn.getDate()).padStart(2,'0')+'T'+String(vn.getHours()).padStart(2,'0')+':'+String(vn.getMinutes()).padStart(2,'0'); }
+function vnDateStr(d) { return vnISOStr(d).slice(0,10); }
+
 // ========== PERMISSION HELPER ==========
 // Usage: canDo('crm_nhu_cau', 'edit') → true/false
 // Actions: 'view', 'create', 'edit', 'delete'

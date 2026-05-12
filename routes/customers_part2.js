@@ -2,6 +2,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { sendTelegramMessage, broadcastTelegram, notifyTelegram } = require('../utils/telegram');
 const { getNextWorkingDay, getVNToday } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 module.exports = function(fastify, db, getManagedDeptIds) {
 
@@ -678,12 +679,22 @@ module.exports = function(fastify, db, getManagedDeptIds) {
         let whereClause = '';
         let params = [];
 
+        // ★ Production Mode: ẩn dữ liệu test (theo thời gian + tài khoản test)
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'created_at', 'created_by');
+
         if (user.role === 'nhan_vien') {
             whereClause = 'WHERE assigned_to_id = ?'; params = [user.id];
         } else if (user.role === 'truong_phong') {
             whereClause = `WHERE (assigned_to_id = ? OR assigned_to_id IN (
                 SELECT tm.user_id FROM team_members tm JOIN teams t ON tm.team_id = t.id WHERE t.leader_id = ?
             ))`; params = [user.id, user.id];
+        }
+
+        // Inject production filter into WHERE
+        if (_prodFilter) {
+            if (whereClause) { whereClause += _prodFilter; } else { whereClause = 'WHERE 1=1' + _prodFilter; }
         }
 
         const total = await db.get(`SELECT COUNT(*) as cnt FROM customers ${whereClause}`, params);

@@ -1,5 +1,6 @@
 const db = require('../db/pool');
 const { runTelesalePumpForUser } = require('./telesale');
+const { getTestAccountIds } = require('../utils/productionMode');
 const { authenticate } = require('../middleware/auth');
 
 async function khoaTKNVRoutes(fastify, options) {
@@ -388,7 +389,13 @@ async function khoaTKNVRoutes(fastify, options) {
         });
 
         // Combine all
-        const allPenalties = [...srPenalties, ...ltFormatted, ...ctFormatted, ...emFormatted, ...cpFormatted];
+        const allPenaltiesRaw = [...srPenalties, ...ltFormatted, ...ctFormatted, ...emFormatted, ...cpFormatted];
+
+        // Filter out test accounts
+        const testAccountIds = await getTestAccountIds();
+        const testSet = new Set(testAccountIds.map(Number));
+        const allPenalties = allPenaltiesRaw.filter(p => !testSet.has(Number(p.penalized_user_id)));
+
         const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
 
         return { penalties: allPenalties, total };
@@ -511,6 +518,12 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.get('/api/penalty/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const todayStr = new Date().toISOString().split('T')[0];
+
+        // Skip penalty popup for test accounts
+        const testAccountIds = await getTestAccountIds();
+        if (testAccountIds.map(Number).includes(Number(userId))) {
+            return { pending: [], total: 0 };
+        }
 
         // Check if popup already shown today (server-side tracking)
         const userCheck = await db.get('SELECT penalty_popup_date, department_joined_at FROM users WHERE id = $1', [userId]);
@@ -793,10 +806,10 @@ async function khoaTKNVRoutes(fastify, options) {
         } catch(e) {}
 
         // Merge all penalties
-        const allPenalties = [];
+        const allPenaltiesRaw = [];
 
         srPenalties.forEach(p => {
-            allPenalties.push({
+            allPenaltiesRaw.push({
                 penalized_user_id: p.penalized_user_id,
                 penalized_name: p.penalized_name,
                 penalized_username: p.penalized_username,
@@ -812,7 +825,7 @@ async function khoaTKNVRoutes(fastify, options) {
         });
 
         lockPenalties.forEach(p => {
-            allPenalties.push({
+            allPenaltiesRaw.push({
                 penalized_user_id: p.penalized_user_id,
                 penalized_name: p.penalized_name,
                 penalized_username: p.penalized_username,
@@ -827,7 +840,7 @@ async function khoaTKNVRoutes(fastify, options) {
         });
 
         chainPenalties.forEach(p => {
-            allPenalties.push({
+            allPenaltiesRaw.push({
                 penalized_user_id: p.penalized_user_id,
                 penalized_name: p.penalized_name,
                 penalized_username: p.penalized_username,
@@ -840,6 +853,11 @@ async function khoaTKNVRoutes(fastify, options) {
                 source: 'CV Chuỗi'
             });
         });
+
+        // Filter out test accounts
+        const testAccountIds = await getTestAccountIds();
+        const testSet = new Set(testAccountIds.map(Number));
+        const allPenalties = allPenaltiesRaw.filter(p => !testSet.has(Number(p.penalized_user_id)));
 
         const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
 

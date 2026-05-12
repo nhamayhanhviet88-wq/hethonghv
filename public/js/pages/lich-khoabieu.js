@@ -851,7 +851,7 @@ async function renderLichKhoaBieuPage(container) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:12px;">
                 <h2 style="margin:0;font-size:20px;color:#122546;font-weight:700;">📋 Lịch Khóa Biểu Công Việc</h2>
-                ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">⚙️ Setup Người Duyệt</button>` : ''}
+                ${isGD ? `<button onclick="_kbShowSetupTab()" id="kbSetupBtn" style="padding:6px 14px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;background:white;color:#64748b;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="if(!_kbSetupVisible){this.style.background='#f8fafc'}" onmouseout="if(!_kbSetupVisible){this.style.background='white'}">⚙️ Setup Người Duyệt & Hỗ Trợ</button>` : ''}
                 ${isGD ? `<button onclick="_kbShowCreateDeptModal()" style="padding:6px 14px;font-size:12px;border:1px dashed #16a34a;border-radius:8px;background:rgba(22,163,74,0.04);color:#16a34a;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='rgba(22,163,74,0.04)'">＋ Tạo mới</button>` : ''}
                 ${isGD ? `<button onclick="_kbShowReorderModal()" style="padding:6px 14px;font-size:12px;border:1px solid #2563eb;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🔢 STT</button>` : ''}
                 <button onclick="_kbShowUnreportedModal()" style="padding:6px 14px;font-size:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:600;transition:all .15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fef2f2'">🔍 CV Chưa BC</button>
@@ -2470,10 +2470,10 @@ async function _kbShowSetupTab() {
     const btn = document.getElementById('kbSetupBtn');
     if (!_kbSetupVisible) {
         panel.style.display = 'none';
-        if (btn) { btn.style.background = 'white'; btn.style.color = '#64748b'; }
+        if (btn) { btn.style.background = 'white'; btn.style.color = '#64748b'; btn.style.border = '1px solid #e2e8f0'; }
         return;
     }
-    if (btn) { btn.style.background = '#2563eb'; btn.style.color = 'white'; }
+    if (btn) { btn.style.background = '#2563eb'; btn.style.color = 'white'; btn.style.border = '1px solid #2563eb'; }
     panel.style.display = 'block';
     panel.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Đang tải...</div>';
 
@@ -2494,7 +2494,7 @@ async function _kbShowSetupTab() {
         const systems = allDepts.filter(d => !d.parent_id);
         let html = `<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                <h3 style="margin:0;font-size:16px;color:#1e293b;font-weight:700;">⚙️ Setup Người Duyệt Công Việc</h3>
+                <h3 style="margin:0;font-size:16px;color:#1e293b;font-weight:700;">⚙️ Setup Người Duyệt & Hỗ Trợ Công Việc</h3>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <label style="font-size:12px;color:#64748b;font-weight:600;">Số lần làm lại tối đa:</label>
                     <input type="number" id="kbRedoMaxInput" value="${redoMax}" min="0" max="10" style="width:60px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;text-align:center;" />

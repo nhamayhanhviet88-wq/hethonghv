@@ -5,6 +5,7 @@
  */
 const db = require('../db/pool');
 const { getNextWorkingDay: _getNextWorkingDay } = require('../utils/workingDay');
+const { findActiveApprover, isManagerImmune } = require('../utils/findApprover');
 
 let _holidayCache = null;
 let _holidayCacheTime = 0;
@@ -147,6 +148,16 @@ async function runDeadlineCheck(forceFullCheck = false) {
     for (const sr of pendingSupport) {
         if (!sr.manager_id) continue;
         
+        // ★ Miễn phạt nếu manager là QLCC hoặc GĐ
+        if (await isManagerImmune(sr.manager_id)) {
+            // Đánh dấu supported (không phạt) nhưng vẫn close request
+            await db.run(
+                "UPDATE task_support_requests SET status = 'expired', penalty_amount = 0, penalty_reason = 'Miễn phạt (QLCC/GĐ)' WHERE id = $1",
+                [sr.id]
+            );
+            continue;
+        }
+        
         // Tính lại deadline thực (có tính nghỉ)
         const realDeadline = await calculateRealDeadline(sr.created_at, sr.manager_id);
         if (now < realDeadline) continue; // Chưa hết hạn thực
@@ -218,22 +229,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
         const reporter = await db.get("SELECT department_id FROM users WHERE id = $1", [report.user_id]);
         if (!reporter || !reporter.department_id) continue;
         
-        // Walk up department tree to find approver
-        let managerId = null;
-        let lookupDeptId = reporter.department_id;
-        const visited = new Set();
-        while (lookupDeptId && !visited.has(lookupDeptId)) {
-            visited.add(lookupDeptId);
-            const approver = await db.get(
-                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
-                [lookupDeptId, report.user_id]
-            );
-            if (approver) { managerId = approver.user_id; break; }
-            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
-            lookupDeptId = dept ? dept.parent_id : null;
-        }
-        
+        // Walk up department tree to find active approver (exclude GĐ)
+        const managerId = await findActiveApprover(report.user_id, reporter.department_id);
         if (!managerId) continue;
+        
+        // ★ Miễn phạt nếu manager là QLCC hoặc GĐ
+        if (await isManagerImmune(managerId)) continue;
         
         // Tính deadline thực
         const realDeadline = await calculateRealDeadline(report.created_at, managerId);
@@ -545,22 +546,19 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // Tính deadline cho QL: 23:59 ngày làm việc tiếp theo sau NV nộp
         const submittedAt = new Date(pr.created_at);
 
-        // Find the manager (approver) for this employee's department
-        let managerId = null;
-        let lookupDeptId = pr.user_dept_id;
-        const visitedDepts = new Set();
-        while (lookupDeptId && !visitedDepts.has(lookupDeptId)) {
-            visitedDepts.add(lookupDeptId);
-            const approver = await db.get(
-                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
-                [lookupDeptId, pr.user_id]
-            );
-            if (approver) { managerId = approver.user_id; break; }
-            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
-            lookupDeptId = dept ? dept.parent_id : null;
-        }
-
+        // Find active approver (exclude GĐ)
+        const managerId = await findActiveApprover(pr.user_id, pr.user_dept_id);
         if (!managerId) continue;
+
+        // ★ Miễn phạt nếu manager là QLCC hoặc GĐ
+        if (await isManagerImmune(managerId)) {
+            // Vẫn auto-approve NV để không block NV
+            const realDeadline2 = await calculateRealDeadline(submittedAt, managerId);
+            if (now >= realDeadline2) {
+                await db.run(`UPDATE lock_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`, [managerId, pr.id]);
+            }
+            continue;
+        }
 
         // Tính real deadline (kéo dài qua CN/lễ/nghỉ QL)
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
@@ -606,22 +604,19 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // Tính deadline cho QL: 23:59 ngày làm việc tiếp theo sau NV nộp
         const submittedAt = new Date(pr.created_at);
 
-        // Find the manager (approver) for this employee's department
-        let managerId = null;
-        let lookupDeptId = pr.user_dept_id;
-        const visitedDepts = new Set();
-        while (lookupDeptId && !visitedDepts.has(lookupDeptId)) {
-            visitedDepts.add(lookupDeptId);
-            const approver = await db.get(
-                "SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1",
-                [lookupDeptId, pr.user_id]
-            );
-            if (approver) { managerId = approver.user_id; break; }
-            const dept = await db.get("SELECT parent_id FROM departments WHERE id = $1", [lookupDeptId]);
-            lookupDeptId = dept ? dept.parent_id : null;
-        }
-
+        // Find active approver (exclude GĐ)
+        const managerId = await findActiveApprover(pr.user_id, pr.user_dept_id);
         if (!managerId) continue;
+
+        // ★ Miễn phạt nếu manager là QLCC hoặc GĐ
+        if (await isManagerImmune(managerId)) {
+            // Vẫn auto-approve NV để không block NV
+            const realDeadline2 = await calculateRealDeadline(submittedAt, managerId);
+            if (now >= realDeadline2) {
+                await db.run(`UPDATE chain_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`, [managerId, pr.id]);
+            }
+            continue;
+        }
 
         // Tính real deadline (kéo dài qua CN/lễ/nghỉ QL)
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
@@ -637,7 +632,6 @@ async function runDeadlineCheck(forceFullCheck = false) {
         );
 
         // Mark the completion as penalty for the MANAGER
-        // Create a separate expired record for the manager penalty tracking
         try {
             await db.run(
                 `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count)

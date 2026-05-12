@@ -20,8 +20,8 @@ async function teamsRoutes(fastify, options) {
                 SELECT d.*, 
                        p.name as parent_name,
                        u.full_name as head_name,
-                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) 
-                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) THEN 1 ELSE 0 END
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id) AND status = 'active') 
+                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id) AND status = 'active') THEN 1 ELSE 0 END
                        as member_count
                 FROM departments d
                 LEFT JOIN departments p ON d.parent_id = p.id
@@ -39,8 +39,8 @@ async function teamsRoutes(fastify, options) {
                 SELECT d.*, 
                        p.name as parent_name,
                        u.full_name as head_name,
-                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id))
-                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id)) THEN 1 ELSE 0 END
+                       (SELECT COUNT(*) FROM users WHERE department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id) AND status = 'active')
+                       + CASE WHEN d.head_user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id = d.head_user_id AND department_id IN (SELECT id FROM dept_tree WHERE root_id = d.id) AND status = 'active') THEN 1 ELSE 0 END
                        as member_count
                 FROM departments d
                 LEFT JOIN departments p ON d.parent_id = p.id
@@ -63,7 +63,7 @@ async function teamsRoutes(fastify, options) {
 
         const members = await db.all(`
             SELECT id, full_name, phone, role, status, birth_date
-            FROM users WHERE department_id = ?
+            FROM users WHERE department_id = ? AND status = 'active'
             ORDER BY full_name
         `, [Number(request.params.id)]);
 

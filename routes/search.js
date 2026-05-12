@@ -1,6 +1,7 @@
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
 const { maskCustomerData } = require('../utils/dataMasking');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 async function searchRoutes(fastify, options) {
 
@@ -30,6 +31,13 @@ async function searchRoutes(fastify, options) {
             WHERE (c.customer_name ILIKE $1 OR c.phone ILIKE $1 OR c.phone2 ILIKE $1 OR c.facebook_link ILIKE $1 OR c.address ILIKE $1)
         `;
         let crmParams = [searchPattern];
+
+        // ★ Production Mode: ẩn dữ liệu test (cutoff + test accounts)
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
+        if (_prodFilter) crmQuery += _prodFilter;
+
         if (!isFullAccess) {
             crmQuery += ` AND (c.created_by = $2 OR c.assigned_to_id = $2 OR c.receiver_id = $2)`;
             crmParams.push(userId);

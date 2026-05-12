@@ -192,6 +192,12 @@ async function start() {
         )`);
     } catch(e) { /* exists */ }
 
+    // Migration: add 'test_hidden' to users status check constraint (Production Mode)
+    try {
+        await db.exec(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check`);
+        await db.exec(`ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','resigned','locked','deleted','probation_locked','test_hidden'))`);
+    } catch(e) { /* already done */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

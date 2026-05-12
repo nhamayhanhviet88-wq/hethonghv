@@ -868,6 +868,10 @@ function _crmRenderCustomerRow(c, stats, stt) {
         <td style="text-align:right;font-weight:700;color:var(--success);font-size:14px;">${s.revenue > 0 ? formatCurrency(s.revenue) : '0'}</td>
         <td style="text-align:center;padding:4px 2px;">
             ${!c.readonly && canDo('crm_nhu_cau', 'edit') && c.cancel_approved !== 1 ? (() => {
+                // ★ Show pending CTV badge if customer has pending conversion request
+                if (_crmPendingCtvIds.includes(c.id)) {
+                    return `<span title="Đang chờ duyệt chuyển CRM" style="font-size:10px;padding:3px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;white-space:nowrap;cursor:default;">⏳ Chờ CTV</span>`;
+                }
                 // ★ GATE UI: KH có referrer_id + chưa có đơn → khóa nút chuyển CRM
                 if (c.referrer_id && !s.latestOrderCode) {
                     return `<span title="🔒 Khách có nguồn giới thiệu từ Đối Tác — cần có đơn hàng mới được chuyển CRM" style="cursor:not-allowed;font-size:16px;opacity:0.35;">🔒</span>`;

@@ -4,6 +4,7 @@
  */
 const db = require('../db/pool');
 const { authenticate } = require('../middleware/auth');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 module.exports = async function(fastify) {
 
@@ -61,6 +62,11 @@ module.exports = async function(fastify) {
         const empPh = empIds.map((_, i) => `$${i + 1}`).join(',');
 
 
+        // ★ Production Mode: dual filter (cutoff + test accounts)
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodSQL = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
+
         // Step 3a: Get customer IDs that have chot_don log
         const chotDonCusts = await db.all(`
             SELECT DISTINCT cl.customer_id
@@ -69,6 +75,7 @@ module.exports = async function(fastify) {
             WHERE cl.log_type = 'chot_don'
               AND c.assigned_to_id IN (${empPh})
               AND COALESCE(c.cancel_approved, 0) != 1
+              ${_prodSQL}
         `, empIds);
 
 
@@ -389,6 +396,7 @@ module.exports = async function(fastify) {
               AND oc.created_at >= $2::timestamptz
               AND oc.created_at < $3::timestamptz
               AND COALESCE(oc.status, 'active') != 'cancelled'
+              ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
             ORDER BY oc.created_at DESC
         `, [parseInt(user_id), monthStart, monthEnd]);
 
@@ -476,6 +484,7 @@ module.exports = async function(fastify) {
               AND oc.created_at >= $${empIds.length + 1}::timestamp
               AND oc.created_at < $${empIds.length + 2}::timestamp
               AND COALESCE(oc.status, 'active') != 'cancelled'
+              ${buildProductionFilter(await getProductionCutoff(), await getTestAccountIds(), 'c.created_at', 'c.created_by')}
             GROUP BY c.assigned_to_id, mo
         `, [...empIds, yearStart, yearEnd]);
 

@@ -22,6 +22,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="telesale-statuses" onclick="switchSettingTab('telesale-statuses', this)">📱 Tình Trạng Bắt Máy</div>
                     <div class="tab" data-tab="partner-reg-telegram" onclick="switchSettingTab('partner-reg-telegram', this)">📲 Đăng Ký Đối Tác</div>
                     <div class="tab" data-tab="telegram-notify" onclick="switchSettingTab('telegram-notify', this)">🔔 Telegram Thông Báo</div>
+                    <div class="tab" data-tab="production-mode" onclick="switchSettingTab('production-mode', this)" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;color:#92400e;font-weight:700;">🚀 Thực Chiến</div>
                     <div class="tab" data-tab="master-key" onclick="switchSettingTab('master-key', this)">🔐 Mã Khóa Tổng</div>
                 </div>
                 <div id="settingsContent">
@@ -63,6 +64,8 @@ function switchSettingTab(tab, el) {
         loadTelegramNotifySettings();
     } else if (tab === 'master-key') {
         loadMasterKeySettings();
+    } else if (tab === 'production-mode') {
+        loadProductionModeSettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -1879,3 +1882,280 @@ async function tgBulkAssignSave() {
         showToast(res.error || 'Lỗi gán', 'error');
     }
 }
+
+// ========== 🚀 CHẾ ĐỘ THỰC CHIẾN (PRODUCTION MODE) ==========
+let _prodModeAllUsers = [];
+const _vnStr = (d) => { const vn = new Date(d.toLocaleString('en-US',{timeZone:'Asia/Ho_Chi_Minh'})); return vn.getFullYear()+'-'+String(vn.getMonth()+1).padStart(2,'0')+'-'+String(vn.getDate()).padStart(2,'0')+'T'+String(vn.getHours()).padStart(2,'0')+':'+String(vn.getMinutes()).padStart(2,'0'); };
+async function loadProductionModeSettings() {
+    const contentDiv = document.getElementById('settingsContent');
+    contentDiv.innerHTML = '<div class="text-center text-muted" style="padding:30px;">Đang tải...</div>';
+
+    try {
+        const [data, usersRes] = await Promise.all([
+            apiCall('/api/production-mode'),
+            apiCall('/api/users')
+        ]);
+        const enabled = data.enabled;
+        const cutoffDate = data.production_start_date ? new Date(data.production_start_date) : null;
+        const testIds = data.test_account_ids || [];
+        const testUsers = data.test_account_users || [];
+        // Merge: active users from /api/users + test_hidden users from production-mode API
+        const activeUsers = (usersRes.users || usersRes || []);
+        const activeIds = new Set(activeUsers.map(u => u.id));
+        // Add test_hidden users that aren't in the active list
+        const mergedUsers = [...activeUsers];
+        testUsers.forEach(tu => { if (!activeIds.has(tu.id)) mergedUsers.push(tu); });
+        _prodModeAllUsers = mergedUsers;
+
+        const fmtD = (d) => d ? d.toLocaleDateString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+
+        const testTagsHTML = testIds.length > 0
+            ? testIds.map(id => { const u=_prodModeAllUsers.find(u2=>u2.id===id); return u ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:3px 10px;font-size:12px;color:#991b1b;font-weight:600;">🧪 '+u.full_name+' <small style=opacity:0.6>('+u.username+')</small></span>' : ''; }).filter(Boolean).join(' ')
+            : '<span style="color:#9ca3af;font-size:13px;">Chưa có</span>';
+
+        let html = '<div style="max-width:720px;margin:0 auto;padding:24px 0;">';
+
+        // Header
+        html += '<div style="background:'+(enabled?'linear-gradient(135deg,#065f46,#059669)':'linear-gradient(135deg,#1e293b,#475569)')+';border-radius:16px;padding:24px 28px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;">';
+        html += '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,0.08);border-radius:50%;"></div>';
+        html += '<div style="display:flex;align-items:center;gap:14px;position:relative;z-index:1;">';
+        html += '<div style="font-size:44px;">'+(enabled?'🚀':'🧪')+'</div>';
+        html += '<div><h2 style="margin:0;font-size:20px;font-weight:800;">'+(enabled?'THỰC CHIẾN — ĐANG BẬT':'CHẾ ĐỘ THỬ NGHIỆM')+'</h2>';
+        html += '<p style="margin:3px 0 0;opacity:0.85;font-size:13px;">';
+        if (enabled) {
+            html += (cutoffDate ? 'Cutoff: <b>'+fmtD(cutoffDate)+'</b>. ' : '');
+            html += (testIds.length > 0 ? '<b>'+testIds.length+'</b> TK test bị chặn.' : '');
+        } else {
+            html += 'Đang hiển thị <b>tất cả dữ liệu</b>.';
+        }
+        html += '</p></div></div></div>';
+
+        // Status cards
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">';
+        html += '<div style="background:'+(enabled?'#ecfdf5':'#fef3c7')+';border:1px solid '+(enabled?'#a7f3d0':'#fde68a')+';border-radius:10px;padding:12px;">';
+        html += '<div style="font-size:10px;text-transform:uppercase;color:'+(enabled?'#047857':'#92400e')+';font-weight:700;">Trạng thái</div>';
+        html += '<div style="font-size:15px;font-weight:800;margin-top:2px;color:'+(enabled?'#065f46':'#78350f')+';">'+(enabled?'✅ Bật':'⚠️ Tắt')+'</div></div>';
+        html += '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px;">';
+        html += '<div style="font-size:10px;text-transform:uppercase;color:#0369a1;font-weight:700;">Cutoff</div>';
+        html += '<div style="font-size:15px;font-weight:800;margin-top:2px;color:#0c4a6e;">'+(cutoffDate?fmtD(cutoffDate):'—')+'</div></div>';
+        html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;">';
+        html += '<div style="font-size:10px;text-transform:uppercase;color:#991b1b;font-weight:700;">TK Test</div>';
+        html += '<div style="font-size:15px;font-weight:800;margin-top:2px;color:#7f1d1d;">'+testIds.length+' TK</div></div></div>';
+
+        // Test accounts box
+        html += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+        html += '<h3 style="margin:0;font-size:14px;color:#1e293b;">🧪 Tài Khoản Test</h3>';
+        html += '<button class="btn btn-xs btn-secondary" onclick="_openTestAccountPicker()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;">✏️ Chỉnh Sửa</button>';
+        html += '</div><div style="display:flex;flex-wrap:wrap;gap:5px;">'+testTagsHTML+'</div>';
+        html += '<p style="margin:8px 0 0;font-size:11px;color:#64748b;">Dữ liệu KH do TK test tạo luôn bị ẩn <b>bất kể thời gian</b>.</p></div>';
+
+        // Action card
+        html += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">';
+        if (cutoffDate) {
+            html += '<h3 style="margin:0 0 10px;font-size:14px;color:#1e293b;">⚙️ Quản Lý Cutoff</h3>';
+            html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
+            html += '<button class="btn btn-danger" onclick="_toggleProductionMode(false)" style="padding:8px 18px;border-radius:10px;font-weight:700;font-size:12px;">🔓 Tắt Thực Chiến</button>';
+            html += '<button class="btn btn-secondary" onclick="_changeProductionDate()" style="padding:8px 18px;border-radius:10px;font-weight:600;font-size:12px;">📅 Đổi Cutoff</button>';
+            html += '</div>';
+        } else {
+            html += '<h3 style="margin:0 0 10px;font-size:14px;color:#1e293b;">🚀 Bật Cutoff (Tùy Chọn)</h3>';
+            html += '<p style="color:#64748b;font-size:11px;margin:0 0 10px;">Ẩn dữ liệu trước ngày chọn. Kết hợp với TK test để lọc kép.</p>';
+            html += '<div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap;">';
+            html += '<div><label style="font-size:11px;font-weight:700;color:#334155;display:block;margin-bottom:3px;">📅 Ngày cutoff</label>';
+            html += '<input type="datetime-local" id="prodCutoffInput" value="'+_vnStr(new Date())+'" style="padding:8px 10px;border:2px solid #cbd5e1;border-radius:8px;font-size:12px;width:220px;"></div>';
+            html += '<button class="btn btn-primary" onclick="_toggleProductionMode(true)" style="padding:8px 20px;border-radius:10px;font-weight:700;font-size:12px;background:linear-gradient(135deg,#059669,#047857);border:none;color:#fff;">🚀 Bật</button>';
+            html += '</div>';
+        }
+        html += '</div>';
+
+        // Info
+        html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-top:14px;">';
+        html += '<h4 style="margin:0 0 4px;font-size:12px;color:#1e40af;">ℹ️ Cách hoạt động</h4>';
+        html += '<ul style="margin:0;padding-left:14px;font-size:11px;color:#1e40af;line-height:1.7;">';
+        html += '<li><b>TK Test</b>: Dữ liệu do TK test tạo luôn bị ẩn (bất kể thời gian).</li>';
+        html += '<li><b>Cutoff</b>: Dữ liệu trước ngày cutoff bị ẩn (mọi TK).</li>';
+        html += '<li>Hai bộ lọc hoạt động <b>đồng thời</b>. Dữ liệu <b>KHÔNG bị xóa</b>.</li>';
+        html += '</ul></div></div>';
+
+        contentDiv.innerHTML = html;
+    } catch (e) {
+        contentDiv.innerHTML = '<div class="text-center text-danger" style="padding:30px;">❌ Lỗi: '+e.message+'</div>';
+    }
+}
+
+let _testPresets = [];
+
+function _openTestAccountPicker() {
+    const users = _prodModeAllUsers;
+    const roleLabels = {giam_doc:'GĐ',quan_ly_cap_cao:'QLCC',quan_ly:'QL',truong_phong:'TP',nhan_vien:'NV',tkaffiliate:'AFF'};
+
+    let listHTML = users.map(u => {
+        const rl = roleLabels[u.role] || u.role;
+        return '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;">'
+            + '<input type="checkbox" class="test-acct-cb" value="'+u.id+'" style="width:16px;height:16px;">'
+            + '<span style="font-weight:600;font-size:13px;">'+u.full_name+'</span>'
+            + '<span style="font-size:11px;color:#9ca3af;">('+u.username+')</span>'
+            + '<span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;margin-left:auto;">'+rl+'</span>'
+            + '</label>';
+    }).join('');
+
+    openModal('🧪 Chọn Tài Khoản Test', ''
+        + '<div style="margin-bottom:10px;">'
+        + '<input type="text" id="testAcctSearch" placeholder="🔍 Tìm tên..." oninput="_filterTestAcctList(this.value)" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;">'
+        + '</div>'
+        // Quick actions row
+        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">'
+        + '<button onclick="_testAcctSelectAll(true)" style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;cursor:pointer;">☑ Chọn tất cả</button>'
+        + '<button onclick="_testAcctSelectAll(false)" style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fef2f2;color:#991b1b;font-size:11px;font-weight:700;cursor:pointer;">☐ Bỏ chọn</button>'
+        + '<span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px;"></span>'
+        + '<button onclick="_savePresetPrompt()" style="padding:4px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#eff6ff;color:#1e40af;font-size:11px;font-weight:700;cursor:pointer;">💾 Lưu Mẫu</button>'
+        + '</div>'
+        // Preset chips
+        + '<div id="testPresetChips" style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;"></div>'
+        // User list
+        + '<div id="testAcctList" style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">' + listHTML + '</div>'
+        // Counter
+        + '<div style="margin-top:8px;text-align:right;font-size:11px;color:#94a3b8;" id="testAcctCounter">0 đã chọn</div>'
+        // Buttons
+        + '<div style="margin-top:10px;display:flex;gap:10px;">'
+        + '<button class="btn btn-primary" onclick="_saveTestAccounts()" style="flex:1;padding:10px;border-radius:10px;font-weight:700;font-size:14px;color:#fff;">💾 LƯU</button>'
+        + '<button class="btn btn-secondary" onclick="closeModal()" style="padding:10px 20px;border-radius:10px;color:#fff;">Hủy</button>'
+        + '</div>'
+    );
+
+    // Load current test IDs, check them, and render presets
+    setTimeout(async () => {
+        try {
+            const d = await apiCall('/api/production-mode');
+            const ids = d.test_account_ids || [];
+            _testPresets = d.test_account_presets || [];
+            document.querySelectorAll('.test-acct-cb').forEach(cb => {
+                cb.checked = ids.includes(parseInt(cb.value));
+                cb.addEventListener('change', _updateTestAcctCounter);
+            });
+            _updateTestAcctCounter();
+            _renderPresetChips();
+        } catch(e) {}
+    }, 150);
+}
+
+function _testAcctSelectAll(select) {
+    document.querySelectorAll('#testAcctList label').forEach(l => {
+        if (l.style.display !== 'none') {
+            const cb = l.querySelector('.test-acct-cb');
+            if (cb) cb.checked = select;
+        }
+    });
+    _updateTestAcctCounter();
+}
+
+function _updateTestAcctCounter() {
+    const cnt = document.querySelectorAll('.test-acct-cb:checked').length;
+    const el = document.getElementById('testAcctCounter');
+    if (el) el.textContent = cnt + ' đã chọn';
+}
+
+function _renderPresetChips() {
+    const container = document.getElementById('testPresetChips');
+    if (!container) return;
+    if (_testPresets.length === 0) {
+        container.innerHTML = '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Chưa có mẫu nào</span>';
+        return;
+    }
+    container.innerHTML = _testPresets.map(p =>
+        '<div style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:1px solid #93c5fd;border-radius:8px;padding:4px 10px;cursor:pointer;" title="Click để chọn ' + p.ids.length + ' TK">'
+        + '<span onclick="_applyPreset(\'' + p.name.replace(/'/g, "\\'") + '\')" style="font-size:12px;font-weight:700;color:#1e40af;cursor:pointer;">🏷 ' + p.name + ' <small style="opacity:0.6;">(' + p.ids.length + ')</small></span>'
+        + '<span onclick="event.stopPropagation();_deletePreset(\'' + p.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:14px;color:#ef4444;margin-left:4px;" title="Xóa mẫu">✕</span>'
+        + '</div>'
+    ).join('');
+}
+
+function _applyPreset(name) {
+    const preset = _testPresets.find(p => p.name === name);
+    if (!preset) return;
+    // Uncheck all first, then check only preset IDs
+    document.querySelectorAll('.test-acct-cb').forEach(cb => {
+        cb.checked = preset.ids.includes(parseInt(cb.value));
+    });
+    _updateTestAcctCounter();
+    showToast('🏷 Đã áp dụng mẫu "' + name + '" (' + preset.ids.length + ' TK)', 'success');
+}
+
+async function _savePresetPrompt() {
+    const checkedIds = [];
+    document.querySelectorAll('.test-acct-cb:checked').forEach(cb => checkedIds.push(parseInt(cb.value)));
+    if (checkedIds.length === 0) { showToast('Chọn ít nhất 1 tài khoản trước!', 'error'); return; }
+    const name = prompt('Đặt tên mẫu (VD: "TK Test Chính"):');
+    if (!name || !name.trim()) return;
+    const res = await apiCall('/api/production-mode', 'PUT', { save_preset: { name: name.trim(), ids: checkedIds } });
+    if (res.success) {
+        showToast('💾 Đã lưu mẫu "' + name.trim() + '" (' + checkedIds.length + ' TK)', 'success');
+        // Reload presets
+        const d = await apiCall('/api/production-mode');
+        _testPresets = d.test_account_presets || [];
+        _renderPresetChips();
+    } else {
+        showToast(res.error || 'Lỗi', 'error');
+    }
+}
+
+async function _deletePreset(name) {
+    if (!confirm('Xóa mẫu "' + name + '"?')) return;
+    const res = await apiCall('/api/production-mode', 'PUT', { delete_preset: name });
+    if (res.success) {
+        showToast('🗑 Đã xóa mẫu "' + name + '"', 'success');
+        const d = await apiCall('/api/production-mode');
+        _testPresets = d.test_account_presets || [];
+        _renderPresetChips();
+    }
+}
+
+function _filterTestAcctList(q) {
+    const s = q.toLowerCase();
+    document.querySelectorAll('#testAcctList label').forEach(l => {
+        l.style.display = l.textContent.toLowerCase().includes(s) ? '' : 'none';
+    });
+}
+
+async function _saveTestAccounts() {
+    const ids = [];
+    document.querySelectorAll('.test-acct-cb:checked').forEach(cb => ids.push(parseInt(cb.value)));
+    const res = await apiCall('/api/production-mode', 'PUT', { test_account_ids: ids });
+    if (res.success) {
+        showToast('✅ Đã lưu ' + ids.length + ' tài khoản test!', 'success');
+        closeModal();
+        loadProductionModeSettings();
+    } else {
+        showToast(res.error || 'Lỗi lưu', 'error');
+    }
+}
+
+async function _toggleProductionMode(enable) {
+    if (enable) {
+        const input = document.getElementById('prodCutoffInput');
+        if (!input || !input.value) { showToast('Vui lòng chọn ngày!', 'error'); return; }
+        if (!confirm('🚀 Bật cutoff: ' + new Date(input.value).toLocaleString('vi-VN') + '?\n\nDữ liệu trước ngày này sẽ bị ẩn.')) return;
+        const res = await apiCall('/api/production-mode', 'PUT', { production_start_date: input.value });
+        if (res.success) { showToast('🚀 ' + res.message, 'success'); loadProductionModeSettings(); }
+        else showToast(res.error || 'Lỗi', 'error');
+    } else {
+        if (!confirm('⚠️ Tắt Thực Chiến?\n\nCutoff + TK test sẽ bị xóa.\nMọi dữ liệu hiển thị lại.')) return;
+        const res = await apiCall('/api/production-mode', 'DELETE');
+        if (res.success) { showToast('⚠️ ' + res.message, 'success'); loadProductionModeSettings(); }
+        else showToast(res.error || 'Lỗi', 'error');
+    }
+}
+
+async function _changeProductionDate() {
+    const curVN = _vnStr(new Date());
+    const newDate = prompt('Nhập cutoff mới (YYYY-MM-DDTHH:MM):', curVN);
+    if (!newDate) return;
+    const d = new Date(newDate);
+    if (isNaN(d.getTime())) { showToast('Ngày không hợp lệ!', 'error'); return; }
+    if (!confirm('Đổi cutoff: ' + d.toLocaleString('vi-VN') + '?')) return;
+    const res = await apiCall('/api/production-mode', 'PUT', { production_start_date: newDate });
+    if (res.success) { showToast('✅ ' + res.message, 'success'); loadProductionModeSettings(); }
+    else showToast(res.error || 'Lỗi', 'error');
+}
+

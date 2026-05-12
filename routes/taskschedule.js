@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { calculateRealDeadline, toDateStr, toLocalTimestamp } = require('./deadline-checker');
 const { canApproveByRole, isAutoApproveRole } = require('../utils/approvalHierarchy');
+const { findActiveApprover } = require('../utils/findApprover');
 
 async function taskScheduleRoutes(fastify, options) {
 
@@ -1561,25 +1562,8 @@ async function taskScheduleRoutes(fastify, options) {
         }
 
         // Find approver from task_approvers (Setup Người Duyệt Công Việc)
-        // Walk up department tree: user dept → parent dept → grandparent etc.
-        let managerId = null;
-        let lookupDeptId = user.department_id;
-        const visited = new Set();
-        while (lookupDeptId && !visited.has(lookupDeptId)) {
-            visited.add(lookupDeptId);
-            // Check if there's an approver assigned to this dept (not self)
-            const approver = await db.get(
-                'SELECT user_id FROM task_approvers WHERE department_id = $1 AND user_id != $2 LIMIT 1',
-                [lookupDeptId, userId]
-            );
-            if (approver) {
-                managerId = approver.user_id;
-                break;
-            }
-            // Go up
-            const dept = await db.get('SELECT parent_id FROM departments WHERE id = $1', [lookupDeptId]);
-            lookupDeptId = dept ? dept.parent_id : null;
-        }
+        // Walk up department tree, filter active + exclude giam_doc
+        const managerId = await findActiveApprover(userId, user.department_id);
 
         if (!managerId) {
             return reply.code(400).send({ error: 'Chưa có người duyệt công việc trong Setup. Liên hệ giám đốc.' });

@@ -34,7 +34,7 @@ async function usersRoutes(fastify, options) {
 
         if (role) { query += ` AND u.role = ?`; params.push(role); }
         if (status) { query += ` AND u.status = ?`; params.push(status); }
-        else { query += ` AND u.status != 'deleted'`; }
+        else { query += ` AND u.status NOT IN ('deleted', 'test_hidden')`; }
 
         query += ' ORDER BY u.created_at DESC';
         const users = await db.all(query, params);

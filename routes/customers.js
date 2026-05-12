@@ -6,6 +6,7 @@ const { maskCustomerData } = require('../utils/dataMasking');
 const { getVNToday } = require('../utils/workingDay');
 const { calculateRealDeadline } = require('./deadline-checker');
 const { nanoid } = require('nanoid');
+const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
 
 const AFFILIATE_ROLES = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
 
@@ -308,6 +309,12 @@ async function customersRoutes(fastify, options) {
             LEFT JOIN customers rc ON c.referrer_customer_id = rc.id
             WHERE 1=1`;
         const params = [];
+
+        // ★ Production Mode: ẩn dữ liệu test (theo thời gian + tài khoản test)
+        const _cutoff = await getProductionCutoff();
+        const _testIds = await getTestAccountIds();
+        const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
+        if (_prodFilter) query += _prodFilter;
 
         if (crm_type) {
             if (crm_type === 'affiliate') { query += ` AND c.crm_type = 'ctv_hoa_hong'`; }
