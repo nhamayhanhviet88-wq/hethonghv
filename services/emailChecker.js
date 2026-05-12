@@ -259,8 +259,8 @@ function parseEmailBody(rawSource, bank) {
             const m = text.match(pat);
             if (m) {
                 description = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-                // Clean up: remove footer text
-                const footerIdx = description.search(/Tr[^\s]*n tr[^\s]*ng|Thank you|1800\s*5858|www\.sacombank/i);
+                // Clean up: remove footer text (Sacombank signature)
+                const footerIdx = description.search(/Tr.{0,3}n\s*tr.{0,3}ng\s*c.{0,3}m|Thank you|1800\s*5858|www\.sacombank|B.{0,3}n quy.{0,3}n/i);
                 if (footerIdx > 10) description = description.substring(0, footerIdx).trim();
                 break;
             }
