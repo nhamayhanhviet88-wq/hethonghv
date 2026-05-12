@@ -240,13 +240,14 @@ body {
     left: 0;
     bottom: 0;
     z-index: 100;
-    transition: width 0.3s ease, transform 0.3s ease;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 4px 0 15px rgba(0,0,0,0.2);
 }
 
+/* Desktop collapsed: icon-only slim mode */
 .sidebar.collapsed {
-    width: 0;
-    overflow: hidden;
+    width: 70px;
+    overflow: visible;
 }
 
 .sidebar-toggle-btn {
@@ -254,8 +255,77 @@ body {
 }
 
 .sidebar.collapsed ~ .main-content {
-    margin-left: 0;
+    margin-left: 70px;
 }
+
+/* Hide text elements when collapsed */
+.sidebar.collapsed .sidebar-header .brand { display: none; }
+.sidebar.collapsed .sidebar-header { justify-content: center; padding: 20px 10px; gap: 0; }
+.sidebar.collapsed .sidebar-header img { width: 36px; }
+
+/* Hide section/parent headers + toggle-all btn */
+.sidebar.collapsed .nav-section-header,
+.sidebar.collapsed .nav-parent-header,
+.sidebar.collapsed #sidebarToggleAll { display: none !important; }
+/* But keep section items visible */
+.sidebar.collapsed .nav-parent-content,
+.sidebar.collapsed .nav-section-items { display: block !important; }
+
+/* Nav items: icon-only centered */
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+    font-size: 0;
+    color: transparent;
+    border-left: 3px solid transparent;
+    position: relative;
+}
+.sidebar.collapsed .nav-item .nav-icon {
+    font-size: 18px;
+    width: auto;
+    min-width: auto;
+}
+.sidebar.collapsed .nav-item.active {
+    background: rgba(212,168,67,0.15);
+    border-left-color: var(--gold);
+}
+.sidebar.collapsed .nav-item #ctvPendingBadge { display: none !important; }
+
+/* Tooltip on hover */
+.sidebar.collapsed .nav-item::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 74px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--navy);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.sidebar.collapsed .nav-item:hover::after {
+    opacity: 1;
+}
+
+/* Footer: avatar only */
+.sidebar.collapsed .sidebar-footer { padding: 12px 0; display: flex; justify-content: center; }
+.sidebar.collapsed .sidebar-footer .user-info { flex-direction: column; align-items: center; gap: 0; }
+.sidebar.collapsed .sidebar-footer .user-details,
+.sidebar.collapsed .sidebar-footer .btn-logout { display: none; }
+.sidebar.collapsed .sidebar-footer .user-avatar { width: 34px; height: 34px; font-size: 12px; }
+
+/* Scrollbar thinner when collapsed */
+.sidebar.collapsed .sidebar-nav { padding: 4px 0; }
+.sidebar.collapsed .sidebar-nav::-webkit-scrollbar { width: 0; }
 
 .sidebar-header {
     padding: 20px;
@@ -537,13 +607,23 @@ table .role-tkaffiliate    { background: #fef3c7; color: #d97706; border: 1px so
 }
 
 .menu-toggle {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     font-size: 22px;
     color: var(--navy);
     cursor: pointer;
     padding: 5px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.menu-toggle:hover {
+    background: var(--gray-100);
+    color: var(--gold-dark);
 }
 
 .page-title {

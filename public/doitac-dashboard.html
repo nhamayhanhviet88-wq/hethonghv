@@ -69,16 +69,11 @@
     <!-- ★ INLINE toggle — uses inline styles + smart mobile detection -->
     <script>
     var _sidebarOpen = false;
-    function toggleSidebar(forceMode) {
+    function toggleSidebar() {
         var sidebar = document.getElementById('sidebar');
         var overlay = document.getElementById('sidebarOverlay');
-        var menuBtn = document.getElementById('menuToggle');
 
-        // Smart mobile detection: button visible = mobile
-        // (menuToggle is display:none on desktop, inline-block on mobile via CSS)
-        var isMobile = forceMode === 'mobile' 
-            || window.innerWidth <= 768
-            || (menuBtn && menuBtn.offsetWidth > 0);
+        var isMobile = window.innerWidth <= 768;
 
         if (isMobile) {
             _sidebarOpen = !_sidebarOpen;
@@ -91,8 +86,7 @@
             }
         } else {
             sidebar.classList.toggle('collapsed');
-            var btn = document.getElementById('sidebarToggleBtn');
-            if (btn) btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+            localStorage.setItem('sidebarPanelCollapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
         }
     }
     </script>
@@ -133,7 +127,7 @@
         <main class="main-content">
             <div class="topbar">
                 <div class="topbar-left">
-                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar('mobile')">☰</button>
+                    <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
                     <h1 class="page-title" id="pageTitle">Dashboard</h1>
                 </div>
                 <div class="topbar-right">

@@ -1052,7 +1052,7 @@ function renderSidebar() {
                 var itemHref = item.href || ('/' + item.id);
                 var isActive = currentPage === item.id ? 'active' : '';
                 var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
-                html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
+                html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" data-tooltip="' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label) + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
                 html += '<span class="nav-icon">' + item.icon + '</span> ' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label);
                 if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
                 html += '</a>';
@@ -1083,7 +1083,7 @@ function renderSidebar() {
             var itemHref = item.href || ('/' + item.id);
             var isActive = currentPage === item.id ? 'active' : '';
             var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
-            html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
+            html += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" data-tooltip="' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label) + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '">';
             html += '<span class="nav-icon">' + item.icon + '</span> ' + ((_isDoitacPortal && _doitacItemLabels[item.id]) || item.label);
             if (item.id === 'chap-nhan-ctv-affiliate') html += '<span id="ctvPendingBadge" style="display:none;margin-left:6px;background:#ef4444;color:white;font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;min-width:16px;text-align:center;"></span>';
             html += '</a>';
@@ -1309,9 +1309,12 @@ function navigate(page) {
     history.pushState({ page }, '', '/' + page);
     handleRoute();
 
-    // Close mobile sidebar
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('show');
+    // Close mobile sidebar (reset inline styles + state)
+    _sidebarOpen = false;
+    var sb = document.getElementById('sidebar');
+    var ov = document.getElementById('sidebarOverlay');
+    if (sb) { sb.classList.remove('open'); sb.style.cssText = ''; }
+    if (ov) { ov.classList.remove('show'); ov.style.cssText = ''; }
 }
 
 // Smart redirect for tkaffiliate uses sessionStorage (survives reload, clears on tab close)
@@ -1848,8 +1851,11 @@ function setupEventListeners() {
     var sidebarOverlay = document.getElementById('sidebarOverlay');
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', function() {
-            document.getElementById('sidebar').classList.remove('open');
+            _sidebarOpen = false;
+            var sb = document.getElementById('sidebar');
+            if (sb) { sb.classList.remove('open'); sb.style.cssText = ''; }
             sidebarOverlay.classList.remove('show');
+            sidebarOverlay.style.cssText = '';
         });
     }
 }
@@ -2025,16 +2031,12 @@ var _sidebarOpen = false;
 function toggleSidebar(forceMode) {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    const btn = document.getElementById('sidebarToggleBtn');
-    const menuBtn = document.getElementById('menuToggle');
 
-    // Detect mobile: forceMode='mobile' OR narrow viewport OR menuToggle visible
-    const isMobile = forceMode === 'mobile'
-        || window.innerWidth <= 768
-        || (menuBtn && menuBtn.offsetWidth > 0);
+    // Detect mobile: viewport ≤ 768px
+    const isMobile = window.innerWidth <= 768;
 
     if (isMobile) {
-        // Mobile: use inline styles (highest CSS specificity, cannot be overridden)
+        // Mobile: slide-in/out with overlay
         _sidebarOpen = !_sidebarOpen;
         if (_sidebarOpen) {
             sidebar.style.cssText = 'transform:translateX(0) !important;pointer-events:auto !important;z-index:99999 !important;box-shadow:4px 0 30px rgba(0,0,0,0.4) !important;width:270px !important;position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;';
@@ -2046,20 +2048,23 @@ function toggleSidebar(forceMode) {
         return;
     }
 
-    // Desktop mode: collapse/expand sidebar
+    // Desktop: toggle icon-only collapsed mode
     sidebar.classList.toggle('collapsed');
     const isCollapsed = sidebar.classList.contains('collapsed');
-    if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
-    localStorage.setItem('sidebarCollapsed', isCollapsed ? '1' : '0');
+    localStorage.setItem('sidebarPanelCollapsed', isCollapsed ? '1' : '0');
 }
 
-// Restore sidebar state on load
+// Restore sidebar panel state on load
 document.addEventListener('DOMContentLoaded', () => {
-    if (localStorage.getItem('sidebarCollapsed') === '1') {
+    if (localStorage.getItem('sidebarPanelCollapsed') === '1') {
         const sidebar = document.getElementById('sidebar');
-        const btn = document.getElementById('sidebarToggleBtn');
         if (sidebar) { sidebar.classList.add('collapsed'); }
-        if (btn) { btn.textContent = '▶'; }
+    }
+    // Migrate old key if present (avoid stale '1'/'0' in sidebarCollapsed)
+    var oldVal = localStorage.getItem('sidebarCollapsed');
+    if (oldVal === '1' || oldVal === '0') {
+        localStorage.setItem('sidebarPanelCollapsed', oldVal);
+        localStorage.removeItem('sidebarCollapsed');
     }
     // Check birthday after small delay (skip for affiliate accounts)
     const AFFILIATE_ROLES_BD = ['tkaffiliate', 'hoa_hong', 'ctv', 'nuoi_duong', 'sinh_vien'];
