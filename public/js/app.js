@@ -114,6 +114,16 @@ const MENU_CONFIG = [
     { id: 'bao-cao-hoa-hong-hv', label: 'Báo Cáo Hoa Hồng HV', icon: '📊', roles: ['tkaffiliate'], section: 'BÁO CÁO', href: '/bao-cao-hoa-hong-hv', strictRoles: true },
     { id: 'rut-tien-affiliate', label: 'Rút Tiền', icon: '🏦', roles: ['tkaffiliate'], section: 'AFFILIATE' },
 
+    // ========== BỘ PHẬN VĂN PHÒNG ==========
+    { id: 'don-hang-tong', label: 'Đơn Hàng Tổng', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangtong', permKey: 'don_hang_tong' },
+    { id: 'don-gui-ao-mau', label: 'Đơn Gửi Áo Mẫu', icon: '👕', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donguiaomau', permKey: 'don_gui_ao_mau' },
+    { id: 'so-ghi-nhan-tien', label: 'Sổ Ghi Nhận Tiền', icon: '💵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/soghinhantien', permKey: 'so_ghi_nhan_tien' },
+    { id: 'so-thu-chi', label: 'Sổ Thu Chi', icon: '📒', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/sothuchi', permKey: 'so_thu_chi' },
+    { id: 'so-co-phan-may', label: 'Sổ Cổ Phần May', icon: '🧵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/socophanmay', permKey: 'so_co_phan_may' },
+    { id: 'don-hang-thiet-ke', label: 'Đơn Hàng Thiết Kế', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangthietke', permKey: 'don_hang_thiet_ke' },
+    { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách Hàng', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
+    { id: 'don-loi-noi-bo', label: 'Đơn Lỗi Nội Bộ', icon: '🔧', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloinoibo', permKey: 'don_loi_noi_bo' },
+
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
     // { id: 'congvieckhoaxuly', label: 'CV Phạt Phải Xử Lý', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/congvieckhoaxuly' },
@@ -962,6 +972,7 @@ var _sidebarSectionKeys = [];
 var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
+    { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
 ];
