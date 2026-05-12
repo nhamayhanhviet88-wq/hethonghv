@@ -232,6 +232,41 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_date ON payment_records(payment_date)`);
     } catch(e) { /* exists */ }
 
+    // Migration: source_ref_id from INTEGER to TEXT for email hash
+    try {
+        await db.exec(`ALTER TABLE payment_records ALTER COLUMN source_ref_id TYPE TEXT`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_source_ref ON payment_records(source, source_ref_id)`);
+    } catch(e) { /* already text or exists */ }
+
+    // Migration: Email Import Config + Bank Parsers
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS email_import_config (
+            id              SERIAL PRIMARY KEY,
+            gmail_user      TEXT,
+            gmail_pass      TEXT,
+            check_interval  INTEGER DEFAULT 2,
+            is_active       BOOLEAN DEFAULT false,
+            last_check_at   TIMESTAMP,
+            last_import_count INTEGER DEFAULT 0,
+            last_error      TEXT,
+            updated_by      INTEGER REFERENCES users(id),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`INSERT INTO email_import_config (id, check_interval, is_active)
+            SELECT 1, 2, false WHERE NOT EXISTS (SELECT 1 FROM email_import_config WHERE id = 1)`);
+
+        await db.exec(`CREATE TABLE IF NOT EXISTS email_bank_parsers (
+            id              SERIAL PRIMARY KEY,
+            bank_name       TEXT NOT NULL,
+            sender_filter   TEXT NOT NULL,
+            is_active       BOOLEAN DEFAULT true,
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`INSERT INTO email_bank_parsers (bank_name, sender_filter, is_active)
+            SELECT 'Sacombank', 'sacombank', true
+            WHERE NOT EXISTS (SELECT 1 FROM email_bank_parsers WHERE bank_name = 'Sacombank')`);
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -449,6 +484,10 @@ async function start() {
     if (taskPointRoutes._syncTelesaleFromTemplates) {
         taskPointRoutes._syncTelesaleFromTemplates().catch(e => console.error('[Startup] Telesale sync error:', e.message));
     }
+
+    // Start email checker cron — auto-import bank emails
+    const { startCron: startEmailCron } = require('./services/emailChecker');
+    startEmailCron().catch(e => console.error('[Startup] Email checker error:', e.message));
 }
 
 start().catch(err => {

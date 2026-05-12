@@ -44,6 +44,11 @@ async function renderSoghinhantienPage(content) {
 .pr-add-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,.35)}
 .pr-filter-info{font-size:11px;color:var(--gray-500);font-weight:600}
 .pr-count{background:var(--navy);color:var(--gold);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px}
+.pr-settings-btn{background:var(--navy);color:var(--gold);border:none;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+.pr-settings-btn:hover{background:var(--navy-light);transform:translateY(-1px)}
+.pr-pending{background:#fef3c7;color:#92400e}
+.pr-mail-tag{background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:6px;font-size:9px;font-weight:700}
+.pr-user-tag{background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:6px;font-size:9px;font-weight:700}
 `;
         document.head.appendChild(st);
     }
@@ -119,7 +124,8 @@ function _prRenderToolbar() {
     else if (_pr.filter.month) filterText = 'Tháng '+_pr.filter.month+'/'+_pr.filter.year;
     else if (_pr.filter.year) filterText = 'Năm '+_pr.filter.year;
     var total = _pr.records.reduce(function(s,r){return s+Number(r.amount||0)},0);
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span><button class="pr-add-btn" onclick="_prShowAddModal()">➕ Thêm Mã Tiền</button>';
+    var settingsBtn = (window._currentUser && window._currentUser.role === 'giam_doc') ? '<button class="pr-settings-btn" onclick="_prShowSettings()">⚙️ Cài Đặt Email</button>' : '';
+    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Thêm Mã Tiền</button>';
 }
 
 function _prRenderTable() {
@@ -141,8 +147,8 @@ function _prRenderTable() {
     cols.forEach(function(c){h+='<th style="width:'+c.w+'px">'+c.l+'</th>';});
     h += '</tr></thead><tbody>';
 
-    var typeLabels = {thanh_toan:'TT',dat_coc:'Cọc',tt_sll:'SLL'};
-    var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll'};
+    var typeLabels = {thanh_toan:'TT',dat_coc:'Cọc',tt_sll:'SLL',pending:'⏳'};
+    var typeClass = {thanh_toan:'pr-tt',dat_coc:'pr-coc',tt_sll:'pr-sll',pending:'pr-pending'};
     var srcLabels = {khach_hang:'KH',khach_hang_sll:'KH SLL',nha_van_chuyen:'NVC'};
 
     _pr.records.forEach(function(r) {
@@ -167,7 +173,16 @@ function _prRenderTable() {
         h += '<td title="'+(r.total_order_codes||'')+'">'+(r.total_order_codes||'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.total_cod)?_prFmt(r.total_cod):'')+'</td>';
         h += '<td style="text-align:right">'+(Number(r.shipping_fee)?_prFmt(r.shipping_fee):'')+'</td>';
-        h += '<td style="font-size:10px;color:var(--gray-500)">'+updatedAt+'</td>';
+        // Lịch Sử CN: show source
+        var historyDisplay = '';
+        if (r.source === 'email_auto') {
+            historyDisplay = updatedAt + ' <span class="pr-mail-tag">📧 Mail</span>';
+        } else if (r.created_by_name) {
+            historyDisplay = updatedAt + ' <span class="pr-user-tag">👤 ' + r.created_by_name + '</span>';
+        } else {
+            historyDisplay = updatedAt;
+        }
+        h += '<td style="font-size:10px">' + historyDisplay + '</td>';
         h += '<td>'+statusBadge+'</td>';
         h += '<td style="font-weight:600;font-size:10.5px">'+payDate+'</td>';
         h += '</tr>';
@@ -262,4 +277,102 @@ function vnFormat(d, fmt) {
     var HH = String(d.getHours()).padStart(2,'0');
     var mm = String(d.getMinutes()).padStart(2,'0');
     return fmt.replace('dd',dd).replace('MM',MM).replace('HH',HH).replace('mm',mm);
+}
+
+// ========== SETTINGS MODAL ==========
+async function _prShowSettings() {
+    try {
+        var data = await apiCall('/api/payment-records/email-config');
+        var c = data.config || {};
+        var banks = data.banks || [];
+        var totalImported = data.total_imported || 0;
+
+        var lastCheck = c.last_check_at ? vnFormat(new Date(c.last_check_at), 'dd/MM HH:mm') : 'Chưa check';
+        var statusText = c.is_active ? '<span style="color:#059669;font-weight:700">🟢 Đang chạy</span>' : '<span style="color:#dc2626;font-weight:700">🔴 Tắt</span>';
+        var errorText = c.last_error ? '<div style="color:#dc2626;font-size:10px;margin-top:4px">⚠️ '+c.last_error+'</div>' : '';
+
+        var banksHTML = '';
+        banks.forEach(function(b) {
+            var toggleBtn = b.is_active
+                ? '<span class="pr-badge pr-nhan" style="cursor:pointer" onclick="_prToggleBank('+b.id+',false)">✅ Bật</span>'
+                : '<span class="pr-badge pr-chua" style="cursor:pointer" onclick="_prToggleBank('+b.id+',true)">⬚ Tắt</span>';
+            banksHTML += '<tr><td style="font-weight:700;padding:6px 8px">'+b.bank_name+'</td><td style="padding:6px 8px;color:var(--gray-500);font-size:11px">'+b.sender_filter+'</td><td style="padding:6px 8px">'+toggleBtn+'</td><td style="padding:6px 8px"><button onclick="_prDeleteBank('+b.id+')" style="background:none;border:none;cursor:pointer;font-size:14px" title="Xóa">🗑️</button></td></tr>';
+        });
+
+        var bodyHTML = '<div style="display:grid;gap:14px">'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+            +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">📧 Gmail</label><input type="text" id="prGmail" class="form-control" value="'+(c.gmail_user||'')+'" placeholder="email@gmail.com" style="padding:10px 12px;font-size:13px"></div>'
+            +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">🔑 App Password '+(c.has_password?'<span style="color:#059669;font-size:10px">(đã lưu)</span>':'')+'</label><input type="password" id="prGmailPass" class="form-control" placeholder="'+(c.has_password?'●●●● (để trống = giữ cũ)':'xxxx xxxx xxxx xxxx')+'" style="padding:10px 12px;font-size:13px"></div>'
+            +'</div>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+            +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">⏱️ Tần Suất Check</label><select id="prInterval" class="form-control" style="padding:10px 12px;font-size:13px"><option value="1"'+(c.check_interval==1?' selected':'')+'>1 phút</option><option value="2"'+(c.check_interval==2?' selected':'')+'>2 phút</option><option value="5"'+(c.check_interval==5?' selected':'')+'>5 phút</option><option value="10"'+(c.check_interval==10?' selected':'')+'>10 phút</option></select></div>'
+            +'<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">🔄 Trạng Thái</label><select id="prActive" class="form-control" style="padding:10px 12px;font-size:13px"><option value="true"'+(c.is_active?' selected':'')+'>🟢 Bật</option><option value="false"'+(!c.is_active?' selected':'')+'>🔴 Tắt</option></select></div>'
+            +'</div>'
+            +'<div style="background:var(--gray-50);border-radius:8px;padding:10px 14px;font-size:11px">'
+            +'<span style="font-weight:700">📊 Thống kê:</span> Lần check cuối: <b>'+lastCheck+'</b> · Import lần cuối: <b>'+c.last_import_count+'</b> mã · Tổng đã import: <b>'+totalImported+'</b> mã · '+statusText
+            +errorText
+            +'</div>'
+            +'<div style="border-top:1px solid var(--gray-200);padding-top:12px">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:800;color:var(--navy);font-size:12px">🏦 NGÂN HÀNG ĐANG THEO DÕI</span><button onclick="_prShowAddBank()" style="background:var(--gold);color:var(--navy);border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">➕ Thêm NH</button></div>'
+            +'<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--gray-100)"><th style="padding:6px 8px;text-align:left;font-size:10px">Ngân Hàng</th><th style="padding:6px 8px;text-align:left;font-size:10px">Filter</th><th style="padding:6px 8px;font-size:10px">Trạng Thái</th><th style="padding:6px 8px;font-size:10px">Xóa</th></tr></thead><tbody id="prBanksList">'
+            +banksHTML
+            +'</tbody></table>'
+            +'</div>'
+            +'</div>';
+
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button><button class="btn" onclick="_prCheckNow()" style="background:var(--info);color:#fff;width:auto">🔍 Check Ngay</button><button class="btn btn-primary" onclick="_prSaveSettings()" style="width:auto">💾 Lưu Cài Đặt</button>';
+        openModal('⚙️ Cài Đặt Email Tự Động', bodyHTML, footerHTML);
+    } catch(e) { showToast('Lỗi tải cài đặt: '+e.message,'error'); }
+}
+
+async function _prSaveSettings() {
+    var body = {
+        gmail_user: document.getElementById('prGmail')?.value || '',
+        check_interval: Number(document.getElementById('prInterval')?.value) || 2,
+        is_active: document.getElementById('prActive')?.value === 'true'
+    };
+    var pass = document.getElementById('prGmailPass')?.value;
+    if (pass) body.gmail_pass = pass;
+
+    try {
+        await apiCall('/api/payment-records/email-config','PUT',body);
+        showToast('✅ Đã lưu cài đặt email');
+        closeModal();
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _prToggleBank(id, active) {
+    await apiCall('/api/payment-records/banks/'+id,'PUT',{is_active:active});
+    showToast(active ? '✅ Đã bật' : '⬚ Đã tắt');
+    _prShowSettings();
+}
+
+async function _prDeleteBank(id) {
+    if (!confirm('Xóa ngân hàng này?')) return;
+    await apiCall('/api/payment-records/banks/'+id,'DELETE');
+    showToast('🗑️ Đã xóa');
+    _prShowSettings();
+}
+
+function _prShowAddBank() {
+    var name = prompt('Tên ngân hàng (VD: Techcombank):');
+    if (!name) return;
+    var filter = prompt('Email/keyword filter (VD: techcombank):');
+    if (!filter) return;
+    apiCall('/api/payment-records/banks','POST',{bank_name:name,sender_filter:filter}).then(function(){
+        showToast('✅ Đã thêm '+name);
+        _prShowSettings();
+    });
+}
+
+async function _prCheckNow() {
+    try {
+        await apiCall('/api/payment-records/check-email','POST');
+        showToast('🔍 Đang kiểm tra email...');
+        setTimeout(function() {
+            var treeP = apiCall('/api/payment-records/tree');
+            treeP.then(function(d) { _pr.tree = d.tree || []; _prRenderSidebar(); });
+            _prLoadRecords();
+        }, 3000);
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
 }
