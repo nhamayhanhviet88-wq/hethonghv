@@ -2,13 +2,7 @@
 var _pr = { tree: [], records: [], staff: [], filter: {}, editing: null };
 
 function _prFmt(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
-function _prFmtShort(n) {
-    var v = Number(n||0);
-    if (v >= 1e9) return (v/1e9).toFixed(1).replace('.0','') + 'tỷ';
-    if (v >= 1e6) return (v/1e6).toFixed(1).replace('.0','') + 'tr';
-    if (v >= 1e3) return (v/1e3).toFixed(0) + 'k';
-    return v.toLocaleString('vi-VN');
-}
+function _prFmtShort(n) { return Number(n||0).toLocaleString('vi-VN') + 'đ'; }
 
 var _prBanks = ['SACOM','TECHCOM','ACB','VIETCOM','BIDV','AGRI','MB','VP','TP','SHB','Khác'];
 
@@ -45,7 +39,7 @@ async function renderSoghinhantienPage(content) {
 .pr-dy.active{background:rgba(16,185,129,.08);color:#065f46;font-weight:700}
 .pr-all{padding:10px 12px;cursor:pointer;font-weight:800;font-size:11px;color:var(--navy);border-bottom:2px solid var(--gold);display:flex;align-items:center;gap:6px;transition:background .15s;user-select:none;text-transform:uppercase;letter-spacing:1px}
 .pr-all:hover,.pr-all.active{background:rgba(212,168,67,.1)}
-.pr-amt{font-size:10px;font-weight:700;color:var(--success);white-space:nowrap}
+.pr-amt{font-size:11px;font-weight:800;color:#e65100;white-space:nowrap;text-shadow:0 0 1px rgba(230,81,0,.15)}
 .pr-add-btn{background:linear-gradient(135deg,var(--success),#059669);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s;box-shadow:0 2px 8px rgba(16,185,129,.25)}
 .pr-add-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,.35)}
 .pr-filter-info{font-size:11px;color:var(--gray-500);font-weight:600}
@@ -163,7 +157,7 @@ function _prRenderTable() {
         h += '<td style="font-weight:700">'+methodBadge+'</td>';
         h += '<td title="'+(custDisplay||'')+'" style="font-weight:600;color:var(--navy)">'+custDisplay+'</td>';
         h += '<td style="color:var(--info);font-weight:600">'+(r.cskh_name||'')+'</td>';
-        h += '<td style="font-weight:800;color:var(--navy);text-align:right">'+_prFmt(r.amount)+'</td>';
+        h += '<td style="font-weight:900;color:#d32f2f;text-align:right;font-size:12.5px">'+_prFmt(r.amount)+'</td>';
         h += '<td>'+typeBadge+'</td>';
         h += '<td title="'+(r.order_tt_coc||'')+'">'+(r.order_tt_coc||'')+'</td>';
         h += '<td title="'+(r.order_ao_mau||'')+'">'+(r.order_ao_mau||'')+'</td>';
