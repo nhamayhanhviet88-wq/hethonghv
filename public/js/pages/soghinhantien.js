@@ -124,7 +124,7 @@ function _prRenderToolbar() {
     else if (_pr.filter.month) filterText = 'Tháng '+_pr.filter.month+'/'+_pr.filter.year;
     else if (_pr.filter.year) filterText = 'Năm '+_pr.filter.year;
     var total = _pr.records.reduce(function(s,r){return s+Number(r.amount||0)},0);
-    var settingsBtn = (window._currentUser && window._currentUser.role === 'giam_doc') ? '<button class="pr-settings-btn" onclick="_prShowSettings()">⚙️ Cài Đặt Email</button>' : '';
+    var settingsBtn = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') ? '<button class="pr-settings-btn" onclick="_prShowSettings()">⚙️ Cài Đặt Email</button>' : '';
     tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Thêm Mã Tiền</button>';
 }
 
