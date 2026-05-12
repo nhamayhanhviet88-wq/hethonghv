@@ -198,6 +198,40 @@ async function start() {
         await db.exec(`ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active','resigned','locked','deleted','probation_locked','test_hidden'))`);
     } catch(e) { /* already done */ }
 
+    // Migration: Payment Records — Sổ Ghi Nhận Tiền (Bộ Phận Văn Phòng)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS payment_records (
+            id              SERIAL PRIMARY KEY,
+            payment_code    TEXT NOT NULL UNIQUE,
+            payment_method  TEXT NOT NULL DEFAULT 'CK',
+            daily_seq       INTEGER NOT NULL,
+            customer_name   TEXT,
+            customer_phone  TEXT,
+            cskh_user_id    INTEGER REFERENCES users(id),
+            amount          NUMERIC NOT NULL DEFAULT 0,
+            payment_type    TEXT DEFAULT 'thanh_toan',
+            order_tt_coc    TEXT,
+            order_ao_mau    TEXT,
+            transfer_note   TEXT,
+            money_source    TEXT DEFAULT 'khach_hang',
+            bank_name       TEXT,
+            total_order_codes TEXT,
+            total_cod       NUMERIC DEFAULT 0,
+            shipping_fee    NUMERIC DEFAULT 0,
+            handover_status TEXT DEFAULT 'chua_bangiao',
+            handover_at     TIMESTAMP,
+            handover_by     INTEGER REFERENCES users(id),
+            source          TEXT DEFAULT 'manual',
+            source_ref_id   INTEGER,
+            payment_date    DATE NOT NULL,
+            created_by      INTEGER REFERENCES users(id),
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_method_date ON payment_records(payment_method, payment_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_date ON payment_records(payment_date)`);
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -281,6 +315,7 @@ async function start() {
     fastify.register(require('./routes/kpiKdoanh'));
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/telegram'));
+    fastify.register(require('./routes/paymentRecords'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
