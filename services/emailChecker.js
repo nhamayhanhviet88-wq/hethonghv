@@ -175,19 +175,13 @@ function parseEmailBody(rawSource, bank) {
         const isBase64 = /Content-Transfer-Encoding:\s*base64/i.test(rawSource);
 
         if (isBase64) {
-            // For base64 emails: find empty line after headers, decode everything after
-            // Single-part: headers\r\n\r\nBASE64DATA
-            // Multipart: ...Content-Type: text/html...\r\n\r\nBASE64DATA\r\n--boundary
-            
             // Try multipart first
             const mpMatch = rawSource.match(/Content-Type:\s*text\/html[^\r\n]*[\s\S]*?\r?\n\r?\n([\s\S]*?)(?:\r?\n--)/i);
             if (mpMatch) {
                 try { html = Buffer.from(mpMatch[1].replace(/[\r\n\s]/g, ''), 'base64').toString('utf-8'); } catch {}
             }
-            
-            // If multipart didn't work, try single-part (entire body after headers)
+            // Fallback: single-part (entire body after headers)
             if (!html) {
-                // Find the blank line separating headers from body
                 const blankIdx = rawSource.search(/\r?\n\r?\n/);
                 if (blankIdx > 0) {
                     const bodyPart = rawSource.substring(blankIdx).replace(/^\s+/, '');
@@ -200,7 +194,6 @@ function parseEmailBody(rawSource, bank) {
         if (!html) {
             const htmlMatch = rawSource.match(/Content-Type:\s*text\/html[\s\S]*?\r?\n\r?\n([\s\S]*?)(?=\r?\n--|\r?\n\.\r?\n|$)/i);
             html = htmlMatch ? htmlMatch[1] : rawSource;
-            
             // Decode quoted-printable
             html = html.replace(/=\r?\n/g, '');
             html = html.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
@@ -209,62 +202,110 @@ function parseEmailBody(rawSource, bank) {
         // Strip HTML tags for easier parsing
         const text = html.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/&#\d+;/g, ' ').replace(/\s+/g, ' ');
 
-        // ---- Parse AMOUNT ----
-        // Sacombank format: + 2,000,000 VND  or  - 7,280,000 VND
-        const amtPatterns = [
-            /(?:Ph(?:á|a)t sinh|Transaction)[^]*?([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i,
-            /([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i
-        ];
+        // Detect bank type from sender_filter
+        const isACB = bank.sender_filter.toLowerCase().includes('acb');
+
+        // ============ PARSE AMOUNT ============
         let amount = 0;
         let sign = '+';
-        for (const pat of amtPatterns) {
-            const m = text.match(pat);
-            if (m) {
-                sign = m[1].trim();
-                amount = parseFloat(m[2].replace(/,/g, ''));
-                break;
+
+        if (isACB) {
+            // ACB format: "Ghi có +30,000,000.00 VND" or "Ghi nợ -7,280,000.00 VND"
+            // After HTML strip: "Ghi c +19,000.00 VND" (diacritics stripped)
+            const acbAmt = text.match(/Ghi\s*(?:c[^\s]*|n[^\s]*)\s*([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i)
+                        || text.match(/(?:Credit|Debit)\s*([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i);
+            if (acbAmt) {
+                sign = acbAmt[1].trim();
+                // ACB uses decimal .00 → remove it: 30,000,000.00 → 30000000
+                amount = parseFloat(acbAmt[2].replace(/,/g, ''));
+                // Remove decimal cents (ACB always .00)
+                if (amount > 0 && amount !== Math.floor(amount)) amount = Math.floor(amount);
+            }
+        } else {
+            // Sacombank format: "+ 2,000,000 VND" or "- 7,280,000 VND"
+            const amtPatterns = [
+                /(?:Ph[^\s]*t sinh|Transaction)[^]*?([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i,
+                /([+-])\s*([\d,]+(?:\.\d+)?)\s*VND/i
+            ];
+            for (const pat of amtPatterns) {
+                const m = text.match(pat);
+                if (m) {
+                    sign = m[1].trim();
+                    amount = parseFloat(m[2].replace(/,/g, ''));
+                    break;
+                }
             }
         }
-        // Skip negative (money going out)
+
+        // Skip negative (money going out) or zero
         if (sign === '-' || amount <= 0) return null;
 
-        // ---- Parse DATE ----
-        const datePatterns = [
-            /(?:Ng(?:à|a)y|Date)[^]*?(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2})/i,
-            /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/
-        ];
+        // ============ PARSE DATE ============
         let dateStr = null;
         let timeStr = '';
-        for (const pat of datePatterns) {
-            const m = text.match(pat);
-            if (m) {
-                dateStr = `${m[3]}-${m[2]}-${m[1]}`; // YYYY-MM-DD
-                timeStr = `${m[4]}:${m[5]}`;
-                break;
+
+        if (isACB) {
+            // ACB: "tính đến 12/05/2026" → after strip: "t nh n 28/02/2025"
+            const acbDate = text.match(/(?:t.{0,3}nh\s*.{0,3}n|up\s*to)\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+            if (acbDate) {
+                dateStr = `${acbDate[3]}-${acbDate[2]}-${acbDate[1]}`;
+            }
+            // Try to get time from GD ref: "GD 342940-022825 13:16:51"
+            const acbTime = text.match(/(\d{2}):(\d{2}):\d{2}\s*\./);
+            if (acbTime) timeStr = `${acbTime[1]}:${acbTime[2]}`;
+        } else {
+            // Sacombank: "Ngày / Date 28/02/2025 13:16"
+            const datePatterns = [
+                /(?:Ng[^\s]*y|Date)[^]*?(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2})/i,
+                /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/
+            ];
+            for (const pat of datePatterns) {
+                const m = text.match(pat);
+                if (m) {
+                    dateStr = `${m[3]}-${m[2]}-${m[1]}`;
+                    timeStr = `${m[4]}:${m[5]}`;
+                    break;
+                }
             }
         }
+
+        // Fallback: use email date or today
         if (!dateStr) {
             const now = new Date();
             dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         }
 
-        // ---- Parse DESCRIPTION ----
-        // Sacombank: "Nội dung / Description   PHAN THI HANH chuyen tien..."
-        const descPatterns = [
-            /(?:N[^\s]*i\s*dung|Description)\s*(?:\/\s*Description)?\s*([A-Z][^\r\n]{3,300})/i,
-            /(?:N[^\s]*i\s*dung|Description)\s*[^:]*:\s*([^\n<]{3,300})/i
-        ];
+        // ============ PARSE DESCRIPTION ============
         let description = '';
-        for (const pat of descPatterns) {
-            const m = text.match(pat);
-            if (m) {
-                description = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-                // Clean up: remove footer text (Sacombank signature)
-                const footerIdx = description.search(/Tr.{0,3}n\s*tr.{0,3}ng\s*c.{0,3}m|Thank you|1800\s*5858|www\.sacombank|B.{0,3}n quy.{0,3}n/i);
-                if (footerIdx > 10) description = description.substring(0, footerIdx).trim();
-                break;
+
+        if (isACB) {
+            // ACB: "Nội dung giao dịch: CTCP MARS TAM UNG..." → stripped: "N i dung giao d ch: XXX"
+            const acbDesc = text.match(/N.{0,3}i\s*dung\s*giao\s*d.{0,3}ch\s*:\s*([^.]{3,500})/i)
+                         || text.match(/Content\s*:\s*([^.]{3,500})/i);
+            if (acbDesc) {
+                description = acbDesc[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                // Remove ACB footer
+                const footerIdx = description.search(/C.{0,3}m\s*.{0,3}n\s*Qu|Thank you|Ch.{0,3}ng\s*t.{0,3}i\s*mong|Yours\s*faithfully/i);
+                if (footerIdx > 5) description = description.substring(0, footerIdx).trim();
+            }
+        } else {
+            // Sacombank: "Nội dung / Description PHAN THI HANH chuyen tien..."
+            const descPatterns = [
+                /(?:N[^\s]*i\s*dung|Description)\s*(?:\/\s*Description)?\s*([A-Z][^\r\n]{3,300})/i,
+                /(?:N[^\s]*i\s*dung|Description)\s*[^:]*:\s*([^\n<]{3,300})/i
+            ];
+            for (const pat of descPatterns) {
+                const m = text.match(pat);
+                if (m) {
+                    description = m[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+                    // Remove Sacombank footer
+                    const footerIdx = description.search(/Tr.{0,3}n\s*tr.{0,3}ng\s*c.{0,3}m|Thank you|1800\s*5858|www\.sacombank|B.{0,3}n quy.{0,3}n/i);
+                    if (footerIdx > 10) description = description.substring(0, footerIdx).trim();
+                    break;
+                }
             }
         }
+
         if (!description) description = 'Auto import from ' + (bank.bank_name || 'email');
 
         return { amount, date: dateStr, time: timeStr, description };

@@ -265,6 +265,9 @@ async function start() {
         await db.exec(`INSERT INTO email_bank_parsers (bank_name, sender_filter, is_active)
             SELECT 'Sacombank', 'sacombank', true
             WHERE NOT EXISTS (SELECT 1 FROM email_bank_parsers WHERE bank_name = 'Sacombank')`);
+        await db.exec(`INSERT INTO email_bank_parsers (bank_name, sender_filter, is_active)
+            SELECT 'ACB Công Ty', 'acb.com.vn', true
+            WHERE NOT EXISTS (SELECT 1 FROM email_bank_parsers WHERE bank_name = 'ACB Công Ty')`);
     } catch(e) { /* exists */ }
 
     // Plugins

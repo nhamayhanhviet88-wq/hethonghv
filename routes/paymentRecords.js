@@ -242,7 +242,7 @@ module.exports = async function(fastify) {
             UPDATE payment_records SET
                 handover_status = $1,
                 handover_at = CASE WHEN $1 = 'thu_quy_nhan' THEN NOW() ELSE NULL END,
-                handover_by = CASE WHEN $1 = 'thu_quy_nhan' THEN $2 ELSE NULL END,
+                handover_by = CASE WHEN $1 = 'thu_quy_nhan' THEN $2::int ELSE NULL END,
                 updated_at = NOW()
             WHERE id = $3
         `, [newStatus, user.id, id]);
