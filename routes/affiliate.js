@@ -3179,18 +3179,32 @@ async function affiliateRoutes(fastify) {
         const CAP_PERCENT = 15; // Maximum allowed commission %
         const DAYS = 30;
 
-        // Get all completed orders in last N days
-        const orders = await db.all(`
+        // ★ CHECKPOINT: Lấy mốc thời gian GĐ kiểm tra lần cuối
+        // Chỉ hiện đơn MỚI (completed SAU mốc) → đơn đã duyệt không hiện lại
+        const _capCheckedRow = await db.get("SELECT value FROM app_config WHERE key = 'commission_cap_checked_at'");
+        const _capCheckedAt = _capCheckedRow?.value || null;
+
+        // Get completed orders: sau mốc checkpoint HOẶC trong 30 ngày (nếu chưa có checkpoint)
+        let orderQuery = `
             SELECT oc.id, oc.order_code, oc.status, oc.created_at, oc.customer_id,
                    COALESCE(SUM(oi.total), 0) as revenue
             FROM order_codes oc
             LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-            WHERE oc.status = 'completed'
-            AND oc.created_at >= NOW() - INTERVAL '${DAYS} days'
+            WHERE oc.status = 'completed'`;
+        const orderParams = [];
+        if (_capCheckedAt) {
+            // Có checkpoint → chỉ lấy đơn SAU mốc
+            orderQuery += ` AND oc.created_at > ?`;
+            orderParams.push(_capCheckedAt);
+        } else {
+            // Chưa có checkpoint → fallback 30 ngày
+            orderQuery += ` AND oc.created_at >= NOW() - INTERVAL '${DAYS} days'`;
+        }
+        orderQuery += `
             GROUP BY oc.id, oc.order_code, oc.status, oc.created_at, oc.customer_id
             HAVING COALESCE(SUM(oi.total), 0) > 0
-            ORDER BY oc.created_at DESC
-        `);
+            ORDER BY oc.created_at DESC`;
+        const orders = await db.all(orderQuery, orderParams);
 
         if (orders.length === 0) return { success: true, alerts: [], total: 0 };
 
@@ -3328,6 +3342,22 @@ async function affiliateRoutes(fastify) {
         }
 
         return { success: true, alerts, total: alerts.length };
+    });
+
+    // ========== COMMISSION CAP ACKNOWLEDGE ==========
+    // GĐ ấn "ĐÃ KIỂM TRA" → lưu mốc thời gian, lần sau chỉ hiện đơn mới
+    fastify.post('/api/admin/commission-cap-ack', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = request.user;
+        if (user.role !== 'giam_doc') return { success: false, error: 'Unauthorized' };
+
+        const now = new Date().toISOString();
+        // Upsert: tạo mới hoặc cập nhật mốc checkpoint
+        await db.run(`
+            INSERT INTO app_config (key, value) VALUES ('commission_cap_checked_at', ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `, [now]);
+
+        return { success: true, checked_at: now };
     });
 }
 

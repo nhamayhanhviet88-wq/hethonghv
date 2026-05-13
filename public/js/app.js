@@ -270,11 +270,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ★ Commission cap alert (>15%) for GĐ — check once per session
+    // Backend tracks checkpoint persistently → chỉ trả đơn MỚI chưa duyệt
     if (currentUser && currentUser.role === 'giam_doc' && !sessionStorage.getItem('commCapChecked')) {
         setTimeout(async () => {
             try {
                 const data = await apiCall('/api/admin/commission-cap-check');
-                sessionStorage.setItem('commCapChecked', '1');
+                sessionStorage.setItem('commCapChecked', '1'); // Không check lại trong cùng session
                 if (data.alerts && data.alerts.length > 0) {
                     _showCommCapAlert(data.alerts);
                 }
@@ -863,7 +864,7 @@ function _showCommCapAlert(alerts) {
                     </table>
                 </div>
                 <div style="padding:16px 28px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;flex-shrink:0;">
-                    <button onclick="document.getElementById('commCapAlertOverlay').remove()"
+                    <button id="commCapAckBtn" onclick="_commCapAck()"
                         style="padding:12px 36px;border:none;background:#fbbf24;color:#7f1d1d;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(251,191,36,0.4);text-transform:uppercase;letter-spacing:1px;">
                         ✅ Đã Kiểm Tra
                     </button>
@@ -878,6 +879,22 @@ function _showCommCapAlert(alerts) {
         document.head.appendChild(st);
     }
     document.body.appendChild(overlay);
+}
+
+// ★ GĐ ấn "ĐÃ KIỂM TRA" → lưu mốc thời gian vào DB, lần sau chỉ hiện đơn mới
+async function _commCapAck() {
+    const btn = document.getElementById('commCapAckBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang lưu...';
+    }
+    try {
+        await apiCall('/api/admin/commission-cap-ack', { method: 'POST' });
+    } catch(e) {
+        console.error('[CommCapAck] Error:', e);
+    }
+    const overlay = document.getElementById('commCapAlertOverlay');
+    if (overlay) overlay.remove();
 }
 
 async function checkAuth() {
