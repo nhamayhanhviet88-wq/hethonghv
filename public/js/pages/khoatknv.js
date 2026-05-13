@@ -9,10 +9,10 @@ let _penaltyData = [];
 const _CRM_LABELS = {
     nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', koc_tiktok: 'KOL/KOC',
     qua_tang: 'QT/SK/DL', affiliate: 'Affiliate GT', nguoi_than: 'NT/BB',
-    ctv_hoa_hong: 'CTV/HH',
+    ctv_hoa_hong: 'Affiliate',
     tre_nhu_cau: 'Trễ Nhu Cầu', tre_ctv: 'Trễ CTV', tre_koc_tiktok: 'Trễ KOL/KOC',
     tre_qua_tang: 'Trễ QT/SK/DL', tre_affiliate: 'Trễ Affiliate', tre_nguoi_than: 'Trễ NT/BB',
-    tre_ctv_hoa_hong: 'Trễ CTV/HH'
+    tre_ctv_hoa_hong: 'Trễ Affiliate'
 };
 
 async function renderKhoaTKNVPage(container) {

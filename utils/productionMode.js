@@ -94,12 +94,9 @@ async function getTestAccountIds() {
 function buildProductionFilter(cutoff, testIds, dateCol = 'created_at', createdByCol = 'created_by') {
     let sql = '';
 
-    // Time-based filter
-    if (cutoff) {
-        sql += ` AND ${dateCol} >= '${cutoff.toISOString()}'::timestamp`;
-    }
-
-    // Account-based filter
+    // ★ CHỈ lọc theo tài khoản test — KHÔNG lọc theo thời gian
+    // Lý do: cutoff date ẩn luôn dữ liệu của TK thật tạo trước ngày bật thực chiến
+    // → TK thật phải luôn thấy dữ liệu của mình bất kể thời điểm tạo
     if (testIds && testIds.length > 0) {
         sql += ` AND ${createdByCol} NOT IN (${testIds.map(id => parseInt(id)).join(',')})`;
     }
