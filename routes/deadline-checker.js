@@ -1226,7 +1226,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     try {
         const _treHour = now.getUTCHours();
         const _treMinute = now.getUTCMinutes();
-        if (_treHour === 23 && _treMinute >= 45) {
+        if ((_treHour === 23 && _treMinute >= 45) || forceFullCheck || _timeOverrideActive) {
             const treToday = toDateStr(now);
             const treTodayOff = await isDayOff(treToday);
 
