@@ -301,7 +301,7 @@ async function usersRoutes(fastify, options) {
              source_crm_type = COALESCE(?, source_crm_type),
              province = COALESCE(?, province),
              position_id = COALESCE(?, position_id),
-             department_joined_at = CASE WHEN $24::boolean THEN NOW() ELSE department_joined_at END,
+             department_joined_at = CASE WHEN ?::boolean THEN NOW() ELSE department_joined_at END,
              updated_at = NOW()
              WHERE id = ?`,
             [full_name || null, phone || null, address || null, role || null, status || null,
