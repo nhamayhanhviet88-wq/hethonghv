@@ -331,22 +331,32 @@ async function khoaTKNVRoutes(fastify, options) {
         }));
 
         // ===== SOURCE 4: emergencies (Cấp cứu sếp — QL không xử lý) =====
+        // Emergency pending phạt chồng hàng ngày → hiện trên MỌI ngày trong khoảng [created_at, last_penalty_at]
+        // Emergency resolved → filter theo last_penalty_at (ngày phạt cuối)
         let emWhere = '';
         let emParams = [monthStart, monthEnd];
+        // Pending: date range overlaps [created_at, last_penalty_at]
+        // Resolved: last_penalty_at in range
+        const emDateCond = `(
+            (e.status = 'pending' AND e.created_at::date <= $2::date AND COALESCE(e.last_penalty_at, e.created_at)::date >= $1::date)
+            OR
+            (e.status != 'pending' AND COALESCE(e.last_penalty_at, e.created_at)::date BETWEEN $1::date AND $2::date)
+        )`;
 
         if (userRole === 'giam_doc') {
-            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date`;
+            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond}`;
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
-            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date AND (e.handler_id = $3 OR e.handover_to = $3)`;
+            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond} AND (e.handler_id = $3 OR e.handover_to = $3)`;
             emParams.push(userId);
         } else {
-            emWhere = `WHERE e.penalty_applied = true AND e.created_at::date BETWEEN $1::date AND $2::date AND 1=0`;
+            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond} AND 1=0`;
         }
 
         const emPenalties = await db.all(
             `SELECT e.id, e.customer_id, e.handler_id, e.handover_to, e.reason,
                     e.created_at::text as created_at, e.penalty_amount, e.acknowledged,
-                    e.created_at::date::text as task_date,
+                    COALESCE(e.last_penalty_at, e.created_at)::date::text as task_date,
+                    e.status as em_status,
                     c.customer_name, c.phone as customer_phone,
                     COALESCE(hu.full_name, '') as handler_name, COALESCE(hu.username, '') as handler_username,
                     hu.department_id as handler_dept_id, hu.role as handler_role

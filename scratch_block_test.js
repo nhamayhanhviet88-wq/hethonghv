@@ -1,30 +1,46 @@
 const db = require('./db/pool');
 (async () => {
-    // ALL customer_penalty_records for user 52
-    const all = await db.all(
-        `SELECT id, user_id, penalty_date::text, crm_type, unhandled_count, penalty_amount, created_at::text
-         FROM customer_penalty_records WHERE user_id = 52 ORDER BY penalty_date, id`
+    const userId = 47;
+    
+    // ALL emergencies for dovandoanh
+    const emergencies = await db.all(
+        `SELECT e.id, e.customer_id, e.handler_id, e.handover_to, e.reason, e.status,
+                e.penalty_applied, e.penalty_amount, e.created_at::text,
+                e.resolved_at::text,
+                c.customer_name
+         FROM emergencies e
+         LEFT JOIN customers c ON c.id = e.customer_id
+         WHERE e.handler_id = $1 OR e.handover_to = $1
+         ORDER BY e.created_at DESC`,
+        [userId]
     );
-    console.log('ALL customer_penalty_records for user 52:');
-    all.forEach(r => console.log(`  id=${r.id} date=${r.penalty_date} crm=${r.crm_type} count=${r.unhandled_count} amt=${r.penalty_amount} created=${r.created_at}`));
-    
-    // Check: which ones fall in date range 13/5 - 13/5?
-    const filtered = all.filter(r => r.penalty_date === '2026-05-13');
-    console.log(`\nFiltered to 2026-05-13: ${filtered.length}`);
-    filtered.forEach(r => console.log(`  id=${r.id} crm=${r.crm_type} amt=${r.penalty_amount}`));
-    
-    // Check KH Trễ specifically - look for tre_ prefix
-    const treRecords = all.filter(r => r.crm_type.startsWith('tre_'));
-    console.log(`\nAll tre_ records: ${treRecords.length}`);
-    treRecords.forEach(r => console.log(`  id=${r.id} date=${r.penalty_date} crm=${r.crm_type}`));
+    console.log(`Emergencies for dovandoanh (id=${userId}): ${emergencies.length}`);
+    emergencies.forEach(e => {
+        console.log(`  id=${e.id} customer=${e.customer_name} status=${e.status} penalty=${e.penalty_applied} amt=${e.penalty_amount} handler=${e.handler_id} handover=${e.handover_to} created=${e.created_at}`);
+    });
 
-    // Check the penalty_date=14 record that might have leaked
-    const d14 = await db.all(
-        `SELECT id, user_id, penalty_date::text, crm_type, unhandled_count, penalty_amount
-         FROM customer_penalty_records WHERE user_id = 52 AND penalty_date = '2026-05-14'`
+    // Check penalty dashboard: emergencies with penalty_applied for 13/5
+    const penOn13 = await db.all(
+        `SELECT e.id, e.penalty_amount, e.created_at::date::text as task_date
+         FROM emergencies e
+         WHERE (e.handler_id = $1 OR e.handover_to = $1)
+         AND e.penalty_applied = true
+         AND e.created_at::date = '2026-05-13'::date`,
+        [userId]
     );
-    console.log(`\nRecords on 14/5: ${d14.length}`);
-    d14.forEach(r => console.log(`  id=${r.id} crm=${r.crm_type} amt=${r.penalty_amount}`));
+    console.log(`\nPenalty emergencies for 13/5: ${penOn13.length}`);
+    penOn13.forEach(r => console.log(`  id=${r.id} amt=${r.penalty_amount} date=${r.task_date}`));
+    
+    // Also all dates
+    const penAll = await db.all(
+        `SELECT e.id, e.penalty_amount, e.created_at::date::text as task_date
+         FROM emergencies e
+         WHERE (e.handler_id = $1 OR e.handover_to = $1)
+         AND e.penalty_applied = true`,
+        [userId]
+    );
+    console.log(`\nALL penalty emergencies: ${penAll.length}`);
+    penAll.forEach(r => console.log(`  id=${r.id} amt=${r.penalty_amount} date=${r.task_date}`));
     
     process.exit();
 })();
