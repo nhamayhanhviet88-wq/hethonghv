@@ -1319,18 +1319,31 @@ async function runDeadlineCheck(forceFullCheck = false) {
     const blockHour = now.getUTCHours();
     const blockMinute = now.getUTCMinutes();
     if ((blockHour === 0 && blockMinute < 15) || forceFullCheck || _timeOverrideActive) {
-        // Khi forceFullCheck/timeOverride: penalties được tạo NGAY trong cùng run → scan TODAY
-        // Khi chạy tự nhiên (00:00): penalties được tạo HÔM QUA (23:45) → scan YESTERDAY
-        const useToday = forceFullCheck || _timeOverrideActive;
-        const blockTargetDate = useToday ? new Date(now) : (() => { const d = new Date(now); d.setUTCDate(d.getUTCDate() - 1); return d; })();
-        const blockTargetStr = toDateStr(blockTargetDate);
-        console.log(`  🔒 [Access Block] Bắt đầu khóa TK cho vi phạm ngày ${blockTargetStr}${useToday ? ' (today — forceFullCheck)' : ' (hôm qua)'}...`);
+        // Khi forceFullCheck/timeOverride: scan TẤT CẢ penalties chưa acknowledged (không giới hạn ngày)
+        // Khi chạy tự nhiên (00:00): penalties được tạo HÔM QUA (23:45) → scan YESTERDAY only
+        const scanAll = forceFullCheck || _timeOverrideActive;
+        let blockTargetStr = '';
+        if (!scanAll) {
+            const blockYesterday = new Date(now);
+            blockYesterday.setUTCDate(blockYesterday.getUTCDate() - 1);
+            blockTargetStr = toDateStr(blockYesterday);
+        }
+        console.log(`  🔒 [Access Block] Bắt đầu khóa TK${scanAll ? ' — scan TẤT CẢ vi phạm chưa xử lý (forceFullCheck)' : ` cho vi phạm ngày ${blockTargetStr} (hôm qua)`}...`);
 
-        // Kiểm tra ngày hôm qua có phải ngày nghỉ không
-        const yesterdayOff = await isDayOff(blockTargetStr);
+        // Kiểm tra ngày hôm qua có phải ngày nghỉ không (skip nếu không phải forceFullCheck)
+        const skipDayOffCheck = scanAll;
+        const yesterdayOff = skipDayOffCheck ? false : await isDayOff(blockTargetStr);
         if (!yesterdayOff) {
-            // Gom TẤT CẢ vi phạm hôm qua từ mọi nguồn
+            // Gom TẤT CẢ vi phạm từ mọi nguồn
             const blockMap = new Map(); // userId → [{task_name, task_date, penalty_amount, penalty_reason}]
+
+            // Date filter: forceFullCheck → no date filter; normal → yesterday only
+            const dateFilterLTC = scanAll ? '' : 'AND ltc.completion_date = $1::date';
+            const dateFilterCC  = scanAll ? '' : 'AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $1::date';
+            const dateFilterEM  = scanAll ? '' : 'AND e.created_at::date = $1::date';
+            const dateFilterSR  = scanAll ? '' : 'AND sr.task_date = $1::date';
+            const dateFilterCP  = scanAll ? '' : 'AND penalty_date = $1::date';
+            const dateParams = scanAll ? [] : [blockTargetStr];
 
             // Source 1: CV Khóa (lock_task_completions)
             try {
@@ -1339,7 +1352,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                      FROM lock_task_completions ltc
                      JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                      WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
-                       AND ltc.completion_date = $1::date`, [blockTargetStr]
+                       AND ltc.acknowledged = false ${dateFilterLTC}`, dateParams
                 );
                 for (const r of ltcRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
@@ -1355,7 +1368,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                      JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
                      JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                      WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                       AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $1::date`, [blockTargetStr]
+                       AND cc.acknowledged = false ${dateFilterCC}`, dateParams
                 );
                 for (const r of ccRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
@@ -1370,7 +1383,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             e.created_at::date::text as task_date, c.customer_name
                      FROM emergencies e
                      LEFT JOIN customers c ON c.id = e.customer_id
-                     WHERE e.penalty_applied = true AND e.created_at::date = $1::date`, [blockTargetStr]
+                     WHERE e.penalty_applied = true AND e.acknowledged = false ${dateFilterEM}`, dateParams
                 );
                 for (const r of emRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
@@ -1384,7 +1397,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
                             sr.penalty_amount, sr.penalty_reason
                      FROM task_support_requests sr
-                     WHERE sr.status = 'expired' AND sr.task_date = $1::date`, [blockTargetStr]
+                     WHERE sr.status = 'expired' AND sr.acknowledged = false ${dateFilterSR}`, dateParams
                 );
                 for (const r of srRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
@@ -1398,7 +1411,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const cpRows = await db.all(
                     `SELECT user_id, crm_type, unhandled_count, penalty_amount, penalty_date::text as task_date
                      FROM customer_penalty_records
-                     WHERE penalty_date = $1::date AND acknowledged = false`, [blockTargetStr]
+                     WHERE acknowledged = false ${dateFilterCP}`, dateParams
                 );
                 for (const r of cpRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
