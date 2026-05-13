@@ -908,9 +908,16 @@ async function khoaTKNVRoutes(fastify, options) {
             });
         });
 
+        // ★ CRM label map — dùng tên khớp với 4 bảng chăm sóc thật
+        const CRM_LABELS = {
+            nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate',
+            koc_tiktok: 'KOL/KOC', qua_tang: 'QT/SK/DL', nguoi_than: 'NT/BB'
+        };
+
         custPenalties.forEach(p => {
             const isTre = p.crm_type && p.crm_type.startsWith('tre_');
-            const displayCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
+            const rawCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
+            const displayCrmLabel = CRM_LABELS[rawCrmType] || rawCrmType;
             allPenaltiesRaw.push({
                 penalized_user_id: p.penalized_user_id,
                 penalized_name: p.penalized_name,
@@ -918,8 +925,8 @@ async function khoaTKNVRoutes(fastify, options) {
                 penalized_dept_id: p.penalized_dept_id,
                 penalized_role: p.penalized_role,
                 task_name: isTre
-                    ? `KH xử lý trễ: ${displayCrmType} (${p.unhandled_count} KH)`
-                    : `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
+                    ? `KH xử lý trễ: ${displayCrmLabel} (${p.unhandled_count} KH)`
+                    : `KH chưa xử lý: ${displayCrmLabel} (${p.unhandled_count} KH)`,
                 task_date: p.task_date,
                 penalty_amount: p.penalty_amount || 0,
                 reason: isTre

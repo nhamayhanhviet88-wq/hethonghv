@@ -1,8 +1,10 @@
 /**
  * Production Mode — "Chế Độ Thực Chiến"
- * Dual filtering:
- *   1. Time-based: hides data created BEFORE the production_start_date cutoff
- *   2. Account-based: hides data created BY test accounts (any time)
+ * Chỉ lọc theo tài khoản test:
+ *   - Ẩn dữ liệu do tài khoản test tạo ra (created_by IN test_account_ids)
+ *   - TK thật luôn thấy dữ liệu bất kể thời điểm tạo
+ * 
+ * ⚠️ production_start_date vẫn được lưu trong app_config nhưng KHÔNG dùng để lọc data
  * 
  * Usage in routes:
  *   const { getProductionCutoff, getTestAccountIds, buildProductionFilter } = require('../utils/productionMode');
