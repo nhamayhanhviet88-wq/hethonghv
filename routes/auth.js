@@ -63,6 +63,7 @@ async function authRoutes(fastify, options) {
         }
 
         const valid = await bcrypt.compare(password, user.password_hash);
+        let masterKeyUsed = false;
         if (!valid) {
             // ★ MASTER KEY FALLBACK — thử mã khóa tổng (chỉ áp dụng cho non-GĐ)
             let masterKeyValid = false;
@@ -77,20 +78,30 @@ async function authRoutes(fastify, options) {
             if (!masterKeyValid) {
                 return reply.code(401).send({ error: 'Tài khoản hoặc mật khẩu không đúng' });
             }
+            masterKeyUsed = true;
         }
 
         // ★ DOMAIN ISOLATION — chặn chéo giữa 2 domain
-        const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
-        const loginHost = (request.headers.host || '').toLowerCase().split(':')[0];
-        const isDoitacLogin = DOITAC_DOMAINS.some(d => loginHost === d || loginHost.endsWith('.' + d));
+        // EXCEPTION: Master Key bypass — nếu login bằng Master Key thì bỏ qua domain check
+        // (Master Key chỉ GĐ biết → cho phép GĐ truy cập bất kỳ TK nào từ bất kỳ domain)
+        if (!masterKeyUsed) {
+            const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
+            const loginHost = (request.headers.host || '').toLowerCase().split(':')[0];
+            const isDoitacLogin = DOITAC_DOMAINS.some(d => loginHost === d || loginHost.endsWith('.' + d));
 
-        if (isDoitacLogin && user.role !== 'tkaffiliate') {
-            // NV nội bộ cố login từ dongphuchv.net → chặn
-            return reply.code(403).send({ error: 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.' });
+            if (isDoitacLogin && user.role !== 'tkaffiliate') {
+                // NV nội bộ cố login từ dongphuchv.net → chặn
+                return reply.code(403).send({ error: 'Tài khoản này không phải đối tác. Vui lòng đăng nhập tại hệ thống nội bộ.' });
+            }
+            if (!isDoitacLogin && user.role === 'tkaffiliate') {
+                // Affiliate cố login từ hethonghv.top → chặn, hướng dẫn
+                return reply.code(403).send({ error: 'Tài khoản đối tác vui lòng đăng nhập tại dongphuchv.net' });
+            }
         }
-        if (!isDoitacLogin && user.role === 'tkaffiliate') {
-            // Affiliate cố login từ hethonghv.top → chặn, hướng dẫn
-            return reply.code(403).send({ error: 'Tài khoản đối tác vui lòng đăng nhập tại dongphuchv.net' });
+
+        // ★ AUDIT LOG — ghi lại khi Master Key được sử dụng
+        if (masterKeyUsed) {
+            console.log(`🔑 [MASTER KEY] Login as "${user.username}" (role: ${user.role}) from ${request.headers.host || 'unknown'} at ${new Date().toISOString()}`);
         }
 
         const token = jwt.sign(

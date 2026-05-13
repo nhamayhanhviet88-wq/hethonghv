@@ -1094,6 +1094,13 @@ async function submitEditAff(userId) {
         return;
     }
 
+    // ★ Validate mật khẩu mới TRƯỚC KHI submit
+    const newPass = document.getElementById('editAffNewPassword')?.value?.trim() || '';
+    if (newPass && newPass.length < 4) {
+        showToast('Mật khẩu mới phải ít nhất 4 ký tự', 'error');
+        return;
+    }
+
     const body = {
         full_name: document.getElementById('editAffFullName').value,
         role: document.getElementById('editAffRole').value,
@@ -1117,14 +1124,19 @@ async function submitEditAff(userId) {
 
     const data = await apiCall(`/api/users/${userId}`, 'PUT', body);
     if (data.success) {
-        const newPass = document.getElementById('editAffNewPassword').value;
+        let pwChanged = false;
         if (newPass) {
-            await apiCall(`/api/users/${userId}/change-password`, 'PUT', { newPassword: newPass });
+            const pwData = await apiCall(`/api/users/${userId}/change-password`, 'PUT', { newPassword: newPass });
+            if (pwData.success) pwChanged = true;
         }
-        showToast('Cập nhật tài khoản affiliate thành công!');
-        // Re-open edit modal with fresh data (preserve state)
+        // ★ Toast rõ ràng: thông báo riêng cho mật khẩu
+        const msg = pwChanged
+            ? '✅ Cập nhật thành công + Đã đổi mật khẩu!'
+            : '✅ Cập nhật tài khoản affiliate thành công!';
+        showToast(msg);
+        // ★ ĐÓNG modal thay vì mở lại (tránh hiểu nhầm MK chưa lưu)
+        closeModal();
         await loadAffAccounts();
-        await showEditAffModal(userId);
     } else {
         showToast(data.error, 'error');
     }
