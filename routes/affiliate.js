@@ -3206,11 +3206,11 @@ async function affiliateRoutes(fastify) {
         const tierMap = {};
         tiers.forEach(t => { tierMap[t.id] = t; });
 
-        // Get all customers with referrer_id
+        // Get all customers with referrer_id + cancel status
         const custIds = [...new Set(orders.map(o => o.customer_id))];
         const cph = custIds.map(() => '?').join(',');
         const customers = custIds.length > 0 
-            ? await db.all(`SELECT id, customer_name, referrer_id FROM customers WHERE id IN (${cph})`, custIds)
+            ? await db.all(`SELECT id, customer_name, referrer_id, cancel_approved, crm_type FROM customers WHERE id IN (${cph})`, custIds)
             : [];
         const custMap = {};
         customers.forEach(c => { custMap[c.id] = c; });
@@ -3229,12 +3229,19 @@ async function affiliateRoutes(fastify) {
         const _fooCutoff7 = await _getCommissionCutoffDate(db);
         const _fooFirstMap7 = await _getFirstOrderMap(db, custIds);
 
+        // ★ CRM CONVERSION: Load conversion dates (nhu_cau → ctv_hoa_hong)
+        // Đồng bộ với _calcOrderRate(): referrer rate giảm từ 10% → 5% sau ngày chuyển
+        const _capConvMap = await _getAffConversionMap(db, custIds);
+
         for (const order of orders) {
             const cust = custMap[order.customer_id];
             if (!cust) continue;
 
             const revenue = Number(order.revenue);
             if (revenue <= 0) continue;
+
+            // ★ CANCEL CHECK: skip đơn từ KH đã bị hủy (đồng bộ với logic tính HH thực tế)
+            if (cust.cancel_approved === 1) continue;
 
             // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff
             // Đồng bộ logic với /api/affiliate/commission + /api/affiliate/all-orders:
@@ -3274,7 +3281,19 @@ async function affiliateRoutes(fastify) {
                 if (refAff && !(selfAff && selfAff.id === refAff.id)) {
                     // Not the same as self
                     const tier = tierMap[refAff.commission_tier_id];
-                    const rate = tier ? (tier.percentage || 10) : 10;
+                    // ★ CRM CONVERSION RATE: Đồng bộ với _calcOrderRate()
+                    // Sau khi KH chuyển sang ctv_hoa_hong → referrer rate giảm 10% → 5%
+                    const convDate = _capConvMap[order.customer_id] || null;
+                    let rate;
+                    if (convDate && new Date(order.created_at) >= new Date(convDate)) {
+                        // Đơn SAU ngày chuyển → dùng parentRate
+                        rate = tier ? (tier.parent_percentage || 5) : 5;
+                    } else if (!convDate && cust.crm_type === 'ctv_hoa_hong') {
+                        // Legacy: KH đã ở Affiliate nhưng không có conversion record → 5%
+                        rate = tier ? (tier.parent_percentage || 5) : 5;
+                    } else {
+                        rate = tier ? (tier.percentage || 10) : 10;
+                    }
                     totalCommPercent += rate;
                     commDetails.push({ name: refAff.full_name, username: refAff.username, type: 'Trực tiếp', rate });
 
