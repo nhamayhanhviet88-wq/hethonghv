@@ -1,6 +1,6 @@
 // ========== NHÂN VIÊN BỊ PHẠT TIỀN ==========
 
-let _penActiveFilter = 'yesterday'; // today|yesterday|7days|thisMonth|lastMonth|all|custom
+let _penActiveFilter = 'today'; // today|yesterday|7days|thisMonth|lastMonth|all|custom
 let _penYear = new Date().getFullYear();
 let _penCustomFrom = '';
 let _penCustomTo = '';
@@ -17,7 +17,7 @@ const _CRM_LABELS = {
 
 async function renderKhoaTKNVPage(container) {
     const isGD = currentUser.role === 'giam_doc';
-    _penActiveFilter = 'yesterday';
+    _penActiveFilter = 'today';
     _penYear = new Date().getFullYear();
 
     container.innerHTML = `
@@ -234,13 +234,18 @@ function _penGetApiUrl() {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
 
+    // "Hôm nay" = penalties ngày hôm qua (vi phạm tạo lúc 23:45 đêm qua)
+    // "Hôm qua" = penalties 2 ngày trước
     switch (_penActiveFilter) {
-        case 'today':
-            return `/api/penalty/list?dateFrom=${todayStr}&dateTo=${todayStr}`;
-        case 'yesterday': {
+        case 'today': {
             const y = new Date(today); y.setDate(y.getDate() - 1);
             const ys = y.toISOString().split('T')[0];
             return `/api/penalty/list?dateFrom=${ys}&dateTo=${ys}`;
+        }
+        case 'yesterday': {
+            const y2 = new Date(today); y2.setDate(y2.getDate() - 2);
+            const ys2 = y2.toISOString().split('T')[0];
+            return `/api/penalty/list?dateFrom=${ys2}&dateTo=${ys2}`;
         }
         case '7days': {
             const d7 = new Date(today); d7.setDate(d7.getDate() - 6);

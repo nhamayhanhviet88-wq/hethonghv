@@ -1079,6 +1079,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 WHERE cl.customer_id = c.id 
                                 AND cl.logged_by = c.assigned_to_id
                                 AND cl.created_at::date = $1::date
+                                AND cl.log_type != 'khong_xu_ly'
                             )) as unhandled_count
                      FROM customers c
                      WHERE c.appointment_date::date = $1::date
@@ -1092,6 +1093,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                          WHERE cl.customer_id = c.id 
                          AND cl.logged_by = c.assigned_to_id
                          AND cl.created_at::date = $1::date
+                         AND cl.log_type != 'khong_xu_ly'
                      )) > 0`,
                     [today]
                 );
@@ -1163,7 +1165,16 @@ async function runDeadlineCheck(forceFullCheck = false) {
         const _alHour = now.getUTCHours();
         const _alMinute = now.getUTCMinutes();
         if ((_alHour === 23 && _alMinute >= 45) || forceFullCheck || _timeOverrideActive) {
-            const alToday = toDateStr(now);
+            // Khi forceFullCheck ngoài 23:45 → dùng YESTERDAY (mô phỏng 23:45 đêm qua)
+            const _alIsLateNight = _alHour === 23 && _alMinute >= 45;
+            let alToday;
+            if (_alIsLateNight) {
+                alToday = toDateStr(now);
+            } else {
+                const alYesterday = new Date(now);
+                alYesterday.setUTCDate(alYesterday.getUTCDate() - 1);
+                alToday = toDateStr(alYesterday);
+            }
             const alTodayOff = await isDayOff(alToday);
 
             if (!alTodayOff) {
@@ -1180,6 +1191,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                          WHERE cl.customer_id = c.id
                          AND cl.logged_by = c.assigned_to_id
                          AND cl.created_at::date = $1::date
+                         AND cl.log_type != 'khong_xu_ly'
                      )`,
                     [alToday]
                 );
@@ -1227,7 +1239,16 @@ async function runDeadlineCheck(forceFullCheck = false) {
         const _treHour = now.getUTCHours();
         const _treMinute = now.getUTCMinutes();
         if ((_treHour === 23 && _treMinute >= 45) || forceFullCheck || _timeOverrideActive) {
-            const treToday = toDateStr(now);
+            // Khi forceFullCheck ngoài 23:45 → dùng YESTERDAY (mô phỏng 23:45 đêm qua)
+            const _treIsLateNight = _treHour === 23 && _treMinute >= 45;
+            let treToday;
+            if (_treIsLateNight) {
+                treToday = toDateStr(now);
+            } else {
+                const treYesterday = new Date(now);
+                treYesterday.setUTCDate(treYesterday.getUTCDate() - 1);
+                treToday = toDateStr(treYesterday);
+            }
             const treTodayOff = await isDayOff(treToday);
 
             if (!treTodayOff) {
@@ -1242,6 +1263,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 WHERE cl.customer_id = c.id
                                 AND cl.logged_by = c.assigned_to_id
                                 AND cl.created_at::date = $1::date
+                                AND cl.log_type != 'khong_xu_ly'
                             )) as unhandled_count
                      FROM customers c
                      WHERE c.appointment_date::date < $1::date
@@ -1255,6 +1277,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                          WHERE cl.customer_id = c.id
                          AND cl.logged_by = c.assigned_to_id
                          AND cl.created_at::date = $1::date
+                         AND cl.log_type != 'khong_xu_ly'
                      )) > 0`,
                     [treToday]
                 );
