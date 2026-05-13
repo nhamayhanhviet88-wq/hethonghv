@@ -3236,11 +3236,16 @@ async function affiliateRoutes(fastify) {
             const revenue = Number(order.revenue);
             if (revenue <= 0) continue;
 
-            // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff (no commission = no cap issue)
+            // ★ FIRST-ORDER-ONLY: skip repeat orders after cutoff
+            // Đồng bộ logic với /api/affiliate/commission + /api/affiliate/all-orders:
+            // - Sau cutoff, đơn lặp (không phải đơn đầu tiên) → referrer + parent KHÔNG hưởng
+            // - Self-order vẫn MIỄN TRỪ (bản thân luôn hưởng directRate)
             const _fooAC7 = _fooCutoff7 && new Date(order.created_at) >= _fooCutoff7;
             const _fooIsFirst7 = _fooFirstMap7[order.customer_id] === order.id;
-            if (_fooAC7 && !_fooIsFirst7) {
-                // Check if self-order only — self still gets commission so still check cap
+            const _fooSkipReferrer = _fooAC7 && !_fooIsFirst7; // Đơn lặp → block referrer/parent
+
+            if (_fooSkipReferrer) {
+                // Đơn lặp sau cutoff: chỉ self-affiliate hưởng, nếu không có self → skip hoàn toàn
                 const selfAffCheck = affBySourceCustId[order.customer_id];
                 if (!selfAffCheck) continue; // No self-affiliate = no commission = skip
             }
@@ -3250,6 +3255,7 @@ async function affiliateRoutes(fastify) {
 
             // Find who earns commission on this order
             // 1. Self-commission: if the customer IS the affiliate (source_customer_id match)
+            // ★ Self-order MIỄN TRỪ first-order-only → luôn hưởng
             const selfAff = affBySourceCustId[order.customer_id];
             if (selfAff) {
                 const tier = tierMap[selfAff.commission_tier_id];
@@ -3262,7 +3268,8 @@ async function affiliateRoutes(fastify) {
             }
 
             // 2. Direct referrer commission
-            if (cust.referrer_id) {
+            // ★ FIRST-ORDER-ONLY: đơn lặp sau cutoff → referrer + parent KHÔNG hưởng
+            if (cust.referrer_id && !_fooSkipReferrer) {
                 const refAff = affByUserId[cust.referrer_id];
                 if (refAff && !(selfAff && selfAff.id === refAff.id)) {
                     // Not the same as self
