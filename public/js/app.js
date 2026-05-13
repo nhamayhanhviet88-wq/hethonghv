@@ -2928,7 +2928,8 @@ function _tkkhScrollToRow(customerId) {
 
 // ========== TIME OVERRIDE — Chỉnh giờ hệ thống (chỉ GĐ) ==========
 var _toOpen = false;
-function _toToggle() {
+function _toToggle(e) {
+    if (e) e.stopPropagation();
     _toOpen = !_toOpen;
     var dd = document.getElementById('toDropdown');
     dd.style.display = _toOpen ? 'block' : 'none';
