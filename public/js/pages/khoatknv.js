@@ -395,6 +395,12 @@ async function _penaltyLoadStats() {
                 </div>
                 <div id="${rootId}" style="display:block;">`;
 
+            // ★ Root-level users (QLCC/QL) — render BEFORE sub-departments
+            const rootDirectUsers = getDeptUsers(root.id);
+            rootDirectUsers.forEach(u => {
+                html += _renderUserNode(u, SRC, ROLE_SHORT, 32);
+            });
+
             // Sub-departments (level 2)
             const subDepts = departments.filter(d => d.parent_id === root.id);
             subDepts.forEach(sub => {
@@ -429,7 +435,7 @@ async function _penaltyLoadStats() {
                     html += `<div style="border-bottom:1px solid #f1f5f9;">
                         <div onclick="document.getElementById('${teamId}').style.display = document.getElementById('${teamId}').style.display === 'none' ? 'block' : 'none'; this.querySelector('.chevron').textContent = document.getElementById('${teamId}').style.display === 'none' ? '▶' : '▼';"
                              style="background:#f8fafc;padding:8px 16px 8px 52px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
-                            <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="display:flex;align-items:center;gap:6px;">
                                 <span class="chevron" style="color:#94a3b8;font-size:10px;">▼</span>
                                 <span style="color:#475569;font-weight:600;font-size:12px;">📁 ${team.name}</span>
                             </div>
@@ -447,12 +453,6 @@ async function _penaltyLoadStats() {
                 });
 
                 html += '</div></div>';
-            });
-
-            // Direct users in root dept
-            const rootDirectUsers = getDeptUsers(root.id);
-            rootDirectUsers.forEach(u => {
-                html += _renderUserNode(u, SRC, ROLE_SHORT, 32);
             });
 
             html += '</div></div>';
