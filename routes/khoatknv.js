@@ -805,6 +805,45 @@ async function khoaTKNVRoutes(fastify, options) {
             );
         } catch(e) {}
 
+        // Source 4: emergencies (Cấp cứu sếp — QL không xử lý) — ngày hôm qua
+        let emergencyPenalties = [];
+        try {
+            emergencyPenalties = await db.all(
+                `SELECT e.id, e.reason, e.penalty_amount, e.created_at::date::text as task_date,
+                        c.customer_name,
+                        COALESCE(e.handover_to, e.handler_id) as penalized_user_id,
+                        hu.full_name as penalized_name, hu.username as penalized_username,
+                        hu.department_id as penalized_dept_id, hu.role as penalized_role
+                 FROM emergencies e
+                 LEFT JOIN customers c ON c.id = e.customer_id
+                 LEFT JOIN users hu ON hu.id = COALESCE(e.handover_to, e.handler_id)
+                 WHERE e.penalty_applied = true
+                   AND e.created_at::date = $1::date
+                   AND COALESCE(e.handover_to, e.handler_id) != $2
+                   AND hu.department_id IN (${deptPlaceholders})
+                 ORDER BY e.created_at`,
+                baseParams
+            );
+        } catch(e) {}
+
+        // Source 5: customer_penalty_records (KH chưa xử lý) — ngày hôm qua
+        let custPenalties = [];
+        try {
+            custPenalties = await db.all(
+                `SELECT cpr.user_id as penalized_user_id, cpr.penalty_date::text as task_date,
+                        cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount,
+                        u.full_name as penalized_name, u.username as penalized_username,
+                        u.department_id as penalized_dept_id, u.role as penalized_role
+                 FROM customer_penalty_records cpr
+                 JOIN users u ON u.id = cpr.user_id
+                 WHERE cpr.penalty_date = $1::date
+                   AND cpr.user_id != $2
+                   AND u.department_id IN (${deptPlaceholders})
+                 ORDER BY cpr.penalty_date`,
+                baseParams
+            );
+        } catch(e) {}
+
         // Merge all penalties
         const allPenaltiesRaw = [];
 
@@ -851,6 +890,42 @@ async function khoaTKNVRoutes(fastify, options) {
                 penalty_amount: p.penalty_amount || 0,
                 reason: 'Không nộp báo cáo chuỗi',
                 source: 'CV Chuỗi'
+            });
+        });
+
+        emergencyPenalties.forEach(p => {
+            allPenaltiesRaw.push({
+                penalized_user_id: p.penalized_user_id,
+                penalized_name: p.penalized_name,
+                penalized_username: p.penalized_username,
+                penalized_dept_id: p.penalized_dept_id,
+                penalized_role: p.penalized_role,
+                task_name: `Cấp cứu: ${p.customer_name || 'Khách hàng'}`,
+                task_date: p.task_date,
+                penalty_amount: p.penalty_amount || 0,
+                reason: `Không xử lý cấp cứu: ${p.reason}`,
+                source: 'Cấp Cứu Sếp'
+            });
+        });
+
+        custPenalties.forEach(p => {
+            const isTre = p.crm_type && p.crm_type.startsWith('tre_');
+            const displayCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
+            allPenaltiesRaw.push({
+                penalized_user_id: p.penalized_user_id,
+                penalized_name: p.penalized_name,
+                penalized_username: p.penalized_username,
+                penalized_dept_id: p.penalized_dept_id,
+                penalized_role: p.penalized_role,
+                task_name: isTre
+                    ? `KH xử lý trễ: ${displayCrmType} (${p.unhandled_count} KH)`
+                    : `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
+                task_date: p.task_date,
+                penalty_amount: p.penalty_amount || 0,
+                reason: isTre
+                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ`
+                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay`,
+                source: isTre ? 'KH Trễ' : 'KH Chưa XL'
             });
         });
 

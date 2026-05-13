@@ -2339,7 +2339,7 @@ function _showMgrPenaltyPopup(penalties, total, departments, penaltyDate) {
     if (document.getElementById('mgrPenaltyPopupOverlay')) return;
     const ROLE_LABEL = { giam_doc: 'GĐ', quan_ly_cap_cao: 'QLCC', quan_ly: 'QL', truong_phong: 'TP', nhan_vien: 'NV', part_time: 'PT' };
     const ROLE_COLOR = { giam_doc: '#7c3aed', quan_ly_cap_cao: '#2563eb', quan_ly: '#0891b2', truong_phong: '#d97706', nhan_vien: '#6b7280', part_time: '#9ca3af' };
-    const SOURCE_COLOR = { 'CV Khóa': '#dc2626', 'CV Chuỗi': '#7c3aed', 'CV Điểm': '#2563eb', 'Hỗ trợ NV': '#d97706' };
+    const SOURCE_COLOR = { 'CV Khóa': '#dc2626', 'CV Chuỗi': '#7c3aed', 'CV Điểm': '#2563eb', 'Hỗ trợ NV': '#d97706', 'Cấp Cứu Sếp': '#ef4444', 'KH Chưa XL': '#e11d48', 'KH Trễ': '#f97316' };
     // Sử dụng ngày từ API (ngày hôm qua) thay vì ngày hôm nay
     const dateObj = penaltyDate ? new Date(penaltyDate + 'T00:00:00') : new Date();
     const todayLabel = dateObj.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
