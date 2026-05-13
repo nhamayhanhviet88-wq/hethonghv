@@ -1303,9 +1303,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
             // Source 1: CV Khóa (lock_task_completions)
             try {
                 const ltcRows = await db.all(
-                    `SELECT ltc.user_id, t.name as task_name, ltc.completion_date::text as task_date, ltc.penalty_amount
+                    `SELECT ltc.user_id, lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount
                      FROM lock_task_completions ltc
-                     JOIN lock_tasks t ON t.id = ltc.task_id
+                     JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                      WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
                        AND ltc.completion_date = $1::date`, [blockYesterdayStr]
                 );
@@ -1313,7 +1313,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
                     blockMap.get(r.user_id).push({ task_name: `CV Khóa: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: 'Không nộp CV Khóa' });
                 }
-            } catch(e) {}
+            } catch(e) { console.error('  ❌ [Block] CV Khóa query error:', e.message); }
 
             // Source 2: CV Chuỗi (chain_task_completions)
             try {
@@ -1329,7 +1329,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
                     blockMap.get(r.user_id).push({ task_name: `CV Chuỗi: ${r.task_name} (${r.chain_name})`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: 'Không nộp CV Chuỗi' });
                 }
-            } catch(e) {}
+            } catch(e) { console.error('  ❌ [Block] CV Chuỗi query error:', e.message); }
 
             // Source 3: Cấp cứu sếp (emergencies)
             try {
@@ -1344,7 +1344,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
                     blockMap.get(r.user_id).push({ task_name: `Cấp cứu: ${r.customer_name || 'KH'}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: `Không xử lý cấp cứu: ${r.reason}` });
                 }
-            } catch(e) {}
+            } catch(e) { console.error('  ❌ [Block] Cấp cứu query error:', e.message); }
 
             // Source 4: CV Điểm / Hỗ trợ NV (task_support_requests)
             try {
@@ -1352,14 +1352,14 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
                             sr.penalty_amount, sr.penalty_reason
                      FROM task_support_requests sr
-                     WHERE sr.penalty_applied = true AND sr.task_date = $1::date`, [blockYesterdayStr]
+                     WHERE sr.status = 'expired' AND sr.task_date = $1::date`, [blockYesterdayStr]
                 );
                 for (const r of srRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
                     const src = r.penalty_reason?.includes('Không duyệt') ? 'CV Điểm' : 'Hỗ trợ NV';
                     blockMap.get(r.user_id).push({ task_name: `${src}: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
                 }
-            } catch(e) {}
+            } catch(e) { console.error('  ❌ [Block] Hỗ trợ NV query error:', e.message); }
 
             // Source 5: KH Chưa XL + KH Trễ (customer_penalty_records)
             try {
@@ -1374,7 +1374,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const label = isTre ? `KH xử lý trễ: ${r.crm_type.replace('tre_', '')}` : `KH chưa xử lý: ${r.crm_type}`;
                     blockMap.get(r.user_id).push({ task_name: `${label} (${r.unhandled_count} KH)`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: isTre ? 'Không xử lý khách trễ' : 'Không xử lý khách hôm nay' });
                 }
-            } catch(e) {}
+            } catch(e) { console.error('  ❌ [Block] KH Chưa XL query error:', e.message); }
 
             // Khóa TK cho tất cả user có vi phạm
             let blockCount = 0;
