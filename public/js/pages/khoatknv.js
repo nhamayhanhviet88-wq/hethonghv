@@ -153,15 +153,22 @@ async function _penaltySaveConfig() {
 
 // ===== FILTER BAR — CHIP BUTTONS =====
 
-const _penFilters = [
-    { key: 'today', label: '📅 Hôm nay' },
-    { key: 'yesterday', label: 'Hôm qua' },
-    { key: '7days', label: '7 ngày' },
-    { key: 'thisMonth', label: 'Tháng này' },
-    { key: 'lastMonth', label: 'Tháng trước' },
-    { key: 'all', label: 'Tất cả' },
-    { key: 'custom', label: 'Tùy chọn' },
-];
+// Dynamic labels showing actual penalty dates
+function _penGetFilterLabels() {
+    const today = new Date();
+    const y1 = new Date(today); y1.setDate(y1.getDate() - 1);
+    const y2 = new Date(today); y2.setDate(y2.getDate() - 2);
+    const fmtD = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    return [
+        { key: 'today', label: `📅 Hôm nay (phạt ${fmtD(y1)})` },
+        { key: 'yesterday', label: `Hôm qua (phạt ${fmtD(y2)})` },
+        { key: '7days', label: '7 ngày' },
+        { key: 'thisMonth', label: 'Tháng này' },
+        { key: 'lastMonth', label: 'Tháng trước' },
+        { key: 'all', label: 'Tất cả' },
+        { key: 'custom', label: 'Tùy chọn' },
+    ];
+}
 
 function _penRenderFilterBar() {
     const bar = document.getElementById('penaltyFilterBar');
@@ -185,7 +192,7 @@ function _penRenderFilterBar() {
     let html = `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
         <span style="font-size:12px;color:#94a3b8;font-weight:600;">🔍</span>`;
 
-    _penFilters.forEach(f => {
+    _penGetFilterLabels().forEach(f => {
         html += `<span onclick="_penSetFilter('${f.key}')" style="${chipStyle(f.key === _penActiveFilter)}"
             onmouseover="if('${f.key}'!=='${_penActiveFilter}')this.style.borderColor='#93c5fd'"
             onmouseout="if('${f.key}'!=='${_penActiveFilter}')this.style.borderColor='#e2e8f0'"
@@ -201,7 +208,8 @@ function _penRenderFilterBar() {
     html += '</div>';
 
     if (_penActiveFilter === 'custom') {
-        const today = new Date().toISOString().split('T')[0];
+        const _td = new Date();
+        const today = `${_td.getFullYear()}-${String(_td.getMonth()+1).padStart(2,'0')}-${String(_td.getDate()).padStart(2,'0')}`;
         html += `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
             <span style="font-size:12px;color:#64748b;font-weight:600;">Từ:</span>
             <input type="date" id="penCustomFrom" value="${_penCustomFrom || today}" onchange="_penCustomFrom=this.value;_penaltyLoadStats()"
@@ -231,25 +239,28 @@ function _penOnYearChange(val) {
 }
 
 function _penGetApiUrl() {
+    // CRITICAL: Use local date, NOT toISOString() which returns UTC
+    // VN 02:45 sáng 14/5 → UTC = 19:45 ngày 13/5 → toISOString() sai ngày!
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const _localDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayStr = _localDateStr(today);
 
     // "Hôm nay" = penalties ngày hôm qua (vi phạm tạo lúc 23:45 đêm qua)
     // "Hôm qua" = penalties 2 ngày trước
     switch (_penActiveFilter) {
         case 'today': {
             const y = new Date(today); y.setDate(y.getDate() - 1);
-            const ys = y.toISOString().split('T')[0];
+            const ys = _localDateStr(y);
             return `/api/penalty/list?dateFrom=${ys}&dateTo=${ys}`;
         }
         case 'yesterday': {
             const y2 = new Date(today); y2.setDate(y2.getDate() - 2);
-            const ys2 = y2.toISOString().split('T')[0];
+            const ys2 = _localDateStr(y2);
             return `/api/penalty/list?dateFrom=${ys2}&dateTo=${ys2}`;
         }
         case '7days': {
             const d7 = new Date(today); d7.setDate(d7.getDate() - 6);
-            return `/api/penalty/list?dateFrom=${d7.toISOString().split('T')[0]}&dateTo=${todayStr}`;
+            return `/api/penalty/list?dateFrom=${_localDateStr(d7)}&dateTo=${todayStr}`;
         }
         case 'thisMonth': {
             const mStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
