@@ -123,11 +123,28 @@ async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
 async function runDeadlineCheck(forceFullCheck = false) {
     // ★ Dùng VN timezone cho tất cả logic ngày/giờ
     const _nowUtc = new Date();
-    // Chuyển sang VN (UTC+7) bằng cách tạo Date với offset
     const VN_OFFSET = 7 * 60 * 60 * 1000; // +7h in ms
-    const now = new Date(_nowUtc.getTime() + VN_OFFSET);
+
+    // ★ TIME OVERRIDE: Cho phép GĐ setup giờ hệ thống để test
+    let now;
+    let _timeOverrideActive = false;
+    try {
+        const overrideCfg = await db.get("SELECT value FROM app_config WHERE key = 'system_time_override'");
+        if (overrideCfg?.value) {
+            const cfg = JSON.parse(overrideCfg.value);
+            if (cfg.enabled && cfg.datetime) {
+                // cfg.datetime là VN time ISO string, convert để getUTCHours trả VN
+                const vnDate = new Date(cfg.datetime);
+                now = new Date(vnDate.getTime() + vnDate.getTimezoneOffset() * 60000 + VN_OFFSET);
+                _timeOverrideActive = true;
+            }
+        }
+    } catch(e) {}
+    if (!now) {
+        now = new Date(_nowUtc.getTime() + VN_OFFSET);
+    }
     // now.getUTCHours/getUTCDate/... sẽ trả giá trị VN timezone
-    console.log(`⏰ [VN: ${toDateStr(now)} ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')}] Đang kiểm tra deadline...${forceFullCheck ? ' (FULL CHECK - khởi động)' : ''}`);
+    console.log(`⏰ [VN: ${toDateStr(now)} ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')}] Đang kiểm tra deadline...${forceFullCheck ? ' (FULL CHECK - khởi động)' : ''}${_timeOverrideActive ? ' ⚡ TIME OVERRIDE' : ''}`);
     
     let penaltyCount = 0;
 
@@ -1995,5 +2012,5 @@ function startDeadlineChecker() {
     setInterval(() => runDeadlineCheck(false).catch(e => console.error('Deadline check error:', e)), 15 * 60 * 1000);
 }
 
-module.exports = { startDeadlineChecker, calculateRealDeadline, toDateStr, toLocalTimestamp };
+module.exports = { startDeadlineChecker, runDeadlineCheck, calculateRealDeadline, toDateStr, toLocalTimestamp };
 

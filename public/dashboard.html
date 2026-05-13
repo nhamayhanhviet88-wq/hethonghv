@@ -81,6 +81,32 @@
                         @keyframes _commitShimmer { 0%{left:-100%} 100%{left:100%} }
                     </style>
                     <button class="btn btn-sm" id="notifBtn" onclick="_notifToggle()" style="position:relative;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(217,119,6,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">🔔 THÔNG BÁO <span id="notifBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:white;font-size:10px;font-weight:900;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;line-height:1.4;box-shadow:0 2px 6px rgba(220,38,38,0.4);animation:_notifPulse 2s infinite;"></span></button>
+                    <!-- Time Override (chỉ GĐ) -->
+                    <div id="timeOverrideWrap" style="position:relative;display:none;">
+                        <button id="timeOverrideBtn" onclick="_toToggle()" style="position:relative;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">⏰ GIỜ HỆ THỐNG<span id="toBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:white;font-size:9px;font-weight:900;padding:2px 5px;border-radius:8px;animation:_notifPulse 2s infinite;">⚡</span></button>
+                        <div id="toDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;">
+                            <div style="background:linear-gradient(135deg,#059669,#10b981);padding:14px 18px;color:white;">
+                                <div style="font-size:14px;font-weight:800;">⏰ Thời Gian Hệ Thống</div>
+                                <div style="font-size:11px;opacity:0.8;margin-top:2px;">Chỉnh giờ để test deadline checker</div>
+                            </div>
+                            <div style="padding:16px 18px;">
+                                <div id="toCurrentTime" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-align:center;">
+                                    <div style="font-size:11px;color:#16a34a;font-weight:600;">Giờ hiện tại</div>
+                                    <div id="toCurrentLabel" style="font-size:18px;font-weight:800;color:#15803d;">---</div>
+                                </div>
+                                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                                    <input type="date" id="toDate" style="flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;">
+                                    <input type="time" id="toTime" style="width:110px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;">
+                                </div>
+                                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                    <button onclick="_toApply()" style="flex:1;padding:8px;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">⚡ Áp Dụng</button>
+                                    <button onclick="_toReset()" style="flex:1;padding:8px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">🔄 Mặc Định</button>
+                                </div>
+                                <button onclick="_toTrigger()" style="width:100%;padding:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">🚀 Chạy Deadline Check Ngay</button>
+                                <div id="toStatus" style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px;"></div>
+                            </div>
+                        </div>
+                    </div>
                     <button class="btn btn-sm btn-secondary" id="changePasswordBtn">🔒 Đổi mật khẩu</button>
                 </div>
             </div>

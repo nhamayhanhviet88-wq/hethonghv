@@ -968,6 +968,7 @@ async function checkAuth() {
         }
         renderUserInfo();
         renderAffiliateFloatingButtons();
+        _toInit(); // Time override button (chỉ GĐ)
     } catch (err) {
         window.location.href = '/';
     }
@@ -2924,6 +2925,126 @@ function _tkkhScrollToRow(customerId) {
         row.classList.remove('_tkkh-highlight');
     }, 5000);
 }
+
+// ========== TIME OVERRIDE — Chỉnh giờ hệ thống (chỉ GĐ) ==========
+var _toOpen = false;
+function _toToggle() {
+    _toOpen = !_toOpen;
+    var dd = document.getElementById('toDropdown');
+    dd.style.display = _toOpen ? 'block' : 'none';
+    if (_toOpen) _toLoadState();
+}
+
+async function _toLoadState() {
+    try {
+        var data = await apiCall('/api/admin/time-override');
+        var dateEl = document.getElementById('toDate');
+        var timeEl = document.getElementById('toTime');
+        var label = document.getElementById('toCurrentLabel');
+        var badge = document.getElementById('toBadge');
+        var btn = document.getElementById('timeOverrideBtn');
+        var statusEl = document.getElementById('toStatus');
+
+        if (data.enabled && data.datetime) {
+            var d = new Date(data.datetime);
+            dateEl.value = data.datetime.split('T')[0];
+            timeEl.value = data.datetime.split('T')[1]?.substring(0, 5) || '23:45';
+            label.textContent = d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+            label.style.color = '#dc2626';
+            document.getElementById('toCurrentTime').style.background = '#fef2f2';
+            document.getElementById('toCurrentTime').style.borderColor = '#fecaca';
+            document.getElementById('toCurrentTime').querySelector('div').textContent = '⚡ GIỜ OVERRIDE';
+            document.getElementById('toCurrentTime').querySelector('div').style.color = '#dc2626';
+            badge.style.display = 'inline-block';
+            btn.style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+            statusEl.textContent = '⚡ Override đang bật — hệ thống dùng giờ tùy chỉnh';
+            statusEl.style.color = '#dc2626';
+        } else {
+            var now = new Date();
+            var vnStr = now.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+            label.textContent = vnStr;
+            label.style.color = '#15803d';
+            document.getElementById('toCurrentTime').style.background = '#f0fdf4';
+            document.getElementById('toCurrentTime').style.borderColor = '#bbf7d0';
+            document.getElementById('toCurrentTime').querySelector('div').textContent = 'Giờ hiện tại';
+            document.getElementById('toCurrentTime').querySelector('div').style.color = '#16a34a';
+            // Pre-fill with current VN time
+            var vnNow = new Date(now.getTime() + (7 * 60 - now.getTimezoneOffset()) * 60000);
+            dateEl.value = vnNow.toISOString().split('T')[0];
+            timeEl.value = vnNow.toISOString().split('T')[1].substring(0, 5);
+            badge.style.display = 'none';
+            btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+            statusEl.textContent = '✅ Mặc định — hệ thống dùng giờ thực';
+            statusEl.style.color = '#16a34a';
+        }
+    } catch(e) {}
+}
+
+async function _toApply() {
+    var dateVal = document.getElementById('toDate').value;
+    var timeVal = document.getElementById('toTime').value;
+    if (!dateVal || !timeVal) { showToast('Vui lòng nhập ngày và giờ', 'error'); return; }
+    var datetime = dateVal + 'T' + timeVal + ':00+07:00';
+    try {
+        var res = await apiCall('/api/admin/time-override', 'POST', { enabled: true, datetime: datetime });
+        if (res.success) {
+            showToast('⚡ Đã set giờ hệ thống: ' + dateVal + ' ' + timeVal);
+            _toLoadState();
+        }
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _toReset() {
+    try {
+        var res = await apiCall('/api/admin/time-override', 'POST', { enabled: false });
+        if (res.success) {
+            showToast('✅ Đã reset về giờ thực');
+            _toLoadState();
+        }
+    } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function _toTrigger() {
+    var statusEl = document.getElementById('toStatus');
+    statusEl.textContent = '⏳ Đang chạy deadline check...';
+    statusEl.style.color = '#7c3aed';
+    try {
+        var res = await apiCall('/api/admin/trigger-deadline-check', 'POST', {});
+        statusEl.textContent = '✅ Đã kích hoạt! Kiểm tra console server.';
+        statusEl.style.color = '#16a34a';
+        showToast('🚀 Deadline check đã chạy!');
+    } catch(e) {
+        statusEl.textContent = '❌ Lỗi: ' + e.message;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+function _toInit() {
+    // Chỉ hiện cho GĐ
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') {
+        var wrap = document.getElementById('timeOverrideWrap');
+        if (wrap) wrap.style.display = 'inline-block';
+        // Load badge state
+        (async () => {
+            try {
+                var data = await apiCall('/api/admin/time-override');
+                if (data.enabled) {
+                    document.getElementById('toBadge').style.display = 'inline-block';
+                    document.getElementById('timeOverrideBtn').style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+                }
+            } catch(e) {}
+        })();
+    }
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+    if (_toOpen && !e.target.closest('#timeOverrideWrap')) {
+        _toOpen = false;
+        var dd = document.getElementById('toDropdown');
+        if (dd) dd.style.display = 'none';
+    }
+});
 
 // ========== ACCESS BLOCK SCREEN — Trang chặn full-screen ==========
 async function _showAccessBlockScreen() {

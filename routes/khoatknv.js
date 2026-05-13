@@ -18,6 +18,45 @@ function crmLabel(code) {
 
 async function khoaTKNVRoutes(fastify, options) {
 
+    // ========== TIME OVERRIDE (Chỉ GĐ — test hệ thống phạt) ==========
+
+    // GET: Lấy time override hiện tại
+    fastify.get('/api/admin/time-override', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'system_time_override'");
+        if (row?.value) {
+            return JSON.parse(row.value);
+        }
+        return { enabled: false, datetime: null };
+    });
+
+    // POST: Set/Reset time override
+    fastify.post('/api/admin/time-override', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        const { enabled, datetime } = request.body || {};
+        const value = JSON.stringify({ enabled: !!enabled, datetime: enabled ? datetime : null });
+        await db.run(
+            `INSERT INTO app_config (key, value) VALUES ('system_time_override', $1)
+             ON CONFLICT (key) DO UPDATE SET value = $1`, [value]
+        );
+        return { success: true, enabled: !!enabled, datetime: enabled ? datetime : null };
+    });
+
+    // POST: Trigger manual deadline check (dùng với time override)
+    fastify.post('/api/admin/trigger-deadline-check', { preHandler: [authenticate] }, async (request, reply) => {
+        if (request.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ GĐ' });
+        // Import and run
+        const { startDeadlineChecker, ...checker } = require('./deadline-checker');
+        // We need runDeadlineCheck — add it to exports
+        try {
+            const mod = require('./deadline-checker');
+            if (mod.runDeadlineCheck) {
+                mod.runDeadlineCheck(true).catch(e => console.error('Manual check error:', e));
+            }
+        } catch(e) {}
+        return { success: true, message: 'Deadline check đã được kích hoạt' };
+    });
+
     // ========== PENALTY CONFIG ==========
 
     // GET: Lấy cấu hình phạt chung (global)
