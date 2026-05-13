@@ -1162,7 +1162,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     try {
         const _alHour = now.getUTCHours();
         const _alMinute = now.getUTCMinutes();
-        if (_alHour === 23 && _alMinute >= 45) {
+        if ((_alHour === 23 && _alMinute >= 45) || forceFullCheck || _timeOverrideActive) {
             const alToday = toDateStr(now);
             const alTodayOff = await isDayOff(alToday);
 
@@ -1318,7 +1318,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // Quét TẤT CẢ vi phạm từ ngày hôm qua → khóa TK
     const blockHour = now.getUTCHours();
     const blockMinute = now.getUTCMinutes();
-    if (blockHour === 0 && blockMinute < 15) {
+    if ((blockHour === 0 && blockMinute < 15) || forceFullCheck || _timeOverrideActive) {
         console.log('  🔒 [Access Block 00:00] Bắt đầu khóa TK cho vi phạm ngày hôm qua...');
         const blockYesterday = new Date(now);
         blockYesterday.setUTCDate(blockYesterday.getUTCDate() - 1);
