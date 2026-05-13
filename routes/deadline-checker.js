@@ -856,24 +856,28 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
         if (now < deadlineDay) continue; // Chưa hết hạn
 
-        // Skip nếu đã phạt hôm nay rồi
+        // Skip nếu đã phạt hôm nay rồi (VN timezone)
         const todayStr6 = toDateStr(now);
-        if (em.last_penalty_at && toDateStr(new Date(em.last_penalty_at)) === todayStr6) continue;
+        if (em.last_penalty_at) {
+            // last_penalty_at from PostgreSQL is UTC → shift to VN before comparing
+            const lastPenaltyVN = new Date(new Date(em.last_penalty_at).getTime() + VN_OFFSET);
+            if (toDateStr(lastPenaltyVN) === todayStr6) continue;
+        }
 
         // Lấy mức phạt từ global config
         const penaltyAmount = GPC.cap_cuu_ql_khong_xu_ly;
 
-        // Áp dụng phạt (lần đầu hoặc phạt chồng)
+        // Áp dụng phạt (lần đầu hoặc phạt chồng — tối đa 1 lần/ngày)
         if (!em.penalty_applied) {
             await db.run(
-                `UPDATE emergencies SET penalty_amount = $1, penalty_applied = true, last_penalty_at = NOW() WHERE id = $2`,
-                [penaltyAmount, em.id]
+                `UPDATE emergencies SET penalty_amount = $1, penalty_applied = true, last_penalty_at = $3::timestamp WHERE id = $2`,
+                [penaltyAmount, em.id, toLocalTimestamp(now)]
             );
             console.log(`  🚨 [Cấp cứu] Phạt QL id=${handlerId} — Không xử lý cấp cứu: ${em.customer_name || em.reason} (phạt ${penaltyAmount}đ)`);
         } else {
             await db.run(
-                `UPDATE emergencies SET penalty_amount = penalty_amount + $1, last_penalty_at = NOW() WHERE id = $2`,
-                [penaltyAmount, em.id]
+                `UPDATE emergencies SET penalty_amount = penalty_amount + $1, last_penalty_at = $3::timestamp WHERE id = $2`,
+                [penaltyAmount, em.id, toLocalTimestamp(now)]
             );
             console.log(`  🔄 [Cấp cứu] Phạt chồng QL id=${handlerId} — Vẫn chưa xử lý cấp cứu: ${em.customer_name || em.reason} (thêm ${penaltyAmount}đ)`);
         }
