@@ -3,6 +3,19 @@ const { runTelesalePumpForUser } = require('./telesale');
 const { getTestAccountIds } = require('../utils/productionMode');
 const { authenticate } = require('../middleware/auth');
 
+// Mapping crm_type code → tên hiển thị tiếng Việt
+const CRM_TYPE_LABELS = {
+    'nhu_cau': 'Chăm Sóc Nhu Cầu',
+    'ctv': 'Chăm Sóc CTV',
+    'ctv_hoa_hong': 'Chăm Sóc Affiliate',
+    'kol_koc': 'Chăm Sóc KOC/KOL'
+};
+function crmLabel(code) {
+    if (!code) return code;
+    const raw = code.startsWith('tre_') ? code.replace('tre_', '') : code;
+    return CRM_TYPE_LABELS[raw] || raw;
+}
+
 async function khoaTKNVRoutes(fastify, options) {
 
     // ========== PENALTY CONFIG ==========
@@ -365,17 +378,17 @@ async function khoaTKNVRoutes(fastify, options) {
 
         const cpFormatted = cpPenalties.map(p => {
             const isTre = p.crm_type && p.crm_type.startsWith('tre_');
-            const displayCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
+            const displayName = crmLabel(p.crm_type);
             return {
                 ...p,
                 source_type: isTre ? 'customer_overdue' : 'customer_unhandled',
                 source_label: isTre ? '⏰ KH Trễ — Không xử lý KH trễ' : '❌ KH Chưa XL — Không xử lý KH phải XL hôm nay',
                 task_name: isTre
-                    ? `KH xử lý trễ: ${displayCrmType} (${p.unhandled_count} KH)`
-                    : `KH chưa xử lý: ${p.crm_type} (${p.unhandled_count} KH)`,
+                    ? `KH xử lý trễ: ${displayName} (${p.unhandled_count} KH)`
+                    : `KH chưa xử lý: ${displayName} (${p.unhandled_count} KH)`,
                 penalty_reason: isTre
-                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ (${displayCrmType})`
-                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${p.crm_type})`,
+                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ (${displayName})`
+                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${displayName})`,
                 penalized_user_id: p.user_id,
                 penalized_name: p.user_name,
                 penalized_username: p.username,

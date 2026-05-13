@@ -12,6 +12,19 @@ let _holidayCacheTime = 0;
 
 // ===== HELPERS =====
 
+// Mapping crm_type code → tên hiển thị tiếng Việt
+const CRM_TYPE_LABELS = {
+    'nhu_cau': 'Chăm Sóc Nhu Cầu',
+    'ctv': 'Chăm Sóc CTV',
+    'ctv_hoa_hong': 'Chăm Sóc Affiliate',
+    'kol_koc': 'Chăm Sóc KOC/KOL'
+};
+function crmLabel(code) {
+    if (!code) return code;
+    const raw = code.startsWith('tre_') ? code.replace('tre_', '') : code;
+    return CRM_TYPE_LABELS[raw] || raw;
+}
+
 // Lấy danh sách ngày lễ (cache 1 giờ)
 async function getHolidays() {
     const now = Date.now();
@@ -1051,7 +1064,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.created_at::date = $1::date
                             )) as unhandled_count
                      FROM customers c
-                     WHERE c.appointment_date = $1::text
+                     WHERE c.appointment_date::date = $1::date
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -1104,7 +1117,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                             // Khóa TK sẽ do phần "KH Trễ" xử lý vào ngày hôm sau nếu vẫn chưa XL
                             penaltyCount++;
                             custPenaltyCount++;
-                            console.log(`  ⚠️ [KH Chưa XL] Phạt user=${userId} — menu ${crmType} (${unhandled} KH chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
+                            console.log(`  ⚠️ [KH Chưa XL] Phạt user=${userId} — ${crmLabel(crmType)} (${unhandled} KH chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
                         }
                     } catch (insertErr) {
                         // Conflict = already penalized today for this menu
@@ -1141,7 +1154,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const unhandledCustomers = await db.all(
                     `SELECT c.id, c.customer_name, c.phone, c.assigned_to_id, c.appointment_date
                      FROM customers c
-                     WHERE c.appointment_date <= $1::text
+                     WHERE c.appointment_date::date <= $1::date
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -1214,7 +1227,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.created_at::date = $1::date
                             )) as unhandled_count
                      FROM customers c
-                     WHERE c.appointment_date < $1::text
+                     WHERE c.appointment_date::date < $1::date
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
@@ -1371,7 +1384,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 for (const r of cpRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
                     const isTre = r.crm_type.startsWith('tre_');
-                    const label = isTre ? `KH xử lý trễ: ${r.crm_type.replace('tre_', '')}` : `KH chưa xử lý: ${r.crm_type}`;
+                    const label = isTre ? `KH xử lý trễ: ${crmLabel(r.crm_type)}` : `KH chưa xử lý: ${crmLabel(r.crm_type)}`;
                     blockMap.get(r.user_id).push({ task_name: `${label} (${r.unhandled_count} KH)`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: isTre ? 'Không xử lý khách trễ' : 'Không xử lý khách hôm nay' });
                 }
             } catch(e) { console.error('  ❌ [Block] KH Chưa XL query error:', e.message); }
