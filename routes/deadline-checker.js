@@ -84,7 +84,7 @@ async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
     
     // Bắt đầu từ ngày sau created_at
     let deadline = new Date(created);
-    deadline.setDate(deadline.getDate() + 1);
+    deadline.setUTCDate(deadline.getUTCDate() + 1);
     
     // Kéo dài qua Chủ nhật, lễ, và ngày user nghỉ
     let maxIterations = 30; // safety limit
@@ -94,14 +94,14 @@ async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
         
         if (!dayOff && !onLeave) break; // Ngày làm việc + không nghỉ → OK
-        deadline.setDate(deadline.getDate() + 1); // Kéo thêm 1 ngày
+        deadline.setUTCDate(deadline.getUTCDate() + 1); // Kéo thêm 1 ngày
     }
     
-    // Set deadline hour
+    // Set deadline hour (VN timezone = UTC hours since now is shifted)
     if (deadlineHour === 12) {
-        deadline.setHours(12, 0, 0, 0);
+        deadline.setUTCHours(12, 0, 0, 0);
     } else {
-        deadline.setHours(23, 59, 59, 0);
+        deadline.setUTCHours(23, 59, 59, 0);
     }
     return deadline;
 }
@@ -284,9 +284,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // Check past 90 days (to handle long leave periods)
         for (let daysBack = 1; daysBack <= 90; daysBack++) {
             const checkDate = new Date(now);
-            checkDate.setDate(checkDate.getDate() - daysBack);
+            checkDate.setUTCDate(checkDate.getUTCDate() - daysBack);
             const checkDateStr = toDateStr(checkDate);
-            const checkDow = checkDate.getDay();
+            const checkDow = checkDate.getUTCDay();
             const isCheckHoliday = holidays.has(checkDateStr);
             const isCheckSunday = checkDow === 0;
 
@@ -361,7 +361,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const userOnLeave = await isUserOnLeave(la.user_id, checkDateStr);
                 if (userOnLeave) {
                     // Tính real deadline: ngày đi làm tiếp theo sau ngày nghỉ
-                    const taskDate = new Date(checkDateStr + 'T00:00:00');
+                    const taskDate = new Date(checkDateStr + 'T00:00:00Z');
                     const realDeadline = await calculateRealDeadline(taskDate, la.user_id);
                     if (now < realDeadline) {
                         // Chưa hết hạn kéo dài → skip, sẽ check lại đêm sau
@@ -395,7 +395,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // Tạo phạt chồng MỖI NGÀY LÀM VIỆC cho mỗi CV Khóa chưa báo cáo lại
         const todayForStack = toDateStr(now);
         const ninetyDaysAgo = new Date(now);
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
         const ninetyDaysAgoStr = toDateStr(ninetyDaysAgo);
 
         const unreportedExpired = await db.all(
@@ -481,26 +481,26 @@ async function runDeadlineCheck(forceFullCheck = false) {
             k.origDates.sort();
 
             // Stacking bắt đầu từ ngày sau original sớm nhất → đến hôm nay
-            const earliestOrig = new Date(k.origDates[0] + 'T00:00:00');
+            const earliestOrig = new Date(k.origDates[0] + 'T00:00:00Z');
             let stackDate = new Date(earliestOrig);
-            stackDate.setDate(stackDate.getDate() + 1);
+            stackDate.setUTCDate(stackDate.getUTCDate() + 1);
 
-            const todayDate = new Date(todayForStack + 'T00:00:00');
+            const todayDate = new Date(todayForStack + 'T00:00:00Z');
 
             while (stackDate < todayDate) {
                 const stackDateStr = toDateStr(stackDate);
 
                 // Skip Chủ nhật
-                if (stackDate.getDay() === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (stackDate.getUTCDay() === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
                 // Skip ngày lễ
-                if (holidays.has(stackDateStr)) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (holidays.has(stackDateStr)) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
                 // Skip NV nghỉ phép
                 const onLeave = await isUserOnLeave(k.user_id, stackDateStr);
-                if (onLeave) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 // Đếm bao nhiêu ngày gốc TRƯỚC ngày stacking này
                 const countBefore = k.origDates.filter(d => d < stackDateStr).length;
-                if (countBefore === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (countBefore === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 const totalPenalty = countBefore * extraPenaltyKhoa;
 
@@ -519,7 +519,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     console.error(`  ❌ Error stacking penalty for task ${k.lock_task_id}, user ${k.user_id}:`, e.message);
                 }
 
-                stackDate.setDate(stackDate.getDate() + 1);
+                stackDate.setUTCDate(stackDate.getUTCDate() + 1);
             }
         }
 
@@ -650,7 +650,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // Chạy cùng 00:15-00:30: kiểm tra chain items quá deadline → ghi phạt
     if (shouldCheckLockTasks) {
         const yesterday2 = new Date(now);
-        yesterday2.setDate(yesterday2.getDate() - 1);
+        yesterday2.setUTCDate(yesterday2.getUTCDate() - 1);
         const yesterdayStr2 = toDateStr(yesterday2);
 
         // Get all chain items with deadline = yesterday that are not completed
@@ -725,7 +725,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // ========== 5a. PHẠT CHỒNG PHẠT HÀNG NGÀY — Expired CV Chuỗi chưa báo cáo lại ==========
         // Tạo phạt chồng MỖI NGÀY LÀM VIỆC cho mỗi CV Chuỗi chưa báo cáo lại
         const ninetyDaysAgo2 = new Date(now);
-        ninetyDaysAgo2.setDate(ninetyDaysAgo2.getDate() - 90);
+        ninetyDaysAgo2.setUTCDate(ninetyDaysAgo2.getUTCDate() - 90);
         const ninetyDaysAgoStr2 = toDateStr(ninetyDaysAgo2);
         const todayForChainStack = toDateStr(now);
         const chainHolidaysStack = await getHolidays();
@@ -754,22 +754,22 @@ async function runDeadlineCheck(forceFullCheck = false) {
             if (resubmitted) continue;
 
             // Stacking từ deadline+1 đến hôm nay
-            const origDeadline = new Date(exp.deadline + 'T00:00:00');
+            const origDeadline = new Date(exp.deadline + 'T00:00:00Z');
             let stackDate = new Date(origDeadline);
-            stackDate.setDate(stackDate.getDate() + 1);
+            stackDate.setUTCDate(stackDate.getUTCDate() + 1);
 
-            const todayDate = new Date(todayForChainStack + 'T00:00:00');
+            const todayDate = new Date(todayForChainStack + 'T00:00:00Z');
 
             while (stackDate < todayDate) {
                 const stackDateStr = toDateStr(stackDate);
 
                 // Skip Chủ nhật
-                if (stackDate.getDay() === 0) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (stackDate.getUTCDay() === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
                 // Skip ngày lễ
-                if (chainHolidaysStack.has(stackDateStr)) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (chainHolidaysStack.has(stackDateStr)) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
                 // Skip NV nghỉ phép
                 const onLeave = await isUserOnLeave(exp.user_id, stackDateStr);
-                if (onLeave) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 // Kiểm tra trùng (manual dedup vì chain_task_completions không có unique constraint tương ứng)
                 const alreadyStacked = await db.get(
@@ -778,7 +778,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                        AND created_at::date = $3::date`,
                     [exp.chain_item_id, exp.user_id, stackDateStr]
                 );
-                if (alreadyStacked) { stackDate.setDate(stackDate.getDate() + 1); continue; }
+                if (alreadyStacked) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
                 try {
                     await db.run(
@@ -793,7 +793,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     console.error(`  ❌ Error stacking chain penalty for id ${exp.id}:`, e.message);
                 }
 
-                stackDate.setDate(stackDate.getDate() + 1);
+                stackDate.setUTCDate(stackDate.getUTCDate() + 1);
             }
         }
 
@@ -1291,7 +1291,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (blockHour === 0 && blockMinute < 15) {
         console.log('  🔒 [Access Block 00:00] Bắt đầu khóa TK cho vi phạm ngày hôm qua...');
         const blockYesterday = new Date(now);
-        blockYesterday.setDate(blockYesterday.getDate() - 1);
+        blockYesterday.setUTCDate(blockYesterday.getUTCDate() - 1);
         const blockYesterdayStr = toDateStr(blockYesterday);
 
         // Kiểm tra ngày hôm qua có phải ngày nghỉ không
