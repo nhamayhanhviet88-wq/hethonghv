@@ -983,14 +983,12 @@ async function runDeadlineCheck(forceFullCheck = false) {
                         );
 
                         if (inserted) {
-                            // Khóa TK (chỉ ở 00:15)
-                            // Ghi phạt (không khóa TK)
+                            // ★ Chỉ GHI PHẠT — KHÔNG KHÓA TK ở 23:45
+                            // Nhân viên có đến cuối ngày để xử lý
+                            // Khóa TK sẽ do phần "KH Trễ" xử lý vào ngày hôm sau nếu vẫn chưa XL
                             penaltyCount++;
                             custPenaltyCount++;
                             console.log(`  ⚠️ [KH Chưa XL] Phạt user=${userId} — menu ${crmType} (${unhandled} KH chưa xử lý) ${penaltyAmt.toLocaleString()}đ`);
-                            // ★ Track for access blocking
-                            if (!accessBlockPenalties.has(userId)) accessBlockPenalties.set(userId, []);
-                            accessBlockPenalties.get(userId).push({ task_name: `KH chưa xử lý: ${crmType} (${unhandled} KH)`, task_date: today, penalty_amount: penaltyAmt, penalty_reason: `Không xử lý ${unhandled} khách hàng` });
                         }
                     } catch (insertErr) {
                         // Conflict = already penalized today for this menu
