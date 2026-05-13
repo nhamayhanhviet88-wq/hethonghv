@@ -725,6 +725,10 @@ DO $$ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
+-- Phạt chồng tracking columns
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS stacking_source TEXT;
+ALTER TABLE task_support_requests ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT true;
+
 -- ========== CV ĐIỂM: Multi-row redo history (like CV Khóa) ==========
 -- Change unique constraint: (template_id, user_id, report_date) → (template_id, user_id, report_date, redo_count)
 DO $$ BEGIN

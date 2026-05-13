@@ -31,21 +31,21 @@ async function isUserOnLeave(userId, dateStr) {
     return !!leave;
 }
 
-// Format date → YYYY-MM-DD
+// Format date → YYYY-MM-DD (dùng UTC methods vì now đã được shift sang VN)
 function toDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
 // Format date → local timestamp string (for PostgreSQL TIMESTAMP WITHOUT TIMEZONE)
 function toLocalTimestamp(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`;
 }
 
 // Kiểm tra ngày có phải nghỉ không (Chủ nhật hoặc ngày lễ)
 async function isDayOff(dateStr) {
     const holidays = await getHolidays();
-    const d = new Date(dateStr + 'T00:00:00');
-    if (d.getDay() === 0) return true; // Chủ nhật
+    const d = new Date(dateStr + 'T00:00:00Z');
+    if (d.getUTCDay() === 0) return true; // Chủ nhật
     return holidays.has(dateStr);
 }
 
@@ -62,11 +62,11 @@ async function getEffectiveWorkingDay(originalDate, userId, holidays) {
     let maxIter = 30;
     while (maxIter-- > 0) {
         const ds = toDateStr(d);
-        const isSunday = d.getDay() === 0;
+        const isSunday = d.getUTCDay() === 0;
         const isHoliday = holidays.has(ds);
         const onLeave = userId ? await isUserOnLeave(userId, ds) : false;
         if (!isSunday && !isHoliday && !onLeave) return ds; // Ngày đi làm → trả về
-        d.setDate(d.getDate() + 1); // Dời 1 ngày
+        d.setUTCDate(d.getUTCDate() + 1); // Dời 1 ngày
     }
     return toDateStr(originalDate); // Fallback
 }
@@ -108,8 +108,13 @@ async function calculateRealDeadline(createdAt, userId, deadlineHour = 23) {
 
 // ===== MAIN CHECKER =====
 async function runDeadlineCheck(forceFullCheck = false) {
-    const now = new Date();
-    console.log(`⏰ [${now.toISOString()}] Đang kiểm tra deadline...${forceFullCheck ? ' (FULL CHECK - khởi động)' : ''}`);
+    // ★ Dùng VN timezone cho tất cả logic ngày/giờ
+    const _nowUtc = new Date();
+    // Chuyển sang VN (UTC+7) bằng cách tạo Date với offset
+    const VN_OFFSET = 7 * 60 * 60 * 1000; // +7h in ms
+    const now = new Date(_nowUtc.getTime() + VN_OFFSET);
+    // now.getUTCHours/getUTCDate/... sẽ trả giá trị VN timezone
+    console.log(`⏰ [VN: ${toDateStr(now)} ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')}] Đang kiểm tra deadline...${forceFullCheck ? ' (FULL CHECK - khởi động)' : ''}`);
     
     let penaltyCount = 0;
 
@@ -117,9 +122,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
     const nowLocal = toLocalTimestamp(now);
 
-    // ★ Không khóa tài khoản nữa — chỉ ghi phạt + hiển thị popup thông báo
-    const _hour = now.getHours();
-    const _minute = now.getMinutes();
+    // ★ Dùng UTC hours/minutes vì now đã shift sang VN
+    const _hour = now.getUTCHours();
+    const _minute = now.getUTCMinutes();
 
     // Load global penalty config
     const _gpcRows = await db.all('SELECT key, amount FROM global_penalty_config');
@@ -260,8 +265,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
-    // Chỉ chạy vào 00:15 - 00:30: kiểm tra 90 ngày qua chưa nộp → ghi phạt
-    const shouldCheckLockTasks = forceFullCheck || (_hour === 0 && _minute >= 15 && _minute < 30);
+    // ★ Chạy vào 23:45+ VN: kiểm tra 90 ngày qua chưa nộp → ghi phạt + phạt chồng
+    const shouldCheckLockTasks = forceFullCheck || (_hour === 23 && _minute >= 45);
 
     if (shouldCheckLockTasks) {
         const holidays = await getHolidays();
@@ -523,7 +528,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
             console.log(`  🔄 [CV Khóa] Tạo ${stackCountKhoa} bản ghi phạt chồng hàng ngày`);
         }
     } else {
-        console.log(`  ⏭️ [CV Khóa] Bỏ qua — chỉ check vào 00:15-00:30 hoặc lúc khởi động (hiện: ${_hour}:${String(_minute).padStart(2,'0')})`);
+        console.log(`  ⏭️ [CV Khóa/Chuỗi] Bỏ qua — chỉ check vào 23:45+ VN hoặc lúc khởi động (hiện: ${_hour}:${String(_minute).padStart(2,'0')})`);
     }
 
     // ========== 3b. CHECK CV KHÓA - QL CHƯA DUYỆT ==========
@@ -847,6 +852,125 @@ async function runDeadlineCheck(forceFullCheck = false) {
         penaltyCount++;
     }
 
+    // ========== 6a. PHẠT CHỒNG — QL KHÔNG HỖ TRỢ NV + KHÔNG DUYỆT CV ==========
+    // Mỗi ngày QL vẫn chưa hỗ trợ/duyệt → phạt thêm 1 lần
+    if (shouldCheckLockTasks) {
+        const todayStackMgr = toDateStr(now);
+        const holidays6a = await getHolidays();
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+        const thirtyDaysAgoStr = toDateStr(thirtyDaysAgo);
+
+        // Lấy tất cả support requests GỐC đã expired (QL bị phạt) — không lấy bản stacking
+        const expiredSupports = await db.all(
+            `SELECT sr.id, sr.user_id, sr.manager_id, sr.task_name, sr.task_date::text as task_date,
+                    sr.source_type, sr.lock_task_id, sr.template_id, sr.penalty_amount,
+                    sr.penalty_reason, sr.created_at::text as created_date
+             FROM task_support_requests sr
+             WHERE sr.status = 'expired' AND (sr.stacking_source IS NULL OR sr.stacking_source = '')
+               AND sr.task_date >= $1::date AND sr.task_date < $2::date`,
+            [thirtyDaysAgoStr, todayStackMgr]
+        );
+
+        let stackCountMgr = 0;
+        for (const sr of expiredSupports) {
+            // Kiểm tra task NV đã resolved chưa
+            let resolved = false;
+            if (sr.source_type === 'khoa' && sr.lock_task_id) {
+                const comp = await db.get(
+                    `SELECT id FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'approved'`,
+                    [sr.lock_task_id, sr.user_id, sr.task_date]
+                );
+                resolved = !!comp;
+            } else if (sr.source_type === 'diem' && sr.template_id) {
+                const comp = await db.get(
+                    `SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3 AND status = 'approved'`,
+                    [sr.template_id, sr.user_id, sr.task_date]
+                );
+                resolved = !!comp;
+            } else if (sr.source_type === 'chuoi') {
+                // Chain task — check nếu user đã nộp lại
+                resolved = false; // Chain tasks don't have simple resubmit tracking
+            }
+            if (resolved) continue;
+
+            // Skip nếu manager nghỉ phép hôm nay
+            const mgrOnLeave = await isUserOnLeave(sr.manager_id, todayStackMgr);
+            if (mgrOnLeave) continue;
+
+            // Skip ngày nghỉ
+            if (holidays6a.has(todayStackMgr)) continue;
+            const todayDate6a = new Date(todayStackMgr + 'T00:00:00Z');
+            if (todayDate6a.getUTCDay() === 0) continue; // Chủ nhật
+
+            // Tạo stacking penalty cho hôm nay
+            const isApproval = sr.penalty_reason && sr.penalty_reason.includes('Không duyệt');
+            const stackType = isApproval ? 'Không duyệt' : 'Không hỗ trợ';
+            const penaltyAmt = isApproval
+                ? (sr.source_type === 'khoa' ? GPC.cv_khoa_ql_khong_duyet : GPC.cv_diem_ql_khong_duyet)
+                : (sr.source_type === 'khoa' ? GPC.cv_khoa_ql_khong_ho_tro : (sr.source_type === 'diem' ? GPC.cv_diem_ql_khong_ho_tro : GPC.cv_chuoi_ql_khong_duyet || 50000));
+
+            try {
+                const res = await db.run(
+                    `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, manager_id, department_id, status, penalty_amount, penalty_reason, stacking_source, acknowledged)
+                     VALUES ($1, $2, $3, $4, $5, $6, (SELECT department_id FROM users WHERE id = $1), 'expired', $7, $8, $9, false)
+                     ON CONFLICT (user_id, template_id, task_date) DO NOTHING`,
+                    [sr.user_id, sr.template_id || 0, sr.task_name, todayStackMgr, todayStackMgr,
+                     sr.manager_id, penaltyAmt,
+                     `Phạt chồng ${stackType}: ${sr.task_name} (gốc: ${sr.task_date})`,
+                     `stacking_${sr.id}`]
+                );
+                if (res && res.rowCount > 0) {
+                    stackCountMgr++;
+                    console.log(`  🔄 [QL Phạt Chồng] ${stackType} QL id=${sr.manager_id} — ${sr.task_name} (thêm ${penaltyAmt.toLocaleString()}đ)`);
+                }
+            } catch(e) { /* conflict = already stacked today */ }
+        }
+
+        // Lấy tất cả pending approvals quá hạn (QL chưa duyệt CV Điểm/Khóa)
+        const pendingApprovals = await db.all(
+            `SELECT r.id, r.user_id, r.template_id, r.report_date::text as report_date, r.approval_deadline,
+                    t.task_name, r.created_at
+             FROM task_point_reports r
+             JOIN task_point_templates t ON r.template_id = t.id
+             WHERE r.status = 'pending' AND r.approval_deadline IS NOT NULL AND r.approval_deadline < $1
+               AND r.report_date >= $2`,
+            [toLocalTimestamp(now), thirtyDaysAgoStr]
+        );
+
+        for (const rpt of pendingApprovals) {
+            const reporter = await db.get("SELECT department_id FROM users WHERE id = $1", [rpt.user_id]);
+            if (!reporter) continue;
+            const managerId = await findActiveApprover(rpt.user_id, reporter.department_id);
+            if (!managerId) continue;
+            if (await isManagerImmune(managerId)) continue;
+            const mgrOnLeave2 = await isUserOnLeave(managerId, todayStackMgr);
+            if (mgrOnLeave2) continue;
+
+            const penaltyAmt2 = GPC.cv_diem_ql_khong_duyet;
+            try {
+                const res2 = await db.run(
+                    `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, manager_id, department_id, status, penalty_amount, penalty_reason, stacking_source, acknowledged)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, 'expired', $8, $9, $10, false)
+                     ON CONFLICT (user_id, template_id, task_date) DO NOTHING`,
+                    [rpt.user_id, rpt.template_id, rpt.task_name, todayStackMgr, todayStackMgr,
+                     managerId, reporter.department_id, penaltyAmt2,
+                     `Phạt chồng Không duyệt: ${rpt.task_name} (gốc: ${rpt.report_date})`,
+                     `stacking_approval_${rpt.id}`]
+                );
+                if (res2 && res2.rowCount > 0) {
+                    stackCountMgr++;
+                    console.log(`  🔄 [QL Phạt Chồng] Không duyệt QL id=${managerId} — ${rpt.task_name} (thêm ${penaltyAmt2.toLocaleString()}đ)`);
+                }
+            } catch(e) { /* conflict = already stacked today */ }
+        }
+
+        if (stackCountMgr > 0) {
+            penaltyCount += stackCountMgr;
+            console.log(`  🔄 [QL Phạt Chồng] Tổng: ${stackCountMgr} bản ghi phạt chồng QL`);
+        }
+    }
+
     // ========== 7. AUTO-REVERT HỦY KHÁCH & HỦY ĐƠN TRẢ CỌC — SMART DEADLINE ==========
     // ★ Deadline: 23:59 ngày làm việc kế tiếp (skip CN + lễ) — giống cấp cứu sếp
     // ★ Phân biệt cho_duyet_huy (→ tu_van_lai) vs cho_duyet_huy_don (→ chot_don)
@@ -907,8 +1031,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 8. PHẠT KH CHƯA XỬ LÝ HÔM NAY ==========
     // Chỉ chạy lúc 23:45+ — cho NV thời gian xử lý đến gần cuối ngày
     try {
-        const hour = now.getHours();
-        const minute = now.getMinutes();
+        const hour = now.getUTCHours();
+        const minute = now.getUTCMinutes();
         if (hour === 23 && minute >= 45) {
             const today = toDateStr(now);
             const todayOff = await isDayOff(today);
@@ -1006,8 +1130,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // Chạy lúc 23:45+ — ghi dòng lịch sử ⚠️ cho KH có appointment <= hôm nay nhưng không được tư vấn hôm nay
     // Bao gồm CẢ KH hôm nay (appointment_date = today) VÀ KH trễ (appointment_date < today)
     try {
-        const _alHour = now.getHours();
-        const _alMinute = now.getMinutes();
+        const _alHour = now.getUTCHours();
+        const _alMinute = now.getUTCMinutes();
         if (_alHour === 23 && _alMinute >= 45) {
             const alToday = toDateStr(now);
             const alTodayOff = await isDayOff(alToday);
@@ -1070,8 +1194,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // Chạy lúc 23:45+ — phạt 100k/CRM type nếu NV có KH trễ mà không tư vấn hôm nay
     // Phạt MỖI NGÀY cho đến khi NV xử lý hết KH trễ
     try {
-        const _treHour = now.getHours();
-        const _treMinute = now.getMinutes();
+        const _treHour = now.getUTCHours();
+        const _treMinute = now.getUTCMinutes();
         if (_treHour === 23 && _treMinute >= 45) {
             const treToday = toDateStr(now);
             const treTodayOff = await isDayOff(treToday);
@@ -1162,8 +1286,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
     // ★★★ PHASE 2: ACCESS BLOCK — Chạy lúc 00:00 (đầu ngày mới) ★★★
     // Quét TẤT CẢ vi phạm từ ngày hôm qua → khóa TK
-    const blockHour = now.getHours();
-    const blockMinute = now.getMinutes();
+    const blockHour = now.getUTCHours();
+    const blockMinute = now.getUTCMinutes();
     if (blockHour === 0 && blockMinute < 15) {
         console.log('  🔒 [Access Block 00:00] Bắt đầu khóa TK cho vi phạm ngày hôm qua...');
         const blockYesterday = new Date(now);
@@ -1299,7 +1423,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
     // ========== 9. TELESALE — THU HỒI ĐÊM (00:00 - 01:00) ==========
     try {
-        const tsHour = now.getHours();
+        const tsHour = now.getUTCHours();
         if (tsHour === 0) {
             console.log('  📞 [Telesale] Chạy thu hồi đêm...');
             const { runTelesaleRecall } = require('./telesale');
@@ -1314,7 +1438,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ★ Catch-up: nếu server restart sau 7:00 mà chưa bơm → bơm ngay
     // ★ runTelesalePump() đã có dedup per-user per-CRM bên trong, KHÔNG cần check global
     try {
-        const tsHour2 = now.getHours();
+        const tsHour2 = now.getUTCHours();
         const shouldPump = (tsHour2 === 7 && _minute < 30) || (forceFullCheck && tsHour2 >= 7);
         if (shouldPump) {
             console.log(`  📞 [Telesale] Chạy bơm sáng${forceFullCheck && tsHour2 > 7 ? ' (catch-up sau restart)' : ''}...`);
@@ -1332,7 +1456,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 11. TELESALE — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todayCV = toDateStr(now);
-        const todayDow = now.getDay() === 0 ? 7 : now.getDay(); // 1=Mon...7=Sun
+        const todayDow = now.getUTCDay() === 0 ? 7 : now.getUTCDay(); // 1=Mon...7=Sun
 
         // Find all task templates with "Gọi Điện Telesale" in name
         // Templates can be team-level (target_type='team', target_id=dept_id) or individual
@@ -1437,7 +1561,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 12. TỰ TÌM KIẾM — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todaySS = toDateStr(now);
-        const todayDowSS = now.getDay() === 0 ? 7 : now.getDay();
+        const todayDowSS = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
 
         // Find all task templates with "Tự Tìm Kiếm" in name
         const selfSearchTemplates = await db.all(
@@ -1540,7 +1664,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // task_point_reports entries, causing ĐIỂM NGÀY = 0 despite completion.
     try {
         const todayDL = toDateStr(now);
-        const todayDowDL = now.getDay() === 0 ? 7 : now.getDay();
+        const todayDowDL = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
 
         // Module type → ILIKE pattern for matching task_point_templates
         const DL_MODULES = {
@@ -1667,7 +1791,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ========== 14. NHẮN TÌM ĐỐI TÁC KH — CV ĐIỂM AUTO-SCORING ==========
     try {
         const todayPO = toDateStr(now);
-        const todayDowPO = now.getDay() === 0 ? 7 : now.getDay();
+        const todayDowPO = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
 
         const poTemplates = await db.all(
             "SELECT * FROM task_point_templates WHERE task_name ILIKE '%Nhắn%Tìm%Đối Tác%' AND day_of_week = $1",
@@ -1845,7 +1969,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ [THỬ VIỆC] Error:', e.message);
     }
 
-    const elapsed = Date.now() - now.getTime();
+    const elapsed = Date.now() - _nowUtc.getTime();
     console.log(`⏰ Deadline check hoàn thành sau ${elapsed}ms (${(elapsed/1000).toFixed(1)}s`);
 }
 
