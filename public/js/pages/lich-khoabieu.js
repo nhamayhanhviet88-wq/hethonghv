@@ -1579,7 +1579,9 @@ function _kbRenderGrid() {
                         lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                         lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                     } else if (realComp.status === 'pending') {
-                        if (dateStr < todayStr) {
+                        const _lockNeedsApproval = lt.requires_approval || _kbForceApproval || _kbForceLockIds.has(lt.id);
+                        if (dateStr < todayStr && !_lockNeedsApproval) {
+                            // Past day + no approval required → auto-show as approved
                             lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                             lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                         } else {
