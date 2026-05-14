@@ -277,42 +277,6 @@ async function affiliateRoutes(fastify) {
                 stats[s.referrer_id].total_orders = s.total_orders;
                 stats[s.referrer_id].total_revenue = s.total_revenue;
             });
-
-            // ★ Also count self-orders (source_customer_id = đơn tự mua của chính affiliate)
-            // → Đồng bộ với my-system cardStats
-            const selfCustMap = {};
-            affiliates.forEach(a => { if (a.source_customer_id) selfCustMap[a.id] = a.source_customer_id; });
-            const selfCustIds = Object.values(selfCustMap);
-            if (selfCustIds.length > 0) {
-                const sph = selfCustIds.map(() => '?').join(',');
-                let selfOrderQuery = `
-                    SELECT oc.customer_id,
-                           COUNT(DISTINCT oc.id) as total_orders,
-                           COALESCE(SUM(oi.total), 0) as total_revenue
-                    FROM order_codes oc
-                    JOIN customers c ON c.id = oc.customer_id
-                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${sph})
-                      AND COALESCE(oc.status, 'active') != 'cancelled'
-                      AND COALESCE(c.cancel_approved, 0) != 1
-                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')`;
-                const selfOrderParams = [...selfCustIds];
-                if (from) { selfOrderQuery += ` AND oc.created_at >= ?`; selfOrderParams.push(from); }
-                if (to) { selfOrderQuery += ` AND oc.created_at <= ?`; selfOrderParams.push(to + ' 23:59:59'); }
-                selfOrderQuery += ` GROUP BY oc.customer_id`;
-                const selfOrderRows = await db.all(selfOrderQuery, selfOrderParams);
-                // Map customer_id → affiliate_id
-                const custToAff = {};
-                Object.entries(selfCustMap).forEach(([affId, custId]) => { custToAff[custId] = Number(affId); });
-                selfOrderRows.forEach(r => {
-                    const affId = custToAff[r.customer_id];
-                    if (affId) {
-                        if (!stats[affId]) stats[affId] = { total_customers: 0, total_orders: 0, total_revenue: 0 };
-                        stats[affId].total_orders = Number(stats[affId].total_orders) + Number(r.total_orders);
-                        stats[affId].total_revenue = Number(stats[affId].total_revenue) + Number(r.total_revenue);
-                    }
-                });
-            }
         }
 
         affiliates.forEach(a => {

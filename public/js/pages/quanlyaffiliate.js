@@ -416,9 +416,11 @@ function affRenderStats() {
     }
     const scopedEmpIds = _scopedEmpIds();
     const scopedAffCount = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).length;
-    const scopedAffRevenue = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_revenue || 0), 0);
     const scopedAffCustomers = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_customers || 0), 0);
-    const scopedAffOrders = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_orders || 0), 0);
+    // ★ Đơn Hàng + Doanh Thu: dùng cardStats từ API (đã include đơn tự mua + deduplicate)
+    // → Đồng bộ chuẩn xác với QL Hệ Thống Affiliate
+    const scopedAffOrders = cs.totalOrders || 0;
+    const scopedAffRevenue = cs.totalRevenue || 0;
 
     const el = document.getElementById('affStatsRow');
     if (!el) return;
