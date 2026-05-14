@@ -73,16 +73,20 @@ async function _getFilteredChildIds(db, userId, needFullName) {
     return rows;
 }
 
-// ★ FIRST-ORDER-ONLY: Lấy ID đơn đầu tiên (non-cancelled) per customer
+// ★ FIRST-ORDER-ONLY: Lấy ID đơn đầu tiên (non-cancelled, chot_don) per customer
 // Trả về Map { customerId: firstOrderId }
 async function _getFirstOrderMap(db, customerIds) {
     if (!customerIds || customerIds.length === 0) return {};
     const ph = customerIds.map(() => '?').join(',');
     const rows = await db.all(`
-        SELECT DISTINCT ON (customer_id) customer_id, id as first_order_id
-        FROM order_codes
-        WHERE customer_id IN (${ph}) AND status != 'cancelled'
-        ORDER BY customer_id, created_at ASC
+        SELECT DISTINCT ON (oc.customer_id) oc.customer_id, oc.id as first_order_id
+        FROM order_codes oc
+        JOIN customers c ON c.id = oc.customer_id
+        WHERE oc.customer_id IN (${ph})
+          AND COALESCE(oc.status, 'active') != 'cancelled'
+          AND COALESCE(c.cancel_approved, 0) != 1
+          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+        ORDER BY oc.customer_id, oc.created_at ASC
     `, customerIds);
     const map = {};
     rows.forEach(r => { map[r.customer_id] = r.first_order_id; });
@@ -96,6 +100,173 @@ async function _getCommissionCutoffDate(db) {
     const row = await db.get("SELECT value FROM app_config WHERE key = 'commission_first_order_cutoff'");
     _fooCutoffCache = row?.value ? new Date(row.value) : null;
     return _fooCutoffCache;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ★ FIRST-ORDER REVENUE HELPER — Quy tắc "Đơn Đầu Tiên" toàn hệ thống
+// ═══════════════════════════════════════════════════════════════════
+// Quy tắc:
+// - Affiliate chỉ nhận doanh số từ ĐƠN ĐẦU TIÊN của mỗi KH mình giới thiệu
+// - Đơn tự mua: nếu có cha (assigned_to_user_id) → đơn đầu thuộc cha, đơn 2+ thuộc mình
+// - Nếu không có cha (gốc) → tất cả đơn tự mua thuộc chính mình
+//
+// Params:
+//   affiliates: [{id, source_customer_id, assigned_to_user_id, ...}]
+//   from, to: date range filter (optional)
+//
+// Returns: { [affiliateId]: { revenue, orderCount } }
+async function _calcFirstOrderRevenue(db, affiliates, from, to) {
+    const _t0 = Date.now();
+    const result = {};
+    affiliates.forEach(a => { result[a.id] = { revenue: 0, orderCount: 0 }; });
+
+    const affIds = affiliates.map(a => a.id);
+    if (affIds.length === 0) return result;
+    console.log(`[FORevenue] START: ${affIds.length} affiliates`);
+
+    const ph = affIds.map(() => '?').join(',');
+
+    // ═══ PART 1: Revenue từ KH giới thiệu (referrer_id) — CHỈ đơn đầu ═══
+    const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, affIds);
+    const allRefCustIds = customersByRef.map(c => c.id);
+
+    if (allRefCustIds.length > 0) {
+        // Lấy first_order_id cho mỗi customer
+        const firstOrderMap = await _getFirstOrderMap(db, allRefCustIds);
+
+        // Lấy revenue CHỈ cho các first orders
+        const firstOrderIds = Object.values(firstOrderMap).filter(Boolean);
+        if (firstOrderIds.length > 0) {
+            const foph = firstOrderIds.map(() => '?').join(',');
+            let dateFilter = '';
+            const params = [...firstOrderIds];
+            if (from) { dateFilter += ' AND oc.created_at >= ?'; params.push(from + ' 00:00:00'); }
+            if (to) { dateFilter += ' AND oc.created_at <= ?'; params.push(to + ' 23:59:59'); }
+            const revRows = await db.all(`
+                SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                FROM order_codes oc
+                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                WHERE oc.id IN (${foph})${dateFilter}
+                GROUP BY oc.customer_id
+            `, params);
+            const custRevMap = {};
+            revRows.forEach(r => { custRevMap[r.customer_id] = Number(r.revenue); });
+
+            // Map revenue back to referrer
+            customersByRef.forEach(c => {
+                const rev = custRevMap[c.id] || 0;
+                if (rev > 0) {
+                    result[c.referrer_id].revenue += rev;
+                    result[c.referrer_id].orderCount += 1;
+                }
+            });
+        }
+    }
+    console.log(`[FORevenue] PART1 done: ${allRefCustIds.length} referred custs, ${Date.now()-_t0}ms`);
+
+    // ═══ PART 2: Revenue từ đơn tự mua (source_customer_id) ═══
+    // Quy tắc: nếu affiliate có cha → chỉ đơn 2+ thuộc mình (đơn 1 thuộc cha)
+    //           nếu affiliate gốc → tất cả đơn thuộc mình
+    const selfEntries = affiliates.filter(a => a.source_customer_id).map(a => ({
+        affId: a.id, custId: a.source_customer_id, hasParent: !!a.assigned_to_user_id
+    }));
+    // NOTE: Do NOT exclude entries that are also referred — PART 1 only takes their FIRST order for the referrer.
+    // PART 2 handles 2nd+ orders for the affiliate itself. The firstOrderIdsToExclude handles dedup.
+
+    if (selfEntries.length > 0) {
+        const selfCustIds = selfEntries.map(e => e.custId);
+        const firstOrderMap = await _getFirstOrderMap(db, selfCustIds);
+
+        // Build set of first-order IDs for affiliates WITH parent (these go to parent, not self)
+        const firstOrderIdsToExclude = new Set();
+        selfEntries.forEach(e => {
+            if (e.hasParent && firstOrderMap[e.custId]) {
+                firstOrderIdsToExclude.add(firstOrderMap[e.custId]);
+            }
+        });
+
+        // Get ALL orders for self-purchase customers
+        const sph = selfCustIds.map(() => '?').join(',');
+        let selfDateFilter = '';
+        const selfParams = [...selfCustIds];
+        if (from) { selfDateFilter += ' AND oc.created_at >= ?'; selfParams.push(from + ' 00:00:00'); }
+        if (to) { selfDateFilter += ' AND oc.created_at <= ?'; selfParams.push(to + ' 23:59:59'); }
+        const selfOrders = await db.all(`
+            SELECT oc.id as order_id, oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+            FROM order_codes oc
+            JOIN customers c ON c.id = oc.customer_id
+            LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+            WHERE oc.customer_id IN (${sph})
+              AND COALESCE(oc.status, 'active') != 'cancelled'
+              AND COALESCE(c.cancel_approved, 0) != 1
+              AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${selfDateFilter}
+            GROUP BY oc.id, oc.customer_id
+        `, selfParams);
+
+        // custId → affId map
+        const custToAffMap = {};
+        selfEntries.forEach(e => { custToAffMap[e.custId] = e.affId; });
+
+        selfOrders.forEach(o => {
+            const affId = custToAffMap[o.customer_id];
+            if (!affId) return;
+            // Skip first order if affiliate has parent (it belongs to parent)
+            if (firstOrderIdsToExclude.has(o.order_id)) return;
+            const rev = Number(o.revenue);
+            if (rev > 0) {
+                result[affId].revenue += rev;
+                result[affId].orderCount += 1;
+            }
+        });
+    }
+    console.log(`[FORevenue] PART2 done: ${Date.now()-_t0}ms`);
+
+    // ═══ PART 3: Revenue từ CHILD affiliates' đơn đầu → thuộc CHA ═══
+    // Lấy child affiliates (assigned_to_user_id IN affIds) và first order của child
+    const childAffs = await db.all(`
+        SELECT u.id, u.source_customer_id, u.assigned_to_user_id
+        FROM users u
+        WHERE u.assigned_to_user_id IN (${ph})
+        AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+        AND u.source_customer_id IS NOT NULL
+    `, affIds);
+
+    if (childAffs.length > 0) {
+        const childCustIds = childAffs.map(c => c.source_customer_id);
+        const childFirstOrderMap = await _getFirstOrderMap(db, childCustIds);
+        const childFirstOrderIds = Object.values(childFirstOrderMap).filter(Boolean);
+
+        if (childFirstOrderIds.length > 0) {
+            const cfoph = childFirstOrderIds.map(() => '?').join(',');
+            let cDateFilter = '';
+            const cParams = [...childFirstOrderIds];
+            if (from) { cDateFilter += ' AND oc.created_at >= ?'; cParams.push(from + ' 00:00:00'); }
+            if (to) { cDateFilter += ' AND oc.created_at <= ?'; cParams.push(to + ' 23:59:59'); }
+            const childRevRows = await db.all(`
+                SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                FROM order_codes oc
+                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                WHERE oc.id IN (${cfoph})${cDateFilter}
+                GROUP BY oc.customer_id
+            `, cParams);
+            const childCustRevMap = {};
+            childRevRows.forEach(r => { childCustRevMap[r.customer_id] = Number(r.revenue); });
+
+            // Map child's first order revenue to parent
+            childAffs.forEach(child => {
+                const parentId = child.assigned_to_user_id;
+                if (!result[parentId]) return; // parent not in scope
+                const rev = childCustRevMap[child.source_customer_id] || 0;
+                if (rev > 0) {
+                    result[parentId].revenue += rev;
+                    result[parentId].orderCount += 1;
+                }
+            });
+        }
+    }
+    console.log(`[FORevenue] PART3 done: ${childAffs.length} children, ${Date.now()-_t0}ms total`);
+
+    return result;
 }
 
 // Helper: parse period_type + value into dateFrom/dateTo
@@ -235,17 +406,20 @@ async function affiliateRoutes(fastify) {
         }
 
         const affiliateIds = affiliates.map(a => a.id);
-        let stats = {};
+        // ★ FIRST-ORDER RULE: Tính doanh số theo quy tắc đơn đầu tiên
+        const firstOrderRevMap = await _calcFirstOrderRevenue(db, affiliates, from, to);
+        affiliates.forEach(a => {
+            const frev = firstOrderRevMap[a.id] || { revenue: 0, orderCount: 0 };
+            a.total_orders = frev.orderCount;
+            a.total_revenue = Number(frev.revenue);
+            // Customer count still uses old logic (all referred, not just first-order)
+            a.total_customers = 0;
+        });
+        // Separately count referred customers (not affected by first-order rule)
         if (affiliateIds.length > 0) {
             const placeholders = affiliateIds.map(() => '?').join(',');
-            // Count customers referred by affiliates
-            let custQuery = `
-                SELECT c.referrer_id,
-                       COUNT(DISTINCT c.id) as total_customers
-                FROM customers c
-                WHERE c.referrer_id IN (${placeholders})`;
+            let custQuery = `SELECT c.referrer_id, COUNT(DISTINCT c.id) as total_customers FROM customers c WHERE c.referrer_id IN (${placeholders})`;
             const custParams = [...affiliateIds];
-            // ★ Production Mode: dual filter (cutoff + test accounts)
             const _cutoff = await getProductionCutoff();
             const _testIds = await getTestAccountIds();
             const _prodFilter = buildProductionFilter(_cutoff, _testIds, 'c.created_at', 'c.created_by');
@@ -254,37 +428,8 @@ async function affiliateRoutes(fastify) {
             if (to) { custQuery += ` AND c.created_at <= ?`; custParams.push(to + ' 23:59:59'); }
             custQuery += ` GROUP BY c.referrer_id`;
             const custRows = await db.all(custQuery, custParams);
-            custRows.forEach(s => { stats[s.referrer_id] = { total_customers: s.total_customers, total_orders: 0, total_revenue: 0 }; });
-
-            // Count orders: chot_don + cancel_approved!=1 + not cancelled
-            let orderQuery = `
-                SELECT c.referrer_id,
-                       COUNT(DISTINCT oc.id) as total_orders,
-                       COALESCE(SUM(oi.total), 0) as total_revenue
-                FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
-                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE c.referrer_id IN (${placeholders})
-                  AND COALESCE(c.cancel_approved, 0) != 1
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don')`;
-            const orderParams = [...affiliateIds];
-            if (from) { orderQuery += ` AND oc.created_at >= ?`; orderParams.push(from); }
-            if (to) { orderQuery += ` AND oc.created_at <= ?`; orderParams.push(to + ' 23:59:59'); }
-            orderQuery += ` GROUP BY c.referrer_id`;
-            const orderRows = await db.all(orderQuery, orderParams);
-            orderRows.forEach(s => {
-                if (!stats[s.referrer_id]) stats[s.referrer_id] = { total_customers: 0, total_orders: 0, total_revenue: 0 };
-                stats[s.referrer_id].total_orders = s.total_orders;
-                stats[s.referrer_id].total_revenue = s.total_revenue;
-            });
+            custRows.forEach(s => { const a = affiliates.find(af => af.id === s.referrer_id); if (a) a.total_customers = Number(s.total_customers); });
         }
-
-        affiliates.forEach(a => {
-            const s = stats[a.id] || {};
-            a.total_customers = Number(s.total_customers) || 0;
-            a.total_orders = Number(s.total_orders) || 0;
-            a.total_revenue = Number(s.total_revenue) || 0;
-        });
 
         // ═══ CARD STATS (independent queries) ═══
         let cardStats = { newAffiliates: 0, totalCustomers: 0, totalOrders: 0, totalRevenue: 0 };
@@ -316,33 +461,11 @@ async function affiliateRoutes(fastify) {
             cardStats.totalCustomers = Number(custCountRow.cnt);
         }
 
-        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu (KH giới thiệu + chính affiliate)
-        if (affiliateIds.length > 0) {
-            const ph = affiliateIds.map(() => '?').join(',');
-            const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affiliateIds);
-            const selfCustIds = affiliates.map(a => a.source_customer_id).filter(Boolean);
-            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
-
-            if (allOrderCustIds.length > 0) {
-                const oph = allOrderCustIds.map(() => '?').join(',');
-                let orderDateFilter = '';
-                const orderParams = [...allOrderCustIds];
-                if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
-                if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
-                const orderRow = await db.get(`
-                    SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc
-                    JOIN customers c ON c.id = oc.customer_id
-                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${oph})
-                      AND COALESCE(oc.status, 'active') != 'cancelled'
-                      AND COALESCE(c.cancel_approved, 0) != 1
-                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
-                `, orderParams);
-                cardStats.totalOrders = Number(orderRow.cnt);
-                cardStats.totalRevenue = Number(orderRow.revenue);
-            }
-        }
+        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu — ★ Sum from first-order per-row data
+        affiliates.forEach(a => {
+            cardStats.totalOrders += a.total_orders || 0;
+            cardStats.totalRevenue += a.total_revenue || 0;
+        });
 
         return { departments, employees, affiliates, cardStats };
     });
@@ -2592,7 +2715,7 @@ async function affiliateRoutes(fastify) {
 
         const affiliates = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
-                   u.managed_by_user_id, u.source_customer_id,
+                   u.managed_by_user_id, u.source_customer_id, u.assigned_to_user_id,
                    mgr.full_name as manager_name, mgr.role as manager_role, mgr.department_id as manager_dept_id,
                    p.full_name as parent_affiliate_name
             FROM users u
@@ -2602,9 +2725,11 @@ async function affiliateRoutes(fastify) {
             ORDER BY u.created_at DESC
         `, affParams);
 
-        // 2. Lấy stats KH + doanh số cho mỗi affiliate (include đơn tự mua)
+        // 2. ★ FIRST-ORDER RULE: Tính doanh số cho mỗi affiliate
         const affIds = affiliates.map(a => a.id);
-        let custMap = {}, refRevenueMap = {}, selfRevenueMap = {}, selfOrdersMap = {};
+        const firstOrderRevMap = await _calcFirstOrderRevenue(db, affiliates, from, to);
+        // Customer count (not affected by first-order rule)
+        let custMap = {};
         if (affIds.length > 0) {
             const ph = affIds.map(() => '?').join(',');
             let custDateFilter = '';
@@ -2618,77 +2743,13 @@ async function affiliateRoutes(fastify) {
                 FROM customers c WHERE c.referrer_id IN (${ph})${custDateFilter} GROUP BY c.referrer_id
             `, custParams);
             custRows.forEach(r => { custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) }; });
-
-            // ★ Revenue từ KH giới thiệu (referrer_id)
-            const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, affIds);
-            const allCustIds = customersByRef.map(c => c.id);
-            if (allCustIds.length > 0) {
-                const cph = allCustIds.map(() => '?').join(',');
-                let revDateFilter = '';
-                const revParams = [...allCustIds];
-                if (from) { revDateFilter += ' AND oc.created_at >= ?'; revParams.push(from + ' 00:00:00'); }
-                if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
-                const revRows = await db.all(`
-                    SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc
-                    JOIN customers c ON c.id = oc.customer_id
-                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${cph})
-                      AND COALESCE(oc.status, 'active') != 'cancelled'
-                      AND COALESCE(c.cancel_approved, 0) != 1
-                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${revDateFilter}
-                    GROUP BY oc.customer_id
-                `, revParams);
-                const revenueMap = {};
-                revRows.forEach(r => { revenueMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
-                customersByRef.forEach(c => {
-                    const d = revenueMap[c.id];
-                    if (d && d.revenue > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + d.revenue;
-                });
-            }
-
-            // ★ Revenue từ đơn tự mua (source_customer_id) — merge vào per-row
-            const selfCustEntries = affiliates.filter(a => a.source_customer_id).map(a => ({ affId: a.id, custId: a.source_customer_id }));
-            const selfCustIds = selfCustEntries.map(e => e.custId);
-            // Loại bỏ custId đã có trong referred (tránh đếm trùng)
-            const referredCustIdSet = new Set(customersByRef.map(c => c.id));
-            const uniqueSelfEntries = selfCustEntries.filter(e => !referredCustIdSet.has(e.custId));
-            const uniqueSelfCustIds = uniqueSelfEntries.map(e => e.custId);
-            if (uniqueSelfCustIds.length > 0) {
-                const sph = uniqueSelfCustIds.map(() => '?').join(',');
-                let selfDateFilter = '';
-                const selfParams = [...uniqueSelfCustIds];
-                if (from) { selfDateFilter += ' AND oc.created_at >= ?'; selfParams.push(from + ' 00:00:00'); }
-                if (to) { selfDateFilter += ' AND oc.created_at <= ?'; selfParams.push(to + ' 23:59:59'); }
-                const selfRevRows = await db.all(`
-                    SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc
-                    JOIN customers c ON c.id = oc.customer_id
-                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${sph})
-                      AND COALESCE(oc.status, 'active') != 'cancelled'
-                      AND COALESCE(c.cancel_approved, 0) != 1
-                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${selfDateFilter}
-                    GROUP BY oc.customer_id
-                `, selfParams);
-                const selfRevMap = {};
-                selfRevRows.forEach(r => { selfRevMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
-                uniqueSelfEntries.forEach(e => {
-                    const d = selfRevMap[e.custId];
-                    if (d) {
-                        selfRevenueMap[e.affId] = (selfRevenueMap[e.affId] || 0) + d.revenue;
-                        selfOrdersMap[e.affId] = (selfOrdersMap[e.affId] || 0) + d.orders;
-                    }
-                });
-            }
         }
-
-        // Gắn stats vào mỗi affiliate (bao gồm đơn tự mua)
         affiliates.forEach(a => {
             const cs = custMap[a.id] || { total_customers: 0, closed_count: 0 };
+            const frev = firstOrderRevMap[a.id] || { revenue: 0, orderCount: 0 };
             a.total_customers = cs.total_customers;
-            a.closed_count = cs.closed_count + (selfOrdersMap[a.id] || 0);
-            a.total_revenue = (refRevenueMap[a.id] || 0) + (selfRevenueMap[a.id] || 0);
+            a.closed_count = cs.closed_count;
+            a.total_revenue = Number(frev.revenue);
         });
 
         // 3. Lấy cấu trúc phòng ban
@@ -2849,33 +2910,11 @@ async function affiliateRoutes(fastify) {
             cardStats.totalCustomers = Number(custCountRow.cnt);
         }
 
-        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu (KH giới thiệu + chính affiliate)
-        if (affIds.length > 0) {
-            const ph = affIds.map(() => '?').join(',');
-            const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affIds);
-            const selfCustIds = affiliates.map(a => a.source_customer_id).filter(Boolean);
-            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
-
-            if (allOrderCustIds.length > 0) {
-                const oph = allOrderCustIds.map(() => '?').join(',');
-                let orderDateFilter = '';
-                const orderParams = [...allOrderCustIds];
-                if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
-                if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
-                const orderRow = await db.get(`
-                    SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc
-                    JOIN customers c ON c.id = oc.customer_id
-                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${oph})
-                      AND COALESCE(oc.status, 'active') != 'cancelled'
-                      AND COALESCE(c.cancel_approved, 0) != 1
-                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
-                `, orderParams);
-                cardStats.totalOrders = Number(orderRow.cnt);
-                cardStats.totalRevenue = Number(orderRow.revenue);
-            }
-        }
+        // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu — ★ Sum from first-order per-row data
+        affiliates.forEach(a => {
+            cardStats.totalOrders += (firstOrderRevMap[a.id] || { orderCount: 0 }).orderCount;
+            cardStats.totalRevenue += a.total_revenue || 0;
+        });
 
         return { success: true, departments, cardStats };
     });
@@ -2969,7 +3008,7 @@ async function affiliateRoutes(fastify) {
 
             const children = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
-                       u.managed_by_user_id, u.source_customer_id,
+                       u.managed_by_user_id, u.source_customer_id, u.assigned_to_user_id,
                        ct.name as tier_name, ct.percentage as tier_percentage,
                        p.full_name as parent_affiliate_name,
                        mgr.full_name as manager_name
@@ -2983,7 +3022,8 @@ async function affiliateRoutes(fastify) {
 
             const allIds = children.map(c => c.id);
 
-            // ═══ PER-ROW STATS (filtered by date, include đơn tự mua) ═══
+            // ═══ PER-ROW STATS — ★ FIRST-ORDER RULE ═══
+            const firstOrderRevMap = await _calcFirstOrderRevenue(db, children, from, to);
             let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
             if (allIds.length > 0) {
                 const ph = allIds.map(() => '?').join(',');
@@ -2996,70 +3036,12 @@ async function affiliateRoutes(fastify) {
                 const custMap = {};
                 custRows.forEach(r => { custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) }; });
 
-                const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, allIds);
-                const allCustIds = customersByRef.map(c => c.id);
-                let revenueMap = {};
-                if (allCustIds.length > 0) {
-                    const cph = allCustIds.map(() => '?').join(',');
-                    let revDateFilter = '';
-                    const revParams = [...allCustIds];
-                    if (from) { revDateFilter += ' AND oc.created_at >= ?'; revParams.push(from + ' 00:00:00'); }
-                    if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
-                    const revRows = await db.all(`
-                        SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
-                        FROM order_codes oc
-                        JOIN customers c ON c.id = oc.customer_id
-                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                        WHERE oc.customer_id IN (${cph})
-                          AND COALESCE(oc.status, 'active') != 'cancelled'
-                          AND COALESCE(c.cancel_approved, 0) != 1
-                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${revDateFilter}
-                        GROUP BY oc.customer_id
-                    `, revParams);
-                    revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
-                }
-                const refRevenueMap = {};
-                customersByRef.forEach(c => { const rev = revenueMap[c.id] || 0; if (rev > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev; });
-
-                // ★ Revenue từ đơn tự mua (source_customer_id) — merge vào per-row
-                const selfRevenueMap = {}, selfOrdersMap = {};
-                const selfCustEntries = children.filter(a => a.source_customer_id).map(a => ({ affId: a.id, custId: a.source_customer_id }));
-                const referredCustIdSet = new Set(customersByRef.map(c => c.id));
-                const uniqueSelfEntries = selfCustEntries.filter(e => !referredCustIdSet.has(e.custId));
-                const uniqueSelfCustIds = uniqueSelfEntries.map(e => e.custId);
-                if (uniqueSelfCustIds.length > 0) {
-                    const sph = uniqueSelfCustIds.map(() => '?').join(',');
-                    let selfDateFilter = '';
-                    const selfParams = [...uniqueSelfCustIds];
-                    if (from) { selfDateFilter += ' AND oc.created_at >= ?'; selfParams.push(from + ' 00:00:00'); }
-                    if (to) { selfDateFilter += ' AND oc.created_at <= ?'; selfParams.push(to + ' 23:59:59'); }
-                    const selfRevRows = await db.all(`
-                        SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
-                        FROM order_codes oc
-                        JOIN customers c ON c.id = oc.customer_id
-                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                        WHERE oc.customer_id IN (${sph})
-                          AND COALESCE(oc.status, 'active') != 'cancelled'
-                          AND COALESCE(c.cancel_approved, 0) != 1
-                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${selfDateFilter}
-                        GROUP BY oc.customer_id
-                    `, selfParams);
-                    const selfRevMap = {};
-                    selfRevRows.forEach(r => { selfRevMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
-                    uniqueSelfEntries.forEach(e => {
-                        const d = selfRevMap[e.custId];
-                        if (d) {
-                            selfRevenueMap[e.affId] = (selfRevenueMap[e.affId] || 0) + d.revenue;
-                            selfOrdersMap[e.affId] = (selfOrdersMap[e.affId] || 0) + d.orders;
-                        }
-                    });
-                }
-
                 children.forEach(child => {
                     const cs = custMap[child.id] || { total_customers: 0, closed_count: 0 };
+                    const frev = firstOrderRevMap[child.id] || { revenue: 0, orderCount: 0 };
                     child.total_customers = cs.total_customers;
-                    child.closed_count = cs.closed_count + (selfOrdersMap[child.id] || 0);
-                    child.total_revenue = (refRevenueMap[child.id] || 0) + (selfRevenueMap[child.id] || 0);
+                    child.closed_count = cs.closed_count;
+                    child.total_revenue = Number(frev.revenue);
                     totalCustomers += cs.total_customers;
                     totalRevenue += child.total_revenue;
                     closedCount += child.closed_count;
@@ -3092,34 +3074,12 @@ async function affiliateRoutes(fastify) {
                 cardStats.totalCustomers = Number(custCountRow.cnt);
             }
 
-            // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu — từ KH giới thiệu + chính affiliate
-            if (allIds.length > 0) {
-                const ph = allIds.map(() => '?').join(',');
-                // Tập KH: KH được giới thiệu + chính affiliate (source_customer_id)
-                const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, allIds);
-                const selfCustIds = children.map(c => c.source_customer_id).filter(Boolean);
-                const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
-
-                if (allOrderCustIds.length > 0) {
-                    const oph = allOrderCustIds.map(() => '?').join(',');
-                    let orderDateFilter = '';
-                    const orderParams = [...allOrderCustIds];
-                    if (from) { orderDateFilter += ' AND oc.created_at >= ?'; orderParams.push(from + ' 00:00:00'); }
-                    if (to) { orderDateFilter += ' AND oc.created_at <= ?'; orderParams.push(to + ' 23:59:59'); }
-                    const orderRow = await db.get(`
-                        SELECT COUNT(DISTINCT oc.id) as cnt, COALESCE(SUM(oi.total), 0) as revenue
-                        FROM order_codes oc
-                        JOIN customers c ON c.id = oc.customer_id
-                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                        WHERE oc.customer_id IN (${oph})
-                          AND COALESCE(oc.status, 'active') != 'cancelled'
-                          AND COALESCE(c.cancel_approved, 0) != 1
-                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${orderDateFilter}
-                    `, orderParams);
-                    cardStats.totalOrders = Number(orderRow.cnt);
-                    cardStats.totalRevenue = Number(orderRow.revenue);
-                }
-            }
+            // Cards 3+4: 📦 Đơn Hàng + 💰 Doanh Thu — ★ Sum from first-order per-row data
+            children.forEach(child => {
+                const frev = firstOrderRevMap[child.id] || { orderCount: 0 };
+                cardStats.totalOrders += frev.orderCount;
+                cardStats.totalRevenue += child.total_revenue || 0;
+            });
 
             // ★ Phone masking: GĐ sees all, others see masked unless direct manager
             if (role !== 'giam_doc') {
@@ -3143,6 +3103,7 @@ async function affiliateRoutes(fastify) {
         // ★ LOẠI con mà KH gốc được CHUYỂN từ nhu_cau → ctv_hoa_hong (vốn là Khách, không phải Affiliate)
         const children = await db.all(`
             SELECT u.id, u.full_name, u.phone, u.role, u.status, u.created_at,
+                   u.source_customer_id, u.assigned_to_user_id,
                    ct.name as tier_name, ct.percentage as tier_percentage
             FROM users u
             LEFT JOIN commission_tiers ct ON ct.id = u.commission_tier_id
@@ -3168,18 +3129,10 @@ async function affiliateRoutes(fastify) {
             `, [userId]);
             const sc = selfCust[0] || { total_customers: 0, closed_count: 0 };
 
-            // Self revenue
-            const selfCustIds = await db.all('SELECT id FROM customers WHERE referrer_id = ?', [userId]);
-            let selfRevenue = 0;
-            if (selfCustIds.length > 0) {
-                const scph = selfCustIds.map(() => '?').join(',');
-                const revRow = await db.get(`
-                    SELECT COALESCE(SUM(oi.total), 0) as revenue
-                    FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                    WHERE oc.customer_id IN (${scph}) AND oc.status = 'completed'
-                `, selfCustIds.map(c => c.id));
-                selfRevenue = Number(revRow?.revenue) || 0;
-            }
+            // Self revenue — use first-order helper for self
+            const selfUser = await db.get('SELECT id, source_customer_id, assigned_to_user_id FROM users WHERE id = ?', [userId]);
+            const selfRevMap = await _calcFirstOrderRevenue(db, [selfUser], null, null);
+            const selfRevenue = (selfRevMap[userId] || { revenue: 0 }).revenue;
 
             return {
                 success: true, children: [],
@@ -3189,65 +3142,45 @@ async function affiliateRoutes(fastify) {
         }
 
         const childIds = children.map(c => c.id);
-        const allIds = [userId, ...childIds]; // bao gồm cả bản thân
-        const ph = allIds.map(() => '?').join(',');
+        const ph = childIds.map(() => '?').join(',');
 
-        // Đếm KH giới thiệu theo từng referrer
+        // ★ FIRST-ORDER RULE: tính doanh số cho children
+        const firstOrderRevMap = await _calcFirstOrderRevenue(db, children, null, null);
+
+        // Đếm KH giới thiệu theo từng referrer (cho children + self)
+        const allIds = [userId, ...childIds];
+        const allPh = allIds.map(() => '?').join(',');
         const custRows = await db.all(`
             SELECT c.referrer_id,
                    COUNT(*) as total_customers,
                    COUNT(CASE WHEN c.order_status IN ('chot_don','san_xuat','giao_hang','hoan_thanh') THEN 1 END) as closed_count
             FROM customers c
-            WHERE c.referrer_id IN (${ph})
+            WHERE c.referrer_id IN (${allPh})
             GROUP BY c.referrer_id
         `, allIds);
-
         const custMap = {};
         custRows.forEach(r => {
             custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) };
         });
 
-        // Lấy doanh số (completed orders) theo từng referrer
-        const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, allIds);
-        const allCustIds = customersByRef.map(c => c.id);
-
-        let revenueMap = {};
-        if (allCustIds.length > 0) {
-            const cph = allCustIds.map(() => '?').join(',');
-            const revRows = await db.all(`
-                SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
-                FROM order_codes oc
-                LEFT JOIN order_items oi ON oi.order_code_id = oc.id
-                WHERE oc.customer_id IN (${cph}) AND oc.status = 'completed'
-                GROUP BY oc.customer_id
-            `, allCustIds);
-            revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
-        }
-
-        // Tính doanh số theo referrer
-        const refRevenueMap = {};
-        customersByRef.forEach(c => {
-            const rev = revenueMap[c.id] || 0;
-            if (rev > 0) {
-                refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev;
-            }
-        });
-
-        // Gắn stats vào children
+        // Gắn stats vào children — ★ FIRST-ORDER RULE
         let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
         children.forEach(child => {
             const cs = custMap[child.id] || { total_customers: 0, closed_count: 0 };
+            const frev = firstOrderRevMap[child.id] || { revenue: 0 };
             child.total_customers = cs.total_customers;
             child.closed_count = cs.closed_count;
-            child.total_revenue = refRevenueMap[child.id] || 0;
+            child.total_revenue = Number(frev.revenue);
             totalCustomers += cs.total_customers;
             totalRevenue += child.total_revenue;
             closedCount += cs.closed_count;
         });
 
-        // Stats bản thân (self)
+        // Stats bản thân (self) — ★ FIRST-ORDER RULE
         const selfStats = custMap[userId] || { total_customers: 0, closed_count: 0 };
-        const selfRevenue = refRevenueMap[userId] || 0;
+        const selfUser = await db.get('SELECT id, source_customer_id, assigned_to_user_id FROM users WHERE id = ?', [userId]);
+        const selfRevMap = await _calcFirstOrderRevenue(db, [selfUser], null, null);
+        const selfRevenue = (selfRevMap[userId] || { revenue: 0 }).revenue;
 
         return {
             success: true,
