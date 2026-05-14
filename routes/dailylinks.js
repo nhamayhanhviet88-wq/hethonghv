@@ -367,10 +367,19 @@ module.exports = async function (fastify) {
                     );
                     if (!comp) {
                         // No completion record for today — create one
+                        // ★ Check if NV has submitted enough entries to meet min_quantity
+                        const _ltEntryCount = await db.get(
+                            'SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                            [uid, today, module_type]
+                        );
+                        const _ltMinQty = lt.min_quantity || 1;
+                        const _ltMetTarget = parseInt(_ltEntryCount?.cnt || 0) >= _ltMinQty;
+
                         const _fuUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
                         const _fuForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
                         const _fuNeedsApproval = lt.requires_approval || _fuUser?.force_approval || !!_fuForce;
-                        const _fuStatus = _fuNeedsApproval ? 'pending' : 'approved';
+                        // Only approve if met target AND no manual approval required
+                        const _fuStatus = (!_ltMetTarget || _fuNeedsApproval) ? 'pending' : 'approved';
                         let _fuDeadline = null;
                         if (_fuStatus === 'pending') {
                             try {
@@ -379,22 +388,29 @@ module.exports = async function (fastify) {
                             } catch(e2) {}
                         }
                         await db.run(
-                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, content, status, approval_deadline, created_at, updated_at)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
-                            [lt.id, uid, today, fb_link.trim(), `[Tự động] ${module_type}`, _fuStatus, _fuDeadline]
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, content, status, approval_deadline, quantity_done, created_at, updated_at)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+                            [lt.id, uid, today, fb_link.trim(), `[Tự động] ${module_type}`, _fuStatus, _fuDeadline, parseInt(_ltEntryCount?.cnt || 0)]
                         );
-                        console.log(`[DailyLinks] Created ${_fuStatus} lock_task_completion for TODAY ${today}, task=${lt.task_name}`);
-                    } else if (comp.status !== 'approved' && comp.status !== 'pending') {
-                        // Existing but expired/rejected — update to pending/approved
+                        console.log(`[DailyLinks] Created ${_fuStatus} lock_task_completion for TODAY ${today}, task=${lt.task_name} (${_ltEntryCount?.cnt}/${_ltMinQty})`);
+                    } else if (comp.status !== 'approved') {
+                        // Existing but not yet approved — update status based on entry count
+                        const _ltEntryCount2 = await db.get(
+                            'SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                            [uid, today, module_type]
+                        );
+                        const _ltMinQty2 = lt.min_quantity || 1;
+                        const _ltMetTarget2 = parseInt(_ltEntryCount2?.cnt || 0) >= _ltMinQty2;
+
                         const _fuUser2 = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
                         const _fuForce2 = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
                         const _fuNeedsApproval2 = lt.requires_approval || _fuUser2?.force_approval || !!_fuForce2;
-                        const _fuStatus2 = _fuNeedsApproval2 ? 'pending' : 'approved';
+                        const _fuStatus2 = (!_ltMetTarget2 || _fuNeedsApproval2) ? 'pending' : 'approved';
                         await db.run(
-                            `UPDATE lock_task_completions SET status = $1, proof_url = $2, updated_at = NOW() WHERE id = $3`,
-                            [_fuStatus2, fb_link.trim(), comp.id]
+                            `UPDATE lock_task_completions SET status = $1, proof_url = $2, quantity_done = $3, updated_at = NOW() WHERE id = $4`,
+                            [_fuStatus2, fb_link.trim(), parseInt(_ltEntryCount2?.cnt || 0), comp.id]
                         );
-                        console.log(`[DailyLinks] Updated lock_task_completion id=${comp.id} to ${_fuStatus2} for TODAY ${today}`);
+                        console.log(`[DailyLinks] Updated lock_task_completion id=${comp.id} to ${_fuStatus2} for TODAY ${today} (${_ltEntryCount2?.cnt}/${_ltMinQty2})`);
                     }
                 }
             }
