@@ -764,8 +764,9 @@ async function lockTaskRoutes(fastify, options) {
              FROM lock_task_completions ltc
              JOIN users u ON u.id = ltc.user_id
              WHERE ltc.lock_task_id = $1 AND ltc.user_id = $2 AND ltc.status = 'pending'
+               ${date ? 'AND ltc.completion_date = $3::date' : ''}
              ORDER BY ltc.created_at DESC LIMIT 1`,
-            [lockTaskId, userId]
+            date ? [lockTaskId, userId, date] : [lockTaskId, userId]
         );
         return { task, completion };
     });
