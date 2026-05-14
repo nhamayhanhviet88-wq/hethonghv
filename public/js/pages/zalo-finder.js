@@ -14,6 +14,12 @@ function _zlInit() {
     _zlViewDeptId = localStorage.getItem('zl_deptId') ? Number(localStorage.getItem('zl_deptId')) : null;
     _zlFilter = localStorage.getItem('zl_filter') || 'pending';
 
+    // ★ NV/part_time: force self-view only, clear any stale selections
+    if (['nhan_vien','part_time'].includes(currentUser.role)) {
+        _zlViewUserId = currentUser.id;
+        _zlViewDeptId = null;
+    }
+
     // ===== Override from URL params (from "Xem báo cáo" in schedule) =====
     // _dl.selUser is set by dailylinks.js before calling _zlInit()
     if (typeof _dl !== 'undefined' && _dl.selUser) {
@@ -72,6 +78,8 @@ function _zlSetFilter(f) { _zlFilter = f; _zlSaveState(); const done = _zlTasks.
 function _zlRenderSidebar() {
     const sb = document.getElementById('zlSidebar');
     if (!sb) return;
+    // ★ NV/part_time: hide sidebar entirely (self-view only)
+    if (['nhan_vien','part_time'].includes(currentUser.role)) { sb.style.display = 'none'; return; }
     const isAll = !_zlViewUserId && !_zlViewDeptId;
     const _isTP = currentUser.role === 'truong_phong';
     // ★ Trưởng Phòng: ẩn "Tất cả nhân viên"
