@@ -248,7 +248,21 @@ async function affLoadData() {
     if (_affDateFrom) params.push(`from=${_affDateFrom}`);
     if (_affDateTo) params.push(`to=${_affDateTo}`);
     if (params.length) url += '?' + params.join('&');
-    _affData = await apiCall(url);
+
+    // ★ Gọi thêm my-system (song song) để lấy cardStats chuẩn — scope theo role
+    const myParams = [...params];
+    const isGD = currentUser.role === 'giam_doc';
+    if (!isGD) {
+        myParams.push(`managerId=${currentUser.id}`);
+    }
+    const myUrl = '/api/affiliate/my-system' + (myParams.length ? '?' + myParams.join('&') : '');
+
+    const [orgData, myData] = await Promise.all([apiCall(url), apiCall(myUrl)]);
+    _affData = orgData;
+    // ★ cardStats lấy từ my-system (chuẩn, include đơn tự mua + scope theo role)
+    if (myData && myData.success && myData.cardStats) {
+        _affData.cardStats = myData.cardStats;
+    }
     // Auto-populate visible depts for non-GĐ users
     _affAutoPopulateDepts();
     affPopulateFilterDropdowns();
