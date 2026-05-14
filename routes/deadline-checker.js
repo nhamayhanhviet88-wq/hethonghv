@@ -1377,7 +1377,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
             // Source 1: CV Khóa (lock_task_completions)
             try {
                 const ltcRows = await db.all(
-                    `SELECT ltc.user_id, lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount
+                    `SELECT ltc.user_id, lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount, ltc.redo_count
                      FROM lock_task_completions ltc
                      JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
                      WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
@@ -1385,7 +1385,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 );
                 for (const r of ltcRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `CV Khóa: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: 'Không nộp CV Khóa' });
+                    // redo_count=-1 = QL không duyệt, >=0 = NV không nộp
+                    const isQLNotApprove = r.redo_count === -1;
+                    const label = isQLNotApprove ? `Không duyệt CV Khóa: ${r.task_name}` : `CV Khóa: ${r.task_name}`;
+                    const reason = isQLNotApprove ? 'Không duyệt công việc khóa' : 'Không nộp CV Khóa';
+                    blockMap.get(r.user_id).push({ task_name: label, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: reason });
                 }
             } catch(e) { console.error('  ❌ [Block] CV Khóa query error:', e.message); }
 
@@ -1438,7 +1442,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 );
                 for (const r of srRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    const src = r.penalty_reason?.includes('Không duyệt') ? 'CV Điểm' : 'Hỗ trợ NV';
+                    const isNotApprove = r.penalty_reason?.includes('Không duyệt');
+                    const src = isNotApprove ? 'Không duyệt CV Điểm' : 'Không hỗ trợ NV';
                     blockMap.get(r.user_id).push({ task_name: `${src}: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
                 }
             } catch(e) { console.error('  ❌ [Block] Hỗ trợ NV query error:', e.message); }
