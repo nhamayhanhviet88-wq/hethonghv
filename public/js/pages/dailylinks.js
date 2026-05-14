@@ -621,7 +621,7 @@ function _dlRenderTable() {
             <td style="padding:10px 8px;text-align:center;font-weight:700;color:#6b7280;">${i+1}</td>
             ${isMultiDay?`<td style="padding:10px 8px;font-size:11px;font-weight:600;color:#475569;">${_dlFormatDate(ed)}</td>`:''}
             ${showUser?`<td style="padding:10px 8px;font-size:13px;color:#1e293b;font-weight:700;">${r.user_name||''}</td>`:''}
-            ${hasLink?`<td style="padding:10px 8px;"><a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
+            ${hasLink?`<td style="padding:10px 8px;">${r.link_subtype === 'threads' ? '<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#000;color:white;font-size:9px;font-weight:700;margin-right:4px;vertical-align:middle;">🧵</span>' : (r.link_subtype === 'fb_group' ? '<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:#1877F2;color:white;font-size:9px;font-weight:700;margin-right:4px;vertical-align:middle;">📘</span>' : '')}<a href="${r.fb_link}" target="_blank" style="color:${m.accent};font-weight:500;">${fbShort}</a></td>`:''}
             ${hasCat?`<td style="padding:10px 8px;text-align:center;">${catBadge}</td>`:''}
             ${hasImg?`<td style="padding:10px 8px;text-align:center;">${imgCell}</td>`:''}
             <td style="padding:10px 8px;text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;">${fmtTime}</td>
@@ -680,7 +680,12 @@ const _DL_LINK_RULES = {
     addcmt: { validate: v => { const l = v.toLowerCase(); return l.includes('www.facebook.com') && l.includes('/posts/') && l.includes('comment_id'); }, errHint: 'Link phải là link comment Facebook (chứa www.facebook.com, /posts/ và comment_id)' },
     dang_banthan_sp: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com') && (l.includes('/posts/') || l.includes('/reel/')); }, errHint: 'Link phải là bài đăng hoặc reel Facebook (chứa facebook.com và /posts/ hoặc /reel/)' },
     sedding: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com') && l.includes('/posts/'); }, errHint: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
-    tuyen_dung: { validate: v => { const l = v.toLowerCase(); return l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')); }, errHint: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },
+    tuyen_dung: { validate: v => {
+        const sub = window._dlLinkSubtype || 'fb_group';
+        const l = v.toLowerCase();
+        if (sub === 'threads') return l.includes('threads.com');
+        return l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/'));
+    }, errHint: 'Link không hợp lệ cho loại đã chọn' },
 };
 // Modules that need screenshot in addition to link
 const _DL_NEED_SCREENSHOT = ['dang_group', 'sedding', 'dang_banthan_sp', 'tuyen_dung'];
@@ -810,7 +815,12 @@ async function _dlAddModal() {
         <div style="padding:24px;">
             ${!needImg ? `<div style="margin-bottom:14px;">
                 <label style="font-weight:600;font-size:13px;color:#374151;">Link <span style="color:#dc2626;">*</span></label>
-                <input id="dlFLink" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'') : 'https://...'}" autofocus>
+                ${m.type === 'tuyen_dung' ? `
+                <div id="dlSubtypeBar" style="display:flex;gap:8px;margin:8px 0;">
+                    <button type="button" id="dlSubFB" onclick="_dlSwitchSubtype('fb_group')" style="flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #1877F2;background:#eff6ff;color:#1877F2;">📘 Đăng Group FB</button>
+                    <button type="button" id="dlSubThreads" onclick="_dlSwitchSubtype('threads')" style="flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #d1d5db;background:white;color:#6b7280;">🧵 Threads</button>
+                </div>` : ''}
+                <input id="dlFLink" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;margin-top:6px;box-sizing:border-box;" placeholder="${_DL_LINK_RULES[m.type]?.errHint ? _DL_LINK_RULES[m.type].errHint.replace(/Link phải là /,'').replace(/Link không hợp lệ .*/,'bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/)') : 'https://...'}" autofocus>
                 <div id="dlFLinkErr" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;"></div>
             </div>` : ''}
             ${m.type === 'dang_group' ? `<div style="margin-bottom:14px;">
@@ -867,7 +877,10 @@ async function _dlAddModal() {
             const errEl = document.getElementById('dlFLinkErr');
             if (val && !linkRule.validate(val)) {
                 errEl.style.display = 'block';
-                errEl.textContent = `⚠️ ${linkRule.errHint}`;
+                const hint = m.type === 'tuyen_dung'
+                    ? (window._dlLinkSubtype === 'threads' ? '⚠️ Link phải chứa threads.com (VD: https://www.threads.com/@user/post/...)' : '⚠️ Link phải là bài đăng Group Facebook (chứa facebook.com/groups và /posts/)')
+                    : `⚠️ ${linkRule.errHint}`;
+                errEl.textContent = hint;
                 linkEl.style.borderColor = '#dc2626';
             } else {
                 errEl.style.display = 'none';
@@ -880,6 +893,32 @@ async function _dlAddModal() {
     } else {
         setTimeout(()=>document.getElementById('dlFLink')?.focus(),100);
     }
+    // ★ Initialize subtype for tuyen_dung
+    if (m.type === 'tuyen_dung') {
+        window._dlLinkSubtype = 'fb_group';
+    }
+}
+
+// ★ Toggle subtype for tuyen_dung (fb_group vs threads)
+function _dlSwitchSubtype(sub) {
+    window._dlLinkSubtype = sub;
+    const fbBtn = document.getElementById('dlSubFB');
+    const thBtn = document.getElementById('dlSubThreads');
+    const linkEl = document.getElementById('dlFLink');
+    const errEl = document.getElementById('dlFLinkErr');
+    if (sub === 'fb_group') {
+        fbBtn.style.cssText = 'flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #1877F2;background:#eff6ff;color:#1877F2;';
+        thBtn.style.cssText = 'flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #d1d5db;background:white;color:#6b7280;';
+        if (linkEl) linkEl.placeholder = 'bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/)';
+    } else {
+        thBtn.style.cssText = 'flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #000;background:#f5f5f5;color:#000;';
+        fbBtn.style.cssText = 'flex:1;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;border:2px solid #d1d5db;background:white;color:#6b7280;';
+        if (linkEl) linkEl.placeholder = 'https://www.threads.com/@user/post/...';
+    }
+    // Clear current validation state
+    if (linkEl) { linkEl.value = ''; linkEl.style.borderColor = '#d1d5db'; }
+    if (errEl) errEl.style.display = 'none';
+    linkEl?.focus();
 }
 
 async function _dlSave() {
@@ -982,6 +1021,7 @@ async function _dlSave() {
         const body = {fb_link:link, module_type:m.type, backfill_date: window._dlBackfillDate || undefined};
         if((needImg || needScreenshot) && _dl.imageData) body.image_data = _dl.imageData;
         if(categoryId) body.category_id = Number(categoryId);
+        if(m.type === 'tuyen_dung' && window._dlLinkSubtype) body.link_subtype = window._dlLinkSubtype;
         const res = await apiCall('/api/dailylinks/entries','POST', body);
         if(res?.error){showToast('❌ '+res.error,'error');_dlUnlockSave();return;}
         document.getElementById('dlModal')?.remove();

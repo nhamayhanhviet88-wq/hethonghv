@@ -26,6 +26,7 @@ module.exports = async function (fastify) {
     // Add columns if missing
     try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
     try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS links_json JSONB'); } catch(e) {}
+    try { await db.exec('ALTER TABLE daily_link_entries ADD COLUMN IF NOT EXISTS link_subtype TEXT'); } catch(e) {}
 
     // Migrate old addcmt_entries if exists
     try {
@@ -92,7 +93,7 @@ module.exports = async function (fastify) {
         }
 
         const rows = await db.all(
-            `SELECT e.*, e.links_json, u.full_name as user_name, u.username, d.name as dept_name,
+            `SELECT e.*, e.links_json, e.link_subtype, u.full_name as user_name, u.username, d.name as dept_name,
              c.name as category_name, c.color as category_color
              FROM daily_link_entries e LEFT JOIN users u ON e.user_id = u.id LEFT JOIN departments d ON u.department_id = d.id
              LEFT JOIN partner_outreach_categories c ON e.category_id = c.id
@@ -132,9 +133,13 @@ module.exports = async function (fastify) {
             dang_group: { check: l => l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')), err: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },
             dang_banthan_sp: { check: l => l.includes('facebook.com') && (l.includes('/posts/') || l.includes('/reel/')), err: 'Link phải là bài đăng hoặc reel Facebook (chứa facebook.com và /posts/ hoặc /reel/)' },
             sedding: { check: l => l.includes('facebook.com') && l.includes('/posts/'), err: 'Link phải là bài đăng Facebook (chứa facebook.com và /posts/)' },
-            tuyen_dung: { check: l => l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/')), err: 'Link phải là bài đăng trong Group Facebook (chứa facebook.com/groups và /posts/ hoặc /pending_posts/)' },
+            tuyen_dung: { check: (l, body) => {
+                const subtype = body?.link_subtype || 'fb_group';
+                if (subtype === 'threads') return l.includes('threads.com');
+                return l.includes('facebook.com/groups') && (l.includes('/posts/') || l.includes('/pending_posts/'));
+            }, err: 'Link không hợp lệ cho loại báo cáo đã chọn' },
         };
-        if (_linkRules[module_type] && !_linkRules[module_type].check(linkLower)) {
+        if (_linkRules[module_type] && !_linkRules[module_type].check(linkLower, req.body)) {
             return reply.code(400).send({ error: _linkRules[module_type].err });
         }
         // Skip single-link dup check for addcmt and multi-link modules
@@ -259,9 +264,10 @@ module.exports = async function (fastify) {
         if (module_type === 'dang_group' && !categoryId) {
             return reply.code(400).send({ error: 'Vui lòng chọn lĩnh vực!' });
         }
+        const linkSubtype = req.body?.link_subtype || null;
 
-        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null, categoryId]);
+        await db.run('INSERT INTO daily_link_entries (user_id, entry_date, module_type, fb_link, image_path, links_json, category_id, link_subtype) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [req.user.id, today, module_type, fb_link.trim(), imagePath, linksJsonFinal ? JSON.stringify(linksJsonFinal) : null, categoryId, linkSubtype]);
         console.log(`[DailyLinks POST] STAGE 4 — INSERT SUCCESS for ${module_type}, user ${req.user.id}`);
 
         // ===== IMMEDIATE AUTO-SCORING — update task_point_reports right away =====
