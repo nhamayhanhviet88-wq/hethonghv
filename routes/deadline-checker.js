@@ -635,29 +635,41 @@ async function runDeadlineCheck(forceFullCheck = false) {
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
         if (now < realDeadline) continue; // Chưa hết hạn
 
-        // QL quá hạn → Phạt + Khóa QL
-        const penaltyAmount = GPC.cv_khoa_ql_khong_duyet;
+        // ★ QL quá hạn → KHÔNG auto-approve — giữ 'pending' để QL còn duyệt/từ chối
+        // Phạt chồng mỗi ngày làm việc cho đến khi QL hành động
+        const dailyPenalty = GPC.cv_khoa_ql_khong_duyet;
 
-        // Auto-approve NV's completion (để NV không bị ảnh hưởng)
-        await db.run(
-            `UPDATE lock_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
-            [managerId, pr.id]
-        );
+        // Tính số ngày làm việc kể từ realDeadline
+        const lockHolidays = await getHolidays();
+        let lockWorkDays = 0;
+        let ld = new Date(realDeadline);
+        ld.setUTCDate(ld.getUTCDate() + 1); // Đếm từ ngày SAU deadline
+        while (toDateStr(ld) <= toDateStr(now)) {
+            const lds = toDateStr(ld);
+            const ldow = ld.getUTCDay();
+            if (ldow !== 0 && !lockHolidays.has(lds) && !await isUserOnLeave(managerId, lds)) {
+                lockWorkDays++;
+            }
+            ld.setUTCDate(ld.getUTCDate() + 1);
+        }
 
-        // Create penalty record for the MANAGER (redo_count=-1 to distinguish)
+        // Tổng = gốc + (daily × số ngày chồng) — idempotent
+        const expectedTotal = dailyPenalty + (dailyPenalty * lockWorkDays);
+
+        // Create/update penalty record for the MANAGER (redo_count=-1 to distinguish)
         try {
             await db.run(
                 `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
                  VALUES ($1, $2, $3, -1, 'expired', $4, true, $5, false)
-                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true
+                 ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET penalty_amount = $4, content = $5
                  WHERE lock_task_completions.status != 'approved'`,
-                [pr.lock_task_id, managerId, pr.completion_date, penaltyAmount, `QL không duyệt CV Khóa: ${pr.task_name}`]
+                [pr.lock_task_id, managerId, pr.completion_date, expectedTotal,
+                 `QL không duyệt CV Khóa (${lockWorkDays + 1} ngày): ${pr.task_name}`]
             );
         } catch(e) {}
 
-        // Ghi phạt (không khóa TK)
         penaltyCount++;
-        console.log(`  ⚠️ [CV Khóa] Phạt QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+        console.log(`  ⚠️ [CV Khóa] Phạt QL id=${managerId} — Không duyệt: ${pr.task_name} (${expectedTotal}đ = gốc + ${lockWorkDays} ngày chồng)`);
     }
 
     // ========== 4. CHECK CV CHUỖI — QL CHƯA DUYỆT ==========
@@ -693,28 +705,50 @@ async function runDeadlineCheck(forceFullCheck = false) {
         const realDeadline = await calculateRealDeadline(submittedAt, managerId);
         if (now < realDeadline) continue; // Chưa hết hạn
 
-        // QL quá hạn → Phạt + Khóa QL
-        const penaltyAmount = GPC.cv_chuoi_ql_khong_duyet;
+        // ★ QL quá hạn → KHÔNG auto-approve — giữ 'pending' để QL còn duyệt/từ chối
+        // Phạt chồng mỗi ngày làm việc cho đến khi QL hành động
+        const dailyPenalty = GPC.cv_chuoi_ql_khong_duyet;
 
-        // Auto-approve completion (để NV không bị ảnh hưởng)
-        await db.run(
-            `UPDATE chain_task_completions SET status = 'approved', reviewed_by = $1, reviewed_at = NOW() WHERE id = $2`,
-            [managerId, pr.id]
-        );
+        // Tính số ngày làm việc kể từ realDeadline
+        const chainHolidaysQL = await getHolidays();
+        let chainWorkDays = 0;
+        let cd = new Date(realDeadline);
+        cd.setUTCDate(cd.getUTCDate() + 1); // Đếm từ ngày SAU deadline
+        while (toDateStr(cd) <= toDateStr(now)) {
+            const cds = toDateStr(cd);
+            const cdow = cd.getUTCDay();
+            if (cdow !== 0 && !chainHolidaysQL.has(cds) && !await isUserOnLeave(managerId, cds)) {
+                chainWorkDays++;
+            }
+            cd.setUTCDate(cd.getUTCDate() + 1);
+        }
 
-        // Mark the completion as penalty for the MANAGER
+        // Tổng = gốc + (daily × số ngày chồng) — idempotent
+        const expectedTotal = dailyPenalty + (dailyPenalty * chainWorkDays);
+
+        // Create/update penalty record for the MANAGER (redo_count=-2 to distinguish)
         try {
-            await db.run(
-                `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count)
-                 VALUES ($1, $2, 'expired', $3, true, $4, -1)
-                 ON CONFLICT DO NOTHING`,
-                [pr.chain_item_id, managerId, penaltyAmount, `QL không duyệt CV chuỗi: ${pr.task_name}`]
+            const existingPenalty = await db.get(
+                `SELECT id FROM chain_task_completions
+                 WHERE chain_item_id = $1 AND user_id = $2 AND redo_count = -2 AND status = 'expired'`,
+                [pr.chain_item_id, managerId]
             );
+            if (existingPenalty) {
+                await db.run(
+                    `UPDATE chain_task_completions SET penalty_amount = $1, content = $2 WHERE id = $3`,
+                    [expectedTotal, `QL không duyệt CV chuỗi (${chainWorkDays + 1} ngày): ${pr.task_name}`, existingPenalty.id]
+                );
+            } else {
+                await db.run(
+                    `INSERT INTO chain_task_completions (chain_item_id, user_id, status, penalty_amount, penalty_applied, content, redo_count)
+                     VALUES ($1, $2, 'expired', $3, true, $4, -2)`,
+                    [pr.chain_item_id, managerId, expectedTotal, `QL không duyệt CV chuỗi (1 ngày): ${pr.task_name}`]
+                );
+            }
         } catch(e) {}
 
-        // Ghi phạt (không khóa TK)
         penaltyCount++;
-        console.log(`  ⚠️ [CV Chuỗi] Phạt QL id=${managerId} — Không duyệt: ${pr.task_name} (phạt ${penaltyAmount}đ)`);
+        console.log(`  ⚠️ [CV Chuỗi] Phạt QL id=${managerId} — Không duyệt: ${pr.task_name} (${expectedTotal}đ = gốc + ${chainWorkDays} ngày chồng)`);
     }
 
     // ========== 5. CHECK CV CHUỖI — NV KHÔNG NỘP ==========
