@@ -302,10 +302,24 @@ async function lockTaskRoutes(fastify, options) {
             }
         }
 
-        // Update assignments if provided
+        // Update assignments if provided — preserve created_at for existing users
         if (request.body.user_ids) {
-            await db.run('DELETE FROM lock_task_assignments WHERE lock_task_id = $1', [taskId]);
-            for (const uid of request.body.user_ids) {
+            const newUserIds = request.body.user_ids.map(Number);
+            // Get existing assignments
+            const existingAssignments = await db.all(
+                'SELECT user_id FROM lock_task_assignments WHERE lock_task_id = $1', [taskId]
+            );
+            const existingUserIds = existingAssignments.map(a => a.user_id);
+
+            // Remove users no longer in the list
+            const toRemove = existingUserIds.filter(uid => !newUserIds.includes(uid));
+            for (const uid of toRemove) {
+                await db.run('DELETE FROM lock_task_assignments WHERE lock_task_id = $1 AND user_id = $2', [taskId, uid]);
+            }
+
+            // Add new users (only those not already assigned — preserves created_at for existing)
+            const toAdd = newUserIds.filter(uid => !existingUserIds.includes(uid));
+            for (const uid of toAdd) {
                 try {
                     await db.run(
                         'INSERT INTO lock_task_assignments (lock_task_id, user_id, assigned_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
