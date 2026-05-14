@@ -378,21 +378,26 @@ module.exports = async function (fastify) {
                         const _fuUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [uid]);
                         const _fuForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [uid, 'lock', lt.id]);
                         const _fuNeedsApproval = lt.requires_approval || _fuUser?.force_approval || !!_fuForce;
-                        // Only approve if met target AND no manual approval required
-                        const _fuStatus = (!_ltMetTarget || _fuNeedsApproval) ? 'pending' : 'approved';
-                        let _fuDeadline = null;
-                        if (_fuStatus === 'pending') {
-                            try {
-                                const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
-                                _fuDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
-                            } catch(e2) {}
+
+                        if (!_ltMetTarget && !_fuNeedsApproval) {
+                            // Auto-inject task, chưa đủ SL, không cần duyệt → SKIP, chờ đủ SL mới tạo
+                            console.log(`[DailyLinks] Skip lock_task_completion — ${lt.task_name} chưa đủ SL (${_ltEntryCount?.cnt}/${_ltMinQty})`);
+                        } else {
+                            const _fuStatus = (!_ltMetTarget || _fuNeedsApproval) ? 'pending' : 'approved';
+                            let _fuDeadline = null;
+                            if (_fuStatus === 'pending') {
+                                try {
+                                    const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+                                    _fuDeadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+                                } catch(e2) {}
+                            }
+                            await db.run(
+                                `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, content, status, approval_deadline, quantity_done, created_at, updated_at)
+                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+                                [lt.id, uid, today, fb_link.trim(), `[Tự động] ${module_type}`, _fuStatus, _fuDeadline, parseInt(_ltEntryCount?.cnt || 0)]
+                            );
+                            console.log(`[DailyLinks] Created ${_fuStatus} lock_task_completion for TODAY ${today}, task=${lt.task_name} (${_ltEntryCount?.cnt}/${_ltMinQty})`);
                         }
-                        await db.run(
-                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, proof_url, content, status, approval_deadline, quantity_done, created_at, updated_at)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
-                            [lt.id, uid, today, fb_link.trim(), `[Tự động] ${module_type}`, _fuStatus, _fuDeadline, parseInt(_ltEntryCount?.cnt || 0)]
-                        );
-                        console.log(`[DailyLinks] Created ${_fuStatus} lock_task_completion for TODAY ${today}, task=${lt.task_name} (${_ltEntryCount?.cnt}/${_ltMinQty})`);
                     } else if (comp.status !== 'approved') {
                         // Existing but not yet approved — update status based on entry count
                         const _ltEntryCount2 = await db.get(
