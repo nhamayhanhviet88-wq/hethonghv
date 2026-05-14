@@ -83,137 +83,113 @@ function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
         window.open(url, '_blank');
     }
 }
+// ★ Cache pending review data globally — no API call needed for modal
+var _kbLockReviewCache = {};
+var _kbChainReviewCache = {};
 
 // ========== LOCK TASK REVIEW MODAL ==========
-async function _kbShowLockReviewModal(lockTaskIdOrCompletionId, userId, completionDate, useCompletionId) {
-    try {
-        // Fetch lock task completion details
-        let url;
-        if (useCompletionId) {
-            url = '/api/lock-tasks/completion-detail?completion_id=' + lockTaskIdOrCompletionId;
-        } else {
-            url = '/api/lock-tasks/completion-detail?lock_task_id=' + lockTaskIdOrCompletionId + '&user_id=' + userId + '&date=' + completionDate;
-        }
-        const data = await apiCall(url);
-        const comp = data.completion;
-        const task = data.task;
-        if (!comp) { alert('Không tìm thấy báo cáo CV Khóa này'); return; }
-        
-        const dateF = (comp.completion_date || '').split('-').reverse().join('/');
-        const createdAt = comp.created_at ? new Date(comp.created_at).toLocaleString('vi-VN') : '';
-        const proofHtml = comp.proof_url ? '<div style="margin-top:10px;"><img src="' + comp.proof_url + '" style="max-width:100%;max-height:300px;border-radius:8px;border:2px solid #e5e7eb;cursor:pointer;" onclick="window.open(this.src,\'_blank\')" /></div>' : '';
-        
-        const modal = document.createElement('div');
-        modal.id = 'kbLockReviewModal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-        modal.onclick = e => { if (e.target === modal) modal.remove(); };
-        modal.innerHTML = `
-            <div style="background:white;border-radius:16px;max-width:520px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3);padding:0;">
-                <div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:18px 24px;border-radius:16px 16px 0 0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;font-weight:700;">🔐 CV Khóa — Chi Tiết Báo Cáo</div>
-                            <div style="font-size:16px;color:white;font-weight:800;margin-top:4px;">${task?.task_name || 'N/A'}</div>
-                        </div>
-                        <span onclick="this.closest('#kbLockReviewModal').remove()" style="color:white;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.1);">✕</span>
+function _kbShowLockReviewModal(completionId) {
+    const comp = _kbLockReviewCache[completionId];
+    if (!comp) { alert('Không tìm thấy báo cáo CV Khóa này'); return; }
+
+    const dateF = (comp.completion_date || '').split('-').reverse().join('/');
+    const createdAt = comp.created_at ? new Date(comp.created_at).toLocaleString('vi-VN') : '';
+    const proofHtml = comp.proof_url ? '<div style="margin-top:10px;"><img src="' + comp.proof_url + '" style="max-width:100%;max-height:300px;border-radius:8px;border:2px solid #e5e7eb;cursor:pointer;" onclick="window.open(this.src,\'_blank\')" /></div>' : '';
+
+    const modal = document.createElement('div');
+    modal.id = 'kbLockReviewModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;max-width:520px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3);padding:0;">
+            <div style="background:linear-gradient(135deg,#991b1b,#dc2626);padding:18px 24px;border-radius:16px 16px 0 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;font-weight:700;">🔐 CV Khóa — Chi Tiết Báo Cáo</div>
+                        <div style="font-size:16px;color:white;font-weight:800;margin-top:4px;">${comp.task_name || 'N/A'}</div>
                     </div>
-                </div>
-                <div style="padding:20px 24px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">👤 Nhân viên</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.user_name || comp.username || ''}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📅 Ngày báo cáo</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${dateF}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">⏰ Thời gian nộp</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${createdAt}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">🔄 Lần nộp</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">Lần ${(comp.redo_count || 0) + 1}</div>
-                        </div>
-                    </div>
-                    ${comp.content ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:14px;"><div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📝 Nội dung báo cáo</div><div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + comp.content + '</div></div>' : ''}
-                    ${proofHtml ? '<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;"><div style="font-size:10px;color:#065f46;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📸 Ảnh minh chứng</div>' + proofHtml + '</div>' : ''}
-                    ${!comp.content && !comp.proof_url ? '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">Không có nội dung hoặc ảnh minh chứng</div>' : ''}
+                    <span onclick="this.closest('#kbLockReviewModal').remove()" style="color:white;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.1);">✕</span>
                 </div>
             </div>
-        `;
-        document.body.appendChild(modal);
-    } catch(e) {
-        console.error('Lock review modal error:', e);
-        alert('Không thể tải chi tiết CV Khóa: ' + e.message);
-    }
+            <div style="padding:20px 24px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">👤 Nhân viên</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.user_name || comp.username || ''}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📅 Ngày báo cáo</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${dateF}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">⏰ Thời gian nộp</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${createdAt}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">🔄 Lần nộp</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">Lần ${(comp.redo_count || 0) + 1}</div>
+                    </div>
+                </div>
+                ${comp.content ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:14px;"><div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📝 Nội dung báo cáo</div><div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + comp.content + '</div></div>' : ''}
+                ${proofHtml ? '<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;"><div style="font-size:10px;color:#065f46;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📸 Ảnh minh chứng</div>' + proofHtml + '</div>' : ''}
+                ${!comp.content && !comp.proof_url ? '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">Không có nội dung hoặc ảnh minh chứng</div>' : ''}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 }
 
 // ========== CHAIN TASK REVIEW MODAL ==========
-async function _kbShowChainReviewModal(chainItemIdOrCompletionId, userId, deadline, useCompletionId) {
-    try {
-        let url;
-        if (useCompletionId) {
-            url = '/api/chain-tasks/completion-detail?completion_id=' + chainItemIdOrCompletionId;
-        } else {
-            url = '/api/chain-tasks/completion-detail?chain_item_id=' + chainItemIdOrCompletionId + '&user_id=' + userId;
-        }
-        const data = await apiCall(url);
-        const comp = data.completion;
-        const item = data.item;
-        if (!comp) { alert('Không tìm thấy báo cáo CV Chuỗi này'); return; }
-        
-        const dateF = (deadline || '').split('-').reverse().join('/');
-        const createdAt = comp.created_at ? new Date(comp.created_at).toLocaleString('vi-VN') : '';
-        const proofHtml = comp.proof_url ? '<div style="margin-top:10px;"><img src="' + comp.proof_url + '" style="max-width:100%;max-height:300px;border-radius:8px;border:2px solid #e5e7eb;cursor:pointer;" onclick="window.open(this.src,\'_blank\')" /></div>' : '';
-        
-        const modal = document.createElement('div');
-        modal.id = 'kbChainReviewModal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-        modal.onclick = e => { if (e.target === modal) modal.remove(); };
-        modal.innerHTML = `
-            <div style="background:white;border-radius:16px;max-width:520px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3);padding:0;">
-                <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:18px 24px;border-radius:16px 16px 0 0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;font-weight:700;">🔗 CV Chuỗi — Chi Tiết Báo Cáo</div>
-                            <div style="font-size:16px;color:white;font-weight:800;margin-top:4px;">${item?.task_name || 'N/A'}</div>
-                            <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px;">${data.chain_name || ''}</div>
-                        </div>
-                        <span onclick="this.closest('#kbChainReviewModal').remove()" style="color:white;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.1);">✕</span>
+function _kbShowChainReviewModal(completionId) {
+    const comp = _kbChainReviewCache[completionId];
+    if (!comp) { alert('Không tìm thấy báo cáo CV Chuỗi này'); return; }
+
+    const dateF = (comp.deadline || '').split('-').reverse().join('/');
+    const createdAt = comp.created_at ? new Date(comp.created_at).toLocaleString('vi-VN') : '';
+    const proofHtml = comp.proof_url ? '<div style="margin-top:10px;"><img src="' + comp.proof_url + '" style="max-width:100%;max-height:300px;border-radius:8px;border:2px solid #e5e7eb;cursor:pointer;" onclick="window.open(this.src,\'_blank\')" /></div>' : '';
+
+    const modal = document.createElement('div');
+    modal.id = 'kbChainReviewModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;max-width:520px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.3);padding:0;">
+            <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:18px 24px;border-radius:16px 16px 0 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;font-weight:700;">🔗 CV Chuỗi — Chi Tiết Báo Cáo</div>
+                        <div style="font-size:16px;color:white;font-weight:800;margin-top:4px;">${comp.task_name || 'N/A'}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px;">${comp.chain_name || ''}</div>
                     </div>
-                </div>
-                <div style="padding:20px 24px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">👤 Nhân viên</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.user_name || comp.username || ''}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📅 Deadline</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${dateF}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">⏰ Thời gian nộp</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${createdAt}</div>
-                        </div>
-                        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-                            <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📊 Số lượng</div>
-                            <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.quantity_done || 0}/${item?.min_quantity || 1}</div>
-                        </div>
-                    </div>
-                    ${comp.content ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:14px;"><div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📝 Nội dung báo cáo</div><div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + comp.content + '</div></div>' : ''}
-                    ${proofHtml ? '<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;"><div style="font-size:10px;color:#065f46;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📸 Ảnh minh chứng</div>' + proofHtml + '</div>' : ''}
-                    ${!comp.content && !comp.proof_url ? '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">Không có nội dung hoặc ảnh minh chứng</div>' : ''}
+                    <span onclick="this.closest('#kbChainReviewModal').remove()" style="color:white;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.1);">✕</span>
                 </div>
             </div>
-        `;
-        document.body.appendChild(modal);
-    } catch(e) {
-        console.error('Chain review modal error:', e);
-        alert('Không thể tải chi tiết CV Chuỗi: ' + e.message);
-    }
+            <div style="padding:20px 24px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">👤 Nhân viên</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.user_name || comp.username || ''}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📅 Deadline</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${dateF}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">⏰ Thời gian nộp</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${createdAt}</div>
+                    </div>
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+                        <div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">📊 Số lượng</div>
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px;">${comp.quantity_done || 0}/${comp.min_quantity || 1}</div>
+                    </div>
+                </div>
+                ${comp.content ? '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:14px;"><div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📝 Nội dung báo cáo</div><div style="font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + comp.content + '</div></div>' : ''}
+                ${proofHtml ? '<div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;"><div style="font-size:10px;color:#065f46;font-weight:700;text-transform:uppercase;margin-bottom:6px;">📸 Ảnh minh chứng</div>' + proofHtml + '</div>' : ''}
+                ${!comp.content && !comp.proof_url ? '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px;">Không có nội dung hoặc ảnh minh chứng</div>' : ''}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 }
  // Set of chain_item_ids forced for viewed user
 const _kbRolePriority = { giam_doc: 5, quan_ly_cap_cao: 4, quan_ly: 3, truong_phong: 2, nhan_vien: 1, part_time: 0 };
@@ -2696,6 +2672,12 @@ async function _kbLoadApprovalPanel() {
         const chainReviews = chainData.reviews || [];
         const totalCount = pending.length + lockReviews.length + chainReviews.length;
 
+        // ★ Cache data for review modals (no extra API call needed)
+        _kbLockReviewCache = {};
+        lockReviews.forEach(r => { _kbLockReviewCache[r.id] = r; });
+        _kbChainReviewCache = {};
+        chainReviews.forEach(r => { _kbChainReviewCache[r.id] = r; });
+
         // Update sidebar badge
         _kbUpdateSidebarBadge(totalCount);
 
@@ -2776,7 +2758,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbShowLockReviewModal(${r.id}, ${r.user_id}, '${r.completion_date}', true)" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
+                    <span onclick="_kbShowLockReviewModal(${r.id})" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">
@@ -2811,7 +2793,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${deadlineFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">🔗</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbShowChainReviewModal(${r.id}, ${r.user_id}, '${r.deadline || r.completion_date || ''}', true)" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
+                    <span onclick="_kbShowChainReviewModal(${r.id})" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">
