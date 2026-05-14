@@ -161,11 +161,11 @@ async function khoaTKNVRoutes(fastify, options) {
         let srParams = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2`;
+            srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2`;
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user || !user.department_id) {
-                srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND 1=0`;
+                srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND 1=0`;
             } else {
                 const deptIds = [user.department_id];
                 const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
@@ -175,11 +175,11 @@ async function khoaTKNVRoutes(fastify, options) {
                     grandchildren.forEach(gc => deptIds.push(gc.id));
                 }
                 const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
-                srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND sr.department_id IN (${placeholders})`;
+                srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND sr.department_id IN (${placeholders})`;
                 srParams.push(...deptIds);
             }
         } else {
-            srWhere = `WHERE sr.status = 'expired' AND sr.task_date BETWEEN $1 AND $2 AND (sr.manager_id = $3 OR sr.user_id = $3)`;
+            srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND (sr.manager_id = $3 OR sr.user_id = $3)`;
             srParams.push(userId);
         }
 
@@ -499,7 +499,7 @@ async function khoaTKNVRoutes(fastify, options) {
                     u.full_name as requested_by
              FROM task_support_requests sr
              LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date BETWEEN $2 AND $3
+             WHERE sr.manager_id = $1 AND sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $2 AND $3
              ORDER BY sr.task_date`,
             [managerId, monthStart, monthEnd]
         );
@@ -842,7 +842,7 @@ async function khoaTKNVRoutes(fastify, options) {
              FROM task_support_requests sr
              LEFT JOIN users m ON sr.manager_id = m.id
              LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.status = 'expired' AND sr.task_date = $1::date
+             WHERE sr.status IN ('expired','ql_expired') AND sr.task_date = $1::date
                AND sr.manager_id != $2 AND m.department_id IN (${deptPlaceholders})
              ORDER BY sr.task_date`,
             baseParams

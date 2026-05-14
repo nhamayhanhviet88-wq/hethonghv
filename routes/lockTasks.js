@@ -513,7 +513,7 @@ async function lockTaskRoutes(fastify, options) {
         await db.run(
             `UPDATE task_support_requests SET status = 'resolved'
              WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
-               AND status IN ('pending','supported') AND source_type = 'khoa'`,
+               AND status IN ('pending','supported','ql_expired') AND source_type = 'khoa'`,
             [userId, taskId, todayStr]
         );
 

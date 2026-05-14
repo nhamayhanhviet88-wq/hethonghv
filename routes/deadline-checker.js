@@ -200,54 +200,17 @@ async function runDeadlineCheck(forceFullCheck = false) {
             ? GPC.cv_khoa_ql_khong_ho_tro
             : GPC.cv_diem_ql_khong_ho_tro;
         
-        // Ghi phạt vào support request
+        // ★ Ghi phạt QL → status = 'ql_expired' (KHÔNG phải 'expired')
+        // NV vẫn được bảo vệ cho đến khi QL hỗ trợ
         await db.run(
-            "UPDATE task_support_requests SET status = 'expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3",
+            "UPDATE task_support_requests SET status = 'ql_expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3",
             [penaltyAmount, `Không hỗ trợ nhân sự trước hạn: ${sr.task_name}`, sr.id]
         );
         
-        // Ghi phạt (không khóa TK)
+        // Ghi phạt QL (không khóa TK)
         penaltyCount++;
         console.log(`  ⚠️ Phạt quản lý id=${sr.manager_id} — Không hỗ trợ: ${sr.task_name} (phạt ${penaltyAmount}đ)`);
-
-        // ===== CHECK NV: Nếu NV cũng không nộp báo cáo → Khóa NV =====
-        let nvSubmitted = false;
-        if (sr.source_type === 'khoa' && sr.lock_task_id) {
-            // CV Khóa: check lock_task_completions
-            const comp = await db.get(
-                `SELECT id FROM lock_task_completions
-                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
-                   AND status IN ('pending','approved')`,
-                [sr.lock_task_id, sr.user_id, sr.task_date]
-            );
-            nvSubmitted = !!comp;
-            if (!nvSubmitted) {
-                // Tạo expired completion record cho NV (dùng GPC NV, không dùng nhầm QL)
-                const nvPenalty = GPC.cv_khoa_khong_nop;
-                try {
-                    await db.run(
-                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied)
-                         VALUES ($1, $2, $3, 0, 'expired', $4, true)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true, content = COALESCE(lock_task_completions.content, EXCLUDED.content), proof_url = COALESCE(lock_task_completions.proof_url, EXCLUDED.proof_url)
-                         WHERE lock_task_completions.status != 'approved'`,
-                        [sr.lock_task_id, sr.user_id, sr.task_date, nvPenalty]
-                    );
-                } catch(e) {}
-            }
-        } else if (sr.template_id) {
-            // CV thường: check task_point_reports
-            const report = await db.get(
-                'SELECT id FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3',
-                [sr.template_id, sr.user_id, sr.task_date]
-            );
-            nvSubmitted = !!report;
-        }
-
-        if (!nvSubmitted) {
-            // Ghi phạt NV (không khóa TK)
-            penaltyCount++;
-            console.log(`  ⚠️ Phạt NV id=${sr.user_id} — Không nộp báo cáo trong hạn hỗ trợ: ${sr.task_name}`);
-        }
+        // ★ NV KHÔNG bị phạt ở đây — NV chỉ bị phạt sau khi QL hỗ trợ + NV quá deadline mới
     }
 
     // ========== 2. CHECK PENDING APPROVALS ==========
@@ -378,14 +341,33 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 );
                 if (completion && (completion.status === 'approved' || completion.status === 'pending')) continue;
 
-                // Check if NV has a pending/supported support request
+                // ★ Check support request — bảo vệ NV trong toàn bộ lifecycle hỗ trợ
                 const activeSR = await db.get(
-                    `SELECT id FROM task_support_requests
+                    `SELECT id, status, supported_at FROM task_support_requests
                      WHERE user_id = $1 AND lock_task_id = $2 AND task_date = $3
-                       AND source_type = 'khoa' AND status IN ('pending','supported')`,
+                       AND source_type = 'khoa' AND status IN ('pending','ql_expired','supported')`,
                     [la.user_id, la.task_id, checkDateStr]
                 );
-                if (activeSR) continue;
+                if (activeSR) {
+                    if (activeSR.status === 'pending' || activeSR.status === 'ql_expired') {
+                        // QL chưa hỗ trợ → NV được bảo vệ hoàn toàn
+                        continue;
+                    }
+                    if (activeSR.status === 'supported' && activeSR.supported_at) {
+                        // QL đã hỗ trợ → NV phải nộp trước 23:59 ngày làm việc tiếp theo
+                        const nvDeadline = await calculateRealDeadline(activeSR.supported_at, la.user_id);
+                        if (now < nvDeadline) {
+                            // Chưa hết hạn NV → vẫn bảo vệ
+                            continue;
+                        }
+                        // Đã qua deadline NV → đóng SR + cho phạt bên dưới
+                        await db.run(
+                            "UPDATE task_support_requests SET status = 'expired' WHERE id = $1",
+                            [activeSR.id]
+                        );
+                        console.log(`  ⚠️ [CV Khóa] NV id=${la.user_id} quá hạn nộp sau khi QL hỗ trợ: ${la.task_name} ngày ${checkDateStr}`);
+                    }
+                }
 
                 // ★ CHECK NGHỈ PHÉP: Nếu NV nghỉ ngày đó → tính deadline kéo dài
                 const userOnLeave = await isUserOnLeave(la.user_id, checkDateStr);
@@ -1438,7 +1420,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
                             sr.penalty_amount, sr.penalty_reason
                      FROM task_support_requests sr
-                     WHERE sr.status = 'expired' AND sr.task_date = $1::date`, [blockTargetStr]
+                     WHERE sr.status IN ('expired','ql_expired') AND sr.penalty_amount > 0 AND sr.task_date = $1::date`, [blockTargetStr]
                 );
                 for (const r of srRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);

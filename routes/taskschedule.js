@@ -1658,7 +1658,7 @@ async function taskScheduleRoutes(fastify, options) {
         if (!sr) {
             return reply.code(404).send({ error: 'Không tìm thấy yêu cầu hỗ trợ hoặc bạn không có quyền' });
         }
-        if (sr.status !== 'pending' && sr.status !== 'expired') {
+        if (sr.status !== 'pending' && sr.status !== 'expired' && sr.status !== 'ql_expired') {
             return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
         }
 
@@ -1724,7 +1724,7 @@ async function taskScheduleRoutes(fastify, options) {
 
                 // Mark as expired + set penalty (KHÔNG khóa TK)
                 await db.run(
-                    `UPDATE task_support_requests SET status = 'expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3`,
+                    `UPDATE task_support_requests SET status = 'ql_expired', penalty_amount = $1, penalty_reason = $2 WHERE id = $3`,
                     [penaltyAmount, penaltyReason, req.id]
                 );
                 // ★ REMOVED: Không còn khóa TK ở đây — deadline-checker.js xử lý access_blocked
