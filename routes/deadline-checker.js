@@ -1462,10 +1462,27 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
             // Khóa TK cho tất cả user có vi phạm
             let blockCount = 0;
+            // ★ Lấy danh sách user đã được mở khóa thủ công HÔM NAY → không re-block
+            const todayBlockStr = toDateStr(now);
+            let unblockedTodaySet = new Set();
+            try {
+                const unblockLogs = await db.all(
+                    `SELECT DISTINCT user_id FROM access_unblock_logs WHERE created_at::date = $1::date`,
+                    [todayBlockStr]
+                );
+                unblockedTodaySet = new Set(unblockLogs.map(r => r.user_id));
+            } catch(e) {}
+
             for (const [userId, penalties] of blockMap) {
                 try {
                     const userCheck = await db.get('SELECT role, access_blocked FROM users WHERE id = $1', [userId]);
                     if (!userCheck || userCheck.role === 'giam_doc') continue;
+
+                    // ★ Skip nếu user đã được mở khóa thủ công hôm nay (tránh re-block sau restart)
+                    if (unblockedTodaySet.has(userId)) {
+                        console.log(`  ⏭️ [Access Block] Skip user id=${userId} — đã được mở khóa hôm nay`);
+                        continue;
+                    }
 
                     // Merge với reason hiện tại (nếu đã bị chặn từ trước)
                     let existingPenalties = [];
