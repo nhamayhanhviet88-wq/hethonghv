@@ -25,6 +25,42 @@ module.exports = async function (fastify) {
     // Add image_path column if not exists
     try { await db.exec('ALTER TABLE addcmt_entries ADD COLUMN IF NOT EXISTS image_path TEXT'); } catch(e) {}
 
+    // ★ BACKFILL: Migrate existing addcmt_entries → daily_link_entries (one-time sync)
+    try {
+        const missingRows = await db.all(`
+            SELECT a.user_id, a.entry_date, a.fb_link
+            FROM addcmt_entries a
+            WHERE NOT EXISTS (
+                SELECT 1 FROM daily_link_entries d
+                WHERE d.user_id = a.user_id AND d.entry_date = a.entry_date AND d.module_type = 'addcmt' AND d.fb_link = a.fb_link
+            )
+            ORDER BY a.entry_date, a.user_id
+        `);
+        if (missingRows.length > 0) {
+            console.log(`[AddCmt BACKFILL] Found ${missingRows.length} entries to sync to daily_link_entries...`);
+            const syncedPairs = new Set(); // track user+date pairs for scoring sync
+            for (const row of missingRows) {
+                const ed = typeof row.entry_date === 'string' ? row.entry_date.split('T')[0] : row.entry_date?.toISOString?.()?.split('T')[0];
+                await db.run(
+                    'INSERT INTO daily_link_entries (user_id, entry_date, fb_link, module_type) VALUES ($1, $2, $3, $4)',
+                    [row.user_id, ed, row.fb_link, 'addcmt']
+                );
+                syncedPairs.add(`${row.user_id}_${ed}`);
+            }
+            console.log(`[AddCmt BACKFILL] Inserted ${missingRows.length} records. Running scoring sync...`);
+            // Defer scoring sync to after route registration (non-blocking)
+            setTimeout(async () => {
+                for (const pair of syncedPairs) {
+                    const [uid, date] = pair.split('_');
+                    try { await _syncAddCmtScoring(Number(uid), date); } catch(e) {}
+                }
+                console.log(`[AddCmt BACKFILL] Scoring sync done for ${syncedPairs.size} user-date pairs.`);
+            }, 3000);
+        }
+    } catch(bfErr) {
+        console.error('[AddCmt BACKFILL] Error (non-fatal):', bfErr.message);
+    }
+
     function _vnToday() {
         return getVNToday();
     }
