@@ -173,9 +173,9 @@ async function taskScheduleRoutes(fastify, options) {
                  ORDER BY r.template_id, r.report_date, r.redo_count DESC`,
                 [uid, monStr, sunStr]
             ),
-            // Weekly summary
+            // Weekly summary (daily cap 100đ)
             db.all(
-                `SELECT report_date, SUM(points_earned) as total_points, COUNT(*) as report_count FROM (
+                `SELECT report_date, LEAST(SUM(points_earned), 100) as total_points, COUNT(*) as report_count FROM (
                     SELECT DISTINCT ON (template_id, report_date) report_date::text as report_date, points_earned
                     FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3
                     ORDER BY template_id, report_date, redo_count DESC
@@ -183,9 +183,9 @@ async function taskScheduleRoutes(fastify, options) {
                  GROUP BY report_date ORDER BY report_date`,
                 [uid, monStr, sunStr]
             ),
-            // Monthly summary
+            // Monthly summary (daily cap 100đ)
             db.all(
-                `SELECT report_date, SUM(points_earned) as total_points, COUNT(*) as report_count FROM (
+                `SELECT report_date, LEAST(SUM(points_earned), 100) as total_points, COUNT(*) as report_count FROM (
                     SELECT DISTINCT ON (template_id, report_date) report_date::text as report_date, points_earned
                     FROM task_point_reports WHERE user_id = $1 AND report_date BETWEEN $2 AND $3
                     ORDER BY template_id, report_date, redo_count DESC
@@ -762,8 +762,9 @@ async function taskScheduleRoutes(fastify, options) {
 
         if (!from || !to) return reply.code(400).send({ error: 'Thiếu from/to' });
 
+        // Daily cap 100đ
         const rows = await db.all(
-            `SELECT report_date::text as report_date, SUM(points_earned) as total_points, COUNT(*) as report_count
+            `SELECT report_date::text as report_date, LEAST(SUM(points_earned), 100) as total_points, COUNT(*) as report_count
              FROM task_point_reports
              WHERE user_id = $1 AND report_date BETWEEN $2 AND $3 AND status = 'approved'
              GROUP BY report_date

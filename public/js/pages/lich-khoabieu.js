@@ -967,7 +967,7 @@ async function _kbLoadSchedule() {
 
         _kbHolidayMap = data.holidays_week || {};
 
-        _kbMonthlySummary = (data.monthly_summary || []).reduce((s, r) => s + Number(r.total_points || 0), 0);
+        _kbMonthlySummary = (data.monthly_summary || []).reduce((s, r) => s + Math.min(Number(r.total_points || 0), 100), 0);
 
         _kbMonthlyHolidays = (data.holidays_year || []).filter(hol => {
             const dd = new Date(hol.holiday_date);
