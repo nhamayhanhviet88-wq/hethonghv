@@ -3269,7 +3269,7 @@ async function _kbSendSupportRequest(templateId, dateStr, taskName) {
     }
 }
 
-// QL: Load support panel
+// QL: Load support panel (pending + expired chưa resolved)
 async function _kbLoadSupportPanel() {
     const panel = document.getElementById('kbSupportPanel');
     if (!panel) return;
@@ -3286,30 +3286,55 @@ async function _kbLoadSupportPanel() {
         let rows = '';
         pending.forEach(r => {
             const dateFormatted = r.task_date.split('-').reverse().join('/');
-            const countdown = _kbFormatCountdown(r.deadline_at || (r.deadline + 'T23:59:59'));
             const dlDate = r.deadline_at ? new Date(r.deadline_at) : new Date(r.deadline + 'T23:59:59');
+            const isExpired = r.status === 'expired';
             const isOverdue = dlDate < new Date();
             const isUrgent = !isOverdue && (dlDate - new Date()) < 6 * 3600000;
 
-            rows += `<tr style="border-bottom:1px solid #f1f5f9;${isOverdue ? 'background:#fef2f2;' : isUrgent ? 'background:#fffbeb;' : ''}">
+            // Tính thời gian chậm hoặc countdown
+            let timeCol = '';
+            if (isExpired || isOverdue) {
+                const lateMs = Date.now() - dlDate.getTime();
+                const lateH = Math.floor(lateMs / 3600000);
+                const lateM = Math.floor((lateMs % 3600000) / 60000);
+                const lateStr = lateH > 0 ? `${lateH} tiếng ${lateM} phút` : `${lateM} phút`;
+                timeCol = `<span style="color:#dc2626;font-weight:800;font-size:12px;background:#fef2f2;padding:3px 8px;border-radius:6px;border:1px solid #fecaca;">🔴 Chậm ${lateStr}</span>`;
+            } else {
+                timeCol = _kbFormatCountdown(r.deadline_at || (r.deadline + 'T23:59:59'));
+            }
+
+            // Badge phạt cho expired
+            const penaltyBadge = isExpired
+                ? `<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:4px;">💸 ĐÃ PHẠT</span>`
+                : '';
+
+            const rowBg = isExpired ? 'background:#fef2f2;' : (isUrgent ? 'background:#fffbeb;' : '');
+
+            rows += `<tr style="border-bottom:1px solid #f1f5f9;${rowBg}">
                 <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e293b;">${r.user_name}</td>
-                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span></td>
+                <td style="padding:8px 12px;font-size:13px;color:#374151;"><span onclick="_kbShowTaskDetail(${r.template_id})" style="color:#2563eb;cursor:pointer;font-weight:700;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:2px;" onmouseover="this.style.color='#1d4ed8'" onmouseout="this.style.color='#2563eb'">${r.task_name}</span>${penaltyBadge}</td>
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
-                <td style="padding:8px 12px;text-align:center;">${countdown}</td>
+                <td style="padding:8px 12px;text-align:center;">${timeCol}</td>
                 <td style="padding:8px 12px;text-align:center;">
                     <button onclick="_kbRespondSupport(${r.id}, '${(r.task_name||'').replace(/'/g,"\\'")}', '${(r.user_name||'').replace(/'/g,"\\'")}', '${dateFormatted}')" style="padding:4px 12px;font-size:11px;border:none;border-radius:6px;background:linear-gradient(135deg,#059669,#10b981);color:white;cursor:pointer;font-weight:700;box-shadow:0 2px 6px rgba(5,150,105,0.3);">✅ Đã hỗ trợ</button>
                 </td>
             </tr>`;
         });
 
+        const expiredCount = pending.filter(r => r.status === 'expired').length;
+        const pendingCount = pending.length - expiredCount;
+        const headerBadge = expiredCount > 0
+            ? `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pendingCount > 0 ? pendingCount + ' chờ' : ''} ${expiredCount > 0 ? (pendingCount > 0 ? '+ ' : '') + expiredCount + ' trễ' : ''}</span>`
+            : `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>`;
+
         panel.innerHTML = `
         <div style="background:white;border:2px solid #fca5a5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(220,38,38,0.1);">
             <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
                 <span style="color:white;font-weight:800;font-size:14px;">🆘 HỖ TRỢ NHÂN SỰ</span>
-                <span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pending.length}</span>
+                ${headerBadge}
             </div>
             <div style="padding:6px 12px;background:#fef2f2;font-size:11px;color:#dc2626;font-weight:600;">
-                ⚠️ Nếu không hỗ trợ trước hạn, tài khoản sẽ bị <b>KHÓA</b>
+                ⚠️ Nếu không hỗ trợ trước hạn, tài khoản sẽ bị <b>KHÓA</b> + phạt <b>50,000đ/CV/ngày</b>. Bấm "✅ Đã hỗ trợ" để dừng phạt.
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;">
@@ -3318,7 +3343,7 @@ async function _kbLoadSupportPanel() {
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Nhân viên</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Công việc</th>
                             <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Ngày</th>
-                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">⏰ Còn</th>
+                            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">⏰ Trạng thái</th>
                             <th style="padding:8px 12px;text-align:center;font-size:11px;color:#fca5a5;font-weight:700;text-transform:uppercase;">Hành động</th>
                         </tr>
                     </thead>

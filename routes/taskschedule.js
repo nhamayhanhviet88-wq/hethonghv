@@ -1600,34 +1600,38 @@ async function taskScheduleRoutes(fastify, options) {
         return { success: true, message: 'Đã gửi yêu cầu hỗ trợ đến quản lý', deadline: deadlineStr };
     });
 
-    // QL: Lấy danh sách chờ hỗ trợ
+    // QL: Lấy danh sách chờ hỗ trợ (pending + expired chưa resolved)
     fastify.get('/api/task-support/pending', { preHandler: [authenticate] }, async (request, reply) => {
         const managerId = request.user.id;
         const isGD = request.user.role === 'giam_doc';
 
+        // Hiện cả pending + expired GỐC (không hiện bản stacking copy)
+        const statusFilter = `sr.status IN ('pending', 'expired') AND (sr.stacking_source IS NULL OR sr.stacking_source = '')`;
+
         let pending;
         if (isGD) {
-            // GĐ sees all pending support requests
             pending = await db.all(
                 `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
+                        sr.deadline_at::text as deadline_at_str,
                         u.full_name as user_name, d.name as dept_name,
                         m.full_name as manager_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON sr.user_id = u.id
                  LEFT JOIN departments d ON sr.department_id = d.id
                  LEFT JOIN users m ON sr.manager_id = m.id
-                 WHERE sr.status = 'pending'
-                 ORDER BY sr.created_at DESC`
+                 WHERE ${statusFilter}
+                 ORDER BY sr.status DESC, sr.created_at DESC`
             );
         } else {
             pending = await db.all(
                 `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
+                        sr.deadline_at::text as deadline_at_str,
                         u.full_name as user_name, d.name as dept_name
                  FROM task_support_requests sr
                  LEFT JOIN users u ON sr.user_id = u.id
                  LEFT JOIN departments d ON sr.department_id = d.id
-                 WHERE sr.manager_id = $1 AND sr.status = 'pending'
-                 ORDER BY sr.created_at DESC`,
+                 WHERE sr.manager_id = $1 AND ${statusFilter}
+                 ORDER BY sr.status DESC, sr.created_at DESC`,
                 [managerId]
             );
         }
@@ -1654,7 +1658,7 @@ async function taskScheduleRoutes(fastify, options) {
         if (!sr) {
             return reply.code(404).send({ error: 'Không tìm thấy yêu cầu hỗ trợ hoặc bạn không có quyền' });
         }
-        if (sr.status !== 'pending') {
+        if (sr.status !== 'pending' && sr.status !== 'expired') {
             return reply.code(400).send({ error: 'Yêu cầu này đã được xử lý' });
         }
 
