@@ -305,8 +305,8 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 3. CHECK CV KHÓA (Lock Tasks) ==========
-    // ★ Chạy vào 23:45+ VN: kiểm tra 90 ngày qua chưa nộp → ghi phạt + phạt chồng
-    const shouldCheckLockTasks = forceFullCheck || (_hour === 23 && _minute >= 45);
+    // ★ Chạy vào 23:45+ VN HOẶC 00:00-00:44 (backup): kiểm tra 90 ngày qua chưa nộp → ghi phạt + phạt chồng
+    const shouldCheckLockTasks = forceFullCheck || (_hour === 23 && _minute >= 45) || (_hour === 0 && _minute < 45);
 
     if (shouldCheckLockTasks) {
         const holidays = await getHolidays();
@@ -1154,12 +1154,22 @@ async function runDeadlineCheck(forceFullCheck = false) {
     }
 
     // ========== 8. PHẠT KH CHƯA XỬ LÝ HÔM NAY ==========
-    // Chỉ chạy lúc 23:45+ — cho NV thời gian xử lý đến gần cuối ngày
+    // Chạy lúc 23:45+ HOẶC 00:00-00:44 (backup nếu miss) — cho NV thời gian xử lý đến gần cuối ngày
     try {
         const hour = now.getUTCHours();
         const minute = now.getUTCMinutes();
-        if (hour === 23 && minute >= 45) {
-            const today = toDateStr(now);
+        const shouldCheckKH = (hour === 23 && minute >= 45) || (hour === 0 && minute < 45);
+        if (shouldCheckKH) {
+            // Nếu chạy lúc 00:xx → check ngày hôm qua (thay vì hôm nay)
+            let targetDate;
+            if (hour === 0) {
+                const yesterday = new Date(now);
+                yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+                targetDate = toDateStr(yesterday);
+            } else {
+                targetDate = toDateStr(now);
+            }
+            const today = targetDate;
             const todayOff = await isDayOff(today);
 
             if (!todayOff) {
@@ -1444,7 +1454,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // Quét TẤT CẢ vi phạm từ ngày hôm qua → khóa TK
     const blockHour = now.getUTCHours();
     const blockMinute = now.getUTCMinutes();
-    if ((blockHour === 0 && blockMinute < 15) || forceFullCheck || _timeOverrideActive) {
+    if ((blockHour === 0 && blockMinute < 45) || forceFullCheck || _timeOverrideActive) {
         // Luôn scan NGÀY HÔM QUA — penalties được tạo lúc 23:45 hôm trước
         const blockYesterday = new Date(now);
         blockYesterday.setUTCDate(blockYesterday.getUTCDate() - 1);
