@@ -693,9 +693,9 @@ function _tpRenderGrid() {
     _tpExemptedTasks.forEach(t => allSlots.add(t.time_start + '|' + t.time_end));
     const sortedSlots = [...allSlots].sort((a, b) => a.localeCompare(b));
 
-    // Calculate totals per day (skip holidays)
+    // Calculate totals per day (skip holidays, cap at 100đ/day)
     const dayTotals = {};
-    for (let d = 1; d <= 7; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : (byDay[d] || []).reduce((s, t) => s + (t.points || 0), 0);
+    for (let d = 1; d <= 7; d++) dayTotals[d] = _tpHolidayMap[d] ? 0 : Math.min((byDay[d] || []).reduce((s, t) => s + (t.points || 0), 0), 100);
 
     // Today for past-day protection
     const today = new Date(); today.setHours(0,0,0,0);
@@ -758,8 +758,8 @@ function _tpRenderGrid() {
             </th>`;
         } else {
             const total = dayTotals[d];
-            const pct = Math.min(total, 100);
-            const barColor = total === 100 ? '#16a34a' : total > 100 ? '#dc2626' : '#d97706';
+            const pct = total;
+            const barColor = total >= 100 ? '#16a34a' : total > 0 ? '#d97706' : '#e5e7eb';
             html += `<th style="padding:10px 12px;text-align:center;border-bottom:2px solid #e5e7eb;min-width:150px;background:#f8fafc;">
                 <div style="font-weight:700;color:#122546;font-size:13px;">${DAY_NAMES[d]} <span style="font-size:10px;color:#9ca3af;">${dateLabel}</span></div>
                 <div style="margin-top:6px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
