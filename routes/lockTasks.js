@@ -635,9 +635,10 @@ async function lockTaskRoutes(fastify, options) {
             [targetUserId, week_start, weekEndCalc]
         );
 
-        // ★ Get user's department_joined_at for frontend filtering
-        const _calUserInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [targetUserId]);
+        // ★ Get user's department_joined_at + account created_at for frontend filtering
+        const _calUserInfo = await db.get('SELECT department_joined_at, created_at FROM users WHERE id = $1', [targetUserId]);
         const _calDeptJoinedAt = _calUserInfo?.department_joined_at || null;
+        const _calUserCreatedAt = _calUserInfo?.created_at || null;
 
         // Get completions for this week
         const ws = new Date(week_start + 'T00:00:00');
@@ -675,7 +676,7 @@ async function lockTaskRoutes(fastify, options) {
             [targetUserId, week_start, weekEnd]
         );
 
-        return { tasks, completions, dates, holidays: Array.from(holidaySet), supportRequests, department_joined_at: _calDeptJoinedAt };
+        return { tasks, completions, dates, holidays: Array.from(holidaySet), supportRequests, department_joined_at: _calDeptJoinedAt, user_created_at: _calUserCreatedAt };
     });
 
     // GET: Pending reviews for QL
