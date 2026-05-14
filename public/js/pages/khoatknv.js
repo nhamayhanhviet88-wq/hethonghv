@@ -232,6 +232,14 @@ function _penSetFilter(key) {
     _penActiveFilter = key;
     if (key === 'all') { /* keep current year */ }
     else if (key !== 'custom') { _penYear = new Date().getFullYear(); }
+    // ★ Khi chọn Tùy chọn, reset ngày về hôm qua (phạt chưa chốt thì không hiện)
+    if (key === 'custom') {
+        const _td = new Date();
+        const _yd = new Date(_td); _yd.setDate(_yd.getDate() - 1);
+        const ydStr = `${_yd.getFullYear()}-${String(_yd.getMonth()+1).padStart(2,'0')}-${String(_yd.getDate()).padStart(2,'0')}`;
+        if (!_penCustomFrom || _penCustomFrom > ydStr) _penCustomFrom = ydStr;
+        if (!_penCustomTo || _penCustomTo > ydStr) _penCustomTo = ydStr;
+    }
     _penRenderFilterBar();
     _penaltyLoadStats();
 }
