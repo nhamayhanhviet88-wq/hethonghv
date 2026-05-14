@@ -1382,6 +1382,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
             } catch(e) { console.error('  ❌ [Block] CV Khóa query error:', e.message); }
 
             // Source 2: CV Chuỗi (chain_task_completions)
+            // Fix: redo_count=-2 dùng range thay vì ::date cast để tránh timezone bug
             try {
                 const ccRows = await db.all(
                     `SELECT cc.user_id, ci.task_name, ci.deadline::text as task_date, cc.penalty_amount, cins.chain_name
@@ -1389,7 +1390,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                      JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
                      JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
                      WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                       AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $1::date`, [blockTargetStr]
+                       AND (ci.deadline = $1::date
+                            OR (cc.redo_count = -2
+                                AND cc.created_at >= ($1::date - interval '1 day')::timestamp
+                                AND cc.created_at < ($1::date + interval '2 day')::timestamp))`, [blockTargetStr]
                 );
                 for (const r of ccRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
