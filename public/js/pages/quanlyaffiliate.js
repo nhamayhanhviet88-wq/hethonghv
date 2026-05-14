@@ -414,11 +414,10 @@ function affRenderStats() {
         });
         return allEmpIds;
     }
-    const scopedEmpIds = _scopedEmpIds();
-    const scopedAffCount = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).length;
-    const scopedAffCustomers = affiliates.filter(a => scopedEmpIds.has(a.managed_by_user_id)).reduce((s, a) => s + (a.total_customers || 0), 0);
-    // ★ Đơn Hàng + Doanh Thu: dùng cardStats từ API (đã include đơn tự mua + deduplicate)
-    // → Đồng bộ chuẩn xác với QL Hệ Thống Affiliate
+    // ★ Dùng cardStats từ API cho TẤT CẢ stat cards
+    // → API đã scope theo role + lọc theo ngày (from/to) + deduplicate
+    const scopedAffCount = cs.newAffiliates || 0;
+    const scopedAffCustomers = cs.totalCustomers || 0;
     const scopedAffOrders = cs.totalOrders || 0;
     const scopedAffRevenue = cs.totalRevenue || 0;
 
