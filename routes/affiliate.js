@@ -523,9 +523,14 @@ async function affiliateRoutes(fastify) {
         const isGD = user.role === 'giam_doc';
 
         if (type === 'affiliates') {
-            // List all affiliates with employee info
-            const countQ = `SELECT COUNT(*) as total FROM users u WHERE ${affIdFilter}`;
-            const countR = await db.get(countQ, affFilterParams);
+            // List affiliates created in the period (matching card stat)
+            let affDateFilter = affIdFilter;
+            let affDateParams = [...affFilterParams];
+            if (from) { affDateFilter += ' AND u.created_at >= ?'; affDateParams.push(from); }
+            if (to) { affDateFilter += ' AND u.created_at <= ?'; affDateParams.push(to + ' 23:59:59'); }
+
+            const countQ = `SELECT COUNT(*) as total FROM users u WHERE ${affDateFilter}`;
+            const countR = await db.get(countQ, affDateParams);
 
             const dataQ = `
                 SELECT u.id, u.full_name, u.phone, u.username, u.status, u.created_at, u.source_crm_type,
@@ -533,10 +538,10 @@ async function affiliateRoutes(fastify) {
                        mgr.full_name as manager_name, mgr.id as manager_id
                 FROM users u
                 LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
-                WHERE ${affIdFilter}
+                WHERE ${affDateFilter}
                 ORDER BY u.created_at DESC
                 LIMIT ? OFFSET ?`;
-            const rows = await db.all(dataQ, [...affFilterParams, Number(limit), offset]);
+            const rows = await db.all(dataQ, [...affDateParams, Number(limit), offset]);
 
             // ★ Use _calcFirstOrderRevenue to compute revenue (same as card stats)
             if (rows.length > 0) {
