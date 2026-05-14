@@ -211,6 +211,9 @@ function _penRenderFilterBar() {
         const _td = new Date();
         const _yd = new Date(_td); _yd.setDate(_yd.getDate() - 1);
         const yesterday = `${_yd.getFullYear()}-${String(_yd.getMonth()+1).padStart(2,'0')}-${String(_yd.getDate()).padStart(2,'0')}`;
+        // ★ Force cap: nếu giá trị cũ > yesterday → reset
+        if (_penCustomFrom && _penCustomFrom > yesterday) _penCustomFrom = yesterday;
+        if (_penCustomTo && _penCustomTo > yesterday) _penCustomTo = yesterday;
         html += `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
             <span style="font-size:12px;color:#64748b;font-weight:600;">📅 Ngày phạt từ:</span>
             <input type="date" id="penCustomFrom" value="${_penCustomFrom || yesterday}" max="${yesterday}" onchange="_penCustomFrom=this.value;_penaltyLoadStats()"
@@ -276,8 +279,11 @@ function _penGetApiUrl() {
         case 'all':
             return `/api/penalty/list?monthFrom=${_penYear}-01&monthTo=${_penYear}-12`;
         case 'custom': {
-            const from = _penCustomFrom || todayStr;
-            const to = _penCustomTo || todayStr;
+            // Cap max = yesterday (phạt chưa chốt thì không hiện)
+            const _yy = new Date(today); _yy.setDate(_yy.getDate() - 1);
+            const yStr = _localDateStr(_yy);
+            const from = (_penCustomFrom && _penCustomFrom <= yStr) ? _penCustomFrom : yStr;
+            const to = (_penCustomTo && _penCustomTo <= yStr) ? _penCustomTo : yStr;
             return `/api/penalty/list?dateFrom=${from}&dateTo=${to}`;
         }
         default:
