@@ -628,7 +628,7 @@ async function lockTaskRoutes(fastify, options) {
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true
              WHERE lta.user_id = $1
              UNION
-             SELECT DISTINCT lt.*, NULL as assigned_at FROM lock_task_completions ltc
+             SELECT DISTINCT lt.*, NULL::timestamp as assigned_at FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.is_active = false
              WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
              ORDER BY task_name`,
