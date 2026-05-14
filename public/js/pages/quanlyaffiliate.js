@@ -448,11 +448,9 @@ function affRenderStats() {
     `;
 }
 
-// ★ Helper: check if current user should NOT see financial data
-// All non-GD roles are restricted (same rule for QL/TP/NV)
+// ★ Data đã scope về chính mình → cho xem tài chính của affiliate mình quản lý
 function _affHideFinancials() {
-    if (!currentUser) return false;
-    return currentUser.role !== 'giam_doc';
+    return false;
 }
 
 function affRenderTree() {
@@ -711,10 +709,7 @@ async function affShowStatModal(type, page = 1) {
         revenue: '💰 Danh Sách Doanh Thu'
     };
 
-    // ★ Block restricted roles from viewing financial modals
-    if (_affHideFinancials() && type !== 'affiliates') {
-        return;
-    }
+    // ★ NV/TP/QL now allowed to view financial modals (data scoped to self)
 
     // Remove existing modal
     const existing = document.getElementById('affStatModalOverlay');

@@ -1,9 +1,9 @@
 // ========== QUẢN LÝ HỆ THỐNG AFFILIATE ==========
-// ★ Roles that are restricted (no financials, self-only view)
+// ★ Roles that are restricted to self-only view (scope filter)
 const _AFF_LIMITED_ROLES = ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'];
 function _affSysHideFinancials() {
-    if (!currentUser) return false;
-    return _AFF_LIMITED_ROLES.includes(currentUser.role);
+    // ★ Data đã scope về chính mình → cho xem tài chính của affiliate mình quản lý
+    return false;
 }
 let _affSysSearch = '';
 let _affSysTab = 'list';
@@ -528,8 +528,7 @@ const _AFF_DRILL_TITLES = {
 const _AFF_DRILL_COLORS = { affiliates: '#6366f1', customers: '#3b82f6', revenue: '#d97706', orders: '#059669' };
 
 async function _affStatDrill(type, page = 1) {
-    // ★ Block restricted roles from financial drill-downs
-    if (_affSysHideFinancials() && type !== 'affiliates') return;
+    // ★ NV/TP/QL now allowed to drill-down (data already scoped to self)
     // Build params
     const dr = _aff_getDateRange();
     const params = [`type=${type}`, `page=${page}`];
