@@ -2361,7 +2361,7 @@ async function affiliateRoutes(fastify) {
     fastify.get('/api/affiliate/stat-detail', { preHandler: [authenticate, requireRole('giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong', 'nhan_vien')] }, async (request, reply) => {
         const userId = request.user.id;
         const role = request.user.role;
-        const { type, managerId, from, to, page = 1 } = request.query;
+        const { type, managerId, affiliateId, from, to, page = 1 } = request.query;
         const PAGE_SIZE = 25;
         const offset = (Number(page) - 1) * PAGE_SIZE;
 
@@ -2447,7 +2447,13 @@ async function affiliateRoutes(fastify) {
         }
 
         // Get all affiliate IDs in scope (+ source_customer_id for self-orders)
-        const allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id, u.source_customer_id FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+        // ★ If affiliateId is provided, scope to just that single affiliate
+        let allAffs;
+        if (affiliateId) {
+            allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id, u.source_customer_id FROM users u WHERE u.id = ? AND u.role = 'tkaffiliate'`, [Number(affiliateId)]);
+        } else {
+            allAffs = await db.all(`SELECT u.id, u.full_name, u.managed_by_user_id, u.source_customer_id FROM users u WHERE ${affWhere.join(' AND ')}`, affParams);
+        }
         const affIds = allAffs.map(a => a.id);
         if (affIds.length === 0) return { success: true, rows: [], total: 0 };
 
