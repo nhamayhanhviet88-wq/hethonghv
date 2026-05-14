@@ -232,7 +232,10 @@ async function _calcFirstOrderRevenue(db, affiliates, from, to) {
     `, affIds);
 
     if (childAffs.length > 0) {
-        const childCustIds = childAffs.map(c => c.source_customer_id);
+        // ★ Exclude children whose source_customer_id was already counted in PART 1 (referrer)
+        const refCustIdSet = new Set(allRefCustIds);
+        const uniqueChildAffs = childAffs.filter(c => !refCustIdSet.has(c.source_customer_id));
+        const childCustIds = uniqueChildAffs.map(c => c.source_customer_id);
         const childFirstOrderMap = await _getFirstOrderMap(db, childCustIds);
         const childFirstOrderIds = Object.values(childFirstOrderMap).filter(Boolean);
 
@@ -253,7 +256,7 @@ async function _calcFirstOrderRevenue(db, affiliates, from, to) {
             childRevRows.forEach(r => { childCustRevMap[r.customer_id] = Number(r.revenue); });
 
             // Map child's first order revenue to parent
-            childAffs.forEach(child => {
+            uniqueChildAffs.forEach(child => {
                 const parentId = child.assigned_to_user_id;
                 if (!result[parentId]) return; // parent not in scope
                 const rev = childCustRevMap[child.source_customer_id] || 0;
