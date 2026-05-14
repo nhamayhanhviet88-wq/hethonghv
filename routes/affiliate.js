@@ -2596,9 +2596,9 @@ async function affiliateRoutes(fastify) {
             ORDER BY u.created_at DESC
         `, affParams);
 
-        // 2. Lấy stats KH + doanh số cho mỗi affiliate
+        // 2. Lấy stats KH + doanh số cho mỗi affiliate (include đơn tự mua)
         const affIds = affiliates.map(a => a.id);
-        let custMap = {}, refRevenueMap = {};
+        let custMap = {}, refRevenueMap = {}, selfRevenueMap = {}, selfOrdersMap = {};
         if (affIds.length > 0) {
             const ph = affIds.map(() => '?').join(',');
             let custDateFilter = '';
@@ -2613,6 +2613,7 @@ async function affiliateRoutes(fastify) {
             `, custParams);
             custRows.forEach(r => { custMap[r.referrer_id] = { total_customers: Number(r.total_customers), closed_count: Number(r.closed_count) }; });
 
+            // ★ Revenue từ KH giới thiệu (referrer_id)
             const customersByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, affIds);
             const allCustIds = customersByRef.map(c => c.id);
             if (allCustIds.length > 0) {
@@ -2622,7 +2623,7 @@ async function affiliateRoutes(fastify) {
                 if (from) { revDateFilter += ' AND oc.created_at >= ?'; revParams.push(from + ' 00:00:00'); }
                 if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
                 const revRows = await db.all(`
-                    SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
+                    SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
                     FROM order_codes oc
                     JOIN customers c ON c.id = oc.customer_id
                     LEFT JOIN order_items oi ON oi.order_code_id = oc.id
@@ -2633,20 +2634,55 @@ async function affiliateRoutes(fastify) {
                     GROUP BY oc.customer_id
                 `, revParams);
                 const revenueMap = {};
-                revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
+                revRows.forEach(r => { revenueMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
                 customersByRef.forEach(c => {
-                    const rev = revenueMap[c.id] || 0;
-                    if (rev > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev;
+                    const d = revenueMap[c.id];
+                    if (d && d.revenue > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + d.revenue;
+                });
+            }
+
+            // ★ Revenue từ đơn tự mua (source_customer_id) — merge vào per-row
+            const selfCustEntries = affiliates.filter(a => a.source_customer_id).map(a => ({ affId: a.id, custId: a.source_customer_id }));
+            const selfCustIds = selfCustEntries.map(e => e.custId);
+            // Loại bỏ custId đã có trong referred (tránh đếm trùng)
+            const referredCustIdSet = new Set(customersByRef.map(c => c.id));
+            const uniqueSelfEntries = selfCustEntries.filter(e => !referredCustIdSet.has(e.custId));
+            const uniqueSelfCustIds = uniqueSelfEntries.map(e => e.custId);
+            if (uniqueSelfCustIds.length > 0) {
+                const sph = uniqueSelfCustIds.map(() => '?').join(',');
+                let selfDateFilter = '';
+                const selfParams = [...uniqueSelfCustIds];
+                if (from) { selfDateFilter += ' AND oc.created_at >= ?'; selfParams.push(from + ' 00:00:00'); }
+                if (to) { selfDateFilter += ' AND oc.created_at <= ?'; selfParams.push(to + ' 23:59:59'); }
+                const selfRevRows = await db.all(`
+                    SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
+                    FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
+                    LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                    WHERE oc.customer_id IN (${sph})
+                      AND COALESCE(oc.status, 'active') != 'cancelled'
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${selfDateFilter}
+                    GROUP BY oc.customer_id
+                `, selfParams);
+                const selfRevMap = {};
+                selfRevRows.forEach(r => { selfRevMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
+                uniqueSelfEntries.forEach(e => {
+                    const d = selfRevMap[e.custId];
+                    if (d) {
+                        selfRevenueMap[e.affId] = (selfRevenueMap[e.affId] || 0) + d.revenue;
+                        selfOrdersMap[e.affId] = (selfOrdersMap[e.affId] || 0) + d.orders;
+                    }
                 });
             }
         }
 
-        // Gắn stats vào mỗi affiliate
+        // Gắn stats vào mỗi affiliate (bao gồm đơn tự mua)
         affiliates.forEach(a => {
             const cs = custMap[a.id] || { total_customers: 0, closed_count: 0 };
             a.total_customers = cs.total_customers;
-            a.closed_count = cs.closed_count;
-            a.total_revenue = refRevenueMap[a.id] || 0;
+            a.closed_count = cs.closed_count + (selfOrdersMap[a.id] || 0);
+            a.total_revenue = (refRevenueMap[a.id] || 0) + (selfRevenueMap[a.id] || 0);
         });
 
         // 3. Lấy cấu trúc phòng ban
@@ -2941,7 +2977,7 @@ async function affiliateRoutes(fastify) {
 
             const allIds = children.map(c => c.id);
 
-            // ═══ PER-ROW STATS (filtered by date) ═══
+            // ═══ PER-ROW STATS (filtered by date, include đơn tự mua) ═══
             let totalCustomers = 0, totalRevenue = 0, closedCount = 0;
             if (allIds.length > 0) {
                 const ph = allIds.map(() => '?').join(',');
@@ -2959,6 +2995,10 @@ async function affiliateRoutes(fastify) {
                 let revenueMap = {};
                 if (allCustIds.length > 0) {
                     const cph = allCustIds.map(() => '?').join(',');
+                    let revDateFilter = '';
+                    const revParams = [...allCustIds];
+                    if (from) { revDateFilter += ' AND oc.created_at >= ?'; revParams.push(from + ' 00:00:00'); }
+                    if (to) { revDateFilter += ' AND oc.created_at <= ?'; revParams.push(to + ' 23:59:59'); }
                     const revRows = await db.all(`
                         SELECT oc.customer_id, COALESCE(SUM(oi.total), 0) as revenue
                         FROM order_codes oc
@@ -2967,22 +3007,56 @@ async function affiliateRoutes(fastify) {
                         WHERE oc.customer_id IN (${cph})
                           AND COALESCE(oc.status, 'active') != 'cancelled'
                           AND COALESCE(c.cancel_approved, 0) != 1
-                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${revDateFilter}
                         GROUP BY oc.customer_id
-                    `, allCustIds);
+                    `, revParams);
                     revRows.forEach(r => { revenueMap[r.customer_id] = Number(r.revenue); });
                 }
                 const refRevenueMap = {};
                 customersByRef.forEach(c => { const rev = revenueMap[c.id] || 0; if (rev > 0) refRevenueMap[c.referrer_id] = (refRevenueMap[c.referrer_id] || 0) + rev; });
 
+                // ★ Revenue từ đơn tự mua (source_customer_id) — merge vào per-row
+                const selfRevenueMap = {}, selfOrdersMap = {};
+                const selfCustEntries = children.filter(a => a.source_customer_id).map(a => ({ affId: a.id, custId: a.source_customer_id }));
+                const referredCustIdSet = new Set(customersByRef.map(c => c.id));
+                const uniqueSelfEntries = selfCustEntries.filter(e => !referredCustIdSet.has(e.custId));
+                const uniqueSelfCustIds = uniqueSelfEntries.map(e => e.custId);
+                if (uniqueSelfCustIds.length > 0) {
+                    const sph = uniqueSelfCustIds.map(() => '?').join(',');
+                    let selfDateFilter = '';
+                    const selfParams = [...uniqueSelfCustIds];
+                    if (from) { selfDateFilter += ' AND oc.created_at >= ?'; selfParams.push(from + ' 00:00:00'); }
+                    if (to) { selfDateFilter += ' AND oc.created_at <= ?'; selfParams.push(to + ' 23:59:59'); }
+                    const selfRevRows = await db.all(`
+                        SELECT oc.customer_id, COUNT(DISTINCT oc.id) as order_cnt, COALESCE(SUM(oi.total), 0) as revenue
+                        FROM order_codes oc
+                        JOIN customers c ON c.id = oc.customer_id
+                        LEFT JOIN order_items oi ON oi.order_code_id = oc.id
+                        WHERE oc.customer_id IN (${sph})
+                          AND COALESCE(oc.status, 'active') != 'cancelled'
+                          AND COALESCE(c.cancel_approved, 0) != 1
+                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')${selfDateFilter}
+                        GROUP BY oc.customer_id
+                    `, selfParams);
+                    const selfRevMap = {};
+                    selfRevRows.forEach(r => { selfRevMap[r.customer_id] = { revenue: Number(r.revenue), orders: Number(r.order_cnt) }; });
+                    uniqueSelfEntries.forEach(e => {
+                        const d = selfRevMap[e.custId];
+                        if (d) {
+                            selfRevenueMap[e.affId] = (selfRevenueMap[e.affId] || 0) + d.revenue;
+                            selfOrdersMap[e.affId] = (selfOrdersMap[e.affId] || 0) + d.orders;
+                        }
+                    });
+                }
+
                 children.forEach(child => {
                     const cs = custMap[child.id] || { total_customers: 0, closed_count: 0 };
                     child.total_customers = cs.total_customers;
-                    child.closed_count = cs.closed_count;
-                    child.total_revenue = refRevenueMap[child.id] || 0;
+                    child.closed_count = cs.closed_count + (selfOrdersMap[child.id] || 0);
+                    child.total_revenue = (refRevenueMap[child.id] || 0) + (selfRevenueMap[child.id] || 0);
                     totalCustomers += cs.total_customers;
                     totalRevenue += child.total_revenue;
-                    closedCount += cs.closed_count;
+                    closedCount += child.closed_count;
                 });
             }
 
