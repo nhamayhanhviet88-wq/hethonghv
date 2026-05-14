@@ -529,19 +529,23 @@ async function affiliateRoutes(fastify) {
 
             const dataQ = `
                 SELECT u.id, u.full_name, u.phone, u.username, u.status, u.created_at, u.source_crm_type,
-                       u.managed_by_user_id,
-                       mgr.full_name as manager_name, mgr.id as manager_id,
-                       COALESCE((SELECT SUM(oi.total) FROM customers c JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled' LEFT JOIN order_items oi ON oi.order_code_id = oc.id WHERE c.referrer_id = u.id AND COALESCE(c.cancel_approved, 0) != 1 AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${from ? 'AND oc.created_at >= ?' : ''} ${to ? 'AND oc.created_at <= ?' : ''}), 0) as total_revenue
+                       u.managed_by_user_id, u.source_customer_id, u.assigned_to_user_id,
+                       mgr.full_name as manager_name, mgr.id as manager_id
                 FROM users u
                 LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
                 WHERE ${affIdFilter}
                 ORDER BY u.created_at DESC
                 LIMIT ? OFFSET ?`;
-            const dataParams = [];
-            if (from) dataParams.push(from);
-            if (to) dataParams.push(to + ' 23:59:59');
-            dataParams.push(...affFilterParams, Number(limit), offset);
-            const rows = await db.all(dataQ, dataParams);
+            const rows = await db.all(dataQ, [...affFilterParams, Number(limit), offset]);
+
+            // ★ Use _calcFirstOrderRevenue to compute revenue (same as card stats)
+            if (rows.length > 0) {
+                const revMap = await _calcFirstOrderRevenue(db, rows, from || null, to || null);
+                rows.forEach(r => {
+                    const rev = revMap[r.id];
+                    r.total_revenue = rev ? rev.revenue : 0;
+                });
+            }
 
             // Apply phone masking: GĐ sees all, others see masked unless direct manager
             rows.forEach(r => {
@@ -2588,6 +2592,7 @@ async function affiliateRoutes(fastify) {
             const total = Number(totalRow.cnt);
             const rows = await db.all(`
                 SELECT u.id, u.full_name, u.phone, u.created_at, u.managed_by_user_id,
+                       u.source_customer_id, u.assigned_to_user_id,
                        mgr.full_name as manager_name
                 FROM users u
                 LEFT JOIN users mgr ON mgr.id = u.managed_by_user_id
@@ -2595,21 +2600,14 @@ async function affiliateRoutes(fastify) {
                 ORDER BY u.created_at DESC
                 LIMIT ${PAGE_SIZE} OFFSET ${offset}
             `, affDateParams);
-            // Get revenue for each affiliate on this page
+
+            // ★ Use _calcFirstOrderRevenue to compute revenue (same as card stats)
             if (rows.length > 0) {
-                const ids = rows.map(r => r.id);
-                const ph = ids.map(() => '?').join(',');
-                const custByRef = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, ids);
-                const custIds = custByRef.map(c => c.id);
-                let revMap = {};
-                if (custIds.length > 0) {
-                    const cph = custIds.map(() => '?').join(',');
-                    const revRows = await db.all(`SELECT oc.customer_id, COALESCE(SUM(oi.total),0) as revenue FROM order_codes oc LEFT JOIN order_items oi ON oi.order_code_id=oc.id WHERE oc.customer_id IN (${cph}) AND oc.status='completed' GROUP BY oc.customer_id`, custIds);
-                    revRows.forEach(r => { revMap[r.customer_id] = Number(r.revenue); });
-                }
-                const refRev = {};
-                custByRef.forEach(c => { const rev = revMap[c.id] || 0; if (rev > 0) refRev[c.referrer_id] = (refRev[c.referrer_id] || 0) + rev; });
-                rows.forEach(r => { r.total_revenue = refRev[r.id] || 0; });
+                const revMap = await _calcFirstOrderRevenue(db, rows, from || null, to || null);
+                rows.forEach(r => {
+                    const rev = revMap[r.id];
+                    r.total_revenue = rev ? rev.revenue : 0;
+                });
             }
             return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
         }
