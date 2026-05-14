@@ -802,9 +802,10 @@ async function affShowStatModal(type, page = 1) {
             tableHead = `<tr><th>#</th><th>Mã Đơn</th><th>Tên Khách</th><th>NV Chăm Sóc</th><th>Affiliate</th><th>Doanh Số</th><th>Thời Gian</th></tr>`;
             data.forEach((r, i) => {
                 const idx = (currentPage - 1) * limit + i + 1;
-                tableBody += `<tr>
+                const foTag = r.is_first_order ? '<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;" title="Đơn đầu tiên — tính hoa hồng cho affiliate cha">⭐ Đơn đầu</span>' : '';
+                tableBody += `<tr${r.is_first_order ? ' style="background:#fffbeb;"' : ''}>
                     <td>${idx}</td>
-                    <td style="font-weight:700;color:#2563eb;">${r.order_code || '-'}</td>
+                    <td style="font-weight:700;color:#2563eb;">${r.order_code || '-'} ${foTag}</td>
                     <td style="font-weight:600;">${r.customer_name || '-'}</td>
                     <td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.employee_name || '-'}</span></td>
                     <td><span style="background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${r.affiliate_name || '-'}</span></td>

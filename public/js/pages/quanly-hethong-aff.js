@@ -589,9 +589,10 @@ async function _affStatDrill(type, page = 1) {
             tableHtml = `<table class="table" style="font-size:13px;">
                 <thead><tr><th style="width:36px">#</th><th>MÃ ĐƠN</th><th>TÊN KHÁCH</th><th>NV CHĂM SÓC</th><th>AFFILIATE</th><th style="text-align:right">DOANH SỐ</th><th>THỜI GIAN</th></tr></thead><tbody>`;
             rows.forEach((r, i) => {
-                tableHtml += `<tr>
+                const foTag = r.is_first_order ? '<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;" title="Đơn đầu tiên — tính hoa hồng cho affiliate cha">⭐ Đơn đầu</span>' : '';
+                tableHtml += `<tr${r.is_first_order ? ' style="background:#fffbeb;"' : ''}>
                     <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
-                    <td style="font-weight:800;color:#1e293b;">${r.order_code||'—'}</td>
+                    <td style="font-weight:800;color:#1e293b;">${r.order_code||'—'} ${foTag}</td>
                     <td style="color:#374151;">${r.customer_name||'—'}</td>
                     <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
                     <td><span style="padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:700;">${r.affiliate_name||'—'}</span></td>
@@ -682,9 +683,10 @@ async function _affShowAffOrders(affiliateId, affName, page = 1) {
         let tableHtml = `<table class="table" style="font-size:13px;">
             <thead><tr><th style="width:36px">#</th><th>MÃ ĐƠN</th><th>TÊN KHÁCH</th><th>NV CHĂM SÓC</th><th>AFFILIATE</th><th style="text-align:right">DOANH SỐ</th><th>THỜI GIAN</th></tr></thead><tbody>`;
         rows.forEach((r, i) => {
-            tableHtml += `<tr>
+            const foTag = r.is_first_order ? '<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;margin-left:4px;" title="Đơn đầu tiên — tính hoa hồng cho affiliate cha">⭐ Đơn đầu</span>' : '';
+            tableHtml += `<tr${r.is_first_order ? ' style="background:#fffbeb;"' : ''}>
                 <td style="font-weight:600;color:#6b7280;">${(page-1)*pageSize+i+1}</td>
-                <td style="font-weight:800;color:#1e293b;">${r.order_code||'—'}</td>
+                <td style="font-weight:800;color:#1e293b;">${r.order_code||'—'} ${foTag}</td>
                 <td style="color:#374151;">${r.customer_name||'—'}</td>
                 <td><span style="padding:2px 8px;border-radius:6px;background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;">${r.manager_name||'—'}</span></td>
                 <td><span style="padding:2px 8px;border-radius:6px;background:#ede9fe;color:#6d28d9;font-size:11px;font-weight:700;">${r.affiliate_name||'—'}</span></td>

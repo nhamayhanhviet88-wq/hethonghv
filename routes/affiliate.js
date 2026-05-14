@@ -646,6 +646,12 @@ async function affiliateRoutes(fastify) {
                 LIMIT ? OFFSET ?`;
             const rows = await db.all(dataQ, [...allOrderCustIds, ...dateParams, Number(limit), offset]);
 
+            // ★ Mark first orders with ⭐ flag
+            const custIdsOnPage = [...new Set(rows.map(r => r.customer_id))];
+            const firstOrderMap = await _getFirstOrderMap(db, custIdsOnPage);
+            const firstOrderIdSet = new Set(Object.values(firstOrderMap).filter(Boolean));
+            rows.forEach(r => { r.is_first_order = firstOrderIdSet.has(r.id); });
+
             return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
         }
 
@@ -2668,6 +2674,13 @@ async function affiliateRoutes(fastify) {
                 r.manager_name = aff && aff.managed_by_user_id ? (mgrMap[aff.managed_by_user_id] || '—') : '—';
                 r.revenue = Number(r.revenue);
             });
+
+            // ★ Mark first orders with ⭐ flag
+            const custIdsOnPage = [...new Set(rows.map(r => r.customer_id))];
+            const firstOrderMap = await _getFirstOrderMap(db, custIdsOnPage);
+            const firstOrderIdSet = new Set(Object.values(firstOrderMap).filter(Boolean));
+            rows.forEach(r => { r.is_first_order = firstOrderIdSet.has(r.id); });
+
             return { success: true, rows, total, page: Number(page), pageSize: PAGE_SIZE };
         }
 
