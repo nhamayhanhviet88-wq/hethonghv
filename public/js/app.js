@@ -413,9 +413,10 @@ async function _commitPopupCheck() {
             _commitData = await apiCall('/api/meeting-commitments/my-latest');
         }
         if (!_commitData || !_commitData.session || !_commitData.commitments || _commitData.commitments.length === 0) return;
-        // Check if already seen this session
-        var seenKey = 'commitPopupSeen_' + _commitData.session.id;
-        if (sessionStorage.getItem(seenKey)) return;
+        // Check if already seen TODAY (once per day only)
+        var todayStr = new Date().toISOString().split('T')[0];
+        var seenKey = 'commitPopupSeen_' + _commitData.session.id + '_' + todayStr;
+        if (localStorage.getItem(seenKey)) return;
         _showCommitPopup();
     } catch(e) { /* silent */ }
 }
@@ -519,9 +520,10 @@ function _showCommitPopup(forceShow) {
 function _commitPopupDismiss() {
     var overlay = document.getElementById('commitPopupOverlay');
     if (overlay) overlay.remove();
-    // Mark as seen for this session
+    // Mark as seen for TODAY (won't show again until tomorrow)
     if (_commitData && _commitData.session) {
-        sessionStorage.setItem('commitPopupSeen_' + _commitData.session.id, '1');
+        var todayStr = new Date().toISOString().split('T')[0];
+        localStorage.setItem('commitPopupSeen_' + _commitData.session.id + '_' + todayStr, '1');
     }
 }
 
