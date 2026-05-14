@@ -151,9 +151,15 @@ async function _kbShowLockReviewModal(lockTaskIdOrCompletionId, userId, completi
 }
 
 // ========== CHAIN TASK REVIEW MODAL ==========
-async function _kbShowChainReviewModal(chainItemId, userId, deadline) {
+async function _kbShowChainReviewModal(chainItemIdOrCompletionId, userId, deadline, useCompletionId) {
     try {
-        const data = await apiCall('/api/chain-tasks/completion-detail?chain_item_id=' + chainItemId + '&user_id=' + userId);
+        let url;
+        if (useCompletionId) {
+            url = '/api/chain-tasks/completion-detail?completion_id=' + chainItemIdOrCompletionId;
+        } else {
+            url = '/api/chain-tasks/completion-detail?chain_item_id=' + chainItemIdOrCompletionId + '&user_id=' + userId;
+        }
+        const data = await apiCall(url);
         const comp = data.completion;
         const item = data.item;
         if (!comp) { alert('Không tìm thấy báo cáo CV Chuỗi này'); return; }
@@ -2805,7 +2811,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${deadlineFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#1e40af;">🔗</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbSmartViewTask('${(r.task_name||'').replace(/'/g, "\\'")}', ${r.user_id}, '${r.deadline || r.completion_date || ''}', 'chain', ${r.chain_item_id})" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết">👁️ Xem</span>
+                    <span onclick="_kbShowChainReviewModal(${r.id}, ${r.user_id}, '${r.deadline || r.completion_date || ''}', true)" style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${chainCountdown}</td>
                 <td style="padding:8px 12px;text-align:center;">

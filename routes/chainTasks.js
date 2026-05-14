@@ -856,24 +856,41 @@ async function chainTaskRoutes(fastify, options) {
         if (!isManager(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
+        const completionId = Number(request.query.completion_id);
         const chainItemId = Number(request.query.chain_item_id);
         const userId = Number(request.query.user_id);
-        if (!chainItemId || !userId) return reply.code(400).send({ error: 'chain_item_id and user_id required' });
 
-        const item = await db.get(
+        let completion;
+        if (completionId) {
+            // ★ Primary: lookup by PK — guaranteed unique
+            completion = await db.get(
+                `SELECT cc.*, u.full_name as user_name, u.username
+                 FROM chain_task_completions cc
+                 JOIN users u ON u.id = cc.user_id
+                 WHERE cc.id = $1`,
+                [completionId]
+            );
+        } else if (chainItemId && userId) {
+            // Fallback
+            completion = await db.get(
+                `SELECT cc.*, u.full_name as user_name, u.username
+                 FROM chain_task_completions cc
+                 JOIN users u ON u.id = cc.user_id
+                 WHERE cc.chain_item_id = $1 AND cc.user_id = $2 AND cc.status = 'pending'
+                 ORDER BY cc.created_at DESC LIMIT 1`,
+                [chainItemId, userId]
+            );
+        } else {
+            return reply.code(400).send({ error: 'completion_id or (chain_item_id + user_id) required' });
+        }
+
+        const itemId = completion?.chain_item_id || chainItemId;
+        const item = itemId ? await db.get(
             `SELECT cii.*, cii.deadline::text as deadline, ci.chain_name
              FROM chain_task_instance_items cii
              JOIN chain_task_instances ci ON ci.id = cii.chain_instance_id
-             WHERE cii.id = $1`, [chainItemId]
-        );
-        const completion = await db.get(
-            `SELECT cc.*, u.full_name as user_name, u.username
-             FROM chain_task_completions cc
-             JOIN users u ON u.id = cc.user_id
-             WHERE cc.chain_item_id = $1 AND cc.user_id = $2 AND cc.status = 'pending'
-             ORDER BY cc.created_at DESC LIMIT 1`,
-            [chainItemId, userId]
-        );
+             WHERE cii.id = $1`, [itemId]
+        ) : null;
         return { item, completion, chain_name: item?.chain_name || '' };
     });
 
