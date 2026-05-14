@@ -16,7 +16,7 @@ let _kbSupportRequests = {}; // key: templateId_date → request object
 let _kbOverridesDiem = {}, _kbOverridesKhoa = {}; // per-user overrides
 let _kbOverrideUserIds = new Set(); // users who have any override
 let _kbMonthlySummary = 0; // total approved points this month
-let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(); // CV Khóa data
+let _kbLockTasks = [], _kbLockCompletions = {}, _kbLockHolidays = new Set(), _kbDeptJoinedAt = null; // CV Khóa data
 let _kbChainItems = []; // CV Chuỗi data for calendar
 let _kbViewUserName = ''; // Name of user currently being viewed
 let _kbForceApproval = false; // Force approval flag for viewed user
@@ -1028,6 +1028,8 @@ async function _kbLoadSchedule() {
             window._kbLockCompAllVersions[key].push(c);
         });
         _kbLockHolidays = new Set(ltData.holidays || []);
+        // ★ Store department_joined_at for CV Khóa date filtering
+        _kbDeptJoinedAt = ltData.department_joined_at || null;
         // Store lock support requests
         window._kbLockSupportRequests = {};
         (ltData.supportRequests || []).forEach(sr => {
@@ -1036,7 +1038,7 @@ async function _kbLoadSchedule() {
         });
     } catch(e) {
         _kbLockTasks = []; _kbLockCompletions = {}; _kbLockHolidays = new Set();
-        window._kbLockSupportRequests = {};
+        window._kbLockSupportRequests = {}; _kbDeptJoinedAt = null;
     }
     // Load CV Chuỗi (chain task items) for this week
     try {
@@ -1516,13 +1518,15 @@ function _kbRenderGrid() {
                 const dateStr = _kbDateStr(colDate);
                 const dayOfWeek = colDate.getDay(); // 0=Sun, 1=Mon...
 
-                // Skip dates before the task was created/assigned (convert UTC to local)
-                let taskStartDate = '';
-                if (lt.created_at) {
-                    const d = new Date(lt.created_at);
-                    taskStartDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                // ★ Skip dates before user was assigned this task OR joined department
+                // Priority: assigned_at (ngày giao CV) > department_joined_at (ngày vào phòng) > created_at
+                let effectiveStartDate = '';
+                const _rawStart = lt.assigned_at || _kbDeptJoinedAt || lt.created_at;
+                if (_rawStart) {
+                    const d = new Date(_rawStart);
+                    effectiveStartDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 }
-                if (dateStr < todayStr && taskStartDate && dateStr < taskStartDate) {
+                if (effectiveStartDate && dateStr < effectiveStartDate) {
                     html += `<td style="padding:8px;border-bottom:1px solid #f3f4f6;text-align:center;color:#e5e7eb;font-size:20px;">—</td>`;
                     continue;
                 }

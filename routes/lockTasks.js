@@ -622,17 +622,22 @@ async function lockTaskRoutes(fastify, options) {
         const weekEndCalc = `${we2.getFullYear()}-${String(we2.getMonth()+1).padStart(2,'0')}-${String(we2.getDate()).padStart(2,'0')}`;
 
         // Get active tasks + inactive tasks that have completions in this week (for history)
+        // ★ Include assigned_at so frontend knows when user was assigned each task
         const tasks = await db.all(
-            `SELECT lt.* FROM lock_task_assignments lta
+            `SELECT lt.*, lta.created_at as assigned_at FROM lock_task_assignments lta
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true
              WHERE lta.user_id = $1
              UNION
-             SELECT DISTINCT lt.* FROM lock_task_completions ltc
+             SELECT DISTINCT lt.*, NULL as assigned_at FROM lock_task_completions ltc
              JOIN lock_tasks lt ON lt.id = ltc.lock_task_id AND lt.is_active = false
              WHERE ltc.user_id = $1 AND ltc.completion_date BETWEEN $2 AND $3
              ORDER BY task_name`,
             [targetUserId, week_start, weekEndCalc]
         );
+
+        // ★ Get user's department_joined_at for frontend filtering
+        const _calUserInfo = await db.get('SELECT department_joined_at FROM users WHERE id = $1', [targetUserId]);
+        const _calDeptJoinedAt = _calUserInfo?.department_joined_at || null;
 
         // Get completions for this week
         const ws = new Date(week_start + 'T00:00:00');
@@ -670,7 +675,7 @@ async function lockTaskRoutes(fastify, options) {
             [targetUserId, week_start, weekEnd]
         );
 
-        return { tasks, completions, dates, holidays: Array.from(holidaySet), supportRequests };
+        return { tasks, completions, dates, holidays: Array.from(holidaySet), supportRequests, department_joined_at: _calDeptJoinedAt };
     });
 
     // GET: Pending reviews for QL
