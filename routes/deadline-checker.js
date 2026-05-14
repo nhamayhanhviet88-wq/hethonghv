@@ -1397,18 +1397,22 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
             } catch(e) { console.error('  ❌ [Block] CV Chuỗi query error:', e.message); }
 
-            // Source 3: Cấp cứu sếp (emergencies)
+            // Source 3: Cấp cứu sếp (emergencies) — tìm tất cả emergency ĐANG PENDING + ĐÃ PHẠT
+            // Không lọc theo ngày vì last_penalty_at có timezone mismatch, chỉ cần status=pending + penalty=true
             try {
                 const emRows = await db.all(
                     `SELECT COALESCE(e.handover_to, e.handler_id) as user_id, e.reason, e.penalty_amount,
                             e.created_at::date::text as task_date, c.customer_name
                      FROM emergencies e
                      LEFT JOIN customers c ON c.id = e.customer_id
-                     WHERE e.penalty_applied = true AND e.created_at::date = $1::date`, [blockTargetStr]
+                     WHERE e.penalty_applied = true
+                       AND e.status = 'pending'`
                 );
                 for (const r of emRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `Cấp cứu: ${r.customer_name || 'KH'}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: `Không xử lý cấp cứu: ${r.reason}` });
+                    // Hiện mức phạt cấu hình (50k) thay vì tổng dồn
+                    const displayAmt = GPC.cap_cuu_ql_khong_xu_ly || 50000;
+                    blockMap.get(r.user_id).push({ task_name: `🚨Cấp Cứu Sếp: ${r.customer_name || 'KH'}`, task_date: blockTargetStr, penalty_amount: displayAmt, penalty_reason: `Không xử lý cấp cứu: ${r.reason}` });
                 }
             } catch(e) { console.error('  ❌ [Block] Cấp cứu query error:', e.message); }
 
