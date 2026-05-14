@@ -214,12 +214,16 @@ function _penRenderFilterBar() {
         // ★ Force cap: nếu giá trị cũ > yesterday → reset
         if (_penCustomFrom && _penCustomFrom > yesterday) _penCustomFrom = yesterday;
         if (_penCustomTo && _penCustomTo > yesterday) _penCustomTo = yesterday;
+        // Lưu max date để dùng trong onchange validation
+        window._penMaxDate = yesterday;
         html += `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
             <span style="font-size:12px;color:#64748b;font-weight:600;">📅 Ngày phạt từ:</span>
-            <input type="date" id="penCustomFrom" value="${_penCustomFrom || yesterday}" max="${yesterday}" onchange="_penCustomFrom=this.value;_penaltyLoadStats()"
+            <input type="date" id="penCustomFrom" value="${_penCustomFrom || yesterday}" max="${yesterday}"
+                onchange="if(this.value>window._penMaxDate){this.value=window._penMaxDate;} _penCustomFrom=this.value;_penaltyLoadStats()"
                 style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;outline:none;">
             <span style="font-size:12px;color:#64748b;font-weight:600;">đến:</span>
-            <input type="date" id="penCustomTo" value="${_penCustomTo || yesterday}" max="${yesterday}" onchange="_penCustomTo=this.value;_penaltyLoadStats()"
+            <input type="date" id="penCustomTo" value="${_penCustomTo || yesterday}" max="${yesterday}"
+                onchange="if(this.value>window._penMaxDate){this.value=window._penMaxDate;} _penCustomTo=this.value;_penaltyLoadStats()"
                 style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;outline:none;">
             <span style="font-size:10px;color:#9ca3af;font-style:italic;">⚠️ Phạt chỉ chốt khi ngày kết thúc</span>
         </div>`;
