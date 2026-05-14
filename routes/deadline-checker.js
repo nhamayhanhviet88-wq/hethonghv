@@ -932,33 +932,41 @@ async function runDeadlineCheck(forceFullCheck = false) {
             const mgrOnLeave = await isUserOnLeave(sr.manager_id, todayStackMgr);
             if (mgrOnLeave) continue;
 
-            // Skip ngày nghỉ
-            if (holidays6a.has(todayStackMgr)) continue;
-            const todayDate6a = new Date(todayStackMgr + 'T00:00:00Z');
-            if (todayDate6a.getUTCDay() === 0) continue; // Chủ nhật
-
-            // Tạo stacking penalty cho hôm nay
+            // Tính mức phạt
             const isApproval = sr.penalty_reason && sr.penalty_reason.includes('Không duyệt');
             const stackType = isApproval ? 'Không duyệt' : 'Không hỗ trợ';
             const penaltyAmt = isApproval
                 ? (sr.source_type === 'khoa' ? GPC.cv_khoa_ql_khong_duyet : GPC.cv_diem_ql_khong_duyet)
                 : (sr.source_type === 'khoa' ? GPC.cv_khoa_ql_khong_ho_tro : (sr.source_type === 'diem' ? GPC.cv_diem_ql_khong_ho_tro : GPC.cv_chuoi_ql_khong_duyet || 50000));
 
-            try {
-                const res = await db.run(
-                    `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, manager_id, department_id, status, penalty_amount, penalty_reason, stacking_source, acknowledged)
-                     VALUES ($1, $2, $3, $4, $5, $6, (SELECT department_id FROM users WHERE id = $1), 'expired', $7, $8, $9, false)
-                     ON CONFLICT (user_id, template_id, task_date) DO NOTHING`,
-                    [sr.user_id, sr.template_id || 0, sr.task_name, todayStackMgr, todayStackMgr,
-                     sr.manager_id, penaltyAmt,
-                     `Phạt chồng ${stackType}: ${sr.task_name} (gốc: ${sr.task_date})`,
-                     `stacking_${sr.id}`]
-                );
-                if (res && res.rowCount > 0) {
-                    stackCountMgr++;
-                    console.log(`  🔄 [QL Phạt Chồng] ${stackType} QL id=${sr.manager_id} — ${sr.task_name} (thêm ${penaltyAmt.toLocaleString()}đ)`);
-                }
-            } catch(e) { /* conflict = already stacked today */ }
+            // Tạo stacking cho MỌI ngày thiếu từ ngày gốc+1 đến hôm nay
+            // (lấp đầy gap nếu server miss 23:45 cycle)
+            const startStack = new Date(sr.task_date + 'T00:00:00Z');
+            startStack.setUTCDate(startStack.getUTCDate() + 1); // ngày sau ngày gốc
+            const endStack = new Date(todayStackMgr + 'T00:00:00Z');
+
+            for (let d = new Date(startStack); d <= endStack; d.setUTCDate(d.getUTCDate() + 1)) {
+                const stackDateStr = toDateStr(d);
+                // Skip ngày nghỉ
+                if (holidays6a.has(stackDateStr)) continue;
+                if (d.getUTCDay() === 0) continue; // Chủ nhật
+
+                try {
+                    const res = await db.run(
+                        `INSERT INTO task_support_requests (user_id, template_id, task_name, task_date, deadline, manager_id, department_id, status, penalty_amount, penalty_reason, stacking_source, acknowledged)
+                         VALUES ($1, $2, $3, $4, $5, $6, (SELECT department_id FROM users WHERE id = $1), 'expired', $7, $8, $9, false)
+                         ON CONFLICT (user_id, template_id, task_date) DO NOTHING`,
+                        [sr.user_id, sr.template_id || 0, sr.task_name, stackDateStr, stackDateStr,
+                         sr.manager_id, penaltyAmt,
+                         `Phạt chồng ${stackType}: ${sr.task_name} (gốc: ${sr.task_date})`,
+                         `stacking_${sr.id}`]
+                    );
+                    if (res && res.rowCount > 0) {
+                        stackCountMgr++;
+                        console.log(`  🔄 [QL Phạt Chồng] ${stackType} QL id=${sr.manager_id} — ${sr.task_name} ngày ${stackDateStr} (thêm ${penaltyAmt.toLocaleString()}đ)`);
+                    }
+                } catch(e) { /* conflict = already stacked this date */ }
+            }
         }
 
         // Lấy tất cả pending approvals quá hạn (QL chưa duyệt CV Điểm/Khóa)
