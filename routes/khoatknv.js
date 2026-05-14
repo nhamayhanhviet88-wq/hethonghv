@@ -149,6 +149,13 @@ async function khoaTKNVRoutes(fastify, options) {
             monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
         }
 
+        // ★ Guard: Phạt chỉ chốt khi ngày kết thúc → cap tối đa = ngày hôm qua (VN)
+        const _now = new Date(Date.now() + 7 * 3600000); // VN = UTC+7
+        const _yd = new Date(_now); _yd.setUTCDate(_yd.getUTCDate() - 1);
+        const maxDate = `${_yd.getUTCFullYear()}-${String(_yd.getUTCMonth()+1).padStart(2,'0')}-${String(_yd.getUTCDate()).padStart(2,'0')}`;
+        if (monthEnd > maxDate) monthEnd = maxDate;
+        if (monthStart > maxDate) monthStart = maxDate;
+
         // ===== SOURCE 1: task_support_requests (CV Điểm + Hỗ trợ NV) =====
         let srWhere = '';
         let srParams = [monthStart, monthEnd];
