@@ -213,6 +213,53 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // ★ NV KHÔNG bị phạt ở đây — NV chỉ bị phạt sau khi QL hỗ trợ + NV quá deadline mới
     }
 
+    // ========== 1a. PHẠT CHỒNG QL KHÔNG HỖ TRỢ — Mỗi ngày làm việc chưa hỗ trợ ==========
+    // SR vẫn ở 'ql_expired' = QL chưa hỗ trợ → tăng penalty_amount mỗi ngày
+    const qlExpiredSRs = await db.all(
+        "SELECT * FROM task_support_requests WHERE status = 'ql_expired'"
+    );
+    const stackHolidays = await getHolidays();
+    const todayStackStr = toDateStr(now);
+
+    for (const sr of qlExpiredSRs) {
+        if (!sr.manager_id) continue;
+        if (await isManagerImmune(sr.manager_id)) continue;
+
+        const dailyPenalty = sr.source_type === 'khoa'
+            ? GPC.cv_khoa_ql_khong_ho_tro
+            : GPC.cv_diem_ql_khong_ho_tro;
+
+        // Tính số ngày làm việc kể từ SAU ngày bị phạt lần đầu (deadline_at)
+        const startDate = new Date(sr.deadline_at || sr.created_at);
+        let workingDays = 0;
+        let d = new Date(startDate);
+        d.setUTCDate(d.getUTCDate() + 1); // Bắt đầu đếm từ ngày SAU deadline
+
+        while (toDateStr(d) <= todayStackStr) {
+            const ds = toDateStr(d);
+            const dow = d.getUTCDay();
+            const isOff = dow === 0 || stackHolidays.has(ds);
+            if (!isOff && !await isUserOnLeave(sr.manager_id, ds)) {
+                workingDays++;
+            }
+            d.setUTCDate(d.getUTCDate() + 1);
+        }
+
+        if (workingDays <= 0) continue; // Chưa có ngày chồng
+
+        // Tổng = gốc + (daily × số ngày chồng) — idempotent
+        const expectedTotal = dailyPenalty + (dailyPenalty * workingDays);
+
+        if (sr.penalty_amount < expectedTotal) {
+            await db.run(
+                "UPDATE task_support_requests SET penalty_amount = $1, penalty_reason = $2 WHERE id = $3",
+                [expectedTotal, `Không hỗ trợ nhân sự (${workingDays + 1} ngày): ${sr.task_name}`, sr.id]
+            );
+            penaltyCount++;
+            console.log(`  ⚠️ [Phạt chồng QL] id=${sr.manager_id} — ${sr.task_name} (${expectedTotal}đ = gốc + ${workingDays} ngày chồng)`);
+        }
+    }
+
     // ========== 2. CHECK PENDING APPROVALS ==========
     const pendingReports = await db.all(
         "SELECT r.*, t.task_name FROM task_point_reports r JOIN task_point_templates t ON r.template_id = t.id WHERE r.status = 'pending' AND r.approval_deadline IS NOT NULL AND r.approval_deadline < $1",
