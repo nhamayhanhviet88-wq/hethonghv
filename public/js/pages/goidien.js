@@ -1340,7 +1340,7 @@ function _gd_openSelfSearchModal() {
                     <input id="gdSSName" type="text" class="form-control" placeholder="VD: Nguyễn Văn A">
                 </div>
                 <div class="form-group">
-                    <label style="font-weight:700;font-size:12px;color:#374151;">📱 Số Điện Thoại</label>
+                    <label style="font-weight:700;font-size:12px;color:#374151;">📱 Số Điện Thoại <span style="color:#dc2626;">*</span></label>
                     <input id="gdSSPhone" type="text" class="form-control" placeholder="0912345678">
                     <small style="color:#6b7280;font-size:10px;">Bắt buộc nếu không có Link MXH</small>
                 </div>
