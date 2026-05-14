@@ -1589,7 +1589,7 @@ function _kbRenderGrid() {
                         const _lockHasInject = /sedding|đăng.*bản.*thân|tìm.*gr.*zalo/i.test(lt.task_name);
                         if (_lockHasInject && !_lockQtyMet) {
                             // Inject task with insufficient quantity — show warning
-                            lockStatusBadge = `<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⚠️ ${realComp.quantity_done || 0}/${lt.min_quantity || 1}</span>`;
+                            lockStatusBadge = `<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">❌ KHÔNG HOÀN THÀNH CV</span>`;
                         } else if (!_lockHasInject) {
                         lockStatusBadge = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:5px 10px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;display:inline-block;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt</span></div>';
                         }

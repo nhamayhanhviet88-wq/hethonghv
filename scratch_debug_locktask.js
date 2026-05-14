@@ -1,24 +1,43 @@
 const db = require('./db/pool');
 (async () => {
-    // 1. Check current state
-    const comp = await db.get(`
-        SELECT id, status, quantity_done, content 
-        FROM lock_task_completions 
-        WHERE lock_task_id = 20 AND user_id = 52 AND completion_date = '2026-05-14' AND redo_count = 0
+    // Fix ALL lock_task_completions with stale quantity_done
+    // For auto-injected tasks, sync quantity_done with actual daily_link_entries count
+    const moduleMap = {
+        'sedding': 'sedding', 'bản thân': 'dang_banthan_sp', 'zalo spam': 'tim_gr_zalo',
+        'video': 'dang_video', 'content': 'dang_content', 'group': 'dang_group',
+        'add/cmt': 'addcmt', 'add cmt': 'addcmt', 'tuyển dụng': 'tuyen_dung'
+    };
+
+    const records = await db.all(`
+        SELECT ltc.id, ltc.lock_task_id, lt.task_name, lt.min_quantity, ltc.user_id,
+               ltc.completion_date::text as d, ltc.quantity_done, ltc.status
+        FROM lock_task_completions ltc
+        JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
+        WHERE ltc.content LIKE '[Tự động]%' AND ltc.redo_count = 0
+        ORDER BY ltc.completion_date DESC
     `);
-    console.log('Current state:', comp);
-    
-    if (comp && comp.status === 'approved') {
-        // Still approved — force fix
-        await db.run(`UPDATE lock_task_completions SET status = 'pending', quantity_done = 1 WHERE id = $1`, [comp.id]);
-        console.log(`✅ Fixed id=${comp.id} → pending (1/2)`);
-    } else {
-        console.log('Already fixed or not found');
+
+    let fixed = 0;
+    for (const r of records) {
+        const lower = r.task_name.toLowerCase();
+        let modType = null;
+        for (const [key, val] of Object.entries(moduleMap)) {
+            if (lower.includes(key)) { modType = val; break; }
+        }
+        if (!modType) continue;
+
+        const cnt = await db.get(
+            'SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+            [r.user_id, r.d, modType]
+        );
+        const actual = parseInt(cnt?.c || 0);
+
+        if (actual !== (r.quantity_done || 0)) {
+            await db.run('UPDATE lock_task_completions SET quantity_done = $1 WHERE id = $2', [actual, r.id]);
+            console.log(`Fixed: ${r.task_name} ${r.d} user=${r.user_id} qty: ${r.quantity_done || 0} → ${actual} (min=${r.min_quantity})`);
+            fixed++;
+        }
     }
-    
-    // Verify
-    const after = await db.get(`SELECT id, status, quantity_done FROM lock_task_completions WHERE id = $1`, [comp?.id]);
-    console.log('After fix:', after);
-    
+    console.log(`\n✅ Fixed ${fixed} records`);
     process.exit(0);
 })();
