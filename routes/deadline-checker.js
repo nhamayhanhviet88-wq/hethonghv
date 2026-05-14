@@ -334,12 +334,24 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
                 // Check if there's a completion
                 const completion = await db.get(
-                    `SELECT id, status FROM lock_task_completions
+                    `SELECT id, status, redo_deadline FROM lock_task_completions
                      WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
                      ORDER BY redo_count DESC LIMIT 1`,
                     [la.task_id, la.user_id, checkDateStr]
                 );
-                if (completion && (completion.status === 'approved' || completion.status === 'pending')) continue;
+                if (completion) {
+                    if (completion.status === 'approved' || completion.status === 'pending') continue;
+                    if (completion.status === 'rejected' && completion.redo_deadline) {
+                        // QL đã từ chối → NV có deadline mới (redo_deadline)
+                        const redoDeadline = new Date(completion.redo_deadline);
+                        if (now < redoDeadline) {
+                            // Chưa hết hạn redo → NV được bảo vệ
+                            continue;
+                        }
+                        // Đã qua redo_deadline mà NV chưa nộp lại → cho phạt bên dưới
+                        console.log(`  ⚠️ [CV Khóa] NV id=${la.user_id} quá hạn nộp lại sau bị từ chối: ${la.task_name} ngày ${checkDateStr}`);
+                    }
+                }
 
                 // ★ Check support request — bảo vệ NV trong toàn bộ lifecycle hỗ trợ
                 const activeSR = await db.get(
