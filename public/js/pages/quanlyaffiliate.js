@@ -393,33 +393,23 @@ function affRenderStats() {
     const cs = _affData.cardStats || {};
     const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
 
-    // ★ Recompute affiliate count from scoped data (same scope as tree rendering)
-    const { departments = [], employees = [], affiliates = [] } = _affData;
-    function _scopedEmpIds() {
-        const allEmpIds = new Set();
-        const deptIsInScope = (deptId) => {
-            if (!_affScopeFilter || !_affScopeFilter.allowedDeptIds) return true;
-            if (_affScopeFilter.allowedDeptIds.has(deptId)) return true;
-            return departments.filter(d => d.parent_id === deptId).some(d => deptIsInScope(d.id));
-        };
-        departments.forEach(d => {
-            if (!deptIsInScope(d.id)) return;
-            let emps = employees.filter(e => e.department_id === d.id);
-            if (_affScopeFilter) {
-                if (_affScopeFilter.allowedDeptIds && !_affScopeFilter.allowedDeptIds.has(d.id)) return;
-                if (_affScopeFilter.allowedEmpIds) emps = emps.filter(e => _affScopeFilter.allowedEmpIds.has(e.id));
-                if (_affScopeFilter.blockedRoles) emps = emps.filter(e => !_affScopeFilter.blockedRoles.has(e.role));
-            }
-            emps.forEach(e => allEmpIds.add(e.id));
-        });
-        return allEmpIds;
+    let scopedAffCount, scopedAffCustomers, scopedAffOrders, scopedAffRevenue;
+
+    // ★ Nếu GĐ chọn filter phòng ban/nhân viên → tính từ data đã lọc
+    // Nếu không có filter → dùng cardStats từ API (chuẩn xác, include đơn tự mua)
+    if (_affFilterDeptId || _affFilterEmpId) {
+        const filteredAffs = affGetFilteredAffiliates();
+        scopedAffCount = filteredAffs.length;
+        scopedAffCustomers = filteredAffs.reduce((s, a) => s + (a.total_customers || 0), 0);
+        scopedAffOrders = filteredAffs.reduce((s, a) => s + (a.total_orders || 0), 0);
+        scopedAffRevenue = filteredAffs.reduce((s, a) => s + (a.total_revenue || 0), 0);
+    } else {
+        // ★ Dùng cardStats từ API (scope theo role + lọc ngày + deduplicate)
+        scopedAffCount = cs.newAffiliates || 0;
+        scopedAffCustomers = cs.totalCustomers || 0;
+        scopedAffOrders = cs.totalOrders || 0;
+        scopedAffRevenue = cs.totalRevenue || 0;
     }
-    // ★ Dùng cardStats từ API cho TẤT CẢ stat cards
-    // → API đã scope theo role + lọc theo ngày (from/to) + deduplicate
-    const scopedAffCount = cs.newAffiliates || 0;
-    const scopedAffCustomers = cs.totalCustomers || 0;
-    const scopedAffOrders = cs.totalOrders || 0;
-    const scopedAffRevenue = cs.totalRevenue || 0;
 
     const el = document.getElementById('affStatsRow');
     if (!el) return;
