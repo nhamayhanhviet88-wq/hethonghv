@@ -9,7 +9,7 @@ let _affSysSearch = '';
 let _affSysTab = 'list';
 let _affOrgData = null;
 let _affOrgExpanded = new Set();
-let _aff_datePreset = 'all';
+let _aff_datePreset = 'this_month';
 let _aff_dateFrom = '';
 let _aff_dateTo = '';
 let _aff_selectedYear = new Date().getFullYear();
@@ -177,8 +177,8 @@ async function _affSysLoad() {
         html += `<div class="aff-stat-grid">
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
             <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div>
+            <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div></div>`;
         // Banner "Khách Hàng Trực Tiếp" đã ẩn — KH trực tiếp xem ở "Theo Dõi Tư Vấn Khách"
         html += `<div style="margin-bottom:16px;"><input type="text" class="form-control" placeholder="🔍 Tìm theo tên, SĐT..." value="${_affSysSearch}" oninput="_affSysFilter(this.value)" style="max-width:360px;font-size:13px;"></div>`;
         if (children.length === 0) { html += `<div class="empty-state"><div class="icon">👥</div><h3>Chưa có affiliate</h3></div>`; }
@@ -311,8 +311,8 @@ function _affRenderOrg() {
     html += `<div class="aff-stat-grid">
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5);cursor:pointer;" onclick="_affStatDrill('affiliates')"><div class="aff-stat-val">${cs.newAffiliates||0}</div><div class="aff-stat-lbl">👥 Tổng Affiliate</div></div>
         <div class="aff-stat-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb);cursor:pointer;" onclick="_affStatDrill('customers')"><div class="aff-stat-val">${cs.totalCustomers||0}</div><div class="aff-stat-lbl">📋 Tổng KH Giới Thiệu</div></div>
-        <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div>
-        <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div></div>`;
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#10b981,#059669);cursor:pointer;" onclick="_affStatDrill('orders')"><div class="aff-stat-val">${cs.totalOrders||0}</div><div class="aff-stat-lbl">📦 Đơn Hàng</div></div>
+        <div class="aff-stat-card" style="background:linear-gradient(135deg,#f59e0b,#d97706);cursor:pointer;" onclick="_affStatDrill('revenue')"><div class="aff-stat-val">${_fmtRev(cs.totalRevenue)}</div><div class="aff-stat-lbl">💰 Tổng Doanh Số</div></div></div>`;
 
     const ROLE_LABELS = { truong_phong:'⭐ Trưởng Phòng', nhan_vien:'👤 Nhân Viên', quan_ly:'🔷 Quản Lý', quan_ly_cap_cao:'💎 QL Cấp Cao', thu_viec:'🔰 Thử Việc' };
     const MGR_ROLES = ['quan_ly', 'quan_ly_cap_cao'];
