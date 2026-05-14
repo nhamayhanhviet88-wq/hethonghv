@@ -254,38 +254,15 @@ async function _affOrgLoad() {
         window._affOrgCardStats = _orgCardStats;
         window._affOrgFmtRev = _fmtRev;
 
-        // ★ NV/TP/QL: override tất cả stats → chỉ hiện chỉ số cá nhân
+        // ★ NV/TP/QL: chỉ hiện tree của chính mình (cardStats đã chuẩn từ my-system)
         const _isLimited = _AFF_LIMITED_ROLES.includes(currentUser.role);
         if (_isLimited) {
-            // Tìm employee node của currentUser trong cây
-            let myStats = null;
-            for (const dept of _affOrgData) {
-                // Tìm trong phongEmployees
-                const pe = (dept.phongEmployees || []).find(e => e.id === currentUser.id);
-                if (pe) { myStats = pe.stats; break; }
-                // Tìm trong teams
-                for (const team of (dept.teams || [])) {
-                    const te = (team.employees || []).find(e => e.id === currentUser.id);
-                    if (te) { myStats = te.stats; break; }
-                }
-                if (myStats) break;
-            }
-            const s = myStats || { affiliates: 0, customers: 0, revenue: 0, closed: 0 };
-            // Override cardStats
-            window._affOrgCardStats = {
-                newAffiliates: s.affiliates || 0,
-                totalCustomers: s.customers || 0,
-                totalRevenue: s.revenue || 0,
-                totalOrders: s.closed || 0
-            };
-            // Override dept + team stats → chỉ hiện chỉ số của mình + ẩn team không liên quan
+            // Override dept + team stats → ẩn team không liên quan
             _affOrgData.forEach(dept => {
-                dept.stats = { ...s };
                 // ★ Chỉ giữ team chứa currentUser, ẩn team khác
                 dept.teams = (dept.teams || []).filter(team =>
                     (team.employees || []).some(e => e.id === currentUser.id)
                 );
-                dept.teams.forEach(team => { team.stats = { ...s }; });
                 // phongEmployees override
                 dept.phongEmployees = (dept.phongEmployees || []).filter(e => e.id === currentUser.id);
             });
