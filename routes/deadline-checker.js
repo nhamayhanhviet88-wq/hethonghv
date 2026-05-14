@@ -700,13 +700,21 @@ async function runDeadlineCheck(forceFullCheck = false) {
             const minQty = oci.min_quantity || 1;
             if (approvedCount && Number(approvedCount.cnt) >= minQty) continue; // Effectively completed
 
-            // Check if this user already has an approved/pending submission
+            // Check if this user already has an approved/pending/rejected (within redo deadline) submission
             const userComp = await db.get(
-                `SELECT id, status FROM chain_task_completions
-                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved')`,
+                `SELECT id, status, redo_deadline FROM chain_task_completions
+                 WHERE chain_item_id = $1 AND user_id = $2 AND status IN ('pending','approved','rejected')
+                 ORDER BY redo_count DESC LIMIT 1`,
                 [oci.item_id, oci.user_id]
             );
-            if (userComp) continue; // NV đã nộp
+            if (userComp) {
+                if (userComp.status === 'pending' || userComp.status === 'approved') continue;
+                if (userComp.status === 'rejected' && userComp.redo_deadline) {
+                    const redoDeadline = new Date(userComp.redo_deadline);
+                    if (now < redoDeadline) continue; // Chưa hết hạn redo → NV bảo vệ
+                    console.log(`  ⚠️ [CV Chuỗi] NV id=${oci.user_id} quá hạn nộp lại sau bị từ chối: ${oci.task_name}`);
+                }
+            }
 
             // Check if already penalized (don't double-penalize)
             const alreadyPenalized = await db.get(
