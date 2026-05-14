@@ -268,17 +268,19 @@ async function khoaTKNVRoutes(fastify, options) {
         }));
 
         // ===== SOURCE 3: chain_task_completions (CV Chuỗi — NV/QL phạt) =====
-        // Stack penalties (redo_count=-2) use created_at as the penalty date, originals use ci.deadline
+        // Fix: redo_count=-2 dùng range thay vì ::date cast để tránh timezone bug
         const effectiveDateExpr = `CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END`;
+        const effectiveDateFilter = `(ci.deadline BETWEEN $1::date AND $2::date
+            OR (cc.redo_count = -2 AND cc.created_at >= ($1::date - interval '1 day')::timestamp AND cc.created_at < ($2::date + interval '2 day')::timestamp))`;
         let ctWhere = '';
         let ctParams = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date`;
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter}`;
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user3 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user3 || !user3.department_id) {
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND 1=0`;
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND 1=0`;
             } else {
                 const deptIds3 = [user3.department_id];
                 const children3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user3.department_id]);
@@ -288,11 +290,11 @@ async function khoaTKNVRoutes(fastify, options) {
                     gc3.forEach(gc => deptIds3.push(gc.id));
                 }
                 const ph3 = deptIds3.map((_, i) => `$${i + 3}`).join(',');
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND cins.department_id IN (${ph3})`;
+                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND cins.department_id IN (${ph3})`;
                 ctParams.push(...deptIds3);
             }
         } else {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateExpr} BETWEEN $1::date AND $2::date AND cc.user_id = $3`;
+            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND cc.user_id = $3`;
             ctParams.push(userId);
         }
 
