@@ -468,12 +468,22 @@ async function affiliateRoutes(fastify) {
         }
 
         if (type === 'orders' || type === 'revenue') {
-            // All completed orders from affiliate-referred customers
-            const affIdsQ = `SELECT u.id FROM users u WHERE ${affIdFilter}`;
-            const affIds = (await db.all(affIdsQ, affFilterParams)).map(r => r.id);
+            // ★ All completed orders from affiliate-referred customers + self-purchase (source_customer_id)
+            // → Đồng bộ chuẩn xác với cardStats (includes đơn tự mua)
+            const affIdsQ = `SELECT u.id, u.source_customer_id FROM users u WHERE ${affIdFilter}`;
+            const affRows = await db.all(affIdsQ, affFilterParams);
+            const affIds = affRows.map(r => r.id);
             if (affIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
 
+            // Collect all customer IDs: referred + self-purchase (deduplicated)
             const ph = affIds.map(() => '?').join(',');
+            const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affIds);
+            const selfCustIds = affRows.map(a => a.source_customer_id).filter(Boolean);
+            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
+
+            if (allOrderCustIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
+
+            const oph = allOrderCustIds.map(() => '?').join(',');
             let dateFilter = '';
             const dateParams = [];
             if (from) { dateFilter += ' AND oc.created_at >= ?'; dateParams.push(from); }
@@ -481,31 +491,37 @@ async function affiliateRoutes(fastify) {
 
             const countQ = `
                 SELECT COUNT(DISTINCT oc.id) as total
-                FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
-                WHERE c.referrer_id IN (${ph})
+                FROM order_codes oc
+                JOIN customers c ON c.id = oc.customer_id
+                WHERE oc.customer_id IN (${oph})
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND COALESCE(c.cancel_approved, 0) != 1
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${dateFilter}`;
-            const countR = await db.get(countQ, [...affIds, ...dateParams]);
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don') ${dateFilter}`;
+            const countR = await db.get(countQ, [...allOrderCustIds, ...dateParams]);
 
             const dataQ = `
                 SELECT oc.id, oc.order_code, oc.created_at as order_date, oc.status,
                        c.customer_name, c.id as customer_id,
-                       aff.full_name as affiliate_name, aff.id as affiliate_id,
-                       emp.full_name as employee_name, emp.id as employee_id,
+                       COALESCE(aff.full_name, self_aff.full_name) as affiliate_name,
+                       COALESCE(aff.id, self_aff.id) as affiliate_id,
+                       COALESCE(emp.full_name, self_emp.full_name) as employee_name,
+                       COALESCE(emp.id, self_emp.id) as employee_id,
                        COALESCE(SUM(oi.total), 0) as order_revenue
-                FROM customers c
-                JOIN order_codes oc ON oc.customer_id = c.id AND COALESCE(oc.status, 'active') != 'cancelled'
+                FROM order_codes oc
+                JOIN customers c ON c.id = oc.customer_id
                 LEFT JOIN order_items oi ON oi.order_code_id = oc.id
                 LEFT JOIN users aff ON aff.id = c.referrer_id
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
-                WHERE c.referrer_id IN (${ph})
+                LEFT JOIN users self_aff ON self_aff.source_customer_id = c.id AND self_aff.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+                LEFT JOIN users self_emp ON self_emp.id = self_aff.managed_by_user_id
+                WHERE oc.customer_id IN (${oph})
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
                   AND COALESCE(c.cancel_approved, 0) != 1
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = c.id AND cl.log_type = 'chot_don') ${dateFilter}
-                GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, c.customer_name, c.id, aff.full_name, aff.id, emp.full_name, emp.id
+                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don') ${dateFilter}
+                GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, c.customer_name, c.id, aff.full_name, aff.id, emp.full_name, emp.id, self_aff.full_name, self_aff.id, self_emp.full_name, self_emp.id
                 ORDER BY oc.created_at DESC
                 LIMIT ? OFFSET ?`;
-            const rows = await db.all(dataQ, [...affIds, ...dateParams, Number(limit), offset]);
+            const rows = await db.all(dataQ, [...allOrderCustIds, ...dateParams, Number(limit), offset]);
 
             return { total: countR.total, page: Number(page), limit: Number(limit), data: rows };
         }
