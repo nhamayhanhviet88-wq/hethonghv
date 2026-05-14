@@ -232,12 +232,23 @@ async function _affOrgLoad() {
         const params = [];
         if (dr.from) params.push(`from=${dr.from}`);
         if (dr.to) params.push(`to=${dr.to}`);
-        const apiUrl = '/api/affiliate/org-stats' + (params.length ? '?' + params.join('&') : '');
-        const data = await apiCall(apiUrl);
+        const orgUrl = '/api/affiliate/org-stats' + (params.length ? '?' + params.join('&') : '');
+
+        // ★ Gọi thêm my-system (song song) để lấy cardStats chuẩn — đồng bộ với tab Danh Sách
+        const myParams = [...params];
+        if (_AFF_LIMITED_ROLES.includes(currentUser.role)) {
+            myParams.push(`managerId=${currentUser.id}`);
+        } else if (_aff_selectedMgrId) {
+            myParams.push(`managerId=${_aff_selectedMgrId}`);
+        }
+        const myUrl = '/api/affiliate/my-system' + (myParams.length ? '?' + myParams.join('&') : '');
+
+        const [data, myData] = await Promise.all([apiCall(orgUrl), apiCall(myUrl)]);
         if (!data.success) { area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><h3>Lỗi</h3></div>`; return; }
         // ★ CHỈ giữ PHÒNG KINH DOANH
         _affOrgData = data.departments.filter(d => d.name && d.name.toUpperCase().includes('KINH DOANH'));
-        const _orgCardStats = data.cardStats || {};
+        // ★ cardStats lấy từ my-system (chuẩn xác, include đơn tự mua + deduplicate)
+        const _orgCardStats = (myData && myData.success) ? (myData.cardStats || {}) : (data.cardStats || {});
         const _fmtRev = (v) => { const n=Number(v||0); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:1).replace(/\.0$/,'')+'tr'; return n.toLocaleString('vi-VN')+'đ'; };
         // Store cardStats for rendering
         window._affOrgCardStats = _orgCardStats;
