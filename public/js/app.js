@@ -180,7 +180,13 @@ var _isDoitacDomain = window.location.hostname.indexOf('dongphuchv.net') !== -1;
 })();
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await checkAuth();
+    try {
+        await checkAuth();
+    } catch (err) {
+        // ★ checkAuth đã hiển thị retry screen → KHÔNG remove overlay, KHÔNG chạy tiếp
+        console.error('[Auth] Xác thực thất bại:', err.message);
+        return;
+    }
     setupEventListeners();
     handleRoute();
 
@@ -897,13 +903,27 @@ async function _commCapAck() {
     if (overlay) overlay.remove();
 }
 
-async function checkAuth() {
+async function checkAuth(retryCount) {
+    var _maxRetries = 3;
+    var _attempt = retryCount || 0;
     try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
+        // ★ TIMEOUT 10s — không để user chờ vĩnh viễn khi server lag
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+
+        var res = await fetch('/api/auth/me', { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        // ★ Token hết hạn / không hợp lệ → redirect login
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = _isDoitacDomain ? '/' : '/index.html';
+            return;
+        }
+
+        var data = await res.json();
         if (!data.user) {
             // Trên dongphuchv.net redirect về trang login affiliate
-            window.location.href = window.location.hostname.indexOf('dongphuchv.net') !== -1 ? '/' : '/index.html';
+            window.location.href = _isDoitacDomain ? '/' : '/index.html';
             return;
         }
         currentUser = data.user;
@@ -970,8 +990,37 @@ async function checkAuth() {
         renderAffiliateFloatingButtons();
         _toInit(); // Time override button (chỉ GĐ)
     } catch (err) {
-        window.location.href = '/';
+        // ★ Network error / Timeout → auto-retry (tối đa 3 lần) thay vì redirect login
+        console.warn('[Auth] Lần ' + (_attempt + 1) + ' thất bại:', err.message);
+        if (_attempt < _maxRetries - 1) {
+            // Cập nhật overlay hiển thị đang thử lại
+            var ov = document.getElementById('authLoadingOverlay');
+            if (ov) {
+                var msgEl = ov.querySelector('div');
+                if (msgEl) msgEl.textContent = 'Đang thử kết nối lại... (' + (_attempt + 2) + '/' + _maxRetries + ')';
+            }
+            // Chờ 2s rồi thử lại
+            await new Promise(function(r) { setTimeout(r, 2000); });
+            return checkAuth(_attempt + 1);
+        }
+        // ★ Hết retry → hiện nút Thử Lại (KHÔNG redirect login, giữ session)
+        _showAuthRetryScreen(err.name === 'AbortError' ? 'timeout' : 'network');
+        throw err;
     }
+}
+
+// ★ Retry screen — hiện khi xác thực thất bại sau nhiều lần thử
+function _showAuthRetryScreen(reason) {
+    var overlay = document.getElementById('authLoadingOverlay');
+    if (!overlay) return;
+    var msg = reason === 'timeout'
+        ? 'Server phản hồi quá chậm'
+        : 'Không thể kết nối đến server';
+    overlay.innerHTML = ''
+        + '<img src="/images/logo.png" alt="Logo" style="width:60px;height:60px;border-radius:12px;opacity:0.8;">'
+        + '<div style="color:#f87171;font-size:14px;font-weight:700;font-family:Inter,sans-serif;margin-top:12px;">⚠️ ' + msg + '</div>'
+        + '<div style="color:rgba(255,255,255,0.5);font-size:12px;font-family:Inter,sans-serif;margin-top:4px;">Đã thử 3 lần — vui lòng kiểm tra mạng rồi thử lại</div>'
+        + '<button onclick="location.reload()" style="margin-top:20px;padding:12px 32px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 4px 16px rgba(99,102,241,0.4);transition:all .2s;" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'none\'">🔄 Thử Lại</button>';
 }
 
 // ========== SIDEBAR SCROLL PRESERVATION ==========
