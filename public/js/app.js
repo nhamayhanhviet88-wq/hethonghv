@@ -226,17 +226,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(emPopupCheck, 60000);
     }
 
-    // Check if user has unacknowledged penalties → show lock popup (once per day, server-tracked)
-    if (currentUser && ['quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role)) {
-        setTimeout(async () => {
-            try {
-                const data = await apiCall('/api/penalty/my-pending');
-                if (data.pending && data.pending.length > 0) {
-                    _showPenaltyLockPopup(data.pending, data.total, data.penaltyDate);
-                }
-            } catch(e) {}
-        }, 1500);
-    }
+    // ★ DISABLED — Popup "CẢNH BÁO PHẠT" không cần nữa vì có block screen "TÀI KHOẢN BỊ TẠM CHẶN"
+    // if (currentUser && ['quan_ly_cap_cao', 'quan_ly', 'truong_phong', 'nhan_vien', 'thu_viec', 'part_time'].includes(currentUser.role)) {
+    //     setTimeout(async () => {
+    //         try {
+    //             const data = await apiCall('/api/penalty/my-pending');
+    //             if (data.pending && data.pending.length > 0) {
+    //                 _showPenaltyLockPopup(data.pending, data.total, data.penaltyDate);
+    //             }
+    //         } catch(e) {}
+    //     }, 1500);
+    // }
 
     // Manager penalty popup — show team penalties (once per day, server-tracked)
     if (currentUser && ['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(currentUser.role)) {
