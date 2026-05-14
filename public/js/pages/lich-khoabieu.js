@@ -72,7 +72,7 @@ function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
         if (_svLinked && _svLinked.tab) url += '&sel_tab=' + _svLinked.tab;
         window.open(url, '_blank');
     } else if (taskType === 'lock') {
-        // CV Khóa → show detail modal popup
+        // CV Khóa → show detail modal popup (taskRefId = completion_id for 'lock_byid', or lock_task_id)
         _kbShowLockReviewModal(taskRefId, userId, reportDate);
     } else if (taskType === 'chain') {
         // CV Chuỗi → show detail modal popup
@@ -85,10 +85,16 @@ function _kbSmartViewTask(taskName, userId, reportDate, taskType, taskRefId) {
 }
 
 // ========== LOCK TASK REVIEW MODAL ==========
-async function _kbShowLockReviewModal(lockTaskId, userId, completionDate) {
+async function _kbShowLockReviewModal(lockTaskIdOrCompletionId, userId, completionDate, useCompletionId) {
     try {
         // Fetch lock task completion details
-        const data = await apiCall('/api/lock-tasks/completion-detail?lock_task_id=' + lockTaskId + '&user_id=' + userId + '&date=' + completionDate);
+        let url;
+        if (useCompletionId) {
+            url = '/api/lock-tasks/completion-detail?completion_id=' + lockTaskIdOrCompletionId;
+        } else {
+            url = '/api/lock-tasks/completion-detail?lock_task_id=' + lockTaskIdOrCompletionId + '&user_id=' + userId + '&date=' + completionDate;
+        }
+        const data = await apiCall(url);
         const comp = data.completion;
         const task = data.task;
         if (!comp) { alert('Không tìm thấy báo cáo CV Khóa này'); return; }
@@ -2764,7 +2770,7 @@ async function _kbLoadApprovalPanel() {
                 <td style="padding:8px 12px;font-size:12px;color:#6b7280;">${dateFormatted}</td>
                 <td style="padding:8px 12px;font-size:12px;font-weight:700;color:#991b1b;">🔐</td>
                 <td style="padding:8px 12px;text-align:center;">
-                    <span onclick="_kbSmartViewTask('${(r.task_name||'').replace(/'/g, "\\'")}', ${r.user_id}, '${r.completion_date}', 'lock', ${r.lock_task_id})" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Mở trang xem chi tiết">👁️ Xem</span>
+                    <span onclick="_kbShowLockReviewModal(${r.id}, ${r.user_id}, '${r.completion_date}', true)" style="background:#fef2f2;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:4px;" title="Xem chi tiết báo cáo">👁️ Xem</span>
                 </td>
                 <td style="padding:8px 12px;text-align:center;">${r.approval_deadline ? _kbFormatCountdown(r.approval_deadline) : '<span style="color:#9ca3af;">—</span>'}</td>
                 <td style="padding:8px 12px;text-align:center;">
