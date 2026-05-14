@@ -448,11 +448,11 @@ function _zlAddResultModal(taskId) {
             <table style="width:100%;border-collapse:collapse;font-family:'Segoe UI',sans-serif;">
                 <thead><tr style="background:linear-gradient(135deg,#0c4a6e,#0369a1);">
                     <th style="padding:10px 6px;font-size:11px;font-weight:700;color:white;text-align:center;width:36px;">STT</th>
-                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;">LINK NHÓM ZALO</th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;">LINK NHÓM ZALO <span style="color:#fca5a5;">*</span></th>
                     <th style="padding:10px 4px;font-size:11px;font-weight:700;color:white;text-align:center;width:28px;">🔗</th>
-                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;width:140px;">TÊN NHÓM</th>
-                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">THÀNH VIÊN</th>
-                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">ĐÃ THAM GIA</th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:left;width:140px;">TÊN NHÓM <span style="color:#fca5a5;">*</span></th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">THÀNH VIÊN <span style="color:#fca5a5;">*</span></th>
+                    <th style="padding:10px 8px;font-size:11px;font-weight:700;color:white;text-align:center;width:80px;">ĐÃ THAM GIA <span style="color:#fca5a5;">*</span></th>
                     <th style="width:28px;"></th>
                 </tr></thead>
                 <tbody id="zlLinkInputs"></tbody>
