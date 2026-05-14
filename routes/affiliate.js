@@ -594,36 +594,75 @@ async function affiliateRoutes(fastify) {
         }
 
         if (type === 'orders' || type === 'revenue') {
-            // ★ All completed orders from affiliate-referred customers + self-purchase (source_customer_id)
-            // → Đồng bộ chuẩn xác với cardStats (includes đơn tự mua)
-            const affIdsQ = `SELECT u.id, u.source_customer_id FROM users u WHERE ${affIdFilter}`;
+            // ★ FIRST-ORDER RULE: only show attributable orders
+            const affIdsQ = `SELECT u.id, u.source_customer_id, u.assigned_to_user_id FROM users u WHERE ${affIdFilter}`;
             const affRows = await db.all(affIdsQ, affFilterParams);
             const affIds = affRows.map(r => r.id);
             if (affIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
 
-            // Collect all customer IDs: referred + self-purchase (deduplicated)
+            // ═══ Compute attributable order IDs (same logic as _calcFirstOrderRevenue) ═══
+            const attributableOrderIds = new Set();
             const ph = affIds.map(() => '?').join(',');
+
+            // PART A: First orders from referred customers
             const referredCusts = await db.all(`SELECT id FROM customers WHERE referrer_id IN (${ph})`, affIds);
-            const selfCustIds = affRows.map(a => a.source_customer_id).filter(Boolean);
-            const allOrderCustIds = [...new Set([...referredCusts.map(c => c.id), ...selfCustIds])];
+            const allRefCustIds = referredCusts.map(c => c.id);
+            if (allRefCustIds.length > 0) {
+                const foMap = await _getFirstOrderMap(db, allRefCustIds);
+                Object.values(foMap).filter(Boolean).forEach(oid => attributableOrderIds.add(oid));
+            }
 
-            if (allOrderCustIds.length === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
+            // PART B: Self-purchase orders
+            const selfEntries = affRows.filter(a => a.source_customer_id).map(a => ({
+                affId: a.id, custId: a.source_customer_id, hasParent: !!a.assigned_to_user_id
+            }));
+            if (selfEntries.length > 0) {
+                const selfCustIds = selfEntries.map(e => e.custId);
+                const selfFoMap = await _getFirstOrderMap(db, selfCustIds);
+                const firstOrderIdsToExclude = new Set();
+                selfEntries.forEach(e => {
+                    if (e.hasParent && selfFoMap[e.custId]) firstOrderIdsToExclude.add(selfFoMap[e.custId]);
+                });
+                const sph = selfCustIds.map(() => '?').join(',');
+                const selfOrders = await db.all(`
+                    SELECT oc.id FROM order_codes oc
+                    JOIN customers c ON c.id = oc.customer_id
+                    WHERE oc.customer_id IN (${sph})
+                      AND COALESCE(oc.status, 'active') != 'cancelled'
+                      AND COALESCE(c.cancel_approved, 0) != 1
+                      AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                `, selfCustIds);
+                selfOrders.forEach(o => {
+                    if (!firstOrderIdsToExclude.has(o.id)) attributableOrderIds.add(o.id);
+                });
+            }
 
-            const oph = allOrderCustIds.map(() => '?').join(',');
+            // PART C: First orders from child affiliates (exclude already in PART A)
+            const refCustIdSet = new Set(allRefCustIds);
+            const childAffs = await db.all(`
+                SELECT u.source_customer_id FROM users u
+                WHERE u.assigned_to_user_id IN (${ph})
+                AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+                AND u.source_customer_id IS NOT NULL
+            `, affIds);
+            const uniqueChildAffs = childAffs.filter(c => !refCustIdSet.has(c.source_customer_id));
+            if (uniqueChildAffs.length > 0) {
+                const childCustIds = uniqueChildAffs.map(c => c.source_customer_id);
+                const childFoMap = await _getFirstOrderMap(db, childCustIds);
+                Object.values(childFoMap).filter(Boolean).forEach(oid => attributableOrderIds.add(oid));
+            }
+
+            if (attributableOrderIds.size === 0) return { total: 0, page: 1, limit: Number(limit), data: [] };
+
+            // ═══ Query with first-order filter ═══
+            const oidArr = [...attributableOrderIds];
+            const oidPh = oidArr.map(() => '?').join(',');
             let dateFilter = '';
             const dateParams = [];
             if (from) { dateFilter += ' AND oc.created_at >= ?'; dateParams.push(from); }
             if (to) { dateFilter += ' AND oc.created_at <= ?'; dateParams.push(to + ' 23:59:59'); }
 
-            const countQ = `
-                SELECT COUNT(DISTINCT oc.id) as total
-                FROM order_codes oc
-                JOIN customers c ON c.id = oc.customer_id
-                WHERE oc.customer_id IN (${oph})
-                  AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND COALESCE(c.cancel_approved, 0) != 1
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don') ${dateFilter}`;
-            const countR = await db.get(countQ, [...allOrderCustIds, ...dateParams]);
+            const countR = await db.get(`SELECT COUNT(*) as total FROM order_codes oc WHERE oc.id IN (${oidPh}) ${dateFilter}`, [...oidArr, ...dateParams]);
 
             const dataQ = `
                 SELECT oc.id, oc.order_code, oc.created_at as order_date, oc.status,
@@ -640,14 +679,11 @@ async function affiliateRoutes(fastify) {
                 LEFT JOIN users emp ON emp.id = aff.managed_by_user_id
                 LEFT JOIN users self_aff ON self_aff.source_customer_id = c.id AND self_aff.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
                 LEFT JOIN users self_emp ON self_emp.id = self_aff.managed_by_user_id
-                WHERE oc.customer_id IN (${oph})
-                  AND COALESCE(oc.status, 'active') != 'cancelled'
-                  AND COALESCE(c.cancel_approved, 0) != 1
-                  AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don') ${dateFilter}
+                WHERE oc.id IN (${oidPh}) ${dateFilter}
                 GROUP BY oc.id, oc.order_code, oc.created_at, oc.status, c.customer_name, c.id, aff.full_name, aff.id, emp.full_name, emp.id, self_aff.full_name, self_aff.id, self_emp.full_name, self_emp.id
                 ORDER BY oc.created_at DESC
                 LIMIT ? OFFSET ?`;
-            const rows = await db.all(dataQ, [...allOrderCustIds, ...dateParams, Number(limit), offset]);
+            const rows = await db.all(dataQ, [...oidArr, ...dateParams, Number(limit), offset]);
 
             // ★ Mark first orders with ⭐ flag
             const custIdsOnPage = [...new Set(rows.map(r => r.customer_id))];
@@ -2693,16 +2729,62 @@ async function affiliateRoutes(fastify) {
                 orderWhere = [`oc.id IN (${oidArr.map(() => '?').join(',')})`];
                 orderParams = [...oidArr];
             } else {
+                // ═══ Global view: compute attributable order IDs for ALL affiliates ═══
+                attributableOrderIds = new Set();
                 const ph = affIds.map(() => '?').join(',');
-                const custByRef = await db.all(`SELECT c.id FROM customers c WHERE c.referrer_id IN (${ph})`, affIds);
-                const selfCustIds = allAffs.map(a => a.source_customer_id).filter(Boolean);
-                const allOrderCustIds = [...new Set([...custByRef.map(c => c.id), ...selfCustIds])];
-                if (allOrderCustIds.length === 0) return { success: true, rows: [], total: 0 };
-                orderWhere = [`oc.customer_id IN (${allOrderCustIds.map(() => '?').join(',')})`];
-                orderParams = [...allOrderCustIds];
-                orderWhere.push("COALESCE(oc.status, 'active') != 'cancelled'");
-                orderWhere.push("EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')");
-                orderWhere.push("EXISTS (SELECT 1 FROM customers _cc WHERE _cc.id = oc.customer_id AND COALESCE(_cc.cancel_approved, 0) != 1)");
+
+                // PART A: First orders from ALL referred customers
+                const allRefCusts = await db.all(`SELECT id, referrer_id FROM customers WHERE referrer_id IN (${ph})`, affIds);
+                const allRefCustIds = allRefCusts.map(c => c.id);
+                if (allRefCustIds.length > 0) {
+                    const foMap = await _getFirstOrderMap(db, allRefCustIds);
+                    Object.values(foMap).filter(Boolean).forEach(oid => attributableOrderIds.add(oid));
+                }
+
+                // PART B: Self-purchase orders for each affiliate
+                const selfEntries = allAffs.filter(a => a.source_customer_id).map(a => ({
+                    affId: a.id, custId: a.source_customer_id, hasParent: !!a.assigned_to_user_id
+                }));
+                if (selfEntries.length > 0) {
+                    const selfCustIds = selfEntries.map(e => e.custId);
+                    const selfFoMap = await _getFirstOrderMap(db, selfCustIds);
+                    const firstOrderIdsToExclude = new Set();
+                    selfEntries.forEach(e => {
+                        if (e.hasParent && selfFoMap[e.custId]) firstOrderIdsToExclude.add(selfFoMap[e.custId]);
+                    });
+                    const sph = selfCustIds.map(() => '?').join(',');
+                    const selfOrders = await db.all(`
+                        SELECT oc.id, oc.customer_id FROM order_codes oc
+                        JOIN customers c ON c.id = oc.customer_id
+                        WHERE oc.customer_id IN (${sph})
+                          AND COALESCE(oc.status, 'active') != 'cancelled'
+                          AND COALESCE(c.cancel_approved, 0) != 1
+                          AND EXISTS (SELECT 1 FROM consultation_logs cl WHERE cl.customer_id = oc.customer_id AND cl.log_type = 'chot_don')
+                    `, selfCustIds);
+                    selfOrders.forEach(o => {
+                        if (!firstOrderIdsToExclude.has(o.id)) attributableOrderIds.add(o.id);
+                    });
+                }
+
+                // PART C: First orders from child affiliates (excluding already counted in PART A)
+                const refCustIdSet = new Set(allRefCustIds);
+                const childAffsAll = await db.all(`
+                    SELECT u.source_customer_id, u.assigned_to_user_id FROM users u
+                    WHERE u.assigned_to_user_id IN (${ph})
+                    AND u.role IN ('hoa_hong','ctv','nuoi_duong','sinh_vien','tkaffiliate')
+                    AND u.source_customer_id IS NOT NULL
+                `, affIds);
+                const uniqueChildAffsAll = childAffsAll.filter(c => !refCustIdSet.has(c.source_customer_id));
+                if (uniqueChildAffsAll.length > 0) {
+                    const childCustIds = uniqueChildAffsAll.map(c => c.source_customer_id);
+                    const childFoMap = await _getFirstOrderMap(db, childCustIds);
+                    Object.values(childFoMap).filter(Boolean).forEach(oid => attributableOrderIds.add(oid));
+                }
+
+                if (attributableOrderIds.size === 0) return { success: true, rows: [], total: 0 };
+                const oidArr2 = [...attributableOrderIds];
+                orderWhere = [`oc.id IN (${oidArr2.map(() => '?').join(',')})`];
+                orderParams = [...oidArr2];
             }
             if (from) { orderWhere.push("oc.created_at >= ?"); orderParams.push(from + ' 00:00:00'); }
             if (to) { orderWhere.push("oc.created_at <= ?"); orderParams.push(to + ' 23:59:59'); }
