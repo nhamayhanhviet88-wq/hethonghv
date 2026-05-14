@@ -569,25 +569,32 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 const onLeave = await isUserOnLeave(k.user_id, stackDateStr);
                 if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
-                // Đếm bao nhiêu ngày gốc TRƯỚC ngày stacking này
-                const countBefore = k.origDates.filter(d => d < stackDateStr).length;
-                if (countBefore === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
+                // Lấy danh sách ngày gốc TRƯỚC ngày stacking này
+                const origsBefore = k.origDates.filter(d => d < stackDateStr);
+                if (origsBefore.length === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
 
-                const totalPenalty = countBefore * extraPenaltyKhoa;
+                // ★ Tạo 1 record RIÊNG cho mỗi ngày gốc chưa BC (50k/record)
+                // Dùng redo_count = -2, -3, -4... để phân biệt từng ngày gốc
+                for (let oi = 0; oi < origsBefore.length; oi++) {
+                    const origDate = origsBefore[oi];
+                    const redoVal = -(oi + 2); // -2, -3, -4...
+                    const origParts = origDate.split('-');
+                    const origLabel = `${origParts[2]}/${origParts[1]}`;
 
-                try {
-                    const res = await db.run(
-                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
-                         VALUES ($1, $2, $3, -2, 'expired', $4, true, $5, false)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
-                        [k.lock_task_id, k.user_id, stackDateStr, totalPenalty,
-                         `Phạt chồng: ${k.task_name} (${countBefore} ngày gốc chưa BC)`]
-                    );
-                    if (res && res.rowCount > 0) {
-                        stackCountKhoa++;
+                    try {
+                        const res = await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
+                             VALUES ($1, $2, $3, $4, 'expired', $5, true, $6, false)
+                             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                            [k.lock_task_id, k.user_id, stackDateStr, redoVal, extraPenaltyKhoa,
+                             `Phạt chồng: ${k.task_name} ngày ${origLabel} chưa BC`]
+                        );
+                        if (res && res.rowCount > 0) {
+                            stackCountKhoa++;
+                        }
+                    } catch(e) {
+                        console.error(`  ❌ Error stacking penalty for task ${k.lock_task_id}, user ${k.user_id}:`, e.message);
                     }
-                } catch(e) {
-                    console.error(`  ❌ Error stacking penalty for task ${k.lock_task_id}, user ${k.user_id}:`, e.message);
                 }
 
                 stackDate.setUTCDate(stackDate.getUTCDate() + 1);

@@ -927,7 +927,7 @@ async function lockTaskRoutes(fastify, options) {
             JOIN users u ON u.id = ltc.user_id
             LEFT JOIN departments d ON d.id = u.department_id
             WHERE ltc.status IN ('expired','rejected')
-              AND ltc.redo_count != -2
+              AND ltc.redo_count >= 0
               AND NOT EXISTS (
                   SELECT 1 FROM lock_task_completions ltc2
                   WHERE ltc2.lock_task_id = ltc.lock_task_id
@@ -1003,7 +1003,7 @@ async function lockTaskRoutes(fastify, options) {
                 SELECT COUNT(*) as cnt FROM lock_task_completions ltc
                 JOIN lock_task_assignments lta ON lta.lock_task_id = ltc.lock_task_id AND lta.user_id = ltc.user_id
                 WHERE ltc.user_id = $1 AND ltc.status IN ('expired','rejected')
-                  AND ltc.redo_count != -2
+                  AND ltc.redo_count >= 0
                   AND NOT EXISTS (
                       SELECT 1 FROM lock_task_completions ltc2
                       WHERE ltc2.lock_task_id = ltc.lock_task_id
@@ -1039,11 +1039,11 @@ async function lockTaskRoutes(fastify, options) {
         // 1. Delete assignment
         await db.run('DELETE FROM lock_task_assignments WHERE lock_task_id = $1 AND user_id = $2', [taskId, targetUserId]);
 
-        // 2. Delete non-penalty completions (submitted, pending, approved, rejected, redo)
+        // 2. Delete non-penalty completions AND stacking penalties (redo_count <= -2)
         await db.run(
             `DELETE FROM lock_task_completions
              WHERE lock_task_id = $1 AND user_id = $2
-               AND (status != 'expired' OR penalty_applied = false OR redo_count = -2)`,
+               AND (status != 'expired' OR penalty_applied = false OR redo_count <= -2)`,
             [taskId, targetUserId]
         );
 

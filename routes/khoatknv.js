@@ -639,12 +639,12 @@ async function khoaTKNVRoutes(fastify, options) {
         );
 
         const khoaPending = khoaRecords
-            .filter(r => r.redo_count === 0 || r.redo_count === -2)
+            .filter(r => r.redo_count === 0 || r.redo_count <= -2)
             .map(r => ({
                 task_name: r.task_name,
                 task_date: r.task_date,
                 penalty_amount: r.penalty_amount,
-                penalty_reason: r.redo_count === -2
+                penalty_reason: r.redo_count <= -2
                     ? (r.penalty_reason || `Phạt chồng: ${r.task_name}`)
                     : `Không nộp báo cáo: ${r.task_name}`
             }));
