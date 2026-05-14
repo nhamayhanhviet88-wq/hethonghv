@@ -1515,7 +1515,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
             } catch(e) { console.error('  ❌ [Block] Cấp cứu query error:', e.message); }
 
-            // Source 4: CV Điểm / Hỗ trợ NV (task_support_requests)
+            // Source 4: CV Điểm / Hỗ trợ NV (task_support_requests) — ngày hôm qua
             try {
                 const srRows = await db.all(
                     `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
@@ -1530,6 +1530,60 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     blockMap.get(r.user_id).push({ task_name: `${src}: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
                 }
             } catch(e) { console.error('  ❌ [Block] Hỗ trợ NV query error:', e.message); }
+
+            // Source 4a: QL KHÔNG HỖ TRỢ (phạt chồng) — bất kể ngày nào, miễn status='ql_expired'
+            try {
+                const srOngoing = await db.all(
+                    `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
+                            sr.penalty_amount, sr.penalty_reason
+                     FROM task_support_requests sr
+                     WHERE sr.status = 'ql_expired' AND sr.penalty_amount > 0
+                       AND sr.task_date != $1::date`, [blockTargetStr]
+                );
+                for (const r of srOngoing) {
+                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
+                    blockMap.get(r.user_id).push({ task_name: `Chưa hỗ trợ NV: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
+                }
+            } catch(e) { console.error('  ❌ [Block] QL phạt chồng HT query error:', e.message); }
+
+            // Source 4b: QL KHÔNG DUYỆT CV KHÓA (phạt chồng) — pending NV record + expired QL record
+            try {
+                const qlKhoaOngoing = await db.all(
+                    `SELECT ltc_ql.user_id, lt.task_name, ltc_ql.completion_date::text as task_date,
+                            ltc_ql.penalty_amount, ltc_ql.content as penalty_reason
+                     FROM lock_task_completions ltc_ql
+                     JOIN lock_tasks lt ON lt.id = ltc_ql.lock_task_id
+                     WHERE ltc_ql.redo_count = -1 AND ltc_ql.status = 'expired' AND ltc_ql.penalty_applied = true
+                       AND ltc_ql.completion_date != $1::date
+                       AND EXISTS (SELECT 1 FROM lock_task_completions ltc_nv
+                                   WHERE ltc_nv.lock_task_id = ltc_ql.lock_task_id
+                                     AND ltc_nv.completion_date = ltc_ql.completion_date
+                                     AND ltc_nv.status = 'pending' AND ltc_nv.redo_count >= 0)`, [blockTargetStr]
+                );
+                for (const r of qlKhoaOngoing) {
+                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
+                    blockMap.get(r.user_id).push({ task_name: `Chưa duyệt CV Khóa: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason || 'Không duyệt công việc khóa' });
+                }
+            } catch(e) { console.error('  ❌ [Block] QL phạt chồng Khóa query error:', e.message); }
+
+            // Source 4c: QL KHÔNG DUYỆT CV CHUỖI (phạt chồng) — pending NV record + expired QL record
+            try {
+                const qlChuoiOngoing = await db.all(
+                    `SELECT cc_ql.user_id, ci.task_name, ci.deadline::text as task_date,
+                            cc_ql.penalty_amount, cc_ql.content as penalty_reason, cins.chain_name
+                     FROM chain_task_completions cc_ql
+                     JOIN chain_task_instance_items ci ON ci.id = cc_ql.chain_item_id
+                     JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
+                     WHERE cc_ql.redo_count = -2 AND cc_ql.status = 'expired' AND cc_ql.penalty_applied = true
+                       AND EXISTS (SELECT 1 FROM chain_task_completions cc_nv
+                                   WHERE cc_nv.chain_item_id = cc_ql.chain_item_id
+                                     AND cc_nv.status = 'pending' AND cc_nv.redo_count >= 0)`
+                );
+                for (const r of qlChuoiOngoing) {
+                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
+                    blockMap.get(r.user_id).push({ task_name: `Chưa duyệt CV Chuỗi: ${r.task_name} (${r.chain_name})`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason || 'Không duyệt CV chuỗi' });
+                }
+            } catch(e) { console.error('  ❌ [Block] QL phạt chồng Chuỗi query error:', e.message); }
 
             // Source 5: KH Chưa XL + KH Trễ (customer_penalty_records)
             // ★ Skip GĐ — không bao giờ block Giám Đốc
