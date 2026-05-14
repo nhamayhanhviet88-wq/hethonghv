@@ -29,6 +29,114 @@ module.exports = async function (fastify) {
         return getVNToday();
     }
 
+    // ★ HELPER: Sync addcmt scoring to CV Điểm (task_point_reports) + CV Khóa (lock_task_completions)
+    // Called after INSERT/DELETE on daily_link_entries to keep both systems in sync
+    async function _syncAddCmtScoring(userId, date) {
+        const MODULE = 'addcmt';
+        const PATTERN = '%Add%Cmt%Đối Tác%';
+        const PATTERN_RE = /add.*cmt.*đối.*tác/i;
+
+        try {
+            // 1. Count current entries in daily_link_entries
+            const countRes = await db.get(
+                'SELECT COUNT(*) as cnt FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                [userId, date, MODULE]
+            );
+            const entryCount = parseInt(countRes?.cnt || 0);
+
+            // 2. Auto-score CV Điểm → task_point_reports
+            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
+            let tpl = await db.get("SELECT id, min_quantity, points, requires_approval FROM task_point_templates WHERE target_type = 'individual' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [userId, PATTERN]);
+            if (!tpl && user?.department_id) tpl = await db.get("SELECT id, min_quantity, points, requires_approval FROM task_point_templates WHERE target_type = 'team' AND target_id = $1 AND task_name ILIKE $2 LIMIT 1", [user.department_id, PATTERN]);
+            if (!tpl) tpl = await db.get("SELECT id, min_quantity, points, requires_approval FROM task_point_templates WHERE task_name ILIKE $1 LIMIT 1", [PATTERN]);
+
+            if (tpl) {
+                // Check user override
+                let target = Number(tpl.min_quantity);
+                let points = Number(tpl.points);
+                const ov = await db.get('SELECT custom_points, custom_min_quantity FROM task_user_overrides WHERE user_id = $1 AND source_type = $2 AND source_id = $3', [userId, 'diem', tpl.id]);
+                if (ov?.custom_min_quantity != null) target = Number(ov.custom_min_quantity);
+                if (ov?.custom_points != null) points = Number(ov.custom_points);
+
+                const metTarget = entryCount >= target;
+                const qty = metTarget ? target : entryCount;
+
+                // Check force_approval
+                const faUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                const faForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'diem', tpl.id]);
+                const needsApproval = tpl.requires_approval || faUser?.force_approval || !!faForce;
+                const shouldAutoApprove = !needsApproval;
+
+                // Upsert task_point_reports
+                const existing = await db.get(
+                    'SELECT id, status FROM task_point_reports WHERE template_id = $1 AND user_id = $2 AND report_date = $3 ORDER BY redo_count DESC LIMIT 1',
+                    [tpl.id, userId, date]
+                );
+
+                if (existing) {
+                    if (existing.status !== 'approved') {
+                        await db.run(
+                            `UPDATE task_point_reports SET quantity = $1, points_earned = 0, content = $2, report_value = $3, status = 'pending' WHERE id = $4`,
+                            [qty, `[Tự động] ${entryCount}/${target} addcmt`, `${entryCount}/${target}`, existing.id]
+                        );
+                    }
+                } else if (entryCount > 0) {
+                    const status = shouldAutoApprove ? 'approved' : 'pending';
+                    const earned = shouldAutoApprove ? (metTarget ? points : 0) : 0;
+                    await db.run(
+                        `INSERT INTO task_point_reports (template_id, user_id, report_date, quantity, points_earned, status, content, report_type, report_value) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                        [tpl.id, userId, date, qty, earned, status, `[Tự động] ${entryCount}/${target} addcmt`, 'link', `${entryCount}/${target}`]
+                    );
+                }
+                console.log(`[AddCmt] Auto-scored CV Điểm: user=${userId}, count=${entryCount}/${target}, pts=${points}`);
+            }
+
+            // 3. Sync CV Khóa → lock_task_completions
+            const lockTasks = await db.all("SELECT id, task_name, requires_approval, min_quantity FROM lock_tasks WHERE is_active = true");
+            const matchLTs = lockTasks.filter(lt => PATTERN_RE.test(lt.task_name));
+            for (const lt of matchLTs) {
+                const comp = await db.get(
+                    "SELECT id, status FROM lock_task_completions WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 ORDER BY id DESC LIMIT 1",
+                    [lt.id, userId, date]
+                );
+
+                const minQty = lt.min_quantity || 1;
+                const metLockTarget = entryCount >= minQty;
+
+                // Check force_approval for lock
+                const fuUser = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+                const fuForce = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'lock', lt.id]);
+                const fuNeedsApproval = lt.requires_approval || fuUser?.force_approval || !!fuForce;
+
+                if (!comp) {
+                    if (!metLockTarget && !fuNeedsApproval) continue; // Chưa đủ SL, không cần duyệt → skip
+                    const status = (!metLockTarget || fuNeedsApproval) ? 'pending' : 'approved';
+                    let deadline = null;
+                    if (status === 'pending') {
+                        try {
+                            const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+                            deadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+                        } catch(e2) {}
+                    }
+                    await db.run(
+                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, content, status, approval_deadline, quantity_done, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+                        [lt.id, userId, date, `[Tự động] addcmt`, status, deadline, entryCount]
+                    );
+                    console.log(`[AddCmt] Created ${status} lock_task_completion for ${date}, task=${lt.task_name} (${entryCount}/${minQty})`);
+                } else if (comp.status !== 'approved') {
+                    const status = (!metLockTarget || fuNeedsApproval) ? 'pending' : 'approved';
+                    await db.run(
+                        `UPDATE lock_task_completions SET status = $1, quantity_done = $2, updated_at = NOW() WHERE id = $3`,
+                        [status, entryCount, comp.id]
+                    );
+                    console.log(`[AddCmt] Updated lock_task_completion id=${comp.id} to ${status} (${entryCount}/${minQty})`);
+                }
+            }
+        } catch(err) {
+            console.error('[AddCmt] Scoring sync error:', err.message);
+        }
+    }
+
     // GET entries
     fastify.get('/api/addcmt/entries', { preHandler: [authenticate] }, async (req) => {
         const { date, date_from, date_to, user_id, dept_id } = req.query;
@@ -127,6 +235,19 @@ module.exports = async function (fastify) {
         const today = _vnToday();
 
         await db.run('INSERT INTO addcmt_entries (user_id, entry_date, fb_link, image_path) VALUES ($1, $2, $3, $4)', [req.user.id, today, fb_link.trim(), imagePath || null]);
+
+        // ★ DUAL-WRITE: Sync to daily_link_entries → enables CV Điểm + CV Khóa linkage in Lịch Khóa Biểu
+        try {
+            await db.run(
+                'INSERT INTO daily_link_entries (user_id, entry_date, fb_link, module_type) VALUES ($1, $2, $3, $4)',
+                [req.user.id, today, fb_link.trim(), 'addcmt']
+            );
+            await _syncAddCmtScoring(req.user.id, today);
+            console.log(`[AddCmt] Dual-write OK: user=${req.user.id}, date=${today}, fb_link=${fb_link.trim()}`);
+        } catch(syncErr) {
+            console.error('[AddCmt] Dual-write error (non-fatal):', syncErr.message);
+        }
+
         return { success: true };
     });
 
@@ -138,6 +259,24 @@ module.exports = async function (fastify) {
         const ed = typeof e.entry_date === 'string' ? e.entry_date.split('T')[0] : e.entry_date?.toISOString?.()?.split('T')[0];
         if (ed !== _vnToday() && req.user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ xóa được trong ngày' });
         await db.run('DELETE FROM addcmt_entries WHERE id = $1', [Number(req.params.id)]);
+
+        // ★ DUAL-DELETE: Remove matching record from daily_link_entries + re-sync scoring
+        try {
+            const ed2 = typeof e.entry_date === 'string' ? e.entry_date.split('T')[0] : e.entry_date?.toISOString?.()?.split('T')[0];
+            // Delete ONE matching daily_link_entries record (by fb_link + date + module)
+            const dlMatch = await db.get(
+                'SELECT id FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3 AND fb_link = $4 LIMIT 1',
+                [e.user_id, ed2, 'addcmt', e.fb_link]
+            );
+            if (dlMatch) {
+                await db.run('DELETE FROM daily_link_entries WHERE id = $1', [dlMatch.id]);
+                console.log(`[AddCmt] Dual-delete OK: daily_link_entries id=${dlMatch.id}`);
+            }
+            await _syncAddCmtScoring(e.user_id, ed2);
+        } catch(syncErr) {
+            console.error('[AddCmt] Dual-delete sync error (non-fatal):', syncErr.message);
+        }
+
         return { success: true };
     });
 

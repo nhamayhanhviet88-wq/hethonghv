@@ -188,13 +188,13 @@ async function customersRoutes(fastify, options) {
 
         const result = await db.run(
             `INSERT INTO customers (customer_uid, crm_type, customer_name, phone, phone2, source_id, promotion_id,
-             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             industry_id, receiver_id, assigned_to_id, notes, daily_order_number, created_by, referrer_id, job, facebook_link, cong_viec, effective_date, appointment_date)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [customerUid, crm_type, customer_name || null, phone || null, phone2 || null,
              resolvedSourceId, promotion_id ? Number(promotion_id) : null,
              industry_id ? Number(industry_id) : null,
              actualReceiverId, actualReceiverId, notes || null, dailyNum,
-             request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate]
+             request.user.id, referrerId, job || null, facebook_link || null, cong_viec || null, effectiveDate, effectiveDate]
         );
 
         const code = `${dailyNum}-${_d}-${_m}`;
