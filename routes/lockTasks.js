@@ -749,7 +749,7 @@ async function lockTaskRoutes(fastify, options) {
 
     // GET: Single completion detail (for review modal popup)
     fastify.get('/api/lock-tasks/completion-detail', { preHandler: [authenticate] }, async (request, reply) => {
-        if (!isManager(request.user.role)) {
+        if (!['giam_doc', 'quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(request.user.role)) {
             return reply.code(403).send({ error: 'Không có quyền' });
         }
         const completionId = Number(request.query.completion_id);
