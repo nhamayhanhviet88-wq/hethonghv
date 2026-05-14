@@ -405,7 +405,7 @@ async function khoaTKNVRoutes(fastify, options) {
         let cpParams = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date`;
+            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc'`;
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user5 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
             if (!user5 || !user5.department_id) {
@@ -419,11 +419,11 @@ async function khoaTKNVRoutes(fastify, options) {
                     gc5.forEach(gc => deptIds5.push(gc.id));
                 }
                 const ph5 = deptIds5.map((_, i) => `$${i + 3}`).join(',');
-                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.department_id IN (${ph5})`;
+                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc' AND u.department_id IN (${ph5})`;
                 cpParams.push(...deptIds5);
             }
         } else {
-            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND cpr.user_id = $3`;
+            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc' AND cpr.user_id = $3`;
             cpParams.push(userId);
         }
 
@@ -560,7 +560,9 @@ async function khoaTKNVRoutes(fastify, options) {
         });
 
         // Source 5: customer_penalty_records (KH chưa xử lý)
-        const cpItems = await db.all(
+        // ★ Skip GĐ — không bao giờ hiện phạt cho Giám Đốc
+        const gdCheck = await db.get('SELECT role FROM users WHERE id = $1', [managerId]);
+        const cpItems = (gdCheck?.role === 'giam_doc') ? [] : await db.all(
             `SELECT cpr.crm_type as task_name, cpr.penalty_date::text as task_date, cpr.penalty_amount, cpr.acknowledged,
                     cpr.unhandled_count, cpr.crm_type
              FROM customer_penalty_records cpr
@@ -915,6 +917,7 @@ async function khoaTKNVRoutes(fastify, options) {
                  JOIN users u ON u.id = cpr.user_id
                  WHERE cpr.penalty_date = $1::date
                    AND cpr.user_id != $2
+                   AND u.role != 'giam_doc'
                    AND u.department_id IN (${deptPlaceholders})
                  ORDER BY cpr.penalty_date`,
                 baseParams

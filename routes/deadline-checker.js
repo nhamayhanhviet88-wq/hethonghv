@@ -1084,7 +1084,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
                 // Lấy tất cả khách có appointment_date = hôm nay, nhóm theo user + crm_type
                 const unhandledGroups = await db.all(
-                    `SELECT c.assigned_to_id as user_id, c.crm_type, 
+                    `SELECT c.assigned_to_id as user_id, c.crm_type, u.role as user_role,
                             COUNT(*) as total_customers,
                             COUNT(*) FILTER (WHERE NOT EXISTS (
                                 SELECT 1 FROM consultation_logs cl 
@@ -1094,12 +1094,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.log_type != 'khong_xu_ly'
                             )) as unhandled_count
                      FROM customers c
+                     JOIN users u ON u.id = c.assigned_to_id AND u.status = 'active'
                      WHERE c.appointment_date::date = $1::date
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
                      AND NOT EXISTS (SELECT 1 FROM crm_conversion_requests ccr WHERE ccr.customer_id = c.id AND ccr.status = 'pending')
-                     GROUP BY c.assigned_to_id, c.crm_type
+                     GROUP BY c.assigned_to_id, c.crm_type, u.role
                      HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
                          SELECT 1 FROM consultation_logs cl 
                          WHERE cl.customer_id = c.id 
@@ -1115,6 +1116,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const userId = group.user_id;
                     const crmType = group.crm_type;
                     const unhandled = group.unhandled_count;
+
+                    // Skip GĐ — Giám Đốc miễn phạt
+                    if (group.user_role === 'giam_doc') continue;
 
                     // Skip nếu user đang nghỉ phép
                     const onLeave = await isUserOnLeave(userId, today);
@@ -1268,7 +1272,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
                 // Lấy tất cả KH có appointment_date < hôm nay (trễ), nhóm theo user + crm_type
                 const overdueGroups = await db.all(
-                    `SELECT c.assigned_to_id as user_id, c.crm_type,
+                    `SELECT c.assigned_to_id as user_id, c.crm_type, u.role as user_role,
                             COUNT(*) as total_customers,
                             COUNT(*) FILTER (WHERE NOT EXISTS (
                                 SELECT 1 FROM consultation_logs cl
@@ -1278,12 +1282,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
                                 AND cl.log_type != 'khong_xu_ly'
                             )) as unhandled_count
                      FROM customers c
+                     JOIN users u ON u.id = c.assigned_to_id AND u.status = 'active'
                      WHERE c.appointment_date::date < $1::date
                      AND c.assigned_to_id IS NOT NULL
                      AND c.cancel_approved != 1
                      AND c.order_status NOT IN ('hoan_thanh', 'duyet_huy')
                      AND NOT EXISTS (SELECT 1 FROM crm_conversion_requests ccr WHERE ccr.customer_id = c.id AND ccr.status = 'pending')
-                     GROUP BY c.assigned_to_id, c.crm_type
+                     GROUP BY c.assigned_to_id, c.crm_type, u.role
                      HAVING COUNT(*) FILTER (WHERE NOT EXISTS (
                          SELECT 1 FROM consultation_logs cl
                          WHERE cl.customer_id = c.id
@@ -1299,6 +1304,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const userId = group.user_id;
                     const crmType = group.crm_type;
                     const unhandled = group.unhandled_count;
+
+                    // Skip GĐ — Giám Đốc miễn phạt
+                    if (group.user_role === 'giam_doc') continue;
 
                     // Skip nếu user đang nghỉ phép
                     const onLeave = await isUserOnLeave(userId, treToday);
@@ -1436,11 +1444,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
             } catch(e) { console.error('  ❌ [Block] Hỗ trợ NV query error:', e.message); }
 
             // Source 5: KH Chưa XL + KH Trễ (customer_penalty_records)
+            // ★ Skip GĐ — không bao giờ block Giám Đốc
             try {
                 const cpRows = await db.all(
-                    `SELECT user_id, crm_type, unhandled_count, penalty_amount, penalty_date::text as task_date
-                     FROM customer_penalty_records
-                     WHERE penalty_date = $1::date AND acknowledged = false`, [blockTargetStr]
+                    `SELECT cpr.user_id, cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount, cpr.penalty_date::text as task_date
+                     FROM customer_penalty_records cpr
+                     JOIN users u ON u.id = cpr.user_id
+                     WHERE cpr.penalty_date = $1::date AND cpr.acknowledged = false AND u.role != 'giam_doc'`, [blockTargetStr]
                 );
                 for (const r of cpRows) {
                     if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
