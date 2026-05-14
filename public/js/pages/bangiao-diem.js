@@ -1872,9 +1872,6 @@ async function _tpShowPickFromLibrary(dayOfWeek) {
             </button>
         </div>
         <div id="tpPickList" style="flex:1;overflow-y:auto;padding:12px 20px;"></div>
-        <div style="padding:10px 20px;border-top:1px solid #f3f4f6;text-align:center;">
-            <button onclick="document.getElementById('tpPickModal').remove();_tpShowTaskModal(null,${dayOfWeek})" style="padding:6px 14px;border:1px dashed #6b7280;border-radius:6px;background:white;color:#6b7280;cursor:pointer;font-size:12px;">✏️ Hoặc tạo thủ công</button>
-        </div>
     </div>`;
     document.body.appendChild(modal);
     _tpRenderPickerTab();

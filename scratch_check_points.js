@@ -1,31 +1,37 @@
-const db = require('./db/pool');
-(async () => {
-    // Check ALL days for dept 1 — find any day with total > 100
-    for (let dow = 1; dow <= 7; dow++) {
-        const templates = await db.all(`
-            SELECT t.id, t.task_name, t.points, t.time_start, t.time_end
-            FROM task_point_templates t
-            WHERE t.target_type = 'team' AND t.target_id = 1 AND t.day_of_week = $1
-            ORDER BY t.time_start, t.id
-        `, [dow]);
-        const total = templates.reduce((s, t) => s + t.points, 0);
-        const dayNames = ['', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-        const flag = total > 100 ? ' ⚠️ OVER' : (total === 100 ? ' ✅' : ` (${total}đ)`);
-        console.log(`${dayNames[dow]}: ${total}/100đ${flag} — ${templates.length} templates`);
+const fs = require('fs');
+let content = fs.readFileSync('public/js/pages/bangiao-diem.js', 'utf8');
+
+// Find and remove the "Hoặc tạo thủ công" button div
+const searchStr = '✏️ Hoặc tạo thủ công';
+const idx = content.indexOf(searchStr);
+console.log('Found at index:', idx);
+
+if (idx > 0) {
+    // Find the enclosing <div> ... </div> block
+    // Search backward for <div style="padding:10px 20px;border-top
+    const beforeIdx = content.lastIndexOf('<div style="padding:10px 20px;border-top:1px solid #f3f4f6;text-align:center;">', idx);
+    // Search forward for </div> after the button
+    const afterIdx = content.indexOf('</div>', idx);
+    
+    if (beforeIdx > 0 && afterIdx > 0) {
+        const endIdx = afterIdx + '</div>'.length;
+        const blockToRemove = content.substring(beforeIdx, endIdx);
+        console.log('Removing block:', JSON.stringify(blockToRemove).substring(0, 200));
         
-        // Check for duplicate slots (same time_start+time_end, multiple tasks)
-        const slotMap = {};
-        templates.forEach(t => {
-            const key = `${t.time_start}-${t.time_end}`;
-            if (!slotMap[key]) slotMap[key] = [];
-            slotMap[key].push(t);
-        });
-        for (const [slot, tasks] of Object.entries(slotMap)) {
-            if (tasks.length > 1) {
-                console.log(`  ⚠️ DUPLICATE SLOT [${slot}]:`);
-                tasks.forEach(t => console.log(`    ID=${t.id} "${t.task_name}" = ${t.points}đ`));
-            }
-        }
+        // Also remove the surrounding whitespace/newlines
+        // Find the start of the line (after previous \n)
+        let lineStart = beforeIdx;
+        while (lineStart > 0 && content[lineStart - 1] !== '\n') lineStart--;
+        
+        // Find end of line after </div>
+        let lineEnd = endIdx;
+        while (lineEnd < content.length && content[lineEnd] !== '\n') lineEnd++;
+        if (content[lineEnd] === '\n') lineEnd++;
+        
+        content = content.substring(0, lineStart) + content.substring(lineEnd);
+        fs.writeFileSync('public/js/pages/bangiao-diem.js', content);
+        console.log('✅ Removed successfully');
     }
-    process.exit(0);
-})();
+} else {
+    console.log('❌ Not found');
+}
