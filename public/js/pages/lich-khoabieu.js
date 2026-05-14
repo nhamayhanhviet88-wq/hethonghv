@@ -1580,13 +1580,17 @@ function _kbRenderGrid() {
                         lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                     } else if (realComp.status === 'pending') {
                         const _lockNeedsApproval = lt.requires_approval || _kbForceApproval || _kbForceLockIds.has(lt.id);
-                        if (dateStr < todayStr && !_lockNeedsApproval) {
-                            // Past day + no approval required → auto-show as approved
+                        const _lockQtyMet = (realComp.quantity_done || 0) >= (lt.min_quantity || 1);
+                        if (dateStr < todayStr && !_lockNeedsApproval && _lockQtyMet) {
+                            // Past day + no approval required + quantity met → auto-show as approved
                             lockStatusBadge = '<span style="background:#dcfce7;color:#059669;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">✅ Đã duyệt</span>';
                             lockBg = '#f0fdf4'; lockBorder = '#a7f3d0';
                         } else {
                         const _lockHasInject = /sedding|đăng.*bản.*thân|tìm.*gr.*zalo/i.test(lt.task_name);
-                        if (!_lockHasInject) {
+                        if (_lockHasInject && !_lockQtyMet) {
+                            // Inject task with insufficient quantity — show warning
+                            lockStatusBadge = `<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;">⚠️ ${realComp.quantity_done || 0}/${lt.min_quantity || 1}</span>`;
+                        } else if (!_lockHasInject) {
                         lockStatusBadge = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:5px 10px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;display:inline-block;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt</span></div>';
                         }
                         lockBg = '#fffbeb'; lockBorder = '#fde68a';
