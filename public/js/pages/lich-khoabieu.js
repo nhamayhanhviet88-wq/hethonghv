@@ -1031,7 +1031,6 @@ async function _kbLoadSchedule() {
         // ★ Store department_joined_at + user_created_at for CV Khóa date filtering
         _kbDeptJoinedAt = ltData.department_joined_at || null;
         _kbUserCreatedAt = ltData.user_created_at || null;
-        console.log('[KB Lock] dept_joined_at:', _kbDeptJoinedAt, '| user_created_at:', _kbUserCreatedAt, '| tasks[0].assigned_at:', _kbLockTasks[0]?.assigned_at);
         // Store lock support requests
         window._kbLockSupportRequests = {};
         (ltData.supportRequests || []).forEach(sr => {
