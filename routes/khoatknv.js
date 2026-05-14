@@ -368,12 +368,18 @@ async function khoaTKNVRoutes(fastify, options) {
             emParams
         );
 
+        // Lấy mức phạt cấp cứu/ngày từ config (mặc định 50k)
+        const emConfigRow = await db.get("SELECT amount FROM global_penalty_config WHERE key = 'cap_cuu_ql_khong_xu_ly'");
+        const emDailyPenalty = emConfigRow ? Number(emConfigRow.amount) : 50000;
+
         const emFormatted = emPenalties.map(p => ({
             ...p,
             source_type: 'emergency',
             source_label: '🚨 Cấp cứu sếp — QL không xử lý',
             task_name: `Cấp cứu: ${p.customer_name || 'Khách hàng'}`,
             penalty_reason: `Không xử lý cấp cứu: ${p.reason}`,
+            // Hiện mức phạt/ngày, KHÔNG phải tổng tích lũy
+            penalty_amount: emDailyPenalty,
             penalized_user_id: p.handover_to || p.handler_id,
             penalized_name: p.handler_name,
             penalized_username: p.handler_username,
