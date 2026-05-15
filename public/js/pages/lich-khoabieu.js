@@ -4479,7 +4479,8 @@ function _kbRenderDangContentMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#8b5cf6;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#8b5cf6;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _dcColor = done ? '#059669' : '#8b5cf6';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#8b5cf6;font-weight:700;">✍️ ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_dcColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
@@ -4540,7 +4541,8 @@ function _kbRenderDangGroupMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0891b2;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0891b2;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _dgColor = done ? '#059669' : '#0891b2';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0891b2;font-weight:700;">📢 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_dgColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
@@ -4601,7 +4603,8 @@ function _kbRenderTuyenDungMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#be185d;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#be185d;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _tdColor = done ? '#059669' : '#be185d';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#be185d;font-weight:700;">🎓 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_tdColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
@@ -4675,7 +4678,8 @@ function _kbRenderSeddingMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#ea580c;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#ea580c;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _sdColor = done ? '#059669' : '#ea580c';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#ea580c;font-weight:700;">🌐 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_sdColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
@@ -4769,7 +4773,8 @@ function _kbRenderZaloMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#0284c7;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#0284c7;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _zlColor = done ? '#059669' : '#0284c7';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#0284c7;font-weight:700;">🔍 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_zlColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
@@ -4863,7 +4868,8 @@ function _kbRenderDangBTMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#a21caf;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#d946ef;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        const _btColor = done ? '#059669' : '#d946ef';
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${done ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>` : `<span style="color:#a21caf;font-weight:700;">📸 ${count}/${target}</span>`}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_btColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
