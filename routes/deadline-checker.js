@@ -532,6 +532,23 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
             }
 
+            // AUTO-FIX: "Setup Spam Zalo" — if no pending spam groups, auto-approve
+            if (exp.task_name && exp.task_name.toLowerCase().includes('setup spam zalo')) {
+                const pendingSpam = await db.get(
+                    `SELECT COUNT(*) as c FROM zalo_task_results WHERE spam_eligible = true AND spam_status != 'done'`
+                );
+                if (parseInt(pendingSpam?.c || 0) === 0) {
+                    await db.run(
+                        `UPDATE lock_task_completions SET status = 'approved', penalty_applied = false,
+                         content = 'Tự động hoàn thành — không có nhóm spam cần xử lý'
+                         WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired'`,
+                        [exp.lock_task_id, exp.user_id, exp.completion_date]
+                    );
+                    console.log(`  ✅ [Auto-fix] ${exp.task_name} ${exp.completion_date} user=${exp.user_id} → no pending spam → approved`);
+                    continue;
+                }
+            }
+
             const key = `${exp.lock_task_id}_${exp.user_id}`;
             if (!taskUserMap[key]) {
                 taskUserMap[key] = {
