@@ -4411,10 +4411,11 @@ function _kbRenderDangVideoMini(el, res) {
     if (isPending) {
         el.innerHTML = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${count}/${target}</span></div></div>`;
     } else {
+        const _dvColor = done ? '#059669' : '#dc2626';
         const statusLabel = done
-            ? `<span style="color:#dc2626;font-weight:800;">✅ ${count}/${target}</span>`
+            ? `<span style="color:#059669;font-weight:800;">✅ ${count}/${target}</span>`
             : `<span style="color:#dc2626;font-weight:700;">🎬 ${count}/${target}</span>`;
-        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:#dc2626;height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
+        el.innerHTML = `<div style="margin-top:4px;"><div style="font-size:9px;margin-bottom:2px;">${statusLabel}</div><div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:${_dvColor};height:100%;width:${pct}%;border-radius:4px;transition:width .5s;"></div></div></div>`;
     }
 }
 
