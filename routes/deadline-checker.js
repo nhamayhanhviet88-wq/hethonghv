@@ -371,10 +371,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     if (checkDateStr < joinedDate) continue;
                 }
 
-                // Check if already penalized for this task+date
+                // Check if already penalized for this task+date (only NV records, redo_count >= 0)
                 const alreadyExpiredCount = await db.all(
                     `SELECT id, redo_count FROM lock_task_completions
-                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true`,
+                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true AND redo_count >= 0`,
                     [la.task_id, la.user_id, checkDateStr]
                 );
 
