@@ -1788,8 +1788,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     );
 
                     if (existing) {
-                        if (existing.status === 'pending' || existing.status === 'approved') {
-                            // PROTECTED: only update quantity, NOT status (preserve manual approval)
+                        if (existing.status === 'approved' && !needsApproval11) {
+                            // Auto-approved: update quantity AND recalculate points
+                            await db.run(`UPDATE task_point_reports SET quantity = $1, points_earned = $2 WHERE id = $3`, [tmplQty, tmplEarned, existing.id]);
+                        } else if (existing.status === 'pending' || existing.status === 'approved') {
+                            // Pending or approval-required: only update quantity (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const s11 = needsApproval11 ? 'pending' : 'approved';
@@ -1887,8 +1890,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     );
 
                     if (existing) {
-                        if (existing.status === 'pending' || existing.status === 'approved') {
-                            // PROTECTED: preserve manual approval, only update quantity
+                        if (existing.status === 'approved' && !needsApproval12) {
+                            // Auto-approved: update quantity AND recalculate points
+                            await db.run(`UPDATE task_point_reports SET quantity = $1, points_earned = $2 WHERE id = $3`, [tmplQty, tmplEarned, existing.id]);
+                        } else if (existing.status === 'pending' || existing.status === 'approved') {
+                            // Pending or approval-required: only update quantity (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const s12 = needsApproval12 ? 'pending' : 'approved';
