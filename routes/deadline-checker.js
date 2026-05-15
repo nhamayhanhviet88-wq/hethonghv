@@ -1477,7 +1477,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
     // ★★★ LEDGER SYNC — Ghi sổ phạt trước khi khóa TK ★★★
     try {
         const { syncLedgerForDate } = require('../utils/penaltyLedger');
-        await syncLedgerForDate(todayStr);
+        await syncLedgerForDate(toDateStr(now));
     } catch(e) { console.error('  ❌ [Ledger Sync] Error:', e.message); }
 
     // ★★★ PHASE 2: ACCESS BLOCK — Chạy lúc 00:00 (đầu ngày mới) ★★★
