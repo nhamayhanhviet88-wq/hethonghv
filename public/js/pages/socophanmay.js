@@ -74,7 +74,19 @@ function _cpmRenderToolbar() {
     var tThu=0, tChi=0;
     _cpm.records.forEach(function(r){ if(r.cashflow_type==='THU') tThu+=Number(r.amount); else tChi+=Number(r.amount); });
     var addBtn = '<button onclick="_cpmShowAdd()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer">➕ Tạo Mã Tiền</button>';
-    tb.innerHTML = '<span style="font-weight:800;font-size:13px">🧵 '+ft+'</span><span style="flex:1"></span><span style="font-size:11px">THU: <b style="color:#2ecc71">'+_cpmFmt(tThu)+'</b></span><span style="font-size:11px">CHI: <b style="color:#e67e22">'+_cpmFmt(tChi)+'</b></span><span style="font-size:12px;font-weight:800">SỐ DƯ: <b style="color:'+(tThu-tChi>=0?'#2ecc71':'#e74c3c')+'">'+_cpmFmt(tThu-tChi)+'</b></span>'+addBtn;
+    var soDu = tThu - tChi;
+    tb.innerHTML = '<span style="font-weight:800;font-size:13px">🧵 '+ft+'</span><span style="flex:1"></span>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#7c3aed;letter-spacing:1px;margin-bottom:2px">SỐ TIỀN THU</div>'
+        + '<div style="font-size:13px;font-weight:900;color:#059669">'+_cpmFmt(tThu)+'</div></div>'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#7c3aed;letter-spacing:1px;margin-bottom:2px">SỐ TIỀN CHI</div>'
+        + '<div style="font-size:13px;font-weight:900;color:#dc2626">'+_cpmFmt(tChi)+'</div></div>'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:130px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#7c3aed;letter-spacing:1px;margin-bottom:2px">SỐ DƯ</div>'
+        + '<div style="font-size:13px;font-weight:900;color:'+(soDu>=0?'#059669':'#dc2626')+'">'+_cpmFmt(soDu)+'</div></div>'
+        + addBtn + '</div>';
 }
 
 function _cpmRenderTable() {
@@ -187,7 +199,17 @@ async function _cpmCheck(id) {
 }
 
 async function _cpmDeleteRecord(id, code) {
-    if (!confirm('⚠️ Bạn có chắc muốn XÓA mã tiền ' + code + '?\n\nHành động này KHÔNG thể hoàn tác!')) return;
+    var impacts = [];
+    var amt = 0;
+    try {
+        var impact = await apiCall('/api/cashflow/'+id+'/impact');
+        impacts = impact.impacts || [];
+        amt = impact.record ? impact.record.amount : 0;
+    } catch(e) {}
+
+    var confirmed = await _showDeleteImpact({ code: code, amount: amt, impacts: impacts });
+    if (!confirmed) return;
+
     try {
         await apiCall('/api/cashflow/'+id, 'DELETE');
         showToast('🗑️ Đã xóa: ' + code);

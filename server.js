@@ -297,6 +297,53 @@ async function start() {
     // Migration: cashflow money_source
     try { await db.exec("ALTER TABLE cashflow_records ADD COLUMN money_source TEXT DEFAULT 'congty'"); } catch(e) { /* exists */ }
 
+    // Migration: Đơn Hàng Tổng (DHT) — 3 bảng namespace dht_
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_categories (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT NOT NULL UNIQUE,
+            display_order   INTEGER DEFAULT 0,
+            is_active       BOOLEAN DEFAULT true,
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_orders (
+            id              SERIAL PRIMARY KEY,
+            order_code      TEXT NOT NULL UNIQUE,
+            order_date      DATE NOT NULL,
+            category_id     INTEGER REFERENCES dht_categories(id),
+            customer_name   TEXT,
+            customer_phone  TEXT,
+            source          TEXT,
+            province        TEXT,
+            cskh_user_id    INTEGER REFERENCES users(id),
+            total_quantity  INTEGER DEFAULT 0,
+            total_amount    DOUBLE PRECISION DEFAULT 0,
+            discount_amount DOUBLE PRECISION DEFAULT 0,
+            shipping_status TEXT DEFAULT 'pending' CHECK (shipping_status IN ('pending','shipped')),
+            shipping_priority TEXT DEFAULT 'CHUẨN' CHECK (shipping_priority IN ('GỬI','GẤP','CHUẨN')),
+            shipping_date   DATE,
+            customer_id     INTEGER,
+            notes           TEXT,
+            created_by      INTEGER REFERENCES users(id),
+            last_updated_at TIMESTAMP DEFAULT NOW(),
+            last_updated_by INTEGER REFERENCES users(id),
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_date ON dht_orders(order_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_category ON dht_orders(category_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_orders_code ON dht_orders(order_code)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS dht_order_items (
+            id              SERIAL PRIMARY KEY,
+            dht_order_id    INTEGER NOT NULL REFERENCES dht_orders(id) ON DELETE CASCADE,
+            description     TEXT,
+            quantity        INTEGER DEFAULT 0,
+            unit_price      DOUBLE PRECISION DEFAULT 0,
+            total           DOUBLE PRECISION DEFAULT 0,
+            created_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_items_order ON dht_order_items(dht_order_id)`);
+    } catch(e) { console.error('[DHT Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -392,6 +439,8 @@ async function start() {
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
     fastify.register(require('./routes/cashflow'));
+    fastify.register(require('./routes/dailyReport'));
+    fastify.register(require('./routes/donhangtong'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
@@ -529,6 +578,53 @@ async function start() {
     // Start email checker cron — auto-import bank emails
     const { startCron: startEmailCron } = require('./services/emailChecker');
     startEmailCron().catch(e => console.error('[Startup] Email checker error:', e.message));
+
+    // Start unified daily report cron — Tổng Kết Hàng Ngày
+    const { vnNow } = require('./utils/timezone');
+    const { sendTelegramMessage } = require('./utils/telegram');
+    setInterval(async () => {
+        try {
+            const now = vnNow();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const currentTime = hh + ':' + mm;
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+            // Read centralized config
+            const cfgRow = await db.get("SELECT value FROM app_config WHERE key = 'daily_report_config'");
+            if (!cfgRow?.value) return;
+            let cfg;
+            try { cfg = JSON.parse(cfgRow.value); } catch { return; }
+
+            const reportTime = (cfg.time || '21:00').trim();
+            if (currentTime !== reportTime) return;
+
+            // Check if already sent today
+            const lastSent = await db.get("SELECT value FROM app_config WHERE key = 'daily_report_last_sent'");
+            if (lastSent?.value === todayStr) return;
+
+            const groupId = (cfg.group_id || '').trim();
+            if (!groupId) return;
+
+            const modules = cfg.modules || [];
+            if (!modules.length) return;
+
+            // Build combined report using the route helper
+            const report = await fastify._drBuildReport(todayStr, modules);
+            const ok = await sendTelegramMessage(groupId, report.message);
+            if (ok) {
+                await db.run(
+                    `INSERT INTO app_config (key, value, updated_at) VALUES ('daily_report_last_sent', $1, NOW())
+                     ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                    [todayStr]
+                );
+                console.log('[DailyReport] ✅ Sent combined report for', todayStr);
+            }
+        } catch (e) {
+            console.error('[DailyReport] Error:', e.message);
+        }
+    }, 60 * 1000);
+    console.log('[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)');
 }
 
 start().catch(err => {

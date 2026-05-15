@@ -991,6 +991,7 @@ async function checkAuth(retryCount) {
         renderUserInfo();
         renderAffiliateFloatingButtons();
         _toInit(); // Time override button (chỉ GĐ)
+        _drInit(); // Daily report button (chỉ GĐ)
     } catch (err) {
         // ★ Network error / Timeout → auto-retry (tối đa 3 lần) thay vì redirect login
         console.warn('[Auth] Lần ' + (_attempt + 1) + ' thất bại:', err.message);
@@ -1960,6 +1961,72 @@ function showToast(message, type = 'success') {
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
+}
+
+// ========== DELETE IMPACT CONFIRM POPUP ==========
+function _showDeleteImpact(opts) {
+    // opts: { code, amount, impacts[], onConfirm }
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.id = '_delImpactOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;animation:_diiFadeIn .25s ease';
+
+        var amtStr = opts.amount ? Number(opts.amount).toLocaleString('vi-VN') + 'đ' : '';
+        var impactHTML = '';
+        if (opts.impacts && opts.impacts.length) {
+            impactHTML = '<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;margin:14px 0">'
+                + '<div style="font-weight:800;color:#92400e;font-size:13px;margin-bottom:8px">⚠️ SỔ SÁCH BỊ ẢNH HƯỞNG</div>';
+            opts.impacts.forEach(function(i) {
+                impactHTML += '<div style="padding:6px 0;border-top:1px solid rgba(245,158,11,0.2)">'
+                    + '<div style="font-weight:700;color:#78350f;font-size:12px">' + i.module + '</div>'
+                    + '<div style="color:#92400e;font-size:11px;margin-top:2px">→ ' + i.detail + '</div>'
+                    + '<div style="color:#b45309;font-size:11px">→ ' + i.effect + '</div>'
+                    + '</div>';
+            });
+            impactHTML += '</div>';
+        } else {
+            impactHTML = '<div style="background:#d1fae5;border:1px solid #34d399;border-radius:10px;padding:12px 16px;margin:14px 0;color:#065f46;font-size:12px;font-weight:600">✅ Không ảnh hưởng sổ sách khác</div>';
+        }
+
+        overlay.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:420px;width:92%;box-shadow:0 25px 60px rgba(0,0,0,0.3);animation:_diiScaleIn .3s cubic-bezier(0.34,1.56,0.64,1);overflow:hidden">'
+            + '<div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:18px 24px;text-align:center">'
+            + '<div style="font-size:36px;margin-bottom:4px">🗑️</div>'
+            + '<div style="color:#fff;font-size:16px;font-weight:800">XÓA MÃ TIỀN</div>'
+            + '</div>'
+            + '<div style="padding:20px 24px">'
+            + '<div style="text-align:center;margin-bottom:12px">'
+            + '<div style="font-size:15px;font-weight:800;color:#1e293b">' + (opts.code || '') + '</div>'
+            + (amtStr ? '<div style="font-size:20px;font-weight:900;color:#dc2626;margin-top:4px">' + amtStr + '</div>' : '')
+            + '</div>'
+            + impactHTML
+            + '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;text-align:center;margin-top:8px">'
+            + '<span style="color:#991b1b;font-size:12px;font-weight:700">❌ Hành động này KHÔNG thể hoàn tác!</span>'
+            + '</div>'
+            + '<div style="display:flex;gap:10px;margin-top:18px">'
+            + '<button id="_diiCancel" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">Huỷ bỏ</button>'
+            + '<button id="_diiConfirm" style="flex:1;padding:10px;border:none;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.4);transition:all .15s">🗑️ Xác nhận XÓA</button>'
+            + '</div>'
+            + '</div></div>';
+
+        if (!document.getElementById('_diiStyles')) {
+            var st = document.createElement('style');
+            st.id = '_diiStyles';
+            st.textContent = '@keyframes _diiFadeIn{from{opacity:0}to{opacity:1}}@keyframes _diiScaleIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}';
+            document.head.appendChild(st);
+        }
+
+        document.body.appendChild(overlay);
+
+        function cleanup(result) {
+            overlay.style.animation = '_diiFadeIn .2s ease reverse';
+            setTimeout(function(){ overlay.remove(); }, 200);
+            resolve(result);
+        }
+
+        overlay.querySelector('#_diiCancel').onclick = function(){ cleanup(false); };
+        overlay.querySelector('#_diiConfirm').onclick = function(){ cleanup(true); };
+        overlay.addEventListener('click', function(e){ if(e.target === overlay) cleanup(false); });
+    });
 }
 
 // ========== GLOBAL: Mask phone number for privacy ==========
@@ -3096,7 +3163,97 @@ document.addEventListener('click', function(e) {
         var dd = document.getElementById('toDropdown');
         if (dd) dd.style.display = 'none';
     }
+    if (_drOpen && !e.target.closest('#dailyReportWrap')) {
+        _drOpen = false;
+        var dd2 = document.getElementById('drDropdown');
+        if (dd2) dd2.style.display = 'none';
+    }
 });
+
+// ========== DAILY REPORT — Tổng Kết Hàng Ngày (chỉ GĐ) ==========
+var _drOpen = false;
+function _drToggle(e) {
+    if (e) e.stopPropagation();
+    _drOpen = !_drOpen;
+    var dd = document.getElementById('drDropdown');
+    dd.style.display = _drOpen ? 'block' : 'none';
+    if (_drOpen) _drLoad();
+}
+
+var _DR_MODULES = [
+    { key: 'payment_thu', label: '💰 Sổ Ghi Nhận Tiền', desc: 'Tổng THU: CK + TM' },
+    { key: 'cashflow_chi', label: '💸 Sổ Thu Chi', desc: 'Tổng CHI: Công Ty + CP May' }
+];
+
+async function _drLoad() {
+    var ct = document.getElementById('drContent');
+    if (!ct) return;
+    try {
+        var data = await apiCall('/api/daily-report/config');
+        var cfg = data.config || {};
+        var groupId = cfg.group_id || '';
+        var time = cfg.time || '21:00';
+        var modules = cfg.modules || ['payment_thu', 'cashflow_chi'];
+
+        var html = '<div style="display:grid;gap:12px">'
+            + '<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);display:block;margin-bottom:4px">🆔 Group ID Telegram</label>'
+            + '<input type="text" id="drGroupId" class="form-control" value="'+groupId+'" placeholder="-100xxxxxxxxxx" style="padding:8px 12px;font-size:13px"></div>'
+            + '<div class="form-group"><label style="font-size:12px;font-weight:700;color:var(--navy);display:block;margin-bottom:4px">⏰ Giờ gửi (VN)</label>'
+            + '<input type="time" id="drTime" class="form-control" value="'+time+'" style="padding:8px 12px;font-size:13px" data-num-formatted="skip"></div>'
+            + '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-top:4px">📦 Nội dung gộp:</div>';
+
+        _DR_MODULES.forEach(function(m) {
+            var checked = modules.includes(m.key) ? 'checked' : '';
+            html += '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + (checked ? '#f0fdf4' : '#f9fafb') + ';border:1px solid ' + (checked ? '#bbf7d0' : '#e5e7eb') + ';border-radius:10px;cursor:pointer">'
+                + '<input type="checkbox" class="drModuleCheck" value="'+m.key+'" '+checked+' style="width:16px;height:16px;accent-color:#059669">'
+                + '<div><div style="font-size:12px;font-weight:700;color:#1e293b">'+m.label+'</div>'
+                + '<div style="font-size:10px;color:#6b7280">'+m.desc+'</div></div></label>';
+        });
+
+        html += '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 12px;font-size:10px;color:#0369a1">'
+            + '📋 <b>Ví dụ tin nhắn:</b><br>'
+            + '📊 <b>TỔNG KẾT NGÀY 15/05/2026</b><br>'
+            + '━━━━━━━━━━━━━━━━━<br>'
+            + '<b>1</b> - 💰 <b>TỔNG THU:</b> 10.000.000đ CK + 5.000.000đ TM = <b>15.000.000đ</b><br>'
+            + '<b>2</b> - 💸 <b>TỔNG CHI:</b> 8.000.000đ CT + 2.000.000đ CPM = <b>10.000.000đ</b></div>';
+
+        html += '<div style="display:flex;gap:8px">'
+            + '<button onclick="_drSave()" style="flex:1;padding:8px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">💾 Lưu</button>'
+            + '<button onclick="_drTest()" style="flex:1;padding:8px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">📤 Gửi Thử</button>'
+            + '</div></div>';
+        ct.innerHTML = html;
+    } catch(e) { ct.innerHTML = '<div style="color:#dc2626;padding:12px">Lỗi: '+e.message+'</div>'; }
+}
+
+async function _drSave() {
+    var groupId = document.getElementById('drGroupId')?.value || '';
+    var time = document.getElementById('drTime')?.value || '21:00';
+    var modules = [];
+    document.querySelectorAll('.drModuleCheck:checked').forEach(function(c){ modules.push(c.value); });
+    try {
+        await apiCall('/api/daily-report/config','PUT',{group_id:groupId,time:time,modules:modules});
+        showToast('✅ Đã lưu cài đặt Tổng Kết');
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _drTest() {
+    var groupId = document.getElementById('drGroupId')?.value || '';
+    if (!groupId.trim()) { showToast('Vui lòng nhập Group ID!','error'); return; }
+    var modules = [];
+    document.querySelectorAll('.drModuleCheck:checked').forEach(function(c){ modules.push(c.value); });
+    try {
+        var r = await apiCall('/api/daily-report/send','POST',{group_id:groupId.trim(),modules:modules});
+        if (r.success) showToast('✅ Đã gửi tổng kết! Kiểm tra Telegram.');
+        else showToast('Lỗi: '+(r.error||'Gửi thất bại'),'error');
+    } catch(e) { showToast('Lỗi: '+(e.message||'Gửi thất bại'),'error'); }
+}
+
+function _drInit() {
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'giam_doc') {
+        var wrap = document.getElementById('dailyReportWrap');
+        if (wrap) wrap.style.display = 'inline-block';
+    }
+}
 
 // ========== ACCESS BLOCK SCREEN — Trang chặn full-screen ==========
 async function _showAccessBlockScreen() {

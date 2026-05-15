@@ -79,7 +79,20 @@ function _cfRenderToolbar() {
     _cf.records.forEach(function(r){ if(r.cashflow_type==='THU') tThu+=Number(r.amount); else tChi+=Number(r.amount); });
     var canChi = _cf.userPerms.cf_create_chi;
     var chiBtn = canChi ? '<button class="cf-add-btn" onclick="_cfShowAddChi()">➕ Tạo Phiếu Chi</button>' : '';
-    tb.innerHTML = '<span style="font-weight:800;font-size:13px">📅 '+ft+'</span><span style="flex:1"></span><span style="font-size:11px">THU: <b style="color:#2ecc71">'+_cfFmt(tThu)+'</b></span><span style="font-size:11px">CHI: <b style="color:#e67e22">'+_cfFmt(tChi)+'</b></span><span style="font-size:12px;font-weight:800">SỐ DƯ: <b style="color:'+(tThu-tChi>=0?'#2ecc71':'#e74c3c')+'">'+_cfFmt(tThu-tChi)+'</b></span>'+chiBtn;
+
+    var soDu = tThu - tChi;
+    tb.innerHTML = '<span style="font-weight:800;font-size:13px">📅 '+ft+'</span><span style="flex:1"></span>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#1a5276;letter-spacing:1px;margin-bottom:2px">SỐ TIỀN THU</div>'
+        + '<div style="font-size:13px;font-weight:900;color:#059669">'+_cfFmt(tThu)+'</div></div>'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#1a5276;letter-spacing:1px;margin-bottom:2px">SỐ TIỀN CHI</div>'
+        + '<div style="font-size:13px;font-weight:900;color:#dc2626">'+_cfFmt(tChi)+'</div></div>'
+        + '<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 14px;text-align:center;min-width:130px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">'
+        + '<div style="font-size:9px;font-weight:700;color:#1a5276;letter-spacing:1px;margin-bottom:2px">SỐ DƯ</div>'
+        + '<div style="font-size:13px;font-weight:900;color:'+(soDu>=0?'#059669':'#dc2626')+'">'+_cfFmt(soDu)+'</div></div>'
+        + chiBtn + '</div>';
 }
 
 function _cfRenderBatchBar() {
@@ -233,7 +246,17 @@ async function _cfCheck(id) {
 }
 
 async function _cfDeleteRecord(id, code) {
-    if (!confirm('⚠️ Bạn có chắc muốn XÓA mã tiền ' + code + '?\n\nHành động này KHÔNG thể hoàn tác!')) return;
+    var impacts = [];
+    var amt = 0;
+    try {
+        var impact = await apiCall('/api/cashflow/'+id+'/impact');
+        impacts = impact.impacts || [];
+        amt = impact.record ? impact.record.amount : 0;
+    } catch(e) {}
+
+    var confirmed = await _showDeleteImpact({ code: code, amount: amt, impacts: impacts });
+    if (!confirmed) return;
+
     try {
         await apiCall('/api/cashflow/'+id, 'DELETE');
         showToast('🗑️ Đã xóa: ' + code);
@@ -242,6 +265,60 @@ async function _cfDeleteRecord(id, code) {
         _cf.tree = treeData.tree||[]; _cf.totalUnclosed = treeData.total_unclosed||0;
         _cfRenderSidebar(); await _cfLoadRecords();
     } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+// ========== DAILY REPORT CONFIG ==========
+async function _cfShowReportConfig() {
+    try {
+        var data = await apiCall('/api/cashflow/report-config');
+        var groupId = data.group_id || '';
+        var reportTime = data.report_time || '21:00';
+        var bodyHTML = '<div style="display:grid;gap:16px">'
+            +'<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;padding:14px 18px;border:1px solid #f59e0b">'
+            +'<div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:4px">📊 Tổng Kết Tiền Chi Hàng Ngày</div>'
+            +'<div style="font-size:11px;color:#b45309">Tự động gửi báo cáo tổng số tiền CHI trong ngày lên nhóm Telegram theo giờ đã cài đặt. Phân chia theo CÔNG TY và CỔ PHẦN MAY.</div>'
+            +'</div>'
+            +'<div class="form-group">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">🆔 Group ID Telegram (Tổng Kết HV)</label>'
+            +'<input type="text" id="cfReportGroupId" class="form-control" value="'+groupId+'" placeholder="-100xxxxxxxxxx" style="padding:10px 12px;font-size:13px">'
+            +'</div>'
+            +'<div class="form-group">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">⏰ Giờ Gửi Báo Cáo (Giờ VN)</label>'
+            +'<input type="time" id="cfReportTime" class="form-control" value="'+reportTime+'" style="padding:10px 12px;font-size:13px" data-num-formatted="skip">'
+            +'</div>'
+            +'<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px">'
+            +'<div style="font-size:11px;font-weight:700;color:#991b1b;margin-bottom:6px">📋 Format tin nhắn:</div>'
+            +'<div style="font-size:12px;color:#dc2626;font-family:monospace;background:#fff;padding:8px 12px;border-radius:6px;border:1px solid #fecaca"><b>TỔNG SỐ TIỀN CHI</b> ngày 15/05/2026:<br><b>15.000.000đ</b> CÔNG TY + <b>5.000.000đ</b> CỔ PHẦN MAY = <b>20.000.000đ</b></div>'
+            +'</div>'
+            +'</div>';
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>'
+            +'<button class="btn" onclick="_cfSendReport()" style="background:#e67e22;color:#fff;width:auto">📤 Gửi Thử</button>'
+            +'<button class="btn btn-primary" onclick="_cfSaveReportConfig()" style="width:auto">💾 Lưu</button>';
+        openModal('📊 Tổng Kết Chi Hàng Ngày — Telegram', bodyHTML, footerHTML);
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _cfSaveReportConfig() {
+    var groupId = document.getElementById('cfReportGroupId')?.value || '';
+    var reportTime = document.getElementById('cfReportTime')?.value || '21:00';
+    try {
+        await apiCall('/api/cashflow/report-config','PUT',{group_id:groupId,report_time:reportTime});
+        showToast('✅ Đã lưu cài đặt tổng kết chi hàng ngày');
+        closeModal();
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _cfSendReport() {
+    var groupId = document.getElementById('cfReportGroupId')?.value || '';
+    if (!groupId.trim()) { showToast('Vui lòng nhập Group ID!','error'); return; }
+    try {
+        var result = await apiCall('/api/cashflow/report-send','POST',{group_id:groupId.trim()});
+        if (result.success) {
+            showToast('✅ Đã gửi tổng kết chi! Kiểm tra nhóm Telegram.');
+        } else {
+            showToast('Lỗi: '+(result.error||'Gửi thất bại'),'error');
+        }
+    } catch(e) { showToast('Lỗi: '+(e.message||'Gửi thất bại'),'error'); }
 }
 
 var _cfPastedFile = null;

@@ -56,17 +56,19 @@ async function renderSoghinhantienPage(content) {
     content.innerHTML = '<div class="pr-wrap"><div class="pr-sidebar" id="prSidebar"><div style="padding:20px;text-align:center;color:var(--gray-400);font-size:12px">Đang tải...</div></div><div class="pr-main"><div class="pr-toolbar" id="prToolbar"></div><div class="pr-table-wrap" id="prTableWrap"></div></div></div>';
 
     // Load data in parallel
-    var [treeData, staffData, permData, bankData] = await Promise.all([
+    var [treeData, staffData, permData, bankData, asData] = await Promise.all([
         apiCall('/api/payment-records/tree'),
         apiCall('/api/payment-records/staff'),
         apiCall('/api/payment-records/permissions').catch(function(){return{}}),
-        apiCall('/api/payment-records/bank-list').catch(function(){return{}})
+        apiCall('/api/payment-records/bank-list').catch(function(){return{}}),
+        apiCall('/api/payment-records/appsheet-config').catch(function(){return{}})
     ]);
     _pr.tree = treeData.tree || [];
     _pr.staff = staffData.staff || [];
     _pr.userPerms = permData.user_permissions || {};
     _pr.allPerms = permData.permissions || {};
     _pr.trackedBanks = bankData.banks || _prBanks;
+    _pr.appsheetEnabled = asData.enabled || false;
     _pr.filter = {};
 
     _prRenderSidebar();
@@ -133,7 +135,10 @@ function _prRenderToolbar() {
     var settingsBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowSettings()">⚙️ Cài Đặt Email</button>' : '';
     var tgBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowTgSettings()" style="background:linear-gradient(135deg,#0088cc,#29b6f6);color:#fff">📢 Telegram</button>' : '';
     var permBtn = isGD ? '<button class="pr-settings-btn" onclick="_prShowPermissions()" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff">🔐 Phân Quyền</button>' : '';
-    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+permBtn+tgBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
+    var asColor = _pr.appsheetEnabled ? 'linear-gradient(135deg,#059669,#10b981)' : 'linear-gradient(135deg,#dc2626,#ef4444)';
+    var asIcon = _pr.appsheetEnabled ? '🟢' : '🔴';
+    var asBtn = isGD ? '<button class="pr-settings-btn" onclick="_prToggleAppSheet()" style="background:'+asColor+';color:#fff">📊 AppSheet '+asIcon+'</button>' : '';
+    tb.innerHTML = '<span class="pr-filter-info">📅 '+filterText+' <span class="pr-count">'+_pr.records.length+' mã</span></span><span style="flex:1"></span><span style="font-size:12px;font-weight:800;color:var(--success)">💰 '+_prFmt(total)+'</span>'+permBtn+tgBtn+asBtn+settingsBtn+'<button class="pr-add-btn" onclick="_prShowAddModal()">➕ Tạo Mã Tiền</button>';
 }
 
 function _prRenderTable() {
@@ -284,7 +289,9 @@ async function _prPreviewCode() {
     } catch(e) { preview.textContent = '⚠️ Lỗi tính mã'; }
 }
 
+var _prSubmitting = false;
 async function _prSubmitAdd() {
+    if (_prSubmitting) return;
     var amount = document.getElementById('prAmount')?.value;
     var bank = document.getElementById('prBank')?.value;
     var note = document.getElementById('prNote')?.value;
@@ -292,6 +299,11 @@ async function _prSubmitAdd() {
     if (!amount || Number(amount) <= 0) { showToast('Vui lòng nhập số tiền!','error'); return; }
     if (method === 'CK' && !bank) { showToast('Vui lòng chọn ngân hàng!','error'); return; }
     if (!note || !note.trim()) { showToast('Vui lòng nhập nội dung!','error'); return; }
+
+    _prSubmitting = true;
+    var submitBtn = document.querySelector('.modal-footer .btn-primary');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ Đang tạo...'; submitBtn.style.opacity = '0.6'; }
+
     var body = {
         payment_method: document.getElementById('prMethod')?.value || 'CK',
         payment_date: document.getElementById('prDate')?.value,
@@ -318,6 +330,7 @@ async function _prSubmitAdd() {
             await _prLoadRecords();
         } else { showToast(data.error||'Lỗi tạo mã','error'); }
     } catch(e) { showToast('Lỗi kết nối','error'); }
+    finally { _prSubmitting = false; }
 }
 
 // Helper: vnFormat fallback
@@ -473,6 +486,60 @@ async function _prTestTg() {
     } catch(e) { showToast('Lỗi: '+(e.message||'Gửi thất bại'),'error'); }
 }
 
+// ========== DAILY REPORT CONFIG ==========
+async function _prShowReportConfig() {
+    try {
+        var data = await apiCall('/api/payment-records/report-config');
+        var groupId = data.group_id || '';
+        var reportTime = data.report_time || '21:00';
+        var bodyHTML = '<div style="display:grid;gap:16px">'
+            +'<div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:12px;padding:14px 18px;border:1px solid #6ee7b7">'
+            +'<div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:4px">📊 Tổng Kết Tiền Thu Hàng Ngày</div>'
+            +'<div style="font-size:11px;color:#047857">Tự động gửi báo cáo tổng số tiền THU trong ngày lên nhóm Telegram Tổng Kết HV theo giờ đã cài đặt.</div>'
+            +'</div>'
+            +'<div class="form-group">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">🆔 Group ID Telegram (Tổng Kết HV)</label>'
+            +'<input type="text" id="prReportGroupId" class="form-control" value="'+groupId+'" placeholder="-100xxxxxxxxxx" style="padding:10px 12px;font-size:13px">'
+            +'</div>'
+            +'<div class="form-group">'
+            +'<label style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;display:block">⏰ Giờ Gửi Báo Cáo (Giờ VN)</label>'
+            +'<input type="time" id="prReportTime" class="form-control" value="'+reportTime+'" style="padding:10px 12px;font-size:13px" data-num-formatted="skip">'
+            +'</div>'
+            +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px">'
+            +'<div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:6px">📋 Format tin nhắn:</div>'
+            +'<div style="font-size:12px;color:#15803d;font-family:monospace;background:#fff;padding:8px 12px;border-radius:6px;border:1px solid #dcfce7"><b>TỔNG SỐ TIỀN THU</b> ngày 15/05/2026:<br><b>15.000.000đ</b> CK + <b>5.000.000đ</b> TM = <b>20.000.000đ</b></div>'
+            +'</div>'
+            +'</div>';
+        var footerHTML = '<button class="btn btn-secondary" onclick="closeModal()">Đóng</button>'
+            +'<button class="btn" onclick="_prSendReport()" style="background:#059669;color:#fff;width:auto">📤 Gửi Thử</button>'
+            +'<button class="btn btn-primary" onclick="_prSaveReportConfig()" style="width:auto">💾 Lưu</button>';
+        openModal('📊 Tổng Kết Hàng Ngày — Telegram', bodyHTML, footerHTML);
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _prSaveReportConfig() {
+    var groupId = document.getElementById('prReportGroupId')?.value || '';
+    var reportTime = document.getElementById('prReportTime')?.value || '21:00';
+    try {
+        await apiCall('/api/payment-records/report-config','PUT',{group_id:groupId,report_time:reportTime});
+        showToast('✅ Đã lưu cài đặt tổng kết hàng ngày');
+        closeModal();
+    } catch(e) { showToast('Lỗi: '+e.message,'error'); }
+}
+
+async function _prSendReport() {
+    var groupId = document.getElementById('prReportGroupId')?.value || '';
+    if (!groupId.trim()) { showToast('Vui lòng nhập Group ID!','error'); return; }
+    try {
+        var result = await apiCall('/api/payment-records/report-send','POST',{group_id:groupId.trim()});
+        if (result.success) {
+            showToast('✅ Đã gửi tổng kết! Kiểm tra nhóm Telegram.');
+        } else {
+            showToast('Lỗi: '+(result.error||'Gửi thất bại'),'error');
+        }
+    } catch(e) { showToast('Lỗi: '+(e.message||'Gửi thất bại'),'error'); }
+}
+
 // ========== DETAIL MODAL ==========
 function _prShowDetail(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
@@ -551,7 +618,16 @@ async function _prDoChangeSource(id, src) {
 async function _prDeleteRecord(id) {
     var r = _pr.records.find(function(x){return x.id===id;});
     if (!r) return;
-    if (!confirm('Xóa mã tiền '+r.payment_code+' ('+_prFmt(r.amount)+')?\nHành động này không thể hoàn tác!')) return;
+
+    var impacts = [];
+    try {
+        var impact = await apiCall('/api/payment-records/'+id+'/impact');
+        impacts = impact.impacts || [];
+    } catch(e) {}
+
+    var confirmed = await _showDeleteImpact({ code: r.payment_code, amount: r.amount, impacts: impacts });
+    if (!confirmed) return;
+
     try {
         await apiCall('/api/payment-records/'+id,'DELETE');
         showToast('🗑️ Đã xóa '+r.payment_code);
@@ -713,5 +789,16 @@ async function _prSubmitUpdateCustomer(id) {
         showToast('✅ Đã cập nhật mã tiền KH');
         closeModal();
         await _prLoadRecords();
+    } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
+}
+
+// ========== APPSHEET TOGGLE ==========
+async function _prToggleAppSheet() {
+    var newState = !_pr.appsheetEnabled;
+    try {
+        await apiCall('/api/payment-records/appsheet-config','PUT',{enabled:newState});
+        _pr.appsheetEnabled = newState;
+        showToast(newState ? '✅ Đã BẬT đẩy AppSheet' : '🔴 Đã TẮT đẩy AppSheet');
+        _prRenderToolbar();
     } catch(e) { showToast('Lỗi: '+(e.message||'Không có quyền'),'error'); }
 }

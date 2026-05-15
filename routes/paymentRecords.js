@@ -35,6 +35,7 @@ module.exports = async function(fastify) {
                 EXTRACT(DAY FROM payment_date)::int AS day,
                 COALESCE(SUM(amount), 0)::numeric AS total
             FROM payment_records
+            WHERE COALESCE(source, '') != 'cashflow_chi'
             GROUP BY year, month, day
             ORDER BY year DESC, month DESC, day DESC
         `);
@@ -74,7 +75,7 @@ module.exports = async function(fastify) {
         try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
         const { year, month, day } = request.query;
-        let where = 'WHERE 1=1';
+        let where = "WHERE COALESCE(pr.source, '') != 'cashflow_chi'";
         const params = [];
         let paramIdx = 1;
 
@@ -227,11 +228,11 @@ module.exports = async function(fastify) {
                             const { sendTelegramMessage: sendCfTg } = require('../utils/telegram');
                             const cfAmtStr = Number(b.amount).toLocaleString('vi-VN');
                             // Calculate running balance
-                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false");
+                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
                             const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                             const runBal = Number(thuSum.t) - Number(chiSum.t);
                             const balStr = runBal.toLocaleString('vi-VN');
-                            const cfMsg = `🟢THU : 💰${code} : ${cfAmtStr}đ ${b.transfer_note || ''} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : ${balStr}đ`;
+                            const cfMsg = `🟢THU TIỀN MẶT CÔNG TY :\n💰${code} : <b>${cfAmtStr}đ</b> ${b.transfer_note || ''} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
                             await sendCfTg(cfTgRow.value, cfMsg);
                         }
                     } catch (cfTgErr) { console.error('[CF TG] Error:', cfTgErr.message); }
@@ -303,6 +304,18 @@ module.exports = async function(fastify) {
             id
         ]);
 
+        // Sync amount + description to linked cashflow_record (Sổ Thu Chi)
+        try {
+            const linked = await db.get('SELECT id FROM cashflow_records WHERE source_record_id = $1', [id]);
+            if (linked) {
+                await db.run(
+                    'UPDATE cashflow_records SET amount = $1, description = $2 WHERE source_record_id = $3',
+                    [Number(b.amount), b.transfer_note || '', id]
+                );
+                console.log('[PR Edit] Synced cashflow_record for payment_record #' + id + ' → ' + b.amount);
+            }
+        } catch (e) { console.error('[PR Edit] Sync error:', e.message); }
+
         return { success: true };
     });
 
@@ -330,6 +343,33 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
+    // ========== IMPACT CHECK: Kiểm tra ảnh hưởng trước khi xóa ==========
+    fastify.get('/api/payment-records/:id/impact', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const rec = await db.get('SELECT * FROM payment_records WHERE id = $1', [request.params.id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const impacts = [];
+        // Check linked cashflow_records (Sổ Thu Chi)
+        const linked = await db.get('SELECT id, cashflow_code, cashflow_type, amount FROM cashflow_records WHERE source_record_id = $1', [rec.id]);
+        if (linked) {
+            impacts.push({
+                module: '📒 Sổ Thu Chi',
+                detail: 'Mã ' + linked.cashflow_code + ' (' + linked.cashflow_type + ' ' + Number(linked.amount).toLocaleString('vi-VN') + 'đ) sẽ bị XÓA theo',
+                effect: 'Số dư Kế Toán Cầm sẽ thay đổi'
+            });
+        }
+
+        return {
+            record: { code: rec.payment_code, amount: Number(rec.amount), method: rec.payment_method, type: rec.payment_type },
+            impacts
+        };
+    });
+
     // ========== DELETE: Xóa record (chỉ GĐ) ==========
     fastify.delete('/api/payment-records/:id', async (request, reply) => {
         const token = request.cookies?.token;
@@ -342,7 +382,18 @@ module.exports = async function(fastify) {
             return reply.code(403).send({ error: 'Bạn không có quyền xóa mã tiền' });
         }
 
-        await db.run('DELETE FROM payment_records WHERE id = $1', [request.params.id]);
+        const recId = request.params.id;
+
+        // Xóa record liên kết bên cashflow_records (Sổ Thu Chi) nếu có
+        try {
+            const linked = await db.get('SELECT id FROM cashflow_records WHERE source_record_id = $1', [recId]);
+            if (linked) {
+                await db.run('DELETE FROM cashflow_records WHERE source_record_id = $1', [recId]);
+                console.log(`[PR Delete] Cascade deleted cashflow_record linked to payment_record #${recId}`);
+            }
+        } catch (e) { console.error('[PR Delete] Cascade error:', e.message); }
+
+        await db.run('DELETE FROM payment_records WHERE id = $1', [recId]);
         return { success: true };
     });
 
@@ -548,6 +599,107 @@ module.exports = async function(fastify) {
         return reply.code(400).send({ error: 'Gửi thất bại! Kiểm tra Bot Token và Group ID.' });
     });
 
+    // ========== DAILY REPORT: Config Get ==========
+    fastify.get('/api/payment-records/report-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const grp = await db.get("SELECT value FROM app_config WHERE key = 'pr_report_tg_group'");
+        const time = await db.get("SELECT value FROM app_config WHERE key = 'pr_report_time'");
+        return {
+            group_id: grp?.value || '',
+            report_time: time?.value || '21:00'
+        };
+    });
+
+    // ========== DAILY REPORT: Config Save ==========
+    fastify.put('/api/payment-records/report-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { group_id, report_time } = request.body || {};
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('pr_report_tg_group', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [(group_id || '').trim()]
+        );
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('pr_report_time', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [(report_time || '21:00').trim()]
+        );
+        return { success: true };
+    });
+
+    // ========== DAILY REPORT: Generate Message ==========
+    async function _generateDailyReport(dateStr) {
+        // dateStr: 'YYYY-MM-DD'
+        const { vnNow } = require('../utils/timezone');
+        const targetDate = dateStr || vnNow().toISOString().split('T')[0];
+
+        const rows = await db.all(`
+            SELECT payment_method, COALESCE(SUM(amount), 0)::numeric AS total
+            FROM payment_records
+            WHERE payment_date = $1
+              AND COALESCE(source, '') != 'cashflow_chi'
+              AND payment_type != 'chi'
+            GROUP BY payment_method
+        `, [targetDate]);
+
+        let totalCK = 0, totalTM = 0;
+        for (const r of rows) {
+            if (r.payment_method === 'CK') totalCK = Number(r.total);
+            else if (r.payment_method === 'TM') totalTM = Number(r.total);
+        }
+        const totalAll = totalCK + totalTM;
+
+        const parts = targetDate.split('-');
+        const dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+
+        const fmtVN = (n) => Number(n).toLocaleString('vi-VN') + 'đ';
+
+        let msg = `<b>TỔNG SỐ TIỀN THU</b> ngày ${dateLabel}:\n`;
+        msg += `<b>${fmtVN(totalCK)}</b> CK + <b>${fmtVN(totalTM)}</b> TM = <b>${fmtVN(totalAll)}</b>`;
+
+        return { message: msg, totalCK, totalTM, totalAll, dateLabel };
+    }
+
+    // ========== DAILY REPORT: Manual Send ==========
+    fastify.post('/api/payment-records/report-send', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        // Accept from body (test) or fallback to saved config
+        const bodyGroupId = (request.body?.group_id || '').trim();
+        let groupId = bodyGroupId;
+        if (!groupId) {
+            const grp = await db.get("SELECT value FROM app_config WHERE key = 'pr_report_tg_group'");
+            groupId = grp?.value?.trim();
+        }
+        if (!groupId) return reply.code(400).send({ error: 'Chưa cài đặt Group ID Telegram' });
+
+        const report = await _generateDailyReport();
+        const { sendTelegramMessage } = require('../utils/telegram');
+        const ok = await sendTelegramMessage(groupId, report.message);
+        if (ok) return { success: true, message: report.message };
+        return reply.code(400).send({ error: 'Gửi thất bại! Kiểm tra Bot Token và Group ID.' });
+    });
+
+    // Export helper for cron
+    fastify.decorate('_prGenerateDailyReport', _generateDailyReport);
+
     // ========== PERMISSIONS: Get ==========
     fastify.get('/api/payment-records/permissions', async (request, reply) => {
         const token = request.cookies?.token;
@@ -603,5 +755,34 @@ module.exports = async function(fastify) {
 
         await db.run('UPDATE payment_records SET money_source = $1, updated_at = NOW() WHERE id = $2', [money_source, request.params.id]);
         return { success: true };
+    });
+
+    // ========== APPSHEET SYNC CONFIG: Get ==========
+    fastify.get('/api/payment-records/appsheet-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'appsheet_sync_enabled'");
+        return { enabled: row?.value === 'true' };
+    });
+
+    // ========== APPSHEET SYNC CONFIG: Toggle (GĐ only) ==========
+    fastify.put('/api/payment-records/appsheet-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { enabled } = request.body || {};
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('appsheet_sync_enabled', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [enabled ? 'true' : 'false']
+        );
+        return { success: true, enabled: !!enabled };
     });
 };

@@ -334,12 +334,13 @@ module.exports = async function (fastify) {
                 const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
                 if (tgRow && tgRow.value) {
                     const amtStr = Number(b.amount).toLocaleString('vi-VN');
-                    const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false");
+                    const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
                     const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                     const runBal = Number(thuSum.t) - Number(chiSum.t);
                     const balStr = runBal.toLocaleString('vi-VN');
-                    const srcLabel = moneySrc === 'cophanmay' ? 'CỔ PHẦN MAY' : 'CÔNG TY';
-                    const caption = `🔴CHI ${srcLabel} : 💰${code} : ${amtStr}đ ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : ${balStr}đ`;
+                    const caption = moneySrc === 'cophanmay'
+                        ? `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${code} : <b>${amtStr}đ</b> ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`
+                        : `🔴CHI TM <b>CÔNG TY</b> :\n💰${code} : <b>${amtStr}đ</b> ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
 
                     if (b.image_url && b.image_path) {
                         const { sendTelegramPhoto } = require('../utils/telegram');
@@ -359,7 +360,7 @@ module.exports = async function (fastify) {
                         const cpmAmtStr = Number(b.amount).toLocaleString('vi-VN');
                         const cpmTotal = await db.get("SELECT COALESCE(SUM(CASE WHEN cashflow_type='THU' THEN amount ELSE -amount END),0) AS t FROM cashflow_records WHERE money_source='cophanmay' AND is_closed=false");
                         const cpmTotalStr = Number(cpmTotal.t).toLocaleString('vi-VN');
-                        const cpmCaption = `🔴🔴🔴CHI CỔ PHẦN MAY : 💰${code} : ${cpmAmtStr}đ ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng CP May : ${cpmTotalStr}đ`;
+                        const cpmCaption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${code} : <b>${cpmAmtStr}đ</b> ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng CP May : <b>${cpmTotalStr}đ</b>`;
 
                         if (b.image_url && b.image_path) {
                             const { sendTelegramPhoto } = require('../utils/telegram');
@@ -392,6 +393,59 @@ module.exports = async function (fastify) {
         await db.run(`UPDATE cashflow_records SET checked_by = $1, checked_at = NOW(), updated_at = NOW() WHERE id = $2`,
             [user.id, request.params.id]);
         return { success: true };
+    });
+
+    // ========== IMPACT CHECK: Kiểm tra ảnh hưởng trước khi xóa ==========
+    fastify.get('/api/cashflow/:id/impact', async (request, reply) => {
+        const user = _auth(request);
+        if (!user) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+
+        const rec = await db.get('SELECT * FROM cashflow_records WHERE id = $1', [request.params.id]);
+        if (!rec) return reply.code(404).send({ error: 'Không tìm thấy' });
+
+        const impacts = [];
+        const isCpMay = rec.money_source === 'cophanmay' || (rec.cashflow_code && rec.cashflow_code.startsWith('CPMAY-'));
+
+        // Check linked payment_records (reserved TM code)
+        if (rec.cashflow_code && !rec.cashflow_code.startsWith('CPMAY-')) {
+            const linkedPR = await db.get("SELECT id, payment_code, amount FROM payment_records WHERE payment_code = $1 AND source = 'cashflow_chi'", [rec.cashflow_code]);
+            if (linkedPR) {
+                impacts.push({
+                    module: '💵 Sổ Ghi Nhận Tiền',
+                    detail: 'Mã ' + linkedPR.payment_code + ' (reserved) sẽ bị XÓA theo',
+                    effect: 'Mã TM sẽ được giải phóng'
+                });
+            }
+        }
+
+        // Check linked Sổ Thu Chi record (for CP May records created from Sổ Thu Chi)
+        if (isCpMay) {
+            // Check if this CP May record has a mirror in cashflow (Sổ Thu Chi group)
+            const cfLinked = await db.get("SELECT id, cashflow_code, amount FROM cashflow_records WHERE cashflow_code = $1 AND id != $2 AND money_source = 'cophanmay'", [rec.cashflow_code, rec.id]);
+            if (cfLinked) {
+                impacts.push({
+                    module: '📒 Sổ Thu Chi',
+                    detail: 'Bản ghi liên kết ở Sổ Thu Chi sẽ bị ảnh hưởng',
+                    effect: 'Số dư Kế Toán Cầm sẽ thay đổi'
+                });
+            }
+            impacts.push({
+                module: '🧵 Sổ Cổ Phần May',
+                detail: rec.cashflow_type + ' ' + Number(rec.amount).toLocaleString('vi-VN') + 'đ sẽ bị xóa',
+                effect: 'Tổng CP May sẽ thay đổi'
+            });
+        } else {
+            impacts.push({
+                module: '📒 Sổ Thu Chi',
+                detail: rec.cashflow_type + ' ' + Number(rec.amount).toLocaleString('vi-VN') + 'đ sẽ bị xóa',
+                effect: 'Số dư Kế Toán Cầm sẽ thay đổi'
+            });
+        }
+
+        return {
+            record: { code: rec.cashflow_code, amount: Number(rec.amount), type: rec.cashflow_type, money_source: rec.money_source },
+            impacts
+        };
     });
 
     // ========== DELETE (chỉ Giám Đốc) ==========
@@ -480,11 +534,11 @@ module.exports = async function (fastify) {
             if (tgRow && tgRow.value) {
                 const { sendTelegramMessage } = require('../utils/telegram');
                 const amtStr = Number(pr.amount).toLocaleString('vi-VN');
-                const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false");
+                const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false AND NOT (money_source='cophanmay' AND cashflow_code LIKE 'CPMAY-%')");
                 const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                 const runBal = Number(thuSum.t) - Number(chiSum.t);
                 const balStr = runBal.toLocaleString('vi-VN');
-                const msg = `🟢THU : 💰${pr.payment_code} : ${amtStr}đ ${pr.transfer_note || ''} 👤 Hệ Thống\n\n🔗Tổng Kế Toán Cầm : ${balStr}đ`;
+                const msg = `🟢THU TIỀN MẶT CÔNG TY :\n💰${pr.payment_code} : <b>${amtStr}đ</b> ${pr.transfer_note || ''} 👤 Hệ Thống\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
                 await sendTelegramMessage(tgRow.value, msg);
             }
         } catch (tgErr) { console.error('[CF TG THU] Error:', tgErr.message); }
@@ -534,7 +588,7 @@ module.exports = async function (fastify) {
                     const totalStr = Number(cpmTotal.t).toLocaleString('vi-VN');
                     const emoji = cfType === 'THU' ? '🟢🟢🟢' : '🔴🔴🔴';
                     const typeLabel = cfType === 'THU' ? 'THU' : 'CHI';
-                    const caption = `${emoji}${typeLabel} CỔ PHẦN MAY : 💰${code} : ${amtStr}đ ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng CP May : ${totalStr}đ`;
+                    const caption = `${emoji}${typeLabel} <b>CỔ PHẦN MAY</b> :\n💰${code} : <b>${amtStr}đ</b> ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng CP May : <b>${totalStr}đ</b>`;
 
                     if (b.image_url && b.image_path) {
                         const { sendTelegramPhoto } = require('../utils/telegram');
@@ -556,7 +610,7 @@ module.exports = async function (fastify) {
                         const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
                         const runBal = Number(thuSum.t) - Number(chiSum.t);
                         const balStr = runBal.toLocaleString('vi-VN');
-                        const caption = `🔴CHI : [CP MAY] 💰${code} : ${amtStr}đ ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : ${balStr}đ`;
+                        const caption = `🔴🔴🔴CHI <b>CỔ PHẦN MAY</b> :\n💰${code} : <b>${amtStr}đ</b> ${b.description} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : <b>${balStr}đ</b>`;
 
                         if (b.image_url && b.image_path) {
                             const { sendTelegramPhoto } = require('../utils/telegram');
@@ -576,5 +630,93 @@ module.exports = async function (fastify) {
             }
             throw err;
         }
+    });
+
+    // ========== DAILY REPORT: Config Get ==========
+    fastify.get('/api/cashflow/report-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const grp = await db.get("SELECT value FROM app_config WHERE key = 'cf_report_tg_group'");
+        const time = await db.get("SELECT value FROM app_config WHERE key = 'cf_report_time'");
+        return {
+            group_id: grp?.value || '',
+            report_time: time?.value || '21:00'
+        };
+    });
+
+    // ========== DAILY REPORT: Config Save ==========
+    fastify.put('/api/cashflow/report-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { group_id, report_time } = request.body || {};
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('cf_report_tg_group', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [(group_id || '').trim()]
+        );
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('cf_report_time', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [(report_time || '21:00').trim()]
+        );
+        return { success: true };
+    });
+
+    // ========== DAILY REPORT: Manual Send ==========
+    fastify.post('/api/cashflow/report-send', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const bodyGroupId = (request.body?.group_id || '').trim();
+        let groupId = bodyGroupId;
+        if (!groupId) {
+            const grp = await db.get("SELECT value FROM app_config WHERE key = 'cf_report_tg_group'");
+            groupId = grp?.value?.trim();
+        }
+        if (!groupId) return reply.code(400).send({ error: 'Chưa cài đặt Group ID Telegram' });
+
+        const { vnNow } = require('../utils/timezone');
+        const now = vnNow();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+        const rows = await db.all(`
+            SELECT money_source, COALESCE(SUM(amount), 0)::numeric AS total
+            FROM cashflow_records
+            WHERE cashflow_date = $1 AND cashflow_type = 'CHI'
+            GROUP BY money_source
+        `, [todayStr]);
+
+        let totalCongTy = 0, totalCPMay = 0;
+        for (const r of rows) {
+            if (r.money_source === 'cophanmay') totalCPMay = Number(r.total);
+            else totalCongTy = Number(r.total);
+        }
+        const totalAll = totalCongTy + totalCPMay;
+        const dd = String(now.getDate()).padStart(2,'0');
+        const mm = String(now.getMonth()+1).padStart(2,'0');
+        const yyyy = now.getFullYear();
+        const fmtVN = (n) => Number(n).toLocaleString('vi-VN') + 'đ';
+
+        let msg = `<b>TỔNG SỐ TIỀN CHI</b> ngày ${dd}/${mm}/${yyyy}:\n`;
+        msg += `<b>${fmtVN(totalCongTy)}</b> CÔNG TY + <b>${fmtVN(totalCPMay)}</b> CỔ PHẦN MAY = <b>${fmtVN(totalAll)}</b>`;
+
+        const { sendTelegramMessage } = require('../utils/telegram');
+        const ok = await sendTelegramMessage(groupId, msg);
+        if (ok) return { success: true, message: msg };
+        return reply.code(400).send({ error: 'Gửi thất bại! Kiểm tra Bot Token và Group ID.' });
     });
 };

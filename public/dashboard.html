@@ -107,6 +107,19 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Daily Report (chỉ GĐ) -->
+                    <div id="dailyReportWrap" style="position:relative;display:none;">
+                        <button id="dailyReportBtn" onclick="_drToggle(event)" style="position:relative;background:linear-gradient(135deg,#0891b2,#06b6d4);color:white;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(8,145,178,0.3);transition:all .15s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">📊 TỔNG KẾT</button>
+                        <div id="drDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 8px);width:420px;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.2);z-index:9999;overflow:hidden;">
+                            <div style="background:linear-gradient(135deg,#0891b2,#06b6d4);padding:14px 18px;color:white;">
+                                <div style="font-size:14px;font-weight:800;">📊 Tổng Kết Hàng Ngày</div>
+                                <div style="font-size:11px;opacity:0.8;margin-top:2px;">Gộp báo cáo tự động gửi Telegram</div>
+                            </div>
+                            <div id="drContent" style="padding:16px 18px;max-height:450px;overflow-y:auto;">
+                                <div style="text-align:center;color:#9ca3af;padding:20px">⏳ Đang tải...</div>
+                            </div>
+                        </div>
+                    </div>
                     <button class="btn btn-sm btn-secondary" id="changePasswordBtn">🔒 Đổi mật khẩu</button>
                 </div>
             </div>

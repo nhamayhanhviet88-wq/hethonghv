@@ -189,12 +189,30 @@ async function sendTelegramPhoto(chatId, filePath, caption) {
     const boundary = '----TgBoundary' + Date.now();
     const fileData = fs.readFileSync(filePath);
     const fileName = path.basename(filePath);
-    let body = '';
-    body += `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`;
-    if (caption) body += `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`;
-    const prefix = Buffer.from(body + `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="${fileName}"\r\nContent-Type: image/png\r\n\r\n`);
-    const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
-    const payload = Buffer.concat([prefix, fileData, suffix]);
+    const CRLF = '\r\n';
+
+    // Build parts as array of Buffers to avoid encoding issues with HTML in caption
+    const parts = [];
+
+    // chat_id
+    parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}${chatId}${CRLF}`));
+
+    // parse_mode
+    parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="parse_mode"${CRLF}${CRLF}HTML${CRLF}`));
+
+    // caption (use UTF-8 buffer to preserve <b> tags and special chars)
+    if (caption) {
+        parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="caption"${CRLF}${CRLF}`, 'utf8'));
+        parts.push(Buffer.from(caption, 'utf8'));
+        parts.push(Buffer.from(CRLF, 'utf8'));
+    }
+
+    // photo file
+    parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="photo"; filename="${fileName}"${CRLF}Content-Type: image/png${CRLF}${CRLF}`));
+    parts.push(fileData);
+    parts.push(Buffer.from(`${CRLF}--${boundary}--${CRLF}`));
+
+    const payload = Buffer.concat(parts);
 
     return new Promise((resolve) => {
         const req = https.request({

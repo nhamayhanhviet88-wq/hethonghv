@@ -3,6 +3,7 @@ const { ImapFlow } = require('imapflow');
 const db = require('../db/pool');
 const crypto = require('crypto');
 const { sendTelegramMessage } = require('../utils/telegram');
+const { syncToAppSheet, isAppSheetSyncEnabled, retryFailedSync } = require('./appsheetSync');
 
 const ENC_KEY = (process.env.JWT_SECRET || 'fallback-key-32chars-long!!!!!!').slice(0, 32).padEnd(32, '0');
 const ENC_IV = Buffer.alloc(16, 0);
@@ -78,6 +79,12 @@ async function checkEmails() {
             try {
                 const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
                 _tgPaymentGroup = tgRow?.value?.trim() || null;
+            } catch (e) { /* ignore */ }
+
+            // ★ Read AppSheet sync config (once per cycle)
+            let _appSheetEnabled = false;
+            try {
+                _appSheetEnabled = await isAppSheetSyncEnabled();
             } catch (e) { /* ignore */ }
 
             // For each bank, search emails from that sender
@@ -156,6 +163,22 @@ async function checkEmails() {
                         const tgMsg = `🏦${code} : ${fmtAmt}đ ${bank.bank_name} ${cleanDesc}`;
                         sendTelegramMessage(_tgPaymentGroup, tgMsg).catch(() => {});
                     }
+
+                    // ★ Sync to AppSheet NKy (fire-and-forget)
+                    if (_appSheetEnabled) {
+                        syncToAppSheet({
+                            payment_code: code,
+                            date: parsed.date,
+                            amount: parsed.amount,
+                            bank_name: bank.bank_name,
+                            description: parsed.description
+                        }).then(() => {
+                            db.run('UPDATE payment_records SET appsheet_synced = true WHERE source_ref_id = $1', [refHash]);
+                            console.log(`[AppSheet] ✅ Synced ${code}`);
+                        }).catch(err => {
+                            console.error(`[AppSheet] ❌ Failed ${code}:`, err.message);
+                        });
+                    }
                 }
             }
 
@@ -166,6 +189,11 @@ async function checkEmails() {
             );
 
             console.log(`[EmailChecker] ✅ Done: checked ${checkedCount} emails, imported ${importCount}, skipped ${skippedDup} duplicates, ${skippedNeg} negative`);
+
+            // ★ Retry failed AppSheet syncs
+            if (_appSheetEnabled) {
+                await retryFailedSync();
+            }
 
         } finally {
             lock.release();
