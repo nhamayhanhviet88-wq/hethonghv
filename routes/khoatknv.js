@@ -478,118 +478,41 @@ async function khoaTKNVRoutes(fastify, options) {
         return { penalties: allPenalties, total };
     });
 
-    // GET: Phiếu phạt cho NV cụ thể
+    // GET: Phiếu phạt cho NV cụ thể — reads from ledger (single source of truth)
     fastify.get('/api/penalty/slip/:managerId/:month', { preHandler: [authenticate] }, async (request, reply) => {
         const managerId = Number(request.params.managerId);
         const month = request.params.month;
-
         const monthStart = `${month}-01`;
         const [y, m] = month.split('-').map(Number);
         const lastDay = new Date(y, m, 0).getDate();
         const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
-
         const manager = await db.get('SELECT full_name, username, department_id FROM users WHERE id = $1', [managerId]);
         if (!manager) return reply.code(404).send({ error: 'Không tìm thấy nhân viên' });
-
         const dept = await db.get('SELECT name FROM departments WHERE id = $1', [manager.department_id]);
 
-        // Source 1: task_support_requests (CV Điểm + Hỗ trợ NV)
-        const srItems = await db.all(
-            `SELECT sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
-                    u.full_name as requested_by
-             FROM task_support_requests sr
-             LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.manager_id = $1 AND sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $2 AND $3
-             ORDER BY sr.task_date`,
-            [managerId, monthStart, monthEnd]
-        );
-        srItems.forEach(item => {
-            item.source_type = (item.penalty_reason && item.penalty_reason.includes('Không duyệt')) ? 'diem' : 'support';
-        });
+        // Sync ledger for today (ensure up-to-date)
+        try { const { syncLedgerForDate } = require('../utils/penaltyLedger'); const { vnNow, vnDateStr } = require('../utils/timezone'); await syncLedgerForDate(vnDateStr(vnNow())); } catch(e) {}
 
-        // Source 2: lock_task_completions (CV Khóa)
-        const ltItems = await db.all(
-            `SELECT lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount, ltc.acknowledged
-             FROM lock_task_completions ltc
-             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-             WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.completion_date BETWEEN $2::date AND $3::date
-             ORDER BY ltc.completion_date`,
-            [managerId, monthStart, monthEnd]
-        );
-        ltItems.forEach(item => {
-            item.source_type = 'khoa';
-            item.penalty_reason = 'Không nộp báo cáo';
-        });
+        // Read from ledger — single query replaces 5 source queries
+        const { getLedgerForUserRange } = require('../utils/penaltyLedger');
+        const rows = await getLedgerForUserRange(managerId, monthStart, monthEnd);
 
-        // Source 3: chain_task_completions (CV Chuỗi)
-        const ctItems = await db.all(
-            `SELECT ci.task_name, 
-                    (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
-                    cc.penalty_amount, cc.acknowledged,
-                    cins.chain_name, cc.content as penalty_reason
-             FROM chain_task_completions cc
-             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
-             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-             WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-               AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) BETWEEN $2::date AND $3::date
-             ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)`,
-            [managerId, monthStart, monthEnd]
-        );
-        ctItems.forEach(item => {
-            item.source_type = 'chuoi';
-            item.task_name = item.task_name + (item.chain_name ? ` (${item.chain_name})` : '');
-            item.penalty_reason = item.penalty_reason || 'Không nộp báo cáo CV chuỗi';
-        });
-
-        // Source 4: emergencies (Cấp cứu sếp)
-        const emItems = await db.all(
-            `SELECT e.reason as task_name, e.created_at::date::text as task_date, e.penalty_amount, e.acknowledged,
-                    c.customer_name
-             FROM emergencies e
-             LEFT JOIN customers c ON c.id = e.customer_id
-             WHERE COALESCE(e.handover_to, e.handler_id) = $1 AND e.penalty_applied = true
-               AND e.created_at::date BETWEEN $2::date AND $3::date
-             ORDER BY e.created_at`,
-            [managerId, monthStart, monthEnd]
-        );
-        emItems.forEach(item => {
-            item.source_type = 'emergency';
-            item.task_name = `Cấp cứu: ${item.customer_name || 'Khách hàng'}`;
-            item.penalty_reason = `Không xử lý cấp cứu: ${item.task_name}`;
-        });
-
-        // Source 5: customer_penalty_records (KH chưa xử lý)
-        // ★ Skip GĐ — không bao giờ hiện phạt cho Giám Đốc
-        const gdCheck = await db.get('SELECT role FROM users WHERE id = $1', [managerId]);
-        const cpItems = (gdCheck?.role === 'giam_doc') ? [] : await db.all(
-            `SELECT cpr.crm_type as task_name, cpr.penalty_date::text as task_date, cpr.penalty_amount, cpr.acknowledged,
-                    cpr.unhandled_count, cpr.crm_type
-             FROM customer_penalty_records cpr
-             WHERE cpr.user_id = $1 AND cpr.penalty_date BETWEEN $2::date AND $3::date
-             ORDER BY cpr.penalty_date`,
-            [managerId, monthStart, monthEnd]
-        );
-        cpItems.forEach(item => {
-            const isTre = item.crm_type && item.crm_type.startsWith('tre_');
-            const displayCrmType = isTre ? item.crm_type.replace('tre_', '') : item.crm_type;
-            item.source_type = isTre ? 'customer_overdue' : 'customer_unhandled';
-            item.task_name = isTre
-                ? `KH xử lý trễ: ${displayCrmType} (${item.unhandled_count} KH)`
-                : `KH chưa XL: ${item.crm_type} (${item.unhandled_count} KH)`;
-            item.penalty_reason = isTre
-                ? `Không xử lý ${item.unhandled_count} khách xử lý trễ`
-                : `Không xử lý ${item.unhandled_count} khách phải xử lý hôm nay`;
-        });
-
-        const items = [...srItems, ...ltItems, ...ctItems, ...emItems, ...cpItems];
+        const sourceMap = {
+            'cv_khoa': 'khoa', 'ql_khoa': 'khoa', 'ql_khoa_chong': 'khoa',
+            'cv_chuoi': 'chuoi', 'ql_chuoi': 'chuoi', 'ql_chuoi_chong': 'chuoi',
+            'ho_tro_nv': 'support', 'ho_tro_chong': 'support',
+            'cv_diem': 'diem', 'cap_cuu': 'emergency',
+            'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue'
+        };
+        const items = rows.map(r => ({
+            task_name: r.task_name, task_date: r.penalty_date,
+            penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason || '',
+            source_type: sourceMap[r.source_type] || r.source_type
+        }));
         const total = items.reduce((s, i) => s + (i.penalty_amount || 0), 0);
-
         return {
             manager: { id: managerId, name: manager.full_name, username: manager.username, dept: dept?.name || '' },
-            month,
-            items,
-            total
+            month, items, total
         };
     });
 
