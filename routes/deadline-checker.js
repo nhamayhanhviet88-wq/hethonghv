@@ -2017,8 +2017,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const needsApproval13 = tmpl.requires_approval || _fa13?.force_approval || !!_ft13;
 
                     if (existing) {
-                        if (existing.status === 'pending' || existing.status === 'approved') {
-                            // PROTECTED: only update quantity, NOT status (preserve manual approval)
+                        if (existing.status === 'approved' && !needsApproval13) {
+                            // Auto-approved: update quantity AND recalculate points
+                            await db.run(`UPDATE task_point_reports SET quantity = $1, points_earned = $2 WHERE id = $3`, [tmplQty, tmplEarned, existing.id]);
+                        } else if (existing.status === 'pending' || existing.status === 'approved') {
+                            // Pending or approval-required: only update quantity (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const newStatus13 = needsApproval13 ? 'pending' : 'approved';
@@ -2123,8 +2126,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     const needsApproval14 = tmpl.requires_approval || _fa14?.force_approval || !!_ft14;
 
                     if (existing) {
-                        if (existing.status === 'pending' || existing.status === 'approved') {
-                            // PROTECTED: preserve manual approval, only update quantity
+                        if (existing.status === 'approved' && !needsApproval14) {
+                            // Auto-approved: update quantity AND recalculate points
+                            await db.run(`UPDATE task_point_reports SET quantity = $1, points_earned = $2 WHERE id = $3`, [tmplQty, tmplEarned, existing.id]);
+                        } else if (existing.status === 'pending' || existing.status === 'approved') {
+                            // Pending or approval-required: only update quantity (preserve manual approval)
                             await db.run(`UPDATE task_point_reports SET quantity = $1 WHERE id = $2`, [tmplQty, existing.id]);
                         } else {
                             const newStatus14 = needsApproval14 ? 'pending' : 'approved';
