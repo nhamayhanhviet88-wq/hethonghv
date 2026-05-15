@@ -867,8 +867,8 @@ module.exports = async function (fastify) {
                 );
                 if (comp) { compStatus = comp.status; break; }
             }
-            // Skip if already approved
-            if (compStatus === 'approved') continue;
+            // Skip if already approved AND entries are sufficient
+            if (compStatus === 'approved' && current >= minQty) continue;
 
             const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
             missingDates.push({

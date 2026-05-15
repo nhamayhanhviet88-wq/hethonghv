@@ -505,7 +505,11 @@ async function lockTaskRoutes(fastify, options) {
             [userId, 'lock', taskId]
         );
         const needsApproval = task?.requires_approval || _forceUser?.force_approval || !!_forceTask;
-        const status = needsApproval ? 'pending' : 'approved';
+        // Also check if quantity_done meets min_quantity before auto-approving
+        const _taskMinQty = await db.get('SELECT min_quantity FROM lock_tasks WHERE id = $1', [taskId]);
+        const _minQty = _taskMinQty?.min_quantity || 1;
+        const _metTarget = quantityDoneField >= _minQty;
+        const status = needsApproval ? 'pending' : (_metTarget ? 'approved' : 'pending');
 
         // Calculate approval deadline if requires_approval
         let approvalDeadline = null;
