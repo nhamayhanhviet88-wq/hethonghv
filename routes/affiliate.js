@@ -2300,13 +2300,13 @@ async function affiliateRoutes(fastify) {
                 let buffer = Buffer.concat(chunks);
                 if (buffer.length > 0) {
                     const { compressImage } = require('../utils/imageCompressor');
-                    buffer = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
+                    const compressed = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
                     const fs = require('fs');
                     const path = require('path');
                     const dir = path.join(__dirname, '..', 'uploads', 'prizes');
                     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    const filename = `${part.fieldname}_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
-                    fs.writeFileSync(path.join(dir, filename), buffer);
+                    const filename = `${part.fieldname}_${Date.now()}_${Math.random().toString(36).slice(2)}.jpeg`;
+                    fs.writeFileSync(path.join(dir, filename), compressed.buffer);
                     files[part.fieldname] = `/uploads/prizes/${filename}`;
                 }
             } else {

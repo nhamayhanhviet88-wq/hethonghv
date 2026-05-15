@@ -39,10 +39,10 @@ async function xinnghiRoutes(fastify, options) {
                 const chunks = [];
                 for await (const chunk of part.file) chunks.push(chunk);
                 let fileBuffer = Buffer.concat(chunks);
-                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
-                const filename = `leave_${userId}_${Date.now()}.jpg`;
+                const compressed = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const filename = `leave_${userId}_${Date.now()}.jpeg`;
                 const filepath = path.join(uploadsDir, filename);
-                fs.writeFileSync(filepath, fileBuffer);
+                fs.writeFileSync(filepath, compressed.buffer);
                 proofPath = `/uploads/leave/${filename}`;
             } else {
                 fields[part.fieldname] = part.value;

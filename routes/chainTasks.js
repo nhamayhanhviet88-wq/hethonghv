@@ -552,10 +552,10 @@ async function chainTaskRoutes(fastify, options) {
                     const chunks = [];
                     for await (const chunk of part.file) chunks.push(chunk);
                     let fileBuffer = Buffer.concat(chunks);
-                    fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
-                    const filename = `${Date.now()}_proof.jpg`;
+                    const compressed = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                    const filename = `${Date.now()}_proof.jpeg`;
                     const filepath = path.join(uploadDir, filename);
-                    fs.writeFileSync(filepath, fileBuffer);
+                    fs.writeFileSync(filepath, compressed.buffer);
                     proofUrl = `/uploads/chain-tasks/${filename}`;
                 } else {
                     if (part.fieldname === 'content') content = part.value;

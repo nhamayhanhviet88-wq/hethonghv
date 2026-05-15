@@ -380,10 +380,10 @@ async function lockTaskRoutes(fastify, options) {
                     const chunks = [];
                     for await (const chunk of part.file) { chunks.push(chunk); }
                     let fileBuffer = Buffer.concat(chunks);
-                    fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
-                    const filename = `lt_${taskId}_${userId}_${todayStr}_${Date.now()}.jpg`;
+                    const compressed = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                    const filename = `lt_${taskId}_${userId}_${todayStr}_${Date.now()}.jpeg`;
                     const filePath = path.join(uploadsDir, filename);
-                    fs.writeFileSync(filePath, fileBuffer);
+                    fs.writeFileSync(filePath, compressed.buffer);
                     fileData = `/uploads/lock-tasks/${filename}`;
                 } else {
                     // It's a regular field

@@ -240,11 +240,11 @@ module.exports = async function (fastify) {
             // Compress and save image
             if (fileBuffer && fileBuffer.length > 0) {
                 const { compressImage } = require('../utils/imageCompressor');
-                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
+                const compressed = await compressImage(fileBuffer, { maxWidth: 1200, quality: 80 });
                 const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
                 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-                const fileName = `addcmt_${req.user.id}_${Date.now()}.jpg`;
-                fs.writeFileSync(path.join(uploadDir, fileName), fileBuffer);
+                const fileName = `addcmt_${req.user.id}_${Date.now()}.jpeg`;
+                fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
                 imagePath = `/uploads/addcmt/${fileName}`;
             }
         } else {
@@ -257,11 +257,11 @@ module.exports = async function (fastify) {
                 if (matches) {
                     const { compressImage } = require('../utils/imageCompressor');
                     let buf = Buffer.from(matches[1], 'base64');
-                    buf = await compressImage(buf, { maxWidth: 1200, quality: 80 });
+                    const compressed2 = await compressImage(buf, { maxWidth: 1200, quality: 80 });
                     const uploadDir = path.join(__dirname, '..', 'uploads', 'addcmt');
                     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-                    const fileName = `addcmt_${req.user.id}_${Date.now()}.jpg`;
-                    fs.writeFileSync(path.join(uploadDir, fileName), buf);
+                    const fileName = `addcmt_${req.user.id}_${Date.now()}.jpeg`;
+                    fs.writeFileSync(path.join(uploadDir, fileName), compressed2.buffer);
                     imagePath = `/uploads/addcmt/${fileName}`;
                 }
             }

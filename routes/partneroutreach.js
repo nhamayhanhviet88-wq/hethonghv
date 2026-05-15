@@ -608,14 +608,14 @@ module.exports = async function (fastify) {
             if (buffer.length > 5 * 1024 * 1024) return null;
 
             // Compress: resize to 1200px max, JPEG 80%
-            buffer = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
+            const compressed = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
 
             const month = getVNToday().substring(0, 7);
             const uploadDir = path.join(__dirname, '..', 'uploads', 'partner-outreach', month);
             if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-            const fileName = `po_${userId}_${Date.now()}.jpg`;
-            fs.writeFileSync(path.join(uploadDir, fileName), buffer);
+            const fileName = `po_${userId}_${Date.now()}.jpeg`;
+            fs.writeFileSync(path.join(uploadDir, fileName), compressed.buffer);
             return `/uploads/partner-outreach/${month}/${fileName}`;
         } catch (e) {
             console.error('[PartnerOutreach] Image save error:', e.message);

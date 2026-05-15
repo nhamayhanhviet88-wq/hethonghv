@@ -439,10 +439,10 @@ async function usersRoutes(fastify, options) {
                     chunks.push(chunk);
                 }
                 let fileBuffer = Buffer.concat(chunks);
-                fileBuffer = await compressImage(fileBuffer, { maxWidth: 1600, quality: 85 });
-                const fileName = `${userId}_${part.fieldname}_${Date.now()}.jpg`;
+                const compressed = await compressImage(fileBuffer, { maxWidth: 1600, quality: 85 });
+                const fileName = `${userId}_${part.fieldname}_${Date.now()}.jpeg`;
                 const filePath = path.join(uploadDir, fileName);
-                fs.writeFileSync(filePath, fileBuffer);
+                fs.writeFileSync(filePath, compressed.buffer);
 
                 if (part.fieldname === 'id_card_front') {
                     frontPath = `/uploads/idcards/${fileName}`;

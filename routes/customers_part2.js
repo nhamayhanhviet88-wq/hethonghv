@@ -835,11 +835,11 @@ module.exports = function(fastify, db, getManagedDeptIds) {
                 const { compressImage } = require('../utils/imageCompressor');
                 const uploadsDir = path.join(__dirname, '..', 'uploads', 'consult');
                 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+                let buf = await part.toBuffer();
+                const compressed = await compressImage(buf, { maxWidth: 1200, quality: 80, format: 'jpeg' });
                 const filename = `consult_${customerId}_${Date.now()}.jpg`;
                 const filepath = path.join(uploadsDir, filename);
-                let buf = await part.toBuffer();
-                buf = await compressImage(buf, { maxWidth: 1200, quality: 80 });
-                fs.writeFileSync(filepath, buf);
+                fs.writeFileSync(filepath, compressed.buffer);
                 imagePath = `/uploads/consult/${filename}`;
             } else { fields[part.fieldname] = part.value; }
         }
