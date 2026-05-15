@@ -1,10 +1,11 @@
-const db = require('./db/pool');
-(async () => {
-    const rows = await db.all(
-        "SELECT penalty_date, source_type, task_name, penalty_amount FROM daily_penalty_ledger WHERE user_id=47 AND penalty_date='2026-05-15' ORDER BY source_type"
-    );
-    console.log('dovandoanh (id=47) 15/05 ledger:');
-    rows.forEach(r => console.log(' ', r.source_type, '|', r.task_name, '|', r.penalty_amount));
-    console.log('Total:', rows.reduce((s, r) => s + r.penalty_amount, 0));
-    process.exit();
-})();
+const c = require('fs').readFileSync('routes/khoatknv.js', 'utf8').replace(/\r\n/g, '\n');
+const s = "Today's penalties for manager popup";
+const a = "POST: Mark manager popup as shown today";
+const sIdx = c.indexOf(s);
+const aIdx = c.indexOf(a);
+console.log('start:', sIdx, 'end:', aIdx);
+if (sIdx >= 0) {
+    console.log('BEFORE:', c.substring(sIdx - 20, sIdx + 50));
+    const block = c.substring(sIdx, sIdx + 200);
+    console.log('Uses ledger?', block.includes('getLedgerForDate'));
+}
