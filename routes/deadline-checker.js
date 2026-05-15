@@ -1474,171 +1474,52 @@ async function runDeadlineCheck(forceFullCheck = false) {
         console.error('  ❌ Error checking overdue customer penalties:', e.message);
     }
 
+    // ★★★ LEDGER SYNC — Ghi sổ phạt trước khi khóa TK ★★★
+    try {
+        const { syncLedgerForDate } = require('../utils/penaltyLedger');
+        await syncLedgerForDate(todayStr);
+    } catch(e) { console.error('  ❌ [Ledger Sync] Error:', e.message); }
+
     // ★★★ PHASE 2: ACCESS BLOCK — Chạy lúc 00:00 (đầu ngày mới) ★★★
-    // Quét TẤT CẢ vi phạm từ ngày hôm qua → khóa TK
+    // Đọc từ ledger (single source of truth) → khóa TK
     const blockHour = now.getUTCHours();
     const blockMinute = now.getUTCMinutes();
     if ((blockHour === 0 && blockMinute < 45) || forceFullCheck || _timeOverrideActive) {
-        // Luôn scan NGÀY HÔM QUA — penalties được tạo lúc 23:45 hôm trước
         const blockYesterday = new Date(now);
         blockYesterday.setUTCDate(blockYesterday.getUTCDate() - 1);
         const blockTargetStr = toDateStr(blockYesterday);
         console.log(`  🔒 [Access Block] Bắt đầu khóa TK cho vi phạm ngày ${blockTargetStr} (hôm qua)...`);
 
-        // Kiểm tra ngày hôm qua có phải ngày nghỉ không
+        // Sync ledger cho ngày hôm qua (đảm bảo đầy đủ)
+        try {
+            const { syncLedgerForDate } = require('../utils/penaltyLedger');
+            await syncLedgerForDate(blockTargetStr);
+        } catch(e) {}
+
         const yesterdayOff = await isDayOff(blockTargetStr);
         if (!yesterdayOff) {
-            // Gom vi phạm NGÀY HÔM QUA từ mọi nguồn
-            const blockMap = new Map(); // userId → [{task_name, task_date, penalty_amount, penalty_reason}]
+            // Đọc TẤT CẢ vi phạm từ ledger cho ngày hôm qua
+            const ledgerRows = await db.all(
+                `SELECT dpl.user_id, dpl.task_name, dpl.penalty_date::text as task_date,
+                        dpl.penalty_amount, dpl.penalty_reason
+                 FROM daily_penalty_ledger dpl
+                 JOIN users u ON u.id = dpl.user_id
+                 WHERE dpl.penalty_date = $1::date AND u.role != 'giam_doc' AND u.status = 'active'`,
+                [blockTargetStr]
+            );
 
-            // Source 1: CV Khóa (lock_task_completions)
-            try {
-                const ltcRows = await db.all(
-                    `SELECT ltc.user_id, lt.task_name, ltc.completion_date::text as task_date, ltc.penalty_amount, ltc.redo_count
-                     FROM lock_task_completions ltc
-                     JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-                     WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
-                       AND ltc.completion_date = $1::date`, [blockTargetStr]
-                );
-                for (const r of ltcRows) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    // redo_count=-1 = QL không duyệt, >=0 = NV không nộp
-                    const isQLNotApprove = r.redo_count === -1;
-                    const label = isQLNotApprove ? `Không duyệt CV Khóa: ${r.task_name}` : `CV Khóa: ${r.task_name}`;
-                    const reason = isQLNotApprove ? 'Không duyệt công việc khóa' : 'Không nộp CV Khóa';
-                    blockMap.get(r.user_id).push({ task_name: label, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: reason });
-                }
-            } catch(e) { console.error('  ❌ [Block] CV Khóa query error:', e.message); }
+            // Gom theo user
+            const blockMap = new Map();
+            for (const r of ledgerRows) {
+                if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
+                blockMap.get(r.user_id).push({
+                    task_name: r.task_name, task_date: r.task_date,
+                    penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason
+                });
+            }
 
-            // Source 2: CV Chuỗi (chain_task_completions)
-            // Fix: redo_count=-2 dùng range thay vì ::date cast để tránh timezone bug
-            try {
-                const ccRows = await db.all(
-                    `SELECT cc.user_id, ci.task_name, ci.deadline::text as task_date, cc.penalty_amount, cins.chain_name
-                     FROM chain_task_completions cc
-                     JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
-                     JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-                     WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                       AND (ci.deadline = $1::date
-                            OR (cc.redo_count = -2
-                                AND cc.created_at >= ($1::date - interval '1 day')::timestamp
-                                AND cc.created_at < ($1::date + interval '2 day')::timestamp))`, [blockTargetStr]
-                );
-                for (const r of ccRows) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `CV Chuỗi: ${r.task_name} (${r.chain_name})`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: 'Không nộp CV Chuỗi' });
-                }
-            } catch(e) { console.error('  ❌ [Block] CV Chuỗi query error:', e.message); }
-
-            // Source 3: Cấp cứu sếp (emergencies) — tìm tất cả emergency ĐANG PENDING + ĐÃ PHẠT
-            // Không lọc theo ngày vì last_penalty_at có timezone mismatch, chỉ cần status=pending + penalty=true
-            try {
-                const emRows = await db.all(
-                    `SELECT COALESCE(e.handover_to, e.handler_id) as user_id, e.reason, e.penalty_amount,
-                            e.created_at::date::text as task_date, c.customer_name
-                     FROM emergencies e
-                     LEFT JOIN customers c ON c.id = e.customer_id
-                     WHERE e.penalty_applied = true
-                       AND e.status = 'pending'`
-                );
-                for (const r of emRows) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    // Hiện mức phạt cấu hình (50k) thay vì tổng dồn
-                    const displayAmt = GPC.cap_cuu_ql_khong_xu_ly || 50000;
-                    blockMap.get(r.user_id).push({ task_name: `🚨Cấp Cứu Sếp: ${r.customer_name || 'KH'}`, task_date: blockTargetStr, penalty_amount: displayAmt, penalty_reason: `Không xử lý cấp cứu: ${r.reason}` });
-                }
-            } catch(e) { console.error('  ❌ [Block] Cấp cứu query error:', e.message); }
-
-            // Source 4: CV Điểm / Hỗ trợ NV (task_support_requests) — ngày hôm qua
-            try {
-                const srRows = await db.all(
-                    `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
-                            sr.penalty_amount, sr.penalty_reason
-                     FROM task_support_requests sr
-                     WHERE sr.status IN ('expired','ql_expired') AND sr.penalty_amount > 0 AND sr.task_date = $1::date`, [blockTargetStr]
-                );
-                for (const r of srRows) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    const isNotApprove = r.penalty_reason?.includes('Không duyệt');
-                    const src = isNotApprove ? 'Không duyệt CV Điểm' : 'Không hỗ trợ NV';
-                    blockMap.get(r.user_id).push({ task_name: `${src}: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
-                }
-            } catch(e) { console.error('  ❌ [Block] Hỗ trợ NV query error:', e.message); }
-
-            // Source 4a: QL KHÔNG HỖ TRỢ (phạt chồng) — bất kể ngày nào, miễn status='ql_expired'
-            try {
-                const srOngoing = await db.all(
-                    `SELECT sr.manager_id as user_id, sr.task_name, sr.task_date::text as task_date,
-                            sr.penalty_amount, sr.penalty_reason
-                     FROM task_support_requests sr
-                     WHERE sr.status = 'ql_expired' AND sr.penalty_amount > 0
-                       AND sr.task_date != $1::date`, [blockTargetStr]
-                );
-                for (const r of srOngoing) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `Chưa hỗ trợ NV: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason });
-                }
-            } catch(e) { console.error('  ❌ [Block] QL phạt chồng HT query error:', e.message); }
-
-            // Source 4b: QL KHÔNG DUYỆT CV KHÓA (phạt chồng) — pending NV record + expired QL record
-            try {
-                const qlKhoaOngoing = await db.all(
-                    `SELECT ltc_ql.user_id, lt.task_name, ltc_ql.completion_date::text as task_date,
-                            ltc_ql.penalty_amount, ltc_ql.content as penalty_reason
-                     FROM lock_task_completions ltc_ql
-                     JOIN lock_tasks lt ON lt.id = ltc_ql.lock_task_id
-                     WHERE ltc_ql.redo_count = -1 AND ltc_ql.status = 'expired' AND ltc_ql.penalty_applied = true
-                       AND ltc_ql.completion_date != $1::date
-                       AND EXISTS (SELECT 1 FROM lock_task_completions ltc_nv
-                                   WHERE ltc_nv.lock_task_id = ltc_ql.lock_task_id
-                                     AND ltc_nv.completion_date = ltc_ql.completion_date
-                                     AND ltc_nv.status = 'pending' AND ltc_nv.redo_count >= 0)`, [blockTargetStr]
-                );
-                for (const r of qlKhoaOngoing) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `Chưa duyệt CV Khóa: ${r.task_name}`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason || 'Không duyệt công việc khóa' });
-                }
-            } catch(e) { console.error('  ❌ [Block] QL phạt chồng Khóa query error:', e.message); }
-
-            // Source 4c: QL KHÔNG DUYỆT CV CHUỖI (phạt chồng) — pending NV record + expired QL record
-            try {
-                const qlChuoiOngoing = await db.all(
-                    `SELECT cc_ql.user_id, ci.task_name, ci.deadline::text as task_date,
-                            cc_ql.penalty_amount, cc_ql.content as penalty_reason, cins.chain_name
-                     FROM chain_task_completions cc_ql
-                     JOIN chain_task_instance_items ci ON ci.id = cc_ql.chain_item_id
-                     JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-                     WHERE cc_ql.redo_count = -2 AND cc_ql.status = 'expired' AND cc_ql.penalty_applied = true
-                       AND EXISTS (SELECT 1 FROM chain_task_completions cc_nv
-                                   WHERE cc_nv.chain_item_id = cc_ql.chain_item_id
-                                     AND cc_nv.status = 'pending' AND cc_nv.redo_count >= 0)`
-                );
-                for (const r of qlChuoiOngoing) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    blockMap.get(r.user_id).push({ task_name: `Chưa duyệt CV Chuỗi: ${r.task_name} (${r.chain_name})`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason || 'Không duyệt CV chuỗi' });
-                }
-            } catch(e) { console.error('  ❌ [Block] QL phạt chồng Chuỗi query error:', e.message); }
-
-            // Source 5: KH Chưa XL + KH Trễ (customer_penalty_records)
-            // ★ Skip GĐ — không bao giờ block Giám Đốc
-            try {
-                const cpRows = await db.all(
-                    `SELECT cpr.user_id, cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount, cpr.penalty_date::text as task_date
-                     FROM customer_penalty_records cpr
-                     JOIN users u ON u.id = cpr.user_id
-                     WHERE cpr.penalty_date = $1::date AND cpr.acknowledged = false AND u.role != 'giam_doc'`, [blockTargetStr]
-                );
-                for (const r of cpRows) {
-                    if (!blockMap.has(r.user_id)) blockMap.set(r.user_id, []);
-                    const isTre = r.crm_type.startsWith('tre_');
-                    const label = isTre ? `KH xử lý trễ: ${crmLabel(r.crm_type)}` : `KH chưa xử lý: ${crmLabel(r.crm_type)}`;
-                    blockMap.get(r.user_id).push({ task_name: `${label} (${r.unhandled_count} KH)`, task_date: r.task_date, penalty_amount: r.penalty_amount, penalty_reason: isTre ? 'Không xử lý khách trễ' : 'Không xử lý khách hôm nay' });
-                }
-            } catch(e) { console.error('  ❌ [Block] KH Chưa XL query error:', e.message); }
-
-            // Khóa TK cho tất cả user có vi phạm
+            // Khóa TK
             let blockCount = 0;
-            // ★ Lấy danh sách user đã được mở khóa thủ công HÔM NAY → không re-block
             const todayBlockStr = toDateStr(now);
             let unblockedTodaySet = new Set();
             try {
@@ -1653,37 +1534,19 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 try {
                     const userCheck = await db.get('SELECT role, access_blocked FROM users WHERE id = $1', [userId]);
                     if (!userCheck || userCheck.role === 'giam_doc') continue;
-
-                    // ★ Skip nếu user đã được mở khóa thủ công hôm nay (tránh re-block sau restart)
                     if (unblockedTodaySet.has(userId)) {
                         console.log(`  ⏭️ [Access Block] Skip user id=${userId} — đã được mở khóa hôm nay`);
                         continue;
                     }
 
-                    // Merge với reason hiện tại (nếu đã bị chặn từ trước)
-                    let existingPenalties = [];
-                    if (userCheck.access_blocked) {
-                        try {
-                            const existing = await db.get('SELECT access_blocked_reason FROM users WHERE id = $1', [userId]);
-                            if (existing && existing.access_blocked_reason) {
-                                existingPenalties = JSON.parse(existing.access_blocked_reason);
-                            }
-                        } catch(e) {}
-                    }
-
-                    // Gộp penalties mới (tránh trùng)
-                    const existingKeys = new Set(existingPenalties.map(p => p.task_name + '|' + p.task_date));
-                    const newPenalties = penalties.filter(p => !existingKeys.has(p.task_name + '|' + p.task_date));
-                    if (newPenalties.length === 0) continue;
-                    const allPenalties = [...existingPenalties, ...newPenalties];
-
+                    // Ghi access_blocked_reason từ ledger (luôn overwrite = nguồn duy nhất)
                     await db.run(
                         `UPDATE users SET access_blocked = true, access_blocked_at = COALESCE(access_blocked_at, NOW()), access_blocked_reason = $2
                          WHERE id = $1`,
-                        [userId, JSON.stringify(allPenalties)]
+                        [userId, JSON.stringify(penalties)]
                     );
                     blockCount++;
-                    console.log(`  🚫 [Access Block] Chặn user id=${userId} (${allPenalties.length} vi phạm)`);
+                    console.log(`  🚫 [Access Block] Chặn user id=${userId} (${penalties.length} vi phạm, ${penalties.reduce((s,p) => s + p.penalty_amount, 0)}đ)`);
                 } catch(e) {
                     console.error(`  ❌ [Access Block] Error blocking user ${userId}:`, e.message);
                 }

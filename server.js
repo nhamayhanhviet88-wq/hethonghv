@@ -344,6 +344,25 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dht_items_order ON dht_order_items(dht_order_id)`);
     } catch(e) { console.error('[DHT Migration]', e.message); }
 
+    // Migration: daily_penalty_ledger — Sổ phạt hàng ngày (single source of truth)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS daily_penalty_ledger (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            penalty_date DATE NOT NULL,
+            source_type TEXT NOT NULL,
+            source_ref_id TEXT NOT NULL,
+            task_name TEXT NOT NULL,
+            penalty_amount INTEGER NOT NULL DEFAULT 0,
+            penalty_reason TEXT,
+            acknowledged BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, penalty_date, source_type, source_ref_id)
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dpl_user_date ON daily_penalty_ledger(user_id, penalty_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_dpl_date ON daily_penalty_ledger(penalty_date)`);
+    } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));

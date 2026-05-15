@@ -593,139 +593,32 @@ async function khoaTKNVRoutes(fastify, options) {
         };
     });
 
-    // GET: Check pending penalties for login popup
+    // GET: Check pending penalties for login popup — reads from ledger
     fastify.get('/api/penalty/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const todayStr = vnDateStr(vnNow());
 
-        // Skip penalty popup for test accounts
         const testAccountIds = await getTestAccountIds();
-        if (testAccountIds.map(Number).includes(Number(userId))) {
+        if (testAccountIds.map(Number).includes(Number(userId)))
             return { pending: [], total: 0 };
-        }
 
-        // Check if popup already shown today (server-side tracking)
-        const userCheck = await db.get('SELECT penalty_popup_date, department_joined_at FROM users WHERE id = $1', [userId]);
-        if (userCheck && userCheck.penalty_popup_date === todayStr) {
+        const userCheck = await db.get('SELECT penalty_popup_date FROM users WHERE id = $1', [userId]);
+        if (userCheck && userCheck.penalty_popup_date === todayStr)
             return { pending: [], total: 0, shownToday: true };
-        }
 
-        // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (không phải tổng cộng tất cả)
-        const vnYesterday = vnNow();
-        vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const vnYesterday = vnNow(); vnYesterday.setDate(vnYesterday.getDate() - 1);
         const yesterdayStr = vnDateStr(vnYesterday);
 
-        // ===== Source 1: Support requests (for managers) — ngày hôm qua =====
-        const supportPending = await db.all(
-            `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
-                    u.full_name as requested_by
-             FROM task_support_requests sr
-             LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.manager_id = $1 AND sr.status = 'expired' AND sr.task_date = $2::date
-             ORDER BY sr.task_date`,
-            [userId, yesterdayStr]
-        );
+        // Sync + read from ledger
+        try { const { syncLedgerForDate } = require('../utils/penaltyLedger'); await syncLedgerForDate(yesterdayStr); } catch(e) {}
+        const { getLedgerForUser } = require('../utils/penaltyLedger');
+        const rows = await getLedgerForUser(userId, yesterdayStr);
 
-        // ===== Source 2: CV Khóa — penalty records ngày hôm qua =====
-        const khoaRecords = await db.all(
-            `SELECT lt.task_name, ltc.completion_date::text as task_date,
-                    ltc.penalty_amount, ltc.redo_count, ltc.content as penalty_reason
-             FROM lock_task_completions ltc
-             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-             WHERE ltc.user_id = $1 AND ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.completion_date = $2::date
-             ORDER BY ltc.completion_date DESC`,
-            [userId, yesterdayStr]
-        );
-
-        const khoaPending = khoaRecords
-            .filter(r => r.redo_count === 0 || r.redo_count <= -2)
-            .map(r => ({
-                task_name: r.task_name,
-                task_date: r.task_date,
-                penalty_amount: r.penalty_amount,
-                penalty_reason: r.redo_count <= -2
-                    ? (r.penalty_reason || `Phạt chồng: ${r.task_name}`)
-                    : `Không nộp báo cáo: ${r.task_name}`
-            }));
-
-        // ===== Source 3: CV Chuỗi — penalty records ngày hôm qua =====
-        let chainPending = [];
-        try {
-            const chainRecords = await db.all(
-                `SELECT ci.task_name,
-                        (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
-                        cc.penalty_amount, cc.redo_count, cc.content as penalty_reason,
-                        cins.chain_name
-                 FROM chain_task_completions cc
-                 JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
-                 JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-                 WHERE cc.user_id = $1 AND cc.status = 'expired' AND cc.penalty_applied = true
-                   AND cc.redo_count IN (0, -2)
-                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $2::date
-                 ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) DESC`,
-                [userId, yesterdayStr]
-            );
-
-            chainPending = chainRecords.map(r => ({
-                task_name: r.chain_name ? `${r.chain_name} — ${r.task_name}` : r.task_name,
-                task_date: r.task_date,
-                penalty_amount: r.penalty_amount,
-                penalty_reason: r.redo_count === -2
-                    ? (r.penalty_reason || `Phạt chồng: ${r.task_name}`)
-                    : `Chưa nộp báo cáo CV chuỗi: ${r.task_name}`
-            }));
-        } catch(e) {}
-
-        // ===== Source 4: Cấp cứu (for managers) — ngày hôm qua =====
-        let emergencyPending = [];
-        try {
-            const emRecords = await db.all(
-                `SELECT e.id, e.reason, e.penalty_amount, e.created_at::text as task_date,
-                        c.customer_name
-                 FROM emergencies e
-                 LEFT JOIN customers c ON c.id = e.customer_id
-                 WHERE COALESCE(e.handover_to, e.handler_id) = $1
-                   AND e.status = 'pending' AND e.penalty_applied = true
-                   AND e.created_at::date = $2::date`,
-                [userId, yesterdayStr]
-            );
-            emergencyPending = emRecords.map(r => ({
-                task_name: `Cấp cứu: ${r.customer_name || r.reason || 'KH'}`,
-                task_date: r.task_date,
-                penalty_amount: r.penalty_amount,
-                penalty_reason: 'Không xử lý cấp cứu đúng hạn'
-            }));
-        } catch(e) {}
-
-        // ===== Source 5: KH chưa xử lý (for NV) — ngày hôm qua =====
-        let custPending = [];
-        try {
-            const custRecords = await db.all(
-                `SELECT cpr.penalty_date::text as task_date, cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount
-                 FROM customer_penalty_records cpr
-                 WHERE cpr.user_id = $1 AND cpr.penalty_date = $2::date
-                 ORDER BY cpr.penalty_date DESC`,
-                [userId, yesterdayStr]
-            );
-            custPending = custRecords.map(r => {
-                const isTre = r.crm_type && r.crm_type.startsWith('tre_');
-                const displayCrmType = isTre ? r.crm_type.replace('tre_', '') : r.crm_type;
-                return {
-                    task_name: isTre
-                        ? `KH xử lý trễ: ${displayCrmType} (${r.unhandled_count} KH)`
-                        : `KH chưa xử lý: ${r.crm_type} (${r.unhandled_count} KH)`,
-                    task_date: r.task_date,
-                    penalty_amount: r.penalty_amount,
-                    penalty_reason: isTre
-                        ? `Không xử lý ${r.unhandled_count} khách xử lý trễ`
-                        : `Không xử lý ${r.unhandled_count} khách hàng trong ngày`
-                };
-            });
-        } catch(e) {}
-
-        const pending = [...supportPending, ...khoaPending, ...chainPending, ...emergencyPending, ...custPending];
+        const pending = rows.map(r => ({
+            task_name: r.task_name, task_date: r.penalty_date,
+            penalty_amount: r.penalty_amount, penalty_reason: r.penalty_reason
+        }));
         const total = pending.reduce((s, p) => s + (p.penalty_amount || 0), 0);
         return { pending, total, penaltyDate: yesterdayStr };
     });
@@ -785,253 +678,56 @@ async function khoaTKNVRoutes(fastify, options) {
         return { success: true, message: `Đã xác nhận. Tài khoản đã được mở khóa.${pumpMsg}`, telesalePumped: pumpMsg ? true : false };
     });
 
-    // GET: Today's penalties for manager popup — scoped by department hierarchy
+    // GET: Today's penalties for manager popup — reads from ledger (single source of truth)
     fastify.get('/api/penalty/team-today', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
         const { vnNow, vnDateStr } = require('../utils/timezone');
         const todayStr = vnDateStr(vnNow());
 
-        // Only for managers
-        if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(userRole)) {
+        if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(userRole))
             return { penalties: [], total: 0 };
-        }
 
-        // Check if popup already shown today
         const userCheck = await db.get('SELECT penalty_mgr_popup_date, department_id FROM users WHERE id = $1', [userId]);
-        if (userCheck && userCheck.penalty_mgr_popup_date === todayStr) {
+        if (userCheck && userCheck.penalty_mgr_popup_date === todayStr)
             return { penalties: [], total: 0, shownToday: true };
-        }
 
-        // Get department scope — all dept IDs this manager can see
         let scopeDeptIds = [];
-
         if (userRole === 'giam_doc') {
-            // GD sees all departments
-            const allDepts = await db.all('SELECT id FROM departments');
-            scopeDeptIds = allDepts.map(d => d.id);
+            scopeDeptIds = (await db.all('SELECT id FROM departments')).map(d => d.id);
         } else {
-            // QLCC/QL/TP — get their dept + all children recursively
             const myDeptId = userCheck?.department_id;
             if (!myDeptId) return { penalties: [], total: 0 };
-
-            async function getChildIds(parentId) {
-                let ids = [parentId];
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [parentId]);
-                for (const child of children) {
-                    const childIds = await getChildIds(child.id);
-                    ids.push(...childIds);
-                }
+            async function getChildIds(pid) {
+                let ids = [pid];
+                for (const c of await db.all('SELECT id FROM departments WHERE parent_id = $1', [pid]))
+                    ids.push(...await getChildIds(c.id));
                 return ids;
             }
             scopeDeptIds = await getChildIds(myDeptId);
         }
+        if (!scopeDeptIds.length) return { penalties: [], total: 0 };
 
-        if (scopeDeptIds.length === 0) return { penalties: [], total: 0 };
-
-        // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (khớp với NV popup và trang thống kê)
-        const vnYesterday = vnNow();
-        vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const vnYesterday = vnNow(); vnYesterday.setDate(vnYesterday.getDate() - 1);
         const yesterdayStr = vnDateStr(vnYesterday);
-        const deptPlaceholders = scopeDeptIds.map((_, i) => `$${i + 3}`).join(',');
-        const baseParams = [yesterdayStr, userId, ...scopeDeptIds];
 
-        // Source 1: task_support_requests — ngày hôm qua
-        const srPenalties = await db.all(
-            `SELECT sr.id, sr.task_name, sr.task_date::text as task_date, sr.penalty_amount, sr.penalty_reason,
-                    sr.manager_id as penalized_user_id, m.full_name as penalized_name, m.username as penalized_username,
-                    m.department_id as penalized_dept_id, m.role as penalized_role,
-                    u.full_name as related_user
-             FROM task_support_requests sr
-             LEFT JOIN users m ON sr.manager_id = m.id
-             LEFT JOIN users u ON sr.user_id = u.id
-             WHERE sr.status IN ('expired','ql_expired') AND sr.task_date = $1::date
-               AND sr.manager_id != $2 AND m.department_id IN (${deptPlaceholders})
-             ORDER BY sr.task_date`,
-            baseParams
-        );
+        // Sync + read from ledger
+        try { const { syncLedgerForDate } = require('../utils/penaltyLedger'); await syncLedgerForDate(yesterdayStr); } catch(e) {}
+        const { getLedgerForDate } = require('../utils/penaltyLedger');
+        const rows = await getLedgerForDate(yesterdayStr, userId, scopeDeptIds);
 
-        // Source 2: lock_task_completions — ngày hôm qua
-        const lockPenalties = await db.all(
-            `SELECT ltc.user_id as penalized_user_id, lt.task_name, ltc.completion_date::text as task_date,
-                    ltc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
-                    u.department_id as penalized_dept_id, u.role as penalized_role
-             FROM lock_task_completions ltc
-             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-             JOIN users u ON u.id = ltc.user_id
-             WHERE ltc.status = 'expired' AND ltc.penalty_applied = true
-               AND ltc.completion_date = $1::date
-               AND ltc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
-             ORDER BY ltc.completion_date`,
-            baseParams
-        );
-
-        // Source 3: chain_task_completions — ngày hôm qua
-        let chainPenalties = [];
-        try {
-            chainPenalties = await db.all(
-                `SELECT cc.user_id as penalized_user_id, ci.task_name,
-                        (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)::text as task_date,
-                        cc.penalty_amount, u.full_name as penalized_name, u.username as penalized_username,
-                        u.department_id as penalized_dept_id, u.role as penalized_role,
-                        cins.chain_name
-                 FROM chain_task_completions cc
-                 JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
-                 JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-                 JOIN users u ON u.id = cc.user_id
-                 WHERE cc.status = 'expired' AND cc.penalty_applied = true
-                   AND (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END) = $1::date
-                   AND cc.user_id != $2 AND u.department_id IN (${deptPlaceholders})
-                 ORDER BY (CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END)`,
-                baseParams
-            );
-        } catch(e) {}
-
-        // Source 4: emergencies (Cấp cứu sếp — QL không xử lý) — ngày hôm qua
-        let emergencyPenalties = [];
-        try {
-            emergencyPenalties = await db.all(
-                `SELECT e.id, e.reason, e.penalty_amount, e.created_at::date::text as task_date,
-                        c.customer_name,
-                        COALESCE(e.handover_to, e.handler_id) as penalized_user_id,
-                        hu.full_name as penalized_name, hu.username as penalized_username,
-                        hu.department_id as penalized_dept_id, hu.role as penalized_role
-                 FROM emergencies e
-                 LEFT JOIN customers c ON c.id = e.customer_id
-                 LEFT JOIN users hu ON hu.id = COALESCE(e.handover_to, e.handler_id)
-                 WHERE e.penalty_applied = true
-                   AND e.created_at::date = $1::date
-                   AND COALESCE(e.handover_to, e.handler_id) != $2
-                   AND hu.department_id IN (${deptPlaceholders})
-                 ORDER BY e.created_at`,
-                baseParams
-            );
-        } catch(e) {}
-
-        // Source 5: customer_penalty_records (KH chưa xử lý) — ngày hôm qua
-        let custPenalties = [];
-        try {
-            custPenalties = await db.all(
-                `SELECT cpr.user_id as penalized_user_id, cpr.penalty_date::text as task_date,
-                        cpr.crm_type, cpr.unhandled_count, cpr.penalty_amount,
-                        u.full_name as penalized_name, u.username as penalized_username,
-                        u.department_id as penalized_dept_id, u.role as penalized_role
-                 FROM customer_penalty_records cpr
-                 JOIN users u ON u.id = cpr.user_id
-                 WHERE cpr.penalty_date = $1::date
-                   AND cpr.user_id != $2
-                   AND u.role != 'giam_doc'
-                   AND u.department_id IN (${deptPlaceholders})
-                 ORDER BY cpr.penalty_date`,
-                baseParams
-            );
-        } catch(e) {}
-
-        // Merge all penalties
-        const allPenaltiesRaw = [];
-
-        srPenalties.forEach(p => {
-            allPenaltiesRaw.push({
-                penalized_user_id: p.penalized_user_id,
-                penalized_name: p.penalized_name,
-                penalized_username: p.penalized_username,
-                penalized_dept_id: p.penalized_dept_id,
-                penalized_role: p.penalized_role,
-                task_name: p.task_name,
-                task_date: p.task_date,
-                penalty_amount: p.penalty_amount || 0,
-                reason: p.penalty_reason || 'Không xử lý hỗ trợ',
-                source: p.penalty_reason?.includes('Không duyệt') ? 'CV Điểm' : 'Hỗ trợ NV',
-                related_user: p.related_user
-            });
-        });
-
-        lockPenalties.forEach(p => {
-            allPenaltiesRaw.push({
-                penalized_user_id: p.penalized_user_id,
-                penalized_name: p.penalized_name,
-                penalized_username: p.penalized_username,
-                penalized_dept_id: p.penalized_dept_id,
-                penalized_role: p.penalized_role,
-                task_name: p.task_name,
-                task_date: p.task_date,
-                penalty_amount: p.penalty_amount || 0,
-                reason: 'Không nộp báo cáo',
-                source: 'CV Khóa'
-            });
-        });
-
-        chainPenalties.forEach(p => {
-            allPenaltiesRaw.push({
-                penalized_user_id: p.penalized_user_id,
-                penalized_name: p.penalized_name,
-                penalized_username: p.penalized_username,
-                penalized_dept_id: p.penalized_dept_id,
-                penalized_role: p.penalized_role,
-                task_name: p.chain_name ? `${p.chain_name} — ${p.task_name}` : p.task_name,
-                task_date: p.task_date,
-                penalty_amount: p.penalty_amount || 0,
-                reason: 'Không nộp báo cáo chuỗi',
-                source: 'CV Chuỗi'
-            });
-        });
-
-        emergencyPenalties.forEach(p => {
-            allPenaltiesRaw.push({
-                penalized_user_id: p.penalized_user_id,
-                penalized_name: p.penalized_name,
-                penalized_username: p.penalized_username,
-                penalized_dept_id: p.penalized_dept_id,
-                penalized_role: p.penalized_role,
-                task_name: `Cấp cứu: ${p.customer_name || 'Khách hàng'}`,
-                task_date: p.task_date,
-                penalty_amount: p.penalty_amount || 0,
-                reason: `Không xử lý cấp cứu: ${p.reason}`,
-                source: 'Cấp Cứu Sếp'
-            });
-        });
-
-        // ★ CRM label map — dùng tên khớp với 4 bảng chăm sóc thật
-        const CRM_LABELS = {
-            nhu_cau: 'KH Nhu Cầu', ctv: 'CTV', ctv_hoa_hong: 'Affiliate',
-            koc_tiktok: 'KOL/KOC', qua_tang: 'QT/SK/DL', nguoi_than: 'NT/BB'
-        };
-
-        custPenalties.forEach(p => {
-            const isTre = p.crm_type && p.crm_type.startsWith('tre_');
-            const rawCrmType = isTre ? p.crm_type.replace('tre_', '') : p.crm_type;
-            const displayCrmLabel = CRM_LABELS[rawCrmType] || rawCrmType;
-            allPenaltiesRaw.push({
-                penalized_user_id: p.penalized_user_id,
-                penalized_name: p.penalized_name,
-                penalized_username: p.penalized_username,
-                penalized_dept_id: p.penalized_dept_id,
-                penalized_role: p.penalized_role,
-                task_name: isTre
-                    ? `KH xử lý trễ: ${displayCrmLabel} (${p.unhandled_count} KH)`
-                    : `KH chưa xử lý: ${displayCrmLabel} (${p.unhandled_count} KH)`,
-                task_date: p.task_date,
-                penalty_amount: p.penalty_amount || 0,
-                reason: isTre
-                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ`
-                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay`,
-                source: isTre ? 'KH Trễ' : 'KH Chưa XL'
-            });
-        });
-
-        // Filter out test accounts
         const testAccountIds = await getTestAccountIds();
         const testSet = new Set(testAccountIds.map(Number));
-        const allPenalties = allPenaltiesRaw.filter(p => !testSet.has(Number(p.penalized_user_id)));
+        const allPenalties = rows.filter(p => !testSet.has(Number(p.user_id))).map(p => ({
+            penalized_user_id: p.user_id, penalized_name: p.full_name, penalized_username: p.username,
+            penalized_dept_id: p.department_id, penalized_role: p.role,
+            task_name: p.task_name, task_date: p.penalty_date,
+            penalty_amount: p.penalty_amount || 0, reason: p.penalty_reason || '', source: p.source_type
+        }));
 
         const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
-
-        // Get departments for tree structure
         let departments = [];
-        if (allPenalties.length > 0) {
-            departments = await db.all('SELECT id, name, parent_id FROM departments');
-        }
-
+        if (allPenalties.length > 0) departments = await db.all('SELECT id, name, parent_id FROM departments');
         return { penalties: allPenalties, total, departments, penaltyDate: yesterdayStr };
     });
 
