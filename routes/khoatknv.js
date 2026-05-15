@@ -228,12 +228,16 @@ async function khoaTKNVRoutes(fastify, options) {
         if (!manager) return reply.code(404).send({ error: 'Không tìm thấy nhân viên' });
         const dept = await db.get('SELECT name FROM departments WHERE id = $1', [manager.department_id]);
 
-        // Sync ledger for today (ensure up-to-date)
-        try { const { syncLedgerForDate } = require('../utils/penaltyLedger'); const { vnNow, vnDateStr } = require('../utils/timezone'); await syncLedgerForDate(vnDateStr(vnNow())); } catch(e) {}
+        // ★ Cap tối đa = ngày hôm qua (phạt chỉ chốt khi ngày kết thúc)
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const vnYesterday = vnNow(); vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const maxDate = vnDateStr(vnYesterday);
+        const cappedEnd = monthEnd > maxDate ? maxDate : monthEnd;
+        const cappedStart = monthStart > maxDate ? maxDate : monthStart;
 
         // Read from ledger — single query replaces 5 source queries
         const { getLedgerForUserRange } = require('../utils/penaltyLedger');
-        const rows = await getLedgerForUserRange(managerId, monthStart, monthEnd);
+        const rows = await getLedgerForUserRange(managerId, cappedStart, cappedEnd);
 
         const sourceMap = {
             'cv_khoa': 'khoa', 'ql_khoa': 'khoa', 'ql_khoa_chong': 'khoa',
