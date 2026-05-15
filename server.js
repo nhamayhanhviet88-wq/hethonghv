@@ -582,7 +582,7 @@ async function start() {
     // Start unified daily report cron — Tổng Kết Hàng Ngày
     const { vnNow } = require('./utils/timezone');
     const { sendTelegramMessage } = require('./utils/telegram');
-    setInterval(async () => {
+    async function _drCheckAndSend() {
         try {
             const now = vnNow();
             const hh = String(now.getHours()).padStart(2, '0');
@@ -597,11 +597,15 @@ async function start() {
             try { cfg = JSON.parse(cfgRow.value); } catch { return; }
 
             const reportTime = (cfg.time || '21:00').trim();
-            if (currentTime !== reportTime) return;
 
             // Check if already sent today
             const lastSent = await db.get("SELECT value FROM app_config WHERE key = 'daily_report_last_sent'");
             if (lastSent?.value === todayStr) return;
+
+            // Match: exact minute OR catch-up (current time > configured time = missed, send now)
+            const isExactMatch = currentTime === reportTime;
+            const isCatchUp = currentTime > reportTime;
+            if (!isExactMatch && !isCatchUp) return;
 
             const groupId = (cfg.group_id || '').trim();
             if (!groupId) return;
@@ -610,6 +614,7 @@ async function start() {
             if (!modules.length) return;
 
             // Build combined report using the route helper
+            console.log(`[DailyReport] 📤 ${isCatchUp ? 'Catch-up' : 'Scheduled'} send at ${currentTime} (configured: ${reportTime})`);
             const report = await fastify._drBuildReport(todayStr, modules);
             const ok = await sendTelegramMessage(groupId, report.message);
             if (ok) {
@@ -619,11 +624,16 @@ async function start() {
                     [todayStr]
                 );
                 console.log('[DailyReport] ✅ Sent combined report for', todayStr);
+            } else {
+                console.error('[DailyReport] ❌ Telegram send failed for', todayStr);
             }
         } catch (e) {
             console.error('[DailyReport] Error:', e.message);
         }
-    }, 60 * 1000);
+    }
+    setInterval(_drCheckAndSend, 60 * 1000);
+    // Catch-up on startup (in case server restarted after scheduled time)
+    setTimeout(_drCheckAndSend, 5000);
     console.log('[DailyReport] ✅ Cron tổng kết hàng ngày đã khởi động (mỗi 1 phút)');
 }
 
