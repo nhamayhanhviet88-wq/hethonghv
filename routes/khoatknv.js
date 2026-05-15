@@ -596,7 +596,8 @@ async function khoaTKNVRoutes(fastify, options) {
     // GET: Check pending penalties for login popup
     fastify.get('/api/penalty/my-pending', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const todayStr = vnDateStr(vnNow());
 
         // Skip penalty popup for test accounts
         const testAccountIds = await getTestAccountIds();
@@ -611,9 +612,9 @@ async function khoaTKNVRoutes(fastify, options) {
         }
 
         // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (không phải tổng cộng tất cả)
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const vnYesterday = vnNow();
+        vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const yesterdayStr = vnDateStr(vnYesterday);
 
         // ===== Source 1: Support requests (for managers) — ngày hôm qua =====
         const supportPending = await db.all(
@@ -764,7 +765,8 @@ async function khoaTKNVRoutes(fastify, options) {
     // POST: Self-acknowledge (authenticated - when popup shows after login)
     fastify.post('/api/penalty/acknowledge-self', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const todayStr = vnDateStr(vnNow());
 
         // Mark popup as shown today (server-side) + unlock account
         await db.run(
@@ -787,7 +789,8 @@ async function khoaTKNVRoutes(fastify, options) {
     fastify.get('/api/penalty/team-today', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const todayStr = vnDateStr(vnNow());
 
         // Only for managers
         if (!['giam_doc', 'quan_ly_cap_cao', 'quan_ly', 'truong_phong'].includes(userRole)) {
@@ -827,9 +830,9 @@ async function khoaTKNVRoutes(fastify, options) {
         if (scopeDeptIds.length === 0) return { penalties: [], total: 0 };
 
         // ★ Popup hiển thị phạt CỦA NGÀY HÔM QUA (khớp với NV popup và trang thống kê)
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const vnYesterday = vnNow();
+        vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const yesterdayStr = vnDateStr(vnYesterday);
         const deptPlaceholders = scopeDeptIds.map((_, i) => `$${i + 3}`).join(',');
         const baseParams = [yesterdayStr, userId, ...scopeDeptIds];
 
@@ -1035,7 +1038,8 @@ async function khoaTKNVRoutes(fastify, options) {
     // POST: Mark manager popup as shown today
     fastify.post('/api/penalty/team-today/acknowledge', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const todayStr = vnDateStr(vnNow());
         await db.run('UPDATE users SET penalty_mgr_popup_date = $1 WHERE id = $2', [todayStr, userId]);
         return { success: true };
     });
