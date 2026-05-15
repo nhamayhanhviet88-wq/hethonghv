@@ -121,18 +121,16 @@ async function khoaTKNVRoutes(fastify, options) {
 
     // ========== PENALTY STATISTICS ==========
 
-    // GET: Thống kê phạt theo tháng
+    // GET: Thống kê phạt theo tháng — reads from ledger (single source of truth)
     fastify.get('/api/penalty/list', { preHandler: [authenticate] }, async (request, reply) => {
         const userId = request.user.id;
         const userRole = request.user.role;
-        // Support: ?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD or ?monthFrom=YYYY-MM&monthTo=YYYY-MM or ?month=YYYY-MM
         let monthStart, monthEnd;
         if (request.query.dateFrom) {
-            // Direct date range (for quick filters: today, 7 days, etc.)
             monthStart = request.query.dateFrom;
             monthEnd = request.query.dateTo || request.query.dateFrom;
         } else if (request.query.monthFrom) {
-            const mFrom = request.query.monthFrom; // YYYY-MM
+            const mFrom = request.query.monthFrom;
             const mTo = request.query.monthTo || mFrom;
             monthStart = `${mFrom}-01`;
             const [yTo, mToNum] = mTo.split('-').map(Number);
@@ -140,341 +138,81 @@ async function khoaTKNVRoutes(fastify, options) {
             monthEnd = `${mTo}-${String(lastDay).padStart(2, '0')}`;
         } else {
             const month = request.query.month;
-            if (!month) {
-                return reply.code(400).send({ error: 'Thiếu tham số lọc ngày' });
-            }
+            if (!month) return reply.code(400).send({ error: 'Thiếu tham số lọc ngày' });
             monthStart = `${month}-01`;
             const [y, m] = month.split('-').map(Number);
             const lastDay = new Date(y, m, 0).getDate();
             monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`;
         }
 
-        // ★ Guard: Phạt chỉ chốt khi ngày kết thúc → cap tối đa = ngày hôm qua (VN)
-        const _now = new Date(Date.now() + 7 * 3600000); // VN = UTC+7
-        const _yd = new Date(_now); _yd.setUTCDate(_yd.getUTCDate() - 1);
-        const maxDate = `${_yd.getUTCFullYear()}-${String(_yd.getUTCMonth()+1).padStart(2,'0')}-${String(_yd.getUTCDate()).padStart(2,'0')}`;
+        // Cap tối đa = ngày hôm qua (VN)
+        const { vnNow, vnDateStr } = require('../utils/timezone');
+        const vnYesterday = vnNow(); vnYesterday.setDate(vnYesterday.getDate() - 1);
+        const maxDate = vnDateStr(vnYesterday);
         if (monthEnd > maxDate) monthEnd = maxDate;
         if (monthStart > maxDate) monthStart = maxDate;
 
-        // ===== SOURCE 1: task_support_requests (CV Điểm + Hỗ trợ NV) =====
-        let srWhere = '';
-        let srParams = [monthStart, monthEnd];
+        // Sync ledger for today
+        try { const { syncLedgerForDate } = require('../utils/penaltyLedger'); await syncLedgerForDate(vnDateStr(vnNow())); } catch(e) {}
+
+        // Build department scope
+        let scopeFilter = '';
+        let params = [monthStart, monthEnd];
 
         if (userRole === 'giam_doc') {
-            srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2`;
+            scopeFilter = '';
         } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
             const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user || !user.department_id) {
-                srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND 1=0`;
-            } else {
-                const deptIds = [user.department_id];
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
-                children.forEach(c => deptIds.push(c.id));
-                for (const child of children) {
-                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    grandchildren.forEach(gc => deptIds.push(gc.id));
-                }
-                const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
-                srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND sr.department_id IN (${placeholders})`;
-                srParams.push(...deptIds);
+            if (!user || !user.department_id) return { penalties: [], total: 0 };
+            async function getChildIds(pid) {
+                let ids = [pid];
+                for (const c of await db.all('SELECT id FROM departments WHERE parent_id = $1', [pid]))
+                    ids.push(...await getChildIds(c.id));
+                return ids;
             }
+            const deptIds = await getChildIds(user.department_id);
+            const ph = deptIds.map((_, i) => `$${i + 3}`).join(',');
+            scopeFilter = ` AND u.department_id IN (${ph})`;
+            params.push(...deptIds);
         } else {
-            srWhere = `WHERE sr.status IN ('expired','ql_expired') AND sr.task_date BETWEEN $1 AND $2 AND (sr.manager_id = $3 OR sr.user_id = $3)`;
-            srParams.push(userId);
+            scopeFilter = ' AND dpl.user_id = $3';
+            params.push(userId);
         }
 
-        const srPenalties = await db.all(
-            `SELECT sr.*, sr.task_date::text as task_date, sr.deadline::text as deadline,
-                    u.full_name as user_name, u.username,
-                    m.full_name as manager_name, m.username as manager_username,
-                    m.department_id as manager_dept_id, m.role as manager_role,
-                    d.name as dept_name
-             FROM task_support_requests sr
-             LEFT JOIN users u ON sr.user_id = u.id
-             LEFT JOIN users m ON sr.manager_id = m.id
-             LEFT JOIN departments d ON sr.department_id = d.id
-             ${srWhere}
-             ORDER BY sr.task_date DESC, m.full_name`,
-            srParams
-        );
-
-        // Tag source type
-        srPenalties.forEach(p => {
-            if (p.penalty_reason && p.penalty_reason.includes('Không duyệt')) {
-                p.source_type = 'diem';
-                p.source_label = '📊 CV Điểm — QL không duyệt';
-            } else {
-                p.source_type = 'support';
-                p.source_label = '🆘 Hỗ trợ NV — QL không hỗ trợ';
-            }
-            // For display: the person being penalized is the manager
-            p.penalized_user_id = p.manager_id;
-            p.penalized_name = p.manager_name;
-            p.penalized_username = p.manager_username;
-            p.penalized_dept_id = p.manager_dept_id;
-            p.penalized_role = p.manager_role;
-        });
-
-        // ===== SOURCE 2: lock_task_completions (CV Khóa — NV không nộp) =====
-        let ltWhere = '';
-        let ltParams = [monthStart, monthEnd];
-
-        if (userRole === 'giam_doc') {
-            ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date`;
-        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
-            const user = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user || !user.department_id) {
-                ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND 1=0`;
-            } else {
-                const deptIds = [user.department_id];
-                const children = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user.department_id]);
-                children.forEach(c => deptIds.push(c.id));
-                for (const child of children) {
-                    const grandchildren = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    grandchildren.forEach(gc => deptIds.push(gc.id));
-                }
-                const placeholders = deptIds.map((_, i) => `$${i + 3}`).join(',');
-                ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND u.department_id IN (${placeholders})`;
-                ltParams.push(...deptIds);
-            }
-        } else {
-            ltWhere = `WHERE ltc.status = 'expired' AND ltc.penalty_applied = true AND ltc.completion_date BETWEEN $1::date AND $2::date AND ltc.user_id = $3`;
-            ltParams.push(userId);
-        }
-
-        const ltPenalties = await db.all(
-            `SELECT ltc.id, ltc.lock_task_id, ltc.user_id, ltc.completion_date::text as task_date, 
-                    ltc.penalty_amount, ltc.penalty_applied, ltc.acknowledged, ltc.created_at,
-                    lt.task_name, lt.department_id,
-                    u.full_name as user_name, u.username, u.department_id as user_dept_id, u.role as user_role,
-                    d.name as dept_name
-             FROM lock_task_completions ltc
-             JOIN lock_tasks lt ON lt.id = ltc.lock_task_id
-             JOIN users u ON u.id = ltc.user_id
+        // Read from ledger — single query replaces 5 source queries
+        const rows = await db.all(
+            `SELECT dpl.*, u.full_name, u.username, u.department_id, u.role, d.name as dept_name
+             FROM daily_penalty_ledger dpl
+             JOIN users u ON u.id = dpl.user_id
              LEFT JOIN departments d ON u.department_id = d.id
-             ${ltWhere}
-             ORDER BY ltc.completion_date DESC`,
-            ltParams
+             WHERE dpl.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc'${scopeFilter}
+             ORDER BY dpl.penalty_date DESC, u.full_name`,
+            params
         );
 
-        // Tag and format
-        const ltFormatted = ltPenalties.map(p => ({
-            ...p,
-            source_type: 'khoa',
-            source_label: '🔒 CV Khóa — NV không nộp',
-            penalty_reason: 'Không nộp báo cáo: ' + p.task_name,
-            penalized_user_id: p.user_id,
-            penalized_name: p.user_name,
-            penalized_username: p.username,
-            penalized_dept_id: p.user_dept_id,
-            penalized_role: p.user_role,
-            manager_id: p.user_id,
-            manager_name: p.user_name,
-            manager_username: p.username,
-            acknowledged: p.acknowledged || false
-        }));
+        const sourceMap = {
+            'cv_khoa': 'khoa', 'ql_khoa': 'khoa', 'ql_khoa_chong': 'khoa',
+            'cv_chuoi': 'chuoi', 'ql_chuoi': 'chuoi', 'ql_chuoi_chong': 'chuoi',
+            'ho_tro_nv': 'support', 'ho_tro_chong': 'support',
+            'cv_diem': 'diem', 'cap_cuu': 'emergency',
+            'kh_chua_xl': 'customer_unhandled', 'kh_tre': 'customer_overdue'
+        };
 
-        // ===== SOURCE 3: chain_task_completions (CV Chuỗi — NV/QL phạt) =====
-        // Fix: redo_count=-2 dùng range thay vì ::date cast để tránh timezone bug
-        const effectiveDateExpr = `CASE WHEN cc.redo_count = -2 THEN cc.created_at::date ELSE ci.deadline END`;
-        const effectiveDateFilter = `(ci.deadline BETWEEN $1::date AND $2::date
-            OR (cc.redo_count = -2 AND cc.created_at >= ($1::date - interval '1 day')::timestamp AND cc.created_at < ($2::date + interval '2 day')::timestamp))`;
-        let ctWhere = '';
-        let ctParams = [monthStart, monthEnd];
-
-        if (userRole === 'giam_doc') {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter}`;
-        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
-            const user3 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user3 || !user3.department_id) {
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND 1=0`;
-            } else {
-                const deptIds3 = [user3.department_id];
-                const children3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user3.department_id]);
-                children3.forEach(c => deptIds3.push(c.id));
-                for (const child of children3) {
-                    const gc3 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    gc3.forEach(gc => deptIds3.push(gc.id));
-                }
-                const ph3 = deptIds3.map((_, i) => `$${i + 3}`).join(',');
-                ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND cins.department_id IN (${ph3})`;
-                ctParams.push(...deptIds3);
-            }
-        } else {
-            ctWhere = `WHERE cc.status = 'expired' AND cc.penalty_applied = true AND ${effectiveDateFilter} AND cc.user_id = $3`;
-            ctParams.push(userId);
-        }
-
-        const ctPenalties = await db.all(
-            `SELECT cc.id, cc.chain_item_id, cc.user_id, 
-                    (${effectiveDateExpr})::text as task_date,
-                    cc.penalty_amount, cc.penalty_applied, cc.acknowledged, cc.content as penalty_reason,
-                    ci.task_name, cins.chain_name, cins.department_id,
-                    u.full_name as user_name, u.username, u.department_id as user_dept_id, u.role as user_role,
-                    d.name as dept_name
-             FROM chain_task_completions cc
-             JOIN chain_task_instance_items ci ON ci.id = cc.chain_item_id
-             JOIN chain_task_instances cins ON cins.id = ci.chain_instance_id
-             JOIN users u ON u.id = cc.user_id
-             LEFT JOIN departments d ON cins.department_id = d.id
-             ${ctWhere}
-             ORDER BY (${effectiveDateExpr}) DESC`,
-            ctParams
-        );
-
-        const ctFormatted = ctPenalties.map(p => ({
-            ...p,
-            source_type: 'chuoi',
-            source_label: '🔗 CV Chuỗi',
-            task_name: p.task_name + (p.chain_name ? ` (${p.chain_name})` : ''),
-            penalty_reason: p.penalty_reason || 'Không nộp báo cáo CV chuỗi: ' + p.task_name,
-            penalized_user_id: p.user_id,
-            penalized_name: p.user_name,
-            penalized_username: p.username,
-            penalized_dept_id: p.user_dept_id,
-            penalized_role: p.user_role,
-            manager_id: p.user_id,
-            manager_name: p.user_name,
-            manager_username: p.username,
-            acknowledged: p.acknowledged || false
-        }));
-
-        // ===== SOURCE 4: emergencies (Cấp cứu sếp — QL không xử lý) =====
-        // Emergency pending phạt chồng hàng ngày → hiện trên MỌI ngày trong khoảng [created_at, last_penalty_at]
-        // Emergency resolved → filter theo last_penalty_at (ngày phạt cuối)
-        let emWhere = '';
-        let emParams = [monthStart, monthEnd];
-        // Pending: date range overlaps [created_at, last_penalty_at]
-        // Resolved: last_penalty_at in range
-        const emDateCond = `(
-            (e.status = 'pending' AND e.created_at::date <= $2::date AND COALESCE(e.last_penalty_at, e.created_at)::date >= $1::date)
-            OR
-            (e.status != 'pending' AND COALESCE(e.last_penalty_at, e.created_at)::date BETWEEN $1::date AND $2::date)
-        )`;
-
-        if (userRole === 'giam_doc') {
-            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond}`;
-        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
-            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond} AND (e.handler_id = $3 OR e.handover_to = $3)`;
-            emParams.push(userId);
-        } else {
-            emWhere = `WHERE e.penalty_applied = true AND ${emDateCond} AND 1=0`;
-        }
-
-        const emPenalties = await db.all(
-            `SELECT e.id, e.customer_id, e.handler_id, e.handover_to, e.reason,
-                    e.created_at::text as created_at, e.penalty_amount, e.acknowledged,
-                    COALESCE(e.last_penalty_at, e.created_at)::date::text as task_date,
-                    e.status as em_status,
-                    c.customer_name, c.phone as customer_phone,
-                    COALESCE(hu.full_name, '') as handler_name, COALESCE(hu.username, '') as handler_username,
-                    hu.department_id as handler_dept_id, hu.role as handler_role
-             FROM emergencies e
-             LEFT JOIN customers c ON c.id = e.customer_id
-             LEFT JOIN users hu ON hu.id = COALESCE(e.handover_to, e.handler_id)
-             ${emWhere}
-             ORDER BY e.created_at DESC`,
-            emParams
-        );
-
-        // Lấy mức phạt cấp cứu/ngày từ config (mặc định 50k)
-        const emConfigRow = await db.get("SELECT amount FROM global_penalty_config WHERE key = 'cap_cuu_ql_khong_xu_ly'");
-        const emDailyPenalty = emConfigRow ? Number(emConfigRow.amount) : 50000;
-
-        const emFormatted = emPenalties.map(p => ({
-            ...p,
-            source_type: 'emergency',
-            source_label: '🚨 Cấp cứu sếp — QL không xử lý',
-            task_name: `Cấp cứu: ${p.customer_name || 'Khách hàng'}`,
-            penalty_reason: `Không xử lý cấp cứu: ${p.reason}`,
-            // Hiện mức phạt/ngày, KHÔNG phải tổng tích lũy
-            penalty_amount: emDailyPenalty,
-            penalized_user_id: p.handover_to || p.handler_id,
-            penalized_name: p.handler_name,
-            penalized_username: p.handler_username,
-            penalized_dept_id: p.handler_dept_id,
-            penalized_role: p.handler_role,
-            manager_id: p.handover_to || p.handler_id,
-            manager_name: p.handler_name,
-            manager_username: p.handler_username,
-            acknowledged: p.acknowledged || false
-        }));
-
-        // ===== SOURCE 5: customer_penalty_records (KH chưa xử lý hôm nay) =====
-        let cpWhere = '';
-        let cpParams = [monthStart, monthEnd];
-
-        if (userRole === 'giam_doc') {
-            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc'`;
-        } else if (['quan_ly', 'truong_phong', 'quan_ly_cap_cao'].includes(userRole)) {
-            const user5 = await db.get('SELECT department_id FROM users WHERE id = $1', [userId]);
-            if (!user5 || !user5.department_id) {
-                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND 1=0`;
-            } else {
-                const deptIds5 = [user5.department_id];
-                const children5 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [user5.department_id]);
-                children5.forEach(c => deptIds5.push(c.id));
-                for (const child of children5) {
-                    const gc5 = await db.all('SELECT id FROM departments WHERE parent_id = $1', [child.id]);
-                    gc5.forEach(gc => deptIds5.push(gc.id));
-                }
-                const ph5 = deptIds5.map((_, i) => `$${i + 3}`).join(',');
-                cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc' AND u.department_id IN (${ph5})`;
-                cpParams.push(...deptIds5);
-            }
-        } else {
-            cpWhere = `WHERE cpr.penalty_date BETWEEN $1::date AND $2::date AND u.role != 'giam_doc' AND cpr.user_id = $3`;
-            cpParams.push(userId);
-        }
-
-        const cpPenalties = await db.all(
-            `SELECT cpr.id, cpr.user_id, cpr.penalty_date::text as task_date, cpr.crm_type,
-                    cpr.unhandled_count, cpr.penalty_amount, cpr.acknowledged,
-                    u.full_name as user_name, u.username, u.department_id, u.role,
-                    d.name as dept_name
-             FROM customer_penalty_records cpr
-             JOIN users u ON u.id = cpr.user_id
-             LEFT JOIN departments d ON u.department_id = d.id
-             ${cpWhere}
-             ORDER BY cpr.penalty_date DESC`,
-            cpParams
-        );
-
-        const cpFormatted = cpPenalties.map(p => {
-            const isTre = p.crm_type && p.crm_type.startsWith('tre_');
-            const displayName = crmLabel(p.crm_type);
-            return {
-                ...p,
-                source_type: isTre ? 'customer_overdue' : 'customer_unhandled',
-                source_label: isTre ? '⏰ KH Trễ — Không xử lý KH trễ' : '❌ KH Chưa XL — Không xử lý KH phải XL hôm nay',
-                task_name: isTre
-                    ? `KH xử lý trễ: ${displayName} (${p.unhandled_count} KH)`
-                    : `KH chưa xử lý: ${displayName} (${p.unhandled_count} KH)`,
-                penalty_reason: isTre
-                    ? `Không xử lý ${p.unhandled_count} khách xử lý trễ (${displayName})`
-                    : `Không xử lý ${p.unhandled_count} khách phải xử lý hôm nay (${displayName})`,
-                penalized_user_id: p.user_id,
-                penalized_name: p.user_name,
-                penalized_username: p.username,
-                penalized_dept_id: p.department_id,
-                penalized_role: p.role || 'nhan_vien',
-                manager_id: p.user_id,
-                manager_name: p.user_name,
-                manager_username: p.username,
-                acknowledged: p.acknowledged || false
-            };
-        });
-
-        // Combine all
-        const allPenaltiesRaw = [...srPenalties, ...ltFormatted, ...ctFormatted, ...emFormatted, ...cpFormatted];
-
-        // Filter out test accounts
         const testAccountIds = await getTestAccountIds();
         const testSet = new Set(testAccountIds.map(Number));
-        const allPenalties = allPenaltiesRaw.filter(p => !testSet.has(Number(p.penalized_user_id)));
+
+        const allPenalties = rows.filter(p => !testSet.has(Number(p.user_id))).map(p => ({
+            penalized_user_id: p.user_id, penalized_name: p.full_name, penalized_username: p.username,
+            penalized_dept_id: p.department_id, penalized_role: p.role,
+            manager_id: p.user_id, manager_name: p.full_name, manager_username: p.username,
+            task_name: p.task_name, task_date: p.penalty_date,
+            penalty_amount: p.penalty_amount || 0,
+            penalty_reason: p.penalty_reason || '',
+            source_type: sourceMap[p.source_type] || p.source_type,
+            dept_name: p.dept_name || ''
+        }));
 
         const total = allPenalties.reduce((s, p) => s + (p.penalty_amount || 0), 0);
-
         return { penalties: allPenalties, total };
     });
 
