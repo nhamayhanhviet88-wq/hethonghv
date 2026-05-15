@@ -836,6 +836,15 @@ module.exports = async function (fastify) {
                     const caStr = _localDateStr(ca);
                     if (dateStr < caStr) continue;
                 }
+                // Also check when user was ASSIGNED to this task (not just task creation)
+                const _assign = await db.get(
+                    'SELECT created_at FROM lock_task_assignments WHERE lock_task_id = $1 AND user_id = $2',
+                    [lt.id, uid]
+                );
+                if (_assign && _assign.created_at) {
+                    const assignStr = _localDateStr(new Date(_assign.created_at));
+                    if (dateStr < assignStr) continue;
+                }
                 if (lt.recurrence_type === 'administrative') {
                     applies = dow >= 1 && dow <= 6;
                 } else if (lt.recurrence_type === 'daily') {
