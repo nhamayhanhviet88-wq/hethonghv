@@ -582,6 +582,8 @@ async function start() {
     // Start unified daily report cron — Tổng Kết Hàng Ngày
     const { vnNow } = require('./utils/timezone');
     const { sendTelegramMessage } = require('./utils/telegram');
+    const { _buildReport: _drBuildReport } = require('./routes/dailyReport');
+    let _drSentToday = false; // Prevent catch-up from repeating
     async function _drCheckAndSend() {
         try {
             const now = vnNow();
@@ -598,9 +600,10 @@ async function start() {
 
             const reportTime = (cfg.time || '21:00').trim();
 
-            // Check if already sent today
+            // Check if already sent today (DB)
             const lastSent = await db.get("SELECT value FROM app_config WHERE key = 'daily_report_last_sent'");
-            if (lastSent?.value === todayStr) return;
+            if (lastSent?.value === todayStr) { _drSentToday = true; return; }
+            if (_drSentToday) return; // Already sent this session
 
             // Match: exact minute OR catch-up (current time > configured time = missed, send now)
             const isExactMatch = currentTime === reportTime;
@@ -613,11 +616,12 @@ async function start() {
             const modules = cfg.modules || [];
             if (!modules.length) return;
 
-            // Build combined report using the route helper
+            // Build combined report
             console.log(`[DailyReport] 📤 ${isCatchUp ? 'Catch-up' : 'Scheduled'} send at ${currentTime} (configured: ${reportTime})`);
-            const report = await fastify._drBuildReport(todayStr, modules);
+            const report = await _drBuildReport(todayStr, modules);
             const ok = await sendTelegramMessage(groupId, report.message);
             if (ok) {
+                _drSentToday = true;
                 await db.run(
                     `INSERT INTO app_config (key, value, updated_at) VALUES ('daily_report_last_sent', $1, NOW())
                      ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,

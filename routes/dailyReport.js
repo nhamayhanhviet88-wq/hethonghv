@@ -1,7 +1,70 @@
 // ========== DAILY REPORT — Tổng Kết Hàng Ngày Tập Trung ==========
 const db = require('../db/pool');
 
-module.exports = async function (fastify) {
+// ========== Generate combined message (module-level for cron access) ==========
+async function _buildReport(dateStr, enabledModules) {
+    const { vnNow } = require('../utils/timezone');
+    const now = vnNow();
+    const targetDate = dateStr || now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    const parts = targetDate.split('-');
+    const dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+    const fmtVN = (n) => Number(n).toLocaleString('vi-VN') + 'đ';
+
+    let lines = [];
+    lines.push(`📊 <b>TỔNG KẾT NGÀY ${dateLabel}</b>`);
+    lines.push('━━━━━━━━━━━━━━━━━');
+
+    let grandThu = 0, grandChi = 0;
+    let lineNum = 0;
+
+    // Module: Sổ Ghi Nhận Tiền (THU)
+    if (enabledModules.includes('payment_thu')) {
+        const rows = await db.all(`
+            SELECT payment_method, COALESCE(SUM(amount), 0)::numeric AS total
+            FROM payment_records
+            WHERE payment_date = $1
+              AND COALESCE(source, '') != 'cashflow_chi'
+              AND payment_type != 'chi'
+            GROUP BY payment_method
+        `, [targetDate]);
+
+        let totalCK = 0, totalTM = 0;
+        for (const r of rows) {
+            if (r.payment_method === 'CK') totalCK = Number(r.total);
+            else if (r.payment_method === 'TM') totalTM = Number(r.total);
+        }
+        const totalThu = totalCK + totalTM;
+        grandThu = totalThu;
+        lineNum++;
+        lines.push(`<b>${lineNum}</b> - 💰 <b>TỔNG THU:</b> ${fmtVN(totalCK)} CK + ${fmtVN(totalTM)} TM = <b>${fmtVN(totalThu)}</b>`);
+        lines.push('');
+    }
+
+    // Module: Sổ Thu Chi (CHI)
+    if (enabledModules.includes('cashflow_chi')) {
+        const rows = await db.all(`
+            SELECT money_source, COALESCE(SUM(amount), 0)::numeric AS total
+            FROM cashflow_records
+            WHERE cashflow_date = $1 AND cashflow_type = 'CHI'
+            GROUP BY money_source
+        `, [targetDate]);
+
+        let totalCongTy = 0, totalCPMay = 0;
+        for (const r of rows) {
+            if (r.money_source === 'cophanmay') totalCPMay = Number(r.total);
+            else totalCongTy = Number(r.total);
+        }
+        const totalChi = totalCongTy + totalCPMay;
+        grandChi = totalChi;
+        lineNum++;
+        lines.push(`<b>${lineNum}</b> - 💸 <b>TỔNG CHI:</b> ${fmtVN(totalCongTy)} CT + ${fmtVN(totalCPMay)} CPM = <b>${fmtVN(totalChi)}</b>`);
+        lines.push('');
+    }
+
+    return { message: lines.join('\n'), grandThu, grandChi };
+}
+
+async function dailyReportRoutes(fastify) {
     const jwt = require('jsonwebtoken');
 
     function authGD(request, reply) {
@@ -41,69 +104,6 @@ module.exports = async function (fastify) {
         return { success: true };
     });
 
-    // ========== Generate combined message ==========
-    async function _buildReport(dateStr, enabledModules) {
-        const { vnNow } = require('../utils/timezone');
-        const now = vnNow();
-        const targetDate = dateStr || now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-        const parts = targetDate.split('-');
-        const dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
-        const fmtVN = (n) => Number(n).toLocaleString('vi-VN') + 'đ';
-
-        let lines = [];
-        lines.push(`📊 <b>TỔNG KẾT NGÀY ${dateLabel}</b>`);
-        lines.push('━━━━━━━━━━━━━━━━━');
-
-        let grandThu = 0, grandChi = 0;
-        let lineNum = 0;
-
-        // Module: Sổ Ghi Nhận Tiền (THU)
-        if (enabledModules.includes('payment_thu')) {
-            const rows = await db.all(`
-                SELECT payment_method, COALESCE(SUM(amount), 0)::numeric AS total
-                FROM payment_records
-                WHERE payment_date = $1
-                  AND COALESCE(source, '') != 'cashflow_chi'
-                  AND payment_type != 'chi'
-                GROUP BY payment_method
-            `, [targetDate]);
-
-            let totalCK = 0, totalTM = 0;
-            for (const r of rows) {
-                if (r.payment_method === 'CK') totalCK = Number(r.total);
-                else if (r.payment_method === 'TM') totalTM = Number(r.total);
-            }
-            const totalThu = totalCK + totalTM;
-            grandThu = totalThu;
-            lineNum++;
-            lines.push(`<b>${lineNum}</b> - 💰 <b>TỔNG THU:</b> ${fmtVN(totalCK)} CK + ${fmtVN(totalTM)} TM = <b>${fmtVN(totalThu)}</b>`);
-            lines.push('');
-        }
-
-        // Module: Sổ Thu Chi (CHI)
-        if (enabledModules.includes('cashflow_chi')) {
-            const rows = await db.all(`
-                SELECT money_source, COALESCE(SUM(amount), 0)::numeric AS total
-                FROM cashflow_records
-                WHERE cashflow_date = $1 AND cashflow_type = 'CHI'
-                GROUP BY money_source
-            `, [targetDate]);
-
-            let totalCongTy = 0, totalCPMay = 0;
-            for (const r of rows) {
-                if (r.money_source === 'cophanmay') totalCPMay = Number(r.total);
-                else totalCongTy = Number(r.total);
-            }
-            const totalChi = totalCongTy + totalCPMay;
-            grandChi = totalChi;
-            lineNum++;
-            lines.push(`<b>${lineNum}</b> - 💸 <b>TỔNG CHI:</b> ${fmtVN(totalCongTy)} CT + ${fmtVN(totalCPMay)} CPM = <b>${fmtVN(totalChi)}</b>`);
-            lines.push('');
-        }
-
-        return { message: lines.join('\n'), grandThu, grandChi };
-    }
-
     // ========== SEND: Manual ==========
     fastify.post('/api/daily-report/send', async (request, reply) => {
         const user = authGD(request, reply); if (!user) return;
@@ -134,6 +134,10 @@ module.exports = async function (fastify) {
         return reply.code(400).send({ error: 'Gửi thất bại! Kiểm tra Bot Token và Group ID.' });
     });
 
-    // Export for cron
+    // Export for cron (keep decorator for backward compat)
     fastify.decorate('_drBuildReport', _buildReport);
-};
+}
+
+// Export both the plugin and the standalone function
+dailyReportRoutes._buildReport = _buildReport;
+module.exports = dailyReportRoutes;
