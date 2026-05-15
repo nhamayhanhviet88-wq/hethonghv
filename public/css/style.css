@@ -585,6 +585,7 @@ table .role-tkaffiliate    { background: #fef3c7; color: #d97706; border: 1px so
 .main-content {
     flex: 1;
     margin-left: 270px;
+    min-width: 0;
     transition: var(--transition);
 }
 

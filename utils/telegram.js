@@ -171,9 +171,53 @@ async function notifyTelegram(userId, eventType, message) {
     }
 }
 
+/**
+ * Send a photo to Telegram chat/group
+ * @param {string} chatId
+ * @param {string} filePath - Absolute path to image file on disk
+ * @param {string} caption - Caption text
+ */
+async function sendTelegramPhoto(chatId, filePath, caption) {
+    const botToken = await getBotToken();
+    if (!botToken || !chatId) return false;
+    const fs = require('fs');
+    const path = require('path');
+    if (!fs.existsSync(filePath)) {
+        console.log('[Telegram] ⚠️ Photo file not found:', filePath);
+        return false;
+    }
+    const boundary = '----TgBoundary' + Date.now();
+    const fileData = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    let body = '';
+    body += `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`;
+    if (caption) body += `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`;
+    const prefix = Buffer.from(body + `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="${fileName}"\r\nContent-Type: image/png\r\n\r\n`);
+    const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const payload = Buffer.concat([prefix, fileData, suffix]);
+
+    return new Promise((resolve) => {
+        const req = https.request({
+            hostname: 'api.telegram.org', port: 443,
+            path: `/bot${botToken}/sendPhoto`, method: 'POST',
+            headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': payload.length }
+        }, (res) => {
+            let b = ''; res.on('data', c => b += c);
+            res.on('end', () => {
+                if (res.statusCode === 200) { console.log('[Telegram] ✅ Photo sent to', chatId); resolve(true); }
+                else { console.log('[Telegram] ❌ Photo error:', b); resolve(false); }
+            });
+        });
+        req.on('error', (err) => { console.log('[Telegram] ❌ Photo request error:', err.message); resolve(false); });
+        req.write(payload);
+        req.end();
+    });
+}
+
 module.exports = {
     TELEGRAM_EVENTS,
     sendTelegramMessage,
+    sendTelegramPhoto,
     broadcastTelegram,
     notifyTelegram,
     getBotToken,

@@ -1,43 +1,70 @@
-// ========== IMAGE COMPRESSOR — SHARED UTILITY ==========
-// Auto-resize and compress images before saving to disk
-// Usage: const compressed = await compressImage(buffer, { maxWidth: 1200, quality: 80 });
-
+// ========== IMAGE COMPRESSOR — Dùng chung toàn hệ thống ==========
 const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 
 /**
- * Compress an image buffer
- * @param {Buffer} inputBuffer - Raw image buffer
+ * Compress and optimize an image file
+ * - Resize nếu quá lớn (max 1200px width)
+ * - Convert sang WebP (tiết kiệm 60-80% dung lượng)
+ * - Quality 75% (cân bằng chất lượng/dung lượng)
+ *
+ * @param {Buffer} inputBuffer - Buffer ảnh gốc
  * @param {Object} options
- * @param {number} [options.maxWidth=1200] - Maximum width in pixels
- * @param {number} [options.quality=80] - JPEG quality (1-100)
- * @returns {Promise<Buffer>} Compressed JPEG buffer
+ * @param {number} options.maxWidth - Max width (default 1200)
+ * @param {number} options.quality - Quality 1-100 (default 75)
+ * @param {string} options.format - 'webp'|'jpeg'|'png' (default 'webp')
+ * @returns {Promise<{buffer: Buffer, format: string, originalSize: number, compressedSize: number, ratio: string}>}
  */
 async function compressImage(inputBuffer, options = {}) {
-    const { maxWidth = 1200, quality = 80 } = options;
-    try {
-        const image = sharp(inputBuffer);
-        const metadata = await image.metadata();
+    const maxWidth = options.maxWidth || 1200;
+    const quality = options.quality || 75;
+    const format = options.format || 'webp';
+    const originalSize = inputBuffer.length;
 
-        // Only resize if wider than maxWidth
-        let pipeline = image;
-        if (metadata.width && metadata.width > maxWidth) {
-            pipeline = pipeline.resize(maxWidth, null, {
-                fit: 'inside',
-                withoutEnlargement: true
-            });
-        }
+    let pipeline = sharp(inputBuffer);
+    const metadata = await pipeline.metadata();
 
-        // Convert to JPEG with specified quality
-        const compressed = await pipeline
-            .jpeg({ quality, mozjpeg: true })
-            .toBuffer();
-
-        return compressed;
-    } catch (e) {
-        console.error('[ImageCompressor] Error:', e.message);
-        // If compression fails, return original buffer
-        return inputBuffer;
+    // Resize if too wide
+    if (metadata.width && metadata.width > maxWidth) {
+        pipeline = pipeline.resize(maxWidth, null, { withoutEnlargement: true });
     }
+
+    // Convert to chosen format
+    let outputBuffer;
+    if (format === 'webp') {
+        outputBuffer = await pipeline.webp({ quality }).toBuffer();
+    } else if (format === 'jpeg' || format === 'jpg') {
+        outputBuffer = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    } else {
+        outputBuffer = await pipeline.png({ quality: Math.min(quality, 100), compressionLevel: 8 }).toBuffer();
+    }
+
+    const compressedSize = outputBuffer.length;
+    const ratio = originalSize > 0 ? Math.round((1 - compressedSize / originalSize) * 100) : 0;
+
+    return { buffer: outputBuffer, format, originalSize, compressedSize, ratio: ratio + '%' };
 }
 
-module.exports = { compressImage };
+/**
+ * Compress and save image to disk
+ * @param {Buffer} inputBuffer
+ * @param {string} outputDir
+ * @param {string} filenamePrefix
+ * @param {Object} options
+ */
+async function compressAndSave(inputBuffer, outputDir, filenamePrefix, options = {}) {
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    const result = await compressImage(inputBuffer, options);
+    const ext = result.format === 'webp' ? '.webp' : result.format === 'jpeg' ? '.jpg' : '.png';
+    const fileName = `${filenamePrefix}${Date.now()}${ext}`;
+    const filePath = path.join(outputDir, fileName);
+
+    fs.writeFileSync(filePath, result.buffer);
+    console.log(`[ImageCompressor] ${(result.originalSize/1024).toFixed(0)}KB -> ${(result.compressedSize/1024).toFixed(0)}KB (giam ${result.ratio})`);
+
+    return { filePath, fileName, originalSize: result.originalSize, compressedSize: result.compressedSize, ratio: result.ratio };
+}
+
+module.exports = { compressImage, compressAndSave };

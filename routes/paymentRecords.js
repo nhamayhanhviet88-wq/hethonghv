@@ -3,6 +3,21 @@ const db = require('../db/pool');
 const { vnNow, vnFormat } = require('../utils/timezone');
 const { encrypt, decrypt, restartCron, checkEmails } = require('../services/emailChecker');
 
+// ========== DEFAULT PERMISSIONS ==========
+const DEFAULT_PR_PERMS = {
+    pr_change_source: ['giam_doc', 'quan_ly_cap_cao'],
+    pr_delete: ['giam_doc'],
+    pr_edit: ['giam_doc', 'quan_ly_cap_cao'],
+    pr_update_customer: ['giam_doc', 'quan_ly_cap_cao']
+};
+async function _checkPrPerm(userRole, action) {
+    try {
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_action_permissions'");
+        const perms = row?.value ? JSON.parse(row.value) : DEFAULT_PR_PERMS;
+        return (perms[action] || []).includes(userRole);
+    } catch { return (DEFAULT_PR_PERMS[action] || []).includes(userRole); }
+}
+
 module.exports = async function(fastify) {
 
     // ========== TREE: Năm → Tháng → Ngày + tổng tiền ==========
@@ -77,7 +92,7 @@ module.exports = async function(fastify) {
             LEFT JOIN users u_created ON pr.created_by = u_created.id
             LEFT JOIN users u_handover ON pr.handover_by = u_handover.id
             ${where}
-            ORDER BY pr.payment_date DESC, pr.daily_seq DESC
+            ORDER BY pr.payment_date DESC, pr.id DESC
         `, params);
 
         return { records: rows };
@@ -94,20 +109,29 @@ module.exports = async function(fastify) {
         if (!method || !date) return reply.code(400).send({ error: 'Thiếu method hoặc date' });
 
         const row = await db.get(
-            `SELECT COALESCE(MAX(daily_seq), 0) + 1 AS next_seq
+            `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq
              FROM payment_records
              WHERE payment_method = $1 AND payment_date = $2`,
             [method, date]
         );
+        let seq = Number(row.max_seq) + 1;
+        // TM: check cả cashflow_records để tránh trùng với CHI
+        if (method === 'TM') {
+            const cfRow = await db.get(
+                `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1`,
+                [date]
+            );
+            seq = Math.max(seq, Number(cfRow.max_seq) + 1);
+        }
 
         // Build code preview
         const d = new Date(date);
         const dd = d.getDate();
         const mm = d.getMonth() + 1;
         const yy = d.getFullYear().toString().slice(-2);
-        const code = `${method}${row.next_seq}-${dd}-${mm}-Y${yy}`;
+        const code = `${method}${seq}-${dd}-${mm}-Y${yy}`;
 
-        return { next_seq: row.next_seq, code };
+        return { next_seq: seq, code };
     });
 
     // ========== CREATE: Tạo mã thanh toán mới ==========
@@ -123,14 +147,21 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Thiếu thông tin bắt buộc' });
         }
 
-        // Get next STT (atomic with INSERT to prevent race condition)
+        // Get next STT (check cả payment_records + cashflow_records cho TM)
         const seqRow = await db.get(
-            `SELECT COALESCE(MAX(daily_seq), 0) + 1 AS next_seq
+            `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq
              FROM payment_records
              WHERE payment_method = $1 AND payment_date = $2`,
             [b.payment_method, b.payment_date]
         );
-        const seq = seqRow.next_seq;
+        let seq = Number(seqRow.max_seq) + 1;
+        if (b.payment_method === 'TM') {
+            const cfRow = await db.get(
+                `SELECT COALESCE(MAX(daily_seq), 0) AS max_seq FROM cashflow_records WHERE cashflow_date = $1`,
+                [b.payment_date]
+            );
+            seq = Math.max(seq, Number(cfRow.max_seq) + 1);
+        }
 
         // Build payment code
         const d = new Date(b.payment_date);
@@ -160,6 +191,55 @@ module.exports = async function(fastify) {
                 b.total_order_codes || null, b.total_cod || 0, b.shipping_fee || 0,
                 'manual', b.payment_date, user.id
             ]);
+
+            // === Send Telegram notification ===
+            try {
+                const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
+                if (tgRow && tgRow.value) {
+                    const { sendTelegramMessage } = require('../utils/telegram');
+                    const icon = b.payment_method === 'TM' ? '💰' : '🏦';
+                    const amtStr = Number(b.amount).toLocaleString('vi-VN');
+                    const bankStr = b.bank_name ? ' ' + b.bank_name : '';
+                    const noteStr = b.transfer_note ? ' ' + b.transfer_note : '';
+                    const creatorName = user.full_name || user.username || '';
+                    const msg = `${icon}${code} : ${amtStr}đ${bankStr}${noteStr} 👤 ${creatorName}`;
+                    await sendTelegramMessage(tgRow.value, msg);
+                }
+            } catch (tgErr) {
+                console.error('[TG Manual] Lỗi gửi Telegram:', tgErr.message);
+            }
+
+            // === Auto-sync TM → Sổ Thu Chi (THU) ===
+            if (b.payment_method === 'TM') {
+                try {
+                    const cfDate = b.payment_date;
+                    // Use same payment_code as cashflow_code (TM5-15-5-Y26)
+                    await db.run(`
+                        INSERT INTO cashflow_records (cashflow_code, cashflow_type, daily_seq, cashflow_date, description, amount, source_record_id, created_by)
+                        VALUES ($1, 'THU', $2, $3, $4, $5, $6, $7)
+                    `, [code, seq, cfDate, b.transfer_note || code, Number(b.amount), result.id, user.id]);
+                    console.log('[Cashflow] Auto THU:', code, Number(b.amount));
+
+                    // Send Telegram for THU to cashflow group
+                    try {
+                        const cfTgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_cashflow_group'");
+                        if (cfTgRow && cfTgRow.value) {
+                            const { sendTelegramMessage: sendCfTg } = require('../utils/telegram');
+                            const cfAmtStr = Number(b.amount).toLocaleString('vi-VN');
+                            // Calculate running balance
+                            const thuSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='THU' AND is_closed=false");
+                            const chiSum = await db.get("SELECT COALESCE(SUM(amount),0) AS t FROM cashflow_records WHERE cashflow_type='CHI' AND is_closed=false");
+                            const runBal = Number(thuSum.t) - Number(chiSum.t);
+                            const balStr = runBal.toLocaleString('vi-VN');
+                            const cfMsg = `🟢THU : 💰${code} : ${cfAmtStr}đ ${b.transfer_note || ''} 👤 ${user.full_name || user.username}\n\n🔗Tổng Kế Toán Cầm : ${balStr}đ`;
+                            await sendCfTg(cfTgRow.value, cfMsg);
+                        }
+                    } catch (cfTgErr) { console.error('[CF TG] Error:', cfTgErr.message); }
+
+                } catch (cfErr) {
+                    console.error('[Cashflow] Lỗi sync THU:', cfErr.message);
+                }
+            }
 
             return { success: true, id: result.id, payment_code: result.payment_code };
         } catch (err) {
@@ -258,8 +338,8 @@ module.exports = async function(fastify) {
         let user;
         try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
 
-        if (user.role !== 'giam_doc') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc mới được xóa' });
+        if (!(await _checkPrPerm(user.role, 'pr_delete'))) {
+            return reply.code(403).send({ error: 'Bạn không có quyền xóa mã tiền' });
         }
 
         await db.run('DELETE FROM payment_records WHERE id = $1', [request.params.id]);
@@ -282,6 +362,16 @@ module.exports = async function(fastify) {
         `);
 
         return { staff };
+    });
+
+    // ========== BANK LIST (public for all users) ==========
+    fastify.get('/api/payment-records/bank-list', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        try { jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        const banks = await db.all('SELECT bank_name FROM email_bank_parsers ORDER BY id');
+        return { banks: banks.map(b => b.bank_name) };
     });
 
     // ========== EMAIL CONFIG: Get ==========
@@ -405,5 +495,113 @@ module.exports = async function(fastify) {
 
         checkEmails();
         return { success: true, message: 'Đang kiểm tra email...' };
+    });
+    // ========== TELEGRAM NOTIFY CONFIG: Get ==========
+    fastify.get('/api/payment-records/tg-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
+        return { group_id: row?.value || '' };
+    });
+
+    // ========== TELEGRAM NOTIFY CONFIG: Save ==========
+    fastify.put('/api/payment-records/tg-config', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { group_id } = request.body || {};
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('tg_payment_notify_group', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [(group_id || '').trim()]
+        );
+        return { success: true };
+    });
+
+    // ========== TELEGRAM NOTIFY: Test ==========
+    fastify.post('/api/payment-records/tg-test', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { group_id } = request.body || {};
+        if (!group_id) return reply.code(400).send({ error: 'Chưa nhập Group ID' });
+
+        const { sendTelegramMessage } = require('../utils/telegram');
+        const now = new Date();
+        const dd = now.getDate(), mm = now.getMonth() + 1, yy = now.getFullYear().toString().slice(-2);
+        const testMsg = `🏦CK_TEST-${dd}-${mm}-Y${yy} : 180.000đ Sacombank 🧪 TEST - Sổ Ghi Nhận Tiền hoạt động!`;
+        const ok = await sendTelegramMessage(group_id.trim(), testMsg);
+        if (ok) return { success: true };
+        return reply.code(400).send({ error: 'Gửi thất bại! Kiểm tra Bot Token và Group ID.' });
+    });
+
+    // ========== PERMISSIONS: Get ==========
+    fastify.get('/api/payment-records/permissions', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        const row = await db.get("SELECT value FROM app_config WHERE key = 'pr_action_permissions'");
+        const perms = row?.value ? JSON.parse(row.value) : DEFAULT_PR_PERMS;
+        // Return user's allowed actions
+        const userPerms = {};
+        for (const [action, roles] of Object.entries(perms)) {
+            userPerms[action] = roles.includes(user.role);
+        }
+        return { permissions: perms, user_permissions: userPerms };
+    });
+
+    // ========== PERMISSIONS: Save (GĐ only) ==========
+    fastify.put('/api/payment-records/permissions', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+        if (user.role !== 'giam_doc') return reply.code(403).send({ error: 'Chỉ Giám Đốc' });
+
+        const { permissions } = request.body || {};
+        if (!permissions) return reply.code(400).send({ error: 'Thiếu dữ liệu' });
+        await db.run(
+            `INSERT INTO app_config (key, value, updated_at) VALUES ('pr_action_permissions', $1, NOW())
+             ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify(permissions)]
+        );
+        return { success: true };
+    });
+
+    // ========== CHANGE SOURCE: Đổi nguồn tiền ==========
+    fastify.put('/api/payment-records/:id/source', async (request, reply) => {
+        const token = request.cookies?.token;
+        if (!token) return reply.code(401).send({ error: 'Chưa đăng nhập' });
+        const jwt = require('jsonwebtoken');
+        let user;
+        try { user = jwt.verify(token, process.env.JWT_SECRET); } catch { return reply.code(401).send({ error: 'Token không hợp lệ' }); }
+
+        if (!(await _checkPrPerm(user.role, 'pr_change_source'))) {
+            return reply.code(403).send({ error: 'Bạn không có quyền đổi nguồn tiền' });
+        }
+
+        const { money_source } = request.body || {};
+        const validSources = ['khach_hang', 'nha_van_chuyen', 'khach_hang_sll'];
+        if (!validSources.includes(money_source)) return reply.code(400).send({ error: 'Nguồn tiền không hợp lệ' });
+
+        await db.run('UPDATE payment_records SET money_source = $1, updated_at = NOW() WHERE id = $2', [money_source, request.params.id]);
+        return { success: true };
     });
 };

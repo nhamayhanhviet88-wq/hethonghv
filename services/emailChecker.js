@@ -2,6 +2,7 @@
 const { ImapFlow } = require('imapflow');
 const db = require('../db/pool');
 const crypto = require('crypto');
+const { sendTelegramMessage } = require('../utils/telegram');
 
 const ENC_KEY = (process.env.JWT_SECRET || 'fallback-key-32chars-long!!!!!!').slice(0, 32).padEnd(32, '0');
 const ENC_IV = Buffer.alloc(16, 0);
@@ -72,6 +73,13 @@ async function checkEmails() {
             let skippedNeg = 0;
             let skippedDup = 0;
 
+            // ★ Read Telegram notification group (once per cycle)
+            let _tgPaymentGroup = null;
+            try {
+                const tgRow = await db.get("SELECT value FROM app_config WHERE key = 'tg_payment_notify_group'");
+                _tgPaymentGroup = tgRow?.value?.trim() || null;
+            } catch (e) { /* ignore */ }
+
             // For each bank, search emails from that sender
             for (const bank of banks) {
                 const filter = bank.sender_filter.toLowerCase();
@@ -140,6 +148,14 @@ async function checkEmails() {
 
                     importCount++;
                     console.log(`[EmailChecker] 💰 ${code} | ${parsed.amount.toLocaleString()}đ | ${bank.bank_name} | ${parsed.description.substring(0, 50)}`);
+
+                    // ★ Send Telegram notification
+                    if (_tgPaymentGroup) {
+                        const fmtAmt = parsed.amount.toLocaleString('vi-VN');
+                        const cleanDesc = _cleanPaymentDesc(parsed.description);
+                        const tgMsg = `🏦${code} : ${fmtAmt}đ ${bank.bank_name} ${cleanDesc}`;
+                        sendTelegramMessage(_tgPaymentGroup, tgMsg).catch(() => {});
+                    }
                 }
             }
 
@@ -314,6 +330,33 @@ function parseEmailBody(rawSource, bank) {
         console.error('[EmailChecker] Parse error:', err.message);
         return null;
     }
+}
+
+// ========== CLEAN DESCRIPTION FOR TELEGRAM ==========
+function _cleanPaymentDesc(desc) {
+    if (!desc) return '';
+    let s = desc;
+    // Remove "- Ngan hang..." / "- Ngân hàng..." sender bank at end
+    s = s.replace(/\s*-\s*Ngan\s*hang.*$/i, '');
+    s = s.replace(/\s*-\s*Ng[aâ]n\s*h[aà]ng.*$/i, '');
+    // Remove QR-DDMMYY- date reference codes
+    s = s.replace(/QR-\d{6}-/g, '');
+    // Remove CKN + reference number
+    s = s.replace(/CKN\s+\d+/gi, '');
+    // Remove long alphanumeric codes (8+ chars like 6135ASCB02B94WGM, cJ1HEF8J)
+    s = s.replace(/\b[A-Za-z0-9]{8,}\b/g, function(m) {
+        // Only remove if it contains both letters and digits (not pure words)
+        return (/[A-Za-z]/.test(m) && /\d/.test(m)) ? '' : m;
+    });
+    // Remove standalone long numbers (6+ digits, reference IDs)
+    s = s.replace(/\b\d{6,}\b/g, '');
+    // Remove GD reference (ACB: "GD 342940-022825")
+    s = s.replace(/GD\s+\d+-\d+/gi, '');
+    // Clean up multiple spaces and orphan dashes
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/\s*-\s*$/, '').trim();
+    s = s.replace(/^\s*-\s*/, '').trim();
+    return s;
 }
 
 // ========== CRON MANAGEMENT ==========

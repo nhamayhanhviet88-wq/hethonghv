@@ -270,6 +270,33 @@ async function start() {
             WHERE NOT EXISTS (SELECT 1 FROM email_bank_parsers WHERE bank_name = 'ACB Công Ty')`);
     } catch(e) { /* exists */ }
 
+    // Migration: Cashflow Records — Sổ Thu Chi
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS cashflow_records (
+            id              SERIAL PRIMARY KEY,
+            cashflow_code   TEXT NOT NULL UNIQUE,
+            cashflow_type   TEXT NOT NULL CHECK (cashflow_type IN ('THU','CHI')),
+            daily_seq       INTEGER NOT NULL,
+            cashflow_date   DATE NOT NULL,
+            description     TEXT,
+            amount          NUMERIC NOT NULL DEFAULT 0,
+            order_code      TEXT,
+            image_url       TEXT,
+            is_closed       BOOLEAN DEFAULT false,
+            source_record_id INTEGER UNIQUE REFERENCES payment_records(id),
+            created_by      INTEGER REFERENCES users(id),
+            checked_by      INTEGER REFERENCES users(id),
+            checked_at      TIMESTAMP,
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_cf_date ON cashflow_records(cashflow_date)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_cf_type ON cashflow_records(cashflow_type)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_cf_closed ON cashflow_records(is_closed)`);
+    } catch(e) { /* exists */ }
+    // Migration: cashflow money_source
+    try { await db.exec("ALTER TABLE cashflow_records ADD COLUMN money_source TEXT DEFAULT 'congty'"); } catch(e) { /* exists */ }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -281,6 +308,16 @@ async function start() {
         root: path.join(__dirname, 'public'),
         prefix: '/',
         maxAge: 0 // No caching for static files
+    });
+    // Serve cashflow uploads
+    fastify.get('/uploads/cashflow/:filename', async (request, reply) => {
+        const fs = require('fs');
+        const filePath = path.join(__dirname, 'uploads', 'cashflow', request.params.filename);
+        if (!fs.existsSync(filePath)) return reply.code(404).send('Not found');
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap = { '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif', '.webp':'image/webp' };
+        reply.type(mimeMap[ext] || 'application/octet-stream');
+        return fs.createReadStream(filePath);
     });
 
     // Prevent browser/CDN caching of JS, CSS, HTML files
@@ -354,6 +391,7 @@ async function start() {
     fastify.register(require('./routes/meetingCommitments'));
     fastify.register(require('./routes/telegram'));
     fastify.register(require('./routes/paymentRecords'));
+    fastify.register(require('./routes/cashflow'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

@@ -84,27 +84,32 @@ async function getTestAccountIds() {
 
 /**
  * Build combined SQL filter for production mode.
- * Generates: AND (created_at >= cutoff) AND (created_by NOT IN (testIds))
+ * Generates: AND (created_by NOT IN (testIds)) AND (assigned_to_id NOT IN (testIds))
  * Safe to append to any WHERE clause.
  * 
  * @param {Date|null} cutoff - Cutoff date
  * @param {number[]} testIds - Test account IDs
  * @param {string} dateCol - Column for date filter (e.g. 'c.created_at')
  * @param {string} createdByCol - Column for creator filter (e.g. 'c.created_by')
+ * @param {object} [opts] - Optional: { assignedToCol: 'c.assigned_to_id' }
  * @returns {string} SQL fragment (safe to concat, empty string if nothing to filter)
  */
-function buildProductionFilter(cutoff, testIds, dateCol = 'created_at', createdByCol = 'created_by') {
+function buildProductionFilter(cutoff, testIds, dateCol = 'created_at', createdByCol = 'created_by', opts = {}) {
     let sql = '';
 
-    // ★ CHỈ lọc theo tài khoản test — KHÔNG lọc theo thời gian
-    // Lý do: cutoff date ẩn luôn dữ liệu của TK thật tạo trước ngày bật thực chiến
-    // → TK thật phải luôn thấy dữ liệu của mình bất kể thời điểm tạo
+    // ★ Lọc theo tài khoản test — KHÔNG lọc theo thời gian
+    // Ẩn dữ liệu do TK test tạo RA HOẶC được gán CHO TK test
     if (testIds && testIds.length > 0) {
-        sql += ` AND ${createdByCol} NOT IN (${testIds.map(id => parseInt(id)).join(',')})`;
+        const idList = testIds.map(id => parseInt(id)).join(',');
+        sql += ` AND ${createdByCol} NOT IN (${idList})`;
+        // ★ Also hide customers ASSIGNED TO test accounts
+        const assignedCol = opts.assignedToCol || (createdByCol.includes('.') ? createdByCol.replace(/\.[^.]+$/, '.assigned_to_id') : 'assigned_to_id');
+        sql += ` AND ${assignedCol} NOT IN (${idList})`;
     }
 
     return sql;
 }
+
 
 /**
  * Build SQL fragment for cutoff filtering only (legacy compat).
