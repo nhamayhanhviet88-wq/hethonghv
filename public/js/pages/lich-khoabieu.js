@@ -1302,7 +1302,8 @@ function _kbRenderGrid() {
                     const _hasOwnInject = /tuyển\s*dụng|sedding|đăng.*bản.*thân|tìm.*gr.*zalo|đăng.*video|đăng.*content|đăng.*tìm.*kh/i.test(task.task_name);
                     if (!_hasOwnInject && report && report.status === 'pending') {
                         statusBadge = `<div style="margin-top:4px;"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:4px 8px;border-radius:6px;text-align:center;animation:_kbPendingPulse 3s infinite;"><span style="font-size:11px;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.2);">⏳ Chờ Duyệt ${report.quantity || ''}/${task.min_quantity || 1}</span></div></div>`;
-                    } else if (!_hasOwnInject && report && report.status === 'approved') {
+                    }
+                    if (report && report.status === 'approved' && report.points_earned > 0) {
                         statusBadge = `<div style="margin-top:4px;"><span style="background:#dcfce7;color:#16a34a;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;border:1px solid #86efac;">✅ +${report.points_earned}đ</span></div>`;
                     }
                 } else if (_linkedPage && !canReport) {
