@@ -314,7 +314,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
         // Get all active lock tasks with assignments + user's department_joined_at + assigned_at
         const lockAssignments = await db.all(
             `SELECT lt.id as task_id, lt.task_name, lt.recurrence_type, lt.recurrence_value,
-                    lt.requires_approval, lt.penalty_amount, lt.department_id,
+                    lt.requires_approval, lt.penalty_amount, lt.department_id, lt.min_quantity,
                     lta.user_id, lta.created_at as assigned_at, u.department_joined_at
              FROM lock_task_assignments lta
              JOIN lock_tasks lt ON lt.id = lta.lock_task_id AND lt.is_active = true
@@ -372,14 +372,29 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
 
                 // Check if already penalized for this task+date
-                const alreadyExpired = await db.get(
-                    `SELECT id FROM lock_task_completions
+                const alreadyExpiredCount = await db.all(
+                    `SELECT id, redo_count FROM lock_task_completions
                      WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status = 'expired' AND penalty_applied = true`,
                     [la.task_id, la.user_id, checkDateStr]
                 );
-                if (alreadyExpired) continue;
 
-                // Check if there's a completion
+                // ★ min_quantity: NV có thể phải nộp nhiều lần/ngày
+                const minQty = la.min_quantity || 1;
+                
+                // Count approved/pending submissions (not expired)
+                const submittedCount = await db.get(
+                    `SELECT COUNT(*) as cnt FROM lock_task_completions
+                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND status IN ('approved','pending') AND redo_count >= 0`,
+                    [la.task_id, la.user_id, checkDateStr]
+                );
+                const submitted = Number(submittedCount?.cnt || 0);
+                const alreadyPenalized = alreadyExpiredCount.length;
+                // Missing = (required - submitted - already penalized)
+                const missing = Math.max(0, minQty - submitted - alreadyPenalized);
+                
+                if (missing === 0) continue;
+
+                // Check if there's a completion with rejected status needing redo
                 const completion = await db.get(
                     `SELECT id, status, redo_deadline FROM lock_task_completions
                      WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3
@@ -387,15 +402,9 @@ async function runDeadlineCheck(forceFullCheck = false) {
                     [la.task_id, la.user_id, checkDateStr]
                 );
                 if (completion) {
-                    if (completion.status === 'approved' || completion.status === 'pending') continue;
                     if (completion.status === 'rejected' && completion.redo_deadline) {
-                        // QL đã từ chối → NV có deadline mới (redo_deadline)
                         const redoDeadline = new Date(completion.redo_deadline);
-                        if (now < redoDeadline) {
-                            // Chưa hết hạn redo → NV được bảo vệ
-                            continue;
-                        }
-                        // Đã qua redo_deadline mà NV chưa nộp lại → cho phạt bên dưới
+                        if (now < redoDeadline) continue;
                         console.log(`  ⚠️ [CV Khóa] NV id=${la.user_id} quá hạn nộp lại sau bị từ chối: ${la.task_name} ngày ${checkDateStr}`);
                     }
                 }
@@ -409,17 +418,11 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 );
                 if (activeSR) {
                     if (activeSR.status === 'pending' || activeSR.status === 'ql_expired') {
-                        // QL chưa hỗ trợ → NV được bảo vệ hoàn toàn
                         continue;
                     }
                     if (activeSR.status === 'supported' && activeSR.supported_at) {
-                        // QL đã hỗ trợ → NV phải nộp trước 23:59 ngày làm việc tiếp theo
                         const nvDeadline = await calculateRealDeadline(activeSR.supported_at, la.user_id);
-                        if (now < nvDeadline) {
-                            // Chưa hết hạn NV → vẫn bảo vệ
-                            continue;
-                        }
-                        // Đã qua deadline NV → đóng SR + cho phạt bên dưới
+                        if (now < nvDeadline) continue;
                         await db.run(
                             "UPDATE task_support_requests SET status = 'expired' WHERE id = $1",
                             [activeSR.id]
@@ -431,34 +434,39 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 // ★ CHECK NGHỈ PHÉP: Nếu NV nghỉ ngày đó → tính deadline kéo dài
                 const userOnLeave = await isUserOnLeave(la.user_id, checkDateStr);
                 if (userOnLeave) {
-                    // Tính real deadline: ngày đi làm tiếp theo sau ngày nghỉ
                     const taskDate = new Date(checkDateStr + 'T00:00:00Z');
                     const realDeadline = await calculateRealDeadline(taskDate, la.user_id);
-                    if (now < realDeadline) {
-                        // Chưa hết hạn kéo dài → skip, sẽ check lại đêm sau
-                        continue;
-                    }
-                    // Đã hết hạn kéo dài mà vẫn chưa nộp → phạt bên dưới
+                    if (now < realDeadline) continue;
                 }
 
-                // NV CHƯA NỘP + HẾT HẠN → Khóa TK + Phạt
+                // NV CHƯA NỘP + HẾT HẠN → Tạo expired records cho TỪNG lần thiếu
                 const penaltyAmount = GPC.cv_khoa_khong_nop;
+                
+                // Find next available redo_count for expired records
+                const maxRedo = await db.get(
+                    `SELECT COALESCE(MAX(redo_count), -1) as max_redo FROM lock_task_completions
+                     WHERE lock_task_id = $1 AND user_id = $2 AND completion_date = $3 AND redo_count >= 0`,
+                    [la.task_id, la.user_id, checkDateStr]
+                );
+                let nextRedo = Math.max(0, (maxRedo?.max_redo ?? -1) + 1);
 
-                try {
-                    await db.run(
-                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, acknowledged)
-                         VALUES ($1, $2, $3, 0, 'expired', $4, true, false)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $4, penalty_applied = true
-                         WHERE lock_task_completions.status != 'approved'`,
-                        [la.task_id, la.user_id, checkDateStr, penaltyAmount]
-                    );
-                } catch(e) {
-                    console.error(`  ❌ Error creating expired record for task ${la.task_id}, user ${la.user_id}:`, e.message);
+                for (let i = 0; i < missing; i++) {
+                    try {
+                        await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, acknowledged)
+                             VALUES ($1, $2, $3, $4, 'expired', $5, true, false)
+                             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO UPDATE SET status = 'expired', penalty_amount = $5, penalty_applied = true
+                             WHERE lock_task_completions.status != 'approved'`,
+                            [la.task_id, la.user_id, checkDateStr, nextRedo + i, penaltyAmount]
+                        );
+                    } catch(e) {
+                        console.error(`  ❌ Error creating expired record for task ${la.task_id}, user ${la.user_id}, redo ${nextRedo + i}:`, e.message);
+                    }
                 }
 
                 // ★ Chỉ GHI PHẠT — Khóa TK sẽ do phase 00:00 xử lý
-                penaltyCount++;
-                console.log(`  ⚠️ [CV Khóa] Phạt NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${checkDateStr} (phạt ${penaltyAmount}đ)`);
+                penaltyCount += missing;
+                console.log(`  ⚠️ [CV Khóa] Phạt NV id=${la.user_id} — Không nộp: ${la.task_name} ngày ${checkDateStr} (${missing}x${penaltyAmount}đ, cần ${minQty} lần)`);
             }
         }
 
