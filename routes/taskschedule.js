@@ -1606,8 +1606,8 @@ async function taskScheduleRoutes(fastify, options) {
         const managerId = request.user.id;
         const isGD = request.user.role === 'giam_doc';
 
-        // Hiện cả pending + expired GỐC (không hiện bản stacking copy) — chỉ user ACTIVE
-        const statusFilter = `sr.status IN ('pending', 'expired') AND (sr.stacking_source IS NULL OR sr.stacking_source = '') AND u.status = 'active'`;
+        // Hiện cả pending + expired + ql_expired GỐC (không hiện bản stacking copy) — chỉ user ACTIVE
+        const statusFilter = `sr.status IN ('pending', 'expired', 'ql_expired') AND (sr.stacking_source IS NULL OR sr.stacking_source = '') AND u.status = 'active'`;
 
         let pending;
         if (isGD) {

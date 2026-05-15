@@ -3293,7 +3293,7 @@ async function _kbLoadSupportPanel() {
         pending.forEach(r => {
             const dateFormatted = r.task_date.split('-').reverse().join('/');
             const dlDate = r.deadline_at ? new Date(r.deadline_at) : new Date(r.deadline + 'T23:59:59');
-            const isExpired = r.status === 'expired';
+            const isExpired = r.status === 'expired' || r.status === 'ql_expired';
             const isOverdue = dlDate < new Date();
             const isUrgent = !isOverdue && (dlDate - new Date()) < 6 * 3600000;
 
@@ -3327,7 +3327,7 @@ async function _kbLoadSupportPanel() {
             </tr>`;
         });
 
-        const expiredCount = pending.filter(r => r.status === 'expired').length;
+        const expiredCount = pending.filter(r => r.status === 'expired' || r.status === 'ql_expired').length;
         const pendingCount = pending.length - expiredCount;
         const headerBadge = expiredCount > 0
             ? `<span style="background:rgba(255,255,255,0.3);color:white;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:800;">${pendingCount > 0 ? pendingCount + ' chờ' : ''} ${expiredCount > 0 ? (pendingCount > 0 ? '+ ' : '') + expiredCount + ' trễ' : ''}</span>`
