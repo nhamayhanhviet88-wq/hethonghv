@@ -5,12 +5,10 @@ const db = require('../db/pool');
 const APPSHEET_URL = 'https://api.appsheet.com/api/v2/apps/e9a7435c-a328-4c79-88f5-4cca0b1dc237/tables/NKy/Action?applicationAccessKey=V2-IfAm1-lAxLc-ecP0P-8M4Zb-cMNbq-3Et5Z-umnY0-L3Hfh';
 
 // ========== HELPERS ==========
-function _formatDateDDMMYYYY(dateStr) {
+function _formatDate(dateStr) {
     if (!dateStr) return '';
     const s = typeof dateStr === 'string' ? dateStr : dateStr.toISOString();
-    const parts = s.split('T')[0].split('-');
-    if (parts.length !== 3) return dateStr;
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return s.split('T')[0]; // YYYY-MM-DD
 }
 
 function _postJSON(url, data) {
@@ -46,7 +44,7 @@ async function syncToAppSheet(record) {
         "Action": "Add",
         "Rows": [{
             "KEY": record.payment_code,
-            "Ngày": _formatDateDDMMYYYY(record.date),
+            "Ngày": _formatDate(record.date),
             "Loại": "THU",
             "PT thanh toán": "CK",
             "Nguồn": "Khách hàng",
