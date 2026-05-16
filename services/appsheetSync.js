@@ -11,6 +11,19 @@ function _formatDate(dateStr) {
     return s.split('T')[0]; // YYYY-MM-DD
 }
 
+// Map CRM bank_name → AppSheet "Ngân hàng" enum value
+const BANK_MAPPING = {
+    'Sacombank': 'SACOM',
+    'ACB Công Ty': 'ACB',
+    'ACB': 'ACB',
+    'ABC cá nhân': 'ABC cá nhân',
+    'PGBank': 'PGBank',
+};
+
+function _mapBank(bankName) {
+    return BANK_MAPPING[bankName] || bankName || '';
+}
+
 function _postJSON(url, data) {
     return new Promise((resolve, reject) => {
         const body = JSON.stringify(data);
@@ -49,12 +62,13 @@ async function syncToAppSheet(record) {
             "PT thanh toán": "CK",
             "Nguồn": "Khách hàng",
             "Tiền": String(record.amount),
-            "Ngân hàng": record.bank_name || '',
+            "Ngân hàng": _mapBank(record.bank_name),
             "Nội dung": record.description || '',
             "Người ghi nhận": "Mail"
         }]
     };
 
+    console.log(`[AppSheet] 📤 Sending:`, JSON.stringify(payload));
     const res = await _postJSON(APPSHEET_URL, payload);
 
     if (res.ok) return true;
@@ -65,7 +79,7 @@ async function syncToAppSheet(record) {
         return true;
     }
 
-    throw new Error(`HTTP ${res.status}: ${(res.body || '').substring(0, 200)}`);
+    throw new Error(`HTTP ${res.status}: ${(res.body || '').substring(0, 500)}`);
 }
 
 // ========== CONFIG CHECK ==========
