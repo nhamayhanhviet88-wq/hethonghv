@@ -61,7 +61,7 @@ async function syncToAppSheet(record) {
             "Loại": "THU",
             "PT thanh toán": "CK",
             "Nguồn": "Khách hàng",
-            "Tiền": String(record.amount),
+            "Tiền": String(Math.round(Number(record.amount))),
             "Ngân hàng": _mapBank(record.bank_name),
             "Nội dung": record.description || '',
             "Người ghi nhận": "Mail"
