@@ -602,7 +602,7 @@ async function start() {
     const { vnNow } = require('./utils/timezone');
     const { sendTelegramMessage } = require('./utils/telegram');
     const { _buildReport: _drBuildReport } = require('./routes/dailyReport');
-    let _drSentToday = false; // Prevent catch-up from repeating
+    let _drSentDate = ''; // Track WHICH date was already sent (reset across days)
     async function _drCheckAndSend() {
         try {
             const now = vnNow();
@@ -618,29 +618,56 @@ async function start() {
             try { cfg = JSON.parse(cfgRow.value); } catch { return; }
 
             const reportTime = (cfg.time || '21:00').trim();
+            const groupId = (cfg.group_id || '').trim();
+            if (!groupId) return;
+            const modules = cfg.modules || [];
+            if (!modules.length) return;
 
-            // Check if already sent today (DB)
+            // Check DB for last sent date
             const lastSent = await db.get("SELECT value FROM app_config WHERE key = 'daily_report_last_sent'");
-            if (lastSent?.value === todayStr) { _drSentToday = true; return; }
-            if (_drSentToday) return; // Already sent this session
+            const lastSentDate = lastSent?.value || '';
+
+            // ★ CATCH-UP: Check if YESTERDAY's report was missed
+            // This handles the case where reportTime is late (e.g. 22:00) and server
+            // restarts after midnight — "00:25" > "22:00" is FALSE in string comparison,
+            // so we need to explicitly check if yesterday was never sent
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth()+1).padStart(2,'0') + '-' + String(yesterday.getDate()).padStart(2,'0');
+
+            if (lastSentDate < yesterdayStr && _drSentDate !== yesterdayStr) {
+                // Yesterday's report was never sent — send it now as catch-up
+                console.log(`[DailyReport] 📤 Catch-up for MISSED date ${yesterdayStr} (lastSent: ${lastSentDate}, now: ${currentTime})`);
+                const report = await _drBuildReport(yesterdayStr, modules);
+                const ok = await sendTelegramMessage(groupId, report.message);
+                if (ok) {
+                    _drSentDate = yesterdayStr;
+                    await db.run(
+                        `INSERT INTO app_config (key, value, updated_at) VALUES ('daily_report_last_sent', $1, NOW())
+                         ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
+                        [yesterdayStr]
+                    );
+                    console.log('[DailyReport] ✅ Catch-up sent for missed date:', yesterdayStr);
+                } else {
+                    console.error('[DailyReport] ❌ Catch-up Telegram send failed for', yesterdayStr);
+                }
+                return; // Process one catch-up per cycle
+            }
+
+            // ★ TODAY's report: check if already sent
+            if (lastSentDate === todayStr || _drSentDate === todayStr) return;
 
             // Match: exact minute OR catch-up (current time > configured time = missed, send now)
             const isExactMatch = currentTime === reportTime;
             const isCatchUp = currentTime > reportTime;
             if (!isExactMatch && !isCatchUp) return;
 
-            const groupId = (cfg.group_id || '').trim();
-            if (!groupId) return;
-
-            const modules = cfg.modules || [];
-            if (!modules.length) return;
-
             // Build combined report
             console.log(`[DailyReport] 📤 ${isCatchUp ? 'Catch-up' : 'Scheduled'} send at ${currentTime} (configured: ${reportTime})`);
             const report = await _drBuildReport(todayStr, modules);
             const ok = await sendTelegramMessage(groupId, report.message);
             if (ok) {
-                _drSentToday = true;
+                _drSentDate = todayStr;
                 await db.run(
                     `INSERT INTO app_config (key, value, updated_at) VALUES ('daily_report_last_sent', $1, NOW())
                      ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = NOW()`,
