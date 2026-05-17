@@ -29,6 +29,10 @@ async function syncLedgerForDate(dateStr) {
     const BASE_CAPCUU = GPC.cap_cuu_ql_khong_xu_ly || 50000;
     let count = 0;
 
+    // ★ Check if dateStr is a day off (Sunday or holiday) — skip ongoing stacking sources
+    const { isDayOff: _isDayOff } = require('./ledgerDayOff');
+    const isDateOff = await _isDayOff(dateStr);
+
     // Source 1: CV Khóa (NV không nộp + QL không duyệt)
     try {
         const rows = await db.all(
@@ -82,6 +86,8 @@ async function syncLedgerForDate(dateStr) {
     } catch (e) { console.error('  ❌ [Ledger] Sếp HT:', e.message); }
 
     // Source 4: Phạt chồng QL Hỗ Trợ — ongoing từ ngày trước, ghi BASE_SUPPORT cho ngày hôm nay
+    // ★ Skip ngày nghỉ — không phạt chồng vào CN/lễ
+    if (!isDateOff) {
     try {
         const rows = await db.all(
             `SELECT sr.id, sr.manager_id, sr.task_name, sr.task_date::text as orig_date, sr.penalty_reason
@@ -95,8 +101,11 @@ async function syncLedgerForDate(dateStr) {
             count++;
         }
     } catch (e) { console.error('  ❌ [Ledger] Phạt chồng HT:', e.message); }
+    } // end if (!isDateOff) Source 4
 
     // Source 5: Phạt chồng QL CV Khóa — ongoing từ ngày trước
+    // ★ Skip ngày nghỉ
+    if (!isDateOff) {
     try {
         const rows = await db.all(
             `SELECT ltc_ql.id, ltc_ql.user_id, lt.task_name, ltc_ql.completion_date::text as orig_date, ltc_ql.penalty_amount
@@ -114,8 +123,11 @@ async function syncLedgerForDate(dateStr) {
             count++;
         }
     } catch (e) { console.error('  ❌ [Ledger] Phạt chồng Khóa:', e.message); }
+    } // end if (!isDateOff) Source 5
 
     // Source 6: Phạt chồng QL CV Chuỗi
+    // ★ Skip ngày nghỉ
+    if (!isDateOff) {
     try {
         const rows = await db.all(
             `SELECT cc_ql.id, cc_ql.user_id, ci.task_name, cins.chain_name
@@ -133,8 +145,11 @@ async function syncLedgerForDate(dateStr) {
             count++;
         }
     } catch (e) { console.error('  ❌ [Ledger] Phạt chồng Chuỗi:', e.message); }
+    } // end if (!isDateOff) Source 6
 
     // Source 7: Cấp cứu sếp — pending + phạt
+    // ★ Skip ngày nghỉ
+    if (!isDateOff) {
     try {
         const rows = await db.all(
             `SELECT e.id, COALESCE(e.handover_to, e.handler_id) as uid, e.reason, c.customer_name
@@ -148,6 +163,7 @@ async function syncLedgerForDate(dateStr) {
             count++;
         }
     } catch (e) { console.error('  ❌ [Ledger] Cấp cứu:', e.message); }
+    } // end if (!isDateOff) Source 7
 
     // Source 8: KH Chưa XL + KH Trễ
     try {
