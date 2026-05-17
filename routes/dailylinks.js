@@ -700,9 +700,8 @@ module.exports = async function (fastify) {
             const wkStart = `${wkMon.getFullYear()}-${String(wkMon.getMonth()+1).padStart(2,'0')}-${String(wkMon.getDate()).padStart(2,'0')}`;
             const wkEnd = `${wkSun.getFullYear()}-${String(wkSun.getMonth()+1).padStart(2,'0')}-${String(wkSun.getDate()).padStart(2,'0')}`;
             countResult = await db.get(
-                `SELECT COUNT(*) as c FROM zalo_task_results r
-                 JOIN zalo_daily_tasks t ON r.task_id = t.id
-                 WHERE t.user_id = $1 AND t.assigned_date BETWEEN $2 AND $3`,
+                `SELECT COUNT(*) as c FROM zalo_daily_tasks
+                 WHERE user_id = $1 AND status = 'done' AND assigned_date BETWEEN $2 AND $3`,
                 [uid, wkStart, wkEnd]
             );
         } else {
