@@ -508,8 +508,10 @@ async function runDeadlineCheck(forceFullCheck = false) {
             return null;
         }
 
-        // Group by (lock_task_id, user_id), filter out resubmitted originals
-        const taskUserMap = {};
+        // Group by (lock_task_id, user_id) → collect ALL origDates per group
+        // ★ KEY FIX: Cùng 1 task + user có thể có NHIỀU ngày gốc chưa BC
+        //   → mỗi ngày gốc phải tạo 1 record phạt chồng riêng/ngày stacking
+        const taskUserGroupMap = {}; // key = lock_task_id_user_id → { origDates: [...] }
         for (const exp of unreportedExpired) {
             const resubmitted = await db.get(
                 `SELECT id FROM lock_task_completions
@@ -557,60 +559,68 @@ async function runDeadlineCheck(forceFullCheck = false) {
                 }
             }
 
-            const key = `${exp.lock_task_id}_${exp.user_id}_${exp.completion_date}`;
-            if (!taskUserMap[key]) {
-                taskUserMap[key] = {
+            // ★ Group by (lock_task_id, user_id) — collect ALL distinct origDates
+            const groupKey = `${exp.lock_task_id}_${exp.user_id}`;
+            if (!taskUserGroupMap[groupKey]) {
+                taskUserGroupMap[groupKey] = {
                     lock_task_id: exp.lock_task_id,
                     user_id: exp.user_id,
                     task_name: exp.task_name,
-                    origDate: exp.completion_date
+                    origDates: new Set()
                 };
             }
+            taskUserGroupMap[groupKey].origDates.add(exp.completion_date);
         }
 
         const extraPenaltyKhoa = GPC.cv_khoa_khong_nop;
         let stackCountKhoa = 0;
 
-        for (const k of Object.values(taskUserMap)) {
-            // Stacking: tạo 1 phạt chồng/ngày cho mỗi origDate chưa báo cáo lại
-            const earliestOrig = new Date(k.origDate + 'T00:00:00Z');
-            let stackDate = new Date(earliestOrig);
-            stackDate.setUTCDate(stackDate.getUTCDate() + 1);
+        for (const group of Object.values(taskUserGroupMap)) {
+            // Sort origDates ascending for consistent redo_count assignment
+            const sortedOrigDates = Array.from(group.origDates).sort();
 
-            const todayDate = new Date(todayForStack + 'T00:00:00Z');
-            const origParts = k.origDate.split('-');
-            const origLabel = `${origParts[2]}/${origParts[1]}`;
-
-            while (stackDate < todayDate) {
-                const stackDateStr = toDateStr(stackDate);
-
-                // Skip Chủ nhật
-                if (stackDate.getUTCDay() === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
-                // Skip ngày lễ
-                if (holidays.has(stackDateStr)) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
-                // Skip NV nghỉ phép
-                const onLeave = await isUserOnLeave(k.user_id, stackDateStr);
-                if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
-
-                // Tạo 1 record phạt chồng duy nhất cho origDate này
-                const redoVal = -2; // Phạt chồng = redo -2
-
-                try {
-                    const res = await db.run(
-                        `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
-                         VALUES ($1, $2, $3, $4, 'expired', $5, true, $6, false)
-                         ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
-                        [k.lock_task_id, k.user_id, stackDateStr, redoVal, extraPenaltyKhoa,
-                         `Phạt chồng: ${k.task_name} ngày ${origLabel} chưa BC`]
-                    );
-                    if (res && res.rowCount > 0) {
-                        stackCountKhoa++;
-                    }
-                } catch(e) {
-                    console.error(`  ❌ Error stacking penalty for task ${k.lock_task_id}, user ${k.user_id}:`, e.message);
-                }
-
+            for (let origIdx = 0; origIdx < sortedOrigDates.length; origIdx++) {
+                const origDate = sortedOrigDates[origIdx];
+                const earliestOrig = new Date(origDate + 'T00:00:00Z');
+                let stackDate = new Date(earliestOrig);
                 stackDate.setUTCDate(stackDate.getUTCDate() + 1);
+
+                const todayDate = new Date(todayForStack + 'T00:00:00Z');
+                const origParts = origDate.split('-');
+                const origLabel = `${origParts[2]}/${origParts[1]}`;
+
+                // ★ FIX: Dùng redo_count khác nhau cho mỗi origDate
+                // origDate đầu tiên → -2, thứ hai → -3, thứ ba → -4, ...
+                const redoVal = -(2 + origIdx);
+
+                while (stackDate < todayDate) {
+                    const stackDateStr = toDateStr(stackDate);
+
+                    // Skip Chủ nhật
+                    if (stackDate.getUTCDay() === 0) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
+                    // Skip ngày lễ
+                    if (holidays.has(stackDateStr)) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
+                    // Skip NV nghỉ phép
+                    const onLeave = await isUserOnLeave(group.user_id, stackDateStr);
+                    if (onLeave) { stackDate.setUTCDate(stackDate.getUTCDate() + 1); continue; }
+
+                    try {
+                        const res = await db.run(
+                            `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, redo_count, status, penalty_amount, penalty_applied, content, acknowledged)
+                             VALUES ($1, $2, $3, $4, 'expired', $5, true, $6, false)
+                             ON CONFLICT (lock_task_id, user_id, completion_date, redo_count) DO NOTHING`,
+                            [group.lock_task_id, group.user_id, stackDateStr, redoVal, extraPenaltyKhoa,
+                             `Phạt chồng: ${group.task_name} ngày ${origLabel} chưa BC`]
+                        );
+                        if (res && res.rowCount > 0) {
+                            stackCountKhoa++;
+                        }
+                    } catch(e) {
+                        console.error(`  ❌ Error stacking penalty for task ${group.lock_task_id}, user ${group.user_id}:`, e.message);
+                    }
+
+                    stackDate.setUTCDate(stackDate.getUTCDate() + 1);
+                }
             }
         }
 
