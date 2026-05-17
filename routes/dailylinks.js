@@ -685,10 +685,22 @@ module.exports = async function (fastify) {
         if (!moduleType) return { count: 0, target: 20, total_points: 5 };
 
         const pattern = TASK_PATTERNS[moduleType];
-        const countResult = await db.get(
-            'SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
-            [uid, date, moduleType]
-        );
+
+        // ★ tim_gr_zalo uses pool-based system (zalo_daily_tasks + zalo_task_results), not daily_link_entries
+        let countResult;
+        if (moduleType === 'tim_gr_zalo') {
+            countResult = await db.get(
+                `SELECT COUNT(*) as c FROM zalo_task_results r
+                 JOIN zalo_daily_tasks t ON r.task_id = t.id
+                 WHERE t.user_id = $1 AND t.assigned_date = $2`,
+                [uid, date]
+            );
+        } else {
+            countResult = await db.get(
+                'SELECT COUNT(*) as c FROM daily_link_entries WHERE user_id = $1 AND entry_date = $2 AND module_type = $3',
+                [uid, date, moduleType]
+            );
+        }
 
         // Find target: individual → team → global template → library → lock_tasks
         const user = await db.get('SELECT department_id FROM users WHERE id = $1', [uid]);
