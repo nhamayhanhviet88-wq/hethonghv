@@ -1197,10 +1197,19 @@ module.exports = async function (fastify) {
         try {
             const ZALO_LOCK_PATTERN = '%Tìm%Gr%Zalo%';
             const lockTask = await db.get(
-                `SELECT id, task_name, requires_approval, min_quantity, recurrence_type
+                `SELECT id, task_name, requires_approval, min_quantity, recurrence_type, recurrence_value
                  FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1`, [ZALO_LOCK_PATTERN]
             );
             if (!lockTask) return;
+
+            // ★ CHỈ báo cáo vào ngày recurrence (thứ 7) — các ngày khác bỏ qua
+            if (lockTask.recurrence_type === 'weekly' && lockTask.recurrence_value) {
+                const recDays = lockTask.recurrence_value.split(',').map(Number);
+                const vnToday0 = getVNToday();
+                const [_y0, _m0, _d0] = vnToday0.split('-').map(Number);
+                const todayDow = new Date(Date.UTC(_y0, _m0 - 1, _d0)).getUTCDay(); // 0=Sun,6=Sat
+                if (!recDays.includes(todayDow)) return; // Không phải ngày recurrence → bỏ qua
+            }
 
             // Calculate week range (Mon-Sun) for VN today
             const vnToday = getVNToday();
