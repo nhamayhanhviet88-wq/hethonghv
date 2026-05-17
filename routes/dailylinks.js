@@ -701,7 +701,7 @@ module.exports = async function (fastify) {
             const wkEnd = `${wkSun.getFullYear()}-${String(wkSun.getMonth()+1).padStart(2,'0')}-${String(wkSun.getDate()).padStart(2,'0')}`;
             countResult = await db.get(
                 `SELECT COUNT(*) as c FROM zalo_daily_tasks
-                 WHERE user_id = $1 AND status = 'done' AND assigned_date BETWEEN $2 AND $3`,
+                 WHERE user_id = $1 AND status IN ('done','no_result') AND assigned_date BETWEEN $2 AND $3`,
                 [uid, wkStart, wkEnd]
             );
         } else {
@@ -1192,6 +1192,97 @@ module.exports = async function (fastify) {
         return { tasks: existing, quota, done: doneCount, pool_empty: false };
     });
 
+    // ★ AUTO-SYNC: Bridge zalo pool system → lock_task_completions (for scoring/penalties)
+    async function _syncZaloLockCompletion(userId) {
+        try {
+            const ZALO_LOCK_PATTERN = '%Tìm%Gr%Zalo%';
+            const lockTask = await db.get(
+                `SELECT id, task_name, requires_approval, min_quantity, recurrence_type
+                 FROM lock_tasks WHERE task_name ILIKE $1 AND is_active = true LIMIT 1`, [ZALO_LOCK_PATTERN]
+            );
+            if (!lockTask) return;
+
+            // Calculate week range (Mon-Sun) for VN today
+            const vnToday = getVNToday();
+            const [y, m, d] = vnToday.split('-').map(Number);
+            const todayDate = new Date(Date.UTC(y, m - 1, d));
+            const dow = todayDate.getUTCDay(); // 0=Sun
+            const monOff = dow === 0 ? -6 : 1 - dow;
+            const wkMon = new Date(todayDate); wkMon.setUTCDate(todayDate.getUTCDate() + monOff);
+            const wkSun = new Date(wkMon); wkSun.setUTCDate(wkMon.getUTCDate() + 6);
+            const wkStart = `${wkMon.getUTCFullYear()}-${String(wkMon.getUTCMonth()+1).padStart(2,'0')}-${String(wkMon.getUTCDate()).padStart(2,'0')}`;
+            const wkEnd = `${wkSun.getUTCFullYear()}-${String(wkSun.getUTCMonth()+1).padStart(2,'0')}-${String(wkSun.getUTCDate()).padStart(2,'0')}`;
+
+            // Count processed links this week
+            const doneR = await db.get(
+                `SELECT COUNT(*) as c FROM zalo_daily_tasks
+                 WHERE user_id = $1 AND status IN ('done','no_result') AND assigned_date BETWEEN $2 AND $3`,
+                [userId, wkStart, wkEnd]
+            );
+            const doneCount = Number(doneR.c);
+            const target = lockTask.min_quantity || 20;
+
+            // Find the recurrence day for completion_date (e.g. Saturday)
+            // For weekly tasks, use the recurrence day within this week; for others use today
+            let completionDate = vnToday;
+            if (lockTask.recurrence_type === 'weekly') {
+                // Use today's date as the completion anchor (NV is working today)
+                completionDate = vnToday;
+            }
+
+            // Check existing completion for this week (any day in range)
+            const existing = await db.get(
+                `SELECT id, status, quantity_done FROM lock_task_completions
+                 WHERE lock_task_id = $1 AND user_id = $2 AND completion_date BETWEEN $3 AND $4
+                 ORDER BY id DESC LIMIT 1`,
+                [lockTask.id, userId, wkStart, wkEnd]
+            );
+
+            // Determine approval requirement
+            const _fuU = await db.get('SELECT force_approval FROM users WHERE id = $1', [userId]);
+            const _fuF = await db.get('SELECT id FROM user_force_approvals WHERE user_id = $1 AND task_type = $2 AND task_ref_id = $3', [userId, 'lock', lockTask.id]);
+            const needsApproval = lockTask.requires_approval || _fuU?.force_approval || !!_fuF;
+            const metTarget = doneCount >= target;
+            const newStatus = (!metTarget || needsApproval) ? 'pending' : 'approved';
+
+            if (existing) {
+                // Update existing — but don't downgrade approved
+                if (existing.status === 'approved') return;
+                await db.run(
+                    `UPDATE lock_task_completions SET quantity_done = $1, status = $2, updated_at = NOW()
+                     WHERE id = $3`,
+                    [doneCount, newStatus, existing.id]
+                );
+            } else if (doneCount > 0) {
+                // Create new completion
+                let deadline = null;
+                if (newStatus === 'pending') {
+                    try {
+                        const { calculateRealDeadline, toLocalTimestamp } = require('./deadline-checker');
+                        deadline = toLocalTimestamp(await calculateRealDeadline(new Date(), null));
+                    } catch(e2) {}
+                }
+                await db.run(
+                    `INSERT INTO lock_task_completions (lock_task_id, user_id, completion_date, quantity_done, status, content, approval_deadline, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+                    [lockTask.id, userId, completionDate, doneCount, newStatus, `[Tự động] Tìm Gr Zalo: ${doneCount}/${target} link`, deadline]
+                );
+            }
+            if (metTarget) {
+                // Also auto-resolve any support requests
+                await db.run(
+                    `UPDATE task_support_requests SET status = 'resolved'
+                     WHERE user_id = $1 AND lock_task_id = $2 AND task_date BETWEEN $3 AND $4
+                       AND status IN ('pending','supported','ql_expired') AND source_type = 'khoa'`,
+                    [userId, lockTask.id, wkStart, wkEnd]
+                );
+            }
+            console.log(`[ZaloSync] user=${userId} done=${doneCount}/${target} → ${existing ? 'updated' : 'created'} lock_task_completion (${newStatus})`);
+        } catch(e) {
+            console.error('[ZaloSync] Error syncing lock completion:', e.message);
+        }
+    }
+
     // POST /api/zalo-tasks/:id/result — Submit zalo group result
     fastify.post('/api/zalo-tasks/:id/result', { preHandler: [authenticate] }, async (req, reply) => {
         const taskId = Number(req.params.id);
@@ -1209,6 +1300,7 @@ module.exports = async function (fastify) {
 
         await db.run('INSERT INTO zalo_task_results (task_id, zalo_name, zalo_link) VALUES ($1, $2, $3)', [taskId, zalo_name.trim(), zalo_link.trim()]);
         await db.run(`UPDATE zalo_daily_tasks SET status = 'done' WHERE id = $1`, [taskId]);
+        await _syncZaloLockCompletion(req.user.id);
         return { success: true };
     });
 
@@ -1254,6 +1346,7 @@ module.exports = async function (fastify) {
         if (added > 0) {
             await db.run(`UPDATE zalo_daily_tasks SET status = 'done' WHERE id = $1`, [taskId]);
         }
+        await _syncZaloLockCompletion(task.user_id);
         return { success: true, added };
     });
 
@@ -1284,6 +1377,7 @@ module.exports = async function (fastify) {
             : await db.get('SELECT * FROM zalo_daily_tasks WHERE id = $1 AND user_id = $2', [taskId, req.user.id]);
         if (!task) return reply.code(404).send({ error: 'Không tìm thấy task' });
         await db.run(`UPDATE zalo_daily_tasks SET status = 'no_result', updated_at = NOW() WHERE id = $1`, [taskId]);
+        await _syncZaloLockCompletion(task.user_id);
         return { success: true };
     });
 
