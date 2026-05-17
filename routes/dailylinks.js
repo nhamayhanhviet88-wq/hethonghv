@@ -1222,12 +1222,20 @@ module.exports = async function (fastify) {
             const doneCount = Number(doneR.c);
             const target = lockTask.min_quantity || 20;
 
-            // Find the recurrence day for completion_date (e.g. Saturday)
-            // For weekly tasks, use the recurrence day within this week; for others use today
+            // Find the recurrence day for completion_date (e.g. Saturday = day 6)
+            // For weekly tasks, completion_date must land on the recurrence day so the calendar card matches
             let completionDate = vnToday;
-            if (lockTask.recurrence_type === 'weekly') {
-                // Use today's date as the completion anchor (NV is working today)
-                completionDate = vnToday;
+            if (lockTask.recurrence_type === 'weekly' && lockTask.recurrence_value) {
+                const recDays = lockTask.recurrence_value.split(',').map(Number).filter(n => !isNaN(n));
+                if (recDays.length > 0) {
+                    // Calculate the date of the recurrence day within this week (Mon-Sun)
+                    const targetDow = recDays[0]; // e.g. 6 = Saturday
+                    const currentDow = todayDate.getUTCDay(); // 0=Sun
+                    const diff = targetDow - currentDow;
+                    const recDate = new Date(todayDate);
+                    recDate.setUTCDate(todayDate.getUTCDate() + diff);
+                    completionDate = `${recDate.getUTCFullYear()}-${String(recDate.getUTCMonth()+1).padStart(2,'0')}-${String(recDate.getUTCDate()).padStart(2,'0')}`;
+                }
             }
 
             // Check existing completion for this week (any day in range)
