@@ -98,6 +98,7 @@ async function retryFailedSync() {
              FROM payment_records
              WHERE source = 'email_auto'
                AND (appsheet_synced IS NULL OR appsheet_synced = false)
+               AND created_at < NOW() - INTERVAL '3 minutes'
              ORDER BY id DESC LIMIT 10`
         );
         if (!failed.length) return;
