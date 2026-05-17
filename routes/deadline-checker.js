@@ -969,8 +969,14 @@ async function runDeadlineCheck(forceFullCheck = false) {
 
         if (now < deadlineDay) continue; // Chưa hết hạn
 
-        // Skip nếu đã phạt hôm nay rồi (VN timezone)
+        // ★ Skip ngày Chủ nhật/lễ/nghỉ phép handler — KHÔNG phạt vào ngày nghỉ
         const todayStr6 = toDateStr(now);
+        const todayOff6 = await isDayOff(todayStr6);
+        if (todayOff6) continue;
+        const handlerOnLeave6 = await isUserOnLeave(handlerId, todayStr6);
+        if (handlerOnLeave6) continue;
+
+        // Skip nếu đã phạt hôm nay rồi (VN timezone)
         if (em.last_penalty_at) {
             // last_penalty_at from PostgreSQL is UTC → shift to VN before comparing
             const lastPenaltyVN = new Date(new Date(em.last_penalty_at).getTime() + VN_OFFSET);
@@ -1004,6 +1010,13 @@ async function runDeadlineCheck(forceFullCheck = false) {
     if (shouldCheckLockTasks) {
         const todayStackMgr = toDateStr(now);
         const holidays6a = await getHolidays();
+
+        // ★ Skip toàn bộ section nếu hôm nay là CN/lễ — KHÔNG phạt chồng vào ngày nghỉ
+        const todayOff6a = await isDayOff(todayStackMgr);
+        if (todayOff6a) {
+            console.log(`  ⏭️ [QL Phạt Chồng] Bỏ qua — hôm nay ${todayStackMgr} là ngày nghỉ`);
+        } else {
+
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
         const thirtyDaysAgoStr = toDateStr(thirtyDaysAgo);
@@ -1124,6 +1137,7 @@ async function runDeadlineCheck(forceFullCheck = false) {
             penaltyCount += stackCountMgr;
             console.log(`  🔄 [QL Phạt Chồng] Tổng: ${stackCountMgr} bản ghi phạt chồng QL`);
         }
+        } // end if (!todayOff6a)
     }
 
     // ========== 7. AUTO-REVERT HỦY KHÁCH & HỦY ĐƠN TRẢ CỌC — SMART DEADLINE ==========
