@@ -687,13 +687,23 @@ module.exports = async function (fastify) {
         const pattern = TASK_PATTERNS[moduleType];
 
         // ★ tim_gr_zalo uses pool-based system (zalo_daily_tasks + zalo_task_results), not daily_link_entries
+        // The pool assigns tasks on the day the user opens the page, but the calendar card shows on the
+        // weekly recurrence day (Saturday). So we count ALL results within the same week (Mon-Sun).
         let countResult;
         if (moduleType === 'tim_gr_zalo') {
+            // Calculate week range (Mon-Sun) for the queried date
+            const qDate = new Date(date + 'T00:00:00');
+            const qDow = qDate.getDay(); // 0=Sun
+            const monOffset = qDow === 0 ? -6 : 1 - qDow;
+            const wkMon = new Date(qDate); wkMon.setDate(qDate.getDate() + monOffset);
+            const wkSun = new Date(wkMon); wkSun.setDate(wkMon.getDate() + 6);
+            const wkStart = `${wkMon.getFullYear()}-${String(wkMon.getMonth()+1).padStart(2,'0')}-${String(wkMon.getDate()).padStart(2,'0')}`;
+            const wkEnd = `${wkSun.getFullYear()}-${String(wkSun.getMonth()+1).padStart(2,'0')}-${String(wkSun.getDate()).padStart(2,'0')}`;
             countResult = await db.get(
                 `SELECT COUNT(*) as c FROM zalo_task_results r
                  JOIN zalo_daily_tasks t ON r.task_id = t.id
-                 WHERE t.user_id = $1 AND t.assigned_date = $2`,
-                [uid, date]
+                 WHERE t.user_id = $1 AND t.assigned_date BETWEEN $2 AND $3`,
+                [uid, wkStart, wkEnd]
             );
         } else {
             countResult = await db.get(
