@@ -325,6 +325,23 @@ function _dhtPasteProof(e) {
 var _dhtItemCount = 0;
 if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
 
+// Searchable dropdown helper: input + filtered list, no free text
+function _ppSearchField(id, label, items, curVal) {
+    var h = '<div style="position:relative"><label style="font-size:11px;font-weight:700">'+label+'</label>'
+        +'<input id="'+id+'" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="Gõ để tìm..." value="'+(curVal||'')+'" onfocus="_ppShowList(\''+id+'\')" oninput="_ppFilterList(\''+id+'\')">'
+        +'<input type="hidden" id="'+id+'_val" value="'+(curVal||'')+'">'
+        +'<div id="'+id+'_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px">';
+    items.forEach(function(it) {
+        var txt = it.text||it.name||it, val = it.value!==undefined?it.value:txt;
+        h += '<div class="_ppOpt" data-val="'+val+'" data-txt="'+txt+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\''+id+'\',this)">'+txt+'</div>';
+    });
+    return h + '</div></div>';
+}
+function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style.display='block';_ppFilterList(id);}}
+function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
+function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_material')_dhtMatChange();}
+document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
+
 function _dhtAddItem(editIdx) {
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
     var existing = _dhtCreate.phieuItems[idx] || {};
@@ -332,42 +349,35 @@ function _dhtAddItem(editIdx) {
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
-    // Build datalist options for searchable fields
-    var saleDL = (po.sale_types||[]).map(function(o){return '<option value="'+o.name+'">';}).join('');
-    var prodDL = (po.products||[]).map(function(o){return '<option value="'+o.name+'">';}).join('');
-    var matDL = (po.materials||[]).map(function(o){return '<option value="'+o.name+'" data-id="'+o.id+'">';}).join('');
-    var patDL = (po.patterns||[]).map(function(o){return '<option value="'+o.name+'">';}).join('');
-    var accDL = (po.accounting_notes||[]).map(function(o){return '<option value="'+o.name+'">';}).join('');
-    // Multi-select options (keep as select)
-    var sewOpts = (po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
-    var extOpts = (po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
-    var noOpt = '<option value="" disabled selected>-- Chờ setup --</option>';
-    // Build qty/price rows with oninput calc
-    var qps = existing.quantities || [{qty:0,price:0}];
-    var qpHTML = '';
-    for (var qi = 0; qi < qps.length; qi++) {
-        var n = qi + 1;
-        var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
-        qpHTML += '<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';
-    }
-    var vatSel = '<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
-    var orderCode = _dhtCreate.orderCode || '???';
-    ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+    var saleItems=(po.sale_types||[]).map(function(o){return{text:o.name,value:o.name};});
+    var prodItems=(po.products||[]).map(function(o){return{text:o.name,value:o.name};});
+    var matItems=(po.materials||[]).map(function(o){return{text:o.name,value:o.id};});
+    var patItems=(po.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
+    var accItems=(po.accounting_notes||[]).map(function(o){return{text:o.name,value:o.name};});
+    var sewOpts=(po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
+    var qps=existing.quantities||[{qty:0,price:0}], qpHTML='';
+    for(var qi=0;qi<qps.length;qi++){var n=qi+1;var rm=qi>0?'<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>':'<div></div>';qpHTML+='<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div>'+rm+'</div>';}
+    var vatSel='<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
+    var orderCode=_dhtCreate.orderCode||'???';
+    var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
+    var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
+    var sfMat=_ppSearchField('_pp_material','Chất Liệu *',matItems,existing.material_name||'');
+    var sfPat=_ppSearchField('_pp_pattern','Mẫu Áo *',patItems,existing.pattern_name||'');
+    var sfAcc=_ppSearchField('_pp_acctNote','Nhắc nhở KT, HT *',accItems,existing.accounting_notes||'');
+    ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
-        // Searchable fields with datalist
-        +'<datalist id="_dl_sale">'+saleDL+'</datalist><datalist id="_dl_prod">'+prodDL+'</datalist><datalist id="_dl_mat">'+matDL+'</datalist><datalist id="_dl_pat">'+patDL+'</datalist><datalist id="_dl_acc">'+accDL+'</datalist>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Bán/Quà *</label><input id="_pp_sale" list="_dl_sale" class="form-control" style="font-size:12px" placeholder="Gõ để chọn..." value="'+(existing.sale_type||'')+'"></div><div><label style="font-size:11px;font-weight:700">Sản Phẩm *</label><input id="_pp_product" list="_dl_prod" class="form-control" style="font-size:12px" placeholder="Gõ để chọn..." value="'+(existing.product_name||'')+'"></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Chất Liệu *</label><input id="_pp_material" list="_dl_mat" class="form-control" style="font-size:12px" placeholder="Gõ để chọn..." value="'+(existing.material_name||'')+'" onchange="_dhtMatChange()"></div><div><label style="font-size:11px;font-weight:700">Màu *</label><select id="_pp_color" class="form-control" style="font-size:12px"><option value="">← Chọn Chất Liệu</option></select></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Mẫu Áo *</label><input id="_pp_pattern" list="_dl_pat" class="form-control" style="font-size:12px" placeholder="Gõ để chọn..." value="'+(existing.pattern_name||'')+'"></div><div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Nhắc nhở KT, HT *</label><input id="_pp_acctNote" list="_dl_acc" class="form-control" style="font-size:12px" placeholder="Gõ để chọn..." value="'+(existing.accounting_notes||'')+'"></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div><label style="font-size:11px;font-weight:700">Màu *</label><select id="_pp_color" class="form-control" style="font-size:12px"><option value="">← Chọn Chất Liệu</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfPat+'<div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfAcc+'<div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
     document.body.appendChild(ov);
-    // Load colors if material pre-selected
-    if (existing.material_id) setTimeout(function(){ _dhtLoadColorsPopup(existing.color_id); }, 200);
-    // Initial calc
-    setTimeout(_ppCalc, 100);
+    if(existing.material_id){document.getElementById('_pp_material_val').value=existing.material_id;setTimeout(function(){_dhtLoadColorsPopup(existing.color_id);},200);}
+    setTimeout(_ppCalc,100);
 }
 
 // Live calc inside popup
@@ -381,12 +391,9 @@ function _ppCalc() {
     if(el) el.textContent=total.toLocaleString('vi-VN');
 }
 
-// Material input change -> find id -> load colors
 function _dhtMatChange() {
-    var val=document.getElementById('_pp_material')?.value;
-    var po=_dhtCreate.phieuOpts||{};
-    var mat=(po.materials||[]).find(function(m){return m.name===val;});
-    if(mat) _dhtLoadColorsPopup(); else {var cs=document.getElementById('_pp_color');if(cs)cs.innerHTML='<option value="">← Chọn Chất Liệu</option>';}
+    var matId=document.getElementById('_pp_material_val')?.value;
+    if(matId) _dhtLoadColorsPopup(); else {var cs=document.getElementById('_pp_color');if(cs)cs.innerHTML='<option value="">← Chọn Chất Liệu</option>';}
 }
 
 
@@ -395,38 +402,35 @@ function _dhtAddQtyRowPP() {
     var n = c.querySelectorAll('._ppQR').length + 1;
     var r = document.createElement('div'); r.className='_ppQR';
     r.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
-    r.innerHTML='<div><label style="font-size:10px;font-weight:700">SL'+n+'</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+'</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div><div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
+    r.innerHTML='<div><label style="font-size:10px;font-weight:700">SL'+n+'</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+'</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_ppCalc()"></div><div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove();_ppCalc()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
     c.appendChild(r);
 }
 
 async function _dhtLoadColorsPopup(preselect) {
-    var matName = document.getElementById('_pp_material')?.value;
+    var mid = document.getElementById('_pp_material_val')?.value;
     var cs = document.getElementById('_pp_color'); if (!cs) return;
-    var po = _dhtCreate.phieuOpts||{};
-    var mat = (po.materials||[]).find(function(m){return m.name===matName;});
-    if (!mat) { cs.innerHTML='<option value="">← Chọn Chất Liệu</option>'; return; }
-    var res = await apiCall('/api/dht/material-colors/' + mat.id);
+    if (!mid) { cs.innerHTML='<option value="">← Chọn Chất Liệu</option>'; return; }
+    var res = await apiCall('/api/dht/material-colors/' + mid);
     cs.innerHTML='<option value="">-- Chọn Màu --</option>'+(res.colors||[]).map(function(c){var s=(preselect&&preselect==c.id)?' selected':'';return '<option value="'+c.id+'"'+s+'>'+c.name+'</option>';}).join('');
 }
 
 function _dhtSavePhieu(idx) {
     var po=_dhtCreate.phieuOpts||{};
-    var sale=document.getElementById('_pp_sale')?.value, prod=document.getElementById('_pp_product')?.value;
+    var sale=document.getElementById('_pp_sale')?.value;
+    var prod=document.getElementById('_pp_product')?.value;
+    var matId=document.getElementById('_pp_material_val')?.value;
     var matName=document.getElementById('_pp_material')?.value;
-    var matObj=(po.materials||[]).find(function(m){return m.name===matName;});
     var color=document.getElementById('_pp_color')?.value, colorT=document.getElementById('_pp_color')?.selectedOptions[0]?.textContent||'';
-    var pat=document.getElementById('_pp_pattern')?.value, acct=document.getElementById('_pp_acctNote')?.value;
+    var pat=document.getElementById('_pp_pattern')?.value;
+    var acct=document.getElementById('_pp_acctNote')?.value;
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
-    // Validate against known options (no free-text creation)
-    if (!sale){showToast('Chọn Bán/Quà','error');return;}
-    if (!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
-    if (!prod){showToast('Chọn Sản Phẩm','error');return;}
-    if ((po.products||[]).length && !(po.products||[]).some(function(o){return o.name===prod;})){showToast('Sản Phẩm không hợp lệ — chọn từ danh sách','error');return;}
-    if (!matObj){showToast('Chất Liệu không hợp lệ — chọn từ danh sách','error');return;}
-    if (!color){showToast('Chọn Màu','error');return;}
-    if (!pat){showToast('Chọn Mẫu Áo','error');return;}
-    if ((po.patterns||[]).length && !(po.patterns||[]).some(function(o){return o.name===pat;})){showToast('Mẫu Áo không hợp lệ — chọn từ danh sách','error');return;}
-    if (!acct){showToast('Chọn Nhắc nhở KT/HT','error');return;}
+    if(!sale){showToast('Chọn Bán/Quà','error');return;}
+    if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
+    if(!prod){showToast('Chọn Sản Phẩm','error');return;}
+    if(!matId||!matName){showToast('Chọn Chất Liệu từ danh sách','error');return;}
+    if(!color){showToast('Chọn Màu','error');return;}
+    if(!pat){showToast('Chọn Mẫu Áo','error');return;}
+    if(!acct){showToast('Chọn Nhắc nhở KT/HT','error');return;}
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
     var qtyPairs=[], raw=0;
     for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
@@ -434,7 +438,7 @@ function _dhtSavePhieu(idx) {
     var va=Math.round(raw*vp/100);
     var sewArr=Array.from(document.getElementById('_pp_sewing')?.selectedOptions||[]).map(function(o){return o.value;});
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
-    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:matObj.id,material_name:matObj.name,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,accounting_notes:acct,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(matId),material_name:matName,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,accounting_notes:acct,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
