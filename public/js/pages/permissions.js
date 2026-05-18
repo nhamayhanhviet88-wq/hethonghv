@@ -79,8 +79,8 @@ const PERM_FEATURES = [
     { key: 'bo_phan_ep', label: 'Bộ Phận Ép', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_may', label: 'Bộ Phận May', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'bo_phan_hoan_thien', label: 'Bộ Phận Hoàn Thiện', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'luong_san_xuat', label: 'Lương Sản Xuất', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'bang_gia_may', label: 'Bảng Giá May', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'luong_san_xuat', label: 'Lương Sản Xuất', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
+    { key: 'bang_gia_may', label: 'Bảng Giá May', perms: ['view','create','edit','delete'], section: 'MẪU & GIÁ SẢN XUẤT' },
     { key: 'bill_nhap_hang', label: 'Bill Nhập Hàng', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kiem_kho', label: 'Kiểm Kho', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'kho_vai', label: 'Kho Vải', perms: ['view','create','edit','delete'], section: 'XƯỞNG SẢN XUẤT' },
@@ -88,7 +88,7 @@ const PERM_FEATURES = [
     { key: 'nhap_xuat_hoan_vai', label: 'Nhập Xuất Hoàn Vải', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'nhap_xuat_hoan_vat_lieu', label: 'Nhập Xuất Hoàn Vật Liệu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
-    { key: 'thong_so_ao_mau', label: 'Thông Số Áo Mẫu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
+    { key: 'thong_so_ao_mau', label: 'Thông Số Mẫu Áo', perms: ['view','create','edit'], section: 'MẪU & GIÁ SẢN XUẤT' },
 
     // ===== VĂN PHÒNG QUẢN LÝ =====
     { key: 'don_hang_tong', label: 'Đơn Hàng Tổng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },

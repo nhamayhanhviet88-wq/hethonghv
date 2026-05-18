@@ -137,8 +137,8 @@ const MENU_CONFIG = [
     { id: 'bo-phan-ep', label: 'Bộ Phận Ép', icon: '🔥', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanephv', permKey: 'bo_phan_ep' },
     { id: 'bo-phan-may', label: 'Bộ Phận May', icon: '🧵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanmayhv', permKey: 'bo_phan_may' },
     { id: 'bo-phan-hoan-thien', label: 'Bộ Phận Hoàn Thiện', icon: '✅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/bophanhoanthienhv', permKey: 'bo_phan_hoan_thien' },
-    { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
-    { id: 'bang-gia-may', label: 'Bảng Giá May', icon: '💲', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/banggiamay', permKey: 'bang_gia_may' },
+    { id: 'luong-san-xuat', label: 'Lương Sản Xuất', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/luongsanxuat', permKey: 'luong_san_xuat' },
+    { id: 'bang-gia-may', label: 'Bảng Giá May', icon: '💲', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/banggiamay', permKey: 'bang_gia_may' },
     { id: 'bill-nhap-hang', label: 'Bill Nhập Hàng', icon: '🧾', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/billnhaphang', permKey: 'bill_nhap_hang' },
     { id: 'kiem-kho', label: 'Kiểm Kho', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/kiemkhohv', permKey: 'kiem_kho' },
     { id: 'kho-vai', label: 'Kho Vải', icon: '🏬', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/khovai', permKey: 'kho_vai' },
@@ -147,7 +147,7 @@ const MENU_CONFIG = [
     { id: 'nhap-xuat-hoan-vai', label: 'Nhập Xuất Hoàn Vải', icon: '🔄', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/nhapxuathoanvai', permKey: 'nhap_xuat_hoan_vai' },
     { id: 'nhap-xuat-hoan-vat-lieu', label: 'Nhập Xuất Hoàn Vật Liệu', icon: '🔃', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/nhapxuathoanvatlieu', permKey: 'nhap_xuat_hoan_vat_lieu' },
     { id: 'vat-lieu-tem-pet', label: 'Vật Liệu PET Tem', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
-    { id: 'thong-so-ao-mau', label: 'Thông Số Áo Mẫu', icon: '📐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/thongsoaomau', permKey: 'thong_so_ao_mau' },
+    { id: 'thong-so-ao-mau', label: 'Thông Số Mẫu Áo', icon: '📐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/thongsoaomau', permKey: 'thong_so_ao_mau' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
@@ -1068,7 +1068,7 @@ var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ'] },
-    { name: 'BỘ PHẬN XƯỞNG SX', sections: ['XƯỞNG SẢN XUẤT'] },
+    { name: 'BỘ PHẬN XƯỞNG SX', sections: ['XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN KINH DOANH', sections: ['CÔNG VIỆC NV KINH DOANH', 'KINH DOANH CHĂM SÓC', 'QUẢN LÝ AFFILIATE'] },
     { name: 'NHÂN SỰ & VẬN HÀNH', sections: ['HỖ TRỢ NHÂN VIÊN HV', 'QUẢN LÝ NHÂN VIÊN HV', 'HỆ THỐNG'] }
 ];
@@ -1106,12 +1106,26 @@ function renderSidebar() {
 
     _sidebarSectionKeys = sectionOrder;
 
+    // ★ SEARCH BOX — tìm kiếm menu nhanh
+    html += '<div id="sidebarSearchWrap" style="padding:8px 14px 4px;">';
+    html += '<div style="position:relative;">';
+    html += '<input id="sidebarSearchInput" type="text" placeholder="🔍 Tìm menu..." autocomplete="off" spellcheck="false" style="width:100%;padding:8px 32px 8px 12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.9);font-size:12px;font-family:Inter,sans-serif;outline:none;transition:all .2s;">';
+    html += '<span id="sidebarSearchClear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(255,255,255,.3);font-size:14px;display:none;transition:color .2s;" title="Xóa">✕</span>';
+    html += '</div>';
+    html += '</div>';
+
     // Toggle all button (sections only, not parents)
     var allSectionsCollapsed = sectionOrder.every(function(s) { return _sidebarCollapsed[s]; });
     var toggleLabel = allSectionsCollapsed ? '\u25BC M\u1EDF r\u1ED9ng t\u1EA5t c\u1EA3' : '\u25B2 R\u00FAt g\u1ECDn t\u1EA5t c\u1EA3';
-    html += '<div style="padding:6px 14px 10px;display:flex;">';
+    html += '<div id="sidebarToggleWrap" style="padding:6px 14px 10px;display:flex;">';
     html += '<button id="sidebarToggleAll" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);padding:5px 8px;border-radius:6px;font-size:10px;cursor:pointer;font-weight:600;transition:all .2s;">' + toggleLabel + '</button>';
     html += '</div>';
+
+    // Search results container (hidden by default)
+    html += '<div id="sidebarSearchResults" style="display:none;padding:0 6px;"></div>';
+
+    // Normal menu container (will be hidden when searching)
+    html += '<div id="sidebarMenuContent">';
 
     // Track which sections are rendered (to handle orphans)
     var renderedSections = {};
@@ -1198,6 +1212,9 @@ function renderSidebar() {
         html += '</div></div>';
     });
 
+    // Close normal menu container
+    html += '</div>'; // #sidebarMenuContent
+
     nav.innerHTML = html;
 
     // Attach section header click handlers
@@ -1254,6 +1271,45 @@ function renderSidebar() {
             _updateToggleBtnLabel();
         });
     }
+
+    // ★ SEARCH HANDLER — lọc menu realtime
+    var searchInput = document.getElementById('sidebarSearchInput');
+    var searchClear = document.getElementById('sidebarSearchClear');
+    if (searchInput) {
+        searchInput.addEventListener('focus', function() {
+            this.style.borderColor = 'rgba(250,210,76,.5)';
+            this.style.background = 'rgba(255,255,255,.12)';
+            this.style.boxShadow = '0 0 0 2px rgba(250,210,76,.15)';
+        });
+        searchInput.addEventListener('blur', function() {
+            this.style.borderColor = 'rgba(255,255,255,.12)';
+            this.style.background = 'rgba(255,255,255,.08)';
+            this.style.boxShadow = 'none';
+        });
+        searchInput.addEventListener('input', function() {
+            _sidebarFilterMenu(this.value);
+        });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                this.value = '';
+                _sidebarFilterMenu('');
+                this.blur();
+            }
+        });
+    }
+    if (searchClear) {
+        searchClear.addEventListener('click', function() {
+            var inp = document.getElementById('sidebarSearchInput');
+            if (inp) { inp.value = ''; _sidebarFilterMenu(''); inp.focus(); }
+        });
+    }
+
+    // Restore scroll position
+    var savedScroll = sessionStorage.getItem('sidebarScrollPos');
+    if (savedScroll) {
+        setTimeout(function() { if (nav) nav.scrollTop = parseInt(savedScroll); }, 50);
+        sessionStorage.removeItem('sidebarScrollPos');
+    }
 }
 
 function _updateToggleBtnLabel() {
@@ -1269,6 +1325,110 @@ function _updateToggleAllBtn() {
     const anyExpanded = Object.values(_sidebarCollapsed).some(v => !v) || Object.keys(_sidebarCollapsed).length === 0;
     btn.innerHTML = anyExpanded ? '\u25B2 R\u00FAt g\u1ECDn t\u1EA5t c\u1EA3' : '\u25BC M\u1EDF r\u1ED9ng t\u1EA5t c\u1EA3';
     _sidebarAllCollapsed = !anyExpanded;
+}
+
+// ========== SIDEBAR MENU SEARCH ==========
+function _removeVietnameseTones(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+function _sidebarFilterMenu(query) {
+    var menuContent = document.getElementById('sidebarMenuContent');
+    var searchResults = document.getElementById('sidebarSearchResults');
+    var toggleWrap = document.getElementById('sidebarToggleWrap');
+    var clearBtn = document.getElementById('sidebarSearchClear');
+    if (!menuContent || !searchResults) return;
+
+    var q = query.trim().toLowerCase();
+    var qNorm = _removeVietnameseTones(q);
+
+    // Show/hide clear button
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    if (!q) {
+        // No search: show normal menu, hide results
+        menuContent.style.display = '';
+        searchResults.style.display = 'none';
+        searchResults.innerHTML = '';
+        if (toggleWrap) toggleWrap.style.display = 'flex';
+        return;
+    }
+
+    // Hide normal menu, show search results
+    menuContent.style.display = 'none';
+    if (toggleWrap) toggleWrap.style.display = 'none';
+    searchResults.style.display = 'block';
+
+    // Filter MENU_CONFIG
+    var _isDoitacPortal = window.location.hostname.indexOf('dongphuchv.net') !== -1;
+    var DOITAC_ALLOWED_IDS = ['tu-van-khach-aff', 'theo-doi-tu-van-aff', 'bao-cao-hoa-hong', 'rut-tien-affiliate', 'chuyen-so', 'quanlytkhethongaff', 'bao-cao-hoa-hong-hv', 'huong-dan-su-dung'];
+
+    var matches = MENU_CONFIG.filter(function(item) {
+        // Same permission checks as renderSidebar
+        if (_isDoitacPortal && DOITAC_ALLOWED_IDS.indexOf(item.id) === -1) return false;
+        if (item.strictRoles && !item.roles.includes(currentUser.role)) return false;
+        if (currentUser.role !== 'giam_doc') {
+            var permKey = item.permKey;
+            if (permKey) {
+                if (!userPermissions[permKey] || !userPermissions[permKey].can_view) return false;
+            } else {
+                if (!item.roles.includes(currentUser.role)) return false;
+            }
+        }
+        // Match against label (with and without tones)
+        var label = item.label.toLowerCase();
+        var labelNorm = _removeVietnameseTones(label);
+        return label.indexOf(q) !== -1 || labelNorm.indexOf(qNorm) !== -1;
+    });
+
+    if (matches.length === 0) {
+        searchResults.innerHTML = '<div style="padding:20px 14px;text-align:center;">'
+            + '<div style="font-size:28px;margin-bottom:8px;opacity:.5;">🔍</div>'
+            + '<div style="font-size:12px;color:rgba(255,255,255,.4);font-weight:600;">Không tìm thấy menu nào</div>'
+            + '<div style="font-size:10px;color:rgba(255,255,255,.25);margin-top:4px;">Thử từ khóa khác...</div>'
+            + '</div>';
+        return;
+    }
+
+    // Build flat results with section labels
+    var h = '';
+    var lastSection = '';
+    matches.forEach(function(item) {
+        if (item.section !== lastSection) {
+            lastSection = item.section;
+            h += '<div style="padding:6px 14px 3px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:rgba(250,210,76,.5);">' + item.section + '</div>';
+        }
+        var itemHref = item.href || ('/' + item.id);
+        var isActive = currentPage === item.id ? 'active' : '';
+        var clickAction = item.href ? "saveSidebarScrollAndNavigate('" + item.href + "')" : "navigate('" + item.id + "')";
+
+        // Highlight matched text
+        var displayLabel = item.label;
+        var matchIdx = displayLabel.toLowerCase().indexOf(q);
+        if (matchIdx === -1) {
+            // Try normalized match for highlight position
+            var normLabel = _removeVietnameseTones(displayLabel.toLowerCase());
+            matchIdx = normLabel.indexOf(qNorm);
+        }
+        if (matchIdx !== -1 && q.length > 0) {
+            var before = displayLabel.substring(0, matchIdx);
+            var matched = displayLabel.substring(matchIdx, matchIdx + q.length);
+            var after = displayLabel.substring(matchIdx + q.length);
+            displayLabel = before + '<span style="background:rgba(250,210,76,.25);color:#fde68a;border-radius:2px;padding:0 1px;">' + matched + '</span>' + after;
+        }
+
+        h += '<a class="nav-item ' + isActive + '" data-page="' + item.id + '" data-tooltip="' + item.label + '" href="' + itemHref + '" onclick="event.preventDefault(); ' + clickAction + '" style="animation:_sbSearchFadeIn .2s ease;">';
+        h += '<span class="nav-icon">' + item.icon + '</span> ' + displayLabel;
+        h += '</a>';
+    });
+
+    // Result count badge
+    h = '<div style="padding:4px 14px 6px;display:flex;align-items:center;justify-content:space-between;">'
+        + '<span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:600;">KẾT QUẢ</span>'
+        + '<span style="font-size:9px;background:rgba(250,210,76,.15);color:rgba(250,210,76,.8);padding:2px 8px;border-radius:10px;font-weight:700;">' + matches.length + ' menu</span>'
+        + '</div>' + h;
+
+    searchResults.innerHTML = h;
 }
 
 function renderUserInfo() {

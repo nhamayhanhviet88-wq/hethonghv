@@ -263,13 +263,22 @@ body {
 .sidebar.collapsed .sidebar-header { justify-content: center; padding: 20px 10px; gap: 0; }
 .sidebar.collapsed .sidebar-header img { width: 36px; }
 
-/* Hide section/parent headers + toggle-all btn */
+/* Hide section/parent headers + toggle-all btn + search */
 .sidebar.collapsed .nav-section-header,
 .sidebar.collapsed .nav-parent-header,
-.sidebar.collapsed #sidebarToggleAll { display: none !important; }
+.sidebar.collapsed #sidebarToggleAll,
+.sidebar.collapsed #sidebarSearchWrap,
+.sidebar.collapsed #sidebarToggleWrap,
+.sidebar.collapsed #sidebarSearchResults { display: none !important; }
 /* But keep section items visible */
 .sidebar.collapsed .nav-parent-content,
 .sidebar.collapsed .nav-section-items { display: block !important; }
+
+/* Sidebar search animation */
+@keyframes _sbSearchFadeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 
 /* Nav items: icon-only centered */
 .sidebar.collapsed .nav-item {

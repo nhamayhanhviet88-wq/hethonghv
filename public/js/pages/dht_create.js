@@ -370,7 +370,7 @@ function _dhtAddItem(editIdx) {
         var mInp=document.getElementById('_pp_material');if(mInp&&!existing.material_name){mInp.disabled=true;mInp.placeholder='← Chọn Sản Phẩm trước';mInp.style.background='#f1f5f9';mInp.style.cursor='not-allowed';}
         var cInp=document.getElementById('_pp_color');if(cInp&&!existing.color_name){cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
     },50);
-    var sfPat=_ppSearchField('_pp_pattern','Mẫu Áo *',patItems,existing.pattern_name||'');
+    var sfPat=_ppSearchField('_pp_pattern','Thông Số Mẫu Áo *',patItems,existing.pattern_name||'');
     var sfAcc=_ppSearchField('_pp_acctNote','Nhắc nhở KT, HT *',accItems,existing.accounting_notes||'');
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
@@ -525,7 +525,7 @@ function _dhtSavePhieu(idx) {
     if(!prod){showToast('Chọn Sản Phẩm','error');return;}
     if(!matId||!matName){showToast('Chọn Chất Liệu từ danh sách','error');return;}
     if(!color){showToast('Chọn Màu','error');return;}
-    if(!pat){showToast('Chọn Mẫu Áo','error');return;}
+    if(!pat){showToast('Chọn Thông Số Mẫu Áo','error');return;}
     if(!acct){showToast('Chọn Nhắc nhở KT/HT','error');return;}
     var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
     var qtyPairs=[], raw=0;
