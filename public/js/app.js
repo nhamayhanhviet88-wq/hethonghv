@@ -116,6 +116,7 @@ const MENU_CONFIG = [
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
     { id: 'don-hang-tong', label: 'Đơn Hàng Tổng', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangtong', permKey: 'don_hang_tong' },
+    { id: 'cai-dat-sp-qt', label: 'Cài Đặt SP & QT', icon: '⚙️', roles: ['giam_doc'], section: 'VĂN PHÒNG QUẢN LÝ', permKey: 'cai_dat_sp_qt' },
     { id: 'don-gui-ao-mau', label: 'Đơn Gửi Áo Mẫu', icon: '👕', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donguiaomau', permKey: 'don_gui_ao_mau' },
     { id: 'so-ghi-nhan-tien', label: 'Sổ Ghi Nhận Tiền', icon: '💵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/soghinhantien', permKey: 'so_ghi_nhan_tien' },
     { id: 'so-thu-chi', label: 'Sổ Thu Chi', icon: '📒', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/sothuchi', permKey: 'so_thu_chi' },

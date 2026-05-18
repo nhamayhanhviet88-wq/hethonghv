@@ -609,12 +609,17 @@ module.exports = async function(fastify) {
             grouped[o.category].push({ id: o.id, name: o.name });
         });
 
+        // Products from dht_products (linked to sale_type)
+        const products = await db.all(`SELECT p.id, p.name, p.sale_type_id, s.name as sale_type_name
+            FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
+            WHERE p.is_active = true ORDER BY p.display_order ASC, p.name ASC`);
+
         // Materials from Kho Vải
         const materials = await db.all(`SELECT id, name FROM kv_materials WHERE is_active = true ORDER BY display_order ASC, name ASC`);
 
         return {
             sale_types: grouped['sale_type'] || [],
-            products: grouped['product'] || [],
+            products: products,
             patterns: grouped['pattern'] || [],
             sewing_techniques: grouped['sewing_technique'] || [],
             accounting_notes: grouped['accounting_note'] || [],
@@ -641,6 +646,89 @@ module.exports = async function(fastify) {
 
     fastify.delete('/api/dht/settings-options/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         await db.run('UPDATE dht_settings_options SET is_active = false WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
+    // ========== PRODUCT & PROCESS CONFIG ==========
+
+    // GET all products (with sale_type info)
+    fastify.get('/api/dht/products', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(`SELECT p.id, p.name, p.sale_type_id, p.display_order, s.name as sale_type_name
+            FROM dht_products p JOIN dht_settings_options s ON s.id = p.sale_type_id
+            WHERE p.is_active = true ORDER BY s.name ASC, p.display_order ASC, p.name ASC`);
+        return { products: rows };
+    });
+
+    // GET products filtered by sale_type_id
+    fastify.get('/api/dht/products-by-sale/:saleTypeId', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all(`SELECT id, name FROM dht_products WHERE sale_type_id = $1 AND is_active = true ORDER BY display_order ASC, name ASC`, [Number(request.params.saleTypeId)]);
+        return { products: rows };
+    });
+
+    // CREATE product
+    fastify.post('/api/dht/products', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { sale_type_id, name } = request.body || {};
+        if (!sale_type_id || !name) return reply.code(400).send({ error: 'Thiếu thông tin' });
+        const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM dht_products WHERE sale_type_id = $1', [sale_type_id]);
+        const r = await db.get('INSERT INTO dht_products (sale_type_id, name, display_order) VALUES ($1,$2,$3) RETURNING *', [sale_type_id, name.trim(), (mx?.mx||0)+1]);
+        return { success: true, product: r };
+    });
+
+    // DELETE product (soft)
+    fastify.delete('/api/dht/products/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        await db.run('UPDATE dht_products SET is_active = false WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
+    });
+
+    // GET materials assigned to a product
+    fastify.get('/api/dht/product-materials/:productId', { preHandler: [authenticate] }, async (request, reply) => {
+        const pid = Number(request.params.productId);
+        const rows = await db.all(`SELECT pm.id, pm.material_id, m.name as material_name
+            FROM dht_product_materials pm JOIN kv_materials m ON m.id = pm.material_id
+            WHERE pm.product_id = $1 AND pm.is_active = true ORDER BY m.name ASC`, [pid]);
+        return { materials: rows };
+    });
+
+    // SAVE material assignments for a product (bulk replace)
+    fastify.put('/api/dht/product-materials/:productId', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const pid = Number(request.params.productId);
+        const { material_ids } = request.body || {};
+        if (!Array.isArray(material_ids)) return reply.code(400).send({ error: 'material_ids phải là mảng' });
+        // Deactivate all
+        await db.run('UPDATE dht_product_materials SET is_active = false WHERE product_id = $1', [pid]);
+        // Re-activate or insert
+        for (const mid of material_ids) {
+            await db.run(`INSERT INTO dht_product_materials (product_id, material_id, is_active) VALUES ($1,$2,true)
+                ON CONFLICT (product_id, material_id) DO UPDATE SET is_active = true`, [pid, mid]);
+        }
+        return { success: true };
+    });
+
+    // GET all process steps
+    fastify.get('/api/dht/process-steps', { preHandler: [authenticate] }, async (request, reply) => {
+        const rows = await db.all('SELECT id, name, short_name, display_order FROM dht_process_steps WHERE is_active = true ORDER BY display_order ASC');
+        return { steps: rows };
+    });
+
+    // GET process steps assigned to a product
+    fastify.get('/api/dht/product-process/:productId', { preHandler: [authenticate] }, async (request, reply) => {
+        const pid = Number(request.params.productId);
+        const rows = await db.all(`SELECT pp.step_id, s.name, s.short_name
+            FROM dht_product_process pp JOIN dht_process_steps s ON s.id = pp.step_id
+            WHERE pp.product_id = $1 AND pp.is_active = true ORDER BY s.display_order ASC`, [pid]);
+        return { steps: rows };
+    });
+
+    // SAVE process step assignments for a product (bulk replace)
+    fastify.put('/api/dht/product-process/:productId', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const pid = Number(request.params.productId);
+        const { step_ids } = request.body || {};
+        if (!Array.isArray(step_ids)) return reply.code(400).send({ error: 'step_ids phải là mảng' });
+        await db.run('UPDATE dht_product_process SET is_active = false WHERE product_id = $1', [pid]);
+        for (const sid of step_ids) {
+            await db.run(`INSERT INTO dht_product_process (product_id, step_id, is_active) VALUES ($1,$2,true)
+                ON CONFLICT (product_id, step_id) DO UPDATE SET is_active = true`, [pid, sid]);
+        }
         return { success: true };
     });
 };
