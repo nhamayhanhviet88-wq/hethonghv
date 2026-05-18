@@ -1,23 +1,13 @@
 // ========== Cài Đặt Sản Phẩm & Quy Trình ==========
-// Convention: renderCaidatspqtPage(content) → auto-discovered by app.js
+// Now integrated as a tab inside Cài Đặt Sản Xuất
+// This file keeps all helper functions; renderCaidatspqtPage redirects to the new page
 
 var _spqt = { saleTypes: [], products: [], steps: [], materials: [], selProduct: null };
 
 async function renderCaidatspqtPage(content) {
-    content.innerHTML = '<div style="max-width:1100px;margin:0 auto;padding:16px">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-        + '<h2 style="font-size:18px;font-weight:800;color:var(--navy,#1e293b);margin:0">⚙️ Cài Đặt Sản Phẩm & Quy Trình</h2>'
-        + '<button onclick="navigate(\'don-hang-tong\')" style="background:#0d9488;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">← Quay lại DHT</button>'
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:280px 1fr;gap:16px" id="_spqtMain">'
-        + '<div id="_spqtSidebar" style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);max-height:75vh;overflow-y:auto"></div>'
-        + '<div id="_spqtContent" style="background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);min-height:400px"></div>'
-        + '</div></div>';
-
-    // Load data
-    await _spqtLoadAll();
-    _spqtRenderSidebar();
-    _spqtRenderWelcome();
+    // Redirect to Cài Đặt Sản Xuất with SP & QT tab
+    localStorage.setItem('cdsxActiveTab', 'sp-qt');
+    navigate('caidatsanxuat');
 }
 
 async function _spqtLoadAll() {
