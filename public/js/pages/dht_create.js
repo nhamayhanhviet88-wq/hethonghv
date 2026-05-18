@@ -342,7 +342,7 @@ function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;va
 function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
 
-function _dhtAddItem(editIdx) {
+async function _dhtAddItem(editIdx) {
     var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
     var existing = _dhtCreate.phieuItems[idx] || {};
     var po = _dhtCreate.phieuOpts || {};
