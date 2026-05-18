@@ -164,20 +164,21 @@ async function checkEmails() {
                         sendTelegramMessage(_tgPaymentGroup, tgMsg).catch(() => {});
                     }
 
-                    // ★ Sync to AppSheet NKy (fire-and-forget)
+                    // ★ Sync to AppSheet NKy (await to prevent duplicate sends)
                     if (_appSheetEnabled) {
-                        syncToAppSheet({
-                            payment_code: code,
-                            date: parsed.date,
-                            amount: parsed.amount,
-                            bank_name: bank.bank_name,
-                            description: parsed.description
-                        }).then(() => {
-                            db.run('UPDATE payment_records SET appsheet_synced = true WHERE source_ref_id = $1', [refHash]);
+                        try {
+                            await syncToAppSheet({
+                                payment_code: code,
+                                date: parsed.date,
+                                amount: parsed.amount,
+                                bank_name: bank.bank_name,
+                                description: parsed.description
+                            });
+                            await db.run('UPDATE payment_records SET appsheet_synced = true WHERE source_ref_id = $1', [refHash]);
                             console.log(`[AppSheet] ✅ Synced ${code}`);
-                        }).catch(err => {
+                        } catch (err) {
                             console.error(`[AppSheet] ❌ Failed ${code}:`, err.message);
-                        });
+                        }
                     }
                 }
             }
