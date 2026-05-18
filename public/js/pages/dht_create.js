@@ -354,12 +354,18 @@ async function _dhtAddItem(editIdx) {
     var matItems=[];// materials loaded dynamically after product selection
     var patItems=(po.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
     // Nhắc nhở: loaded async from reminder_templates API
-    var _nnKTItems=[], _nnSXItems=[];
+    var _nnKTList=[], _nnSXList=[];
     try {
         var [nnKT, nnSX] = await Promise.all([apiCall('/api/nhacnho/active?category=ke_toan'), apiCall('/api/nhacnho/active?category=san_xuat')]);
-        _nnKTItems = (nnKT.reminders||[]).map(function(r){return{text:r.content,value:r.content};});
-        _nnSXItems = (nnSX.reminders||[]).map(function(r){return{text:r.content,value:r.content};});
+        _nnKTList = (nnKT.reminders||[]).map(function(r){return{content:r.content,departments:r.departments||''};});
+        _nnSXList = (nnSX.reminders||[]).map(function(r){return{content:r.content,departments:r.departments||''};});
     } catch(e) {}
+    // Store reminder lists globally for picker
+    window._ppNNKTList = _nnKTList;
+    window._ppNNSXList = _nnSXList;
+    // Init tag arrays from existing data
+    window._ppNNKTTags = (existing.reminder_ketoan||[]).slice();
+    window._ppNNSXTags = (existing.reminder_sanxuat||[]).slice();
     var sewOpts=(po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var extOpts=(po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt='<option value="" disabled selected>-- Chờ setup --</option>';
@@ -377,22 +383,25 @@ async function _dhtAddItem(editIdx) {
         var cInp=document.getElementById('_pp_color');if(cInp&&!existing.color_name){cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
     },50);
     var sfPat=_ppSearchField('_pp_pattern','Thông Số Mẫu Áo *',patItems,existing.pattern_name||'');
-    var sfNNKT=_ppSearchField('_pp_nnKetoan','Nhắc Nhở Kế Toán',_nnKTItems,existing.reminder_ketoan||'');
-    var sfNNSX=_ppSearchField('_pp_nnSanxuat','Nhắc Nhở Sản Xuất',_nnSXItems,existing.reminder_sanxuat||'');
+    // Build nhac nho tag sections
+    var nnKTHTML='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><label style="font-size:11px;font-weight:700">🧾 Nhắc Nhở Kế Toán</label><button type="button" onclick="_ppAddNN(\'kt\')" style="background:#1d4ed8;color:#fff;border:none;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNKTTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div></div>';
+    var nnSXHTML='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><label style="font-size:11px;font-weight:700">🏭 Nhắc Nhở Sản Xuất</label><button type="button" onclick="_ppAddNN(\'sx\')" style="background:#d97706;color:#fff;border:none;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer">+ Thêm</button></div><div id="_ppNNSXTags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"></div></div>';
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfPat+'<div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfNNKT+sfNNSX+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
+        +nnKTHTML+nnSXHTML
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end"><div><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px" onchange="_ppCalc()">'+vatSel+'</select></div><div style="text-align:right;font-weight:800;font-size:15px;color:#b8860b">Tổng: <span id="_pp_totalDisplay">0</span>đ</div></div>'
         +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
     document.body.appendChild(ov);
     if(existing.material_id){document.getElementById('_pp_material_val').value=existing.material_id;setTimeout(function(){_dhtLoadColorsPopup(existing.color_id);},200);}
     setTimeout(_ppCalc,100);
+    // Render pre-existing tags
+    _ppRenderNNTags('kt'); _ppRenderNNTags('sx');
 }
 
 // Live calc inside popup
@@ -526,8 +535,8 @@ function _dhtSavePhieu(idx) {
     var matName=document.getElementById('_pp_material')?.value;
     var color=document.getElementById('_pp_color_val')?.value, colorT=document.getElementById('_pp_color')?.value||'';
     var pat=document.getElementById('_pp_pattern')?.value;
-    var nnKT=document.getElementById('_pp_nnKetoan')?.value;
-    var nnSX=document.getElementById('_pp_nnSanxuat')?.value;
+    var nnKTArr=window._ppNNKTTags||[];
+    var nnSXArr=window._ppNNSXTags||[];
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
     if(!sale){showToast('Chọn Bán/Quà','error');return;}
     if(!(po.sale_types||[]).some(function(o){return o.name===sale;})){showToast('Bán/Quà không hợp lệ — chọn từ danh sách','error');return;}
@@ -542,7 +551,8 @@ function _dhtSavePhieu(idx) {
     var va=Math.round(raw*vp/100);
     var sewArr=Array.from(document.getElementById('_pp_sewing')?.selectedOptions||[]).map(function(o){return o.value;});
     var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
-    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(matId),material_name:matName,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,reminder_ketoan:nnKT||'',reminder_sanxuat:nnSX||'',accounting_notes:(nnKT||'')+(nnSX?' | '+nnSX:''),extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    var acctNotes=nnKTArr.concat(nnSXArr).join(' | ');
+    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(matId),material_name:matName,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,reminder_ketoan:nnKTArr,reminder_sanxuat:nnSXArr,accounting_notes:acctNotes,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
     document.getElementById('_phieuPopup')?.remove();
     _dhtRenderPhieuRows(); _dhtCalcTotal();
     showToast('✅ Đã lưu Phiếu #'+(idx+1));
@@ -699,3 +709,60 @@ document.addEventListener('click', function(e) {
         list.style.display = 'none';
     }
 });
+
+// ========== NHẮC NHỞ TAG SYSTEM ==========
+function _ppAddNN(type) {
+    var list = type === 'kt' ? (window._ppNNKTList||[]) : (window._ppNNSXList||[]);
+    var tags = type === 'kt' ? (window._ppNNKTTags||[]) : (window._ppNNSXTags||[]);
+    // Filter out already-added items
+    var available = list.filter(function(item) { return tags.indexOf(item.content) < 0; });
+    if (available.length === 0) { showToast('Không còn nhắc nhở nào để thêm','error'); return; }
+
+    // Build picker dropdown
+    var picker = document.getElementById('_ppNNPicker');
+    if (picker) picker.remove();
+    picker = document.createElement('div');
+    picker.id = '_ppNNPicker';
+    picker.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:10000;display:flex;align-items:center;justify-content:center';
+    var title = type === 'kt' ? '🧾 Chọn Nhắc Nhở Kế Toán' : '🏭 Chọn Nhắc Nhở Sản Xuất';
+    var bg = type === 'kt' ? '#1d4ed8' : '#d97706';
+    var h = '<div style="background:#fff;border-radius:10px;padding:16px;width:380px;max-height:50vh;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-weight:800;font-size:13px;color:'+bg+'">'+title+'</span>'
+        + '<button onclick="document.getElementById(\'_ppNNPicker\').remove()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        + '<div style="max-height:300px;overflow-y:auto">';
+    available.forEach(function(item) {
+        var depts = item.departments ? ' <span style="font-size:9px;color:#9ca3af">('+item.departments+')</span>' : '';
+        h += '<div onclick="_ppPickNNItem(\''+type+'\',\''+item.content.replace(/'/g,"\\'")+'\')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:600" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'">'
+            + item.content + depts + '</div>';
+    });
+    h += '</div></div>';
+    picker.innerHTML = h;
+    document.body.appendChild(picker);
+}
+
+function _ppPickNNItem(type, content) {
+    if (type === 'kt') { window._ppNNKTTags = window._ppNNKTTags || []; window._ppNNKTTags.push(content); }
+    else { window._ppNNSXTags = window._ppNNSXTags || []; window._ppNNSXTags.push(content); }
+    document.getElementById('_ppNNPicker')?.remove();
+    _ppRenderNNTags(type);
+    showToast('✅ Đã thêm nhắc nhở');
+}
+
+function _ppRemoveNNTag(type, idx) {
+    if (type === 'kt') { (window._ppNNKTTags||[]).splice(idx, 1); }
+    else { (window._ppNNSXTags||[]).splice(idx, 1); }
+    _ppRenderNNTags(type);
+}
+
+function _ppRenderNNTags(type) {
+    var containerId = type === 'kt' ? '_ppNNKTTags' : '_ppNNSXTags';
+    var tags = type === 'kt' ? (window._ppNNKTTags||[]) : (window._ppNNSXTags||[]);
+    var el = document.getElementById(containerId); if (!el) return;
+    var bg = type === 'kt' ? '#dbeafe' : '#fef3c7';
+    var color = type === 'kt' ? '#1d4ed8' : '#92400e';
+    if (tags.length === 0) { el.innerHTML = '<span style="font-size:10px;color:#9ca3af;font-style:italic">Chưa có nhắc nhở</span>'; return; }
+    el.innerHTML = tags.map(function(t, i) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';color:'+color+';padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
+            + t + ' <button onclick="_ppRemoveNNTag(\''+type+'\','+i+')" style="background:none;border:none;color:'+color+';cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button></span>';
+    }).join('');
+}
