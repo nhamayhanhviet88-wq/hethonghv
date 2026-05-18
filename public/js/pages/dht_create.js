@@ -339,7 +339,7 @@ function _ppSearchField(id, label, items, curVal) {
 }
 function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style.display='block';_ppFilterList(id);}}
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
-function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_material')_dhtMatChange();}
+function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_product')_dhtProductChange();if(id==='_pp_material')_dhtMatChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
 
 function _dhtAddItem(editIdx) {
@@ -372,7 +372,8 @@ function _dhtAddItem(editIdx) {
     var sfPat=_ppSearchField('_pp_pattern','Mẫu Áo *',patItems,existing.pattern_name||'');
     var sfAcc=_ppSearchField('_pp_acctNote','Nhắc nhở KT, HT *',accItems,existing.accounting_notes||'');
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        +'<div id="_pp_processBar" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#1d4ed8;margin-bottom:4px">⚙️ QUY TRÌNH SẢN XUẤT</div><div id="_pp_processSteps" style="display:flex;flex-wrap:wrap;gap:4px"></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfPat+'<div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
@@ -413,6 +414,32 @@ function _dhtSaleChange() {
     pList.innerHTML=filtered.map(function(p){
         return '<div class="_ppOpt" data-val="'+p.name+'" data-txt="'+p.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_product\',this)">'+p.name+'</div>';
     }).join('');
+}
+
+// Cascade: product → show process steps
+async function _dhtProductChange() {
+    var prodName=document.getElementById('_pp_product')?.value;
+    var bar=document.getElementById('_pp_processBar');
+    var stepsEl=document.getElementById('_pp_processSteps');
+    if(!bar||!stepsEl){return;}
+    if(!prodName){bar.style.display='none';stepsEl.innerHTML='';return;}
+    // Find product ID from phieuOpts
+    var allProds=(_dhtCreate.phieuOpts||{}).products||[];
+    var prod=allProds.find(function(p){return p.name===prodName;});
+    if(!prod){bar.style.display='none';return;}
+    try{
+        var res=await apiCall('/api/dht/product-process/'+prod.id);
+        var steps=res.steps||[];
+        if(steps.length===0){bar.style.display='none';return;}
+        var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
+        stepsEl.innerHTML=steps.map(function(s,i){
+            var bg=colors[i%colors.length];
+            return '<span style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
+                +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
+                +s.name+'</span>';
+        }).join('');
+        bar.style.display='block';
+    }catch(e){bar.style.display='none';}
 }
 
 function _dhtMatChange() {
