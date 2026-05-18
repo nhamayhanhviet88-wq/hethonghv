@@ -296,13 +296,37 @@ module.exports = async function(fastify) {
             );
         }
 
-        // Insert order items
+        // Insert order items (rich phiếu)
         if (Array.isArray(b.items) && result) {
             for (const item of b.items) {
                 await db.run(`
-                    INSERT INTO dht_order_items (order_id, item_name, quantity, unit_price, subtotal)
-                    VALUES ($1, $2, $3, $4, $5)
-                `, [result.id, item.item_name || '', Number(item.quantity) || 0, Number(item.unit_price) || 0, Number(item.subtotal) || 0]);
+                    INSERT INTO dht_order_items (dht_order_id, description, quantity, unit_price, total,
+                        sale_type, product_name, material_id, material_name,
+                        color_id, color_name, pattern_name, sewing_techniques,
+                        accounting_notes, extra_materials, quantities,
+                        extra_product, extra_price, item_total)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                `, [
+                    result.id,
+                    item.product_name || '',
+                    Number(item.quantity) || 0,
+                    Number(item.unit_price) || 0,
+                    Number(item.item_total) || 0,
+                    item.sale_type || null,
+                    item.product_name || null,
+                    item.material_id ? Number(item.material_id) : null,
+                    item.material_name || null,
+                    item.color_id ? Number(item.color_id) : null,
+                    item.color_name || null,
+                    item.pattern_name || null,
+                    JSON.stringify(item.sewing_techniques || []),
+                    item.accounting_notes || null,
+                    JSON.stringify(item.extra_materials || []),
+                    JSON.stringify(item.quantities || []),
+                    item.extra_product || null,
+                    Number(item.extra_price) || 0,
+                    Number(item.item_total) || 0
+                ]);
             }
         }
 
@@ -573,5 +597,50 @@ module.exports = async function(fastify) {
             WHERE u.id = $1
         `, [request.user.id]);
         return { user };
+    });
+
+    // ========== PHIẾU ĐƠN HÀNG — Dropdown Options ==========
+    fastify.get('/api/dht/phieu-options', { preHandler: [authenticate] }, async (request, reply) => {
+        // All settings grouped by category
+        const opts = await db.all(`SELECT id, category, name FROM dht_settings_options WHERE is_active = true ORDER BY display_order ASC, id ASC`);
+        const grouped = {};
+        opts.forEach(o => {
+            if (!grouped[o.category]) grouped[o.category] = [];
+            grouped[o.category].push({ id: o.id, name: o.name });
+        });
+
+        // Materials from Kho Vải
+        const materials = await db.all(`SELECT id, name FROM kv_materials WHERE is_active = true ORDER BY display_order ASC, name ASC`);
+
+        return {
+            sale_types: grouped['sale_type'] || [],
+            products: grouped['product'] || [],
+            patterns: grouped['pattern'] || [],
+            sewing_techniques: grouped['sewing_technique'] || [],
+            accounting_notes: grouped['accounting_note'] || [],
+            extra_materials: grouped['extra_material'] || [],
+            materials: materials
+        };
+    });
+
+    // Cascade: colors by material
+    fastify.get('/api/dht/material-colors/:materialId', { preHandler: [authenticate] }, async (request, reply) => {
+        const mid = Number(request.params.materialId);
+        const colors = await db.all(`SELECT id, color_name as name FROM kv_fabric_colors WHERE material_id = $1 AND is_active = true ORDER BY color_name ASC`, [mid]);
+        return { colors };
+    });
+
+    // Settings Options CRUD (director only)
+    fastify.post('/api/dht/settings-options', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { category, name } = request.body || {};
+        if (!category || !name) return reply.code(400).send({ error: 'Thiếu category hoặc name' });
+        const mx = await db.get('SELECT COALESCE(MAX(display_order),0) as mx FROM dht_settings_options WHERE category = $1', [category]);
+        const r = await db.get('INSERT INTO dht_settings_options (category, name, display_order) VALUES ($1,$2,$3) RETURNING *', [category, name.trim(), (mx?.mx || 0) + 1]);
+        return { success: true, option: r };
+    });
+
+    fastify.delete('/api/dht/settings-options/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        await db.run('UPDATE dht_settings_options SET is_active = false WHERE id = $1', [Number(request.params.id)]);
+        return { success: true };
     });
 };
