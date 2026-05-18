@@ -339,7 +339,7 @@ function _ppSearchField(id, label, items, curVal) {
 }
 function _ppShowList(id){var l=document.getElementById(id+'_list');if(l){l.style.display='block';_ppFilterList(id);}}
 function _ppFilterList(id){var inp=document.getElementById(id);if(!inp)return;var q=inp.value.toLowerCase();document.querySelectorAll('#'+id+'_list ._ppOpt').forEach(function(el){el.style.display=el.dataset.txt.toLowerCase().indexOf(q)>=0?'':'none';});}
-function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_material')_dhtMatChange();}
+function _ppPickOpt(id,el){document.getElementById(id).value=el.dataset.txt;document.getElementById(id+'_val').value=el.dataset.val;document.getElementById(id+'_list').style.display='none';if(id==='_pp_sale')_dhtSaleChange();if(id==='_pp_material')_dhtMatChange();}
 document.addEventListener('click',function(e){if(!e.target.classList.contains('_ppSF')&&!e.target.closest('[id$="_list"]')){document.querySelectorAll('[id$="_list"]').forEach(function(l){if(l.id.startsWith('_pp'))l.style.display='none';});}});
 
 function _dhtAddItem(editIdx) {
@@ -349,8 +349,8 @@ function _dhtAddItem(editIdx) {
     var ov = document.createElement('div');
     ov.id = '_phieuPopup';
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
-    var saleItems=(po.sale_types||[]).map(function(o){return{text:o.name,value:o.name};});
-    var prodItems=(po.products||[]).map(function(o){return{text:o.name,value:o.name};});
+    var saleItems=(po.sale_types||[]).map(function(o){return{text:o.name,value:o.id};});
+    var prodItems=[];// products loaded dynamically after sale_type selection
     var matItems=(po.materials||[]).map(function(o){return{text:o.name,value:o.id};});
     var patItems=(po.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
     var accItems=(po.accounting_notes||[]).map(function(o){return{text:o.name,value:o.name};});
@@ -364,6 +364,11 @@ function _dhtAddItem(editIdx) {
     var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
     var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
     var sfMat=_ppSearchField('_pp_material','Chất Liệu *',matItems,existing.material_name||'');
+    // Cascade: disable product + color until parent is selected
+    setTimeout(function(){
+        var pInp=document.getElementById('_pp_product');if(pInp&&!existing.product_name){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';}
+        var cInp=document.getElementById('_pp_color');if(cInp&&!existing.color_name){cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
+    },50);
     var sfPat=_ppSearchField('_pp_pattern','Mẫu Áo *',patItems,existing.pattern_name||'');
     var sfAcc=_ppSearchField('_pp_acctNote','Nhắc nhở KT, HT *',accItems,existing.accounting_notes||'');
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
@@ -391,9 +396,32 @@ function _ppCalc() {
     if(el) el.textContent=total.toLocaleString('vi-VN');
 }
 
+// Cascade: sale type → filter products
+function _dhtSaleChange() {
+    var saleId=document.getElementById('_pp_sale_val')?.value;
+    var pInp=document.getElementById('_pp_product');
+    var pList=document.getElementById('_pp_product_list');
+    var pVal=document.getElementById('_pp_product_val');
+    if(!pInp||!pList)return;
+    // Reset product
+    pInp.value='';if(pVal)pVal.value='';
+    if(!saleId){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';pList.innerHTML='';return;}
+    // Enable and populate with filtered products
+    pInp.disabled=false;pInp.placeholder='Gõ để tìm...';pInp.style.background='';pInp.style.cursor='pointer';
+    var allProducts=(_dhtCreate.phieuOpts||{}).products||[];
+    var filtered=allProducts.filter(function(p){return String(p.sale_type_id)===String(saleId);});
+    pList.innerHTML=filtered.map(function(p){
+        return '<div class="_ppOpt" data-val="'+p.name+'" data-txt="'+p.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_product\',this)">'+p.name+'</div>';
+    }).join('');
+}
+
 function _dhtMatChange() {
     var matId=document.getElementById('_pp_material_val')?.value;
-    if(matId) _dhtLoadColorsPopup(); else {var cs=document.getElementById('_pp_color');if(cs)cs.innerHTML='<option value="">← Chọn Chất Liệu</option>';}
+    var cInp=document.getElementById('_pp_color');
+    if(!matId){if(cInp){cInp.value='';cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}return;}
+    // Enable color
+    if(cInp){cInp.disabled=false;cInp.placeholder='Gõ để tìm màu...';cInp.style.background='';cInp.style.cursor='pointer';}
+    _dhtLoadColorsPopup();
 }
 
 
