@@ -90,6 +90,16 @@ const PERM_FEATURES = [
     { key: 'vat_lieu_tem_pet', label: 'Vật Liệu PET Tem', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
     { key: 'thong_so_ao_mau', label: 'Thông Số Áo Mẫu', perms: ['view','create','edit'], section: 'XƯỞNG SẢN XUẤT' },
 
+    // ===== VĂN PHÒNG QUẢN LÝ =====
+    { key: 'don_hang_tong', label: 'Đơn Hàng Tổng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'don_gui_ao_mau', label: 'Đơn Gửi Áo Mẫu', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'so_ghi_nhan_tien', label: 'Sổ Ghi Nhận Tiền', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'so_thu_chi', label: 'Sổ Thu Chi', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'so_co_phan_may', label: 'Sổ Cổ Phần May', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'don_hang_thiet_ke', label: 'Đơn Hàng Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách Hàng', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+    { key: 'don_loi_noi_bo', label: 'Đơn Lỗi Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
+
     // ===== HỆ THỐNG =====
     { key: 'cai_dat', label: 'Cài Đặt Phân Tầng', perms: ['view','edit'], section: 'HỆ THỐNG' },
 ];
