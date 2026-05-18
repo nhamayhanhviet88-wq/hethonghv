@@ -30,8 +30,8 @@ async function _spqtLoadAll() {
     _spqt.saleTypes = (stRes.sale_types || []);
     _spqt.products = (pRes.products || []);
     _spqt.steps = (sRes.steps || []);
-    // Load all materials from khovai
-    try { var mr = await apiCall('/api/khovai/materials/all'); _spqt.materials = mr.materials || mr || []; } catch(e) { _spqt.materials = []; }
+    // Load all materials from khovai (no wid = return all)
+    try { var mr = await apiCall('/api/khovai/materials'); _spqt.materials = mr.materials || []; } catch(e) { _spqt.materials = []; }
 }
 
 function _spqtRenderSidebar() {
