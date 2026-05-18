@@ -459,7 +459,18 @@ async function loadPermPanel() {
             <div style="font-size:16px;font-weight:700;color:#122546;">Phân quyền: ${name}</div>
             <div style="font-size:12px;color:#6b7280;margin-top:2px;">${typeLabel}${type === 'user' ? ' &middot; <span style="color:#a78bfa;">Tím = kế thừa</span> &middot; <span style="color:#ef4444;">Đỏ = chặn riêng</span>' : ''}</div>
         </div>
-        <div style="padding:20px;max-height:65vh;overflow-y:auto;">
+        <div style="padding:10px 20px 0;border-bottom:1px solid #e5e7eb;">
+            <div style="position:relative;margin-bottom:10px;">
+                <input id="permFeatureSearch" type="text" placeholder="🔍 Tìm trang menu... (VD: kho, đơn hàng, affiliate)" autocomplete="off" spellcheck="false"
+                    style="width:100%;padding:9px 36px 9px 14px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;font-family:Inter,sans-serif;outline:none;transition:all .2s;background:#f8fafc;color:#1e293b;"
+                    onfocus="this.style.borderColor='#6366f1';this.style.background='white';this.style.boxShadow='0 0 0 3px rgba(99,102,241,.1)'"
+                    onblur="this.style.borderColor='#e5e7eb';this.style.background='#f8fafc';this.style.boxShadow='none'"
+                    oninput="_permFeatureFilter()">
+                <span id="permFeatureSearchClear" onclick="_permFeatureClearSearch()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:#94a3b8;font-size:16px;display:none;transition:color .2s;" title="Xóa">&times;</span>
+            </div>
+            <div id="permFeatureSearchInfo" style="display:none;padding:4px 0 8px;font-size:11px;font-weight:600;color:#6366f1;"></div>
+        </div>
+        <div id="permFeaturesContainer" style="padding:20px;max-height:60vh;overflow-y:auto;">
             ${featuresHTML}
         </div>
         <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;align-items:center;">
@@ -596,4 +607,116 @@ function permExpandAll() {
     const { departments } = _permOrgData;
     departments.forEach(d => _permCollapsed.add(d.id));
     renderPermOrgTree();
+}
+
+// ========== PERMISSION FEATURE SEARCH ==========
+function _permRemoveTones(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+function _permFeatureFilter() {
+    var input = document.getElementById('permFeatureSearch');
+    var clearBtn = document.getElementById('permFeatureSearchClear');
+    var info = document.getElementById('permFeatureSearchInfo');
+    var container = document.getElementById('permFeaturesContainer');
+    if (!input || !container) return;
+
+    var q = input.value.trim().toLowerCase();
+    var qNorm = _permRemoveTones(q);
+
+    // Show/hide clear button
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    // Get all feature cards and section headers
+    var cards = container.querySelectorAll('div[style*="border:1px solid #e5e7eb"]');
+    var sectionHeaders = container.querySelectorAll('div[style*="border-left:3px solid #6366f1"]');
+
+    if (!q) {
+        // No search: show everything
+        cards.forEach(function(c) { c.style.display = ''; });
+        sectionHeaders.forEach(function(h) { h.style.display = ''; });
+        if (info) { info.style.display = 'none'; info.textContent = ''; }
+        // Remove all highlights
+        cards.forEach(function(c) {
+            var titleEl = c.querySelector('div[style*="font-weight:700"]');
+            if (titleEl && titleEl._origText) titleEl.innerHTML = titleEl._origText;
+        });
+        return;
+    }
+
+    var visibleCount = 0;
+    var visibleSections = new Set();
+
+    // Match each feature card
+    cards.forEach(function(card) {
+        var titleEl = card.querySelector('div[style*="font-weight:700"]');
+        if (!titleEl) { card.style.display = 'none'; return; }
+
+        // Store original text
+        if (!titleEl._origText) titleEl._origText = titleEl.textContent;
+        var label = titleEl._origText.toLowerCase();
+        var labelNorm = _permRemoveTones(label);
+
+        var matches = label.indexOf(q) !== -1 || labelNorm.indexOf(qNorm) !== -1;
+
+        if (matches) {
+            card.style.display = '';
+            visibleCount++;
+
+            // Find which section this belongs to
+            var prev = card.previousElementSibling;
+            while (prev) {
+                if (prev.style && prev.style.borderLeft && prev.style.borderLeft.indexOf('6366f1') !== -1) {
+                    visibleSections.add(prev);
+                    break;
+                }
+                prev = prev.previousElementSibling;
+            }
+
+            // Highlight matching text
+            var origText = titleEl._origText;
+            var matchIdx = origText.toLowerCase().indexOf(q);
+            if (matchIdx === -1) {
+                var normOrig = _permRemoveTones(origText.toLowerCase());
+                matchIdx = normOrig.indexOf(qNorm);
+            }
+            if (matchIdx !== -1 && q.length > 0) {
+                var before = origText.substring(0, matchIdx);
+                var matched = origText.substring(matchIdx, matchIdx + q.length);
+                var after = origText.substring(matchIdx + q.length);
+                titleEl.innerHTML = before + '<span style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;padding:0 3px;border-radius:3px;font-weight:800;">' + matched + '</span>' + after;
+            } else {
+                titleEl.innerHTML = origText;
+            }
+        } else {
+            card.style.display = 'none';
+            titleEl.innerHTML = titleEl._origText;
+        }
+    });
+
+    // Show/hide section headers
+    sectionHeaders.forEach(function(h) {
+        h.style.display = visibleSections.has(h) ? '' : 'none';
+    });
+
+    // Show info
+    if (info) {
+        if (visibleCount > 0) {
+            info.style.display = 'block';
+            info.innerHTML = '🔍 Tìm thấy <strong>' + visibleCount + '</strong> trang menu';
+        } else {
+            info.style.display = 'block';
+            info.innerHTML = '🔍 Không tìm thấy trang menu nào — thử từ khóa khác';
+            info.style.color = '#ef4444';
+        }
+    }
+}
+
+function _permFeatureClearSearch() {
+    var input = document.getElementById('permFeatureSearch');
+    if (input) {
+        input.value = '';
+        _permFeatureFilter();
+        input.focus();
+    }
 }
