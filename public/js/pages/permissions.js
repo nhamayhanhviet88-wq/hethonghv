@@ -372,7 +372,7 @@ async function loadPermPanel() {
         let sectionHeader = '';
         if (feat.section && feat.section !== lastSection) {
             lastSection = feat.section;
-            sectionHeader = `<div style="font-weight:800;color:#6366f1;font-size:13px;margin:${sectionHeader ? '20' : '0'}px 0 10px;padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#f0f4ff);border-radius:8px;border-left:3px solid #6366f1;text-transform:uppercase;letter-spacing:0.5px;">📁 ${feat.section}</div>`;
+            sectionHeader = `<div data-perm-section="${feat.section}" style="font-weight:800;color:#6366f1;font-size:13px;margin:${sectionHeader ? '20' : '0'}px 0 10px;padding:8px 12px;background:linear-gradient(135deg,#eef2ff,#f0f4ff);border-radius:8px;border-left:3px solid #6366f1;text-transform:uppercase;letter-spacing:0.5px;">📁 ${feat.section}</div>`;
         }
         const p = permMap[feat.key] || {};
         const dp = deptPermMap[feat.key] || {};
@@ -380,9 +380,9 @@ async function loadPermPanel() {
         if (type === 'department') {
             // Department: simple checkboxes
             return sectionHeader + `
-            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
+            <div data-perm-card="${feat.key}" style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                    <div style="font-weight:700;color:#122546;font-size:14px;">${feat.label}</div>
+                    <div data-perm-label="${feat.key}" style="font-weight:700;color:#122546;font-size:14px;">${feat.label}</div>
                     <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#6366f1;font-weight:600;">
                         <input type="checkbox" class="perm-row-all" data-feature="${feat.key}"
                             ${feat.perms.every(pk => p['can_' + pk] > 0) ? 'checked' : ''}
@@ -407,8 +407,8 @@ async function loadPermPanel() {
 
         // User: 3-state checkboxes
         return sectionHeader + `
-        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
-            <div style="font-weight:700;color:#122546;font-size:14px;margin-bottom:12px;">${feat.label}</div>
+        <div data-perm-card="${feat.key}" style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:12px;">
+            <div data-perm-label="${feat.key}" style="font-weight:700;color:#122546;font-size:14px;margin-bottom:12px;">${feat.label}</div>
             <div style="display:flex;gap:20px;flex-wrap:wrap;">
                 ${feat.perms.map(pk => {
                     const userVal = p['can_' + pk];
@@ -628,8 +628,8 @@ function _permFeatureFilter() {
     if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
 
     // Get all feature cards and section headers
-    var cards = container.querySelectorAll('div[style*="border:1px solid #e5e7eb"]');
-    var sectionHeaders = container.querySelectorAll('div[style*="border-left:3px solid #6366f1"]');
+    var cards = container.querySelectorAll('[data-perm-card]');
+    var sectionHeaders = container.querySelectorAll('[data-perm-section]');
 
     if (!q) {
         // No search: show everything
@@ -638,7 +638,7 @@ function _permFeatureFilter() {
         if (info) { info.style.display = 'none'; info.textContent = ''; }
         // Remove all highlights
         cards.forEach(function(c) {
-            var titleEl = c.querySelector('div[style*="font-weight:700"]');
+            var titleEl = c.querySelector('[data-perm-label]');
             if (titleEl && titleEl._origText) titleEl.innerHTML = titleEl._origText;
         });
         return;
@@ -649,7 +649,7 @@ function _permFeatureFilter() {
 
     // Match each feature card
     cards.forEach(function(card) {
-        var titleEl = card.querySelector('div[style*="font-weight:700"]');
+        var titleEl = card.querySelector('[data-perm-label]');
         if (!titleEl) { card.style.display = 'none'; return; }
 
         // Store original text
@@ -666,7 +666,7 @@ function _permFeatureFilter() {
             // Find which section this belongs to
             var prev = card.previousElementSibling;
             while (prev) {
-                if (prev.style && prev.style.borderLeft && prev.style.borderLeft.indexOf('6366f1') !== -1) {
+                if (prev.hasAttribute && prev.hasAttribute('data-perm-section')) {
                     visibleSections.add(prev);
                     break;
                 }
