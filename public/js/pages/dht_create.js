@@ -101,15 +101,13 @@ async function _dhtGoStep2() {
     _dhtCreate.myInfo = infoRes.user || {};
     var mi = _dhtCreate.myInfo;
     var catOpts = _dht.categories.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
-    var provOpts = _dhtProvinces.map(function(p){ return '<option value="'+p+'">'+p+'</option>'; }).join('');
     var designers = designRes.designers || [];
     var desOpts = '<option value="">-- Chọn --</option><option value="old_design">🎨 Thiết Kế Cũ</option>'
         + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
     var carriers = carrierRes.carriers || [];
     var carOpts = carriers.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
     var sources = sourceRes.sources || [];
-    var deptSources = sources.filter(function(s){ return !mi.department_id || s.department_id == mi.department_id; });
-    var srcOpts = deptSources.map(function(s){ return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
+    var srcOpts = sources.map(function(s){ return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
     var depositDisplay = _dhtCreate.depositId
         ? _dhtCreate.depositCode + ' — ' + Number(_dhtCreate.depositAmount).toLocaleString('vi-VN') + 'đ'
         : 'Không có cọc';
@@ -130,8 +128,10 @@ async function _dhtGoStep2() {
         // Row 4: Tên KH + Địa chỉ
         +'<div class="form-group"><label>Tên Khách Hàng <span style="color:red">*</span></label><input id="_co_name" class="form-control"></div>'
         +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span></label><input id="_co_addr" class="form-control"></div>'
-        // Row 5: Tỉnh + Nguồn
-        +'<div class="form-group"><label>Tỉnh, Thành Phố <span style="color:red">*</span></label><select id="_co_prov" class="form-control"><option value="">-- Chọn --</option>'+provOpts+'</select></div>'
+        // Row 5: Tỉnh (autocomplete) + Nguồn
+        +'<div class="form-group" style="position:relative"><label>Tỉnh, Thành Phố <span style="color:red">*</span></label>'
+        +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
+        +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_src" class="form-control"><option value="">-- Chọn --</option>'+srcOpts+'</select></div>'
         // Row 6: Thiết kế + VAT
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
@@ -198,10 +198,7 @@ function _dhtPickCustomer(el) {
     document.getElementById('_co_name').disabled = !!el.dataset.name;
     document.getElementById('_co_addr').value = el.dataset.addr;
     if (el.dataset.prov) {
-        var sel = document.getElementById('_co_prov');
-        for (var i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value === el.dataset.prov) { sel.selectedIndex = i; break; }
-        }
+        document.getElementById('_co_prov').value = el.dataset.prov;
     }
     if (el.dataset.src) {
         var srcSel = document.getElementById('_co_src');
@@ -261,7 +258,7 @@ async function _dhtSubmitCreateV2() {
     if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
     if (!name) { showToast('Nhập Tên Khách Hàng', 'error'); return; }
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
-    if (!prov) { showToast('Chọn Tỉnh/Thành Phố', 'error'); return; }
+    if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
     if (!src) { showToast('Chọn Nguồn', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
@@ -325,3 +322,42 @@ async function _dhtSubmitCreateV2() {
         showToast(data.error || 'Lỗi tạo đơn', 'error');
     }
 }
+
+// === Province Autocomplete ===
+function _dhtFilterProvince() {
+    var input = document.getElementById('_co_prov');
+    var list = document.getElementById('_co_provList');
+    if (!input || !list) return;
+    var q = (input.value || '').toLowerCase().trim();
+    var matches = _dhtProvinces.filter(function(p) {
+        return p.toLowerCase().indexOf(q) >= 0;
+    });
+    if (matches.length === 0 || (matches.length === 1 && matches[0] === input.value)) {
+        list.style.display = 'none'; return;
+    }
+    list.innerHTML = matches.map(function(p) {
+        var isSelected = p === input.value;
+        return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;'
+            + (isSelected ? 'background:#fef3c7;font-weight:700;' : '')
+            + '" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'' + (isSelected ? '#fef3c7' : '') + '\'"'
+            + ' onclick="_dhtPickProvince(\'' + p.replace(/'/g, "\\'") + '\')">'
+            + p + '</div>';
+    }).join('');
+    list.style.display = 'block';
+}
+
+function _dhtPickProvince(val) {
+    var input = document.getElementById('_co_prov');
+    if (input) input.value = val;
+    var list = document.getElementById('_co_provList');
+    if (list) list.style.display = 'none';
+}
+
+// Close province dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    var list = document.getElementById('_co_provList');
+    var input = document.getElementById('_co_prov');
+    if (list && input && !input.contains(e.target) && !list.contains(e.target)) {
+        list.style.display = 'none';
+    }
+});

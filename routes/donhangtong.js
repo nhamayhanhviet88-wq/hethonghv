@@ -184,6 +184,12 @@ module.exports = async function(fastify) {
         if (!b.order_code || !b.order_code.trim()) return reply.code(400).send({ error: 'Vui lòng nhập Mã Đơn' });
         if (!b.order_date) return reply.code(400).send({ error: 'Vui lòng chọn Ngày Lên Đơn' });
 
+        // Validate province against whitelist
+        const VALID_PROVINCES = ['An Giang','Bà Rịa - Vũng Tàu','Bắc Giang','Bắc Kạn','Bạc Liêu','Bắc Ninh','Bến Tre','Bình Định','Bình Dương','Bình Phước','Bình Thuận','Cà Mau','Cần Thơ','Cao Bằng','Đà Nẵng','Đắk Lắk','Đắk Nông','Điện Biên','Đồng Nai','Đồng Tháp','Gia Lai','Hà Giang','Hà Nam','Hà Nội','Hà Tĩnh','Hải Dương','Hải Phòng','Hậu Giang','Hòa Bình','Hồ Chí Minh','Hưng Yên','Khánh Hòa','Kiên Giang','Kon Tum','Lai Châu','Lâm Đồng','Lạng Sơn','Lào Cai','Long An','Nam Định','Nghệ An','Ninh Bình','Ninh Thuận','Phú Thọ','Phú Yên','Quảng Bình','Quảng Nam','Quảng Ngãi','Quảng Ninh','Quảng Trị','Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa','Thừa Thiên Huế','Tiền Giang','TP. Hồ Chí Minh','Trà Vinh','Tuyên Quang','Vĩnh Long','Vĩnh Phúc','Yên Bái'];
+        if (b.province && !VALID_PROVINCES.includes(b.province)) {
+            return reply.code(400).send({ error: 'Tỉnh/Thành phố không hợp lệ' });
+        }
+
         // Check duplicate
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [b.order_code.trim()]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${b.order_code.trim()}" đã tồn tại!` });
@@ -457,12 +463,15 @@ module.exports = async function(fastify) {
         return { hasPrefix: true, code: prefix + nextSeq, prefix, seq: nextSeq };
     });
 
-    // ========== DESIGNERS ==========
+    // ========== DESIGNERS (filter by department/position 'Thiết Kế') ==========
     fastify.get('/api/dht/designers', { preHandler: [authenticate] }, async (request, reply) => {
         const rows = await db.all(`
-            SELECT id, full_name, username FROM users
-            WHERE status = 'active' AND source_crm_type = 'thiet_ke'
-            ORDER BY full_name
+            SELECT u.id, u.full_name, u.username FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN positions p ON u.position_id = p.id
+            WHERE u.status = 'active'
+              AND (d.name ILIKE '%thiết kế%' OR p.name ILIKE '%thiết kế%')
+            ORDER BY u.full_name
         `);
         return { designers: rows };
     });
@@ -481,31 +490,22 @@ module.exports = async function(fastify) {
         return { success: true, carrier: r };
     });
 
+    fastify.put('/api/dht/carriers/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
+        const { name } = request.body || {};
+        if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên NVC' });
+        await db.run('UPDATE dht_carriers SET name = $1 WHERE id = $2', [name.trim(), Number(request.params.id)]);
+        return { success: true };
+    });
+
     fastify.delete('/api/dht/carriers/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
         await db.run('UPDATE dht_carriers SET is_active = false WHERE id = $1', [Number(request.params.id)]);
         return { success: true };
     });
 
-    // ========== SOURCES CRUD (per department) ==========
+    // ========== SOURCES — Reuse from Cài Đặt Phân Tầng (settings_sources) ==========
     fastify.get('/api/dht/sources', { preHandler: [authenticate] }, async (request, reply) => {
-        const { department_id } = request.query;
-        let where = 'WHERE is_active = true';
-        const params = [];
-        if (department_id) { where += ' AND department_id = $1'; params.push(Number(department_id)); }
-        const rows = await db.all(`SELECT s.*, d.name as dept_name FROM dht_sources s LEFT JOIN departments d ON s.department_id = d.id ${where} ORDER BY s.display_order ASC, s.id ASC`, params);
+        const rows = await db.all('SELECT id, name FROM settings_sources ORDER BY sort_order ASC, id ASC');
         return { sources: rows };
-    });
-
-    fastify.post('/api/dht/sources', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        const { name, department_id } = request.body || {};
-        if (!name || !name.trim()) return reply.code(400).send({ error: 'Nhập tên nguồn' });
-        const r = await db.get('INSERT INTO dht_sources (name, department_id) VALUES ($1,$2) RETURNING *', [name.trim(), department_id ? Number(department_id) : null]);
-        return { success: true, source: r };
-    });
-
-    fastify.delete('/api/dht/sources/:id', { preHandler: [authenticate, requireRole('giam_doc')] }, async (request, reply) => {
-        await db.run('UPDATE dht_sources SET is_active = false WHERE id = $1', [Number(request.params.id)]);
-        return { success: true };
     });
 
     // ========== USER INFO (for create order form) ==========

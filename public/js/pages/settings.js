@@ -14,6 +14,7 @@ async function renderSettingsPage(container) {
                     <div class="tab" data-tab="sources" onclick="switchSettingTab('sources', this)">📍 Nguồn Khách NV Kinh Doanh</div>
                     <div class="tab" data-tab="promotions" onclick="switchSettingTab('promotions', this)">🎁 Khuyến Mãi</div>
                     <div class="tab" data-tab="industries" onclick="switchSettingTab('industries', this)">🏭 Lĩnh Vực</div>
+                    <div class="tab" data-tab="dht-carriers" onclick="switchSettingTab('dht-carriers', this)">🚚 Nhà Vận Chuyển</div>
                     <div class="tab" data-tab="emergency-popup" onclick="switchSettingTab('emergency-popup', this)">🚨 Cấp Cứu</div>
                     <div class="tab" data-tab="job-titles" onclick="switchSettingTab('job-titles', this)">👔 Lĩnh Vực</div>
                     <div class="tab" data-tab="leaderboard-roles" onclick="switchSettingTab('leaderboard-roles', this)">🏆 BXH Affiliate</div>
@@ -66,6 +67,8 @@ function switchSettingTab(tab, el) {
         loadMasterKeySettings();
     } else if (tab === 'production-mode') {
         loadProductionModeSettings();
+    } else if (tab === 'dht-carriers') {
+        loadCarriersSettings();
     } else {
         loadSettingsTab(tab);
     }
@@ -2157,5 +2160,105 @@ async function _changeProductionDate() {
     const res = await apiCall('/api/production-mode', 'PUT', { production_start_date: newDate });
     if (res.success) { showToast('✅ ' + res.message, 'success'); loadProductionModeSettings(); }
     else showToast(res.error || 'Lỗi', 'error');
+}
+
+// ========== NHÀ VẬN CHUYỂN (DHT Carriers) in Settings ==========
+async function loadCarriersSettings() {
+    const el = document.getElementById('settingsContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px;">⏳ Đang tải...</div>';
+
+    const data = await apiCall('/api/dht/carriers');
+    const carriers = data.carriers || [];
+
+    let listHtml = '';
+    if (carriers.length === 0) {
+        listHtml = '<div class="text-muted" style="padding:20px;text-align:center;">Chưa có nhà vận chuyển nào. Thêm mới bên dưới.</div>';
+    } else {
+        listHtml = '<ul class="setting-list">' + carriers.map((c, idx) => `
+            <li class="setting-item" style="padding:10px 14px;border-radius:10px;border:1px solid var(--gray-200);margin-bottom:8px;">
+                <div class="item-info" style="flex:1;display:flex;align-items:center;gap:8px;">
+                    <span style="color:#9ca3af;font-size:11px;font-weight:700;min-width:22px;">#${idx + 1}</span>
+                    <span style="font-size:18px;">🚚</span>
+                    <span class="fw-600" style="color:var(--navy);">${c.name}</span>
+                </div>
+                <div class="item-actions" style="display:flex;gap:4px;align-items:center;">
+                    <button class="btn btn-xs btn-secondary" onclick="editCarrierItem(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" title="Sửa">✏️</button>
+                    <button class="btn btn-xs btn-danger" onclick="deleteCarrierItem(${c.id}, '${c.name.replace(/'/g, "\\\\'")}')" title="Xóa">🗑️</button>
+                </div>
+            </li>
+        `).join('') + '</ul>';
+    }
+
+    el.innerHTML = `
+        <div style="max-width:600px;">
+            <div style="margin-bottom:16px;">
+                <h4 style="color:var(--navy);margin:0 0 8px;font-size:16px;font-weight:800;">🚚 Nhà Vận Chuyển</h4>
+                <p style="font-size:12px;color:var(--gray-500);margin:0;">Quản lý danh sách nhà vận chuyển cho Đơn Hàng Tổng. Giám đốc mới có quyền thêm/xóa.</p>
+            </div>
+            <div style="border:1.5px solid var(--gray-200);border-radius:14px;padding:16px;">
+                ${listHtml}
+                <div style="border-top:1px solid var(--gray-200);padding-top:12px;margin-top:8px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">➕ Thêm Nhà Vận Chuyển Mới</div>
+                    <div class="setting-add" style="margin:0;">
+                        <input type="text" id="newCarrierName" placeholder="Tên NVC mới..." onkeypress="if(event.key==='Enter') addCarrierItem()">
+                        <button class="btn btn-sm btn-success" onclick="addCarrierItem()">➕ Thêm</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:16px;padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;font-size:12px;color:#0369a1;">
+                <strong>📌 Lưu ý:</strong> Danh sách này được sử dụng trong form <strong>Tạo Đơn Hàng Tổng</strong> ở dropdown "Nhà Vận Chuyển". Khi thêm/xóa ở đây sẽ tự động cập nhật.
+            </div>
+        </div>
+    `;
+}
+
+async function addCarrierItem() {
+    const input = document.getElementById('newCarrierName');
+    const name = (input?.value || '').trim();
+    if (!name) { showToast('Vui lòng nhập tên nhà vận chuyển', 'error'); return; }
+    const data = await apiCall('/api/dht/carriers', 'POST', { name });
+    if (data.success) {
+        showToast('✅ Đã thêm nhà vận chuyển "' + name + '"');
+        await loadCarriersSettings();
+    } else {
+        showToast(data.error || 'Lỗi thêm', 'error');
+    }
+}
+
+function editCarrierItem(id, currentName) {
+    const bodyHTML = `
+        <div class="form-group">
+            <label>Tên Nhà Vận Chuyển</label>
+            <input type="text" id="editCarrierName" class="form-control" value="${currentName}">
+        </div>
+    `;
+    openModal('✏️ Sửa NVC: ' + currentName, bodyHTML, `
+        <button class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-success" onclick="submitEditCarrier(${id})">💾 Lưu</button>
+    `);
+}
+
+async function submitEditCarrier(id) {
+    const name = document.getElementById('editCarrierName')?.value?.trim();
+    if (!name) { showToast('Tên không được trống', 'error'); return; }
+    const data = await apiCall(`/api/dht/carriers/${id}`, 'PUT', { name });
+    if (data.success) {
+        showToast('✅ Đã cập nhật');
+        closeModal();
+        await loadCarriersSettings();
+    } else {
+        showToast(data.error || 'Lỗi', 'error');
+    }
+}
+
+async function deleteCarrierItem(id, name) {
+    if (!confirm('Xóa nhà vận chuyển "' + name + '"?')) return;
+    const data = await apiCall(`/api/dht/carriers/${id}`, 'DELETE');
+    if (data.success) {
+        showToast('✅ Đã xóa "' + name + '"');
+        await loadCarriersSettings();
+    } else {
+        showToast(data.error || 'Lỗi xóa', 'error');
+    }
 }
 
