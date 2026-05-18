@@ -369,7 +369,7 @@ function _dhtAddItem(editIdx) {
     ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 '+orderCode+' - Phiếu '+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfSale+sfProd+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div><label style="font-size:11px;font-weight:700">Màu *</label><select id="_pp_color" class="form-control" style="font-size:12px"><option value="">← Chọn Chất Liệu</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfMat+'<div style="position:relative"><label style="font-size:11px;font-weight:700">Màu *</label><input id="_pp_color" class="form-control _ppSF" autocomplete="off" style="font-size:12px;cursor:pointer" placeholder="← Chọn Chất Liệu" value="'+(existing.color_name||'')+'" onfocus="_ppShowList(\'_pp_color\')" oninput="_ppFilterList(\'_pp_color\')"><input type="hidden" id="_pp_color_val" value="'+(existing.color_id||'')+'"><div id="_pp_color_list" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.12);margin-top:2px"></div></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfPat+'<div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+sfAcc+'<div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
         +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
@@ -408,10 +408,18 @@ function _dhtAddQtyRowPP() {
 
 async function _dhtLoadColorsPopup(preselect) {
     var mid = document.getElementById('_pp_material_val')?.value;
-    var cs = document.getElementById('_pp_color'); if (!cs) return;
-    if (!mid) { cs.innerHTML='<option value="">← Chọn Chất Liệu</option>'; return; }
+    var listEl = document.getElementById('_pp_color_list');
+    var inp = document.getElementById('_pp_color');
+    var valEl = document.getElementById('_pp_color_val');
+    if (!listEl||!inp) return;
+    if (!mid) { listEl.innerHTML=''; inp.value=''; inp.placeholder='← Chọn Chất Liệu'; if(valEl)valEl.value=''; return; }
     var res = await apiCall('/api/dht/material-colors/' + mid);
-    cs.innerHTML='<option value="">-- Chọn Màu --</option>'+(res.colors||[]).map(function(c){var s=(preselect&&preselect==c.id)?' selected':'';return '<option value="'+c.id+'"'+s+'>'+c.name+'</option>';}).join('');
+    var colors = res.colors || [];
+    listEl.innerHTML = colors.map(function(c){
+        return '<div class="_ppOpt" data-val="'+c.id+'" data-txt="'+c.name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_color\',this)">'+c.name+'</div>';
+    }).join('');
+    inp.placeholder='Gõ để tìm màu...';
+    if(preselect){var found=colors.find(function(c){return c.id==preselect;});if(found){inp.value=found.name;if(valEl)valEl.value=found.id;}}
 }
 
 function _dhtSavePhieu(idx) {
@@ -420,7 +428,7 @@ function _dhtSavePhieu(idx) {
     var prod=document.getElementById('_pp_product')?.value;
     var matId=document.getElementById('_pp_material_val')?.value;
     var matName=document.getElementById('_pp_material')?.value;
-    var color=document.getElementById('_pp_color')?.value, colorT=document.getElementById('_pp_color')?.selectedOptions[0]?.textContent||'';
+    var color=document.getElementById('_pp_color_val')?.value, colorT=document.getElementById('_pp_color')?.value||'';
     var pat=document.getElementById('_pp_pattern')?.value;
     var acct=document.getElementById('_pp_acctNote')?.value;
     var vp=Number(document.getElementById('_pp_vat')?.value)||0;
