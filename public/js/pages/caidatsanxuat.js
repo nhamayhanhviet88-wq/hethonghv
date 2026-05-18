@@ -14,7 +14,6 @@ async function renderCaidatsanxuatPage(container) {
                     <div class="tab" data-tab="kho-vai" onclick="switchCdsxTab('kho-vai', this)">🏬 Kho Vải</div>
                     <div class="tab" data-tab="luong-sx" onclick="switchCdsxTab('luong-sx', this)">💰 Lương Sản Xuất</div>
                     <div class="tab" data-tab="bang-gia" onclick="switchCdsxTab('bang-gia', this)">💲 Bảng Giá May</div>
-                    <div class="tab" data-tab="thong-so" onclick="switchCdsxTab('thong-so', this)">📐 Thông Số Mẫu Áo</div>
                 </div>
                 <div id="cdsxContent">
                     <div class="text-center text-muted" style="padding:30px;">Đang tải...</div>
@@ -56,9 +55,6 @@ async function switchCdsxTab(tab, el) {
             break;
         case 'bang-gia':
             _cdsxLoadShell(content, '💲', 'Bảng Giá May', 'Cấu hình bảng giá may cho từng loại sản phẩm');
-            break;
-        case 'thong-so':
-            _cdsxLoadShell(content, '📐', 'Thông Số Mẫu Áo', 'Cấu hình thông số kỹ thuật cho các mẫu áo');
             break;
         default:
             _cdsxLoadShell(content, '🔧', tab, 'Tab chưa được cấu hình');

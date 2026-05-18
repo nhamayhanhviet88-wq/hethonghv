@@ -147,8 +147,8 @@ const MENU_CONFIG = [
     { id: 'kho-vat-lieu', label: 'Kho Vật Liệu', icon: '📦', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/khovatlieu', permKey: 'kho_vat_lieu' },
     { id: 'nhap-xuat-hoan-vai', label: 'Nhập Xuất Hoàn Vải', icon: '🔄', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/nhapxuathoanvai', permKey: 'nhap_xuat_hoan_vai' },
     { id: 'nhap-xuat-hoan-vat-lieu', label: 'Nhập Xuất Hoàn Vật Liệu', icon: '🔃', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/nhapxuathoanvatlieu', permKey: 'nhap_xuat_hoan_vat_lieu' },
+    { id: 'thong-so-ao-mau', label: 'Thông Số Mẫu Áo', icon: '📐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/thongsoaomau', permKey: 'thong_so_ao_mau' },
     { id: 'vat-lieu-tem-pet', label: 'Vật Liệu PET Tem', icon: '🏷️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'XƯỞNG SẢN XUẤT', href: '/vatlieutempet', permKey: 'vat_lieu_tem_pet' },
-    // [Moved to Cài Đặt Sản Xuất tab] { id: 'thong-so-ao-mau', label: 'Thông Số Mẫu Áo', icon: '📐', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'MẪU & GIÁ SẢN XUẤT', href: '/thongsoaomau', permKey: 'thong_so_ao_mau' },
 
     // ========== QUẢN LÝ CÔNG VIỆC ==========
     { id: 'lich-khoa-bieu', label: 'Lịch Khóa Biểu Công Việc', icon: '📅', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CÔNG VIỆC HẰNG NGÀY', href: '/lichkhoabieu', permKey: 'lich_khoa_bieu' },
