@@ -190,6 +190,24 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Tỉnh/Thành phố không hợp lệ' });
         }
 
+        // Validate customer_id: must exist and belong to this user
+        if (b.customer_id) {
+            const cust = await db.get(`
+                SELECT c.customer_name, s.name as source_name
+                FROM customers c
+                LEFT JOIN settings_sources s ON c.source_id = s.id
+                WHERE c.id = $1 AND c.assigned_to_id = $2
+            `, [Number(b.customer_id), request.user.id]);
+            if (!cust) {
+                return reply.code(400).send({ error: 'Khách hàng không tồn tại hoặc không thuộc về bạn' });
+            }
+            // Override client values with DB truth
+            b.customer_name = cust.customer_name;
+            b.source = cust.source_name || b.source;
+        } else {
+            return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ danh sách' });
+        }
+
         // Check duplicate
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [b.order_code.trim()]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${b.order_code.trim()}" đã tồn tại!` });
@@ -424,22 +442,21 @@ module.exports = async function(fastify) {
         return { success: true };
     });
 
-    // ========== CUSTOMER SEARCH (across CRM tables) ==========
+    // ========== CUSTOMER SEARCH (from customers table) ==========
     fastify.get('/api/dht/customer-search', { preHandler: [authenticate] }, async (request, reply) => {
         const { q } = request.query;
         if (!q || q.length < 2) return { customers: [] };
         const like = `%${q}%`;
-        // Search across consultation_logs (4 CRM types) + any future tables
         const rows = await db.all(`
-            SELECT DISTINCT ON (phone)
-                phone, customer_name, address, province, source,
-                assigned_to_id, crm_type
-            FROM consultation_logs
-            WHERE (phone ILIKE $1 OR customer_name ILIKE $1)
-              AND assigned_to_id = $2
-              AND phone IS NOT NULL AND phone != ''
-            ORDER BY phone, created_at DESC
-            LIMIT 20
+            SELECT c.id, c.phone, c.customer_name, c.address, c.province,
+                   s.name as source_name
+            FROM customers c
+            LEFT JOIN settings_sources s ON c.source_id = s.id
+            WHERE (c.phone ILIKE $1 OR c.customer_name ILIKE $1)
+              AND c.assigned_to_id = $2
+              AND c.phone IS NOT NULL AND c.phone != ''
+            ORDER BY c.updated_at DESC
+            LIMIT 15
         `, [like, request.user.id]);
         return { customers: rows };
     });

@@ -91,12 +91,11 @@ async function _dhtGoStep2() {
         if (!lockRes.success) { showToast(lockRes.error || 'Không thể giữ mã cọc', 'error'); return; }
     }
     // Fetch data
-    var [infoRes, codeRes, designRes, carrierRes, sourceRes] = await Promise.all([
+    var [infoRes, codeRes, designRes, carrierRes] = await Promise.all([
         apiCall('/api/dht/my-info'),
         apiCall('/api/dht/next-order-code'),
         apiCall('/api/dht/designers'),
-        apiCall('/api/dht/carriers'),
-        apiCall('/api/dht/sources')
+        apiCall('/api/dht/carriers')
     ]);
     _dhtCreate.myInfo = infoRes.user || {};
     var mi = _dhtCreate.myInfo;
@@ -106,8 +105,6 @@ async function _dhtGoStep2() {
         + designers.map(function(d){ return '<option value="'+d.id+'">'+d.full_name+'</option>'; }).join('');
     var carriers = carrierRes.carriers || [];
     var carOpts = carriers.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
-    var sources = sourceRes.sources || [];
-    var srcOpts = sources.map(function(s){ return '<option value="'+s.name+'">'+s.name+'</option>'; }).join('');
     var depositDisplay = _dhtCreate.depositId
         ? _dhtCreate.depositCode + ' — ' + Number(_dhtCreate.depositAmount).toLocaleString('vi-VN') + 'đ'
         : 'Không có cọc';
@@ -120,19 +117,20 @@ async function _dhtGoStep2() {
         // Row 2: Ngày + Lĩnh vực
         +'<div class="form-group"><label>Ngày Lên Đơn</label><input class="form-control" value="'+vnDateStr()+'" disabled style="'+_dis+'"></div>'
         +'<div class="form-group"><label>Lĩnh Vực <span style="color:red">*</span></label><select id="_co_cat" class="form-control"><option value="">-- Chọn --</option>'+catOpts+'</select></div>'
-        // Row 3: Mã đơn + SĐT
+        // Row 3: Mã đơn + SĐT (autocomplete)
         +'<div class="form-group"><label>Mã Đơn</label><input class="form-control" value="'+(codeRes.code||'')+'" disabled id="_co_code" style="'+_dis+'"></div>'
-        +'<div class="form-group"><label>Số Điện Thoại <span style="color:red">*</span></label>'
-        +'<input id="_co_phone" class="form-control" placeholder="Nhập SĐT để tìm..." oninput="_dhtSearchPhone()">'
-        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:150px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div></div>'
-        // Row 4: Tên KH + Địa chỉ
-        +'<div class="form-group"><label>Tên Khách Hàng <span style="color:red">*</span></label><input id="_co_name" class="form-control"></div>'
-        +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span></label><input id="_co_addr" class="form-control"></div>'
-        // Row 5: Tỉnh (autocomplete) + Nguồn
+        +'<div class="form-group" style="position:relative"><label>Số Điện Thoại <span style="color:red">*</span></label>'
+        +'<input id="_co_phone" class="form-control" placeholder="Gõ SĐT để tìm khách hàng..." autocomplete="off" oninput="_dhtSearchPhone()">'
+        +'<input type="hidden" id="_co_custId">'
+        +'<div id="_co_phoneList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-height:200px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 6px 20px rgba(0,0,0,0.12);margin-top:2px"></div></div>'
+        // Row 4: Tên KH (read-only) + Địa chỉ (editable)
+        +'<div class="form-group"><label>Tên Khách Hàng <span style="color:red">*</span> <span id="_co_nameLock" style="font-size:10px;color:#9ca3af"></span></label><input id="_co_name" class="form-control" disabled placeholder="← Chọn SĐT để tự điền"></div>'
+        +'<div class="form-group"><label>Địa Chỉ <span style="color:red">*</span></label><input id="_co_addr" class="form-control" placeholder="Địa chỉ giao hàng"></div>'
+        // Row 5: Tỉnh (autocomplete) + Nguồn (read-only from customer)
         +'<div class="form-group" style="position:relative"><label>Tỉnh, Thành Phố <span style="color:red">*</span></label>'
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
         +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
-        +'<div class="form-group"><label>Nguồn <span style="color:red">*</span></label><select id="_co_src" class="form-control"><option value="">-- Chọn --</option>'+srcOpts+'</select></div>'
+        +'<div class="form-group"><label>Nguồn <span style="color:red">*</span> <span id="_co_srcLock" style="font-size:10px;color:#9ca3af"></span></label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ khách hàng"></div>'
         // Row 6: Thiết kế + VAT
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
         +'<div class="form-group"><label>VAT 8%</label><select id="_co_vat" class="form-control" onchange="_dhtCalcTotal()"><option value="0">Không</option><option value="1">Có VAT 8%</option></select></div>'
@@ -172,7 +170,7 @@ async function _dhtGoStep2() {
     _dhtAddItem(); // Add first item row
 }
 
-// === Phone Search ===
+// === Phone Search (autocomplete from CRM customers) ===
 var _dhtPhoneTimer;
 function _dhtSearchPhone() {
     clearTimeout(_dhtPhoneTimer);
@@ -183,31 +181,64 @@ function _dhtSearchPhone() {
         var list = document.getElementById('_co_phoneList');
         if (!list) return;
         var custs = res.customers || [];
-        if (custs.length === 0) { list.style.display = 'none'; return; }
+        if (custs.length === 0) {
+            list.innerHTML = '<div style="padding:12px;text-align:center;font-size:11px;color:#9ca3af">Không tìm thấy khách hàng nào.<br><span style="color:#dc2626;font-weight:600">Vui lòng nhập khách vào CRM Chăm Sóc trước.</span></div>';
+            list.style.display = 'block';
+            return;
+        }
         list.innerHTML = custs.map(function(c) {
-            return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_dhtPickCustomer(this)" data-phone="'+c.phone+'" data-name="'+(c.customer_name||'')+'" data-addr="'+(c.address||'')+'" data-prov="'+(c.province||'')+'" data-src="'+(c.source||'')+'">'
-                +'<b>'+c.phone+'</b> — '+(c.customer_name||'N/A')+'</div>';
+            return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;justify-content:space-between;align-items:center"'
+                +' onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'"'
+                +' onclick="_dhtPickCustomer('+c.id+',this)"'
+                +' data-id="'+c.id+'" data-phone="'+c.phone+'" data-name="'+(c.customer_name||'').replace(/"/g,'&quot;')+'"'
+                +' data-addr="'+(c.address||'').replace(/"/g,'&quot;')+'" data-prov="'+(c.province||'')+'"'
+                +' data-src="'+(c.source_name||'').replace(/"/g,'&quot;')+'">'
+                +'<div><b>'+c.phone+'</b> — '+(c.customer_name||'N/A')+'</div>'
+                +'<span style="font-size:10px;color:#6b7280;white-space:nowrap">'+(c.source_name||'')+'</span></div>';
         }).join('');
         list.style.display = 'block';
     }, 300);
 }
 
-function _dhtPickCustomer(el) {
-    document.getElementById('_co_phone').value = el.dataset.phone;
-    document.getElementById('_co_name').value = el.dataset.name;
-    document.getElementById('_co_name').disabled = !!el.dataset.name;
+function _dhtPickCustomer(custId, el) {
+    // Set customer ID (hidden)
+    document.getElementById('_co_custId').value = custId;
+    // Phone (locked after selection)
+    var phoneInput = document.getElementById('_co_phone');
+    phoneInput.value = el.dataset.phone;
+    phoneInput.style.background = '#f0fdf4';
+    phoneInput.style.fontWeight = '700';
+    // Customer name (read-only)
+    var nameInput = document.getElementById('_co_name');
+    nameInput.value = el.dataset.name;
+    nameInput.disabled = true;
+    nameInput.style.background = '#f1f5f9';
+    nameInput.style.fontWeight = '700';
+    document.getElementById('_co_nameLock').textContent = '🔒 Từ CRM';
+    // Source (read-only)
+    var srcInput = document.getElementById('_co_src');
+    srcInput.value = el.dataset.src;
+    srcInput.style.background = '#f1f5f9';
+    srcInput.style.fontWeight = '700';
+    document.getElementById('_co_srcLock').textContent = '🔒 Từ CRM';
+    // Address (editable, pre-fill)
     document.getElementById('_co_addr').value = el.dataset.addr;
+    // Province (editable, pre-fill)
     if (el.dataset.prov) {
         document.getElementById('_co_prov').value = el.dataset.prov;
     }
-    if (el.dataset.src) {
-        var srcSel = document.getElementById('_co_src');
-        for (var j = 0; j < srcSel.options.length; j++) {
-            if (srcSel.options[j].value === el.dataset.src) { srcSel.selectedIndex = j; break; }
-        }
-    }
+    // Close dropdown
     document.getElementById('_co_phoneList').style.display = 'none';
 }
+
+// Close phone dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    var list = document.getElementById('_co_phoneList');
+    var input = document.getElementById('_co_phone');
+    if (list && input && !input.contains(e.target) && !list.contains(e.target)) {
+        list.style.display = 'none';
+    }
+});
 
 // === Order Items ===
 var _dhtItemCount = 0;
@@ -255,11 +286,13 @@ async function _dhtSubmitCreateV2() {
     var shipDate = document.getElementById('_co_shipDate')?.value;
     var carrier = document.getElementById('_co_carrier')?.value;
     if (!cat) { showToast('Chọn Lĩnh Vực', 'error'); return; }
-    if (!phone) { showToast('Nhập Số Điện Thoại', 'error'); return; }
-    if (!name) { showToast('Nhập Tên Khách Hàng', 'error'); return; }
+    var custId = document.getElementById('_co_custId')?.value;
+    if (!custId) { showToast('Vui lòng chọn khách hàng từ danh sách SĐT', 'error'); return; }
+    if (!phone) { showToast('Chọn Số Điện Thoại', 'error'); return; }
+    if (!name) { showToast('Chưa có Tên Khách Hàng', 'error'); return; }
     if (!addr) { showToast('Nhập Địa Chỉ', 'error'); return; }
     if (!prov || _dhtProvinces.indexOf(prov) === -1) { showToast('Tỉnh/Thành Phố không hợp lệ — vui lòng chọn từ danh sách', 'error'); return; }
-    if (!src) { showToast('Chọn Nguồn', 'error'); return; }
+    if (!src) { showToast('Chưa có Nguồn (chọn KH để tự điền)', 'error'); return; }
     if (!shipDate) { showToast('Chọn Ngày Gửi Dự Kiến', 'error'); return; }
     if (!carrier) { showToast('Chọn Nhà Vận Chuyển', 'error'); return; }
 
@@ -285,6 +318,7 @@ async function _dhtSubmitCreateV2() {
         order_code: document.getElementById('_co_code')?.value,
         order_date: vnDateStr(),
         category_id: cat,
+        customer_id: custId,
         customer_name: name,
         customer_phone: phone,
         source: src,
