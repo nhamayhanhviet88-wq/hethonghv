@@ -1,54 +1,14 @@
-// ========== CÀI ĐẶT KHO VẢI — Dedicated Settings Page ==========
+// ========== CÀI ĐẶT KHO VẢI ==========
+// Now integrated as a tab inside Cài Đặt Sản Xuất
+// This file keeps all helper functions; renderCaidatkhovaiPage redirects to the new page
 var _cdk = { warehouses: [], materials: [], colors: [], selWid: null, selMid: null };
 
 async function renderCaidatkhovaiPage(content) {
-    if (!document.getElementById('cdkStyles')) {
-        var st = document.createElement('style'); st.id = 'cdkStyles';
-        st.textContent = [
-            '.cdk-wrap{display:flex;height:calc(100vh - 60px);overflow:hidden;background:#f8fafc}',
-            '.cdk-col{flex:1;min-width:0;border-right:1px solid var(--gray-200);display:flex;flex-direction:column;background:#fff}',
-            '.cdk-col:last-child{border-right:none}',
-            '.cdk-col-head{padding:14px 16px;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;font-weight:800;font-size:13px;display:flex;justify-content:space-between;align-items:center}',
-            '.cdk-col-head.col2{background:linear-gradient(135deg,#7c3aed,#6d28d9)}',
-            '.cdk-col-head.col3{background:linear-gradient(135deg,#2563eb,#1d4ed8)}',
-            '.cdk-col-body{flex:1;overflow-y:auto;padding:8px 0}',
-            '.cdk-item{padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .15s}',
-            '.cdk-item:hover{background:#f0fdfa}',
-            '.cdk-item.active{background:#ccfbf1;border-left:3px solid #0d9488}',
-            '.cdk-item.inactive{opacity:0.5}',
-            '.cdk-item-name{font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}',
-            '.cdk-item-actions{display:flex;gap:4px;align-items:center}',
-            '.cdk-toggle{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s}',
-            '.cdk-toggle.on{background:#0d9488}',
-            '.cdk-toggle.off{background:#cbd5e1}',
-            '.cdk-toggle::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}',
-            '.cdk-toggle.on::after{left:18px}',
-            '.cdk-toggle.off::after{left:2px}',
-            '.cdk-btn-sm{border:none;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-weight:700}',
-            '.cdk-add-form{padding:12px 16px;border-bottom:2px solid var(--gray-200);background:#f0fdfa}',
-            '.cdk-empty{text-align:center;padding:30px;color:var(--gray-400);font-size:12px}',
-            '.cdk-back{background:none;border:none;color:#fff;cursor:pointer;font-size:14px;font-weight:700;padding:4px 8px;border-radius:6px}',
-            '.cdk-back:hover{background:rgba(255,255,255,0.2)}',
-            '.cdk-bulk-area{padding:12px 16px;border-bottom:2px solid var(--gray-200);background:#eff6ff}',
-            '.cdk-badge{font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700}',
-            '@media(max-width:768px){.cdk-wrap{flex-direction:column;height:auto}.cdk-col{min-height:200px;border-right:none;border-bottom:1px solid var(--gray-200)}}'
-        ].join('');
-        document.head.appendChild(st);
-    }
-
-    content.innerHTML = '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;background:#fff;border-bottom:1px solid var(--gray-200)">'
-        + '<button onclick="navigate(\'khovai\')" style="background:#0d9488;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">← Quay lại Kho Vải</button>'
-        + '<span style="font-size:16px;font-weight:800;color:#0f172a">⚙️ Cài Đặt Kho Vải</span>'
-        + '<span style="font-size:11px;color:#64748b">Quản lý kho, chất liệu & màu sắc</span></div>'
-        + '<div class="cdk-wrap" id="cdkWrap">'
-        + '<div class="cdk-col" id="cdkCol1"></div>'
-        + '<div class="cdk-col" id="cdkCol2"></div>'
-        + '<div class="cdk-col" id="cdkCol3"></div>'
-        + '</div>';
-
-    _cdk.selWid = null; _cdk.selMid = null;
-    await _cdkLoadWarehouses();
+    // Redirect to Cài Đặt Sản Xuất with Kho Vải tab
+    localStorage.setItem('cdsxActiveTab', 'kho-vai');
+    navigate('caidatsanxuat');
 }
+
 
 // ========== COLUMN 1: WAREHOUSES ==========
 async function _cdkLoadWarehouses() {
