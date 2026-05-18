@@ -141,9 +141,9 @@ async function _dhtGoStep2() {
         +'<input id="_co_prov" class="form-control" placeholder="Gõ để tìm tỉnh/TP..." autocomplete="off" oninput="_dhtFilterProvince()" onfocus="_dhtFilterProvince()">'
         +'<div id="_co_provList" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;width:calc(100% - 24px);box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-top:2px"></div></div>'
         +'<div class="form-group"><label>Nguồn <span style="color:red">*</span> <span id="_co_srcLock" style="font-size:10px;color:#9ca3af"></span></label><input id="_co_src" class="form-control" disabled placeholder="← Tự điền từ khách hàng"></div>'
-        // Row 6: Thiết kế + VAT
+        // Row 6: Thiết kế
         +'<div class="form-group"><label>Thiết Kế</label><select id="_co_designer" class="form-control">'+desOpts+'</select></div>'
-        +'<div class="form-group"><label>VAT 8%</label><select id="_co_vat" class="form-control" onchange="_dhtCalcTotal()"><option value="0">Không</option><option value="1">Có VAT 8%</option></select></div>'
+        +'<div class="form-group"><label>Tổng VAT (từ phiếu)</label><input id="_co_vatTotal" class="form-control" value="0đ" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
         +'</div>'
         // Phiếu đơn hàng
         +'<div style="margin:12px 0;border-top:1px solid #e2e8f0;padding-top:12px">'
@@ -153,9 +153,10 @@ async function _dhtGoStep2() {
         +'<div id="_co_items"></div></div>'
         // === Tổng kết: 2 hàng x 2 cột ===
         +'<div style="background:#f8fafc;border-radius:8px;padding:12px;border:1px solid #e2e8f0">'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'
-        +'<div class="form-group"><label>Tổng Tiền Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
-        +'<div class="form-group"><label>Tổng sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px">'
+        +'<div class="form-group"><label>Tổng Hàng</label><input id="_co_total" class="form-control" value="0" disabled style="'+_dis+';font-weight:700"></div>'
+        +'<div class="form-group"><label>Tổng VAT</label><input id="_co_totalVatAmt" class="form-control" value="0" disabled style="'+_dis+';font-weight:700;color:#b8860b"></div>'
+        +'<div class="form-group"><label>Tổng sau VAT</label><input id="_co_totalVat" class="form-control" value="0" disabled style="'+_dis+';font-weight:800;color:#059669"></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="form-group"><label>Đã Cọc</label><input class="form-control" value="'+Number(_dhtCreate.depositAmount).toLocaleString('vi-VN')+'đ" disabled style="'+_dis+';font-weight:700;color:#059669"></div>'
@@ -184,7 +185,7 @@ async function _dhtGoStep2() {
         +'<button class="btn" onclick="_dhtSubmitCreateV2()" style="background:linear-gradient(135deg,#b8860b,#daa520);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800">💾 Lưu Đơn Hàng</button>';
 
     openModal('➕ Tạo Đơn Hàng — Bước 2/2', body, footer);
-    _dhtAddItem(); // Add first item row
+    _dhtCreate.phieuItems = []; // Reset phieu items
 }
 
 // === Phone Search (autocomplete from CRM customers) ===
@@ -319,116 +320,114 @@ function _dhtPasteProof(e) {
     showToast('Không tìm thấy hình ảnh trong clipboard', 'error');
 }
 
-// === Order Items (Rich Phiếu) ===
+// === Order Items (Popup Phiếu) ===
 var _dhtItemCount = 0;
-function _dhtAddItem() {
-    _dhtItemCount++;
-    var idx = _dhtItemCount;
+if (!_dhtCreate.phieuItems) _dhtCreate.phieuItems = [];
+
+function _dhtAddItem(editIdx) {
+    var idx = (editIdx !== undefined) ? editIdx : _dhtCreate.phieuItems.length;
+    var existing = _dhtCreate.phieuItems[idx] || {};
     var po = _dhtCreate.phieuOpts || {};
-    // Build dropdown options
-    var saleOpts = '<option value="">-- Chọn --</option>' + (po.sale_types||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-    var prodOpts = '<option value="">-- Chọn --</option>' + (po.products||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-    var matOpts = '<option value="">-- Chọn --</option>' + (po.materials||[]).map(function(o){return '<option value="'+o.id+'">'+o.name+'</option>';}).join('');
-    var patOpts = '<option value="">-- Chọn --</option>' + (po.patterns||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-    var sewOpts = (po.sewing_techniques||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-    var accOpts = '<option value="">-- Chọn --</option>' + (po.accounting_notes||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-    var extOpts = (po.extra_materials||[]).map(function(o){return '<option value="'+o.name+'">'+o.name+'</option>';}).join('');
-
+    var ov = document.createElement('div');
+    ov.id = '_phieuPopup';
+    ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    var saleOpts = '<option value="">-- Chọn --</option>' + (po.sale_types||[]).map(function(o){var s=existing.sale_type===o.name?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var prodOpts = '<option value="">-- Chọn --</option>' + (po.products||[]).map(function(o){var s=existing.product_name===o.name?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var matOpts = '<option value="">-- Chọn --</option>' + (po.materials||[]).map(function(o){var s=existing.material_id==o.id?' selected':'';return '<option value="'+o.id+'"'+s+'>'+o.name+'</option>';}).join('');
+    var patOpts = '<option value="">-- Chọn --</option>' + (po.patterns||[]).map(function(o){var s=existing.pattern_name===o.name?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var sewOpts = (po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var accOpts = '<option value="">-- Chọn --</option>' + (po.accounting_notes||[]).map(function(o){var s=existing.accounting_notes===o.name?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
+    var extOpts = (po.extra_materials||[]).map(function(o){var s=(existing.extra_materials||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
     var noOpt = '<option value="" disabled selected>-- Chờ setup --</option>';
-    var div = document.createElement('div');
-    div.id = '_co_item_' + idx;
-    div.className = '_co_phieu_card';
-    div.style.cssText = 'border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;background:#fff;position:relative';
-    div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-        +'<span style="font-weight:800;font-size:12px;color:var(--navy)">📋 Phiếu #'+idx+'</span>'
-        +'<button onclick="this.closest(\'._co_phieu_card\').remove();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 10px">✕ Xóa</button></div>'
-        // Row 1: Bán/Quà + Sản Phẩm
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Bán/Quà <span style="color:red">*</span></label><select class="form-control _pi_sale" style="font-size:12px">'+saleOpts+'</select></div>'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Sản Phẩm <span style="color:red">*</span></label><select class="form-control _pi_product" style="font-size:12px">'+(prodOpts||noOpt)+'</select></div>'
-        +'</div>'
-        // Row 2: Chất Liệu + Màu
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Chất Liệu <span style="color:red">*</span></label><select class="form-control _pi_material" style="font-size:12px" onchange="_dhtLoadColors(this,'+idx+')">'+matOpts+'</select></div>'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Màu <span style="color:red">*</span></label><select id="_pi_color_'+idx+'" class="form-control _pi_color" style="font-size:12px"><option value="">← Chọn Chất Liệu trước</option></select></div>'
-        +'</div>'
-        // Row 3: Mẫu Áo + Kỹ Thuật May
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Mẫu Áo <span style="color:red">*</span></label><select class="form-control _pi_pattern" style="font-size:12px">'+(patOpts||noOpt)+'</select></div>'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select class="form-control _pi_sewing" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div>'
-        +'</div>'
-        // Row 4: Nhắc nhở KT/HT + Vật Liệu Kèm
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Nhắc nhở KT, HT <span style="color:red">*</span></label><select class="form-control _pi_acctNote" style="font-size:12px">'+(accOpts||noOpt)+'</select></div>'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select class="form-control _pi_extraMat" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div>'
-        +'</div>'
-        // SL/Giá pairs
-        +'<div class="_pi_qtyRows" data-idx="'+idx+'" style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:6px">'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
-        +'<div><label style="font-size:10px;font-weight:700;color:#475569">SL1 <span style="color:red">*</span></label><input type="number" class="_pi_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_dhtCalcTotal()"></div>'
-        +'<div><label style="font-size:10px;font-weight:700;color:#475569">Giá 1 <span style="color:red">*</span></label><input type="number" class="_pi_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_dhtCalcTotal()"></div>'
-        +'<div style="display:flex;align-items:flex-end"><button onclick="_dhtAddQtyRow('+idx+')" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">+ Thêm SL/Giá</button></div>'
-        +'</div></div>'
-        // SP Khác + Giá Khác
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">SP Khác</label><input class="form-control _pi_extraProd" placeholder="Tên SP khác" style="font-size:12px"></div>'
-        +'<div class="form-group" style="margin:0"><label style="font-size:11px;font-weight:700">Giá Khác</label><input type="number" class="form-control _pi_extraPrice" value="0" style="font-size:12px" oninput="_dhtCalcTotal()"></div>'
-        +'</div>'
-        // Tổng phiếu
-        +'<div style="text-align:right;font-weight:800;font-size:13px;color:#b8860b">Tổng Phiếu: <span class="_pi_total">0</span>đ</div>';
-    document.getElementById('_co_items')?.appendChild(div);
+    var qps = existing.quantities || [{qty:0,price:0}];
+    var qpHTML = '';
+    for (var qi = 0; qi < qps.length; qi++) {
+        var n = qi + 1;
+        var rm = qi > 0 ? '<div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>' : '<div></div>';
+        qpHTML += '<div class="_ppQR" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px"><div><label style="font-size:10px;font-weight:700">SL'+n+' *</label><input type="number" class="_pp_qty" value="'+(qps[qi].qty||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+' *</label><input type="number" class="_pp_price" value="'+(qps[qi].price||0)+'" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div>'+rm+'</div>';
+    }
+    var vatSel = '<option value="0"'+(existing.vat_percent===8?'':' selected')+'>0%</option><option value="8"'+(existing.vat_percent===8?' selected':'')+'>8%</option>';
+    ov.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-weight:800;font-size:14px;color:var(--navy)">📋 Phiếu #'+(idx+1)+'</span><button type="button" onclick="document.getElementById(\'_phieuPopup\').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8">✕</button></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Bán/Quà *</label><select id="_pp_sale" class="form-control" style="font-size:12px">'+saleOpts+'</select></div><div><label style="font-size:11px;font-weight:700">Sản Phẩm *</label><select id="_pp_product" class="form-control" style="font-size:12px">'+(prodOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Chất Liệu *</label><select id="_pp_material" class="form-control" style="font-size:12px" onchange="_dhtLoadColorsPopup()">'+matOpts+'</select></div><div><label style="font-size:11px;font-weight:700">Màu *</label><select id="_pp_color" class="form-control" style="font-size:12px"><option value="">← Chọn Chất Liệu</option></select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Mẫu Áo *</label><select id="_pp_pattern" class="form-control" style="font-size:12px">'+(patOpts||noOpt)+'</select></div><div><label style="font-size:11px;font-weight:700">Kỹ Thuật May</label><select id="_pp_sewing" class="form-control" style="font-size:12px" multiple>'+(sewOpts||noOpt)+'</select></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><div><label style="font-size:11px;font-weight:700">Nhắc nhở KT, HT *</label><select id="_pp_acctNote" class="form-control" style="font-size:12px">'+(accOpts||noOpt)+'</select></div><div><label style="font-size:11px;font-weight:700">Vật Liệu Kèm</label><select id="_pp_extraMat" class="form-control" style="font-size:12px" multiple>'+(extOpts||noOpt)+'</select></div></div>'
+        +'<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-bottom:8px"><div id="_pp_qtyRows">'+qpHTML+'</div><button type="button" onclick="_dhtAddQtyRowPP()" style="background:#059669;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700;margin-top:4px">+ Thêm SL/Giá</button></div>'
+        +'<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700">VAT</label><select id="_pp_vat" class="form-control" style="font-size:12px;width:120px">'+vatSel+'</select></div>'
+        +'<div style="text-align:right"><button type="button" onclick="_dhtSavePhieu('+idx+')" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:8px 24px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">💾 Lưu Phiếu</button></div></div>';
+    document.body.appendChild(ov);
+    if (existing.material_id) setTimeout(function(){ _dhtLoadColorsPopup(existing.color_id); }, 200);
 }
 
-var _dhtQtyRowCount = {};
-function _dhtAddQtyRow(idx) {
-    if (!_dhtQtyRowCount[idx]) _dhtQtyRowCount[idx] = 1;
-    _dhtQtyRowCount[idx]++;
-    var n = _dhtQtyRowCount[idx];
-    var container = document.querySelector('._pi_qtyRows[data-idx="'+idx+'"]');
-    if (!container) return;
-    var row = document.createElement('div');
-    row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
-    row.innerHTML = '<div><label style="font-size:10px;font-weight:700;color:#475569">SL'+n+'</label><input type="number" class="_pi_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_dhtCalcTotal()"></div>'
-        +'<div><label style="font-size:10px;font-weight:700;color:#475569">Giá '+n+'</label><input type="number" class="_pi_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px" oninput="_dhtCalcTotal()"></div>'
-        +'<div style="display:flex;align-items:flex-end"><button onclick="this.parentElement.parentElement.remove();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
-    container.appendChild(row);
+function _dhtAddQtyRowPP() {
+    var c = document.getElementById('_pp_qtyRows'); if (!c) return;
+    var n = c.querySelectorAll('._ppQR').length + 1;
+    var r = document.createElement('div'); r.className='_ppQR';
+    r.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px';
+    r.innerHTML='<div><label style="font-size:10px;font-weight:700">SL'+n+'</label><input type="number" class="_pp_qty" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div><div><label style="font-size:10px;font-weight:700">Giá '+n+'</label><input type="number" class="_pp_price" value="0" min="0" style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px"></div><div style="display:flex;align-items:flex-end"><button type="button" onclick="this.closest(\'._ppQR\').remove()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button></div>';
+    c.appendChild(r);
 }
 
-// Cascade: load colors by material
-async function _dhtLoadColors(sel, idx) {
-    var mid = sel.value;
-    var colorSel = document.getElementById('_pi_color_' + idx);
-    if (!colorSel) return;
-    if (!mid) { colorSel.innerHTML = '<option value="">← Chọn Chất Liệu trước</option>'; return; }
+async function _dhtLoadColorsPopup(preselect) {
+    var mid = document.getElementById('_pp_material')?.value;
+    var cs = document.getElementById('_pp_color'); if (!cs) return;
+    if (!mid) { cs.innerHTML='<option value="">← Chọn Chất Liệu</option>'; return; }
     var res = await apiCall('/api/dht/material-colors/' + mid);
-    var colors = res.colors || [];
-    colorSel.innerHTML = '<option value="">-- Chọn Màu --</option>' + colors.map(function(c) {
-        return '<option value="'+c.id+'">'+c.name+'</option>';
-    }).join('');
+    cs.innerHTML='<option value="">-- Chọn Màu --</option>'+(res.colors||[]).map(function(c){var s=(preselect&&preselect==c.id)?' selected':'';return '<option value="'+c.id+'"'+s+'>'+c.name+'</option>';}).join('');
+}
+
+function _dhtSavePhieu(idx) {
+    var sale=document.getElementById('_pp_sale')?.value, prod=document.getElementById('_pp_product')?.value;
+    var mat=document.getElementById('_pp_material')?.value, matT=document.getElementById('_pp_material')?.selectedOptions[0]?.textContent||'';
+    var color=document.getElementById('_pp_color')?.value, colorT=document.getElementById('_pp_color')?.selectedOptions[0]?.textContent||'';
+    var pat=document.getElementById('_pp_pattern')?.value, acct=document.getElementById('_pp_acctNote')?.value;
+    var vp=Number(document.getElementById('_pp_vat')?.value)||0;
+    if (!sale){showToast('Chọn Bán/Quà','error');return;} if (!prod){showToast('Chọn Sản Phẩm','error');return;}
+    if (!mat){showToast('Chọn Chất Liệu','error');return;} if (!color){showToast('Chọn Màu','error');return;}
+    if (!pat){showToast('Chọn Mẫu Áo','error');return;} if (!acct){showToast('Chọn Nhắc nhở KT/HT','error');return;}
+    var qs=document.querySelectorAll('#_pp_qtyRows ._pp_qty'), ps=document.querySelectorAll('#_pp_qtyRows ._pp_price');
+    var qtyPairs=[], raw=0;
+    for(var i=0;i<qs.length;i++){var qv=Number(qs[i].value)||0,pv=Number(ps[i].value)||0;qtyPairs.push({qty:qv,price:pv,subtotal:qv*pv});raw+=qv*pv;}
+    if(!qtyPairs.length||qtyPairs[0].qty===0){showToast('SL1 phải > 0','error');return;}
+    var va=Math.round(raw*vp/100);
+    var sewArr=Array.from(document.getElementById('_pp_sewing')?.selectedOptions||[]).map(function(o){return o.value;});
+    var extArr=Array.from(document.getElementById('_pp_extraMat')?.selectedOptions||[]).map(function(o){return o.value;});
+    _dhtCreate.phieuItems[idx]={sale_type:sale,product_name:prod,material_id:Number(mat),material_name:matT,color_id:Number(color),color_name:colorT,pattern_name:pat,sewing_techniques:sewArr,accounting_notes:acct,extra_materials:extArr,quantities:qtyPairs,vat_percent:vp,vat_amount:va,raw_total:raw,item_total:raw+va,quantity:qtyPairs.reduce(function(s,x){return s+x.qty;},0),unit_price:qtyPairs[0]?.price||0};
+    document.getElementById('_phieuPopup')?.remove();
+    _dhtRenderPhieuRows(); _dhtCalcTotal();
+    showToast('✅ Đã lưu Phiếu #'+(idx+1));
+}
+
+function _dhtRenderPhieuRows() {
+    var c = document.getElementById('_co_items'); if (!c) return; c.innerHTML='';
+    _dhtCreate.phieuItems.forEach(function(p,i){
+        if(!p) return;
+        var d=document.createElement('div');
+        d.style.cssText='display:grid;grid-template-columns:2fr 70px 100px 50px 100px 30px;gap:6px;margin-bottom:6px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;font-size:12px';
+        var vl=p.vat_percent?'+'+p.vat_percent+'%':'';
+        d.innerHTML='<div onclick="_dhtAddItem('+i+')" style="font-weight:700;color:var(--navy)">📋 #'+(i+1)+' '+p.product_name+' <span style="font-size:10px;color:#6b7280">('+p.material_name+'/'+p.color_name+')</span></div>'
+            +'<div style="text-align:center;font-weight:700">SL:'+p.quantity+'</div>'
+            +'<div style="text-align:right">'+p.raw_total.toLocaleString('vi-VN')+'đ</div>'
+            +'<div style="text-align:center;font-size:10px;color:#b8860b;font-weight:700">'+vl+'</div>'
+            +'<div style="text-align:right;font-weight:800;color:#059669">'+p.item_total.toLocaleString('vi-VN')+'đ</div>'
+            +'<button onclick="event.stopPropagation();_dhtCreate.phieuItems.splice('+i+',1);_dhtRenderPhieuRows();_dhtCalcTotal()" style="background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;height:24px">✕</button>';
+        c.appendChild(d);
+    });
 }
 
 function _dhtCalcTotal() {
-    var grandTotal = 0;
-    var cards = document.querySelectorAll('._co_phieu_card');
-    cards.forEach(function(card) {
-        var sub = 0;
-        var qtys = card.querySelectorAll('._pi_qty');
-        var prices = card.querySelectorAll('._pi_price');
-        for (var i = 0; i < qtys.length; i++) {
-            sub += (Number(qtys[i].value)||0) * (Number(prices[i].value)||0);
-        }
-        sub += Number(card.querySelector('._pi_extraPrice')?.value) || 0;
-        card.querySelector('._pi_total').textContent = sub.toLocaleString('vi-VN');
-        grandTotal += sub;
-    });
-    var hasVat = document.getElementById('_co_vat')?.value === '1';
-    var vatAmt = hasVat ? Math.round(grandTotal * 0.08) : 0;
-    var totalVat = grandTotal + vatAmt;
-    var remain = totalVat - _dhtCreate.depositAmount;
-    document.getElementById('_co_total').value = grandTotal.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('_co_totalVat').value = totalVat.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('_co_remain').value = remain.toLocaleString('vi-VN') + 'đ';
+    var gRaw=0,gVat=0;
+    _dhtCreate.phieuItems.forEach(function(p){if(!p)return;gRaw+=p.raw_total||0;gVat+=p.vat_amount||0;});
+    var gTotal=gRaw+gVat, remain=gTotal-_dhtCreate.depositAmount;
+    document.getElementById('_co_total').value=gRaw.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_vatTotal').value=gVat.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_totalVatAmt').value=gVat.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_totalVat').value=gTotal.toLocaleString('vi-VN')+'đ';
+    document.getElementById('_co_remain').value=remain.toLocaleString('vi-VN')+'đ';
 }
+
+
 
 // === Submit Order ===
 async function _dhtSubmitCreateV2() {
@@ -458,63 +457,13 @@ async function _dhtSubmitCreateV2() {
         return;
     }
 
-    // Collect phiếu items from rich cards
-    var totalAmt = 0;
-    var items = [];
-    var cards = document.querySelectorAll('._co_phieu_card');
-    if (cards.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
-    for (var ci = 0; ci < cards.length; ci++) {
-        var card = cards[ci];
-        var sale = card.querySelector('._pi_sale')?.value;
-        var prod = card.querySelector('._pi_product')?.value;
-        var mat = card.querySelector('._pi_material')?.value;
-        var matText = card.querySelector('._pi_material')?.selectedOptions[0]?.textContent || '';
-        var color = card.querySelector('._pi_color')?.value;
-        var colorText = card.querySelector('._pi_color')?.selectedOptions[0]?.textContent || '';
-        var pat = card.querySelector('._pi_pattern')?.value;
-        var acctNote = card.querySelector('._pi_acctNote')?.value;
-        // Validate mandatory fields
-        var pn = ci + 1;
-        if (!sale) { showToast('Phiếu #'+pn+': Chọn Bán/Quà', 'error'); return; }
-        if (!prod) { showToast('Phiếu #'+pn+': Chọn Sản Phẩm', 'error'); return; }
-        if (!mat) { showToast('Phiếu #'+pn+': Chọn Chất Liệu', 'error'); return; }
-        if (!color) { showToast('Phiếu #'+pn+': Chọn Màu', 'error'); return; }
-        if (!pat) { showToast('Phiếu #'+pn+': Chọn Mẫu Áo', 'error'); return; }
-        if (!acctNote) { showToast('Phiếu #'+pn+': Chọn Nhắc nhở KT/HT', 'error'); return; }
-        // Collect multi-select
-        var sewArr = Array.from(card.querySelector('._pi_sewing')?.selectedOptions || []).map(function(o){return o.value;});
-        var extArr = Array.from(card.querySelector('._pi_extraMat')?.selectedOptions || []).map(function(o){return o.value;});
-        // Collect qty/price pairs
-        var qtys = card.querySelectorAll('._pi_qty');
-        var prices = card.querySelectorAll('._pi_price');
-        var qtyPairs = [];
-        var itemSub = 0;
-        for (var qi = 0; qi < qtys.length; qi++) {
-            var qv = Number(qtys[qi].value) || 0;
-            var pv = Number(prices[qi].value) || 0;
-            qtyPairs.push({ qty: qv, price: pv, subtotal: qv * pv });
-            itemSub += qv * pv;
-        }
-        if (qtyPairs[0]?.qty === 0) { showToast('Phiếu #'+pn+': SL1 phải > 0', 'error'); return; }
-        var extraProd = card.querySelector('._pi_extraProd')?.value || '';
-        var extraPrice = Number(card.querySelector('._pi_extraPrice')?.value) || 0;
-        itemSub += extraPrice;
-        totalAmt += itemSub;
-        items.push({
-            sale_type: sale, product_name: prod,
-            material_id: Number(mat), material_name: matText,
-            color_id: Number(color), color_name: colorText,
-            pattern_name: pat, sewing_techniques: sewArr,
-            accounting_notes: acctNote, extra_materials: extArr,
-            quantities: qtyPairs,
-            extra_product: extraProd, extra_price: extraPrice,
-            item_total: itemSub,
-            quantity: qtyPairs.reduce(function(s,x){return s+x.qty;},0),
-            unit_price: qtyPairs[0]?.price || 0
-        });
-    }
-    var hasVat = document.getElementById('_co_vat')?.value === '1';
-    var vatAmt = hasVat ? Math.round(totalAmt * 0.08) : 0;
+    // Use pre-saved phiếu items
+    var items = _dhtCreate.phieuItems || [];
+    if (items.length === 0) { showToast('Thêm ít nhất 1 phiếu đơn hàng', 'error'); return; }
+    var totalAmt = 0, totalVatAmt = 0;
+    items.forEach(function(p) { totalAmt += p.raw_total || 0; totalVatAmt += p.vat_amount || 0; });
+    var hasVat = totalVatAmt > 0;
+    var vatAmt = totalVatAmt;
     var desVal = document.getElementById('_co_designer')?.value;
     var desType = desVal === 'old_design' ? 'old_design' : 'staff';
     var desId = desVal === 'old_design' ? null : (desVal || null);
