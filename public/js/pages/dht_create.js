@@ -91,12 +91,20 @@ async function _dhtGoStep2() {
         if (!lockRes.success) { showToast(lockRes.error || 'Không thể giữ mã cọc', 'error'); return; }
     }
     // Fetch data
-    var [infoRes, codeRes, designRes, carrierRes] = await Promise.all([
+    var [infoRes, codeRes, designRes, carrierRes, holidayRes] = await Promise.all([
         apiCall('/api/dht/my-info'),
         apiCall('/api/dht/next-order-code'),
         apiCall('/api/dht/designers'),
-        apiCall('/api/dht/carriers')
+        apiCall('/api/dht/carriers'),
+        apiCall('/api/holidays')
     ]);
+    // Build holidays map: { 'YYYY-MM-DD': 'Tên lễ' }
+    _dhtCreate.holidays = {};
+    (holidayRes.holidays || []).forEach(function(h) {
+        var d = h.holiday_date;
+        if (typeof d === 'string') d = d.split('T')[0];
+        _dhtCreate.holidays[d] = h.holiday_name;
+    });
     _dhtCreate.myInfo = infoRes.user || {};
     var mi = _dhtCreate.myInfo;
     var catOpts = _dht.categories.map(function(c){ return '<option value="'+c.id+'">'+c.name+'</option>'; }).join('');
@@ -153,7 +161,7 @@ async function _dhtGoStep2() {
         +'</div></div>'
         // === Vận chuyển: 2 hàng x 2 cột ===
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'
-        +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control"></div>'
+        +'<div class="form-group"><label>Ngày Gửi Hàng <span style="color:red">*</span></label><input type="date" id="_co_shipDate" class="form-control" min="'+vnDateStr()+'" onchange="_dhtValidateShipDate()"></div>'
         +'<div class="form-group"><label>Tiêu Chuẩn Gửi <span style="color:red">*</span></label><select id="_co_pri" class="form-control"><option>CHUẨN</option><option>GỬI</option><option>GẤP</option></select></div>'
         +'</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">'
@@ -239,6 +247,28 @@ document.addEventListener('click', function(e) {
         list.style.display = 'none';
     }
 });
+
+// === Ship Date Validation (no past + no holidays) ===
+function _dhtValidateShipDate() {
+    var input = document.getElementById('_co_shipDate');
+    if (!input || !input.value) return;
+    var val = input.value; // YYYY-MM-DD
+    // Check holidays
+    var holidayName = _dhtCreate.holidays && _dhtCreate.holidays[val];
+    if (holidayName) {
+        var parts = val.split('-');
+        var display = parts[2] + '/' + parts[1] + '/' + parts[0];
+        showToast('⛔ Ngày ' + display + ' là ngày lễ: ' + holidayName + ' — vui lòng chọn ngày khác', 'error');
+        input.value = '';
+        return;
+    }
+    // Double-check past date (fallback for browsers ignoring min)
+    var today = vnDateStr();
+    if (val < today) {
+        showToast('⛔ Không thể chọn ngày trong quá khứ', 'error');
+        input.value = '';
+    }
+}
 
 // === Order Items ===
 var _dhtItemCount = 0;

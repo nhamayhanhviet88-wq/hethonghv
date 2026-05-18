@@ -208,6 +208,18 @@ module.exports = async function(fastify) {
             return reply.code(400).send({ error: 'Vui lòng chọn khách hàng từ danh sách' });
         }
 
+        // Validate ship date: must be >= today and not a holiday
+        if (b.expected_ship_date) {
+            const today = new Date().toISOString().split('T')[0];
+            if (b.expected_ship_date < today) {
+                return reply.code(400).send({ error: 'Ngày gửi hàng không thể là ngày trong quá khứ' });
+            }
+            const holiday = await db.get('SELECT holiday_name FROM holidays WHERE holiday_date = $1', [b.expected_ship_date]);
+            if (holiday) {
+                return reply.code(400).send({ error: `Ngày gửi hàng trùng ngày lễ: ${holiday.holiday_name}` });
+            }
+        }
+
         // Check duplicate
         const existing = await db.get('SELECT id FROM dht_orders WHERE order_code = $1', [b.order_code.trim()]);
         if (existing) return reply.code(409).send({ error: `Mã đơn "${b.order_code.trim()}" đã tồn tại!` });
