@@ -351,7 +351,7 @@ function _dhtAddItem(editIdx) {
     ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
     var saleItems=(po.sale_types||[]).map(function(o){return{text:o.name,value:o.id};});
     var prodItems=[];// products loaded dynamically after sale_type selection
-    var matItems=(po.materials||[]).map(function(o){return{text:o.name,value:o.id};});
+    var matItems=[];// materials loaded dynamically after product selection
     var patItems=(po.patterns||[]).map(function(o){return{text:o.name,value:o.name};});
     var accItems=(po.accounting_notes||[]).map(function(o){return{text:o.name,value:o.name};});
     var sewOpts=(po.sewing_techniques||[]).map(function(o){var s=(existing.sewing_techniques||[]).indexOf(o.name)>=0?' selected':'';return '<option value="'+o.name+'"'+s+'>'+o.name+'</option>';}).join('');
@@ -364,9 +364,10 @@ function _dhtAddItem(editIdx) {
     var sfSale=_ppSearchField('_pp_sale','Bán/Quà *',saleItems,existing.sale_type||'');
     var sfProd=_ppSearchField('_pp_product','Sản Phẩm *',prodItems,existing.product_name||'');
     var sfMat=_ppSearchField('_pp_material','Chất Liệu *',matItems,existing.material_name||'');
-    // Cascade: disable product + color until parent is selected
+    // Cascade: disable product + material + color until parent is selected
     setTimeout(function(){
         var pInp=document.getElementById('_pp_product');if(pInp&&!existing.product_name){pInp.disabled=true;pInp.placeholder='← Chọn Bán/Quà trước';pInp.style.background='#f1f5f9';pInp.style.cursor='not-allowed';}
+        var mInp=document.getElementById('_pp_material');if(mInp&&!existing.material_name){mInp.disabled=true;mInp.placeholder='← Chọn Sản Phẩm trước';mInp.style.background='#f1f5f9';mInp.style.cursor='not-allowed';}
         var cInp=document.getElementById('_pp_color');if(cInp&&!existing.color_name){cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
     },50);
     var sfPat=_ppSearchField('_pp_pattern','Mẫu Áo *',patItems,existing.pattern_name||'');
@@ -416,30 +417,62 @@ function _dhtSaleChange() {
     }).join('');
 }
 
-// Cascade: product → show process steps
+// Cascade: product → show process steps + filter materials
 async function _dhtProductChange() {
     var prodName=document.getElementById('_pp_product')?.value;
     var bar=document.getElementById('_pp_processBar');
     var stepsEl=document.getElementById('_pp_processSteps');
-    if(!bar||!stepsEl){return;}
-    if(!prodName){bar.style.display='none';stepsEl.innerHTML='';return;}
-    // Find product ID from phieuOpts
+    // Reset material + color
+    var mInp=document.getElementById('_pp_material');
+    var mList=document.getElementById('_pp_material_list');
+    var mVal=document.getElementById('_pp_material_val');
+    var cInp=document.getElementById('_pp_color');
+    if(mInp){mInp.value='';if(mVal)mVal.value='';}
+    if(cInp){cInp.value='';cInp.disabled=true;cInp.placeholder='← Chọn Chất Liệu trước';cInp.style.background='#f1f5f9';cInp.style.cursor='not-allowed';}
+    if(!prodName){
+        if(bar)bar.style.display='none';
+        if(mInp){mInp.disabled=true;mInp.placeholder='← Chọn Sản Phẩm trước';mInp.style.background='#f1f5f9';mInp.style.cursor='not-allowed';}
+        if(mList)mList.innerHTML='';
+        return;
+    }
+    // Find product ID
     var allProds=(_dhtCreate.phieuOpts||{}).products||[];
     var prod=allProds.find(function(p){return p.name===prodName;});
-    if(!prod){bar.style.display='none';return;}
+    if(!prod){if(bar)bar.style.display='none';return;}
+    // Fetch process steps + assigned materials in parallel
     try{
-        var res=await apiCall('/api/dht/product-process/'+prod.id);
-        var steps=res.steps||[];
-        if(steps.length===0){bar.style.display='none';return;}
-        var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
-        stepsEl.innerHTML=steps.map(function(s,i){
-            var bg=colors[i%colors.length];
-            return '<span style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
-                +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
-                +s.name+'</span>';
-        }).join('');
-        bar.style.display='block';
-    }catch(e){bar.style.display='none';}
+        var [procRes, matRes]=await Promise.all([
+            apiCall('/api/dht/product-process/'+prod.id),
+            apiCall('/api/dht/product-materials/'+prod.id)
+        ]);
+        // Show process steps
+        var steps=procRes.steps||[];
+        if(bar&&stepsEl){
+            if(steps.length>0){
+                var colors=['#3b82f6','#059669','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2','#64748b'];
+                stepsEl.innerHTML=steps.map(function(s,i){
+                    var bg=colors[i%colors.length];
+                    return '<span style="display:inline-flex;align-items:center;gap:3px;background:'+bg+';color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">'
+                        +'<span style="background:rgba(255,255,255,0.3);padding:1px 3px;border-radius:2px;font-size:8px;font-weight:800">'+(s.short_name||'')+'</span> '
+                        +s.name+'</span>';
+                }).join('');
+                bar.style.display='block';
+            } else { bar.style.display='none'; }
+        }
+        // Populate materials dropdown with only assigned ones
+        var assignedMats=matRes.materials||[];
+        if(mInp&&mList){
+            if(assignedMats.length>0){
+                mInp.disabled=false;mInp.placeholder='Gõ để tìm...';mInp.style.background='';mInp.style.cursor='pointer';
+                mList.innerHTML=assignedMats.map(function(m){
+                    return '<div class="_ppOpt" data-val="'+m.material_id+'" data-txt="'+m.material_name+'" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f8fafc" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'\'" onclick="_ppPickOpt(\'_pp_material\',this)">'+m.material_name+'</div>';
+                }).join('');
+            } else {
+                mInp.disabled=true;mInp.placeholder='Chưa cài đặt chất liệu cho SP này';mInp.style.background='#fef2f2';mInp.style.cursor='not-allowed';
+                mList.innerHTML='';
+            }
+        }
+    }catch(e){if(bar)bar.style.display='none';}
 }
 
 function _dhtMatChange() {
