@@ -363,6 +363,64 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_dpl_date ON daily_penalty_ledger(penalty_date)`);
     } catch(e) { /* exists */ }
 
+    // Migration: Kho Vải — Fabric Warehouse Management (5 tables, prefix kv_)
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_warehouses (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT NOT NULL,
+            unit            TEXT NOT NULL DEFAULT 'kg',
+            display_order   INTEGER DEFAULT 0,
+            is_active       BOOLEAN DEFAULT true,
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_materials (
+            id              SERIAL PRIMARY KEY,
+            warehouse_id    INTEGER NOT NULL REFERENCES kv_warehouses(id),
+            name            TEXT NOT NULL,
+            display_order   INTEGER DEFAULT 0,
+            is_active       BOOLEAN DEFAULT true,
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_mat_wid ON kv_materials(warehouse_id)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_fabric_colors (
+            id                      SERIAL PRIMARY KEY,
+            material_id             INTEGER NOT NULL REFERENCES kv_materials(id),
+            color_name              TEXT NOT NULL,
+            price                   NUMERIC DEFAULT 0,
+            original_tree_threshold NUMERIC DEFAULT 10,
+            notes                   TEXT,
+            is_active               BOOLEAN DEFAULT true,
+            created_at              TIMESTAMP DEFAULT NOW(),
+            updated_at              TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_fc_mid ON kv_fabric_colors(material_id)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_rolls (
+            id                SERIAL PRIMARY KEY,
+            fabric_color_id   INTEGER NOT NULL REFERENCES kv_fabric_colors(id),
+            weight            NUMERIC NOT NULL DEFAULT 0,
+            source            TEXT DEFAULT 'nhap_moi',
+            note              TEXT,
+            is_returned       BOOLEAN DEFAULT false,
+            created_by        INTEGER REFERENCES users(id),
+            created_at        TIMESTAMP DEFAULT NOW(),
+            updated_at        TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_rolls_fcid ON kv_rolls(fabric_color_id)`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS kv_transactions (
+            id                SERIAL PRIMARY KEY,
+            fabric_color_id   INTEGER NOT NULL REFERENCES kv_fabric_colors(id),
+            tx_type           TEXT NOT NULL DEFAULT 'NHAP',
+            quantity          NUMERIC NOT NULL DEFAULT 0,
+            description       TEXT,
+            created_by        INTEGER REFERENCES users(id),
+            created_at        TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_tx_fcid ON kv_transactions(fabric_color_id)`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_tx_type ON kv_transactions(tx_type)`);
+    } catch(e) { console.error('[KV Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -460,6 +518,7 @@ async function start() {
     fastify.register(require('./routes/cashflow'));
     fastify.register(require('./routes/dailyReport'));
     fastify.register(require('./routes/donhangtong'));
+    fastify.register(require('./routes/khovai'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login

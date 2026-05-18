@@ -164,19 +164,30 @@ async function checkEmails() {
                         sendTelegramMessage(_tgPaymentGroup, tgMsg).catch(() => {});
                     }
 
-                    // ★ Sync to AppSheet NKy (await to prevent duplicate sends)
+                    // ★ Sync to AppSheet NKy (atomic claim → send → rollback on fail)
                     if (_appSheetEnabled) {
                         try {
-                            await syncToAppSheet({
-                                payment_code: code,
-                                date: parsed.date,
-                                amount: parsed.amount,
-                                bank_name: bank.bank_name,
-                                description: parsed.description
-                            });
-                            await db.run('UPDATE payment_records SET appsheet_synced = true WHERE source_ref_id = $1', [refHash]);
-                            console.log(`[AppSheet] ✅ Synced ${code}`);
+                            // Atomically claim record — only ONE process can win this
+                            const claimed = await db.get(
+                                `UPDATE payment_records SET appsheet_synced = true
+                                 WHERE source_ref_id = $1 AND (appsheet_synced IS NULL OR appsheet_synced = false)
+                                 RETURNING id`, [refHash]
+                            );
+                            if (!claimed) {
+                                console.log(`[AppSheet] ⏭️ Already claimed ${code}, skip`);
+                            } else {
+                                await syncToAppSheet({
+                                    payment_code: code,
+                                    date: parsed.date,
+                                    amount: parsed.amount,
+                                    bank_name: bank.bank_name,
+                                    description: parsed.description
+                                });
+                                console.log(`[AppSheet] ✅ Synced ${code}`);
+                            }
                         } catch (err) {
+                            // Rollback claim so retry can pick it up later
+                            await db.run('UPDATE payment_records SET appsheet_synced = false WHERE source_ref_id = $1', [refHash]).catch(() => {});
                             console.error(`[AppSheet] ❌ Failed ${code}:`, err.message);
                         }
                     }

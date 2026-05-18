@@ -105,6 +105,16 @@ async function retryFailedSync() {
         console.log(`[AppSheet Retry] 🔄 ${failed.length} records to retry`);
         for (const r of failed) {
             try {
+                // Atomically claim — only ONE process can win
+                const claimed = await db.get(
+                    `UPDATE payment_records SET appsheet_synced = true
+                     WHERE id = $1 AND (appsheet_synced IS NULL OR appsheet_synced = false)
+                     RETURNING id`, [r.id]
+                );
+                if (!claimed) {
+                    console.log(`[AppSheet Retry] ⏭️ Already claimed ${r.payment_code}, skip`);
+                    continue;
+                }
                 const dateStr = r.payment_date instanceof Date
                     ? r.payment_date.toISOString().split('T')[0]
                     : String(r.payment_date).split('T')[0];
@@ -115,9 +125,10 @@ async function retryFailedSync() {
                     bank_name: r.bank_name,
                     description: r.transfer_note
                 });
-                await db.run('UPDATE payment_records SET appsheet_synced = true WHERE id = $1', [r.id]);
                 console.log(`[AppSheet Retry] ✅ ${r.payment_code}`);
             } catch (e) {
+                // Rollback claim so next retry can pick it up
+                await db.run('UPDATE payment_records SET appsheet_synced = false WHERE id = $1', [r.id]).catch(() => {});
                 console.error(`[AppSheet Retry] ❌ ${r.payment_code}:`, e.message);
             }
         }
