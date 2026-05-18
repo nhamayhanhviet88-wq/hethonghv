@@ -127,9 +127,9 @@ async function retryFailedSync() {
                 });
                 console.log(`[AppSheet Retry] ✅ ${r.payment_code}`);
             } catch (e) {
-                // Rollback claim so next retry can pick it up
-                await db.run('UPDATE payment_records SET appsheet_synced = false WHERE id = $1', [r.id]).catch(() => {});
-                console.error(`[AppSheet Retry] ❌ ${r.payment_code}:`, e.message);
+                // Do NOT rollback — keep synced=true to prevent infinite retry loops
+                // Better to miss one record than to send it 1000+ times
+                console.error(`[AppSheet Retry] ❌ ${r.payment_code} (will NOT retry):`, e.message);
             }
         }
     } catch (e) {
