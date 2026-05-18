@@ -41,9 +41,9 @@ function _spqtRenderSidebar() {
     // Sale types
     _spqt.saleTypes.forEach(function(st) {
         h += '<div style="margin-bottom:10px">';
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f1f5f9;border-radius:6px;cursor:pointer" onclick="document.getElementById(\'_stGrp_'+st.id+'\').style.display=document.getElementById(\'_stGrp_'+st.id+'\').style.display===\'none\'?\'block\':\'none\'">'
-            + '<span style="font-weight:700;font-size:12px;color:#334155">📦 ' + st.name + '</span>'
-            + '<span style="font-size:10px;color:#94a3b8">▼</span></div>';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f1f5f9;border-radius:6px">'
+            + '<span style="font-weight:700;font-size:12px;color:#334155;cursor:pointer;flex:1" onclick="document.getElementById(\'_stGrp_'+st.id+'\').style.display=document.getElementById(\'_stGrp_'+st.id+'\').style.display===\'none\'?\'block\':\'none\'">📦 ' + st.name + ' <span style="font-size:10px;color:#94a3b8">▼</span></span>'
+            + '<button onclick="event.stopPropagation();_spqtDeleteSaleType('+st.id+',\''+st.name.replace(/'/g,"\\'")+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:2px 4px;color:#dc2626;opacity:0.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Xóa">🗑️</button></div>';
         
         // Products under this sale type
         var prods = _spqt.products.filter(function(p) { return p.sale_type_id === st.id; });
@@ -135,6 +135,13 @@ async function _spqtAddSaleType() {
     if (!name) return;
     var res = await apiCall('/api/dht/settings-options', 'POST', { category: 'sale_type', name: name.trim() });
     if (res.success) { showToast('✅ Đã thêm'); await _spqtLoadAll(); _spqtRenderSidebar(); }
+    else showToast(res.error || 'Lỗi', 'error');
+}
+
+async function _spqtDeleteSaleType(id, name) {
+    if (!confirm('Xóa loại "' + name + '"?\nCác sản phẩm bên trong sẽ không còn loại.')) return;
+    var res = await apiCall('/api/dht/settings-options/' + id, 'DELETE');
+    if (res.success) { showToast('🗑️ Đã xóa ' + name); _spqt.selProduct = null; await _spqtLoadAll(); _spqtRenderSidebar(); _spqtRenderWelcome(); }
     else showToast(res.error || 'Lỗi', 'error');
 }
 
