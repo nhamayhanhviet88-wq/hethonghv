@@ -102,8 +102,8 @@ const PERM_FEATURES = [
 
     // ===== HỆ THỐNG =====
     { key: 'cai_dat', label: 'Cài Đặt Phân Tầng', perms: ['view','edit'], section: 'HỆ THỐNG' },
+    { key: 'cai_dat_san_xuat', label: 'Cài Đặt Sản Xuất', perms: ['view','edit'], section: 'HỆ THỐNG' },
 ];
-
 const PERM_LABELS = { view: 'Xem', create: 'Thêm', edit: 'Sửa', delete: 'Xóa' };
 
 let _permOrgData = { departments: [], users: [] };
