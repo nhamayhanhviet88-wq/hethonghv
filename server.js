@@ -463,6 +463,30 @@ async function start() {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_kv_tx_type ON kv_transactions(tx_type)`);
     } catch(e) { console.error('[KV Migration]', e.message); }
 
+    // Migration: Nhắc Nhở Công Việc — Reminder Templates
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS reminder_templates (
+            id              SERIAL PRIMARY KEY,
+            content         TEXT NOT NULL,
+            category        TEXT NOT NULL DEFAULT 'san_xuat',
+            departments     TEXT DEFAULT '',
+            is_active       BOOLEAN DEFAULT true,
+            applied_date    DATE,
+            created_by      TEXT,
+            created_at      TIMESTAMP DEFAULT NOW(),
+            updated_at      TIMESTAMP DEFAULT NOW()
+        )`);
+        await db.exec(`CREATE TABLE IF NOT EXISTS reminder_history (
+            id              SERIAL PRIMARY KEY,
+            reminder_id     INTEGER REFERENCES reminder_templates(id),
+            action          TEXT,
+            changed_by      TEXT,
+            changed_at      TIMESTAMP DEFAULT NOW(),
+            details         TEXT
+        )`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_rh_rid ON reminder_history(reminder_id)`);
+    } catch(e) { console.error('[Reminder Migration]', e.message); }
+
     // Plugins
     fastify.register(require('@fastify/cookie'));
     fastify.register(require('@fastify/formbody'));
@@ -561,6 +585,7 @@ async function start() {
     fastify.register(require('./routes/dailyReport'));
     fastify.register(require('./routes/donhangtong'));
     fastify.register(require('./routes/khovai'));
+    fastify.register(require('./routes/nhacnho'));
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
     // Root page: serve affiliate login instead of internal login
